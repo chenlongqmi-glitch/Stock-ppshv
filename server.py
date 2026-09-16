@@ -99,10 +99,10 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
         super().__init__(*args, directory=DIRECTORY, **kwargs)
 
     def do_GET(self):
-        # Redirect root '/' to '/Index.html'
-        if self.path in ('/', ''):
+        # Redirect root '/' or '/Index.html' to '/index.html'
+        if self.path in ('/', '', '/Index.html'):
             self.send_response(302)
-            self.send_header('Location', '/Index.html')
+            self.send_header('Location', '/index.html')
             self.end_headers()
             return
 
@@ -191,7 +191,7 @@ def wait_and_open_browser(port):
         except Exception:
             pass
 
-    url = f'http://localhost:{port}/Index.html'
+    url = f'http://localhost:{port}/index.html'
     safe_print(f'\n[+] Opening Web App in Browser: {url}')
     try:
         webbrowser.open(url)
@@ -243,9 +243,9 @@ def main():
     safe_print('=' * 64)
     safe_print('   Smart Inventory System - Local Web Server')
     safe_print('=' * 64)
-    safe_print(f' [v] Local URL:   http://localhost:{selected_port}/Index.html')
-    safe_print(f' [v] Loopback:    http://127.0.0.1:{selected_port}/Index.html')
-    safe_print(f' [v] LAN URL:     http://{lan_ip}:{selected_port}/Index.html')
+    safe_print(f' [v] Local URL:   http://localhost:{selected_port}/index.html')
+    safe_print(f' [v] Loopback:    http://127.0.0.1:{selected_port}/index.html')
+    safe_print(f' [v] LAN URL:     http://{lan_ip}:{selected_port}/index.html')
     safe_print(' [v] Auto-Reload & Auto-Reconnect: Active')
     safe_print(' ----------------------------------------------------------------')
     safe_print(' Demo Accounts:')

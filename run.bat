@@ -46,10 +46,10 @@ if exist "C:\Program Files\Python313\python.exe" (
 echo.
 echo ===============================================================
 echo  [!] Python is not installed on this computer.
-echo  [*] Opening Index.html directly in your default web browser...
+echo  [*] Opening index.html directly in your default web browser...
 echo ===============================================================
 echo.
-start "" "%~dp0Index.html"
+start "" "%~dp0index.html"
 pause
 goto :EOF
 

@@ -64,12 +64,14 @@ for %%P in (%PY_PATHS%) do (
     )
 )
 
-:: 4. Fallback: No Python found, open Index.html directly in browser
+:: 4. Fallback: No Python found, open index.html directly in browser
 echo.
-echo  [!] មិនបានរកឃើញកម្មវិធី Python លើកុំព្យូទ័រនេះទេ។
-echo  [*] កំពុងបើក File Index.html ផ្ទាល់លើ Browser...
+echo ===============================================================
+echo  [!] មិនទាន់រកឃើញ Python ក្នុងកុំព្យូទ័រនេះទេ។
+echo  [*] កំពុងបើក File index.html ផ្ទាល់លើ Browser...
+echo ===============================================================
 echo.
-start "" "%~dp0Index.html"
+start "" "%~dp0index.html"
 echo  [✓] បានបើកកម្មវិធីរួចរាល់!
 echo.
 pause
