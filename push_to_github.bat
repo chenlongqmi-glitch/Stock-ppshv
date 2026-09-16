@@ -36,13 +36,10 @@ if not exist "%~dp0.git" (
     %GIT_CMD% init -b main >nul 2>&1
 )
 
-:: 3. Configure Remote URL
-set "REPO_URL=https://github.com/chenlongqmi-glitch/Stock-ppshv.git"
+:: 3. Configure Remote URL (Use current origin)
 %GIT_CMD% remote get-url origin >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
-    %GIT_CMD% remote add origin %REPO_URL% >nul 2>&1
-) else (
-    %GIT_CMD% remote set-url origin %REPO_URL% >nul 2>&1
+    %GIT_CMD% remote add origin https://github.com/chenlongqmi-glitch/Stock-ppshv.git >nul 2>&1
 )
 
 :: 4. Ensure branch main and git user identity
