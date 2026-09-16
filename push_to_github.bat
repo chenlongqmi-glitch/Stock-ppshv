@@ -21,6 +21,8 @@ if %ERRORLEVEL% EQU 0 (
         set "GIT_CMD="C:\Program Files (x86)\Git\cmd\git.exe""
     ) else if exist "%LocalAppData%\Programs\Git\cmd\git.exe" (
         set "GIT_CMD="%LocalAppData%\Programs\Git\cmd\git.exe""
+    ) else if exist "%LocalAppData%\Microsoft\WinGet\Packages\Git.MinGit_Microsoft.Winget.Source_8wekyb3d8bbwe\cmd\git.exe" (
+        set "GIT_CMD="%LocalAppData%\Microsoft\WinGet\Packages\Git.MinGit_Microsoft.Winget.Source_8wekyb3d8bbwe\cmd\git.exe""
     )
 )
 

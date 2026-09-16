@@ -61,6 +61,7 @@ def find_git_cmd():
         r"C:\Program Files\Git\cmd\git.exe",
         r"C:\Program Files (x86)\Git\cmd\git.exe",
         os.path.expandvars(r"%LocalAppData%\Programs\Git\cmd\git.exe"),
+        os.path.expandvars(r"%LocalAppData%\Microsoft\WinGet\Packages\Git.MinGit_Microsoft.Winget.Source_8wekyb3d8bbwe\cmd\git.exe"),
         r"C:\Program Files\Git\bin\git.exe",
     ]
     for cmd in candidates:
