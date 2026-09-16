@@ -257,12 +257,20 @@ def watch_loop():
 
 def keyboard_listener():
     """Allow pressing Enter in console to immediately push changes."""
+    if sys.stdin is None:
+        return
+    try:
+        if not sys.stdin.isatty():
+            return
+    except Exception:
+        pass
     while True:
         try:
             line = sys.stdin.readline()
-            if line is not None:
-                print("\n[*] ទទួលបានការចុច Enter ➔ កំពុងដំណើរការ Push ដោយដៃភ្លាមៗ...")
-                do_push("Manual Enter Trigger")
+            if not line:
+                break
+            print("\n[*] ទទួលបានការចុច Enter ➔ កំពុងដំណើរការ Push ដោយដៃភ្លាមៗ...")
+            do_push("Manual Enter Trigger")
         except Exception:
             break
 

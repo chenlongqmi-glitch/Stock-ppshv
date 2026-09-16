@@ -1,16 +1,15 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
 chcp 65001 >nul 2>&1
-title Push to GitHub & Auto Deploy - Smart Inventory
-
+title Smart Inventory - 100% Auto Push & Deploy
 cd /d "%~dp0"
 
 echo ===============================================================
-echo   🚀 SMART INVENTORY - PUSH TO GITHUB & AUTO DEPLOY
+echo   🚀 SMART INVENTORY - 100%% AUTO PUSH & DEPLOY (ZERO-TOUCH)
 echo ===============================================================
 echo.
 
-:: 1. Check for Git command
+:: 1. Detect Git
 set "GIT_CMD="
 where git >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
@@ -26,113 +25,78 @@ if %ERRORLEVEL% EQU 0 (
 )
 
 if "%GIT_CMD%"=="" (
-    echo [X] មិនទាន់រកឃើញ Git នៅក្នុងម៉ាស៊ីននៅឡើយទេ។
-    echo [!] Please install Git for Windows or ensure git is in your PATH.
-    echo.
-    pause
+    echo [X] Error: Git is not found on this computer.
+    timeout /t 5 >nul
     exit /b 1
 )
 
 :: 2. Ensure Git repository is initialized
 if not exist "%~dp0.git" (
     echo [*] Initializing Git repository...
-    %GIT_CMD% init -b main
+    %GIT_CMD% init -b main >nul 2>&1
 )
 
 :: 3. Configure Remote URL
 set "REPO_URL=https://github.com/chenlongqmi-glitch/Stock-ppshv.git"
 %GIT_CMD% remote get-url origin >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
-    echo [*] Setting remote origin to: %REPO_URL%
-    %GIT_CMD% remote add origin %REPO_URL%
+    %GIT_CMD% remote add origin %REPO_URL% >nul 2>&1
 ) else (
-    %GIT_CMD% remote set-url origin %REPO_URL%
+    %GIT_CMD% remote set-url origin %REPO_URL% >nul 2>&1
 )
 
-:: 4. Ensure current branch is main
+:: 4. Ensure branch main and git user identity
 %GIT_CMD% branch -M main >nul 2>&1
-
-:: Ensure Git User Info is configured
 %GIT_CMD% config user.name >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     %GIT_CMD% config user.name "chenlongqmi-glitch"
     %GIT_CMD% config user.email "chenlongqmi@users.noreply.github.com"
 )
 
-:: 5. Check Git Status
-echo [*] កំពុងពិនិត្យស្ថានភាព File ដែលបានកែប្រែ (Checking changes)...
-echo.
-%GIT_CMD% status -s
-echo.
-
-:: 6. Stage all changes
+:: 5. Add all files
+echo [*] កំពុងរៀបចំឯកសារ (Staging files)...
 %GIT_CMD% add -A
 
-:: Check if there are staged changes to commit
+:: 6. Check if there are changes
 %GIT_CMD% diff --cached --quiet
 if %ERRORLEVEL% EQU 0 (
-    echo [i] គ្មាន File ថ្មី ឬកែប្រែដែលត្រូវ Commit ទេ។ (Working tree clean)
-    echo.
-    set /p "FORCE_PUSH=តើអ្នកចង់ Push ទៅ GitHub ម្តងទៀតដែរឬទេ? [y/N]: "
-    if /i not "!FORCE_PUSH!"=="y" (
-        echo.
-        echo [*] បានបញ្ចប់។ មិនមានការ Push ថ្មីទេ។
-        echo.
-        pause
-        exit /b 0
-    )
+    echo [✓] ឯកសារទាំងអស់សុទ្ធតែទាន់សម័យរួចហើយ (All files already up to date).
+    echo [*] កំពុងត្រួតពិនិត្យ Push ទៅកាន់ GitHub...
 ) else (
-    :: Generate default commit message with date & time
+    :: Generate automatic commit message without asking anything
     set "AUTO_MSG="
-    for /f "delims=" %%t in ('powershell -NoProfile -Command "Get-Date -Format 'yyyy-MM-dd HH:mm:ss'" 2^>nul') do set "AUTO_MSG=Update files: %%t"
-    if "!AUTO_MSG!"=="" set "AUTO_MSG=Update Smart Inventory System"
+    for /f "delims=" %%t in ('powershell -NoProfile -Command "Get-Date -Format 'yyyy-MM-dd HH:mm:ss'" 2^>nul') do set "AUTO_MSG=Auto-update: %%t"
+    if "!AUTO_MSG!"=="" set "AUTO_MSG=Auto-update: Smart Inventory System"
 
-    echo ---------------------------------------------------------------
-    echo [?] សូមបញ្ចូលចំណាំនៃការកែប្រែ (Commit Message):
-    echo     (ចុច Enter ភ្លាមៗ ដើម្បីប្រើ: !AUTO_MSG!)
-    echo ---------------------------------------------------------------
-    set /p "USER_MSG=>> "
-    if "!USER_MSG!"=="" set "USER_MSG=!AUTO_MSG!"
-
-    echo.
-    echo [*] កំពុងរក្សាទុកការកែប្រែ (Committing changes)...
-    %GIT_CMD% commit -m "!USER_MSG!"
+    echo [*] កំពុងរក្សាទុកការកែប្រែ: !AUTO_MSG!
+    %GIT_CMD% commit -m "!AUTO_MSG!" >nul 2>&1
 )
 
-echo.
-echo [*] កំពុង Sync ទាញយកកូដថ្មីពី GitHub បើមាន (Pulling with rebase)...
+:: 7. Pull rebase to keep in sync
+echo [*] កំពុង Sync ជាមួយ GitHub...
 %GIT_CMD% pull --rebase origin main >nul 2>&1
 
-echo.
-echo [*] កំពុង Push ឡើងទៅកាន់ GitHub (Branch: main)...
+:: 8. Push to GitHub
+echo [*] កំពុង Push ឡើងទៅកាន់ GitHub (Auto Deploying)...
 %GIT_CMD% push -u origin main
 
 if %ERRORLEVEL% EQU 0 (
     echo.
     echo ===============================================================
-    echo  ✅ ជោគជ័យ! ការ Push និង Deploy ត្រូវបានបញ្ជូនទៅ GitHub រួចរាល់!
+    echo  ✅ ជោគជ័យ ១០០%%! បាន Push និង Deploy ទៅ GitHub រួចរាល់!
+    echo ===============================================================
+    echo  📦 Repo:   https://github.com/chenlongqmi-glitch/Stock-ppshv
+    echo  🌐 Web:    https://chenlongqmi-glitch.github.io/Stock-ppshv/
     echo ===============================================================
     echo.
-    echo  📦 GitHub Repository:
-    echo     https://github.com/chenlongqmi-glitch/Stock-ppshv
-    echo.
-    echo  🌐 Web App / GitHub Pages (Deploy ដោយស្វ័យប្រវត្តិ):
-    echo     https://chenlongqmi-glitch.github.io/Stock-ppshv/
-    echo.
-    echo  💡 ចំណាំ៖ ប្រព័ន្ធ GitHub Actions នឹងដំណើរការ Deploy ទៅកាន់
-    echo     GitHub Pages ក្នុងរយៈពេលប្រមាណ ១-២ នាទីបន្ទាប់ពី Push។
-    echo ===============================================================
+    echo [*] ផ្ទាំងនេះនឹងបិទដោយស្វ័យប្រវត្តិក្នង ៣ វិនាទី...
+    timeout /t 3 >nul
+    exit /b 0
 ) else (
     echo.
     echo ===============================================================
-    echo  [!] មានបញ្ហាក្នុងការ Push ទៅ GitHub! (Push failed)
+    echo  [!] សូមរង់ចាំការផ្ទៀងផ្ទាត់សិទ្ធិ GitHub (GitHub Authentication)...
     echo ===============================================================
-    echo  សូមពិនិត្យមើល៖
-    echo   1. ការតភ្ជាប់អ៊ីនធឺណិត (Internet Connection)
-    echo   2. សិទ្ធិ Login GitHub របស់អ្នក (GitHub Personal Access Token ឬ Login)
-    echo   3. បើជាប់ Conflict សូមដំណើរការ 'git pull' ជាមុនសិន
-    echo ===============================================================
+    timeout /t 5 >nul
+    exit /b 1
 )
-
-echo.
-pause
