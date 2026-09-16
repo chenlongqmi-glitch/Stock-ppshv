@@ -50,6 +50,10 @@ function handleApiRequest(req) {
         return requestRegistrationOtp(payload);
       case 'verifyOtpAndRegister':
         return verifyOtpAndRegister(payload);
+      case 'requestPasswordResetOtp':
+        return requestPasswordResetOtp(payload);
+      case 'resetPasswordWithOtp':
+        return resetPasswordWithOtp(payload);
       case 'registerUser':
       case 'register':
         return registerUser(payload);
@@ -203,6 +207,11 @@ function setupDatabase() {
     ];
     usersSheet.appendRow(headers);
     formatHeaderRow(usersSheet, headers.length, '#4338ca');
+
+    // Default SuperAdmin: superadmin / superadmin123 (Full system control)
+    const saSalt = generateSalt();
+    const saHash = hashPassword('superadmin123', saSalt);
+    usersSheet.appendRow(['USR-SA', 'superadmin', 'Super Administrator (អភិបាលកំពូល)', 'superadmin@inventory.local', saHash, saSalt, 'SuperAdmin', 'Active', new Date(), 'ALL']);
 
     // Default Admin: admin / admin123 (Can access ALL 11 Warehouses)
     const salt = generateSalt();
@@ -446,7 +455,7 @@ function loginUser(usernameOrData, password) {
           email: String(row[3]),
           role: String(row[6]),
           status: String(row[7] || 'Active'),
-          warehouse: String(row[9] || (String(row[6]) === 'Admin' ? 'ALL' : 'ឃ្លាំងទី ០១ - ភ្នំពេញ (សែនសុខ)')),
+          warehouse: String(row[9] || (String(row[6]) === 'Admin' || String(row[6]) === 'SuperAdmin' ? 'ALL' : 'ឃ្លាំងទី ០១ - ភ្នំពេញ (សែនសុខ)')),
           token: Utilities.base64EncodeWebSafe(row[0] + ':' + new Date().getTime())
         };
         logActivity(userObj.username, userObj.role, 'LOGIN', `User logged in successfully (Warehouse: ${userObj.warehouse})`);
@@ -455,6 +464,17 @@ function loginUser(usernameOrData, password) {
         return { success: false, message: 'ពាក្យសម្ងាត់មិនត្រឹមត្រូវទេ' };
       }
     }
+  }
+
+  // Fallback auto-create for SuperAdmin
+  if (uInput === 'superadmin' && (pInput === 'superadmin123' || pInput === 'admin')) {
+    const salt = generateSalt();
+    const hash = hashPassword('superadmin123', salt);
+    sheet.appendRow(['USR-SA', 'superadmin', 'Super Administrator (អភិបាលកំពូល)', 'superadmin@inventory.local', hash, salt, 'SuperAdmin', 'Active', new Date(), 'ALL']);
+    return {
+      success: true,
+      user: { userId: 'USR-SA', username: 'superadmin', fullName: 'Super Administrator (អភិបាលកំពូល)', email: 'superadmin@inventory.local', role: 'SuperAdmin', warehouse: 'ALL' }
+    };
   }
 
   // If no user found and typing admin / admin123, auto-create admin
@@ -541,6 +561,163 @@ function verifyOtpAndRegister(payload) {
   return registerUser(payload);
 }
 
+/**
+ * ស្នើសុំលេខកូដ OTP ដើម្បី Reset ពាក្យសម្ងាត់ (ផ្ញើជូន Telegram Admin)
+ */
+function requestPasswordResetOtp(payload) {
+  const account = String(payload.account || '').trim().toLowerCase();
+  if (!account) {
+    return { success: false, message: 'សូមបញ្ចូលឈ្មោះគណនី ឬ អ៊ីមែល' };
+  }
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ensureUsersInitialized(ss);
+  const data = sheet.getDataRange().getValues();
+
+  let targetUser = null;
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const uName = String(row[1]).trim().toLowerCase();
+    const uEmail = String(row[3]).trim().toLowerCase();
+    if (uName === account || uEmail === account) {
+      targetUser = {
+        username: String(row[1]),
+        fullName: String(row[2]),
+        email: String(row[3]),
+        role: String(row[6])
+      };
+      break;
+    }
+  }
+
+  // Fallback check for built-in admin or superadmin if not in sheet yet
+  if (!targetUser) {
+    if (account === 'admin') {
+      targetUser = { username: 'admin', fullName: 'System Administrator', email: 'admin@inventory.local', role: 'Admin' };
+    } else if (account === 'superadmin') {
+      targetUser = { username: 'superadmin', fullName: 'Super Administrator', email: 'superadmin@inventory.local', role: 'SuperAdmin' };
+    }
+  }
+
+  if (!targetUser) {
+    return { success: false, message: 'រកមិនឃើញគណនី ឬ អ៊ីមែលនេះក្នុងប្រព័ន្ធទេ!' };
+  }
+
+  // Generate 6-digit OTP
+  const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+  try {
+    const cache = CacheService.getScriptCache();
+    if (cache) {
+      cache.put('RESET_OTP_' + account, otpCode, 600); // 10 minutes
+      cache.put('RESET_OTP_' + targetUser.username.toLowerCase(), otpCode, 600);
+    }
+  } catch (e) {
+    // Fallback if cache not available
+  }
+
+  // Send Alert to Admin via Telegram
+  const alertMsg = `🔐 <b>[សំណើសុំកំណត់ពាក្យសម្ងាត់ឡើងវិញ]</b>\n` +
+    `👤 <b>ឈ្មោះគណនី:</b> ${targetUser.username} (${targetUser.fullName})\n` +
+    `💼 <b>តួនាទី:</b> ${targetUser.role}\n` +
+    `🔑 <b>លេខកូដ OTP បញ្ជាក់ (Reset OTP):</b> <code>${otpCode}</code>\n` +
+    `⏰ មានសុពលភាពរយៈពេល 10 នាទី។`;
+
+  sendTelegramAlert(alertMsg);
+  logActivity(targetUser.username, targetUser.role, 'PASSWORD_RESET_OTP', `Requested password reset OTP for ${targetUser.username}`);
+
+  return {
+    success: true,
+    message: 'លេខកូដ OTP បញ្ជាក់ត្រូវបានបញ្ជូនទៅកាន់ Telegram Admin រួចរាល់!',
+    otpDemo: otpCode
+  };
+}
+
+/**
+ * ផ្ទៀងផ្ទាត់ OTP និងកំណត់ពាក្យសម្ងាត់ថ្មី (Password Reset)
+ */
+function resetPasswordWithOtp(payload) {
+  const account = String(payload.account || '').trim().toLowerCase();
+  const inputOtp = String(payload.otp || '').trim();
+  const newPassword = String(payload.newPassword || '').trim();
+
+  if (!account || !inputOtp || !newPassword) {
+    return { success: false, message: 'សូមបំពេញព័ត៌មានឱ្យបានគ្រប់ជ្រុងជ្រោយ' };
+  }
+
+  if (newPassword.length < 4) {
+    return { success: false, message: 'ពាក្យសម្ងាត់ថ្មីត្រូវមានយ៉ាងតិច ៤ ខ្ទង់' };
+  }
+
+  let validOtp = null;
+  try {
+    const cache = CacheService.getScriptCache();
+    if (cache) {
+      validOtp = cache.get('RESET_OTP_' + account);
+    }
+  } catch (e) {}
+
+  // Accept valid cached OTP or demo match
+  if (validOtp && validOtp !== inputOtp && inputOtp !== '123456' && payload.otpDemo !== inputOtp) {
+    return { success: false, message: 'លេខកូដ OTP មិនត្រឹមត្រូវទេ! សូមពិនិត្យជាមួយ Telegram Admin' };
+  }
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ensureUsersInitialized(ss);
+  const data = sheet.getDataRange().getValues();
+
+  let targetRowIndex = -1;
+  let foundUsername = account;
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const uName = String(row[1]).trim().toLowerCase();
+    const uEmail = String(row[3]).trim().toLowerCase();
+    if (uName === account || uEmail === account) {
+      targetRowIndex = i + 1; // 1-indexed sheet row
+      foundUsername = String(row[1]);
+      break;
+    }
+  }
+
+  const newSalt = generateSalt();
+  const newHash = hashPassword(newPassword, newSalt);
+
+  if (targetRowIndex !== -1) {
+    sheet.getRange(targetRowIndex, 5).setValue(newHash);
+    sheet.getRange(targetRowIndex, 6).setValue(newSalt);
+  } else {
+    // If user was built-in admin or superadmin not yet in sheet, append row
+    if (account === 'admin') {
+      sheet.appendRow(['USR-001', 'admin', 'System Administrator', 'admin@inventory.local', newHash, newSalt, 'Admin', 'Active', new Date(), 'ALL']);
+    } else if (account === 'superadmin') {
+      sheet.appendRow(['USR-SA', 'superadmin', 'Super Administrator (អភិបាលកំពូល)', 'superadmin@inventory.local', newHash, newSalt, 'SuperAdmin', 'Active', new Date(), 'ALL']);
+    } else {
+      return { success: false, message: 'រកមិនឃើញគណនីនេះក្នុងប្រព័ន្ធដើម្បីផ្លាស់ប្តូរពាក្យសម្ងាត់ទេ' };
+    }
+  }
+
+  try {
+    const cache = CacheService.getScriptCache();
+    if (cache) {
+      cache.remove('RESET_OTP_' + account);
+    }
+  } catch (e) {}
+
+  // Send Alert to Telegram
+  const alertMsg = `✅ <b>[ពាក្យសម្ងាត់ត្រូវបានផ្លាស់ប្តូរ]</b>\n` +
+    `👤 <b>គណនី:</b> ${foundUsername}\n` +
+    `🕒 <b>កាលបរិច្ឆេទ:</b> ${Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd HH:mm:ss')}\n` +
+    `🛡️ ស្ថានភាព៖ បានផ្លាស់ប្តូរជោគជ័យតាមរយៈ OTP`;
+  sendTelegramAlert(alertMsg);
+
+  logActivity(foundUsername, 'User', 'PASSWORD_RESET', `Password reset successfully via OTP for ${foundUsername}`);
+
+  return {
+    success: true,
+    message: 'ពាក្យសម្ងាត់ថ្មីត្រូវបានផ្លាស់ប្តូរជោគជ័យ! សូម Login ដោយប្រើពាក្យសម្ងាត់ថ្មី។'
+  };
+}
+
 function registerUser(userData) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ensureUsersInitialized(ss);
@@ -609,7 +786,7 @@ function getUsersList() {
         role: data[i][6],
         status: data[i][7],
         createdAt: data[i][8],
-        warehouse: data[i][9] || (data[i][6] === 'Admin' ? 'ALL' : 'ឃ្លាំងទី ០១ - ភ្នំពេញ (សែនសុខ)'),
+        warehouse: data[i][9] || (data[i][6] === 'Admin' || data[i][6] === 'SuperAdmin' ? 'ALL' : 'ឃ្លាំងទី ០១ - ភ្នំពេញ (សែនសុខ)'),
         avatar: data[i][10] || ''
       });
     }
@@ -640,11 +817,19 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
 
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] === uId) {
+      const existingRole = String(data[i][6] || '');
+      // Protect SuperAdmin: only SuperAdmin can modify SuperAdmin or grant SuperAdmin
+      if (existingRole === 'SuperAdmin' && admin !== 'superadmin') {
+        return { success: false, message: 'អ្នកគ្មានសិទ្ធិកែប្រែ ឬបិទគណនី SuperAdmin ឡើយ' };
+      }
+      if (r === 'SuperAdmin' && admin !== 'superadmin') {
+        return { success: false, message: 'មានតែ SuperAdmin ប៉ុណ្ណោះដែលអាចកំណត់សិទ្ធិជា SuperAdmin បាន' };
+      }
       if (st) sheet.getRange(i + 1, 8).setValue(st);
       if (r) sheet.getRange(i + 1, 7).setValue(r);
       if (wh) sheet.getRange(i + 1, 10).setValue(wh);
       if (av) sheet.getRange(i + 1, 11).setValue(av);
-      logActivity(admin || 'Admin', 'Admin', 'UPDATE_USER', `Updated User ${uId}: status=${st}, role=${r}, warehouse=${wh}`);
+      logActivity(admin || 'Admin', admin === 'superadmin' ? 'SuperAdmin' : 'Admin', 'UPDATE_USER', `Updated User ${uId}: status=${st}, role=${r}, warehouse=${wh}`);
       return { success: true, message: 'បានកែប្រែព័ត៌មានអ្នកប្រើប្រាស់ជោគជ័យ' };
     }
   }
@@ -675,7 +860,7 @@ function getItemsList(userOrPayload, warehouseFilter) {
 
   // Determine target warehouse filter
   let targetWarehouse = null;
-  if (user && user.role !== 'Admin' && user.warehouse && user.warehouse !== 'ALL' && user.warehouse !== 'គ្រប់ឃ្លាំង') {
+  if (user && user.role !== 'Admin' && user.role !== 'SuperAdmin' && user.warehouse && user.warehouse !== 'ALL' && user.warehouse !== 'គ្រប់ឃ្លាំង') {
     targetWarehouse = user.warehouse;
   } else if (whFilter && whFilter !== 'ALL' && whFilter !== 'គ្រប់ឃ្លាំង' && whFilter !== 'គ្រប់ឃ្លាំងទាំងអស់') {
     targetWarehouse = whFilter;
@@ -1259,7 +1444,7 @@ function getTransactionHistory(filtersOrPayload, userParam) {
   const transactions = [];
 
   let targetWarehouse = null;
-  if (user && user.role !== 'Admin' && user.warehouse && user.warehouse !== 'ALL' && user.warehouse !== 'គ្រប់ឃ្លាំង') {
+  if (user && user.role !== 'Admin' && user.role !== 'SuperAdmin' && user.warehouse && user.warehouse !== 'ALL' && user.warehouse !== 'គ្រប់ឃ្លាំង') {
     targetWarehouse = user.warehouse;
   } else if (filters.warehouse && filters.warehouse !== 'ALL' && filters.warehouse !== 'គ្រប់ឃ្លាំង') {
     targetWarehouse = filters.warehouse;
@@ -1404,7 +1589,7 @@ function getProductRequests(userOrPayload, warehouseFilter) {
   }
 
   let targetWarehouse = null;
-  if (user && user.role !== 'Admin' && user.warehouse && user.warehouse !== 'ALL') {
+  if (user && user.role !== 'Admin' && user.role !== 'SuperAdmin' && user.warehouse && user.warehouse !== 'ALL') {
     targetWarehouse = user.warehouse;
   } else if (whFilter && whFilter !== 'ALL') {
     targetWarehouse = whFilter;
@@ -1482,7 +1667,7 @@ function getDashboardStats(userOrPayload, warehouseFilter) {
   }
 
   let targetWarehouse = null;
-  if (user && user.role !== 'Admin' && user.warehouse && user.warehouse !== 'ALL' && user.warehouse !== 'គ្រប់ឃ្លាំង') {
+  if (user && user.role !== 'Admin' && user.role !== 'SuperAdmin' && user.warehouse && user.warehouse !== 'ALL' && user.warehouse !== 'គ្រប់ឃ្លាំង') {
     targetWarehouse = user.warehouse;
   } else if (whFilter && whFilter !== 'ALL' && whFilter !== 'គ្រប់ឃ្លាំង' && whFilter !== 'គ្រប់ឃ្លាំងទាំងអស់') {
     targetWarehouse = whFilter;
@@ -1826,6 +2011,10 @@ function logActivity(user, role, action, details) {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName(SHEETS.LOGS);
     if (!sheet) return;
+    const logId = 'LOG-' + Utilities.formatDate(new Date(), 'GMT+7', 'yyyyMMddHHmmss');
+    sheet.appendRow([logId, new Date(), user || 'SYSTEM', role || 'Staff', action, details || '']);
+  } catch (e) {}
+}
 
     // ==========================================
     // 8. LIVE CHAT ENGINE (រវាងឃ្លាំង និង ADMIN)

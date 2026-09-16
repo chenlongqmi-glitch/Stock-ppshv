@@ -249,9 +249,9 @@ def main():
     safe_print(' [v] Auto-Reload & Auto-Reconnect: Active')
     safe_print(' ----------------------------------------------------------------')
     safe_print(' Demo Accounts:')
-    safe_print('    • Admin:         admin  / admin123')
-    safe_print('    • Stock Keeper:  keeper / keeper123')
-    safe_print('    • Warehouse:     wh01   / 123456')
+    safe_print('    • SuperAdmin:    superadmin / superadmin123 (Full System & Switch User)')
+    safe_print('    • Admin:         admin      / admin123')
+    safe_print('    • Stock Keeper:  wh01       / wh01pass')
     safe_print(' ----------------------------------------------------------------')
     safe_print(' Press Ctrl + C in this window to stop the server.\n')
 

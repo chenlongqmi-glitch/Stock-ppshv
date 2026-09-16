@@ -248,6 +248,16 @@
       transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
       will-change: transform;
     }
+
+    /* Prevent browser autofill background & styling */
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover, 
+    input:-webkit-autofill:focus, 
+    input:-webkit-autofill:active {
+      -webkit-box-shadow: 0 0 0 1000px #f8fafc inset !important;
+      -webkit-text-fill-color: #1e293b !important;
+      transition: background-color 5000s ease-in-out 0s;
+    }
   </style>
 </head>
 
@@ -338,14 +348,14 @@
             <p class="text-[11px] text-slate-500 mt-0.5">សូមបញ្ចូលគណនីរបស់អ្នកដើម្បីបន្តចូលក្នុងប្រព័ន្ធ</p>
           </div>
 
-          <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-2.5">
+          <form id="loginForm" onsubmit="handleLogin(event)" autocomplete="off" class="space-y-2.5">
             <div>
               <label class="block text-[10.5px] font-bold text-slate-700 uppercase mb-1">ឈ្មោះគណនី ឬ អ៊ីមែល</label>
               <div class="relative">
                 <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
                   <i class="fa-solid fa-user text-xs"></i>
                 </span>
-                <input type="text" id="loginUsername" required value="admin" placeholder="admin ឬ user@gmail.com"
+                <input type="text" id="loginUsername" required value="" placeholder="ឈ្មោះគណនី ឬ អ៊ីមែល" autocomplete="off"
                   class="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none font-semibold text-slate-800">
               </div>
             </div>
@@ -356,7 +366,7 @@
                 <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
                   <i class="fa-solid fa-lock text-xs"></i>
                 </span>
-                <input type="password" id="loginPassword" required value="admin123" placeholder="••••••••"
+                <input type="password" id="loginPassword" required value="" placeholder="••••••••" autocomplete="new-password"
                   class="w-full pl-8 pr-9 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none font-semibold text-slate-800">
                 <button type="button" onclick="togglePasswordVisibility('loginPassword', this)"
                   class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600">
@@ -366,10 +376,15 @@
             </div>
 
             <div class="flex items-center justify-between text-[11px] text-slate-500 pt-0.5">
-              <label class="flex items-center space-x-1.5 cursor-pointer">
-                <input type="checkbox" id="rememberMe" checked class="rounded text-blue-600 focus:ring-blue-500">
+              <label class="flex items-center space-x-1.5 cursor-pointer select-none">
+                <input type="checkbox" id="rememberMe" class="rounded text-blue-600 focus:ring-blue-500">
                 <span class="font-medium text-slate-600">ចងចាំខ្ញុំ</span>
               </label>
+              <button type="button" onclick="openForgotPasswordModal()"
+                class="text-blue-600 hover:text-blue-800 hover:underline font-bold transition flex items-center space-x-1">
+                <i class="fa-solid fa-key text-[10px]"></i>
+                <span>ភ្លេចពាក្យសម្ងាត់?</span>
+              </button>
             </div>
 
             <button type="submit" id="loginBtn"
@@ -656,6 +671,30 @@
     <!-- MAIN CONTENT AREA -->
     <div class="flex-1 flex flex-col h-full overflow-hidden">
 
+      <!-- IMPERSONATION / SWITCH USER NOTIFICATION BANNER (បង្ហាញពេលស្ថិតក្នុង Switch Mode) -->
+      <div id="impersonationBanner"
+        class="bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white px-4 md:px-6 py-2 shadow-lg border-b border-amber-400/40 flex flex-wrap items-center justify-between gap-2 text-xs font-medium z-30 hidden shrink-0 animate-pulse">
+        <div class="flex items-center space-x-2 min-w-0">
+          <span class="px-2.5 py-0.5 rounded-full bg-black/30 border border-white/25 text-amber-200 text-[10px] font-black uppercase tracking-wider flex items-center shrink-0">
+            <i class="fa-solid fa-user-secret mr-1.5 text-amber-300 text-xs"></i> Switch Mode
+          </span>
+          <span class="truncate">
+            កំពុងប្រើប្រាស់ក្នុងនាមជា: <b id="impersonateTargetName" class="text-white underline decoration-amber-300 font-bold">---</b>
+            (<span id="impersonateTargetRole" class="text-amber-100 font-semibold">---</span> | <span id="impersonateTargetWh" class="text-amber-200">---</span>)
+          </span>
+        </div>
+        <div class="flex items-center space-x-2 shrink-0">
+          <button onclick="openSwitchUserModal()" class="px-2.5 py-1 bg-white/20 hover:bg-white/30 text-white rounded-lg text-xs font-bold transition flex items-center space-x-1 border border-white/20">
+            <i class="fa-solid fa-repeat"></i>
+            <span>ប្តូរ User ផ្សេង</span>
+          </button>
+          <button onclick="exitImpersonation()" class="px-3 py-1 bg-white text-slate-900 hover:bg-amber-100 rounded-lg text-xs font-black transition flex items-center space-x-1 shadow-md hover:scale-105 active:scale-95">
+            <i class="fa-solid fa-right-from-bracket text-amber-600"></i>
+            <span>ត្រឡប់ទៅ SuperAdmin</span>
+          </button>
+        </div>
+      </div>
+
       <!-- ACTIVE USER SESSION INFO BANNER (ផ្នែកខាងលើបង្អស់) -->
       <div id="activeSessionBanner"
         class="bg-gradient-to-r from-blue-700 via-indigo-700 to-slate-900 text-white px-4 md:px-6 py-2 shadow-md border-b border-white/15 flex flex-wrap items-center justify-between gap-2.5 z-20 flex-shrink-0">
@@ -692,8 +731,6 @@
               id="activeSessionWarehouseName">គ្រប់ស្ថានីយទាំងអស់</span>
           </div>
 
-
-
           <!-- រយៈពេលចូលប្រើប្រាស់ (Live Session Duration Timer Badge) -->
           <div class="flex items-center space-x-1.5 bg-white/10 hover:bg-white/15 px-2.5 py-1 rounded-xl border border-white/20 backdrop-blur-md shadow-sm transition-colors" title="រយៈពេលកំពុងដំណើរការ Session នេះ">
             <span class="w-4 h-4 rounded-full bg-cyan-400 text-slate-950 flex items-center justify-center text-[9px] font-black shadow">
@@ -702,6 +739,20 @@
             <span class="text-blue-100 text-[10px] sm:text-xs font-medium">រយៈពេល:</span>
             <span id="activeSessionDurationTime" class="font-mono font-black text-cyan-200 text-[11px] sm:text-xs">00:00:00</span>
           </div>
+
+          <!-- SWITCH USER BUTTON (ប៊ូតុងប្តូរគណនីប្រើប្រាស់សម្រាប់ SuperAdmin) -->
+          <button id="btnSwitchUser" onclick="openSwitchUserModal()" title="ប្តូរគណនីប្រើប្រាស់ (Switch User)"
+            class="px-3 py-1 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-xl text-xs font-bold items-center space-x-1.5 border border-amber-300/40 shadow-md shadow-amber-950/40 transition-all hover:scale-105 active:scale-95 hidden">
+            <i class="fa-solid fa-repeat text-xs"></i>
+            <span class="hidden sm:inline">Switch User</span>
+          </button>
+
+          <!-- RETURN TO SUPERADMIN BUTTON (ប៊ូតុងត្រឡប់ទៅកាន់ SuperAdmin វិញពេល impersonating) -->
+          <button id="btnReturnSuperAdmin" onclick="exitImpersonation()" title="ត្រឡប់ទៅ SuperAdmin វិញ"
+            class="px-3 py-1 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-xl text-xs font-bold items-center space-x-1.5 border border-emerald-300/40 shadow-md shadow-emerald-950/40 transition-all hover:scale-105 active:scale-95 hidden">
+            <i class="fa-solid fa-arrow-left text-xs"></i>
+            <span>ត្រឡប់ទៅ SuperAdmin</span>
+          </button>
 
           <!-- TOP LOGOUT BUTTON (ប៊ូតុងចាកចេញនៅលើគេបំផុត) -->
           <button onclick="handleLogout()" title="ចាកចេញពីប្រព័ន្ធ (Logout)"
@@ -2385,6 +2436,160 @@
     </div>
   </div>
 
+  <!-- SWITCH USER MODAL (FOR SUPERADMIN) -->
+  <div id="switchUserModal" onclick="if(event.target === this) closeSwitchUserModal()"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 backdrop-blur-sm p-4 hidden">
+    <div class="w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
+      <div class="px-6 py-4 bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white flex items-center justify-between shadow-md shrink-0">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md border border-white/25 flex items-center justify-center text-white shadow-inner">
+            <i class="fa-solid fa-people-arrows text-lg"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-sm flex items-center">
+              <span>ប្តូរគណនីប្រើប្រាស់ (Switch User)</span>
+              <span class="ml-2 px-2 py-0.2 rounded-full bg-amber-400/30 text-amber-100 text-[10px] font-black border border-amber-300/30">SuperAdmin</span>
+            </h3>
+            <p class="text-[10px] text-amber-100/90">ជ្រើសរើស User ណាម្នាក់ដើម្បីចូលដំណើរការភ្លាមៗដោយគ្មានលេខសំងាត់</p>
+          </div>
+        </div>
+        <button onclick="closeSwitchUserModal()"
+          class="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition backdrop-blur-sm">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="p-3.5 border-b border-slate-100 bg-slate-50 shrink-0">
+        <div class="relative">
+          <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+          <input type="text" id="switchUserSearchInput" oninput="filterSwitchUserList()" placeholder="ស្វែងរកតាមឈ្មោះ, Username, Role, ឬ ឃ្លាំង..."
+            class="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-amber-500 font-medium">
+        </div>
+      </div>
+
+      <div id="switchUserListContainer" class="p-4 overflow-y-auto custom-scrollbar space-y-2 flex-1 max-h-[420px]">
+        <!-- Dynamically rendered user cards -->
+      </div>
+
+      <div class="px-6 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between shrink-0">
+        <span class="text-[11px] text-slate-500 font-medium">
+          <i class="fa-solid fa-shield-halved text-amber-600 mr-1"></i> សិទ្ធិផ្ដាច់មុខរបស់ SuperAdmin
+        </span>
+        <button type="button" onclick="closeSwitchUserModal()"
+          class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition">
+          បិទ
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FORGOT PASSWORD MODAL (កំណត់ពាក្យសម្ងាត់ឡើងវិញ) -->
+  <div id="forgotPasswordModal" onclick="if(event.target === this) closeForgotPasswordModal()"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 backdrop-blur-sm p-4 hidden">
+    <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col">
+      <!-- Header -->
+      <div class="px-6 py-4 bg-gradient-to-r from-blue-700 via-indigo-700 to-slate-900 text-white flex items-center justify-between shadow-md shrink-0">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md border border-white/25 flex items-center justify-center text-white shadow-inner">
+            <i class="fa-solid fa-key text-lg"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-sm">កំណត់ពាក្យសម្ងាត់ឡើងវិញ (Reset Password)</h3>
+            <p class="text-[10px] text-blue-100/90">ផ្ទៀងផ្ទាត់តាមលេខកូដ OTP (Telegram Admin)</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeForgotPasswordModal()"
+          class="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition backdrop-blur-sm">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <!-- Step 1: Request OTP -->
+      <div id="forgotStep1" class="p-6 space-y-4">
+        <div class="text-xs text-slate-600 space-y-1">
+          <p class="font-semibold text-slate-800">សូមបញ្ចូលឈ្មោះគណនី ឬ អ៊ីមែលរបស់អ្នក៖</p>
+          <p class="text-[11px] text-slate-500">ប្រព័ន្ធនឹងផ្ញើលេខកូដ OTP (៦ ខ្ទង់) ទៅកាន់ Telegram Admin ដើម្បីផ្ទៀងផ្ទាត់សុវត្ថិភាព។</p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">ឈ្មោះគណនី ឬ អ៊ីមែល</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+              <i class="fa-solid fa-user text-xs"></i>
+            </span>
+            <input type="text" id="forgotAccountInput" placeholder="ឧ. admin ឬ wh01 ឬ user@gmail.com"
+              class="w-full pl-8 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+        </div>
+
+        <button type="button" id="btnRequestResetOtp" onclick="handleRequestResetOtp()"
+          class="w-full py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center justify-center space-x-2">
+          <span>ផ្ញើសំណើ & ទទួល OTP</span>
+          <i class="fa-solid fa-paper-plane text-xs"></i>
+        </button>
+      </div>
+
+      <!-- Step 2: Verify OTP & Enter New Password -->
+      <div id="forgotStep2" class="p-6 space-y-3.5 hidden">
+        <!-- Notification of OTP Sent -->
+        <div class="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-emerald-800 text-xs">
+          <div class="flex items-center space-x-2">
+            <i class="fa-solid fa-circle-check text-emerald-600 text-base"></i>
+            <div>
+              <p class="font-bold">លេខកូដ OTP ត្រូវបានផ្ញើទៅ Telegram Admin!</p>
+              <p class="text-[10px] text-emerald-700">សូមទាក់ទង Admin ឬពិនិត្យ Telegram Bot</p>
+            </div>
+          </div>
+          <div class="mt-2 pt-2 border-t border-emerald-200/60 flex items-center justify-between text-[11px]">
+            <span class="text-emerald-700 font-medium">💡 លេខកូដគំរូ (Demo OTP):</span>
+            <span id="demoForgotOtpCode" class="font-mono font-black text-blue-700 text-sm tracking-widest cursor-pointer bg-white px-2 py-0.5 rounded border border-blue-200" onclick="document.getElementById('forgotOtpInput').value = this.innerText" title="ចុចដើម្បីបំពេញស្វ័យប្រវត្តិ">------</span>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">លេខកូដ OTP (៦ ខ្ទង់) *</label>
+          <input type="text" id="forgotOtpInput" maxlength="6" placeholder="123456"
+            class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-center font-mono font-bold text-lg tracking-widest outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">ពាក្យសម្ងាត់ថ្មី (New Password) *</label>
+          <input type="password" id="forgotNewPassword" placeholder="••••••••" minlength="4"
+            class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">បញ្ជាក់ពាក្យសម្ងាត់ថ្មី *</label>
+          <input type="password" id="forgotConfirmPassword" placeholder="••••••••" minlength="4"
+            class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <div class="pt-1 flex items-center space-x-2">
+          <button type="button" onclick="backToForgotStep1()"
+            class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition">
+            ថយក្រោយ
+          </button>
+          <button type="button" id="btnSubmitResetPassword" onclick="handleSubmitResetPassword()"
+            class="flex-1 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center justify-center space-x-2">
+            <span>រក្សាទុកពាក្យសម្ងាត់ថ្មី</span>
+            <i class="fa-solid fa-check text-xs"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="px-6 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between shrink-0">
+        <span class="text-[11px] text-slate-500">
+          <i class="fa-brands fa-telegram text-blue-500 mr-1"></i> ភ្ជាប់ជាមួយ Telegram Alert
+        </span>
+        <button type="button" onclick="closeForgotPasswordModal()"
+          class="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition">
+          បិទ
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- D. ADD USER MODAL (FOR ADMIN) -->
   <div id="addUserModal" onclick="if(event.target === this) closeAddUserModal()"
     class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 hidden">
@@ -2774,7 +2979,8 @@
     // --- MOCK DATABASE FOR LOCAL SERVER SIMULATION ---
     const LOCAL_DB = {
       users: [
-        { userId: 'USR-00', username: 'admin', fullName: 'System Administrator (Admin)', email: 'admin@inventory.local', role: 'Admin', status: 'Active', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150' },
+        { userId: 'USR-SA', username: 'superadmin', fullName: 'Super Administrator (អភិបាលកំពូល)', email: 'superadmin@inventory.local', role: 'SuperAdmin', status: 'Active', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150' },
+        { userId: 'USR-00', username: 'admin', fullName: 'System Administrator (Admin)', email: 'admin@inventory.local', role: 'Admin', status: 'Active', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150' },
         ...WAREHOUSES_LIST.map((wh, idx) => {
           const num = String(idx + 1).padStart(2, '0');
           return {
@@ -2821,6 +3027,31 @@
       ]
     };
 
+    // Helper to load remembered credentials only if user explicitly ticked Remember Me
+    function loadRememberedCredentials() {
+      try {
+        const saved = localStorage.getItem('inventory_remembered_creds');
+        const userEl = document.getElementById('loginUsername');
+        const passEl = document.getElementById('loginPassword');
+        const remEl = document.getElementById('rememberMe');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && parsed.username) {
+            if (userEl) userEl.value = parsed.username;
+            if (passEl) passEl.value = parsed.password || '';
+            if (remEl) remEl.checked = true;
+            return;
+          }
+        }
+        // If not remembered, ensure both fields are empty and checkbox unchecked on load
+        if (userEl) userEl.value = '';
+        if (passEl) passEl.value = '';
+        if (remEl) remEl.checked = false;
+      } catch (e) {
+        console.error('Error loading remembered creds:', e);
+      }
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       updateClock();
       setInterval(updateClock, 1000);
@@ -2833,6 +3064,9 @@
       document.getElementById('authSection').classList.remove('hidden');
       document.getElementById('mainApp').classList.add('hidden');
       toggleAuthView('login');
+
+      // Load remembered credentials (blank by default unless user checked 'Remember Me')
+      loadRememberedCredentials();
     });
 
     // Handle ESC (Escape) Key Press to Cancel / Close any active Modal
@@ -2884,7 +3118,21 @@
         return;
       }
 
-      // 7. Generic Fallback for any other open modal overlay (except login/auth)
+      // 7. Switch User Modal
+      const switchUserModal = document.getElementById('switchUserModal');
+      if (switchUserModal && !switchUserModal.classList.contains('hidden')) {
+        closeSwitchUserModal();
+        return;
+      }
+
+      // 8. Forgot Password Modal
+      const forgotPasswordModal = document.getElementById('forgotPasswordModal');
+      if (forgotPasswordModal && !forgotPasswordModal.classList.contains('hidden')) {
+        closeForgotPasswordModal();
+        return;
+      }
+
+      // 9. Generic Fallback for any other open modal overlay (except login/auth)
       const modals = document.querySelectorAll('.fixed.inset-0:not(#authSection)');
       modals.forEach(m => {
         if (!m.classList.contains('hidden')) {
@@ -2932,8 +3180,11 @@
       const u = payload.user || AppState.currentUser;
       const whFilter = payload.warehouseFilter || AppState.selectedAdminWarehouseFilter;
 
+      const isSuperAdmin = (u && u.role === 'SuperAdmin');
+      const isAdmin = (u && (u.role === 'Admin' || u.role === 'SuperAdmin'));
+
       let targetWarehouse = null;
-      if (u && u.role !== 'Admin' && u.warehouse && u.warehouse !== 'ALL') {
+      if (!isAdmin && u && u.warehouse && u.warehouse !== 'ALL') {
         targetWarehouse = u.warehouse;
       } else if (whFilter && whFilter !== 'ALL') {
         targetWarehouse = whFilter;
@@ -2943,10 +3194,19 @@
         const username = String(payload.username || '').trim().toLowerCase();
         const password = String(payload.password || '').trim();
 
+        // 1. SuperAdmin Login
+        if (username === 'superadmin' && (password === 'superadmin123' || password === 'admin' || password === 'superadmin')) {
+          return {
+            success: true,
+            user: { userId: 'USR-SA', username: 'superadmin', fullName: 'Super Administrator (អភិបាលកំពូល)', role: 'SuperAdmin', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150' }
+          };
+        }
+
+        // 2. Admin Login
         if (username === 'admin' && (password === 'admin123' || password === 'admin')) {
           return {
             success: true,
-            user: { userId: 'USR-00', username: 'admin', fullName: 'System Administrator (Admin)', role: 'Admin', warehouse: 'ALL' }
+            user: { userId: 'USR-00', username: 'admin', fullName: 'System Administrator (Admin)', role: 'Admin', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150' }
           };
         }
 
@@ -2993,6 +3253,54 @@
         };
         LOCAL_DB.users.push(newUser);
         return { success: true, message: 'បានបញ្ជាក់ OTP និងបង្កើតគណនីថ្មីជោគជ័យ!', user: newUser };
+      }
+
+      if (action === 'requestPasswordResetOtp') {
+        const acc = String(payload.account || '').trim().toLowerCase();
+        if (!acc) return { success: false, message: 'សូមបញ្ចូលឈ្មោះគណនី ឬ អ៊ីមែល' };
+        let exists = (acc === 'admin' || acc === 'superadmin');
+        if (!exists && LOCAL_DB.users.some(u => u.username.toLowerCase() === acc || (u.email && u.email.toLowerCase() === acc))) {
+          exists = true;
+        }
+        if (!exists && /^wh\d+$/i.test(acc)) {
+          exists = true;
+        }
+        if (!exists) {
+          return { success: false, message: 'រកមិនឃើញគណនី ឬ អ៊ីមែលនេះក្នុងប្រព័ន្ធទេ!' };
+        }
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        window._mockResetOtp = otp;
+        window._mockResetAccount = acc;
+        return {
+          success: true,
+          message: 'លេខកូដ OTP ត្រូវបានផ្ញើទៅកាន់ Telegram Admin រួចរាល់!',
+          otpDemo: otp
+        };
+      }
+
+      if (action === 'resetPasswordWithOtp') {
+        const acc = String(payload.account || '').trim().toLowerCase();
+        const otpInput = String(payload.otp || '').trim();
+        const newPassword = String(payload.newPassword || '').trim();
+
+        if (!acc || !otpInput || !newPassword) {
+          return { success: false, message: 'សូមបំពេញព័ត៌មានឱ្យបានគ្រប់គ្រាន់' };
+        }
+        const expected = window._mockResetOtp || payload.otpDemo || '123456';
+        if (otpInput !== expected && otpInput !== '123456') {
+          return { success: false, message: 'លេខកូដ OTP មិនត្រឹមត្រូវទេ!' };
+        }
+        if (newPassword.length < 4) {
+          return { success: false, message: 'ពាក្យសម្ងាត់ថ្មីត្រូវមានយ៉ាងតិច ៤ ខ្ទង់' };
+        }
+        const uIdx = LOCAL_DB.users.findIndex(u => u.username.toLowerCase() === acc || (u.email && u.email.toLowerCase() === acc));
+        if (uIdx !== -1) {
+          LOCAL_DB.users[uIdx].password = newPassword;
+        }
+        return {
+          success: true,
+          message: 'ពាក្យសម្ងាត់ថ្មីត្រូវបានផ្លាស់ប្តូរជោគជ័យ!'
+        };
       }
 
       if (action === 'registerUser' || action === 'register') {
@@ -3075,6 +3383,17 @@
       if (action === 'updateUserStatus') {
         const usr = LOCAL_DB.users.find(x => x.userId === payload.userId);
         if (usr) {
+          const actor = AppState.currentUser;
+          const isActorSuperAdmin = (actor && actor.role === 'SuperAdmin') || !!sessionStorage.getItem('inventory_superadmin_session');
+
+          // Security check: Protect SuperAdmin accounts
+          if (usr.role === 'SuperAdmin' && !isActorSuperAdmin) {
+            return { success: false, message: 'អ្នកគ្មានសិទ្ធិកែប្រែ ឬបិទគណនី SuperAdmin ឡើយ!' };
+          }
+          if (payload.role === 'SuperAdmin' && !isActorSuperAdmin) {
+            return { success: false, message: 'មានតែ SuperAdmin ប៉ុណ្ណោះដែលអាចកំណត់សិទ្ធិជា SuperAdmin បាន!' };
+          }
+
           if (payload.status) usr.status = payload.status;
           if (payload.role) usr.role = payload.role;
           if (payload.warehouse) usr.warehouse = payload.warehouse;
@@ -3328,11 +3647,16 @@
           const loginNow = new Date().toISOString();
           const remember = document.getElementById('rememberMe')?.checked;
           if (remember) {
+            localStorage.setItem('inventory_remembered_creds', JSON.stringify({
+              username: username,
+              password: password
+            }));
             localStorage.setItem('inventory_user', JSON.stringify(res.user));
             localStorage.setItem('inventory_login_timestamp', loginNow);
             sessionStorage.removeItem('inventory_user');
             sessionStorage.removeItem('inventory_login_timestamp');
           } else {
+            localStorage.removeItem('inventory_remembered_creds');
             sessionStorage.setItem('inventory_user', JSON.stringify(res.user));
             sessionStorage.setItem('inventory_login_timestamp', loginNow);
             localStorage.removeItem('inventory_user');
@@ -3363,10 +3687,148 @@
       }
     }
 
+    // --- FORGOT PASSWORD ENGINE ---
+    let currentForgotAccount = '';
+    let currentResetOtpDemo = '';
+
+    function openForgotPasswordModal() {
+      const modal = document.getElementById('forgotPasswordModal');
+      if (!modal) return;
+      document.getElementById('forgotStep1').classList.remove('hidden');
+      document.getElementById('forgotStep2').classList.add('hidden');
+      const input = document.getElementById('forgotAccountInput');
+      if (input) {
+        const currentLoginVal = document.getElementById('loginUsername')?.value.trim();
+        input.value = currentLoginVal || '';
+      }
+      const otpInp = document.getElementById('forgotOtpInput');
+      if (otpInp) otpInp.value = '';
+      const newPassInp = document.getElementById('forgotNewPassword');
+      if (newPassInp) newPassInp.value = '';
+      const confPassInp = document.getElementById('forgotConfirmPassword');
+      if (confPassInp) confPassInp.value = '';
+      modal.classList.remove('hidden');
+    }
+
+    function closeForgotPasswordModal() {
+      const modal = document.getElementById('forgotPasswordModal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function backToForgotStep1() {
+      document.getElementById('forgotStep2').classList.add('hidden');
+      document.getElementById('forgotStep1').classList.remove('hidden');
+    }
+
+    async function handleRequestResetOtp() {
+      const accountInput = document.getElementById('forgotAccountInput');
+      const account = accountInput ? accountInput.value.trim() : '';
+      if (!account) {
+        Swal.fire('សូមបញ្ចូលព័ត៌មាន', 'សូមបញ្ចូលឈ្មោះគណនី ឬ អ៊ីមែលរបស់អ្នក', 'warning');
+        return;
+      }
+
+      const btn = document.getElementById('btnRequestResetOtp');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1.5"></i> កំពុងស្នើសុំ OTP...';
+      }
+
+      try {
+        const res = await apiCall('requestPasswordResetOtp', { account: account });
+        if (res && res.success) {
+          currentForgotAccount = account;
+          currentResetOtpDemo = res.otpDemo || '';
+          const demoEl = document.getElementById('demoForgotOtpCode');
+          if (demoEl) demoEl.innerText = res.otpDemo || '123456';
+
+          document.getElementById('forgotStep1').classList.add('hidden');
+          document.getElementById('forgotStep2').classList.remove('hidden');
+
+          Swal.fire({
+            icon: 'success',
+            title: 'បានផ្ញើ OTP រួចរាល់!',
+            text: res.message || 'លេខកូដ OTP ត្រូវបានផ្ញើទៅ Telegram Admin',
+            timer: 2000,
+            showConfirmButton: false
+          });
+        } else {
+          Swal.fire('មិនអាចស្នើសុំ OTP បានទេ', res?.message || 'រកមិនឃើញគណនីនេះទេ', 'error');
+        }
+      } catch (err) {
+        Swal.fire('Error', err.toString(), 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<span>ផ្ញើសំណើ & ទទួល OTP</span> <i class="fa-solid fa-paper-plane text-xs"></i>';
+        }
+      }
+    }
+
+    async function handleSubmitResetPassword() {
+      const otp = document.getElementById('forgotOtpInput')?.value.trim();
+      const newPassword = document.getElementById('forgotNewPassword')?.value;
+      const confirmPassword = document.getElementById('forgotConfirmPassword')?.value;
+
+      if (!otp) {
+        Swal.fire('សូមបញ្ចូល OTP', 'សូមបញ្ចូលលេខកូដ OTP ៦ ខ្ទង់', 'warning');
+        return;
+      }
+      if (!newPassword || newPassword.length < 4) {
+        Swal.fire('ពាក្យសម្ងាត់ខ្លីពេក', 'ពាក្យសម្ងាត់ថ្មីត្រូវមានយ៉ាងតិច ៤ ខ្ទង់', 'warning');
+        return;
+      }
+      if (newPassword !== confirmPassword) {
+        Swal.fire('ពាក្យសម្ងាត់មិនត្រូវគ្នា', 'ការបញ្ជាក់ពាក្យសម្ងាត់មិនត្រឹមត្រូវទេ', 'warning');
+        return;
+      }
+
+      const btn = document.getElementById('btnSubmitResetPassword');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1.5"></i> កំពុងរក្សាទុក...';
+      }
+
+      try {
+        const res = await apiCall('resetPasswordWithOtp', {
+          account: currentForgotAccount,
+          otp: otp,
+          otpDemo: currentResetOtpDemo,
+          newPassword: newPassword
+        });
+
+        if (res && res.success) {
+          closeForgotPasswordModal();
+          // Fill new creds into login form
+          const userEl = document.getElementById('loginUsername');
+          const passEl = document.getElementById('loginPassword');
+          if (userEl) userEl.value = currentForgotAccount;
+          if (passEl) passEl.value = newPassword;
+
+          Swal.fire({
+            icon: 'success',
+            title: 'ជោគជ័យ!',
+            text: res.message || 'ពាក្យសម្ងាត់ថ្មីត្រូវបានផ្លាស់ប្តូរជោគជ័យ! សូមចុច Login ដើម្បីចូលប្រព័ន្ធ។',
+            confirmButtonText: 'យល់ព្រម',
+            confirmButtonColor: '#2563eb'
+          });
+        } else {
+          Swal.fire('បរាជ័យ', res?.message || 'មិនអាចផ្លាស់ប្តូរពាក្យសម្ងាត់បានទេ', 'error');
+        }
+      } catch (err) {
+        Swal.fire('Error', err.toString(), 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<span>រក្សាទុកពាក្យសម្ងាត់ថ្មី</span> <i class="fa-solid fa-check text-xs"></i>';
+        }
+      }
+    }
+
     function onRegisterRoleChange(role) {
       const whSelect = document.getElementById('regWarehouse');
       if (whSelect) {
-        if (role === 'Admin') {
+        if (role === 'Admin' || role === 'SuperAdmin') {
           whSelect.value = 'ALL';
         } else if (whSelect.value === 'ALL') {
           whSelect.value = WAREHOUSES_LIST[0];
@@ -3600,20 +4062,54 @@
         sessionUserTitle.innerHTML = `${u.fullName || u.username} <span class="text-xs text-slate-400 font-mono font-normal">(@${u.username})</span>`;
       }
 
+      const isSuperAdmin = (u.role === 'SuperAdmin');
+      const isAdmin = (u.role === 'Admin' || isSuperAdmin);
+      const isImpersonating = !!sessionStorage.getItem('inventory_superadmin_session');
+
       const sessionRoleBadge = document.getElementById('activeSessionRoleBadge');
       if (sessionRoleBadge) {
-        sessionRoleBadge.innerText = u.role || 'Staff';
-        sessionRoleBadge.className = `px-2.5 py-0.5 rounded-full text-[10px] font-bold ${u.role === 'Admin' ? 'bg-purple-500/30 text-purple-300 border border-purple-400/30' :
-            u.role === 'Cashier' ? 'bg-amber-500/30 text-amber-300 border border-amber-400/30' :
-              'bg-blue-500/30 text-blue-300 border border-blue-400/30'
-          }`;
+        sessionRoleBadge.innerText = isSuperAdmin ? '👑⚡ SuperAdmin' : (u.role || 'Staff');
+        sessionRoleBadge.className = `px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+          isSuperAdmin ? 'bg-gradient-to-r from-amber-400 to-amber-600 text-slate-950 font-black shadow-sm border border-amber-300' :
+          u.role === 'Admin' ? 'bg-purple-500/30 text-purple-300 border border-purple-400/30' :
+          u.role === 'Cashier' ? 'bg-amber-500/30 text-amber-300 border border-amber-400/30' :
+          'bg-blue-500/30 text-blue-300 border border-blue-400/30'
+        }`;
       }
 
       const sessionWarehouseName = document.getElementById('activeSessionWarehouseName');
       if (sessionWarehouseName) {
-        sessionWarehouseName.innerText = (u.role === 'Admin' && AppState.selectedAdminWarehouseFilter !== 'ALL') ?
-          `${AppState.selectedAdminWarehouseFilter} (Admin Switch)` :
-          (u.warehouse === 'ALL' ? '🏢 គ្រប់ស្ថានីយទាំងអស់ (Admin Only)' : `📍 ${u.warehouse || WAREHOUSES_LIST[0]}`);
+        sessionWarehouseName.innerText = (isAdmin && AppState.selectedAdminWarehouseFilter !== 'ALL') ?
+          `${AppState.selectedAdminWarehouseFilter} (${isSuperAdmin ? 'SuperAdmin' : 'Admin'} Switch)` :
+          (u.warehouse === 'ALL' ? `🏢 គ្រប់ស្ថានីយទាំងអស់ (${isSuperAdmin ? 'SuperAdmin' : 'Admin'} Only)` : `📍 ${u.warehouse || WAREHOUSES_LIST[0]}`);
+      }
+
+      // Impersonation Banner & Top Switch User Buttons
+      const impersonationBanner = document.getElementById('impersonationBanner');
+      const btnSwitchUser = document.getElementById('btnSwitchUser');
+      const btnReturnSuperAdmin = document.getElementById('btnReturnSuperAdmin');
+
+      if (isImpersonating) {
+        if (impersonationBanner) impersonationBanner.classList.remove('hidden');
+        const targetName = document.getElementById('impersonateTargetName');
+        const targetRole = document.getElementById('impersonateTargetRole');
+        const targetWh = document.getElementById('impersonateTargetWh');
+        if (targetName) targetName.innerText = `${u.fullName || u.username} (@${u.username})`;
+        if (targetRole) targetRole.innerText = u.role || 'Staff';
+        if (targetWh) targetWh.innerText = u.warehouse || 'ALL';
+
+        if (btnSwitchUser) btnSwitchUser.classList.remove('hidden');
+        if (btnReturnSuperAdmin) btnReturnSuperAdmin.classList.remove('hidden');
+      } else {
+        if (impersonationBanner) impersonationBanner.classList.add('hidden');
+        if (btnReturnSuperAdmin) btnReturnSuperAdmin.classList.add('hidden');
+        if (btnSwitchUser) {
+          if (isSuperAdmin) {
+            btnSwitchUser.classList.remove('hidden');
+          } else {
+            btnSwitchUser.classList.add('hidden');
+          }
+        }
       }
 
       // Update Session Login Time & Duration Timer
@@ -3624,8 +4120,8 @@
       const userWhContainer = document.getElementById('userWarehouseBadgeContainer');
       const userWhName = document.getElementById('userWarehouseName');
 
-      if (u.role === 'Admin') {
-        if (whLabel) whLabel.innerText = 'គ្រប់គ្រងគ្រប់ស្ថានីយ';
+      if (isAdmin) {
+        if (whLabel) whLabel.innerText = isSuperAdmin ? 'អភិបាលកំពូល (SuperAdmin)' : 'គ្រប់គ្រងគ្រប់ស្ថានីយ';
         if (adminWhContainer) adminWhContainer.classList.remove('hidden');
         if (userWhContainer) userWhContainer.classList.add('hidden');
         const navUsers = document.getElementById('navUsers');
@@ -3647,6 +4143,183 @@
       }
 
       initAutoRefreshEngine();
+    }
+
+    // ==========================================
+    // SWITCH USER / IMPERSONATION ENGINE (FOR SUPERADMIN)
+    // ==========================================
+    async function impersonateUser(targetUserId) {
+      try {
+        const res = await apiCall('getUsersList');
+        const userList = (res && res.success && res.users) ? res.users : LOCAL_DB.users;
+        const targetUser = userList.find(x => x.userId === targetUserId || x.username === targetUserId);
+        if (!targetUser) {
+          Swal.fire('រកមិនឃើញ', 'រកមិនឃើញ User នេះក្នុងប្រព័ន្ធទេ', 'error');
+          return;
+        }
+
+        // Save original SuperAdmin session if not already in impersonation
+        if (!sessionStorage.getItem('inventory_superadmin_session')) {
+          sessionStorage.setItem('inventory_superadmin_session', JSON.stringify(AppState.currentUser));
+        }
+
+        AppState.currentUser = { ...targetUser };
+        showAppView();
+
+        // Reset warehouse filter if target user is restricted
+        if (targetUser.warehouse && targetUser.warehouse !== 'ALL') {
+          AppState.selectedAdminWarehouseFilter = targetUser.warehouse;
+        } else {
+          AppState.selectedAdminWarehouseFilter = 'ALL';
+        }
+
+        closeSwitchUserModal();
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Switch User ជោគជ័យ! ⚡',
+          html: `<p class="text-xs text-slate-600">ឥឡូវនេះលោកអ្នកកំពុងដំណើរការក្នុងនាមជា <b>${targetUser.fullName || targetUser.username}</b> (${targetUser.role})</p>`,
+          timer: 1800,
+          showConfirmButton: false
+        });
+
+        await loadDashboard();
+        await loadItems();
+        if (AppState.currentTab === 'users' && targetUser.role !== 'Admin' && targetUser.role !== 'SuperAdmin') {
+          navigateTab('dashboard');
+        } else {
+          navigateTab(AppState.currentTab);
+        }
+      } catch (err) {
+        Swal.fire('កំហុស', err.toString(), 'error');
+      }
+    }
+
+    function exitImpersonation() {
+      const savedSuperAdminStr = sessionStorage.getItem('inventory_superadmin_session');
+      if (!savedSuperAdminStr) {
+        Swal.fire('ព័ត៌មាន', 'មិនមាន Session SuperAdmin ដើមដែលត្រូវត្រឡប់ទៅវិញទេ', 'info');
+        return;
+      }
+
+      try {
+        const originalUser = JSON.parse(savedSuperAdminStr);
+        sessionStorage.removeItem('inventory_superadmin_session');
+        AppState.currentUser = originalUser;
+        AppState.selectedAdminWarehouseFilter = 'ALL';
+        showAppView();
+
+        Swal.fire({
+          icon: 'success',
+          title: 'បានត្រឡប់ទៅ SuperAdmin វិញជោគជ័យ! 👑',
+          timer: 1500,
+          showConfirmButton: false
+        });
+
+        loadDashboard();
+        loadItems();
+        navigateTab(AppState.currentTab);
+      } catch (err) {
+        Swal.fire('Error', err.toString(), 'error');
+      }
+    }
+
+    function openSwitchUserModal() {
+      const isSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin');
+      const isImpersonating = !!sessionStorage.getItem('inventory_superadmin_session');
+      if (!isSuperAdmin && !isImpersonating) {
+        Swal.fire('គ្មានសិទ្ធិ', 'មុខងារ Switch User មានសម្រាប់តែ SuperAdmin ប៉ុណ្ណោះ', 'warning');
+        return;
+      }
+      const searchInput = document.getElementById('switchUserSearchInput');
+      if (searchInput) searchInput.value = '';
+      renderSwitchUserList();
+      document.getElementById('switchUserModal').classList.remove('hidden');
+      setTimeout(() => { if (searchInput) searchInput.focus(); }, 100);
+    }
+
+    function closeSwitchUserModal() {
+      const m = document.getElementById('switchUserModal');
+      if (m) m.classList.add('hidden');
+    }
+
+    async function renderSwitchUserList() {
+      const container = document.getElementById('switchUserListContainer');
+      if (!container) return;
+      container.innerHTML = '<div class="text-center py-6 text-slate-400 text-xs"><i class="fa-solid fa-spinner fa-spin mr-2"></i>កំពុងផ្ទុកបញ្ជី User...</div>';
+
+      try {
+        const res = await apiCall('getUsersList');
+        const users = (res && res.success && res.users) ? res.users : LOCAL_DB.users;
+        window._cachedUsersForSwitch = users;
+        filterSwitchUserList();
+      } catch (e) {
+        container.innerHTML = '<div class="text-center py-6 text-rose-500 text-xs">មិនអាចផ្ទុកបញ្ជី User បានទេ</div>';
+      }
+    }
+
+    function filterSwitchUserList() {
+      const container = document.getElementById('switchUserListContainer');
+      if (!container) return;
+      const query = (document.getElementById('switchUserSearchInput')?.value || '').trim().toLowerCase();
+      const users = window._cachedUsersForSwitch || LOCAL_DB.users || [];
+
+      const filtered = users.filter(u => {
+        if (!query) return true;
+        return (u.username && u.username.toLowerCase().includes(query)) ||
+          (u.fullName && u.fullName.toLowerCase().includes(query)) ||
+          (u.role && u.role.toLowerCase().includes(query)) ||
+          (u.warehouse && u.warehouse.toLowerCase().includes(query)) ||
+          (u.userId && u.userId.toLowerCase().includes(query));
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = '<div class="text-center py-8 text-slate-400 text-xs">មិនមាន User ត្រូវនឹងពាក្យស្វែងរកនេះទេ</div>';
+        return;
+      }
+
+      container.innerHTML = filtered.map(u => {
+        const isCurrent = AppState.currentUser?.userId === u.userId || AppState.currentUser?.username === u.username;
+        const isSuperAdminRole = (u.role === 'SuperAdmin');
+        const isAdminRole = (u.role === 'Admin');
+
+        const roleBadge = isSuperAdminRole ?
+          '<span class="px-2 py-0.5 rounded-full text-[9px] font-black bg-gradient-to-r from-amber-400 to-amber-600 text-slate-950 shadow-sm border border-amber-300">👑 SuperAdmin</span>' :
+          isAdminRole ?
+          '<span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-purple-100 text-purple-700">🛡️ Admin</span>' :
+          '<span class="px-2 py-0.5 rounded-full text-[9px] font-medium bg-blue-100 text-blue-700">' + (u.role || 'Staff') + '</span>';
+
+        return `
+          <div class="flex items-center justify-between p-3 rounded-2xl border transition-all ${isCurrent ? 'bg-amber-50/70 border-amber-300 shadow-sm' : 'bg-white hover:bg-slate-50 border-slate-200'}">
+            <div class="flex items-center space-x-3 min-w-0">
+              <div class="w-10 h-10 rounded-full overflow-hidden border border-slate-200 bg-slate-100 shrink-0">
+                <img src="${u.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + u.username}" class="w-full h-full object-cover">
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center space-x-2">
+                  <h4 class="font-bold text-slate-800 text-xs truncate">${u.fullName || u.username}</h4>
+                  ${roleBadge}
+                  ${isCurrent ? '<span class="text-[9px] font-bold text-amber-700 bg-amber-200 px-1.5 py-0.2 rounded">កំពុងប្រើ</span>' : ''}
+                </div>
+                <div class="flex items-center space-x-2 text-[10px] text-slate-500 mt-0.5">
+                  <span class="font-mono text-blue-600 font-semibold">@${u.username}</span>
+                  <span>•</span>
+                  <span class="truncate">${u.warehouse === 'ALL' ? '🏢 គ្រប់ស្ថានីយ' : '📍 ' + (u.warehouse || '-')}</span>
+                </div>
+              </div>
+            </div>
+            <div class="shrink-0 ml-2">
+              ${isCurrent ?
+                `<button disabled class="px-3 py-1.5 bg-slate-100 text-slate-400 rounded-xl text-xs font-bold cursor-not-allowed">កំពុងប្រើ</button>` :
+                `<button onclick="impersonateUser('${u.userId || u.username}')" class="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-xl text-xs font-bold shadow-sm shadow-amber-500/20 hover:scale-105 active:scale-95 transition flex items-center space-x-1">
+                  <i class="fa-solid fa-arrow-right-to-bracket text-[10px]"></i>
+                  <span>Switch</span>
+                </button>`
+              }
+            </div>
+          </div>
+        `;
+      }).join('');
     }
 
     let sessionDurationInterval = null;
@@ -3707,6 +4380,7 @@
       if (sessionDurationInterval) clearInterval(sessionDurationInterval);
       localStorage.removeItem('inventory_login_timestamp');
       sessionStorage.removeItem('inventory_login_timestamp');
+      sessionStorage.removeItem('inventory_superadmin_session');
       Swal.fire({
         title: 'តើអ្នកប្រាកដជាចង់ចាកចេញឬ?',
         text: 'លោកអ្នកនឹងត្រូវ Login ឡើងវិញដើម្បីចូលប្រើប្រាស់',
@@ -3719,11 +4393,13 @@
         if (result.isConfirmed) {
           sessionStorage.removeItem('inventory_user');
           localStorage.removeItem('inventory_user');
+          sessionStorage.removeItem('inventory_superadmin_session');
           AppState.currentUser = null;
           AppState.loginTimestamp = null;
           document.getElementById('authSection').classList.remove('hidden');
           document.getElementById('mainApp').classList.add('hidden');
           toggleAuthView('login');
+          loadRememberedCredentials();
         }
       });
     }
@@ -3769,15 +4445,30 @@
       }).join('');
 
       Swal.fire({
-        title: 'គណនីគំរូទាំង ១១ ឃ្លាំង (Demo Accounts)',
+        title: 'គណនីគំរូសម្រាប់តេស្ត (Demo Accounts)',
         html: `
-          <div class="text-left text-xs space-y-2 max-h-[350px] overflow-y-auto custom-scrollbar p-1">
+          <div class="text-left text-xs space-y-2 max-h-[380px] overflow-y-auto custom-scrollbar p-1">
+            <!-- SuperAdmin Account -->
+            <div class="flex items-center justify-between p-2.5 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-300 text-xs shadow-sm">
+              <div>
+                <p class="font-black text-amber-900 flex items-center">
+                  <span class="mr-1">👑⚡</span> SuperAdmin (អភិបាលកំពូល)
+                </p>
+                <p class="text-[11px] text-amber-800">User: <b class="font-mono">superadmin</b> | Pass: <b class="font-mono">superadmin123</b></p>
+                <span class="text-[9px] text-amber-700 bg-amber-200/70 px-1.5 py-0.2 rounded font-semibold">សិទ្ធិពេញលេញ + Switch User</span>
+              </div>
+              <button onclick="fillLoginCreds('superadmin', 'superadmin123')" class="px-2.5 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-lg font-bold text-[10px] shadow-sm hover:scale-105 transition">
+                ជ្រើសរើស
+              </button>
+            </div>
+
+            <!-- Admin Account -->
             <div class="flex items-center justify-between p-2.5 bg-purple-50 rounded-xl border border-purple-200 text-xs">
               <div>
-                <p class="font-bold text-purple-900">👑 Admin (គ្រប់គ្រងគ្រប់ឃ្លាំងទាំងអស់)</p>
+                <p class="font-bold text-purple-900">🛡️ Admin (អ្នកគ្រប់គ្រងប្រព័ន្ធ)</p>
                 <p class="text-[11px] text-purple-700">Username: <b class="font-mono">admin</b> | Pass: <b class="font-mono">admin123</b></p>
               </div>
-              <button onclick="fillLoginCreds('admin', 'admin123')" class="px-2.5 py-1.5 bg-purple-600 text-white rounded-lg font-bold text-[10px]">
+              <button onclick="fillLoginCreds('admin', 'admin123')" class="px-2.5 py-1.5 bg-purple-600 text-white rounded-lg font-bold text-[10px] hover:scale-105 transition">
                 ជ្រើសរើស
               </button>
             </div>
@@ -4313,7 +5004,7 @@
         }
 
         // If user is assigned to a specific warehouse (non-admin or staff)
-        if (AppState.currentUser && AppState.currentUser.role !== 'Admin' && AppState.currentUser.warehouse && AppState.currentUser.warehouse !== 'ALL') {
+        if (AppState.currentUser && AppState.currentUser.role !== 'Admin' && AppState.currentUser.role !== 'SuperAdmin' && AppState.currentUser.warehouse && AppState.currentUser.warehouse !== 'ALL') {
           locSelect.disabled = true;
           locSelect.classList.add('bg-slate-100', 'cursor-not-allowed', 'font-bold', 'text-blue-800');
           if (badge) badge.innerHTML = `<i class="fa-solid fa-lock mr-1"></i>${AppState.currentUser.warehouse}`;
@@ -4350,7 +5041,7 @@
       const locSelect = document.getElementById('modalLocation');
       if (locSelect) {
         locSelect.value = item.location || (AppState.currentUser?.warehouse && AppState.currentUser.warehouse !== 'ALL' ? AppState.currentUser.warehouse : 'ឃ្លាំងទី ០១ - ភ្នំពេញ (សែនសុខ)');
-        if (AppState.currentUser && AppState.currentUser.role !== 'Admin' && AppState.currentUser.warehouse && AppState.currentUser.warehouse !== 'ALL') {
+        if (AppState.currentUser && AppState.currentUser.role !== 'Admin' && AppState.currentUser.role !== 'SuperAdmin' && AppState.currentUser.warehouse && AppState.currentUser.warehouse !== 'ALL') {
           locSelect.disabled = true;
           locSelect.classList.add('bg-slate-100', 'cursor-not-allowed');
         } else {
@@ -4448,8 +5139,8 @@
     }
 
     async function handleDeleteItem(sku) {
-      if (AppState.currentUser?.role !== 'Admin') {
-        Swal.fire('គ្មានសិទ្ធិ', 'មានតែ Admin ប៉ុណ្ណោះដែលអាចលុបទំនិញបាន', 'warning');
+      if (AppState.currentUser?.role !== 'Admin' && AppState.currentUser?.role !== 'SuperAdmin') {
+        Swal.fire('គ្មានសិទ្ធិ', 'មានតែ Admin ឬ SuperAdmin ប៉ុណ្ណោះដែលអាចលុបទំនិញបាន', 'warning');
         return;
       }
 
@@ -5445,41 +6136,80 @@
         const res = await apiCall('getUsersList');
         if (res.success) {
           const tbody = document.getElementById('usersTableBody');
-          tbody.innerHTML = (res.users || []).map(u => `
-            <tr class="hover:bg-slate-50 transition-colors">
-              <td class="px-4 py-3 font-mono text-slate-500 font-bold">${u.userId}</td>
-              <td class="px-4 py-3">
-                <div class="flex items-center space-x-2.5">
-                  <div class="w-8 h-8 rounded-full overflow-hidden border border-slate-200 bg-slate-100 flex-shrink-0">
-                    <img src="${u.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + u.username}" class="w-full h-full object-cover">
-                  </div>
-                  <span class="font-bold text-blue-600">${u.username}</span>
-                </div>
-              </td>
-              <td class="px-4 py-3 font-medium text-slate-800">${u.fullName}</td>
-              <td class="px-4 py-3">
-                <span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] ${u.role === 'អ្នកគ្រប់គ្រង' || u.role === 'Admin' ? 'bg-purple-100 text-purple-700' : u.role === 'ប្រធាន' || u.role === 'Manager' || u.role === 'Cashier' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}">
-                  ${u.role}
+          const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || !!sessionStorage.getItem('inventory_superadmin_session');
+
+          tbody.innerHTML = (res.users || []).map(u => {
+            const isUserSuperAdmin = (u.role === 'SuperAdmin');
+            const isUserAdmin = (u.role === 'Admin' || u.role === 'អ្នកគ្រប់គ្រង');
+            const isSelf = (AppState.currentUser?.userId === u.userId || AppState.currentUser?.username === u.username);
+
+            // Role Badge Styling
+            let roleBadgeHtml = '';
+            if (isUserSuperAdmin) {
+              roleBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-black text-[10px] bg-gradient-to-r from-amber-400 to-amber-600 text-slate-950 border border-amber-300 shadow-sm">👑 SuperAdmin</span>`;
+            } else if (isUserAdmin) {
+              roleBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-purple-100 text-purple-700">🛡️ Admin</span>`;
+            } else if (u.role === 'ប្រធាន' || u.role === 'Manager' || u.role === 'Cashier') {
+              roleBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-emerald-100 text-emerald-700">${u.role}</span>`;
+            } else {
+              roleBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-blue-100 text-blue-700">${u.role || 'Staff'}</span>`;
+            }
+
+            // Action Buttons
+            let actionsHtml = '';
+
+            // 1. Switch User Button (Exclusive to SuperAdmin)
+            if (isActorSuperAdmin && !isSelf) {
+              actionsHtml += `
+                <button onclick="impersonateUser('${u.userId || u.username}')" class="px-2 py-1 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded text-xs font-bold shadow-sm transition hover:scale-105 active:scale-95" title="Switch User ចូលដំណើរការជា User នេះ">
+                  <i class="fa-solid fa-repeat mr-1"></i> Switch
+                </button>
+              `;
+            }
+
+            // 2. Protect SuperAdmin from Regular Admin
+            if (isUserSuperAdmin && !isActorSuperAdmin) {
+              actionsHtml += `
+                <span class="px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-300/80 rounded text-[11px] font-bold inline-flex items-center">
+                  <i class="fa-solid fa-shield-halved mr-1 text-amber-600"></i> ការពារ
                 </span>
-              </td>
-              <td class="px-4 py-3 text-slate-700 font-semibold text-xs">
-                ${u.warehouse === 'ALL' ? '<span class="text-purple-600 font-bold">🏢 គ្រប់ស្ថានីយទាំងអស់ (Admin Only)</span>' : `📍 ${u.warehouse || '-'}`}
-              </td>
-              <td class="px-4 py-3">
-                <span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] ${u.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}">
-                  ${u.status}
-                </span>
-              </td>
-              <td class="px-4 py-3 text-center space-x-2">
+              `;
+            } else {
+              actionsHtml += `
                 <button onclick="openEditUserModal('${u.userId}')" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs font-semibold" title="កែប្រែព័ត៌មាន & ឃ្លាំង">
                   <i class="fa-solid fa-pen-to-square mr-1"></i> កែប្រែ
                 </button>
-                <button onclick="toggleUserStatus('${u.userId}', '${u.status === 'Active' ? 'Inactive' : 'Active'}')" class="text-xs ${u.status === 'Active' ? 'text-rose-600 hover:underline' : 'text-emerald-600 hover:underline'}">
+                <button onclick="toggleUserStatus('${u.userId}', '${u.status === 'Active' ? 'Inactive' : 'Active'}')" class="text-xs font-semibold ${u.status === 'Active' ? 'text-rose-600 hover:underline' : 'text-emerald-600 hover:underline'}">
                   ${u.status === 'Active' ? 'បិទដំណើរការ' : 'បើកដំណើរការ'}
                 </button>
-              </td>
-            </tr>
-          `).join('');
+              `;
+            }
+
+            return `
+              <tr class="hover:bg-slate-50 transition-colors ${isUserSuperAdmin ? 'bg-amber-50/20' : ''}">
+                <td class="px-4 py-3 font-mono text-slate-500 font-bold">${u.userId}</td>
+                <td class="px-4 py-3">
+                  <div class="flex items-center space-x-2.5">
+                    <div class="w-8 h-8 rounded-full overflow-hidden border border-slate-200 bg-slate-100 flex-shrink-0">
+                      <img src="${u.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + u.username}" class="w-full h-full object-cover">
+                    </div>
+                    <span class="font-bold text-blue-600">${u.username}</span>
+                  </div>
+                </td>
+                <td class="px-4 py-3 font-medium text-slate-800">${u.fullName || u.username}</td>
+                <td class="px-4 py-3">${roleBadgeHtml}</td>
+                <td class="px-4 py-3 text-slate-700 font-semibold text-xs">
+                  ${u.warehouse === 'ALL' ? '<span class="text-purple-600 font-bold">🏢 គ្រប់ស្ថានីយទាំងអស់ (Admin/SuperAdmin)</span>' : `📍 ${u.warehouse || '-'}`}
+                </td>
+                <td class="px-4 py-3 text-center">
+                  <span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] ${u.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}">
+                    ${u.status}
+                  </span>
+                </td>
+                <td class="px-4 py-3 text-center space-x-1">${actionsHtml}</td>
+              </tr>
+            `;
+          }).join('');
         }
       } catch (e) { }
     }
@@ -5488,6 +6218,28 @@
       document.getElementById('addUserForm').reset();
       document.getElementById('addAvatarPreview').src = 'https://api.dicebear.com/7.x/bottts/svg?seed=new' + Math.floor(Math.random() * 100);
       document.getElementById('addAvatarData').value = '';
+
+      const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || !!sessionStorage.getItem('inventory_superadmin_session');
+      const addRoleSelect = document.getElementById('addRole');
+      if (addRoleSelect) {
+        if (isActorSuperAdmin) {
+          addRoleSelect.innerHTML = `
+            <option value="SuperAdmin">👑 SuperAdmin (អភិបាលកំពូល)</option>
+            <option value="Admin">🛡️ Admin (អ្នកគ្រប់គ្រងប្រព័ន្ធ)</option>
+            <option value="ប្រធាន">ប្រធាន (Manager)</option>
+            <option value="អ្នកកាន់ស្តុក" selected>អ្នកកាន់ស្តុក (Stock Keeper)</option>
+            <option value="Cashier">បេឡា (Cashier)</option>
+          `;
+        } else {
+          addRoleSelect.innerHTML = `
+            <option value="Admin">🛡️ Admin (អ្នកគ្រប់គ្រង)</option>
+            <option value="ប្រធាន">ប្រធាន (Manager)</option>
+            <option value="អ្នកកាន់ស្តុក" selected>អ្នកកាន់ស្តុក (Stock Keeper)</option>
+            <option value="Cashier">បេឡា (Cashier)</option>
+          `;
+        }
+      }
+
       document.getElementById('addUserModal').classList.remove('hidden');
     }
 
@@ -5498,7 +6250,7 @@
     function onAddUserRoleChange(role) {
       const whSelect = document.getElementById('addWarehouse');
       if (whSelect) {
-        if (role === 'អ្នកគ្រប់គ្រង' || role === 'Admin') {
+        if (role === 'SuperAdmin' || role === 'Admin' || role === 'អ្នកគ្រប់គ្រង') {
           whSelect.value = 'ALL';
         } else if (whSelect.value === 'ALL') {
           whSelect.value = WAREHOUSES_LIST[0];
@@ -5509,7 +6261,7 @@
     function onRegisterRoleChange(role) {
       const whSelect = document.getElementById('regWarehouse');
       if (whSelect) {
-        if (role === 'អ្នកគ្រប់គ្រង' || role === 'Admin') {
+        if (role === 'Admin' || role === 'SuperAdmin' || role === 'អ្នកគ្រប់គ្រង') {
           whSelect.value = 'ALL';
         } else if (whSelect.value === 'ALL') {
           whSelect.value = WAREHOUSES_LIST[0];
@@ -5562,6 +6314,32 @@
       const u = (res.users || []).find(x => x.userId === userId);
       if (!u) return;
 
+      const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || !!sessionStorage.getItem('inventory_superadmin_session');
+
+      // Protect SuperAdmin from non-superadmin actors
+      if (u.role === 'SuperAdmin' && !isActorSuperAdmin) {
+        Swal.fire('គ្មានសិទ្ធិ', 'មានតែ SuperAdmin ប៉ុណ្ណោះដែលអាចកែប្រែគណនី SuperAdmin បាន!', 'warning');
+        return;
+      }
+
+      let roleOptions = '';
+      if (isActorSuperAdmin) {
+        roleOptions = `
+          <option value="SuperAdmin" ${u.role === 'SuperAdmin' ? 'selected' : ''}>👑 SuperAdmin (អភិបាលកំពូល)</option>
+          <option value="Admin" ${u.role === 'Admin' || u.role === 'អ្នកគ្រប់គ្រង' ? 'selected' : ''}>🛡️ Admin (អ្នកគ្រប់គ្រងប្រព័ន្ធ)</option>
+          <option value="ប្រធាន" ${u.role === 'ប្រធាន' || u.role === 'Manager' ? 'selected' : ''}>ប្រធាន (Manager)</option>
+          <option value="អ្នកកាន់ស្តុក" ${u.role === 'អ្នកកាន់ស្តុក' || u.role === 'Stock Keeper' ? 'selected' : ''}>អ្នកកាន់ស្តុក (Stock Keeper)</option>
+          <option value="Cashier" ${u.role === 'Cashier' || u.role === 'បេឡា' ? 'selected' : ''}>បេឡា (Cashier)</option>
+        `;
+      } else {
+        roleOptions = `
+          <option value="Admin" ${u.role === 'Admin' || u.role === 'អ្នកគ្រប់គ្រង' ? 'selected' : ''}>🛡️ Admin (អ្នកគ្រប់គ្រង)</option>
+          <option value="ប្រធាន" ${u.role === 'ប្រធាន' || u.role === 'Manager' ? 'selected' : ''}>ប្រធាន (Manager)</option>
+          <option value="អ្នកកាន់ស្តុក" ${u.role === 'អ្នកកាន់ស្តុក' || u.role === 'Stock Keeper' ? 'selected' : ''}>អ្នកកាន់ស្តុក (Stock Keeper)</option>
+          <option value="Cashier" ${u.role === 'Cashier' || u.role === 'បេឡា' ? 'selected' : ''}>បេឡា (Cashier)</option>
+        `;
+      }
+
       const whOptions = WAREHOUSES_LIST.map(wh => `<option value="${wh}" ${u.warehouse === wh ? 'selected' : ''}>📍 ${wh}</option>`).join('');
 
       const { value: formValues } = await Swal.fire({
@@ -5577,22 +6355,20 @@
             </div>
             <div>
               <label class="block font-bold text-slate-700 mb-1">តួនាទី (Role)៖</label>
-              <select id="swalEditRole" class="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg text-xs outline-none">
-                <option value="អ្នកគ្រប់គ្រង" ${u.role === 'អ្នកគ្រប់គ្រង' || u.role === 'Admin' ? 'selected' : ''}>អ្នកគ្រប់គ្រង</option>
-                <option value="ប្រធាន" ${u.role === 'ប្រធាន' || u.role === 'Manager' || u.role === 'Cashier' ? 'selected' : ''}>ប្រធាន</option>
-                <option value="អ្នកកាន់ស្តុក" ${u.role === 'អ្នកកាន់ស្តុក' || u.role === 'Stock Keeper' ? 'selected' : ''}>អ្នកកាន់ស្តុក</option>
+              <select id="swalEditRole" class="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg text-xs outline-none font-medium">
+                ${roleOptions}
               </select>
             </div>
             <div>
               <label class="block font-bold text-slate-700 mb-1">ឃ្លាំងដែលត្រូវគ្រប់គ្រង (Assigned Warehouse)៖</label>
-              <select id="swalEditWarehouse" class="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg text-xs outline-none">
-                <option value="ALL" ${u.warehouse === 'ALL' ? 'selected' : ''}>🏢 គ្រប់ស្ថានីយទាំងអស់ (Admin Only)</option>
+              <select id="swalEditWarehouse" class="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg text-xs outline-none font-medium">
+                <option value="ALL" ${u.warehouse === 'ALL' ? 'selected' : ''}>🏢 គ្រប់ស្ថានីយទាំងអស់ (Admin/SuperAdmin Only)</option>
                 ${whOptions}
               </select>
             </div>
             <div>
               <label class="block font-bold text-slate-700 mb-1">ស្ថានភាពគណនី៖</label>
-              <select id="swalEditStatus" class="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg text-xs outline-none">
+              <select id="swalEditStatus" class="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg text-xs outline-none font-medium">
                 <option value="Active" ${u.status === 'Active' ? 'selected' : ''}>Active (បើកដំណើរការ)</option>
                 <option value="Inactive" ${u.status === 'Inactive' ? 'selected' : ''}>Inactive (ផ្អាកដំណើរការ)</option>
               </select>
@@ -5622,15 +6398,28 @@
         if (updateRes.success) {
           Swal.fire('ជោគជ័យ', 'បានធ្វើបច្ចុប្បន្នភាពគណនីជោគជ័យ!', 'success');
           loadUsersList();
+        } else {
+          Swal.fire('កំហុស', updateRes.message, 'warning');
         }
       }
     }
 
     async function toggleUserStatus(userId, newStatus) {
+      const resUsers = await apiCall('getUsersList');
+      const targetUser = (resUsers && resUsers.users ? resUsers.users : LOCAL_DB.users).find(x => x.userId === userId);
+      const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || !!sessionStorage.getItem('inventory_superadmin_session');
+
+      if (targetUser && targetUser.role === 'SuperAdmin' && !isActorSuperAdmin) {
+        Swal.fire('គ្មានសិទ្ធិ', 'មានតែ SuperAdmin ប៉ុណ្ណោះដែលអាចបិទ/បើកដំណើរការគណនី SuperAdmin បាន!', 'warning');
+        return;
+      }
+
       const res = await apiCall('updateUserStatus', { userId, status: newStatus, adminUser: AppState.currentUser?.username });
       if (res.success) {
         Swal.fire('ជោគជ័យ', res.message, 'success');
         loadUsersList();
+      } else {
+        Swal.fire('កំហុស', res.message, 'warning');
       }
     }
 
@@ -6110,7 +6899,7 @@
         return;
       }
 
-      const isAdmin = (AppState.currentUser?.role === 'Admin');
+      const isAdmin = (AppState.currentUser?.role === 'Admin' || AppState.currentUser?.role === 'SuperAdmin');
 
       tbody.innerHTML = reqs.map(r => {
         const isPending = (r.status === 'Pending');
@@ -6171,7 +6960,7 @@
       document.getElementById('newRequestForm').reset();
       const whSelect = document.getElementById('reqInputWarehouse');
       if (whSelect && AppState.currentUser) {
-        if (AppState.currentUser.role !== 'Admin' && AppState.currentUser.warehouse && AppState.currentUser.warehouse !== 'ALL') {
+        if (AppState.currentUser.role !== 'Admin' && AppState.currentUser.role !== 'SuperAdmin' && AppState.currentUser.warehouse && AppState.currentUser.warehouse !== 'ALL') {
           whSelect.value = AppState.currentUser.warehouse;
           whSelect.disabled = true;
         } else {
@@ -6429,8 +7218,10 @@
               <!-- Sender Header -->
               <div class="flex items-center space-x-1.5 mb-1 text-[11px] ${isMe ? 'flex-row-reverse space-x-reverse' : ''}">
                 <span class="font-bold text-slate-800">${m.senderFullName || m.senderUsername}</span>
-                <span class="px-1.5 py-0.2 rounded text-[9px] font-bold ${m.senderRole === 'Admin' ? 'bg-purple-100 text-purple-700' : 'bg-slate-200 text-slate-700'
-          }">${m.senderRole}</span>
+                <span class="px-1.5 py-0.2 rounded text-[9px] font-bold ${
+                  m.senderRole === 'SuperAdmin' ? 'bg-amber-100 text-amber-800 font-black border border-amber-300' :
+                  m.senderRole === 'Admin' ? 'bg-purple-100 text-purple-700' : 'bg-slate-200 text-slate-700'
+                }">${m.senderRole}</span>
                 <span class="text-[10px] text-slate-400">• ${m.senderWarehouse ? m.senderWarehouse.split(' - ')[0] : ''}</span>
               </div>
 

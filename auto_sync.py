@@ -16,9 +16,25 @@ from datetime import datetime
 os.environ['PYTHONIOENCODING'] = 'utf-8'
 os.environ['PYTHONUTF8'] = '1'
 
-if sys.platform == 'win32' and hasattr(sys.stdout, 'reconfigure'):
+# Safe stdout/stderr for pythonw and background daemons
+if sys.stdout is None:
+    try:
+        sys.stdout = open(os.path.join(PROJECT_DIR, 'auto_sync.log'), 'a', encoding='utf-8', errors='replace')
+    except Exception:
+        sys.stdout = open(os.devnull, 'w')
+elif hasattr(sys.stdout, 'reconfigure'):
     try:
         sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+
+if sys.stderr is None:
+    try:
+        sys.stderr = open(os.path.join(PROJECT_DIR, 'auto_sync.log'), 'a', encoding='utf-8', errors='replace')
+    except Exception:
+        sys.stderr = open(os.devnull, 'w')
+elif hasattr(sys.stderr, 'reconfigure'):
+    try:
         sys.stderr.reconfigure(encoding='utf-8', errors='replace')
     except Exception:
         pass
