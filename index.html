@@ -2727,9 +2727,11 @@
         </div>
       </form>
     </div>
+  </div>
+
   <!-- D2. MY PROFILE MODAL (សម្រាប់ User និង Admin គ្រប់រូបកែប្រែព័ត៌មានផ្ទាល់ខ្លួន និងរូបថត) -->
   <div id="profileModal" onclick="if(event.target === this) closeProfileModal()"
-    class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 hidden">
+    class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 hidden">
     <div class="w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200 transform transition-all">
       <!-- Modal Header -->
       <div class="px-6 py-4 bg-gradient-to-r from-blue-700 via-indigo-700 to-cyan-600 text-white flex items-center justify-between shadow-md">
@@ -7006,7 +7008,23 @@
     // MY PROFILE FUNCTIONS (សម្រាប់ User និង Admin កែប្រែព័ត៌មានផ្ទាល់ខ្លួន)
     // ====================================================
     function openProfileModal() {
-      const u = AppState.currentUser;
+      // Close mobile sidebar if open
+      const sidebar = document.getElementById('sidebar');
+      if (sidebar && window.innerWidth < 768 && !sidebar.classList.contains('hidden')) {
+        sidebar.classList.add('hidden');
+      }
+
+      let u = AppState.currentUser;
+      if (!u) {
+        try {
+          const stored = sessionStorage.getItem('inventory_user') || localStorage.getItem('inventory_user');
+          if (stored) {
+            u = JSON.parse(stored);
+            AppState.currentUser = u;
+          }
+        } catch (e) {}
+      }
+
       if (!u) {
         Swal.fire('សូមចូលប្រើប្រាស់', 'សូមធ្វើការ Login ជាមុនសិន!', 'info');
         return;
