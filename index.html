@@ -1629,9 +1629,9 @@
                 <thead
                   class="bg-slate-100 text-slate-700 font-bold uppercase border-b border-slate-200 sticky top-0 z-20 shadow-sm">
                   <tr>
-                    <th class="px-4 py-3.5 bg-slate-100 sticky top-0 z-20">UserID & ឈ្មោះ</th>
+                    <th class="px-3 py-3.5 bg-slate-100 sticky top-0 z-20 text-center w-12">ល.រ</th>
                     <th class="px-4 py-3.5 bg-slate-100 sticky top-0 z-20">Username</th>
-                    <th class="px-4 py-3.5 bg-slate-100 sticky top-0 z-20">អ៊ីមែល</th>
+                    <th class="px-4 py-3.5 bg-slate-100 sticky top-0 z-20">ឈ្មោះពេញ / អ៊ីមែល</th>
                     <th class="px-4 py-3.5 bg-slate-100 sticky top-0 z-20">តួនាទី (Role)</th>
                     <th class="px-4 py-3.5 bg-slate-100 sticky top-0 z-20">ឃ្លាំងទទួលបន្ទុក</th>
                     <th class="px-4 py-3.5 bg-slate-100 sticky top-0 z-20 text-center">ស្ថានភាព</th>
@@ -6308,7 +6308,7 @@
           const tbody = document.getElementById('usersTableBody');
           const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || !!sessionStorage.getItem('inventory_superadmin_session');
 
-          tbody.innerHTML = (res.users || []).map(u => {
+          tbody.innerHTML = (res.users || []).map((u, idx) => {
             const isUserSuperAdmin = (u.role === 'SuperAdmin');
             const isUserAdmin = (u.role === 'Admin' || u.role === 'អ្នកគ្រប់គ្រង');
             const isSelf = (AppState.currentUser?.userId === u.userId || AppState.currentUser?.username === u.username);
@@ -6357,16 +6357,22 @@
 
             return `
               <tr class="hover:bg-slate-50 transition-colors ${isUserSuperAdmin ? 'bg-amber-50/20' : ''}">
-                <td class="px-4 py-3 font-mono text-slate-500 font-bold">${u.userId}</td>
+                <td class="px-3 py-3 text-center font-bold text-slate-500 text-xs">${idx + 1}</td>
                 <td class="px-4 py-3">
                   <div class="flex items-center space-x-2.5">
                     <div class="w-8 h-8 rounded-full overflow-hidden border border-slate-200 bg-slate-100 flex-shrink-0">
                       <img src="${u.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + u.username}" class="w-full h-full object-cover">
                     </div>
-                    <span class="font-bold text-blue-600">${u.username}</span>
+                    <div>
+                      <span class="font-bold text-blue-600 block">${u.username}</span>
+                      <span class="text-[10px] text-slate-400 font-mono">${u.userId || ''}</span>
+                    </div>
                   </div>
                 </td>
-                <td class="px-4 py-3 font-medium text-slate-800">${u.fullName || u.username}</td>
+                <td class="px-4 py-3">
+                  <div class="font-medium text-slate-800">${u.fullName || u.username}</div>
+                  ${u.email ? `<div class="text-[11px] text-slate-400">${u.email}</div>` : ''}
+                </td>
                 <td class="px-4 py-3">${roleBadgeHtml}</td>
                 <td class="px-4 py-3 text-slate-700 font-semibold text-xs">
                   ${u.warehouse === 'ALL' ? '<span class="text-purple-600 font-bold">🏢 គ្រប់ស្ថានីយទាំងអស់ (Admin/SuperAdmin)</span>' : `📍 ${u.warehouse || '-'}`}
