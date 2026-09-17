@@ -799,13 +799,17 @@ function getUsersList(userOrPayload) {
     }
   }
 
-  const isSuperAdmin = actor && (actor.role === 'SuperAdmin' || actor.username === 'superadmin');
-  const isAdmin = actor && (actor.role === 'Admin' || actor.role === 'អ្នកគ្រប់គ្រង' || actor.username === 'admin');
+  const isSuperAdmin = actor && (actor.role === 'SuperAdmin' || String(actor.username).toLowerCase() === 'superadmin');
+  const isAdmin = !isSuperAdmin && actor && (actor.role === 'Admin' || actor.role === 'អ្នកគ្រប់គ្រង' || String(actor.username).toLowerCase() === 'admin');
 
   if (isSuperAdmin) {
     return { success: true, users: users };
   } else if (isAdmin) {
-    return { success: true, users: users.filter(u => u.role !== 'SuperAdmin' && u.username !== 'superadmin') };
+    return { success: true, users: users.filter(u =>
+      u.role !== 'SuperAdmin' &&
+      String(u.username).toLowerCase() !== 'superadmin' &&
+      String(u.userId).toUpperCase() !== 'USR-SA'
+    ) };
   } else if (actor && (actor.userId || actor.username)) {
     const selfList = users.filter(u =>
       (actor.userId && u.userId === actor.userId) ||

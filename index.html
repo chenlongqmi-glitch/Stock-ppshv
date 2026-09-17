@@ -3752,21 +3752,25 @@
 
       if (action === 'getUsersList' || action === 'getUsers') {
         const actor = payload.user || AppState.currentUser;
-        const isSuperAdmin = (actor?.role === 'SuperAdmin') || (actor?.username === 'superadmin') || !!sessionStorage.getItem('inventory_superadmin_session');
-        const isAdmin = (actor?.role === 'Admin' || actor?.role === 'អ្នកគ្រប់គ្រង' || actor?.username === 'admin');
+        const isSuperAdmin = (actor?.role === 'SuperAdmin') || (String(actor?.username).toLowerCase() === 'superadmin');
+        const isAdmin = !isSuperAdmin && (actor?.role === 'Admin' || actor?.role === 'អ្នកគ្រប់គ្រង' || String(actor?.username).toLowerCase() === 'admin');
 
         if (isSuperAdmin) {
           // 1. SuperAdmin មើលឃើញទាំងអស់
           return { success: true, users: LOCAL_DB.users };
         } else if (isAdmin) {
           // 2. Admin មើលឃើញ User ទាំងអស់ តែមិនអាចឃើញ SuperAdmin
-          const filtered = LOCAL_DB.users.filter(u => u.role !== 'SuperAdmin' && u.username !== 'superadmin');
+          const filtered = LOCAL_DB.users.filter(u =>
+            u.role !== 'SuperAdmin' &&
+            String(u.username).toLowerCase() !== 'superadmin' &&
+            String(u.userId).toUpperCase() !== 'USR-SA'
+          );
           return { success: true, users: filtered };
         } else {
           // 3. User ធម្មតា អាចមើលឃើញព័ត៌មានខ្លួនឯងតែមួយគត់
           const selfList = LOCAL_DB.users.filter(u =>
             (actor?.userId && u.userId === actor.userId) ||
-            (actor?.username && u.username.toLowerCase() === actor.username.toLowerCase())
+            (actor?.username && String(u.username).toLowerCase() === String(actor.username).toLowerCase())
           );
           return { success: true, users: selfList.length > 0 ? selfList : (actor ? [actor] : []) };
         }
@@ -3849,7 +3853,7 @@
         const usr = LOCAL_DB.users.find(x => x.userId === payload.userId);
         if (usr) {
           const actor = AppState.currentUser;
-          const isActorSuperAdmin = (actor && actor.role === 'SuperAdmin') || !!sessionStorage.getItem('inventory_superadmin_session');
+          const isActorSuperAdmin = (actor && (actor.role === 'SuperAdmin' || String(actor.username).toLowerCase() === 'superadmin'));
 
           // Security check: Protect SuperAdmin accounts
           if (usr.role === 'SuperAdmin' && !isActorSuperAdmin) {
@@ -4127,6 +4131,7 @@
             localStorage.removeItem('inventory_user');
             localStorage.removeItem('inventory_login_timestamp');
           }
+          sessionStorage.removeItem('inventory_superadmin_session');
           showAppView();
           loadInitialData();
           Swal.fire({
@@ -6788,8 +6793,8 @@
         const res = await apiCall('getUsersList');
         if (res.success) {
           const tbody = document.getElementById('usersTableBody');
-          const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (AppState.currentUser?.username === 'superadmin') || !!sessionStorage.getItem('inventory_superadmin_session');
-          const isActorAdmin = (AppState.currentUser?.role === 'Admin' || AppState.currentUser?.role === 'អ្នកគ្រប់គ្រង' || AppState.currentUser?.username === 'admin');
+          const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
+          const isActorAdmin = !isActorSuperAdmin && (AppState.currentUser?.role === 'Admin' || AppState.currentUser?.role === 'អ្នកគ្រប់គ្រង' || String(AppState.currentUser?.username).toLowerCase() === 'admin');
 
           // Control "+ បន្ថែមបុគ្គលិកថ្មី" button visibility (Admin and SuperAdmin only)
           const addUserBtn = document.getElementById('addUserTopBtn');
@@ -6805,11 +6810,15 @@
           if (isActorSuperAdmin) {
             filteredUsers = res.users || [];
           } else if (isActorAdmin) {
-            filteredUsers = (res.users || []).filter(u => u.role !== 'SuperAdmin' && u.username !== 'superadmin');
+            filteredUsers = (res.users || []).filter(u =>
+              u.role !== 'SuperAdmin' &&
+              String(u.username).toLowerCase() !== 'superadmin' &&
+              String(u.userId).toUpperCase() !== 'USR-SA'
+            );
           } else {
             filteredUsers = (res.users || []).filter(u =>
               (u.userId && u.userId === AppState.currentUser?.userId) ||
-              (u.username && u.username.toLowerCase() === AppState.currentUser?.username?.toLowerCase())
+              (u.username && String(u.username).toLowerCase() === String(AppState.currentUser?.username).toLowerCase())
             );
           }
 
@@ -6915,7 +6924,7 @@
       document.getElementById('addAvatarPreview').src = 'https://api.dicebear.com/7.x/bottts/svg?seed=new' + Math.floor(Math.random() * 100);
       document.getElementById('addAvatarData').value = '';
 
-      const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || !!sessionStorage.getItem('inventory_superadmin_session');
+      const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
       const addRoleSelect = document.getElementById('addRole');
       if (addRoleSelect) {
         if (isActorSuperAdmin) {
@@ -7215,7 +7224,7 @@
       const u = (res.users || []).find(x => x.userId === userId);
       if (!u) return;
 
-      const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || !!sessionStorage.getItem('inventory_superadmin_session');
+      const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
 
       // Protect SuperAdmin from non-superadmin actors
       if (u.role === 'SuperAdmin' && !isActorSuperAdmin) {
@@ -7308,7 +7317,7 @@
     async function toggleUserStatus(userId, newStatus) {
       const resUsers = await apiCall('getUsersList');
       const targetUser = (resUsers && resUsers.users ? resUsers.users : LOCAL_DB.users).find(x => x.userId === userId);
-      const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || !!sessionStorage.getItem('inventory_superadmin_session');
+      const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
 
       if (targetUser && targetUser.role === 'SuperAdmin' && !isActorSuperAdmin) {
         Swal.fire('គ្មានសិទ្ធិ', 'មានតែ SuperAdmin ប៉ុណ្ណោះដែលអាចបិទ/បើកដំណើរការគណនី SuperAdmin បាន!', 'warning');
