@@ -3243,21 +3243,231 @@
       }
     }
 
+    // ====================================================
+    // BACKGROUND AUTO-UPDATE & SEAMLESS REFRESH SYSTEM
+    // ====================================================
+    let currentAppVersion = null;
+    let isUpdateChecking = false;
+    let lastUserActivityTime = Date.now();
+
+    // Track user activity (typing, clicking, mouse move)
+    ['mousedown', 'keydown', 'touchstart', 'input'].forEach(evt => {
+      window.addEventListener(evt, () => {
+        lastUserActivityTime = Date.now();
+      }, { passive: true });
+    });
+
+    function isUserBusyWithInputs() {
+      // 1. Any input or textarea is currently focused
+      const activeTag = document.activeElement ? document.activeElement.tagName : '';
+      if (['INPUT', 'TEXTAREA'].includes(activeTag)) return true;
+
+      // 2. Any active modal is currently open
+      const modalIds = [
+        'itemModal', 'profileModal', 'addUserModal', 'requestItemModal',
+        'scannerModal', 'warehouseModal', 'switchUserModal', 'forgotPasswordModal',
+        'largeImageModal', 'barcodePreviewModal'
+      ];
+      for (const mId of modalIds) {
+        const el = document.getElementById(mId);
+        if (el && !el.classList.contains('hidden')) return true;
+      }
+
+      // 3. SweetAlert2 popup is visible
+      if (typeof Swal !== 'undefined' && Swal.isVisible()) return true;
+
+      // 4. User typed or clicked in the last 4 seconds
+      if (Date.now() - lastUserActivityTime < 4000) return true;
+
+      return false;
+    }
+
+    async function checkAppVersionInBackground() {
+      if (isUpdateChecking) return;
+      isUpdateChecking = true;
+
+      try {
+        const res = await fetch('version.json?_t=' + Date.now(), { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          const remoteVer = String(data.version || data.buildTime || data.timestamp || '');
+
+          if (!currentAppVersion) {
+            currentAppVersion = remoteVer;
+            return;
+          }
+
+          if (remoteVer && remoteVer !== currentAppVersion) {
+            console.log(`[Auto-Update] New update detected: ${remoteVer} (Current: ${currentAppVersion})`);
+            triggerAppUpdate(remoteVer);
+          }
+        }
+      } catch (err) {
+        // Silently ignore offline / network glitches in background check
+      } finally {
+        isUpdateChecking = false;
+      }
+    }
+
+    function triggerAppUpdate(newVer) {
+      showUpdateNoticeBadge(newVer);
+      attemptSilentReload(newVer);
+    }
+
+    function showUpdateNoticeBadge(newVer) {
+      let badge = document.getElementById('appUpdateFloatingBadge');
+      if (!badge) {
+        badge = document.createElement('div');
+        badge.id = 'appUpdateFloatingBadge';
+        badge.className = 'fixed top-3 right-4 z-50 bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 text-white text-xs px-3.5 py-2 rounded-2xl shadow-2xl border border-white/40 flex items-center space-x-2.5 backdrop-blur-md cursor-pointer transition-all hover:scale-105 active:scale-95 animate-pulse';
+        badge.onclick = () => applyAppUpdateNow(newVer);
+        badge.innerHTML = `
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+          <i class="fa-solid fa-cloud-arrow-down text-sm text-cyan-200"></i>
+          <div>
+            <span class="font-bold block text-[11px]">មានកំណែប្រែថ្មី (New Version)</span>
+            <span class="text-[9px] text-blue-100">ចុចដើម្បី Refresh ភ្លាមៗ ឬប្រព័ន្ធនឹង Update ស្វ័យប្រវត្តិ</span>
+          </div>
+        `;
+        document.body.appendChild(badge);
+      }
+    }
+
+    function attemptSilentReload(newVer) {
+      if (window._silentUpdateTimer) clearInterval(window._silentUpdateTimer);
+      window._silentUpdateTimer = setInterval(() => {
+        if (!isUserBusyWithInputs()) {
+          clearInterval(window._silentUpdateTimer);
+          applyAppUpdateNow(newVer);
+        }
+      }, 3000);
+    }
+
+    function applyAppUpdateNow(newVer) {
+      // Save all current states before reloading so user stays exactly where they are!
+      if (AppState.currentUser) {
+        sessionStorage.setItem('inventory_user', JSON.stringify(AppState.currentUser));
+      }
+      if (AppState.currentTab) {
+        sessionStorage.setItem('inventory_active_tab', AppState.currentTab);
+      }
+      if (AppState.selectedAdminWarehouseFilter) {
+        sessionStorage.setItem('inventory_wh_filter', AppState.selectedAdminWarehouseFilter);
+      }
+      const mainElem = document.querySelector('main');
+      if (mainElem) {
+        sessionStorage.setItem('inventory_scroll_top', mainElem.scrollTop);
+      }
+
+      // Mark that an update occurred
+      sessionStorage.setItem('inventory_just_updated', 'true');
+
+      // Seamless reload
+      window.location.reload();
+    }
+
+    function initBackgroundUpdateChecker() {
+      setTimeout(checkAppVersionInBackground, 3000);
+      setInterval(checkAppVersionInBackground, 20000);
+
+      window.addEventListener('focus', checkAppVersionInBackground);
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          checkAppVersionInBackground();
+        }
+      });
+    }
+
+    function initScrollRestoration() {
+      const mainElem = document.querySelector('main');
+      if (mainElem) {
+        mainElem.addEventListener('scroll', () => {
+          sessionStorage.setItem('inventory_scroll_top', mainElem.scrollTop);
+        }, { passive: true });
+      }
+    }
+
+    function showUpdateSuccessToast() {
+      const toast = document.createElement('div');
+      toast.className = 'fixed bottom-4 right-4 z-50 bg-slate-900/95 text-white text-xs px-4 py-2.5 rounded-2xl shadow-2xl border border-emerald-500/40 backdrop-blur-md flex items-center space-x-2.5 transition-all duration-500';
+      toast.innerHTML = `
+        <span class="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs">
+          <i class="fa-solid fa-check"></i>
+        </span>
+        <div>
+          <p class="font-bold text-white">ប្រព័ន្ធបាន Update រួចរាល់!</p>
+          <p class="text-[10px] text-slate-300">ទិន្នន័យ និងមុខងារចុងក្រោយត្រូវបាន Refresh ជោគជ័យ</p>
+        </div>
+      `;
+      document.body.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(10px)';
+        setTimeout(() => toast.remove(), 500);
+      }, 3500);
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       updateClock();
       setInterval(updateClock, 1000);
       refreshAllWarehouseDropdowns();
 
-      // ALWAYS require Login first on application launch as requested
-      localStorage.removeItem('inventory_user');
-      sessionStorage.removeItem('inventory_user');
-      AppState.currentUser = null;
-      document.getElementById('authSection').classList.remove('hidden');
-      document.getElementById('mainApp').classList.add('hidden');
-      toggleAuthView('login');
+      // Check for saved warehouse filter
+      const savedWhFilter = sessionStorage.getItem('inventory_wh_filter');
+      if (savedWhFilter) {
+        AppState.selectedAdminWarehouseFilter = savedWhFilter;
+        const selector = document.getElementById('globalWarehouseSelector');
+        if (selector) selector.value = savedWhFilter;
+      }
 
-      // Load remembered credentials (blank by default unless user checked 'Remember Me')
-      loadRememberedCredentials();
+      // Check for active logged-in session (so Refresh NEVER kicks user out!)
+      let savedUser = null;
+      try {
+        const sessionData = sessionStorage.getItem('inventory_user') || localStorage.getItem('inventory_user');
+        if (sessionData) {
+          savedUser = JSON.parse(sessionData);
+        }
+      } catch (e) {
+        console.error('Error parsing session user', e);
+      }
+
+      if (savedUser && (savedUser.username || savedUser.userId)) {
+        AppState.currentUser = savedUser;
+        showAppView();
+        loadInitialData();
+
+        // Restore active tab
+        const hashTab = window.location.hash.replace('#', '');
+        const savedTab = sessionStorage.getItem('inventory_active_tab');
+        const targetTab = hashTab || savedTab || 'dashboard';
+        navigateTab(targetTab);
+
+        // Restore scroll position
+        const savedScroll = sessionStorage.getItem('inventory_scroll_top');
+        if (savedScroll) {
+          setTimeout(() => {
+            const mainElem = document.querySelector('main');
+            if (mainElem) mainElem.scrollTop = parseInt(savedScroll, 10) || 0;
+          }, 200);
+        }
+
+        // Notification if just updated in background
+        if (sessionStorage.getItem('inventory_just_updated')) {
+          sessionStorage.removeItem('inventory_just_updated');
+          showUpdateSuccessToast();
+        }
+      } else {
+        // No existing session: show login screen
+        AppState.currentUser = null;
+        document.getElementById('authSection').classList.remove('hidden');
+        document.getElementById('mainApp').classList.add('hidden');
+        toggleAuthView('login');
+        loadRememberedCredentials();
+      }
+
+      // Start background auto-update checker and scroll listener
+      initBackgroundUpdateChecker();
+      initScrollRestoration();
     });
 
     // Handle ESC (Escape) Key Press to Cancel / Close any active Modal
@@ -4607,6 +4817,8 @@
           sessionStorage.removeItem('inventory_user');
           localStorage.removeItem('inventory_user');
           sessionStorage.removeItem('inventory_superadmin_session');
+          sessionStorage.removeItem('inventory_active_tab');
+          sessionStorage.removeItem('inventory_scroll_top');
           AppState.currentUser = null;
           AppState.loginTimestamp = null;
           document.getElementById('authSection').classList.remove('hidden');
@@ -4619,6 +4831,7 @@
 
     function handleGlobalWarehouseChange(whValue) {
       AppState.selectedAdminWarehouseFilter = whValue;
+      sessionStorage.setItem('inventory_wh_filter', whValue);
       const sessionWarehouseName = document.getElementById('activeSessionWarehouseName');
       if (sessionWarehouseName) {
         sessionWarehouseName.innerText = (whValue === 'ALL') ? '🏢 គ្រប់ស្ថានីយទាំងអស់ (Admin Only)' : `📍 ${whValue} (Admin Switch)`;
@@ -4724,6 +4937,10 @@
 
     function navigateTab(tabName) {
       AppState.currentTab = tabName;
+      sessionStorage.setItem('inventory_active_tab', tabName);
+      if (window.history && window.history.replaceState) {
+        window.history.replaceState(null, null, '#' + tabName);
+      }
 
       document.getElementById('tabDashboard').classList.toggle('hidden', tabName !== 'dashboard');
       document.getElementById('tabItems').classList.toggle('hidden', tabName !== 'items');
@@ -4769,13 +4986,23 @@
       if (tabName === 'settings') loadSettings();
     }
 
-    function refreshCurrentTab() {
+    async function refreshCurrentTab() {
       const icon = document.getElementById('refreshIcon');
       if (icon) icon.classList.add('fa-spin');
-      navigateTab(AppState.currentTab);
-      setTimeout(() => {
-        if (icon) icon.classList.remove('fa-spin');
-      }, 600);
+      try {
+        await Promise.all([
+          loadDashboard(),
+          loadItems(),
+          loadProductRequests()
+        ]);
+        navigateTab(AppState.currentTab);
+      } catch (e) {
+        navigateTab(AppState.currentTab);
+      } finally {
+        setTimeout(() => {
+          if (icon) icon.classList.remove('fa-spin');
+        }, 500);
+      }
     }
 
     // Dashboard Functions

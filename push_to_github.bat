@@ -52,6 +52,19 @@ if %ERRORLEVEL% NEQ 0 (
     %GIT_CMD% config user.email "chenlongqmi@users.noreply.github.com"
 )
 
+:: 4.5. Update version.json with new build timestamp for web background auto-refresh
+for /f "delims=" %%t in ('powershell -NoProfile -Command "[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()" 2^>nul') do set "BUILD_TIME=%%t"
+for /f "delims=" %%d in ('powershell -NoProfile -Command "Get-Date -Format 'yyyy-MM-dd HH:mm:ss'" 2^>nul') do set "BUILD_DATE=%%d"
+if not "!BUILD_TIME!"=="" (
+    (
+      echo {
+      echo   "version": "!BUILD_TIME!",
+      echo   "buildTime": !BUILD_TIME!,
+      echo   "timestamp": "!BUILD_DATE!"
+      echo }
+    ) > version.json
+)
+
 :: 5. Add all files
 echo [*] កំពុងរៀបចំឯកសារ (Staging files)...
 %GIT_CMD% add -A
