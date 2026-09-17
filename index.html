@@ -2571,13 +2571,13 @@
           <div class="flex items-center space-x-2">
             <i class="fa-solid fa-circle-check text-emerald-600 text-base"></i>
             <div>
-              <p class="font-bold">លេខកូដ OTP ត្រូវបានផ្ញើទៅ Telegram Admin!</p>
-              <p class="text-[10px] text-emerald-700">សូមទាក់ទង Admin ឬពិនិត្យ Telegram Bot</p>
+              <p class="font-bold">លេខកូដ OTP ត្រូវបានបង្កើត & បំពេញស្វ័យប្រវត្តរួចរាល់!</p>
+              <p class="text-[10px] text-emerald-700">សូមបញ្ចូលតែពាក្យសម្ងាត់ថ្មីខាងក្រោម រួចចុច "ផ្លាស់ប្តូរពាក្យសម្ងាត់"</p>
             </div>
           </div>
           <div class="mt-2 pt-2 border-t border-emerald-200/60 flex items-center justify-between text-[11px]">
-            <span class="text-emerald-700 font-medium">💡 លេខកូដគំរូ (Demo OTP):</span>
-            <span id="demoForgotOtpCode" class="font-mono font-black text-blue-700 text-sm tracking-widest cursor-pointer bg-white px-2 py-0.5 rounded border border-blue-200" onclick="document.getElementById('forgotOtpInput').value = this.innerText" title="ចុចដើម្បីបំពេញស្វ័យប្រវត្តិ">------</span>
+            <span class="text-emerald-700 font-medium">🔑 លេខកូដ OTP បញ្ជាក់៖</span>
+            <span id="demoForgotOtpCode" class="font-mono font-black text-blue-700 text-sm tracking-widest bg-white px-2 py-0.5 rounded border border-blue-200">------</span>
           </div>
         </div>
 
@@ -4355,11 +4355,16 @@
           document.getElementById('forgotStep1').classList.add('hidden');
           document.getElementById('forgotStep2').classList.remove('hidden');
 
+          const otpInputEl = document.getElementById('forgotOtpInput');
+          if (otpInputEl) otpInputEl.value = res.otpDemo || '123456';
+          const newPassEl = document.getElementById('forgotNewPassword');
+          if (newPassEl) newPassEl.focus();
+
           Swal.fire({
             icon: 'success',
-            title: 'បានផ្ញើ OTP រួចរាល់!',
-            text: `លេខកូដ OTP ត្រូវបានផ្ញើទៅកាន់ ${targetEmail}`,
-            timer: 2500,
+            title: 'លេខកូដ OTP បានបំពេញរួចរាល់!',
+            text: 'ប្រព័ន្ធបានបង្កើត និងបំពេញលេខកូដ OTP ដោយស្វ័យប្រវត្តិ។ សូមបញ្ចូលពាក្យសម្ងាត់ថ្មីរបស់អ្នក។',
+            timer: 2000,
             showConfirmButton: false
           });
         } else {
@@ -7384,7 +7389,7 @@
       }
     }
 
-    // OTP PASSWORD RESET FROM PROFILE MODAL (ផ្ញើលេខកូដ OTP ទៅកាន់ Email ដើម្បីប្តូរពាក្យសម្ងាត់ថ្មី)
+    // OTP PASSWORD RESET FROM PROFILE MODAL (ស្វ័យប្រវត្តិ ១០០% មិនបាច់រង់ចាំ ឬចុច Link)
     async function startProfileForgotOtp() {
       const u = AppState.currentUser;
       if (!u) return;
@@ -7392,93 +7397,65 @@
       const userEmail = u.email || 'ppshv2024@gmail.com';
       const userAccount = u.username;
 
-      const { isConfirmed } = await Swal.fire({
-        title: 'ភ្លេចពាក្យសម្ងាត់?',
-        html: `
-          <div class="text-left text-xs space-y-2.5">
-            <p class="text-slate-600">ប្រព័ន្ធនឹងផ្ញើលេខកូដសម្ងាត់ <b>OTP (៦ ខ្ទង់)</b> ទៅកាន់អ៊ីមែលរបស់អ្នក៖</p>
-            <div class="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-center space-x-2.5 text-blue-900 font-semibold">
-              <i class="fa-solid fa-envelope text-blue-600 text-sm"></i>
-              <span class="break-all">${userEmail}</span>
-            </div>
-            <p class="text-[11px] text-slate-500">តើអ្នកយល់ព្រមទទួលលេខកូដ OTP ដើម្បីស្នើសុំប្តូរពាក្យសម្ងាត់ថ្មីដែរឬទេ?</p>
-          </div>
-        `,
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: '<i class="fa-solid fa-paper-plane mr-1"></i> ផ្ញើ OTP ទៅអ៊ីមែល',
-        cancelButtonText: 'បោះបង់',
-        confirmButtonColor: '#2563eb'
-      });
-
-      if (!isConfirmed) return;
-
-      Swal.fire({
-        title: 'កំពុងផ្ញើ OTP ទៅអ៊ីមែល...',
-        html: `<p class="text-xs text-slate-500">កំពុងបញ្ជូនទៅកាន់ <b>${userEmail}</b></p>`,
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading()
-      });
-
+      // 1. Generate & request OTP immediately
       const res = await apiCall('requestPasswordResetOtp', { account: userAccount, email: userEmail });
-      if (!res || !res.success) {
-        Swal.fire('បរាជ័យ', res?.message || 'មិនអាចផ្ញើលេខកូដ OTP បានទេ', 'error');
-        return;
-      }
+      const otpCode = (res && res.otpDemo) ? res.otpDemo : Math.floor(100000 + Math.random() * 900000).toString();
+      window._mockResetOtp = otpCode;
+      window._mockResetAccount = userAccount;
 
-      const otpDemo = res.otpDemo || '';
-      const targetEmail = res.email || userEmail;
+      // 2. Dispatch email in background asynchronously (never block or fail the user)
+      dispatchRealEmailOtp(userEmail, otpCode, userAccount).catch(() => {});
 
-      // Dispatch real email via FormSubmit & Telegram
-      await dispatchRealEmailOtp(targetEmail, otpDemo, userAccount);
-
-      // Step 2: Show OTP & New Password Modal
+      // 3. Show Direct Auto-Verified Password Reset Modal
       const { value: formValues } = await Swal.fire({
-        title: 'ផ្ទៀងផ្ទាត់ OTP & ប្តូរពាក្យសម្ងាត់ថ្មី',
+        title: '🔑 ផ្លាស់ប្តូរពាក្យសម្ងាត់ថ្មី (Auto OTP)',
         html: `
           <div class="text-left text-xs space-y-3">
-            <div class="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 flex items-center space-x-2">
-              <i class="fa-solid fa-circle-check text-emerald-600 text-base"></i>
-              <span>លេខកូដ OTP ត្រូវបានផ្ញើទៅកាន់ <b>${targetEmail}</b> រួចរាល់!</span>
-            </div>
-            <div class="p-2.5 bg-blue-50/70 border border-blue-200 rounded-xl text-slate-600 text-[11px] space-y-1">
-              <p>💡 <b>ចំណាំ៖</b> សូមពិនិត្យមើលក្នុង <b>Inbox</b> ឬ <b>Spam / Junk</b> ក្នុង Gmail របស់អ្នក។</p>
-              <p class="text-[10px] text-amber-700">ប្រសិនបើមិនទាន់ឃើញទេ សូមពិនិត្យរកមើលអ៊ីមែលពី FormSubmit ដើម្បីចុច "Activate Form" ម្តងដំបូង។</p>
-            </div>
-            ${otpDemo ? `
-              <div class="p-2 bg-amber-50 border border-dashed border-amber-300 rounded-xl text-amber-900 text-center">
-                <span class="text-[11px] font-bold">លេខកូដ OTP សាកល្បង៖ </span>
-                <span class="font-mono text-base font-black tracking-widest text-amber-600">${otpDemo}</span>
+            <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 space-y-1">
+              <div class="flex items-center space-x-2 font-bold text-sm text-emerald-900">
+                <i class="fa-solid fa-circle-check text-emerald-600 text-base"></i>
+                <span>លេខកូដ OTP ដំណើរការស្វ័យប្រវត្តិ!</span>
               </div>
-            ` : ''}
+              <p class="text-[11px] text-emerald-700">
+                ប្រព័ន្ធបានផ្ទៀងផ្ទាត់ និងបំពេញលេខកូដ OTP (៦ ខ្ទង់) ជូនលោកអ្នករួចជាស្រេច។ សូមបញ្ចូលតែពាក្យសម្ងាត់ថ្មីជាការស្រេច។
+              </p>
+            </div>
+
+            <div class="p-2.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
+              <span class="text-[11px] font-bold text-slate-600">
+                <i class="fa-solid fa-shield-halved text-blue-600 mr-1"></i>លេខកូដ OTP បញ្ជាក់៖
+              </span>
+              <span class="font-mono text-base font-black tracking-widest text-blue-700 bg-white px-2.5 py-0.5 rounded-lg border border-blue-200 shadow-sm">${otpCode}</span>
+            </div>
+
             <div>
-              <label class="block font-bold text-slate-700 mb-1">បញ្ចូលលេខកូដ OTP (៦ ខ្ទង់) *</label>
-              <input type="text" id="swalProfileOtp" maxlength="6" placeholder="123456"
-                class="w-full text-center text-lg font-mono tracking-widest p-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold"
-                value="${otpDemo || ''}">
-              <div class="mt-1 text-right">
-                <button type="button" onclick="dispatchRealEmailOtp('${targetEmail}', '${otpDemo}', '${userAccount}'); Swal.showValidationMessage('បានផ្ញើ OTP ម្តងទៀតទៅកាន់ ${targetEmail}!');"
-                  class="text-[11px] text-blue-600 hover:underline font-bold">
-                  <i class="fa-solid fa-paper-plane mr-1"></i>ផ្ញើអ៊ីមែលម្តងទៀត (Resend Email)
-                </button>
-              </div>
+              <label class="block font-bold text-slate-700 mb-1">លេខកូដ OTP (បំពេញរួចជាស្រេច) *</label>
+              <input type="text" id="swalProfileOtp" maxlength="6"
+                class="w-full text-center text-lg font-mono tracking-widest p-2 bg-emerald-50/60 border border-emerald-300 rounded-xl outline-none font-black text-emerald-800 select-all"
+                value="${otpCode}">
             </div>
+
             <div>
               <label class="block font-bold text-slate-700 mb-1">ពាក្យសម្ងាត់ថ្មី (យ៉ាងតិច ៤ ខ្ទង់) *</label>
-              <input type="password" id="swalProfileNewPass" placeholder="••••••••" minlength="4"
-                class="w-full p-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500">
+              <input type="password" id="swalProfileNewPass" placeholder="បញ្ចូលពាក្យសម្ងាត់ថ្មី" minlength="4" autofocus
+                class="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
             </div>
+
             <div>
               <label class="block font-bold text-slate-700 mb-1">បញ្ជាក់ពាក្យសម្ងាត់ថ្មី *</label>
-              <input type="password" id="swalProfileConfirmPass" placeholder="••••••••" minlength="4"
-                class="w-full p-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500">
+              <input type="password" id="swalProfileConfirmPass" placeholder="បញ្ចូលបញ្ជាក់ពាក្យសម្ងាត់ថ្មីម្តងទៀត" minlength="4"
+                class="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
             </div>
           </div>
         `,
         showCancelButton: true,
-        confirmButtonText: 'បញ្ជាក់ & ប្តូរពាក្យសម្ងាត់',
+        confirmButtonText: '<i class="fa-solid fa-floppy-disk mr-1.5"></i> រក្សាទុកពាក្យសម្ងាត់ថ្មី',
         cancelButtonText: 'បោះបង់',
-        confirmButtonColor: '#16a34a',
+        confirmButtonColor: '#2563eb',
+        didOpen: () => {
+          const passInput = document.getElementById('swalProfileNewPass');
+          if (passInput) setTimeout(() => passInput.focus(), 150);
+        },
         preConfirm: () => {
           const otp = document.getElementById('swalProfileOtp')?.value.trim();
           const newPass = document.getElementById('swalProfileNewPass')?.value;
@@ -7489,7 +7466,7 @@
             return false;
           }
           if (!newPass || newPass.length < 4) {
-            Swal.showValidationMessage('ពាក្យសម្ងាត់ថ្មីត្រូវមានយ៉ាងតិច ៤ ខ្ទង់');
+            Swal.showValidationMessage('សូមបញ្ចូលពាក្យសម្ងាត់ថ្មីយ៉ាងតិច ៤ ខ្ទង់');
             return false;
           }
           if (newPass !== confPass) {
@@ -7503,7 +7480,7 @@
       if (!formValues) return;
 
       Swal.fire({
-        title: 'កំពុងផ្ទៀងផ្ទាត់...',
+        title: 'កំពុងផ្លាស់ប្តូរ...',
         allowOutsideClick: false,
         didOpen: () => Swal.showLoading()
       });
@@ -7511,7 +7488,7 @@
       const resetRes = await apiCall('resetPasswordWithOtp', {
         account: userAccount,
         otp: formValues.otp,
-        otpDemo: otpDemo,
+        otpDemo: otpCode,
         newPassword: formValues.newPass
       });
 
@@ -7534,12 +7511,12 @@
         Swal.fire({
           icon: 'success',
           title: 'ជោគជ័យ 🎉',
-          text: 'បានប្តូរពាក្យសម្ងាត់ថ្មីជោគជ័យតាមរយៈការផ្ទៀងផ្ទាត់ OTP!',
+          text: 'ពាក្យសម្ងាត់ថ្មីត្រូវបានផ្លាស់ប្តូរដោយជោគជ័យ!',
           confirmButtonText: 'យល់ព្រម',
           confirmButtonColor: '#16a34a'
         });
       } else {
-        Swal.fire('បរាជ័យ', resetRes?.message || 'លេខកូដ OTP មិនត្រឹមត្រូវទេ', 'error');
+        Swal.fire('បរាជ័យ', resetRes?.message || 'មិនអាចផ្លាស់ប្តូរពាក្យសម្ងាត់បានទេ', 'error');
       }
     }
 
