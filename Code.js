@@ -220,7 +220,7 @@ function setupDatabase() {
     // Default Admin: admin / admin123 (Can access ALL 11 Warehouses)
     const salt = generateSalt();
     const hash = hashPassword('admin123', salt);
-    usersSheet.appendRow(['USR-001', 'admin', 'System Administrator (Admin)', 'admin@inventory.local', hash, salt, 'Admin', 'Active', new Date(), 'ALL']);
+    usersSheet.appendRow(['USR-001', 'admin', '聂稳新', 'ppshv2024@gmail.com', hash, salt, 'Admin', 'Active', new Date(), 'ALL', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', '098880803']);
 
     // Seed 11 Warehouse / Station Users (wh01 to wh11)
     const defaultWarehouses = [
@@ -494,10 +494,10 @@ function loginUser(usernameOrData, password) {
   if (uInput === 'admin' && pInput === 'admin123') {
     const salt = generateSalt();
     const hash = hashPassword('admin123', salt);
-    sheet.appendRow(['USR-001', 'admin', 'System Administrator', 'admin@inventory.local', hash, salt, 'Admin', 'Active', new Date(), 'ALL']);
+    sheet.appendRow(['USR-001', 'admin', '聂稳新', 'ppshv2024@gmail.com', hash, salt, 'Admin', 'Active', new Date(), 'ALL', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', '098880803']);
     return {
       success: true,
-      user: { userId: 'USR-001', username: 'admin', fullName: 'System Administrator', email: 'admin@inventory.local', role: 'Admin', warehouse: 'ALL' }
+      user: { userId: 'USR-001', username: 'admin', fullName: '聂稳新', email: 'ppshv2024@gmail.com', phone: '098880803', role: 'Admin', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150' }
     };
   }
 
@@ -736,7 +736,7 @@ function resetPasswordWithOtp(payload) {
   } else {
     // If user was built-in admin or superadmin not yet in sheet, append row
     if (account === 'admin') {
-      sheet.appendRow(['USR-001', 'admin', 'System Administrator', 'admin@inventory.local', newHash, newSalt, 'Admin', 'Active', new Date(), 'ALL']);
+      sheet.appendRow(['USR-001', 'admin', '聂稳新', 'ppshv2024@gmail.com', newHash, newSalt, 'Admin', 'Active', new Date(), 'ALL', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', '098880803']);
     } else if (account === 'superadmin') {
       sheet.appendRow(['USR-SA', 'superadmin', '陈龙', 'chenlongqmi@gmail.com', newHash, newSalt, 'SuperAdmin', 'Active', new Date(), 'ALL', 'assets/superadmin_avatar.jpg', '066966606']);
     } else {
