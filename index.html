@@ -675,7 +675,7 @@
           <span class="ml-2">គ្រប់គ្រង User & សិទ្ធិ</span>
         </a>
 
-        <a href="#settings" onclick="navigateTab('settings')"
+        <a href="#settings" onclick="navigateTab('settings')" id="navSettings"
           class="nav-link flex items-center px-3.5 py-2.5 rounded-xl hover:bg-white/15 hover:text-white transition-all text-blue-100/90">
           <i class="fa-solid fa-sliders w-6 text-center text-blue-200"></i>
           <span class="ml-2">ការកំណត់ & Telegram</span>
@@ -4752,6 +4752,10 @@
           const navText = navUsers.querySelector('span.ml-2');
           if (navText) navText.innerText = 'គ្រប់គ្រង User & សិទ្ធិ';
         }
+        const navSettings = document.getElementById('navSettings');
+        if (navSettings) {
+          navSettings.style.display = 'flex';
+        }
       } else {
         const assignedWh = u.warehouse || WAREHOUSES_LIST[0];
         if (whLabel) whLabel.innerText = assignedWh;
@@ -4762,9 +4766,11 @@
         }
         const navUsers = document.getElementById('navUsers');
         if (navUsers) {
-          navUsers.style.display = 'flex';
-          const navText = navUsers.querySelector('span.ml-2');
-          if (navText) navText.innerText = 'ព័ត៌មានគណនីខ្ញុំ';
+          navUsers.style.display = 'none';
+        }
+        const navSettings = document.getElementById('navSettings');
+        if (navSettings) {
+          navSettings.style.display = 'none';
         }
 
         // Auto lock transfer origin location to their warehouse
@@ -5143,6 +5149,12 @@
     }
 
     function navigateTab(tabName) {
+      const u = AppState.currentUser;
+      const isAdmin = (u && (u.role === 'Admin' || u.role === 'SuperAdmin'));
+      if (!isAdmin && (tabName === 'users' || tabName === 'settings')) {
+        tabName = 'dashboard';
+      }
+
       AppState.currentTab = tabName;
       sessionStorage.setItem('inventory_active_tab', tabName);
       if (window.history && window.history.replaceState) {
