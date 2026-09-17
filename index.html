@@ -7451,7 +7451,7 @@
       let isSuccess = false;
 
       while (!isSuccess) {
-        const { value: formValues, isDismissed } = await Swal.fire({
+        const modalResult = await Swal.fire({
           title: 'ផ្ទៀងផ្ទាត់ OTP & ប្តូរពាក្យសម្ងាត់ថ្មី',
           html: `
             <div class="text-left text-xs space-y-3">
@@ -7510,6 +7510,8 @@
           confirmButtonText: 'បញ្ជាក់ & ប្តូរពាក្យសម្ងាត់',
           cancelButtonText: 'បោះបង់',
           confirmButtonColor: '#16a34a',
+          allowOutsideClick: false,
+          allowEscapeKey: false,
           didOpen: () => {
             const otpField = document.getElementById('swalProfileOtp');
             if (otpField) otpField.focus();
@@ -7535,10 +7537,11 @@
           }
         });
 
-        if (isDismissed || !formValues) {
+        if (!modalResult.isConfirmed || !modalResult.value) {
           return; // user clicked cancel
         }
 
+        const formValues = modalResult.value;
         enteredPass = formValues.newPass;
         enteredConfirmPass = formValues.confPass;
 
@@ -7589,6 +7592,9 @@
             confirmButtonText: 'OK',
             confirmButtonColor: '#6366f1'
           });
+
+          // Small pause to let previous modal finish closing cleanly before re-opening OTP modal
+          await new Promise(r => setTimeout(r, 120));
         }
       }
     }
