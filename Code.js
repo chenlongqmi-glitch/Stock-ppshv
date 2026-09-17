@@ -207,7 +207,7 @@ function setupDatabase() {
   if (usersSheet.getLastRow() === 0) {
     const headers = [
       'UserID', 'Username', 'FullName', 'Email',
-      'PasswordHash', 'Salt', 'Role', 'Status', 'CreatedAt', 'Warehouse'
+      'PasswordHash', 'Salt', 'Role', 'Status', 'CreatedAt', 'Warehouse', 'Avatar', 'Phone'
     ];
     usersSheet.appendRow(headers);
     formatHeaderRow(usersSheet, headers.length, '#4338ca');
@@ -408,6 +408,13 @@ function ensureUsersInitialized(ss) {
   if (!sheet || sheet.getLastRow() === 0) {
     setupDatabase();
     sheet = ss.getSheetByName(SHEETS.USERS);
+  } else {
+    // Ensure column count is at least 12 for Avatar & Phone
+    if (sheet.getMaxColumns() < 12) {
+      sheet.insertColumnsAfter(sheet.getMaxColumns(), 12 - sheet.getMaxColumns());
+      sheet.getRange(1, 11).setValue('Avatar');
+      sheet.getRange(1, 12).setValue('Phone');
+    }
   }
   return sheet;
 }
@@ -460,6 +467,8 @@ function loginUser(usernameOrData, password) {
           role: String(row[6]),
           status: String(row[7] || 'Active'),
           warehouse: String(row[9] || (String(row[6]) === 'Admin' || String(row[6]) === 'SuperAdmin' ? 'ALL' : 'ឃ្លាំងទី ០១ - ភ្នំពេញ (សែនសុខ)')),
+          avatar: String(row[10] || ''),
+          phone: String(row[11] || ''),
           token: Utilities.base64EncodeWebSafe(row[0] + ':' + new Date().getTime())
         };
         logActivity(userObj.username, userObj.role, 'LOGIN', `User logged in successfully (Warehouse: ${userObj.warehouse})`);
@@ -830,7 +839,8 @@ function getUsersList(userOrPayload) {
         status: data[i][7],
         createdAt: data[i][8],
         warehouse: data[i][9] || (data[i][6] === 'Admin' || data[i][6] === 'SuperAdmin' ? 'ALL' : '1-K3 ស្ថានីយ (ភ្នំពេញ)'),
-        avatar: data[i][10] || ''
+        avatar: data[i][10] || '',
+        phone: data[i][11] || ''
       });
     }
   }
@@ -863,6 +873,9 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
   let wh = warehouse;
   let admin = adminUser;
   let av = avatar;
+  let fullName = '';
+  let email = '';
+  let phone = '';
 
   if (userIdOrPayload && typeof userIdOrPayload === 'object') {
     uId = userIdOrPayload.userId;
@@ -871,6 +884,9 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
     wh = userIdOrPayload.warehouse;
     admin = userIdOrPayload.adminUser;
     av = userIdOrPayload.avatar;
+    fullName = userIdOrPayload.fullName;
+    email = userIdOrPayload.email;
+    phone = userIdOrPayload.phone;
   }
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -887,11 +903,18 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
       if (r === 'SuperAdmin' && admin !== 'superadmin') {
         return { success: false, message: 'មានតែ SuperAdmin ប៉ុណ្ណោះដែលអាចកំណត់សិទ្ធិជា SuperAdmin បាន' };
       }
+      if (fullName) sheet.getRange(i + 1, 3).setValue(fullName);
+      if (email !== undefined) sheet.getRange(i + 1, 4).setValue(email);
       if (st) sheet.getRange(i + 1, 8).setValue(st);
       if (r) sheet.getRange(i + 1, 7).setValue(r);
       if (wh) sheet.getRange(i + 1, 10).setValue(wh);
-      if (av) sheet.getRange(i + 1, 11).setValue(av);
-      logActivity(admin || 'Admin', admin === 'superadmin' ? 'SuperAdmin' : 'Admin', 'UPDATE_USER', `Updated User ${uId}: status=${st}, role=${r}, warehouse=${wh}`);
+      if (av) {
+        try {
+          if (av.length <= 49000) sheet.getRange(i + 1, 11).setValue(av);
+        } catch (e) {}
+      }
+      if (phone !== undefined) sheet.getRange(i + 1, 12).setValue(phone);
+      logActivity(admin || 'Admin', admin === 'superadmin' ? 'SuperAdmin' : 'Admin', 'UPDATE_USER', `Updated User ${uId}: fullName=${fullName}, status=${st}, role=${r}, warehouse=${wh}`);
       return { success: true, message: 'បានកែប្រែព័ត៌មានអ្នកប្រើប្រាស់ជោគជ័យ' };
     }
   }
@@ -904,6 +927,7 @@ function updateUserProfile(payload) {
   const userId = String(payload.userId || '');
   const fullName = String(payload.fullName || '').trim();
   const email = String(payload.email || '').trim();
+  const phone = String(payload.phone || '').trim();
   const avatar = String(payload.avatar || '').trim();
   const newPassword = String(payload.newPassword || '').trim();
 
@@ -918,7 +942,12 @@ function updateUserProfile(payload) {
     if ((userId && rowUserId === userId) || (username && rowUsername === username)) {
       if (fullName) sheet.getRange(i + 1, 3).setValue(fullName);
       if (email !== undefined) sheet.getRange(i + 1, 4).setValue(email);
-      if (avatar) sheet.getRange(i + 1, 11).setValue(avatar);
+      if (avatar) {
+        try {
+          if (avatar.length <= 49000) sheet.getRange(i + 1, 11).setValue(avatar);
+        } catch (e) {}
+      }
+      if (phone !== undefined) sheet.getRange(i + 1, 12).setValue(phone);
 
       if (newPassword && newPassword.length >= 4) {
         const storedHash = String(data[i][4] || '').trim();

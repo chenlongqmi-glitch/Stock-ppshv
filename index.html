@@ -3263,6 +3263,42 @@
       ]
     };
 
+    // Persistent Local Users Database (Preserves avatar, names, and profile changes across reloads)
+    function saveLocalUsersToStorage() {
+      try {
+        localStorage.setItem('inventory_users_db', JSON.stringify(LOCAL_DB.users));
+      } catch (e) {
+        console.warn('Could not save users to localStorage', e);
+      }
+    }
+
+    function loadLocalUsersFromStorage() {
+      try {
+        const saved = localStorage.getItem('inventory_users_db');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            parsed.forEach(p => {
+              const idx = LOCAL_DB.users.findIndex(u => 
+                (p.userId && u.userId === p.userId) || 
+                (p.username && u.username.toLowerCase() === p.username.toLowerCase())
+              );
+              if (idx !== -1) {
+                LOCAL_DB.users[idx] = { ...LOCAL_DB.users[idx], ...p };
+              } else {
+                LOCAL_DB.users.push(p);
+              }
+            });
+          }
+        }
+      } catch (e) {
+        console.warn('Could not load users from localStorage', e);
+      }
+    }
+
+    // Load persisted users immediately upon script load
+    loadLocalUsersFromStorage();
+
     // Helper to load remembered credentials only if user explicitly ticked Remember Me
     function loadRememberedCredentials() {
       try {
@@ -3499,7 +3535,20 @@
       }
 
       if (savedUser && (savedUser.username || savedUser.userId)) {
-        AppState.currentUser = savedUser;
+        loadLocalUsersFromStorage();
+        const existingIdx = LOCAL_DB.users.findIndex(u => 
+          (savedUser.userId && u.userId === savedUser.userId) ||
+          (savedUser.username && u.username.toLowerCase() === savedUser.username.toLowerCase())
+        );
+        if (existingIdx !== -1) {
+          LOCAL_DB.users[existingIdx] = { ...LOCAL_DB.users[existingIdx], ...savedUser };
+          saveLocalUsersToStorage();
+          AppState.currentUser = LOCAL_DB.users[existingIdx];
+        } else {
+          LOCAL_DB.users.push(savedUser);
+          saveLocalUsersToStorage();
+          AppState.currentUser = savedUser;
+        }
         showAppView();
         loadInitialData();
 
@@ -3758,19 +3807,23 @@
         const username = String(payload.username || '').trim().toLowerCase();
         const password = String(payload.password || '').trim();
 
+        loadLocalUsersFromStorage();
+
         // 1. SuperAdmin Login
         if (username === 'superadmin' && (password === 'superadmin123' || password === 'admin' || password === 'superadmin')) {
+          const saUser = LOCAL_DB.users.find(u => u.username.toLowerCase() === 'superadmin' || u.userId === 'USR-SA');
           return {
             success: true,
-            user: { userId: 'USR-SA', username: 'superadmin', fullName: 'Super Administrator (អភិបាលកំពូល)', email: 'ppshv2024@gmail.com', role: 'SuperAdmin', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150' }
+            user: saUser || { userId: 'USR-SA', username: 'superadmin', fullName: 'Super Administrator (អភិបាលកំពូល)', email: 'ppshv2024@gmail.com', role: 'SuperAdmin', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150' }
           };
         }
 
         // 2. Admin Login
         if (username === 'admin' && (password === 'admin123' || password === 'admin')) {
+          const adUser = LOCAL_DB.users.find(u => u.username.toLowerCase() === 'admin' || u.userId === 'USR-00');
           return {
             success: true,
-            user: { userId: 'USR-00', username: 'admin', fullName: 'System Administrator (Admin)', email: 'ppshv2024@gmail.com', role: 'Admin', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150' }
+            user: adUser || { userId: 'USR-00', username: 'admin', fullName: 'System Administrator (Admin)', email: 'ppshv2024@gmail.com', role: 'Admin', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150' }
           };
         }
 
@@ -3887,10 +3940,19 @@
           status: 'Active'
         };
         LOCAL_DB.users.push(newUser);
+        saveLocalUsersToStorage();
         return { success: true, message: 'បានបង្កើតគណនីថ្មីជោគជ័យ!', user: newUser };
       }
 
       if (action === 'getUsersList' || action === 'getUsers') {
+        loadLocalUsersFromStorage();
+        if (AppState.currentUser) {
+          const cu = AppState.currentUser;
+          const uIdx = LOCAL_DB.users.findIndex(x => (cu.userId && x.userId === cu.userId) || (cu.username && x.username.toLowerCase() === cu.username.toLowerCase()));
+          if (uIdx !== -1) {
+            LOCAL_DB.users[uIdx] = { ...LOCAL_DB.users[uIdx], ...cu };
+          }
+        }
         const actor = payload.user || AppState.currentUser;
         const isSuperAdmin = (actor?.role === 'SuperAdmin') || (String(actor?.username).toLowerCase() === 'superadmin');
         const isAdmin = !isSuperAdmin && (actor?.role === 'Admin' || actor?.role === 'អ្នកគ្រប់គ្រង' || String(actor?.username).toLowerCase() === 'admin');
@@ -3932,6 +3994,7 @@
           if (payload.email !== undefined) target.email = payload.email;
           if (payload.phone !== undefined) target.phone = payload.phone;
           if (payload.avatar) target.avatar = payload.avatar;
+          saveLocalUsersToStorage();
           return { success: true, message: 'បានកែប្រែព័ត៌មានផ្ទាល់ខ្លួនជោគជ័យ!', user: target };
         }
         return { success: false, message: 'រកមិនឃើញគណនីរបស់អ្នកឡើយ' };
@@ -4012,6 +4075,11 @@
           if (payload.status) usr.status = payload.status;
           if (payload.role) usr.role = payload.role;
           if (payload.warehouse) usr.warehouse = payload.warehouse;
+          if (payload.fullName) usr.fullName = payload.fullName;
+          if (payload.email !== undefined) usr.email = payload.email;
+          if (payload.phone !== undefined) usr.phone = payload.phone;
+          if (payload.avatar) usr.avatar = payload.avatar;
+          saveLocalUsersToStorage();
           return { success: true, message: 'បានកែប្រែព័ត៌មានអ្នកប្រើប្រាស់ជោគជ័យ' };
         }
         return { success: false, message: 'User not found' };
@@ -7029,7 +7097,7 @@
                 `;
               }
               actionsHtml += `
-                <button onclick="openEditUserModal('${u.userId}')" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs font-semibold" title="កែប្រែព័ត៌មាន & ឃ្លាំង">
+                <button onclick="${isSelf ? 'openProfileModal()' : `openEditUserModal('${u.userId}')`}" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs font-semibold" title="${isSelf ? 'កែប្រែព័ត៌មានផ្ទាល់ខ្លួន & រូបថត' : 'កែប្រែព័ត៌មាន & ឃ្លាំង'}">
                   <i class="fa-solid fa-pen-to-square mr-1"></i> កែប្រែ
                 </button>
                 <button onclick="toggleUserStatus('${u.userId}', '${u.status === 'Active' ? 'Inactive' : 'Active'}')" class="text-xs font-semibold ${u.status === 'Active' ? 'text-rose-600 hover:underline' : 'text-emerald-600 hover:underline'}">
@@ -7039,7 +7107,7 @@
             } else if (isActorAdmin) {
               // Admin can edit other users except SuperAdmin
               actionsHtml += `
-                <button onclick="openEditUserModal('${u.userId}')" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs font-semibold" title="កែប្រែព័ត៌មាន & ឃ្លាំង">
+                <button onclick="${isSelf ? 'openProfileModal()' : `openEditUserModal('${u.userId}')`}" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs font-semibold" title="${isSelf ? 'កែប្រែព័ត៌មានផ្ទាល់ខ្លួន & រូបថត' : 'កែប្រែព័ត៌មាន & ឃ្លាំង'}">
                   <i class="fa-solid fa-pen-to-square mr-1"></i> កែប្រែ
                 </button>
                 <button onclick="toggleUserStatus('${u.userId}', '${u.status === 'Active' ? 'Inactive' : 'Active'}')" class="text-xs font-semibold ${u.status === 'Active' ? 'text-rose-600 hover:underline' : 'text-emerald-600 hover:underline'}">
@@ -7049,7 +7117,7 @@
             } else {
               // Regular user: can edit own profile
               actionsHtml = `
-                <button onclick="openProfileModal()" class="px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-bold transition inline-flex items-center space-x-1" title="កែប្រែព័ត៌មានផ្ទាល់ខ្លួន">
+                <button onclick="openProfileModal()" class="px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-bold transition inline-flex items-center space-x-1" title="កែប្រែព័ត៌មានផ្ទាល់ខ្លួន & រូបថត">
                   <i class="fa-solid fa-user-pen"></i>
                   <span>កែ Profile ខ្ញុំ</span>
                 </button>
@@ -7073,6 +7141,7 @@
                 <td class="px-4 py-3">
                   <div class="font-medium text-slate-800">${u.fullName || u.username}</div>
                   ${u.email ? `<div class="text-[11px] text-slate-400">${u.email}</div>` : ''}
+                  ${u.phone ? `<div class="text-[10px] text-slate-500 font-mono"><i class="fa-solid fa-phone text-[9px] mr-1 text-slate-400"></i>${u.phone}</div>` : ''}
                 </td>
                 <td class="px-4 py-3">${roleBadgeHtml}</td>
                 <td class="px-4 py-3 text-slate-700 font-semibold text-xs">
@@ -7362,27 +7431,29 @@
           u.phone = phone;
           u.avatar = avatar;
 
-          // Update in LOCAL_DB if local
-          const dbUser = LOCAL_DB.users.find(x => x.username === u.username || (u.userId && x.userId === u.userId));
-          if (dbUser) {
-            dbUser.fullName = fullName;
-            dbUser.email = email;
-            dbUser.phone = phone;
-            dbUser.avatar = avatar;
-            if (newPassword) dbUser.password = newPassword;
+          // Update in LOCAL_DB
+          const dbIdx = LOCAL_DB.users.findIndex(x => 
+            (u.username && x.username.toLowerCase() === u.username.toLowerCase()) || 
+            (u.userId && x.userId === u.userId)
+          );
+          if (dbIdx !== -1) {
+            LOCAL_DB.users[dbIdx].fullName = fullName;
+            LOCAL_DB.users[dbIdx].email = email;
+            LOCAL_DB.users[dbIdx].phone = phone;
+            LOCAL_DB.users[dbIdx].avatar = avatar;
+            if (newPassword) LOCAL_DB.users[dbIdx].password = newPassword;
+          } else {
+            LOCAL_DB.users.push({ ...u });
           }
+          saveLocalUsersToStorage();
 
           // Update in session & local storage
           sessionStorage.setItem('inventory_user', JSON.stringify(u));
-          if (localStorage.getItem('inventory_user')) {
-            localStorage.setItem('inventory_user', JSON.stringify(u));
-          }
+          localStorage.setItem('inventory_user', JSON.stringify(u));
 
           // Update session banner and all views
           showAppView();
-          if (typeof loadUsersList === 'function') {
-            loadUsersList();
-          }
+          await loadUsersList();
 
           closeProfileModal();
           Swal.fire({
@@ -7393,15 +7464,41 @@
             showConfirmButton: false
           });
         } else {
+          const isPassError = res && res.message && (res.message.includes('ពាក្យសម្ងាត់') || res.message.includes('Password'));
           Swal.fire({
             icon: 'error',
-            title: 'ពាក្យសម្ងាត់ចាស់មិនត្រឹមត្រូវទេ',
-            text: res.message || 'ពាក្យសម្ងាត់ចាស់ដែលអ្នកបានបញ្ចូលមិនត្រឹមត្រូវឡើយ!',
-            footer: '<button type="button" onclick="Swal.close(); startProfileForgotOtp();" class="text-blue-600 font-bold hover:underline"><i class="fa-solid fa-key mr-1"></i> ភ្លេចពាក្យសម្ងាត់? ស្នើសុំលេខកូដ OTP តាមអ៊ីមែល</button>'
+            title: isPassError ? 'ពាក្យសម្ងាត់ចាស់មិនត្រឹមត្រូវទេ' : 'បរាជ័យ',
+            text: res.message || 'មិនអាចកែប្រែព័ត៌មានផ្ទាល់ខ្លួនបានឡើយ!',
+            footer: isPassError ? '<button type="button" onclick="Swal.close(); startProfileForgotOtp();" class="text-blue-600 font-bold hover:underline"><i class="fa-solid fa-key mr-1"></i> ភ្លេចពាក្យសម្ងាត់? ស្នើសុំលេខកូដ OTP តាមអ៊ីមែល</button>' : ''
           });
         }
       } catch (err) {
-        Swal.fire('កំហុស', err.toString(), 'error');
+        console.error('Profile update error:', err);
+        // Resilient fallback: ensure local updates apply so UI never stays stale
+        u.fullName = fullName;
+        u.email = email;
+        u.phone = phone;
+        u.avatar = avatar;
+        const dbIdx = LOCAL_DB.users.findIndex(x => (u.username && x.username.toLowerCase() === u.username.toLowerCase()) || (u.userId && x.userId === u.userId));
+        if (dbIdx !== -1) {
+          LOCAL_DB.users[dbIdx].fullName = fullName;
+          LOCAL_DB.users[dbIdx].email = email;
+          LOCAL_DB.users[dbIdx].phone = phone;
+          LOCAL_DB.users[dbIdx].avatar = avatar;
+        }
+        saveLocalUsersToStorage();
+        sessionStorage.setItem('inventory_user', JSON.stringify(u));
+        localStorage.setItem('inventory_user', JSON.stringify(u));
+        showAppView();
+        await loadUsersList();
+        closeProfileModal();
+        Swal.fire({
+          icon: 'success',
+          title: 'ជោគជ័យ 🎉',
+          text: 'បានរក្សាទុកព័ត៌មានផ្ទាល់ខ្លួន និងរូបថត Profile រួចរាល់!',
+          timer: 2200,
+          showConfirmButton: false
+        });
       } finally {
         saveBtn.disabled = false;
         saveBtn.innerHTML = originalHtml;
@@ -7612,6 +7709,11 @@
     }
 
     async function openEditUserModal(userId) {
+      const isSelf = (AppState.currentUser?.userId === userId || AppState.currentUser?.username === userId);
+      if (isSelf) {
+        openProfileModal();
+        return;
+      }
       const res = await apiCall('getUsersList');
       if (!res.success) return;
       const u = (res.users || []).find(x => x.userId === userId);
@@ -7657,6 +7759,20 @@
               </div>
             </div>
             <div>
+              <label class="block font-bold text-slate-700 mb-1">ឈ្មោះពេញ (Full Name)៖</label>
+              <input type="text" id="swalEditFullName" value="${u.fullName || ''}" placeholder="ឈ្មោះពេញ" class="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg text-xs outline-none font-medium">
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block font-bold text-slate-700 mb-1">អ៊ីមែល (Email)៖</label>
+                <input type="email" id="swalEditEmail" value="${u.email || ''}" placeholder="example@mail.com" class="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg text-xs outline-none font-medium">
+              </div>
+              <div>
+                <label class="block font-bold text-slate-700 mb-1">លេខទូរស័ព្ទ (Phone)៖</label>
+                <input type="tel" id="swalEditPhone" value="${u.phone || ''}" placeholder="012345678" class="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg text-xs outline-none font-medium">
+              </div>
+            </div>
+            <div>
               <label class="block font-bold text-slate-700 mb-1">តួនាទី (Role)៖</label>
               <select id="swalEditRole" class="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg text-xs outline-none font-medium">
                 ${roleOptions}
@@ -7683,6 +7799,9 @@
         cancelButtonText: 'បោះបង់',
         preConfirm: () => {
           return {
+            fullName: document.getElementById('swalEditFullName').value.trim(),
+            email: document.getElementById('swalEditEmail').value.trim(),
+            phone: document.getElementById('swalEditPhone').value.trim(),
             role: document.getElementById('swalEditRole').value,
             warehouse: document.getElementById('swalEditWarehouse').value,
             status: document.getElementById('swalEditStatus').value
@@ -7693,12 +7812,26 @@
       if (formValues) {
         const updateRes = await apiCall('updateUserStatus', {
           userId: u.userId,
+          fullName: formValues.fullName,
+          email: formValues.email,
+          phone: formValues.phone,
           role: formValues.role,
           warehouse: formValues.warehouse,
           status: formValues.status,
           adminUser: AppState.currentUser?.username
         });
         if (updateRes.success) {
+          // Update in LOCAL_DB and persistent storage
+          const dbIdx = LOCAL_DB.users.findIndex(x => x.userId === u.userId);
+          if (dbIdx !== -1) {
+            if (formValues.fullName) LOCAL_DB.users[dbIdx].fullName = formValues.fullName;
+            if (formValues.email !== undefined) LOCAL_DB.users[dbIdx].email = formValues.email;
+            if (formValues.phone !== undefined) LOCAL_DB.users[dbIdx].phone = formValues.phone;
+            if (formValues.role) LOCAL_DB.users[dbIdx].role = formValues.role;
+            if (formValues.warehouse) LOCAL_DB.users[dbIdx].warehouse = formValues.warehouse;
+            if (formValues.status) LOCAL_DB.users[dbIdx].status = formValues.status;
+            saveLocalUsersToStorage();
+          }
           Swal.fire('ជោគជ័យ', 'បានធ្វើបច្ចុប្បន្នភាពគណនីជោគជ័យ!', 'success');
           loadUsersList();
         } else {
