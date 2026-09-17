@@ -608,7 +608,7 @@ function requestPasswordResetOtp(payload) {
   // Fallback check for built-in admin or superadmin if not in sheet yet
   if (!targetUser) {
     if (account === 'admin') {
-      targetUser = { username: 'admin', fullName: 'System Administrator', email: explicitEmail || 'ppshv2024@gmail.com', role: 'Admin' };
+      targetUser = { username: 'admin', fullName: 'System Administrator', email: explicitEmail || 'chenlongqmi@gmail.com', phone: '066966606', role: 'Admin' };
     } else if (account === 'superadmin') {
       targetUser = { username: 'superadmin', fullName: '陈龙', email: explicitEmail || 'chenlongqmi@gmail.com', phone: '066966606', role: 'SuperAdmin' };
     }
