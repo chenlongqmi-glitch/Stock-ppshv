@@ -7444,120 +7444,152 @@
       // Dispatch real email via FormSubmit & Telegram
       await dispatchRealEmailOtp(targetEmail, otpDemo, userAccount);
 
-      // Step 2: Show OTP & New Password Modal
-      const { value: formValues } = await Swal.fire({
-        title: 'ផ្ទៀងផ្ទាត់ OTP & ប្តូរពាក្យសម្ងាត់ថ្មី',
-        html: `
-          <div class="text-left text-xs space-y-3">
-            <div class="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 flex items-center space-x-2">
-              <i class="fa-solid fa-circle-check text-emerald-600 text-base"></i>
-              <span>លេខកូដ OTP ត្រូវបានផ្ញើទៅកាន់ <b>${targetEmail}</b> រួចរាល់!</span>
-            </div>
-            <div class="p-3 bg-blue-50/80 border border-blue-200 rounded-2xl text-slate-700 text-xs space-y-2">
-              <div class="flex items-center justify-between">
-                <span class="font-bold text-blue-900">📬 ពិនិត្យប្រអប់សំបុត្រ Gmail</span>
-                <a href="https://mail.google.com" target="_blank" rel="noopener noreferrer"
-                  class="inline-flex items-center space-x-1 text-[11px] bg-white border border-blue-300 text-blue-700 px-2.5 py-1 rounded-lg font-bold hover:bg-blue-100 transition shadow-sm">
-                  <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
-                  <span>បើក Gmail យកលេខកូដ</span>
-                </a>
+      // Step 2: Show OTP & New Password Modal in a retry loop
+      let prevErrorMsg = '';
+      let enteredPass = '';
+      let enteredConfirmPass = '';
+      let isSuccess = false;
+
+      while (!isSuccess) {
+        const { value: formValues, isDismissed } = await Swal.fire({
+          title: 'ផ្ទៀងផ្ទាត់ OTP & ប្តូរពាក្យសម្ងាត់ថ្មី',
+          html: `
+            <div class="text-left text-xs space-y-3">
+              ${prevErrorMsg ? `
+                <div class="p-2.5 bg-rose-50 border border-rose-300 rounded-xl text-rose-800 text-xs font-semibold flex items-center space-x-2">
+                  <i class="fa-solid fa-circle-xmark text-rose-600 text-base flex-shrink-0"></i>
+                  <span>${prevErrorMsg}</span>
+                </div>
+              ` : `
+                <div class="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 flex items-center space-x-2">
+                  <i class="fa-solid fa-circle-check text-emerald-600 text-base"></i>
+                  <span>លេខកូដ OTP ត្រូវបានផ្ញើទៅកាន់ <b>${targetEmail}</b> រួចរាល់!</span>
+                </div>
+              `}
+              <div class="p-3 bg-blue-50/80 border border-blue-200 rounded-2xl text-slate-700 text-xs space-y-2">
+                <div class="flex items-center justify-between">
+                  <span class="font-bold text-blue-900">📬 ពិនិត្យប្រអប់សំបុត្រ Gmail</span>
+                  <a href="https://mail.google.com" target="_blank" rel="noopener noreferrer"
+                    class="inline-flex items-center space-x-1 text-[11px] bg-white border border-blue-300 text-blue-700 px-2.5 py-1 rounded-lg font-bold hover:bg-blue-100 transition shadow-sm">
+                    <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                    <span>បើក Gmail យកលេខកូដ</span>
+                  </a>
+                </div>
+                <p class="text-[11px] text-slate-500">
+                  សូមយកលេខកូដ OTP (៦ ខ្ទង់) ដែលបានផ្ញើទៅកាន់ <b>${targetEmail}</b> មកបំពេញក្នុងប្រអប់ខាងក្រោម៖
+                </p>
+                <p class="text-[10px] text-amber-800 bg-amber-50 p-2 rounded-lg border border-amber-200">
+                  💡 <b>ចំណាំ៖</b> ប្រសិនបើមិនទាន់ឃើញក្នុង Inbox សូមពិនិត្យក្នុង <b>Spam / Junk</b> ឬចុច "Activate Form" ក្នុងអ៊ីមែលពី FormSubmit ម្តងដំបូង។
+                </p>
               </div>
-              <p class="text-[11px] text-slate-500">
-                សូមយកលេខកូដ OTP (៦ ខ្ទង់) ដែលបានផ្ញើទៅកាន់ <b>${targetEmail}</b> មកបំពេញក្នុងប្រអប់ខាងក្រោម៖
-              </p>
-              <p class="text-[10px] text-amber-800 bg-amber-50 p-2 rounded-lg border border-amber-200">
-                💡 <b>ចំណាំ៖</b> ប្រសិនបើមិនទាន់ឃើញក្នុង Inbox សូមពិនិត្យក្នុង <b>Spam / Junk</b> ឬចុច "Activate Form" ក្នុងអ៊ីមែលពី FormSubmit ម្តងដំបូង។
-              </p>
-            </div>
-            <div>
-              <label class="block font-bold text-slate-700 mb-1">បញ្ចូលលេខកូដ OTP (៦ ខ្ទង់ពី Gmail) *</label>
-              <input type="text" id="swalProfileOtp" maxlength="6" placeholder="បញ្ចូលលេខកូដ ៦ ខ្ទង់ពី Gmail" value=""
-                class="w-full text-center text-lg font-mono tracking-widest p-2.5 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold">
-              <div class="mt-1.5 flex items-center justify-between text-[11px]">
-                <span class="text-slate-400">សុពលភាព ១០ នាទី</span>
-                <button type="button" onclick="dispatchRealEmailOtp('${targetEmail}', '${otpDemo}', '${userAccount}'); Swal.showValidationMessage('បានផ្ញើ OTP ម្តងទៀតទៅកាន់ ${targetEmail}!');"
-                  class="text-blue-600 hover:underline font-bold">
-                  <i class="fa-solid fa-paper-plane mr-1"></i>ផ្ញើ OTP ម្តងទៀត (Resend)
-                </button>
+              <div>
+                <label class="block font-bold text-slate-700 mb-1">បញ្ចូលលេខកូដ OTP (៦ ខ្ទង់ពី Gmail) *</label>
+                <input type="text" id="swalProfileOtp" maxlength="6" placeholder="បញ្ចូលលេខកូដ ៦ ខ្ទង់ពី Gmail" value=""
+                  class="w-full text-center text-lg font-mono tracking-widest p-2.5 bg-slate-50 border ${prevErrorMsg ? 'border-rose-400 bg-rose-50/30 ring-2 ring-rose-200' : 'border-slate-300'} rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold">
+                <div class="mt-1.5 flex items-center justify-between text-[11px]">
+                  <span class="text-slate-400">សុពលភាព ១០ នាទី</span>
+                  <button type="button" onclick="dispatchRealEmailOtp('${targetEmail}', '${otpDemo}', '${userAccount}'); Swal.showValidationMessage('បានផ្ញើ OTP ម្តងទៀតទៅកាន់ ${targetEmail}!');"
+                    class="text-blue-600 hover:underline font-bold">
+                    <i class="fa-solid fa-paper-plane mr-1"></i>ផ្ញើ OTP ម្តងទៀត (Resend)
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label class="block font-bold text-slate-700 mb-1">ពាក្យសម្ងាត់ថ្មី (យ៉ាងតិច ៤ ខ្ទង់) *</label>
+                <input type="password" id="swalProfileNewPass" placeholder="••••••••" minlength="4" value="${enteredPass || ''}"
+                  class="w-full p-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500">
+              </div>
+              <div>
+                <label class="block font-bold text-slate-700 mb-1">បញ្ជាក់ពាក្យសម្ងាត់ថ្មី *</label>
+                <input type="password" id="swalProfileConfirmPass" placeholder="••••••••" minlength="4" value="${enteredConfirmPass || ''}"
+                  class="w-full p-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500">
               </div>
             </div>
-            <div>
-              <label class="block font-bold text-slate-700 mb-1">ពាក្យសម្ងាត់ថ្មី (យ៉ាងតិច ៤ ខ្ទង់) *</label>
-              <input type="password" id="swalProfileNewPass" placeholder="••••••••" minlength="4"
-                class="w-full p-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500">
-            </div>
-            <div>
-              <label class="block font-bold text-slate-700 mb-1">បញ្ជាក់ពាក្យសម្ងាត់ថ្មី *</label>
-              <input type="password" id="swalProfileConfirmPass" placeholder="••••••••" minlength="4"
-                class="w-full p-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500">
-            </div>
-          </div>
-        `,
-        showCancelButton: true,
-        confirmButtonText: 'បញ្ជាក់ & ប្តូរពាក្យសម្ងាត់',
-        cancelButtonText: 'បោះបង់',
-        confirmButtonColor: '#16a34a',
-        preConfirm: () => {
-          const otp = document.getElementById('swalProfileOtp')?.value.trim();
-          const newPass = document.getElementById('swalProfileNewPass')?.value;
-          const confPass = document.getElementById('swalProfileConfirmPass')?.value;
+          `,
+          showCancelButton: true,
+          confirmButtonText: 'បញ្ជាក់ & ប្តូរពាក្យសម្ងាត់',
+          cancelButtonText: 'បោះបង់',
+          confirmButtonColor: '#16a34a',
+          didOpen: () => {
+            const otpField = document.getElementById('swalProfileOtp');
+            if (otpField) otpField.focus();
+          },
+          preConfirm: () => {
+            const otp = document.getElementById('swalProfileOtp')?.value.trim();
+            const newPass = document.getElementById('swalProfileNewPass')?.value;
+            const confPass = document.getElementById('swalProfileConfirmPass')?.value;
 
-          if (!otp) {
-            Swal.showValidationMessage('សូមបញ្ចូលលេខកូដ OTP ៦ ខ្ទង់');
-            return false;
+            if (!otp) {
+              Swal.showValidationMessage('សូមបញ្ចូលលេខកូដ OTP ៦ ខ្ទង់');
+              return false;
+            }
+            if (!newPass || newPass.length < 4) {
+              Swal.showValidationMessage('ពាក្យសម្ងាត់ថ្មីត្រូវមានយ៉ាងតិច ៤ ខ្ទង់');
+              return false;
+            }
+            if (newPass !== confPass) {
+              Swal.showValidationMessage('ពាក្យសម្ងាត់ទាំងពីរមិនដូចគ្នាទេ');
+              return false;
+            }
+            return { otp, newPass, confPass };
           }
-          if (!newPass || newPass.length < 4) {
-            Swal.showValidationMessage('ពាក្យសម្ងាត់ថ្មីត្រូវមានយ៉ាងតិច ៤ ខ្ទង់');
-            return false;
-          }
-          if (newPass !== confPass) {
-            Swal.showValidationMessage('ពាក្យសម្ងាត់ទាំងពីរមិនដូចគ្នាទេ');
-            return false;
-          }
-          return { otp, newPass };
+        });
+
+        if (isDismissed || !formValues) {
+          return; // user clicked cancel
         }
-      });
 
-      if (!formValues) return;
-
-      Swal.fire({
-        title: 'កំពុងផ្ទៀងផ្ទាត់...',
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading()
-      });
-
-      const resetRes = await apiCall('resetPasswordWithOtp', {
-        account: userAccount,
-        otp: formValues.otp,
-        otpDemo: otpDemo,
-        newPassword: formValues.newPass
-      });
-
-      if (resetRes && resetRes.success) {
-        // Clear password inputs in Profile Modal
-        const opInp = document.getElementById('profileOldPassword');
-        const npInp = document.getElementById('profileNewPassword');
-        const cpInp = document.getElementById('profileConfirmPassword');
-        if (opInp) opInp.value = '';
-        if (npInp) npInp.value = '';
-        if (cpInp) cpInp.value = '';
-
-        // Update local session
-        u.password = formValues.newPass;
-        sessionStorage.setItem('inventory_user', JSON.stringify(u));
-        if (localStorage.getItem('inventory_user')) {
-          localStorage.setItem('inventory_user', JSON.stringify(u));
-        }
+        enteredPass = formValues.newPass;
+        enteredConfirmPass = formValues.confPass;
 
         Swal.fire({
-          icon: 'success',
-          title: 'ជោគជ័យ 🎉',
-          text: 'បានប្តូរពាក្យសម្ងាត់ថ្មីជោគជ័យតាមរយៈការផ្ទៀងផ្ទាត់ OTP!',
-          confirmButtonText: 'យល់ព្រម',
-          confirmButtonColor: '#16a34a'
+          title: 'កំពុងផ្ទៀងផ្ទាត់...',
+          allowOutsideClick: false,
+          didOpen: () => Swal.showLoading()
         });
-      } else {
-        Swal.fire('បរាជ័យ', resetRes?.message || 'លេខកូដ OTP មិនត្រឹមត្រូវទេ', 'error');
+
+        const resetRes = await apiCall('resetPasswordWithOtp', {
+          account: userAccount,
+          otp: formValues.otp,
+          otpDemo: otpDemo,
+          newPassword: formValues.newPass
+        });
+
+        if (resetRes && resetRes.success) {
+          isSuccess = true;
+          // Clear password inputs in Profile Modal
+          const opInp = document.getElementById('profileOldPassword');
+          const npInp = document.getElementById('profileNewPassword');
+          const cpInp = document.getElementById('profileConfirmPassword');
+          if (opInp) opInp.value = '';
+          if (npInp) npInp.value = '';
+          if (cpInp) cpInp.value = '';
+
+          // Update local session
+          u.password = formValues.newPass;
+          sessionStorage.setItem('inventory_user', JSON.stringify(u));
+          if (localStorage.getItem('inventory_user')) {
+            localStorage.setItem('inventory_user', JSON.stringify(u));
+          }
+
+          await Swal.fire({
+            icon: 'success',
+            title: 'ជោគជ័យ 🎉',
+            text: 'បានប្តូរពាក្យសម្ងាត់ថ្មីជោគជ័យតាមរយៈការផ្ទៀងផ្ទាត់ OTP!',
+            confirmButtonText: 'យល់ព្រម',
+            confirmButtonColor: '#16a34a'
+          });
+        } else {
+          // Show the failure alert with OK button as requested, and then the loop re-opens the OTP modal!
+          prevErrorMsg = resetRes?.message || 'លេខកូដ OTP មិនត្រឹមត្រូវទេ! សូមពិនិត្យមើលលេខកូដ ៦ ខ្ទង់ក្នុង Gmail របស់អ្នកឡើងវិញ';
+          await Swal.fire({
+            icon: 'error',
+            title: 'បរាជ័យ',
+            text: prevErrorMsg,
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#6366f1'
+          });
+        }
       }
     }
 
