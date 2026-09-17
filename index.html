@@ -2852,13 +2852,34 @@
             </span>
           </div>
 
-          <div id="profilePasswordContainer" class="hidden space-y-2.5 mt-2 p-3 bg-amber-50/50 rounded-xl border border-amber-200/70">
-            <p class="text-[11px] text-amber-800">
-              * ប្រសិនបើមិនចង់ប្តូរពាក្យសម្ងាត់ទេ សូមទុកប្រអប់ទាំងពីរខាងក្រោមឱ្យនៅទំនេរ។
+          <div id="profilePasswordContainer" class="hidden space-y-3 mt-2 p-3.5 bg-amber-50/60 rounded-2xl border border-amber-200/80">
+            <p class="text-[11px] text-amber-900 font-medium">
+              * សូមបញ្ចូលពាក្យសម្ងាត់ចាស់ រួចបញ្ចូលពាក្យសម្ងាត់ថ្មី (ប្រសិនបើមិនចង់ប្តូរពាក្យសម្ងាត់ទេ សូមទុកប្រអប់ទំនេរ)
             </p>
+
+            <!-- Old Password Field with Forgot Password Button -->
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label class="block text-[11px] font-bold text-slate-700">ពាក្យសម្ងាត់ចាស់ (Old Password) *</label>
+                <button type="button" onclick="startProfileForgotOtp()" class="text-[11px] text-blue-600 hover:text-blue-800 font-bold hover:underline inline-flex items-center space-x-1">
+                  <i class="fa-solid fa-circle-question text-[10px]"></i>
+                  <span>ភ្លេចពាក្យសម្ងាត់?</span>
+                </button>
+              </div>
+              <div class="relative">
+                <input type="password" id="profileOldPassword" placeholder="បញ្ចូលពាក្យសម្ងាត់ចាស់បច្ចុប្បន្ន"
+                  class="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-amber-500">
+                <button type="button" onclick="togglePasswordVisibility('profileOldPassword', this)"
+                  class="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600">
+                  <i class="fa-solid fa-eye text-xs"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- New Password & Confirm Password -->
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <div>
-                <label class="block text-[11px] font-semibold text-slate-600 mb-1">ពាក្យសម្ងាត់ថ្មី</label>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">ពាក្យសម្ងាត់ថ្មី (New Password) *</label>
                 <div class="relative">
                   <input type="password" id="profileNewPassword" placeholder="ពាក្យសម្ងាត់ថ្មី (យ៉ាងតិច ៤ ខ្ទង់)" minlength="4"
                     class="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-amber-500">
@@ -2869,7 +2890,7 @@
                 </div>
               </div>
               <div>
-                <label class="block text-[11px] font-semibold text-slate-600 mb-1">បញ្ជាក់ពាក្យសម្ងាត់ថ្មី</label>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">បញ្ជាក់ពាក្យសម្ងាត់ថ្មី (Confirm) *</label>
                 <div class="relative">
                   <input type="password" id="profileConfirmPassword" placeholder="វាយពាក្យសម្ងាត់ម្តងទៀត" minlength="4"
                     class="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-amber-500">
@@ -3781,14 +3802,20 @@
         const userId = String(payload.userId || '');
         const target = LOCAL_DB.users.find(x => (username && x.username.toLowerCase() === username) || (userId && x.userId === userId));
         if (target) {
+          if (payload.newPassword) {
+            const currentStoredPass = target.password || (target.username === 'admin' ? 'admin123' : target.username === 'superadmin' ? 'superadmin123' : '123456');
+            if (payload.oldPassword !== currentStoredPass) {
+              return { success: false, message: 'ពាក្យសម្ងាត់ចាស់មិនត្រឹមត្រូវទេ! ប្រសិនបើភ្លេចពាក្យសម្ងាត់ សូមចុច «ភ្លេចពាក្យសម្ងាត់?» ដើម្បីស្នើសុំលេខកូដ OTP' };
+            }
+            target.password = payload.newPassword;
+          }
           if (payload.fullName) target.fullName = payload.fullName;
           if (payload.email !== undefined) target.email = payload.email;
           if (payload.phone !== undefined) target.phone = payload.phone;
           if (payload.avatar) target.avatar = payload.avatar;
-          if (payload.newPassword) target.password = payload.newPassword;
           return { success: true, message: 'បានកែប្រែព័ត៌មានផ្ទាល់ខ្លួនជោគជ័យ!', user: target };
         }
-        return { success: true, message: 'បានកែប្រែព័ត៌មានផ្ទាល់ខ្លួនជោគជ័យ!' };
+        return { success: false, message: 'រកមិនឃើញគណនីរបស់អ្នកឡើយ' };
       }
 
       if (action === 'getWarehousesDetailed') {
@@ -7058,6 +7085,8 @@
       if (phInput) phInput.value = u.phone || '';
 
       // Clear password fields
+      const opInput = document.getElementById('profileOldPassword');
+      if (opInput) opInput.value = '';
       const npInput = document.getElementById('profileNewPassword');
       if (npInput) npInput.value = '';
       const cpInput = document.getElementById('profileConfirmPassword');
@@ -7133,8 +7162,9 @@
       const email = document.getElementById('profileEmail').value.trim();
       const phone = document.getElementById('profilePhone').value.trim();
       const avatar = document.getElementById('profileAvatarData').value.trim() || document.getElementById('profileAvatarPreview').src;
-      const newPassword = document.getElementById('profileNewPassword').value;
-      const confirmPassword = document.getElementById('profileConfirmPassword').value;
+      const oldPassword = document.getElementById('profileOldPassword')?.value || '';
+      const newPassword = document.getElementById('profileNewPassword')?.value || '';
+      const confirmPassword = document.getElementById('profileConfirmPassword')?.value || '';
 
       if (!fullName) {
         Swal.fire('សូមបំពេញព័ត៌មាន', 'សូមបញ្ចូលឈ្មោះពេញរបស់អ្នក!', 'warning');
@@ -7142,6 +7172,15 @@
       }
 
       if (newPassword) {
+        if (!oldPassword) {
+          Swal.fire({
+            icon: 'warning',
+            title: 'សូមបញ្ចូលពាក្យសម្ងាត់ចាស់',
+            text: 'សូមបញ្ចូលពាក្យសម្ងាត់ចាស់ដើម្បីផ្ទៀងផ្ទាត់ មុននឹងប្តូរពាក្យសម្ងាត់ថ្មី!',
+            footer: '<button type="button" onclick="Swal.close(); startProfileForgotOtp();" class="text-blue-600 font-bold hover:underline"><i class="fa-solid fa-key mr-1"></i> ភ្លេចពាក្យសម្ងាត់? ស្នើសុំលេខកូដ OTP តាមអ៊ីមែល</button>'
+          });
+          return;
+        }
         if (newPassword.length < 4) {
           Swal.fire('ពាក្យសម្ងាត់ខ្លីពេក', 'ពាក្យសម្ងាត់ថ្មីត្រូវមានយ៉ាងតិច ៤ ខ្ទង់!', 'warning');
           return;
@@ -7165,6 +7204,7 @@
           email: email,
           phone: phone,
           avatar: avatar,
+          oldPassword: oldPassword || undefined,
           newPassword: newPassword || undefined
         };
 
@@ -7208,13 +7248,163 @@
             showConfirmButton: false
           });
         } else {
-          Swal.fire('កំហុស', res.message || 'មិនអាចកែប្រែព័ត៌មានបានទេ!', 'error');
+          Swal.fire({
+            icon: 'error',
+            title: 'ពាក្យសម្ងាត់ចាស់មិនត្រឹមត្រូវទេ',
+            text: res.message || 'ពាក្យសម្ងាត់ចាស់ដែលអ្នកបានបញ្ចូលមិនត្រឹមត្រូវឡើយ!',
+            footer: '<button type="button" onclick="Swal.close(); startProfileForgotOtp();" class="text-blue-600 font-bold hover:underline"><i class="fa-solid fa-key mr-1"></i> ភ្លេចពាក្យសម្ងាត់? ស្នើសុំលេខកូដ OTP តាមអ៊ីមែល</button>'
+          });
         }
       } catch (err) {
         Swal.fire('កំហុស', err.toString(), 'error');
       } finally {
         saveBtn.disabled = false;
         saveBtn.innerHTML = originalHtml;
+      }
+    }
+
+    // OTP PASSWORD RESET FROM PROFILE MODAL (ផ្ញើលេខកូដ OTP ទៅកាន់ Email ដើម្បីប្តូរពាក្យសម្ងាត់ថ្មី)
+    async function startProfileForgotOtp() {
+      const u = AppState.currentUser;
+      if (!u) return;
+
+      const userEmail = u.email || `${u.username}@inventory.local`;
+      const userAccount = u.username;
+
+      const { isConfirmed } = await Swal.fire({
+        title: 'ភ្លេចពាក្យសម្ងាត់?',
+        html: `
+          <div class="text-left text-xs space-y-2.5">
+            <p class="text-slate-600">ប្រព័ន្ធនឹងផ្ញើលេខកូដសម្ងាត់ <b>OTP (៦ ខ្ទង់)</b> ទៅកាន់អ៊ីមែលរបស់អ្នក៖</p>
+            <div class="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-center space-x-2.5 text-blue-900 font-semibold">
+              <i class="fa-solid fa-envelope text-blue-600 text-sm"></i>
+              <span class="break-all">${userEmail}</span>
+            </div>
+            <p class="text-[11px] text-slate-500">តើអ្នកយល់ព្រមទទួលលេខកូដ OTP ដើម្បីស្នើសុំប្តូរពាក្យសម្ងាត់ថ្មីដែរឬទេ?</p>
+          </div>
+        `,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: '<i class="fa-solid fa-paper-plane mr-1"></i> ផ្ញើ OTP ទៅអ៊ីមែល',
+        cancelButtonText: 'បោះបង់',
+        confirmButtonColor: '#2563eb'
+      });
+
+      if (!isConfirmed) return;
+
+      Swal.fire({
+        title: 'កំពុងផ្ញើ OTP...',
+        text: 'សូមរង់ចាំមួយភ្លែត',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
+
+      const res = await apiCall('requestPasswordResetOtp', { account: userAccount, email: userEmail });
+      if (!res || !res.success) {
+        Swal.fire('បរាជ័យ', res?.message || 'មិនអាចផ្ញើលេខកូដ OTP បានទេ', 'error');
+        return;
+      }
+
+      const otpDemo = res.otpDemo || '';
+
+      // Step 2: Show OTP & New Password Modal
+      const { value: formValues } = await Swal.fire({
+        title: 'ផ្ទៀងផ្ទាត់ OTP & ប្តូរពាក្យសម្ងាត់ថ្មី',
+        html: `
+          <div class="text-left text-xs space-y-3">
+            <div class="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 flex items-center space-x-2">
+              <i class="fa-solid fa-circle-check text-emerald-600 text-base"></i>
+              <span>លេខកូដ OTP ត្រូវបានផ្ញើទៅកាន់ <b>${userEmail}</b> រួចរាល់!</span>
+            </div>
+            ${otpDemo ? `
+              <div class="p-2.5 bg-amber-50 border border-dashed border-amber-300 rounded-xl text-amber-900 text-center">
+                <span class="text-[11px] font-bold">លេខកូដ OTP សាកល្បង៖ </span>
+                <span class="font-mono text-base font-black tracking-widest text-amber-600">${otpDemo}</span>
+              </div>
+            ` : ''}
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">បញ្ចូលលេខកូដ OTP (៦ ខ្ទង់) *</label>
+              <input type="text" id="swalProfileOtp" maxlength="6" placeholder="123456"
+                class="w-full text-center text-lg font-mono tracking-widest p-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+                value="${otpDemo || ''}">
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">ពាក្យសម្ងាត់ថ្មី (យ៉ាងតិច ៤ ខ្ទង់) *</label>
+              <input type="password" id="swalProfileNewPass" placeholder="••••••••" minlength="4"
+                class="w-full p-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">បញ្ជាក់ពាក្យសម្ងាត់ថ្មី *</label>
+              <input type="password" id="swalProfileConfirmPass" placeholder="••••••••" minlength="4"
+                class="w-full p-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+          </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'បញ្ជាក់ & ប្តូរពាក្យសម្ងាត់',
+        cancelButtonText: 'បោះបង់',
+        confirmButtonColor: '#16a34a',
+        preConfirm: () => {
+          const otp = document.getElementById('swalProfileOtp')?.value.trim();
+          const newPass = document.getElementById('swalProfileNewPass')?.value;
+          const confPass = document.getElementById('swalProfileConfirmPass')?.value;
+
+          if (!otp) {
+            Swal.showValidationMessage('សូមបញ្ចូលលេខកូដ OTP ៦ ខ្ទង់');
+            return false;
+          }
+          if (!newPass || newPass.length < 4) {
+            Swal.showValidationMessage('ពាក្យសម្ងាត់ថ្មីត្រូវមានយ៉ាងតិច ៤ ខ្ទង់');
+            return false;
+          }
+          if (newPass !== confPass) {
+            Swal.showValidationMessage('ពាក្យសម្ងាត់ទាំងពីរមិនដូចគ្នាទេ');
+            return false;
+          }
+          return { otp, newPass };
+        }
+      });
+
+      if (!formValues) return;
+
+      Swal.fire({
+        title: 'កំពុងផ្ទៀងផ្ទាត់...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
+
+      const resetRes = await apiCall('resetPasswordWithOtp', {
+        account: userAccount,
+        otp: formValues.otp,
+        otpDemo: otpDemo,
+        newPassword: formValues.newPass
+      });
+
+      if (resetRes && resetRes.success) {
+        // Clear password inputs in Profile Modal
+        const opInp = document.getElementById('profileOldPassword');
+        const npInp = document.getElementById('profileNewPassword');
+        const cpInp = document.getElementById('profileConfirmPassword');
+        if (opInp) opInp.value = '';
+        if (npInp) npInp.value = '';
+        if (cpInp) cpInp.value = '';
+
+        // Update local session
+        u.password = formValues.newPass;
+        sessionStorage.setItem('inventory_user', JSON.stringify(u));
+        if (localStorage.getItem('inventory_user')) {
+          localStorage.setItem('inventory_user', JSON.stringify(u));
+        }
+
+        Swal.fire({
+          icon: 'success',
+          title: 'ជោគជ័យ 🎉',
+          text: 'បានប្តូរពាក្យសម្ងាត់ថ្មីជោគជ័យតាមរយៈការផ្ទៀងផ្ទាត់ OTP!',
+          confirmButtonText: 'យល់ព្រម',
+          confirmButtonColor: '#16a34a'
+        });
+      } else {
+        Swal.fire('បរាជ័យ', resetRes?.message || 'លេខកូដ OTP មិនត្រឹមត្រូវទេ', 'error');
       }
     }
 

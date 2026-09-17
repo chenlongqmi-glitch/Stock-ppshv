@@ -619,10 +619,35 @@ function requestPasswordResetOtp(payload) {
     // Fallback if cache not available
   }
 
+  // Send Email to User
+  if (targetUser.email && targetUser.email.includes('@') && !targetUser.email.endsWith('.local')) {
+    try {
+      MailApp.sendEmail({
+        to: targetUser.email,
+        subject: '🔐 [PPSHV Inventory] លេខកូដ OTP ប្តូរពាក្យសម្ងាត់ថ្មី',
+        htmlBody: `
+          <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 500px; margin: auto; border: 1px solid #e2e8f0; border-radius: 12px;">
+            <h2 style="color: #2563eb; text-align: center;">PPSHV SMART INVENTORY</h2>
+            <h3 style="color: #1e293b;">លេខកូដ OTP ប្តូរពាក្យសម្ងាត់</h3>
+            <p>សួស្តី <b>${targetUser.fullName || targetUser.username}</b>,</p>
+            <p>លោកអ្នកបានស្នើសុំលេខកូដ OTP ដើម្បីប្តូរពាក្យសម្ងាត់គណនីក្នុងប្រព័ន្ធ។</p>
+            <div style="background: #f8fafc; padding: 18px; border-radius: 12px; text-align: center; margin: 20px 0; border: 1px dashed #cbd5e1;">
+              <span style="font-size: 32px; font-weight: 900; letter-spacing: 6px; color: #2563eb;">${otpCode}</span>
+            </div>
+            <p style="color: #64748b; font-size: 12px; line-height: 1.5;">លេខកូដនេះមានសុពលភាពរយៈពេល 10 នាទី។ ប្រសិនបើលោកអ្នកមិនបានស្នើសុំទេ សូមកុំចែករំលែកលេខកូដនេះទៅកាន់នរណាម្នាក់ឡើយ។</p>
+          </div>
+        `
+      });
+    } catch (mailErr) {
+      Logger.log('Mail send error: ' + mailErr);
+    }
+  }
+
   // Send Alert to Admin via Telegram
   const alertMsg = `🔐 <b>[សំណើសុំកំណត់ពាក្យសម្ងាត់ឡើងវិញ]</b>\n` +
     `👤 <b>ឈ្មោះគណនី:</b> ${targetUser.username} (${targetUser.fullName})\n` +
     `💼 <b>តួនាទី:</b> ${targetUser.role}\n` +
+    `📧 <b>អ៊ីមែល:</b> ${targetUser.email || '-'}\n` +
     `🔑 <b>លេខកូដ OTP បញ្ជាក់ (Reset OTP):</b> <code>${otpCode}</code>\n` +
     `⏰ មានសុពលភាពរយៈពេល 10 នាទី។`;
 
@@ -631,7 +656,7 @@ function requestPasswordResetOtp(payload) {
 
   return {
     success: true,
-    message: 'លេខកូដ OTP បញ្ជាក់ត្រូវបានបញ្ជូនទៅកាន់ Telegram Admin រួចរាល់!',
+    message: 'លេខកូដ OTP ត្រូវបានផ្ញើទៅកាន់អ៊ីមែល និង Telegram Admin រួចរាល់!',
     otpDemo: otpCode
   };
 }
@@ -885,6 +910,18 @@ function updateUserProfile(payload) {
       if (avatar) sheet.getRange(i + 1, 11).setValue(avatar);
 
       if (newPassword && newPassword.length >= 4) {
+        const storedHash = String(data[i][4] || '').trim();
+        const storedSalt = String(data[i][5] || '');
+        const oldPassword = String(payload.oldPassword || '').trim();
+
+        const computedHash = hashPassword(oldPassword, storedSalt);
+        const isHashMatch = (computedHash === storedHash);
+        const isPlainMatch = (storedHash === oldPassword);
+
+        if (!isHashMatch && !isPlainMatch) {
+          return { success: false, message: 'ពាក្យសម្ងាត់ចាស់មិនត្រឹមត្រូវទេ! ប្រសិនបើអ្នកភ្លេចពាក្យសម្ងាត់ សូមចុចប៊ូតុង «ភ្លេចពាក្យសម្ងាត់?»' };
+        }
+
         const salt = generateSalt();
         const hash = hashPassword(newPassword, salt);
         sheet.getRange(i + 1, 5).setValue(hash);
