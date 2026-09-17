@@ -215,7 +215,7 @@ function setupDatabase() {
     // Default SuperAdmin: superadmin / superadmin123 (Full system control)
     const saSalt = generateSalt();
     const saHash = hashPassword('superadmin123', saSalt);
-    usersSheet.appendRow(['USR-SA', 'superadmin', 'Super Administrator (អភិបាលកំពូល)', 'superadmin@inventory.local', saHash, saSalt, 'SuperAdmin', 'Active', new Date(), 'ALL']);
+    usersSheet.appendRow(['USR-SA', 'superadmin', '陈龙', 'chenlongqmi@gmail.com', saHash, saSalt, 'SuperAdmin', 'Active', new Date(), 'ALL', 'assets/superadmin_avatar.jpg', '066966606']);
 
     // Default Admin: admin / admin123 (Can access ALL 11 Warehouses)
     const salt = generateSalt();
@@ -483,10 +483,10 @@ function loginUser(usernameOrData, password) {
   if (uInput === 'superadmin' && (pInput === 'superadmin123' || pInput === 'admin')) {
     const salt = generateSalt();
     const hash = hashPassword('superadmin123', salt);
-    sheet.appendRow(['USR-SA', 'superadmin', 'Super Administrator (អភិបាលកំពូល)', 'superadmin@inventory.local', hash, salt, 'SuperAdmin', 'Active', new Date(), 'ALL']);
+    sheet.appendRow(['USR-SA', 'superadmin', '陈龙', 'chenlongqmi@gmail.com', hash, salt, 'SuperAdmin', 'Active', new Date(), 'ALL', 'assets/superadmin_avatar.jpg', '066966606']);
     return {
       success: true,
-      user: { userId: 'USR-SA', username: 'superadmin', fullName: 'Super Administrator (អភិបាលកំពូល)', email: 'superadmin@inventory.local', role: 'SuperAdmin', warehouse: 'ALL' }
+      user: { userId: 'USR-SA', username: 'superadmin', fullName: '陈龙', email: 'chenlongqmi@gmail.com', phone: '066966606', role: 'SuperAdmin', warehouse: 'ALL', avatar: 'assets/superadmin_avatar.jpg' }
     };
   }
 
@@ -610,7 +610,7 @@ function requestPasswordResetOtp(payload) {
     if (account === 'admin') {
       targetUser = { username: 'admin', fullName: 'System Administrator', email: explicitEmail || 'ppshv2024@gmail.com', role: 'Admin' };
     } else if (account === 'superadmin') {
-      targetUser = { username: 'superadmin', fullName: 'Super Administrator', email: explicitEmail || 'ppshv2024@gmail.com', role: 'SuperAdmin' };
+      targetUser = { username: 'superadmin', fullName: '陈龙', email: explicitEmail || 'chenlongqmi@gmail.com', phone: '066966606', role: 'SuperAdmin' };
     }
   }
 
@@ -738,7 +738,7 @@ function resetPasswordWithOtp(payload) {
     if (account === 'admin') {
       sheet.appendRow(['USR-001', 'admin', 'System Administrator', 'admin@inventory.local', newHash, newSalt, 'Admin', 'Active', new Date(), 'ALL']);
     } else if (account === 'superadmin') {
-      sheet.appendRow(['USR-SA', 'superadmin', 'Super Administrator (អភិបាលកំពូល)', 'superadmin@inventory.local', newHash, newSalt, 'SuperAdmin', 'Active', new Date(), 'ALL']);
+      sheet.appendRow(['USR-SA', 'superadmin', '陈龙', 'chenlongqmi@gmail.com', newHash, newSalt, 'SuperAdmin', 'Active', new Date(), 'ALL', 'assets/superadmin_avatar.jpg', '066966606']);
     } else {
       return { success: false, message: 'រកមិនឃើញគណនីនេះក្នុងប្រព័ន្ធដើម្បីផ្លាស់ប្តូរពាក្យសម្ងាត់ទេ' };
     }

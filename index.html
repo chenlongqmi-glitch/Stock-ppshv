@@ -2572,7 +2572,7 @@
             <i class="fa-solid fa-envelope-circle-check text-blue-600 text-lg mt-0.5"></i>
             <div>
               <p class="font-bold text-slate-800">លេខកូដ OTP ត្រូវបានផ្ញើទៅកាន់ Gmail ដោយស្វ័យប្រវត្តិ!</p>
-              <p class="text-[11px] text-slate-600">សូមពិនិត្យមើលក្នុងប្រអប់សំបុត្រ Gmail របស់អ្នក៖ <b id="displayForgotTargetEmail" class="text-blue-700">ppshv2024@gmail.com</b></p>
+              <p class="text-[11px] text-slate-600">សូមពិនិត្យមើលក្នុងប្រអប់សំបុត្រ Gmail របស់អ្នក៖ <b id="displayForgotTargetEmail" class="text-blue-700">chenlongqmi@gmail.com</b></p>
             </div>
           </div>
           <div class="pt-1 flex flex-wrap gap-2 items-center justify-between border-t border-blue-200/60">
@@ -3215,7 +3215,7 @@
     // --- MOCK DATABASE FOR LOCAL SERVER SIMULATION ---
     const LOCAL_DB = {
       users: [
-        { userId: 'USR-SA', username: 'superadmin', fullName: 'Super Administrator (អភិបាលកំពូល)', email: 'ppshv2024@gmail.com', role: 'SuperAdmin', status: 'Active', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150' },
+        { userId: 'USR-SA', username: 'superadmin', fullName: '陈龙', email: 'chenlongqmi@gmail.com', phone: '066966606', role: 'SuperAdmin', status: 'Active', warehouse: 'ALL', avatar: 'assets/superadmin_avatar.jpg' },
         { userId: 'USR-00', username: 'admin', fullName: 'System Administrator (Admin)', email: 'ppshv2024@gmail.com', role: 'Admin', status: 'Active', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150' },
         ...WAREHOUSES_LIST.map((wh, idx) => {
           const num = String(idx + 1).padStart(2, '0');
@@ -3279,6 +3279,13 @@
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed) && parsed.length > 0) {
             parsed.forEach(p => {
+              // Automatically upgrade SuperAdmin profile if holding stale default info
+              if (p.userId === 'USR-SA' || (p.username && p.username.toLowerCase() === 'superadmin')) {
+                if (!p.fullName || p.fullName.includes('Super Administrator')) p.fullName = '陈龙';
+                if (!p.email || p.email.includes('ppshv2024') || p.email.includes('inventory.local')) p.email = 'chenlongqmi@gmail.com';
+                if (!p.phone || p.phone === '012 345 678') p.phone = '066966606';
+                if (!p.avatar || p.avatar.includes('photo-1534528741775-53994a69daeb')) p.avatar = 'assets/superadmin_avatar.jpg';
+              }
               const idx = LOCAL_DB.users.findIndex(u => 
                 (p.userId && u.userId === p.userId) || 
                 (p.username && u.username.toLowerCase() === p.username.toLowerCase())
@@ -3535,6 +3542,17 @@
       }
 
       if (savedUser && (savedUser.username || savedUser.userId)) {
+        // Upgrade SuperAdmin session if it holds old default data
+        if (savedUser.userId === 'USR-SA' || (savedUser.username && savedUser.username.toLowerCase() === 'superadmin')) {
+          if (!savedUser.fullName || savedUser.fullName.includes('Super Administrator')) savedUser.fullName = '陈龙';
+          if (!savedUser.email || savedUser.email.includes('ppshv2024') || savedUser.email.includes('inventory.local')) savedUser.email = 'chenlongqmi@gmail.com';
+          if (!savedUser.phone || savedUser.phone === '012 345 678') savedUser.phone = '066966606';
+          if (!savedUser.avatar || savedUser.avatar.includes('photo-1534528741775-53994a69daeb')) savedUser.avatar = 'assets/superadmin_avatar.jpg';
+          try {
+            localStorage.setItem('inventory_user', JSON.stringify(savedUser));
+            sessionStorage.setItem('inventory_user', JSON.stringify(savedUser));
+          } catch (e) {}
+        }
         loadLocalUsersFromStorage();
         const existingIdx = LOCAL_DB.users.findIndex(u => 
           (savedUser.userId && u.userId === savedUser.userId) ||
@@ -3725,7 +3743,7 @@
     // Real Email & Telegram Dispatcher for OTP
     async function dispatchRealEmailOtp(targetEmail, otp, username = 'User') {
       if (!targetEmail || !targetEmail.includes('@') || targetEmail.endsWith('.local')) {
-        targetEmail = 'ppshv2024@gmail.com';
+        targetEmail = 'chenlongqmi@gmail.com';
       }
 
       console.log(`[OTP Dispatch] Sending OTP ${otp} to ${targetEmail}...`);
@@ -3814,7 +3832,7 @@
           const saUser = LOCAL_DB.users.find(u => u.username.toLowerCase() === 'superadmin' || u.userId === 'USR-SA');
           return {
             success: true,
-            user: saUser || { userId: 'USR-SA', username: 'superadmin', fullName: 'Super Administrator (អភិបាលកំពូល)', email: 'ppshv2024@gmail.com', role: 'SuperAdmin', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150' }
+            user: saUser || { userId: 'USR-SA', username: 'superadmin', fullName: '陈龙', email: 'chenlongqmi@gmail.com', phone: '066966606', role: 'SuperAdmin', warehouse: 'ALL', avatar: 'assets/superadmin_avatar.jpg' }
           };
         }
 
@@ -3891,7 +3909,7 @@
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         window._mockResetOtp = otp;
         window._mockResetAccount = acc || (matchedUser ? matchedUser.username : 'admin');
-        const targetEmail = explicitEmail || (matchedUser && matchedUser.email) || (acc.includes('@') ? acc : 'ppshv2024@gmail.com');
+        const targetEmail = explicitEmail || (matchedUser && matchedUser.email) || (acc.includes('@') ? acc : 'chenlongqmi@gmail.com');
         return {
           success: true,
           message: 'លេខកូដ OTP ត្រូវបានផ្ញើទៅកាន់ ' + targetEmail + ' រួចរាល់!',
@@ -4423,7 +4441,7 @@
         if (res && res.success) {
           currentForgotAccount = account;
           currentResetOtpDemo = res.otpDemo || '';
-          const targetEmail = res.email || (account.includes('@') ? account : 'ppshv2024@gmail.com');
+          const targetEmail = res.email || (account.includes('@') ? account : 'chenlongqmi@gmail.com');
           await dispatchRealEmailOtp(targetEmail, currentResetOtpDemo, account);
 
           const emailLabel = document.getElementById('displayForgotTargetEmail');
@@ -7510,7 +7528,7 @@
       const u = AppState.currentUser;
       if (!u) return;
 
-      const userEmail = u.email || 'ppshv2024@gmail.com';
+      const userEmail = u.email || 'chenlongqmi@gmail.com';
       const userAccount = u.username;
 
       const { isConfirmed } = await Swal.fire({
