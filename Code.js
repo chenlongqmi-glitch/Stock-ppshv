@@ -113,6 +113,9 @@ function handleApiRequest(req) {
         return getUsersList();
       case 'updateUserStatus':
         return updateUserStatus(payload.userId, payload.status, payload.role, payload.warehouse, payload.adminUser, payload.avatar);
+      case 'updateUserProfile':
+      case 'updateProfile':
+        return updateUserProfile(payload);
       case 'getSystemSettings':
       case 'getSettings':
         return getSystemSettings();
@@ -834,6 +837,42 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
     }
   }
   return { success: false, message: 'User not found' };
+}
+
+function updateUserProfile(payload) {
+  if (!payload) return { success: false, message: 'ទិន្នន័យមិនត្រឹមត្រូវ' };
+  const username = String(payload.username || '').toLowerCase();
+  const userId = String(payload.userId || '');
+  const fullName = String(payload.fullName || '').trim();
+  const email = String(payload.email || '').trim();
+  const avatar = String(payload.avatar || '').trim();
+  const newPassword = String(payload.newPassword || '').trim();
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ensureUsersInitialized(ss);
+  const data = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < data.length; i++) {
+    const rowUserId = String(data[i][0] || '');
+    const rowUsername = String(data[i][1] || '').toLowerCase();
+
+    if ((userId && rowUserId === userId) || (username && rowUsername === username)) {
+      if (fullName) sheet.getRange(i + 1, 3).setValue(fullName);
+      if (email !== undefined) sheet.getRange(i + 1, 4).setValue(email);
+      if (avatar) sheet.getRange(i + 1, 11).setValue(avatar);
+
+      if (newPassword && newPassword.length >= 4) {
+        const salt = generateSalt();
+        const hash = hashPassword(newPassword, salt);
+        sheet.getRange(i + 1, 5).setValue(hash);
+        sheet.getRange(i + 1, 6).setValue(salt);
+      }
+
+      logActivity(username || rowUsername, String(data[i][6] || 'User'), 'UPDATE_PROFILE', `Updated own profile: fullName=${fullName}, avatarUpdated=${!!avatar}, passwordUpdated=${!!newPassword}`);
+      return { success: true, message: 'បានកែប្រែព័ត៌មានផ្ទាល់ខ្លួនជោគជ័យ' };
+    }
+  }
+  return { success: false, message: 'មិនរកឃើញគណនីរបស់អ្នកឡើយ' };
 }
 
 // ==========================================

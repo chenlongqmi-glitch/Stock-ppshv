@@ -662,6 +662,13 @@
             class="hidden px-2 py-0.5 rounded-full text-[9px] font-bold bg-violet-500 text-white animate-pulse shadow">0</span>
         </a>
 
+        <!-- ព័ត៌មានផ្ទាល់ខ្លួន (Profile) សម្រាប់ User និង Admin គ្រប់រូប -->
+        <a href="#profile" onclick="openProfileModal(); return false;" id="navProfile"
+          class="nav-link flex items-center px-3.5 py-2.5 rounded-xl hover:bg-white/15 hover:text-white transition-all text-cyan-300">
+          <i class="fa-solid fa-id-badge w-6 text-center text-cyan-300"></i>
+          <span class="ml-2">ព័ត៌មានផ្ទាល់ខ្លួន (Profile)</span>
+        </a>
+
         <a href="#users" onclick="navigateTab('users')" id="navUsers"
           class="nav-link flex items-center px-3.5 py-2.5 rounded-xl hover:bg-white/15 hover:text-white transition-all text-blue-100/90">
           <i class="fa-solid fa-users-gear w-6 text-center text-blue-200"></i>
@@ -707,15 +714,15 @@
       <div id="activeSessionBanner"
         class="bg-gradient-to-r from-blue-700 via-indigo-700 to-slate-900 text-white px-4 md:px-6 py-2 shadow-md border-b border-white/15 flex flex-wrap items-center justify-between gap-2.5 z-20 flex-shrink-0">
         <div class="flex items-center space-x-3 min-w-0">
-          <div class="relative flex-shrink-0">
+          <div class="relative flex-shrink-0 cursor-pointer group" onclick="openProfileModal()" title="ចុចដើម្បីកែប្រែព័ត៌មានផ្ទាល់ខ្លួន និងរូបថត Profile">
             <div id="activeSessionAvatar"
-              class="w-8 h-8 md:w-9 md:h-9 rounded-full overflow-hidden border border-white/40 bg-white/20 backdrop-blur-md flex items-center justify-center text-white font-bold text-xs shadow-md">
+              class="w-8 h-8 md:w-9 md:h-9 rounded-full overflow-hidden border border-white/40 bg-white/20 backdrop-blur-md flex items-center justify-center text-white font-bold text-xs shadow-md group-hover:scale-105 group-hover:border-white transition-all">
               <i class="fa-solid fa-user"></i>
             </div>
             <span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-400 border-2 border-indigo-950 rounded-full"
               title="កំពុង Online"></span>
           </div>
-          <div class="min-w-0">
+          <div class="min-w-0 cursor-pointer" onclick="openProfileModal()" title="ចុចដើម្បីកែប្រែព័ត៌មានផ្ទាល់ខ្លួន និងរូបថត Profile">
             <div class="flex items-center space-x-2">
               <span class="text-[10px] md:text-[11px] font-semibold text-blue-100/90">គណនីកំពុងចូលប្រើប្រាស់:</span>
               <span id="activeSessionRoleBadge"
@@ -724,7 +731,7 @@
                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1 animate-pulse"></span> Online
               </span>
             </div>
-            <h3 class="text-xs md:text-sm font-bold text-white truncate drop-shadow-sm" id="activeSessionUserTitle">
+            <h3 class="text-xs md:text-sm font-bold text-white truncate drop-shadow-sm flex items-center space-x-1" id="activeSessionUserTitle">
               System Administrator <span class="text-[10px] text-blue-200/80 font-mono font-normal">(@admin)</span>
             </h3>
           </div>
@@ -747,6 +754,13 @@
             <span class="text-blue-100 text-[10px] sm:text-xs font-medium">រយៈពេល:</span>
             <span id="activeSessionDurationTime" class="font-mono font-black text-cyan-200 text-[11px] sm:text-xs">00:00:00</span>
           </div>
+
+          <!-- PROFILE BUTTON (ប៊ូតុងកែប្រែ Profile ផ្ទាល់ខ្លួនសម្រាប់ User និង Admin គ្រប់រូប) -->
+          <button onclick="openProfileModal()" title="កែប្រែព័ត៌មានផ្ទាល់ខ្លួន & រូបថត Profile"
+            class="px-3 py-1 bg-white/15 hover:bg-white/25 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 border border-white/20 backdrop-blur-md shadow-sm transition-all hover:scale-105 active:scale-95">
+            <i class="fa-solid fa-user-pen text-xs text-cyan-200"></i>
+            <span class="hidden sm:inline">Profile ខ្ញុំ</span>
+          </button>
 
           <!-- SWITCH USER BUTTON (ប៊ូតុងប្តូរគណនីប្រើប្រាស់សម្រាប់ SuperAdmin) -->
           <button id="btnSwitchUser" onclick="openSwitchUserModal()" title="ប្តូរគណនីប្រើប្រាស់ (Switch User)"
@@ -2713,6 +2727,175 @@
         </div>
       </form>
     </div>
+  <!-- D2. MY PROFILE MODAL (សម្រាប់ User និង Admin គ្រប់រូបកែប្រែព័ត៌មានផ្ទាល់ខ្លួន និងរូបថត) -->
+  <div id="profileModal" onclick="if(event.target === this) closeProfileModal()"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 hidden">
+    <div class="w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200 transform transition-all">
+      <!-- Modal Header -->
+      <div class="px-6 py-4 bg-gradient-to-r from-blue-700 via-indigo-700 to-cyan-600 text-white flex items-center justify-between shadow-md">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md border border-white/25 flex items-center justify-center text-white shadow-inner text-lg">
+            <i class="fa-solid fa-user-gear"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-sm md:text-base">កែប្រែព័ត៌មានផ្ទាល់ខ្លួន & រូបថត</h3>
+            <p class="text-[11px] text-cyan-100/90">គ្រប់គ្រង Profile ឈ្មោះ អ៊ីមែល រូបថត និងពាក្យសម្ងាត់</p>
+          </div>
+        </div>
+        <button onclick="closeProfileModal()"
+          class="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition backdrop-blur-sm">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body Form -->
+      <form id="profileForm" onsubmit="handleProfileUpdateSubmit(event)" class="p-6 space-y-4 max-h-[82vh] overflow-y-auto custom-scrollbar">
+        
+        <!-- Top Profile Avatar Upload Section -->
+        <div class="p-4 bg-gradient-to-br from-slate-50 to-blue-50/50 rounded-2xl border border-slate-200/80 flex flex-col sm:flex-row items-center sm:items-start space-y-3 sm:space-y-0 sm:space-x-4">
+          <div class="relative group cursor-pointer" onclick="document.getElementById('profileAvatarInput').click()" title="ចុចដើម្បីប្តូររូបថត Profile">
+            <div class="w-20 h-20 rounded-full border-2 border-blue-400 overflow-hidden bg-white shadow-md flex items-center justify-center">
+              <img id="profileAvatarPreview" src="https://api.dicebear.com/7.x/bottts/svg?seed=user" class="w-full h-full object-cover">
+            </div>
+            <div class="absolute inset-0 bg-slate-900/60 rounded-full flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-all text-white">
+              <i class="fa-solid fa-camera text-base"></i>
+              <span class="text-[9px] font-bold mt-0.5">ប្តូររូប</span>
+            </div>
+          </div>
+
+          <input type="file" id="profileAvatarInput" accept="image/*" class="hidden"
+            onchange="handleUserAvatarSelect(event, 'profileAvatarPreview', 'profileAvatarData')">
+          <input type="hidden" id="profileAvatarData" value="">
+
+          <div class="flex-1 text-center sm:text-left space-y-2">
+            <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+              <button type="button" onclick="document.getElementById('profileAvatarInput').click()"
+                class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm transition flex items-center space-x-1.5">
+                <i class="fa-solid fa-upload"></i>
+                <span>Upload រូបថត</span>
+              </button>
+              <button type="button" onclick="randomizeProfileAvatar()"
+                class="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-xl text-xs font-semibold shadow-sm transition flex items-center space-x-1">
+                <i class="fa-solid fa-shuffle text-indigo-500"></i>
+                <span>Avatar ស្វ័យប្រវត្តិ</span>
+              </button>
+            </div>
+            <p class="text-[11px] text-slate-500">
+              គាំទ្ររូបភាព PNG, JPG, WebP (ប្រព័ន្ធនឹង Compress ដោយស្វ័យប្រវត្តិ)
+            </p>
+          </div>
+        </div>
+
+        <!-- Read-Only Badges Row -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200/70 text-xs">
+          <div>
+            <span class="text-[10px] text-slate-400 block font-semibold">គណនី:</span>
+            <span id="profileUsernameDisplay" class="font-bold text-blue-600 truncate block">@admin</span>
+          </div>
+          <div>
+            <span class="text-[10px] text-slate-400 block font-semibold">UserID:</span>
+            <span id="profileUserIdDisplay" class="font-mono font-bold text-slate-600 truncate block">USR-00</span>
+          </div>
+          <div>
+            <span class="text-[10px] text-slate-400 block font-semibold">តួនាទី:</span>
+            <span id="profileRoleDisplay" class="font-bold text-purple-600 truncate block">Admin</span>
+          </div>
+          <div>
+            <span class="text-[10px] text-slate-400 block font-semibold">ទីតាំងឃ្លាំង:</span>
+            <span id="profileWarehouseDisplay" class="font-bold text-emerald-600 truncate block">គ្រប់ស្ថានីយ</span>
+          </div>
+        </div>
+
+        <!-- Editable Inputs -->
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">ឈ្មោះពេញ (Full Name) *</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400"><i class="fa-solid fa-user"></i></span>
+              <input type="text" id="profileFullName" required placeholder="បញ្ចូលឈ្មោះពេញ"
+                class="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">អ៊ីមែល (Email)</label>
+              <div class="relative">
+                <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400"><i class="fa-solid fa-envelope"></i></span>
+                <input type="email" id="profileEmail" placeholder="yourname@domain.com"
+                  class="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition">
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">លេខទូរស័ព្ទ (Phone Number)</label>
+              <div class="relative">
+                <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400"><i class="fa-solid fa-phone"></i></span>
+                <input type="tel" id="profilePhone" placeholder="012 345 678"
+                  class="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Change Password Section (Accordion / Collapsible) -->
+        <div class="pt-2 border-t border-slate-200">
+          <div class="flex items-center justify-between cursor-pointer py-1.5" onclick="toggleProfilePasswordFields()">
+            <div class="flex items-center space-x-2">
+              <i class="fa-solid fa-key text-amber-500 text-xs"></i>
+              <span class="text-xs font-bold text-slate-700">ប្តូរពាក្យសម្ងាត់ (ស្រេចចិត្ត)</span>
+            </div>
+            <span class="text-xs text-blue-600 hover:underline flex items-center space-x-1">
+              <span id="pwdToggleLabel">បង្ហាញ</span>
+              <i id="pwdToggleIcon" class="fa-solid fa-chevron-down text-[10px]"></i>
+            </span>
+          </div>
+
+          <div id="profilePasswordContainer" class="hidden space-y-2.5 mt-2 p-3 bg-amber-50/50 rounded-xl border border-amber-200/70">
+            <p class="text-[11px] text-amber-800">
+              * ប្រសិនបើមិនចង់ប្តូរពាក្យសម្ងាត់ទេ សូមទុកប្រអប់ទាំងពីរខាងក្រោមឱ្យនៅទំនេរ។
+            </p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-600 mb-1">ពាក្យសម្ងាត់ថ្មី</label>
+                <div class="relative">
+                  <input type="password" id="profileNewPassword" placeholder="ពាក្យសម្ងាត់ថ្មី (យ៉ាងតិច ៤ ខ្ទង់)" minlength="4"
+                    class="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-amber-500">
+                  <button type="button" onclick="togglePasswordVisibility('profileNewPassword', this)"
+                    class="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-eye text-xs"></i>
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-600 mb-1">បញ្ជាក់ពាក្យសម្ងាត់ថ្មី</label>
+                <div class="relative">
+                  <input type="password" id="profileConfirmPassword" placeholder="វាយពាក្យសម្ងាត់ម្តងទៀត" minlength="4"
+                    class="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-amber-500">
+                  <button type="button" onclick="togglePasswordVisibility('profileConfirmPassword', this)"
+                    class="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-eye text-xs"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Submit & Cancel Buttons -->
+        <div class="pt-3 border-t border-slate-200 flex items-center justify-end space-x-2">
+          <button type="button" onclick="closeProfileModal()"
+            class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition">
+            បោះបង់
+          </button>
+          <button type="submit" id="btnSaveProfile"
+            class="px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 transition flex items-center space-x-1.5">
+            <i class="fa-solid fa-floppy-disk"></i>
+            <span>រក្សាទុកព័ត៌មាន</span>
+          </button>
+        </div>
+
+      </form>
+    </div>
   </div>
 
   <!-- E. NEW PRODUCT REQUISITION MODAL (គ្រប់ឃ្លាំងស្នើសុំទំនិញ) -->
@@ -3112,6 +3295,13 @@
         return;
       }
 
+      // 4b. Profile Modal
+      const profileModal = document.getElementById('profileModal');
+      if (profileModal && !profileModal.classList.contains('hidden')) {
+        closeProfileModal();
+        return;
+      }
+
       // 5. Requisition Modal
       const requestItemModal = document.getElementById('requestItemModal');
       if (requestItemModal && !requestItemModal.classList.contains('hidden')) {
@@ -3328,6 +3518,21 @@
 
       if (action === 'getUsersList' || action === 'getUsers') {
         return { success: true, users: LOCAL_DB.users };
+      }
+
+      if (action === 'updateUserProfile' || action === 'updateProfile') {
+        const username = String(payload.username || '').toLowerCase();
+        const userId = String(payload.userId || '');
+        const target = LOCAL_DB.users.find(x => (username && x.username.toLowerCase() === username) || (userId && x.userId === userId));
+        if (target) {
+          if (payload.fullName) target.fullName = payload.fullName;
+          if (payload.email !== undefined) target.email = payload.email;
+          if (payload.phone !== undefined) target.phone = payload.phone;
+          if (payload.avatar) target.avatar = payload.avatar;
+          if (payload.newPassword) target.password = payload.newPassword;
+          return { success: true, message: 'បានកែប្រែព័ត៌មានផ្ទាល់ខ្លួនជោគជ័យ!', user: target };
+        }
+        return { success: true, message: 'បានកែប្រែព័ត៌មានផ្ទាល់ខ្លួនជោគជ័យ!' };
       }
 
       if (action === 'getWarehousesDetailed') {
@@ -6481,6 +6686,195 @@
         }
       } catch (err) {
         Swal.fire('Error', err.toString(), 'error');
+      }
+    }
+
+    // ====================================================
+    // MY PROFILE FUNCTIONS (សម្រាប់ User និង Admin កែប្រែព័ត៌មានផ្ទាល់ខ្លួន)
+    // ====================================================
+    function openProfileModal() {
+      const u = AppState.currentUser;
+      if (!u) {
+        Swal.fire('សូមចូលប្រើប្រាស់', 'សូមធ្វើការ Login ជាមុនសិន!', 'info');
+        return;
+      }
+
+      // Read-only badges
+      const userDisplay = document.getElementById('profileUsernameDisplay');
+      if (userDisplay) userDisplay.innerText = '@' + (u.username || 'user');
+      const idDisplay = document.getElementById('profileUserIdDisplay');
+      if (idDisplay) idDisplay.innerText = u.userId || '-';
+      const roleDisplay = document.getElementById('profileRoleDisplay');
+      if (roleDisplay) roleDisplay.innerText = u.role || 'Staff';
+      const whDisplay = document.getElementById('profileWarehouseDisplay');
+      if (whDisplay) whDisplay.innerText = u.warehouse === 'ALL' ? 'គ្រប់ស្ថានីយទាំងអស់' : (u.warehouse || '-');
+
+      // Editable inputs
+      const fnInput = document.getElementById('profileFullName');
+      if (fnInput) fnInput.value = u.fullName || u.username || '';
+      const emInput = document.getElementById('profileEmail');
+      if (emInput) emInput.value = u.email || '';
+      const phInput = document.getElementById('profilePhone');
+      if (phInput) phInput.value = u.phone || '';
+
+      // Clear password fields
+      const npInput = document.getElementById('profileNewPassword');
+      if (npInput) npInput.value = '';
+      const cpInput = document.getElementById('profileConfirmPassword');
+      if (cpInput) cpInput.value = '';
+
+      // Hide password container by default
+      const pwdContainer = document.getElementById('profilePasswordContainer');
+      if (pwdContainer) pwdContainer.classList.add('hidden');
+      const pwdLabel = document.getElementById('pwdToggleLabel');
+      if (pwdLabel) pwdLabel.innerText = 'បង្ហាញ';
+      const pwdIcon = document.getElementById('pwdToggleIcon');
+      if (pwdIcon) pwdIcon.className = 'fa-solid fa-chevron-down text-[10px]';
+
+      // Avatar preview & hidden data
+      const avatarPreview = document.getElementById('profileAvatarPreview');
+      const avatarData = document.getElementById('profileAvatarData');
+      const curAvatar = u.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${u.username}`;
+      if (avatarPreview) avatarPreview.src = curAvatar;
+      if (avatarData) avatarData.value = u.avatar || '';
+
+      const modal = document.getElementById('profileModal');
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    function closeProfileModal() {
+      const modal = document.getElementById('profileModal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function randomizeProfileAvatar() {
+      const seed = 'user_' + Math.floor(Math.random() * 10000);
+      const newAvatar = `https://api.dicebear.com/7.x/bottts/svg?seed=${seed}`;
+      const preview = document.getElementById('profileAvatarPreview');
+      const data = document.getElementById('profileAvatarData');
+      if (preview) preview.src = newAvatar;
+      if (data) data.value = newAvatar;
+    }
+
+    function toggleProfilePasswordFields() {
+      const container = document.getElementById('profilePasswordContainer');
+      const label = document.getElementById('pwdToggleLabel');
+      const icon = document.getElementById('pwdToggleIcon');
+      if (!container) return;
+      const isHidden = container.classList.contains('hidden');
+      if (isHidden) {
+        container.classList.remove('hidden');
+        if (label) label.innerText = 'លាក់';
+        if (icon) icon.className = 'fa-solid fa-chevron-up text-[10px]';
+      } else {
+        container.classList.add('hidden');
+        if (label) label.innerText = 'បង្ហាញ';
+        if (icon) icon.className = 'fa-solid fa-chevron-down text-[10px]';
+      }
+    }
+
+    function togglePasswordVisibility(inputId, btn) {
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      const isPass = input.type === 'password';
+      input.type = isPass ? 'text' : 'password';
+      const icon = btn.querySelector('i');
+      if (icon) {
+        icon.className = isPass ? 'fa-solid fa-eye-slash text-xs' : 'fa-solid fa-eye text-xs';
+      }
+    }
+
+    async function handleProfileUpdateSubmit(e) {
+      e.preventDefault();
+      const u = AppState.currentUser;
+      if (!u) return;
+
+      const fullName = document.getElementById('profileFullName').value.trim();
+      const email = document.getElementById('profileEmail').value.trim();
+      const phone = document.getElementById('profilePhone').value.trim();
+      const avatar = document.getElementById('profileAvatarData').value.trim() || document.getElementById('profileAvatarPreview').src;
+      const newPassword = document.getElementById('profileNewPassword').value;
+      const confirmPassword = document.getElementById('profileConfirmPassword').value;
+
+      if (!fullName) {
+        Swal.fire('សូមបំពេញព័ត៌មាន', 'សូមបញ្ចូលឈ្មោះពេញរបស់អ្នក!', 'warning');
+        return;
+      }
+
+      if (newPassword) {
+        if (newPassword.length < 4) {
+          Swal.fire('ពាក្យសម្ងាត់ខ្លីពេក', 'ពាក្យសម្ងាត់ថ្មីត្រូវមានយ៉ាងតិច ៤ ខ្ទង់!', 'warning');
+          return;
+        }
+        if (newPassword !== confirmPassword) {
+          Swal.fire('មិនត្រូវគ្នា', 'ពាក្យសម្ងាត់ទាំងពីរមិនដូចគ្នាទេ!', 'warning');
+          return;
+        }
+      }
+
+      const saveBtn = document.getElementById('btnSaveProfile');
+      const originalHtml = saveBtn.innerHTML;
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1.5"></i> កំពុងរក្សាទុក...';
+
+      try {
+        const payload = {
+          userId: u.userId,
+          username: u.username,
+          fullName: fullName,
+          email: email,
+          phone: phone,
+          avatar: avatar,
+          newPassword: newPassword || undefined
+        };
+
+        const res = await apiCall('updateUserProfile', payload);
+
+        if (res && res.success) {
+          // Update AppState.currentUser
+          u.fullName = fullName;
+          u.email = email;
+          u.phone = phone;
+          u.avatar = avatar;
+
+          // Update in LOCAL_DB if local
+          const dbUser = LOCAL_DB.users.find(x => x.username === u.username || (u.userId && x.userId === u.userId));
+          if (dbUser) {
+            dbUser.fullName = fullName;
+            dbUser.email = email;
+            dbUser.phone = phone;
+            dbUser.avatar = avatar;
+            if (newPassword) dbUser.password = newPassword;
+          }
+
+          // Update in session & local storage
+          sessionStorage.setItem('inventory_user', JSON.stringify(u));
+          if (localStorage.getItem('inventory_user')) {
+            localStorage.setItem('inventory_user', JSON.stringify(u));
+          }
+
+          // Update session banner and all views
+          showAppView();
+          if (typeof loadUsersList === 'function') {
+            loadUsersList();
+          }
+
+          closeProfileModal();
+          Swal.fire({
+            icon: 'success',
+            title: 'ជោគជ័យ 🎉',
+            text: 'បានកែប្រែព័ត៌មានផ្ទាល់ខ្លួន និងរូបថត Profile រួចរាល់!',
+            timer: 2200,
+            showConfirmButton: false
+          });
+        } else {
+          Swal.fire('កំហុស', res.message || 'មិនអាចកែប្រែព័ត៌មានបានទេ!', 'error');
+        }
+      } catch (err) {
+        Swal.fire('កំហុស', err.toString(), 'error');
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = originalHtml;
       }
     }
 
