@@ -146,7 +146,8 @@ function doPost(e) {
     }
 
     const action = req.action;
-    const response = handleApiRequest({ action: action, payload: req });
+    const payload = (req.payload !== undefined) ? req.payload : req;
+    const response = handleApiRequest({ action: action, payload: payload });
 
     return ContentService.createTextOutput(JSON.stringify(response))
       .setMimeType(ContentService.MimeType.JSON);
@@ -593,13 +594,19 @@ function requestPasswordResetOtp(payload) {
     }
   }
 
+  const explicitEmail = String(payload.email || '').trim();
+
   // Fallback check for built-in admin or superadmin if not in sheet yet
   if (!targetUser) {
     if (account === 'admin') {
-      targetUser = { username: 'admin', fullName: 'System Administrator', email: 'admin@inventory.local', role: 'Admin' };
+      targetUser = { username: 'admin', fullName: 'System Administrator', email: explicitEmail || 'ppshv2024@gmail.com', role: 'Admin' };
     } else if (account === 'superadmin') {
-      targetUser = { username: 'superadmin', fullName: 'Super Administrator', email: 'superadmin@inventory.local', role: 'SuperAdmin' };
+      targetUser = { username: 'superadmin', fullName: 'Super Administrator', email: explicitEmail || 'ppshv2024@gmail.com', role: 'SuperAdmin' };
     }
+  }
+
+  if (explicitEmail && targetUser) {
+    targetUser.email = explicitEmail;
   }
 
   if (!targetUser) {
@@ -614,17 +621,21 @@ function requestPasswordResetOtp(payload) {
     if (cache) {
       cache.put('RESET_OTP_' + account, otpCode, 600); // 10 minutes
       cache.put('RESET_OTP_' + targetUser.username.toLowerCase(), otpCode, 600);
+      if (targetUser.email) {
+        cache.put('RESET_OTP_' + targetUser.email.toLowerCase(), otpCode, 600);
+      }
     }
   } catch (e) {
     // Fallback if cache not available
   }
 
   // Send Email to User
-  if (targetUser.email && targetUser.email.includes('@') && !targetUser.email.endsWith('.local')) {
+  const targetEmail = targetUser.email || explicitEmail;
+  if (targetEmail && targetEmail.includes('@') && !targetEmail.endsWith('.local')) {
     try {
       MailApp.sendEmail({
-        to: targetUser.email,
-        subject: '🔐 [PPSHV Inventory] លេខកូដ OTP ប្តូរពាក្យសម្ងាត់ថ្មី',
+        to: targetEmail,
+        subject: '🔐 [PPSHV Inventory] លេខកូដ OTP ប្តូរពាក្យសម្ងាត់ថ្មី: ' + otpCode,
         htmlBody: `
           <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 500px; margin: auto; border: 1px solid #e2e8f0; border-radius: 12px;">
             <h2 style="color: #2563eb; text-align: center;">PPSHV SMART INVENTORY</h2>

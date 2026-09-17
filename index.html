@@ -1976,6 +1976,19 @@
                     <span>សាកល្បងផ្ញើសារ (Test Alert)</span>
                   </button>
                 </div>
+              <!-- Google Apps Script Cloud Integration -->
+              <div class="p-4 bg-indigo-50/60 rounded-2xl border border-indigo-200 space-y-3">
+                <h4 class="font-bold text-xs text-indigo-900 flex items-center">
+                  <i class="fa-solid fa-cloud mr-1.5 text-indigo-600 text-base"></i>Google Apps Script Web App URL (Cloud API)
+                </h4>
+                <p class="text-[11px] text-slate-500">
+                  តំណភ្ជាប់ Web App របស់ Google Apps Script សម្រាប់ផ្ញើអ៊ីមែលផ្លូវការ (Gmail / MailApp) និង Sync ទិន្នន័យ Google Sheet ផ្ទាល់។
+                </p>
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Web App Exec URL</label>
+                  <input type="url" id="setGasApiUrl" placeholder="https://script.google.com/macros/s/.../exec"
+                    class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-mono outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
               </div>
 
               <div>
@@ -3193,8 +3206,8 @@
     // --- MOCK DATABASE FOR LOCAL SERVER SIMULATION ---
     const LOCAL_DB = {
       users: [
-        { userId: 'USR-SA', username: 'superadmin', fullName: 'Super Administrator (អភិបាលកំពូល)', email: 'superadmin@inventory.local', role: 'SuperAdmin', status: 'Active', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150' },
-        { userId: 'USR-00', username: 'admin', fullName: 'System Administrator (Admin)', email: 'admin@inventory.local', role: 'Admin', status: 'Active', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150' },
+        { userId: 'USR-SA', username: 'superadmin', fullName: 'Super Administrator (អភិបាលកំពូល)', email: 'ppshv2024@gmail.com', role: 'SuperAdmin', status: 'Active', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150' },
+        { userId: 'USR-00', username: 'admin', fullName: 'System Administrator (Admin)', email: 'ppshv2024@gmail.com', role: 'Admin', status: 'Active', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150' },
         ...WAREHOUSES_LIST.map((wh, idx) => {
           const num = String(idx + 1).padStart(2, '0');
           return {
@@ -3602,15 +3615,17 @@
     }
 
     // Universal API Caller
+    // Universal API Caller (With GAS Cloud Integration & Local Fallback)
     async function apiCall(action, payload = {}) {
-      // Automatically attach active user and active warehouseFilter to all calls
       if (AppState.currentUser) {
         if (!payload.user) payload.user = AppState.currentUser;
         if (!payload.warehouseFilter) payload.warehouseFilter = AppState.selectedAdminWarehouseFilter;
       }
 
-      return new Promise((resolve) => {
-        if (typeof google !== 'undefined' && google.script && google.script.run) {
+      const gasUrl = AppState.gasApiUrl || localStorage.getItem('inventory_gas_api_url');
+
+      if (typeof google !== 'undefined' && google.script && google.script.run) {
+        return new Promise((resolve) => {
           google.script.run
             .withSuccessHandler((res) => {
               resolve(res || { success: false, message: 'No response' });
@@ -3620,13 +3635,100 @@
               Swal.fire('Error', errMsg, 'error');
               resolve({ success: false, message: errMsg });
             }).handleApiRequest({ action: action, payload: payload });
-        } else {
-          // Local simulator for offline testing
+        });
+      } else if (gasUrl && gasUrl.startsWith('https://script.google.com/')) {
+        try {
+          const resp = await fetch(gasUrl, {
+            method: 'POST',
+            mode: 'cors',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: action, payload: payload })
+          });
+          const jsonRes = await resp.json();
+          return jsonRes;
+        } catch (err) {
+          console.warn('Cloud API fetch failed, falling back to local simulation:', err);
+          return new Promise((resolve) => {
+            setTimeout(() => {
+              resolve(simulateLocalApi(action, payload));
+            }, 100);
+          });
+        }
+      } else {
+        // Local simulator for offline testing
+        return new Promise((resolve) => {
           setTimeout(() => {
             resolve(simulateLocalApi(action, payload));
-          }, 150);
+          }, 100);
+        });
+      }
+    }
+
+    // Real Email & Telegram Dispatcher for OTP
+    async function dispatchRealEmailOtp(targetEmail, otp, username = 'User') {
+      if (!targetEmail || !targetEmail.includes('@') || targetEmail.endsWith('.local')) {
+        targetEmail = 'ppshv2024@gmail.com';
+      }
+
+      console.log(`[OTP Dispatch] Sending OTP ${otp} to ${targetEmail}...`);
+      const outcomes = { email: false, telegram: false };
+
+      // 1. Send via FormSubmit AJAX API (Direct delivery to Inbox)
+      try {
+        const resp = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(targetEmail)}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({
+            _subject: `🔐 [PPSHV Smart Inventory] លេខកូដ OTP របស់អ្នកគឺ: ${otp}`,
+            _template: 'table',
+            _captcha: 'false',
+            'ប្រព័ន្ធ (System)': 'PPSHV Smart Inventory Management',
+            'គណនី (Account)': username,
+            'អ៊ីមែលទទួល (Email)': targetEmail,
+            'លេខកូដ OTP (Code)': otp,
+            'សុពលភាព (Expiry)': '10 នាទី (10 Minutes)',
+            'សារជូនដំណឹង (Message)': `លេខកូដ OTP សម្រាប់ប្តូរពាក្យសម្ងាត់របស់អ្នកគឺ៖ ${otp}។ សូមបញ្ចូលលេខកូដនេះក្នុងប្រព័ន្ធដើម្បីបញ្ចប់ការប្តូរពាក្យសម្ងាត់។ ប្រសិនបើលោកអ្នកមិនបានស្នើសុំទេ សូមកុំចែករំលែកលេខកូដនេះឱ្យនរណាម្នាក់ដឹង។`
+          })
+        });
+
+        const data = await resp.json();
+        console.log('[OTP Dispatch] FormSubmit response:', data);
+        if (data && (data.success === 'true' || data.success === true || data.message?.includes('Activation') || data.message?.includes('success'))) {
+          outcomes.email = true;
         }
-      });
+      } catch (err) {
+        console.warn('[OTP Dispatch] FormSubmit error:', err);
+      }
+
+      // 2. Also send Telegram alert if configured
+      try {
+        const botToken = AppState.settings?.TELEGRAM_BOT_TOKEN || localStorage.getItem('inventory_tg_token');
+        const chatId = AppState.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid');
+        if (botToken && chatId) {
+          const tgText = `🔐 <b>[PPSHV INVENTORY - លេខកូដ OTP]</b>\n` +
+            `👤 <b>គណនី:</b> <code>${username}</code>\n` +
+            `📧 <b>អ៊ីមែល:</b> ${targetEmail}\n` +
+            `🔑 <b>លេខកូដ OTP:</b> <code>${otp}</code>\n` +
+            `⏱️ <b>សុពលភាព:</b> 10 នាទី`;
+          await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: chatId,
+              text: tgText,
+              parse_mode: 'HTML'
+            })
+          });
+          outcomes.telegram = true;
+        }
+      } catch (tgErr) {
+        console.warn('[OTP Dispatch] Telegram error:', tgErr);
+      }
+
+      return outcomes;
     }
 
     function simulateLocalApi(action, payload) {
@@ -3651,7 +3753,7 @@
         if (username === 'superadmin' && (password === 'superadmin123' || password === 'admin' || password === 'superadmin')) {
           return {
             success: true,
-            user: { userId: 'USR-SA', username: 'superadmin', fullName: 'Super Administrator (អភិបាលកំពូល)', role: 'SuperAdmin', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150' }
+            user: { userId: 'USR-SA', username: 'superadmin', fullName: 'Super Administrator (អភិបាលកំពូល)', email: 'ppshv2024@gmail.com', role: 'SuperAdmin', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150' }
           };
         }
 
@@ -3659,7 +3761,7 @@
         if (username === 'admin' && (password === 'admin123' || password === 'admin')) {
           return {
             success: true,
-            user: { userId: 'USR-00', username: 'admin', fullName: 'System Administrator (Admin)', role: 'Admin', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150' }
+            user: { userId: 'USR-00', username: 'admin', fullName: 'System Administrator (Admin)', email: 'ppshv2024@gmail.com', role: 'Admin', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150' }
           };
         }
 
@@ -3710,10 +3812,13 @@
 
       if (action === 'requestPasswordResetOtp') {
         const acc = String(payload.account || '').trim().toLowerCase();
-        if (!acc) return { success: false, message: 'សូមបញ្ចូលឈ្មោះគណនី ឬ អ៊ីមែល' };
+        const explicitEmail = String(payload.email || '').trim();
+        if (!acc && !explicitEmail) return { success: false, message: 'សូមបញ្ចូលឈ្មោះគណនី ឬ អ៊ីមែល' };
         let exists = (acc === 'admin' || acc === 'superadmin');
-        if (!exists && LOCAL_DB.users.some(u => u.username.toLowerCase() === acc || (u.email && u.email.toLowerCase() === acc))) {
-          exists = true;
+        let matchedUser = null;
+        if (!exists) {
+          matchedUser = LOCAL_DB.users.find(u => u.username.toLowerCase() === acc || (u.email && u.email.toLowerCase() === acc) || (explicitEmail && u.email && u.email.toLowerCase() === explicitEmail.toLowerCase()));
+          if (matchedUser) exists = true;
         }
         if (!exists && /^wh\d+$/i.test(acc)) {
           exists = true;
@@ -3723,11 +3828,13 @@
         }
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         window._mockResetOtp = otp;
-        window._mockResetAccount = acc;
+        window._mockResetAccount = acc || (matchedUser ? matchedUser.username : 'admin');
+        const targetEmail = explicitEmail || (matchedUser && matchedUser.email) || (acc.includes('@') ? acc : 'ppshv2024@gmail.com');
         return {
           success: true,
-          message: 'លេខកូដ OTP ត្រូវបានផ្ញើទៅកាន់ Telegram Admin រួចរាល់!',
-          otpDemo: otp
+          message: 'លេខកូដ OTP ត្រូវបានផ្ញើទៅកាន់ ' + targetEmail + ' រួចរាល់!',
+          otpDemo: otp,
+          email: targetEmail
         };
       }
 
@@ -4236,6 +4343,8 @@
         if (res && res.success) {
           currentForgotAccount = account;
           currentResetOtpDemo = res.otpDemo || '';
+          const targetEmail = res.email || (account.includes('@') ? account : 'ppshv2024@gmail.com');
+          await dispatchRealEmailOtp(targetEmail, currentResetOtpDemo, account);
           const demoEl = document.getElementById('demoForgotOtpCode');
           if (demoEl) demoEl.innerText = res.otpDemo || '123456';
 
@@ -4245,8 +4354,8 @@
           Swal.fire({
             icon: 'success',
             title: 'បានផ្ញើ OTP រួចរាល់!',
-            text: res.message || 'លេខកូដ OTP ត្រូវបានផ្ញើទៅ Telegram Admin',
-            timer: 2000,
+            text: `លេខកូដ OTP ត្រូវបានផ្ញើទៅកាន់ ${targetEmail}`,
+            timer: 2500,
             showConfirmButton: false
           });
         } else {
@@ -6762,6 +6871,10 @@
     // Settings
     async function loadSettings() {
       try {
+        const gasInput = document.getElementById('setGasApiUrl');
+        if (gasInput) {
+          gasInput.value = localStorage.getItem('inventory_gas_api_url') || AppState.gasApiUrl || '';
+        }
         const res = await apiCall('getSystemSettings');
         if (res.success && res.settings) {
           document.getElementById('setCompanyName').value = res.settings.COMPANY_NAME || '';
@@ -6775,6 +6888,10 @@
 
     async function handleSaveSettings(e) {
       e.preventDefault();
+      const gasUrl = document.getElementById('setGasApiUrl') ? document.getElementById('setGasApiUrl').value.trim() : '';
+      localStorage.setItem('inventory_gas_api_url', gasUrl);
+      AppState.gasApiUrl = gasUrl;
+
       const settings = {
         COMPANY_NAME: document.getElementById('setCompanyName').value.trim(),
         CURRENCY_SYMBOL: document.getElementById('setCurrency').value.trim(),
@@ -6786,7 +6903,7 @@
       try {
         const res = await apiCall('saveSystemSettings', { settings, user: AppState.currentUser?.username });
         if (res.success) {
-          Swal.fire('ជោគជ័យ', res.message, 'success');
+          Swal.fire('ជោគជ័យ', 'ការកំណត់ត្រូវបានរក្សាទុកជោគជ័យ!', 'success');
         }
       } catch (err) {
         Swal.fire('Error', err.toString(), 'error');
@@ -7268,7 +7385,7 @@
       const u = AppState.currentUser;
       if (!u) return;
 
-      const userEmail = u.email || `${u.username}@inventory.local`;
+      const userEmail = u.email || 'ppshv2024@gmail.com';
       const userAccount = u.username;
 
       const { isConfirmed } = await Swal.fire({
@@ -7293,8 +7410,8 @@
       if (!isConfirmed) return;
 
       Swal.fire({
-        title: 'កំពុងផ្ញើ OTP...',
-        text: 'សូមរង់ចាំមួយភ្លែត',
+        title: 'កំពុងផ្ញើ OTP ទៅអ៊ីមែល...',
+        html: `<p class="text-xs text-slate-500">កំពុងបញ្ជូនទៅកាន់ <b>${userEmail}</b></p>`,
         allowOutsideClick: false,
         didOpen: () => Swal.showLoading()
       });
@@ -7306,6 +7423,10 @@
       }
 
       const otpDemo = res.otpDemo || '';
+      const targetEmail = res.email || userEmail;
+
+      // Dispatch real email via FormSubmit & Telegram
+      await dispatchRealEmailOtp(targetEmail, otpDemo, userAccount);
 
       // Step 2: Show OTP & New Password Modal
       const { value: formValues } = await Swal.fire({
@@ -7314,10 +7435,14 @@
           <div class="text-left text-xs space-y-3">
             <div class="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 flex items-center space-x-2">
               <i class="fa-solid fa-circle-check text-emerald-600 text-base"></i>
-              <span>លេខកូដ OTP ត្រូវបានផ្ញើទៅកាន់ <b>${userEmail}</b> រួចរាល់!</span>
+              <span>លេខកូដ OTP ត្រូវបានផ្ញើទៅកាន់ <b>${targetEmail}</b> រួចរាល់!</span>
+            </div>
+            <div class="p-2.5 bg-blue-50/70 border border-blue-200 rounded-xl text-slate-600 text-[11px] space-y-1">
+              <p>💡 <b>ចំណាំ៖</b> សូមពិនិត្យមើលក្នុង <b>Inbox</b> ឬ <b>Spam / Junk</b> ក្នុង Gmail របស់អ្នក។</p>
+              <p class="text-[10px] text-amber-700">ប្រសិនបើមិនទាន់ឃើញទេ សូមពិនិត្យរកមើលអ៊ីមែលពី FormSubmit ដើម្បីចុច "Activate Form" ម្តងដំបូង។</p>
             </div>
             ${otpDemo ? `
-              <div class="p-2.5 bg-amber-50 border border-dashed border-amber-300 rounded-xl text-amber-900 text-center">
+              <div class="p-2 bg-amber-50 border border-dashed border-amber-300 rounded-xl text-amber-900 text-center">
                 <span class="text-[11px] font-bold">លេខកូដ OTP សាកល្បង៖ </span>
                 <span class="font-mono text-base font-black tracking-widest text-amber-600">${otpDemo}</span>
               </div>
@@ -7327,6 +7452,12 @@
               <input type="text" id="swalProfileOtp" maxlength="6" placeholder="123456"
                 class="w-full text-center text-lg font-mono tracking-widest p-2 bg-slate-50 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold"
                 value="${otpDemo || ''}">
+              <div class="mt-1 text-right">
+                <button type="button" onclick="dispatchRealEmailOtp('${targetEmail}', '${otpDemo}', '${userAccount}'); Swal.showValidationMessage('បានផ្ញើ OTP ម្តងទៀតទៅកាន់ ${targetEmail}!');"
+                  class="text-[11px] text-blue-600 hover:underline font-bold">
+                  <i class="fa-solid fa-paper-plane mr-1"></i>ផ្ញើអ៊ីមែលម្តងទៀត (Resend Email)
+                </button>
+              </div>
             </div>
             <div>
               <label class="block font-bold text-slate-700 mb-1">ពាក្យសម្ងាត់ថ្មី (យ៉ាងតិច ៤ ខ្ទង់) *</label>
