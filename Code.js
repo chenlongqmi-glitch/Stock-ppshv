@@ -110,7 +110,7 @@ function handleApiRequest(req) {
         return deleteWarehouse(payload, payload.user);
       case 'getUsersList':
       case 'getUsers':
-        return getUsersList();
+        return getUsersList(payload.user || payload);
       case 'updateUserStatus':
         return updateUserStatus(payload.userId, payload.status, payload.role, payload.warehouse, payload.adminUser, payload.avatar);
       case 'updateUserProfile':
@@ -773,7 +773,11 @@ function registerUser(userData) {
   };
 }
 
-function getUsersList() {
+function getUsersList(userOrPayload) {
+  let actor = userOrPayload;
+  if (userOrPayload && typeof userOrPayload === 'object' && userOrPayload.user) {
+    actor = userOrPayload.user;
+  }
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ensureUsersInitialized(ss);
   const data = sheet.getDataRange().getValues();
@@ -789,10 +793,25 @@ function getUsersList() {
         role: data[i][6],
         status: data[i][7],
         createdAt: data[i][8],
-        warehouse: data[i][9] || (data[i][6] === 'Admin' || data[i][6] === 'SuperAdmin' ? 'ALL' : 'ឃ្លាំងទី ០១ - ភ្នំពេញ (សែនសុខ)'),
+        warehouse: data[i][9] || (data[i][6] === 'Admin' || data[i][6] === 'SuperAdmin' ? 'ALL' : '1-K3 ស្ថានីយ (ភ្នំពេញ)'),
         avatar: data[i][10] || ''
       });
     }
+  }
+
+  const isSuperAdmin = actor && (actor.role === 'SuperAdmin' || actor.username === 'superadmin');
+  const isAdmin = actor && (actor.role === 'Admin' || actor.role === 'អ្នកគ្រប់គ្រង' || actor.username === 'admin');
+
+  if (isSuperAdmin) {
+    return { success: true, users: users };
+  } else if (isAdmin) {
+    return { success: true, users: users.filter(u => u.role !== 'SuperAdmin' && u.username !== 'superadmin') };
+  } else if (actor && (actor.userId || actor.username)) {
+    const selfList = users.filter(u =>
+      (actor.userId && u.userId === actor.userId) ||
+      (actor.username && String(u.username).toLowerCase() === String(actor.username).toLowerCase())
+    );
+    return { success: true, users: selfList };
   }
   return { success: true, users: users };
 }

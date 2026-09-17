@@ -1629,7 +1629,7 @@
                 </h3>
                 <p class="text-xs text-slate-500 mt-0.5">គ្រប់គ្រងគណនីបុគ្គលិកតាមឃ្លាំងនិមួយៗ និងសិទ្ធិចូលប្រើប្រាស់</p>
               </div>
-              <button onclick="openAddUserModal()"
+              <button onclick="openAddUserModal()" id="addUserTopBtn"
                 class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 shadow-md shadow-blue-500/20">
                 <i class="fa-solid fa-user-plus"></i>
                 <span>បន្ថែមបុគ្គលិកថ្មី</span>
@@ -3749,7 +3749,25 @@
       }
 
       if (action === 'getUsersList' || action === 'getUsers') {
-        return { success: true, users: LOCAL_DB.users };
+        const actor = payload.user || AppState.currentUser;
+        const isSuperAdmin = (actor?.role === 'SuperAdmin') || (actor?.username === 'superadmin') || !!sessionStorage.getItem('inventory_superadmin_session');
+        const isAdmin = (actor?.role === 'Admin' || actor?.role === 'អ្នកគ្រប់គ្រង' || actor?.username === 'admin');
+
+        if (isSuperAdmin) {
+          // 1. SuperAdmin មើលឃើញទាំងអស់
+          return { success: true, users: LOCAL_DB.users };
+        } else if (isAdmin) {
+          // 2. Admin មើលឃើញ User ទាំងអស់ តែមិនអាចឃើញ SuperAdmin
+          const filtered = LOCAL_DB.users.filter(u => u.role !== 'SuperAdmin' && u.username !== 'superadmin');
+          return { success: true, users: filtered };
+        } else {
+          // 3. User ធម្មតា អាចមើលឃើញព័ត៌មានខ្លួនឯងតែមួយគត់
+          const selfList = LOCAL_DB.users.filter(u =>
+            (actor?.userId && u.userId === actor.userId) ||
+            (actor?.username && u.username.toLowerCase() === actor.username.toLowerCase())
+          );
+          return { success: true, users: selfList.length > 0 ? selfList : (actor ? [actor] : []) };
+        }
       }
 
       if (action === 'updateUserProfile' || action === 'updateProfile') {
@@ -4570,7 +4588,11 @@
         if (adminWhContainer) adminWhContainer.classList.remove('hidden');
         if (userWhContainer) userWhContainer.classList.add('hidden');
         const navUsers = document.getElementById('navUsers');
-        if (navUsers) navUsers.style.display = 'flex';
+        if (navUsers) {
+          navUsers.style.display = 'flex';
+          const navText = navUsers.querySelector('span.ml-2');
+          if (navText) navText.innerText = 'គ្រប់គ្រង User & សិទ្ធិ';
+        }
       } else {
         const assignedWh = u.warehouse || WAREHOUSES_LIST[0];
         if (whLabel) whLabel.innerText = assignedWh;
@@ -4580,7 +4602,11 @@
           if (userWhName) userWhName.innerText = assignedWh;
         }
         const navUsers = document.getElementById('navUsers');
-        if (navUsers) navUsers.style.display = 'none';
+        if (navUsers) {
+          navUsers.style.display = 'flex';
+          const navText = navUsers.querySelector('span.ml-2');
+          if (navText) navText.innerText = 'ព័ត៌មានគណនីខ្ញុំ';
+        }
 
         // Auto lock transfer origin location to their warehouse
         const transferFrom = document.getElementById('transferFromLocation');
@@ -6760,9 +6786,37 @@
         const res = await apiCall('getUsersList');
         if (res.success) {
           const tbody = document.getElementById('usersTableBody');
-          const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || !!sessionStorage.getItem('inventory_superadmin_session');
+          const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (AppState.currentUser?.username === 'superadmin') || !!sessionStorage.getItem('inventory_superadmin_session');
+          const isActorAdmin = (AppState.currentUser?.role === 'Admin' || AppState.currentUser?.role === 'អ្នកគ្រប់គ្រង' || AppState.currentUser?.username === 'admin');
 
-          tbody.innerHTML = (res.users || []).map((u, idx) => {
+          // Control "+ បន្ថែមបុគ្គលិកថ្មី" button visibility (Admin and SuperAdmin only)
+          const addUserBtn = document.getElementById('addUserTopBtn');
+          if (addUserBtn) {
+            addUserBtn.classList.toggle('hidden', !isActorSuperAdmin && !isActorAdmin);
+          }
+
+          // Strict Role Visibility:
+          // 1. SuperAdmin: មើលឃើញទាំងអស់
+          // 2. Admin: មើលឃើញ User ទាំងអស់ តែមិនអាចឃើញ SuperAdmin
+          // 3. User ធម្មតា: អាចមើលឃើញព័ត៌មានខ្លួនឯងតែមួយគត់
+          let filteredUsers = res.users || [];
+          if (isActorSuperAdmin) {
+            filteredUsers = res.users || [];
+          } else if (isActorAdmin) {
+            filteredUsers = (res.users || []).filter(u => u.role !== 'SuperAdmin' && u.username !== 'superadmin');
+          } else {
+            filteredUsers = (res.users || []).filter(u =>
+              (u.userId && u.userId === AppState.currentUser?.userId) ||
+              (u.username && u.username.toLowerCase() === AppState.currentUser?.username?.toLowerCase())
+            );
+          }
+
+          if (filteredUsers.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-slate-400 font-medium">មិនមានទិន្នន័យអ្នកប្រើប្រាស់ឡើយ</td></tr>`;
+            return;
+          }
+
+          tbody.innerHTML = filteredUsers.map((u, idx) => {
             const isUserSuperAdmin = (u.role === 'SuperAdmin');
             const isUserAdmin = (u.role === 'Admin' || u.role === 'អ្នកគ្រប់គ្រង');
             const isSelf = (AppState.currentUser?.userId === u.userId || AppState.currentUser?.username === u.username);
@@ -6782,29 +6836,39 @@
             // Action Buttons
             let actionsHtml = '';
 
-            // 1. Switch User Button (Exclusive to SuperAdmin)
-            if (isActorSuperAdmin && !isSelf) {
-              actionsHtml += `
-                <button onclick="impersonateUser('${u.userId || u.username}')" class="px-2 py-1 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded text-xs font-bold shadow-sm transition hover:scale-105 active:scale-95" title="Switch User ចូលដំណើរការជា User នេះ">
-                  <i class="fa-solid fa-repeat mr-1"></i> Switch
-                </button>
-              `;
-            }
-
-            // 2. Protect SuperAdmin from Regular Admin
-            if (isUserSuperAdmin && !isActorSuperAdmin) {
-              actionsHtml += `
-                <span class="px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-300/80 rounded text-[11px] font-bold inline-flex items-center">
-                  <i class="fa-solid fa-shield-halved mr-1 text-amber-600"></i> ការពារ
-                </span>
-              `;
-            } else {
+            if (isActorSuperAdmin) {
+              // 1. Switch User Button (Exclusive to SuperAdmin)
+              if (!isSelf) {
+                actionsHtml += `
+                  <button onclick="impersonateUser('${u.userId || u.username}')" class="px-2 py-1 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded text-xs font-bold shadow-sm transition hover:scale-105 active:scale-95" title="Switch User ចូលដំណើរការជា User នេះ">
+                    <i class="fa-solid fa-repeat mr-1"></i> Switch
+                  </button>
+                `;
+              }
               actionsHtml += `
                 <button onclick="openEditUserModal('${u.userId}')" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs font-semibold" title="កែប្រែព័ត៌មាន & ឃ្លាំង">
                   <i class="fa-solid fa-pen-to-square mr-1"></i> កែប្រែ
                 </button>
                 <button onclick="toggleUserStatus('${u.userId}', '${u.status === 'Active' ? 'Inactive' : 'Active'}')" class="text-xs font-semibold ${u.status === 'Active' ? 'text-rose-600 hover:underline' : 'text-emerald-600 hover:underline'}">
                   ${u.status === 'Active' ? 'បិទដំណើរការ' : 'បើកដំណើរការ'}
+                </button>
+              `;
+            } else if (isActorAdmin) {
+              // Admin can edit other users except SuperAdmin
+              actionsHtml += `
+                <button onclick="openEditUserModal('${u.userId}')" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs font-semibold" title="កែប្រែព័ត៌មាន & ឃ្លាំង">
+                  <i class="fa-solid fa-pen-to-square mr-1"></i> កែប្រែ
+                </button>
+                <button onclick="toggleUserStatus('${u.userId}', '${u.status === 'Active' ? 'Inactive' : 'Active'}')" class="text-xs font-semibold ${u.status === 'Active' ? 'text-rose-600 hover:underline' : 'text-emerald-600 hover:underline'}">
+                  ${u.status === 'Active' ? 'បិទដំណើរការ' : 'បើកដំណើរការ'}
+                </button>
+              `;
+            } else {
+              // Regular user: can edit own profile
+              actionsHtml = `
+                <button onclick="openProfileModal()" class="px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-bold transition inline-flex items-center space-x-1" title="កែប្រែព័ត៌មានផ្ទាល់ខ្លួន">
+                  <i class="fa-solid fa-user-pen"></i>
+                  <span>កែ Profile ខ្ញុំ</span>
                 </button>
               `;
             }
