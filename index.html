@@ -7476,67 +7476,6 @@
     } else {
       autoScaleAuthCard();
     }
-
-    // =========================================================
-    // Auto-Reload & Auto-Reconnect Engine (Live Updates)
-    // =========================================================
-    (function initAutoReloadEngine() {
-      if (window.location.protocol !== 'http:' && window.location.protocol !== 'https:') return;
-      let evtSource = null;
-      let reconnectTimer = null;
-      let isReconnecting = false;
-
-      function connect() {
-        try {
-          if (evtSource) evtSource.close();
-        } catch (e) {}
-
-        try {
-          evtSource = new EventSource('/live-reload');
-          evtSource.onopen = function() {
-            if (isReconnecting) {
-              isReconnecting = false;
-              if (reconnectTimer) {
-                clearInterval(reconnectTimer);
-                reconnectTimer = null;
-              }
-              console.log('[LiveReload] Server reconnected, reloading...');
-              window.location.reload();
-            }
-          };
-
-          evtSource.onmessage = function(e) {
-            if (e.data === 'reload') {
-              console.log('[LiveReload] Code modified, reloading page...');
-              window.location.reload();
-            }
-          };
-
-          evtSource.onerror = function() {
-            try { if (evtSource) evtSource.close(); } catch (err) {}
-            isReconnecting = true;
-            if (!reconnectTimer) {
-              reconnectTimer = setInterval(function() {
-                fetch('/Index.html', { method: 'HEAD', cache: 'no-store' })
-                  .then(function(res) {
-                    if (res && res.ok) {
-                      clearInterval(reconnectTimer);
-                      reconnectTimer = null;
-                      console.log('[LiveReload] Server restored, refreshing view...');
-                      window.location.reload();
-                    }
-                  })
-                  .catch(function() {});
-              }, 1200);
-            }
-          };
-        } catch (err) {
-          console.warn('[LiveReload] EventSource not available:', err);
-        }
-      }
-
-      connect();
-    })();
   </script>
 </body>
 
