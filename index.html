@@ -383,9 +383,9 @@
                   lang="en" inputmode="text" autocapitalize="none" autocorrect="off" spellcheck="false"
                   oninput="cleanKhmerFromField(this)" onkeyup="cleanKhmerFromField(this)" onfocus="cleanKhmerFromField(this)"
                   class="w-full pl-8 pr-9 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none font-semibold text-slate-800">
-                <button type="button" onclick="togglePasswordVisibility('loginPassword', this)"
-                  class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600">
-                  <i class="fa-regular fa-eye text-xs"></i>
+                <button type="button" onclick="togglePasswordVisibility('loginPassword', this)" title="បង្ហាញ/លាក់ពាក្យសម្ងាត់"
+                  class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none">
+                  <i class="fa-solid fa-eye text-xs"></i>
                 </button>
               </div>
             </div>
@@ -530,9 +530,9 @@
                     lang="en" inputmode="text" autocapitalize="none" autocorrect="off" spellcheck="false"
                     oninput="cleanKhmerFromField(this)" onkeyup="cleanKhmerFromField(this)" onfocus="cleanKhmerFromField(this)"
                     class="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all">
-                  <button type="button" onclick="togglePasswordVisibility('regPassword', this)"
-                    class="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600">
-                    <i class="fa-regular fa-eye text-xs"></i>
+                  <button type="button" onclick="togglePasswordVisibility('regPassword', this)" title="បង្ហាញ/លាក់ពាក្យសម្ងាត់"
+                    class="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none">
+                    <i class="fa-solid fa-eye text-xs"></i>
                   </button>
                 </div>
                 <p id="regPasswordError" class="text-[10.5px] font-bold text-rose-600 mt-1 hidden"><i class="fa-solid fa-circle-exclamation mr-1"></i>សូមបញ្ចូលពាក្យសម្ងាត់</p>
@@ -544,9 +544,9 @@
                     lang="en" inputmode="text" autocapitalize="none" autocorrect="off" spellcheck="false"
                     oninput="cleanKhmerFromField(this)" onkeyup="cleanKhmerFromField(this)" onfocus="cleanKhmerFromField(this)"
                     class="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all">
-                  <button type="button" onclick="togglePasswordVisibility('regConfirmPassword', this)"
-                    class="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600">
-                    <i class="fa-regular fa-eye text-xs"></i>
+                  <button type="button" onclick="togglePasswordVisibility('regConfirmPassword', this)" title="បង្ហាញ/លាក់ពាក្យសម្ងាត់"
+                    class="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none">
+                    <i class="fa-solid fa-eye text-xs"></i>
                   </button>
                 </div>
                 <p id="regConfirmPasswordError" class="text-[10.5px] font-bold text-rose-600 mt-1 hidden"><i class="fa-solid fa-circle-exclamation mr-1"></i>សូមបញ្ចូលបញ្ជាក់ពាក្យសម្ងាត់</p>
@@ -4031,13 +4031,28 @@
           cleanKhmerFromField(target);
           showAutoEnToast();
         }
+
+        if (target.type === 'password' || target.getAttribute('data-pass-managed') === 'true') {
+          if (window.ensurePasswordToggleOnElement) {
+            window.ensurePasswordToggleOnElement(target);
+          }
+        }
       }
     }, true);
 
     document.addEventListener('DOMContentLoaded', () => {
       initAllFullNameKhmerInputs();
       initAllCredentialEnglishInputs();
+      if (window.initAllPasswordToggles) window.initAllPasswordToggles();
       initRegistrationValidationListeners();
+
+      // Automatically observe and ensure toggle on any dynamically injected password inputs (SweetAlert, dynamic modals)
+      try {
+        const passObserver = new MutationObserver(() => {
+          if (window.initAllPasswordToggles) window.initAllPasswordToggles();
+        });
+        passObserver.observe(document.body, { childList: true, subtree: true });
+      } catch (err) {}
       updateClock();
       setInterval(updateClock, 1000);
       refreshAllWarehouseDropdowns();
@@ -5902,16 +5917,60 @@
       if (AppState.currentTab === 'reports') loadReportTransactions();
     }
 
-    function togglePasswordVisibility(fieldId, btn) {
-      const input = document.getElementById(fieldId);
-      if (input.type === 'password') {
-        input.type = 'text';
-        btn.innerHTML = '<i class="fa-regular fa-eye-slash"></i>';
-      } else {
-        input.type = 'password';
-        btn.innerHTML = '<i class="fa-regular fa-eye"></i>';
+    function togglePasswordVisibility(fieldOrId, btn) {
+      const input = typeof fieldOrId === 'string' ? document.getElementById(fieldOrId) : fieldOrId;
+      if (!input) return;
+      const isCurrentlyPassword = input.type === 'password';
+      input.type = isCurrentlyPassword ? 'text' : 'password';
+      const icon = btn ? btn.querySelector('i') : null;
+      if (icon) {
+        if (isCurrentlyPassword) {
+          icon.className = 'fa-solid fa-eye-slash text-xs text-blue-600';
+          if (btn) btn.title = 'លាក់ពាក្យសម្ងាត់ (Hide password)';
+        } else {
+          icon.className = 'fa-solid fa-eye text-xs text-slate-400 hover:text-slate-600';
+          if (btn) btn.title = 'បង្ហាញពាក្យសម្ងាត់ (Show password)';
+        }
       }
     }
+    window.togglePasswordVisibility = togglePasswordVisibility;
+
+    function ensurePasswordToggleOnElement(input) {
+      if (!input) return;
+      if (input.type !== 'password' && input.getAttribute('data-pass-managed') !== 'true') return;
+      input.setAttribute('data-pass-managed', 'true');
+      const parent = input.parentElement;
+      if (!parent) return;
+      if (parent.querySelector('button[data-toggle-pass="true"]') || parent.querySelector('button[onclick*="togglePasswordVisibility"]')) {
+        return;
+      }
+      if (!parent.classList.contains('relative')) {
+        parent.classList.add('relative');
+      }
+      if (!input.classList.contains('pr-8') && !input.classList.contains('pr-9')) {
+        input.classList.add('pr-9');
+      }
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.setAttribute('data-toggle-pass', 'true');
+      btn.className = 'absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none transition-colors';
+      btn.title = 'បង្ហាញពាក្យសម្ងាត់ (Show password)';
+      btn.innerHTML = '<i class="fa-solid fa-eye text-xs"></i>';
+      btn.onclick = function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        togglePasswordVisibility(input, btn);
+      };
+      parent.appendChild(btn);
+    }
+    window.ensurePasswordToggleOnElement = ensurePasswordToggleOnElement;
+
+    function initAllPasswordToggles() {
+      document.querySelectorAll('input[type="password"], input[data-pass-managed="true"]').forEach(el => {
+        ensurePasswordToggleOnElement(el);
+      });
+    }
+    window.initAllPasswordToggles = initAllPasswordToggles;
 
     function showDemoCredentials() {
       const whButtons = WAREHOUSES_LIST.map((wh, idx) => {
@@ -8157,17 +8216,6 @@
       }
     }
 
-    function togglePasswordVisibility(inputId, btn) {
-      const input = document.getElementById(inputId);
-      if (!input) return;
-      const isPass = input.type === 'password';
-      input.type = isPass ? 'text' : 'password';
-      const icon = btn.querySelector('i');
-      if (icon) {
-        icon.className = isPass ? 'fa-solid fa-eye-slash text-xs' : 'fa-solid fa-eye text-xs';
-      }
-    }
-
     async function handleProfileUpdateSubmit(e) {
       e.preventDefault();
       const u = AppState.currentUser;
@@ -8406,13 +8454,29 @@
               </div>
               <div>
                 <label class="block font-bold text-slate-700 mb-1">ពាក្យសម្ងាត់ថ្មី (យ៉ាងតិច ៤ ខ្ទង់) *</label>
-                <input type="password" id="swalProfileNewPass" placeholder="••••••••" minlength="4" value="${enteredPass || ''}"
-                  class="w-full p-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500">
+                <div class="relative">
+                  <input type="password" id="swalProfileNewPass" placeholder="••••••••" minlength="4" value="${enteredPass || ''}"
+                    lang="en" inputmode="text" autocapitalize="none" autocorrect="off" spellcheck="false" data-auto-en="true"
+                    oninput="cleanKhmerFromField(this)" onkeyup="cleanKhmerFromField(this)" onfocus="cleanKhmerFromField(this)"
+                    class="w-full pl-3 pr-9 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 font-semibold">
+                  <button type="button" onclick="togglePasswordVisibility('swalProfileNewPass', this)" title="បង្ហាញ/លាក់ពាក្យសម្ងាត់"
+                    class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none">
+                    <i class="fa-solid fa-eye text-xs"></i>
+                  </button>
+                </div>
               </div>
               <div>
                 <label class="block font-bold text-slate-700 mb-1">បញ្ជាក់ពាក្យសម្ងាត់ថ្មី *</label>
-                <input type="password" id="swalProfileConfirmPass" placeholder="••••••••" minlength="4" value="${enteredConfirmPass || ''}"
-                  class="w-full p-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500">
+                <div class="relative">
+                  <input type="password" id="swalProfileConfirmPass" placeholder="••••••••" minlength="4" value="${enteredConfirmPass || ''}"
+                    lang="en" inputmode="text" autocapitalize="none" autocorrect="off" spellcheck="false" data-auto-en="true"
+                    oninput="cleanKhmerFromField(this)" onkeyup="cleanKhmerFromField(this)" onfocus="cleanKhmerFromField(this)"
+                    class="w-full pl-3 pr-9 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 font-semibold">
+                  <button type="button" onclick="togglePasswordVisibility('swalProfileConfirmPass', this)" title="បង្ហាញ/លាក់ពាក្យសម្ងាត់"
+                    class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none">
+                    <i class="fa-solid fa-eye text-xs"></i>
+                  </button>
+                </div>
               </div>
             </div>
           `,
