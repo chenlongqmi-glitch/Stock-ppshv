@@ -18,6 +18,10 @@ const SHEETS = {
   CHAT: 'ChatMessages'
 };
 
+// Global Default Telegram Bot Credentials for SuperAdmin
+const DEFAULT_TELEGRAM_BOT_TOKEN = '8292690919:AAFVJciyoebmTKPxg5rYsyMv56Ol2jzpibY';
+const DEFAULT_TELEGRAM_CHAT_ID = '1197248107';
+
 // ==========================================
 // 1. WEB APP ROUTING (doGet & doPost)
 // ==========================================
@@ -75,12 +79,15 @@ function handleTelegramUserApproval(userId, username, targetStatus) {
     let userRole = 'Stock Keeper';
     let userWh = '';
 
+    const cleanTargetUser = String(username || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    const cleanTargetId = String(userId || '').trim();
+
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
       const rId = String(row[0]).trim();
-      const rUser = String(row[1]).trim().toLowerCase();
+      const rUser = String(row[1]).replace(/\s+/g, ' ').trim().toLowerCase();
 
-      if ((userId && rId === String(userId).trim()) || (username && rUser === String(username).trim().toLowerCase())) {
+      if ((cleanTargetId && rId === cleanTargetId) || (cleanTargetUser && rUser === cleanTargetUser)) {
         foundRow = i + 1;
         userFullName = String(row[2]) || row[1];
         userRole = String(row[6]) || 'Stock Keeper';
@@ -501,8 +508,8 @@ function setupDatabase() {
     formatHeaderRow(setSheet, headers.length, '#0284c7');
     setSheet.appendRow(['COMPANY_NAME', 'Smart Inventory Solution', 'ឈ្មោះក្រុមហ៊ុន/អាជីវកម្ម']);
     setSheet.appendRow(['CURRENCY_SYMBOL', '$', 'និមិត្តសញ្ញារូបិយប័ណ្ណ ($ ឬ ៛)']);
-    setSheet.appendRow(['TELEGRAM_BOT_TOKEN', '', 'Telegram Bot API Token']);
-    setSheet.appendRow(['TELEGRAM_CHAT_ID', '', 'Telegram Group/Channel Chat ID']);
+    setSheet.appendRow(['TELEGRAM_BOT_TOKEN', DEFAULT_TELEGRAM_BOT_TOKEN, 'Telegram Bot API Token']);
+    setSheet.appendRow(['TELEGRAM_CHAT_ID', DEFAULT_TELEGRAM_CHAT_ID, 'Telegram Group/Channel Chat ID']);
     setSheet.appendRow(['ENABLE_LOW_STOCK_ALERT', 'TRUE', 'បើក/បិទ ការជូនដំណឹងស្តុកទាប']);
     setSheet.appendRow(['ALERT_EMAIL', '', 'អ៊ីមែលទទួលដំណឹងពេលស្តុកជិតអស់']);
   }
@@ -2407,12 +2414,21 @@ function dailyLowStockDigestTrigger() {
 
 function getSettingsMap(ss) {
   const sheet = ss.getSheetByName(SHEETS.SETTINGS);
-  const map = {};
+  const map = {
+    'TELEGRAM_BOT_TOKEN': DEFAULT_TELEGRAM_BOT_TOKEN,
+    'TELEGRAM_CHAT_ID': DEFAULT_TELEGRAM_CHAT_ID,
+    'ENABLE_LOW_STOCK_ALERT': 'TRUE',
+    'ALERT_EMAIL': 'chenlongqmi@gmail.com'
+  };
   if (!sheet) return map;
 
   const data = sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
-    map[data[i][0]] = data[i][1];
+    const k = String(data[i][0]).trim();
+    const v = String(data[i][1]).trim();
+    if (k) {
+      map[k] = v || map[k];
+    }
   }
   return map;
 }

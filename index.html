@@ -3344,19 +3344,22 @@
       '综合办 (ផ្នែកកិច្ចការទូទៅ)'
     ];
 
+    const DEFAULT_TG_BOT_TOKEN = '8292690919:AAFVJciyoebmTKPxg5rYsyMv56Ol2jzpibY';
+    const DEFAULT_TG_CHAT_ID = '1197248107';
+
     const AppState = {
       gasApiUrl: localStorage.getItem('inventory_gas_api_url') || 'https://script.google.com/macros/s/AKfycbz-Pb72GPivonqvf3j8WRAoN4V6Dlo3IgAVpHCfDVEzF2RJV2X18XtfqTffZ2K08UQJ/exec',
       currentUser: null,
       settings: (() => {
         try {
           const s = JSON.parse(localStorage.getItem('inventory_system_settings') || '{}');
-          if (!s.TELEGRAM_BOT_TOKEN) s.TELEGRAM_BOT_TOKEN = localStorage.getItem('inventory_tg_token') || '';
-          if (!s.TELEGRAM_CHAT_ID) s.TELEGRAM_CHAT_ID = localStorage.getItem('inventory_tg_chatid') || '';
+          if (!s.TELEGRAM_BOT_TOKEN) s.TELEGRAM_BOT_TOKEN = localStorage.getItem('inventory_tg_token') || DEFAULT_TG_BOT_TOKEN;
+          if (!s.TELEGRAM_CHAT_ID) s.TELEGRAM_CHAT_ID = localStorage.getItem('inventory_tg_chatid') || DEFAULT_TG_CHAT_ID;
           return s;
         } catch (e) {
           return {
-            TELEGRAM_BOT_TOKEN: localStorage.getItem('inventory_tg_token') || '',
-            TELEGRAM_CHAT_ID: localStorage.getItem('inventory_tg_chatid') || ''
+            TELEGRAM_BOT_TOKEN: localStorage.getItem('inventory_tg_token') || DEFAULT_TG_BOT_TOKEN,
+            TELEGRAM_CHAT_ID: localStorage.getItem('inventory_tg_chatid') || DEFAULT_TG_CHAT_ID
           };
         }
       })(),
@@ -4133,6 +4136,23 @@
         if (selector) selector.value = savedWhFilter;
       }
 
+      // Auto-inject SuperAdmin Telegram credentials if missing or empty
+      try {
+        const curTgTok = localStorage.getItem('inventory_tg_token');
+        if (!curTgTok || curTgTok.trim() === '') {
+          localStorage.setItem('inventory_tg_token', DEFAULT_TG_BOT_TOKEN);
+        }
+        const curTgChat = localStorage.getItem('inventory_tg_chatid');
+        if (!curTgChat || curTgChat.trim() === '') {
+          localStorage.setItem('inventory_tg_chatid', DEFAULT_TG_CHAT_ID);
+        }
+        const sysRaw = localStorage.getItem('inventory_system_settings');
+        const sysParsed = sysRaw ? JSON.parse(sysRaw) : {};
+        if (!sysParsed.TELEGRAM_BOT_TOKEN) sysParsed.TELEGRAM_BOT_TOKEN = DEFAULT_TG_BOT_TOKEN;
+        if (!sysParsed.TELEGRAM_CHAT_ID) sysParsed.TELEGRAM_CHAT_ID = DEFAULT_TG_CHAT_ID;
+        localStorage.setItem('inventory_system_settings', JSON.stringify(sysParsed));
+      } catch (e) {}
+
       // Clear any legacy localStorage session to enforce strict session-only authentication
       try {
         localStorage.removeItem('inventory_user');
@@ -4516,8 +4536,8 @@
 
       // 2. Also send Telegram alert if configured
       try {
-        const botToken = AppState.settings?.TELEGRAM_BOT_TOKEN || localStorage.getItem('inventory_tg_token');
-        const chatId = AppState.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid');
+        const botToken = AppState.settings?.TELEGRAM_BOT_TOKEN || localStorage.getItem('inventory_tg_token') || DEFAULT_TG_BOT_TOKEN;
+        const chatId = AppState.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid') || DEFAULT_TG_CHAT_ID;
         if (botToken && chatId) {
           const tgText = `🔐 <b>[PPSHV INVENTORY - លេខកូដ OTP]</b>\n` +
             `👤 <b>គណនី:</b> <code>${username}</code>\n` +
@@ -5065,8 +5085,8 @@
         let settings = {
           COMPANY_NAME: 'Smart Inventory Solution',
           CURRENCY_SYMBOL: '$',
-          TELEGRAM_BOT_TOKEN: localStorage.getItem('inventory_tg_token') || '',
-          TELEGRAM_CHAT_ID: localStorage.getItem('inventory_tg_chatid') || '',
+          TELEGRAM_BOT_TOKEN: localStorage.getItem('inventory_tg_token') || DEFAULT_TG_BOT_TOKEN,
+          TELEGRAM_CHAT_ID: localStorage.getItem('inventory_tg_chatid') || DEFAULT_TG_CHAT_ID,
           ENABLE_LOW_STOCK_ALERT: true,
           ALERT_EMAIL: 'chenlongqmi@gmail.com'
         };
@@ -5560,8 +5580,8 @@
         const res = await apiCall('registerUser', { ...userData, status: 'Pending' });
 
         // Retrieve Telegram credentials from all available sources
-        let botToken = AppState.settings?.TELEGRAM_BOT_TOKEN || localStorage.getItem('inventory_tg_token');
-        let chatId = AppState.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid');
+        let botToken = AppState.settings?.TELEGRAM_BOT_TOKEN || localStorage.getItem('inventory_tg_token') || DEFAULT_TG_BOT_TOKEN;
+        let chatId = AppState.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid') || DEFAULT_TG_CHAT_ID;
 
         if (!botToken || !chatId) {
           try {
@@ -5573,26 +5593,29 @@
             }
           } catch (e) {}
         }
+        if (!botToken) botToken = DEFAULT_TG_BOT_TOKEN;
+        if (!chatId) chatId = DEFAULT_TG_CHAT_ID;
 
         const gasUrl = AppState.gasApiUrl || localStorage.getItem('inventory_gas_api_url') || 'https://script.google.com/macros/s/AKfycbz-Pb72GPivonqvf3j8WRAoN4V6Dlo3IgAVpHCfDVEzF2RJV2X18XtfqTffZ2K08UQJ/exec';
         const approveUrl = `${gasUrl}?action=approveUserTelegram&u=${encodeURIComponent(userData.username)}`;
         const rejectUrl = `${gasUrl}?action=rejectUserTelegram&u=${encodeURIComponent(userData.username)}`;
+        const webAppUsersUrl = `${window.location.origin}${window.location.pathname}#users`;
 
         let telegramSent = false;
 
-        // 1. Send via Telegram Bot if configured
+        // 1. Send via Telegram Bot to SuperAdmin
         if (botToken && chatId) {
           try {
             const tgMsg = `📋 <b>[សំណើសុំចុះឈ្មោះគណនីថ្មី]</b>\n` +
               `👤 <b>ឈ្មោះពេញ:</b> ${userData.fullName || userData.username}\n` +
-              `🆔 <b>Username:</b> ${userData.username}\n` +
+              `🆔 <b>Username:</b> <code>${userData.username}</code>\n` +
               `📱 <b>លេខទូរស័ព្ទ:</b> ${userData.phone || '-'}\n` +
               `📧 <b>អ៊ីមែល:</b> ${userData.email || '-'}\n` +
               `💼 <b>តួនាទី:</b> ${userData.role || 'Stock Keeper'}\n` +
               `🏢 <b>ស្ថានីយ/ឃ្លាំង:</b> ${userData.warehouse || '-'}\n` +
               `🕒 <b>កាលបរិច្ឆេទ:</b> ${new Date().toLocaleString('en-GB')}\n` +
               `🚦 <b>ស្ថានភាព:</b> ⏳ កំពុងរង់ចាំការអនុម័ត (Pending)\n\n` +
-              `👉 <b>សូម Admin ចុចប៊ូតុងខាងក្រោមដើម្បី អនុម័ត (Approve)៖</b>`;
+              `👉 <b>សូម SuperAdmin ចុចប៊ូតុងខាងក្រោមដើម្បី អនុម័ត (Approve)៖</b>`;
 
             const tgResp = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
               method: 'POST',
@@ -5606,6 +5629,9 @@
                     [
                       { text: "✅ អនុម័ត (Approve)", url: approveUrl },
                       { text: "❌ បដិសេធ (Reject)", url: rejectUrl }
+                    ],
+                    [
+                      { text: "👥 ពិនិត្យក្នុងប្រព័ន្ធ (Web App)", url: webAppUsersUrl }
                     ]
                   ]
                 }
@@ -8155,8 +8181,8 @@
         }
 
         // 1. Preload from localStorage immediately
-        const savedTgToken = localStorage.getItem('inventory_tg_token') || '';
-        const savedTgChatId = localStorage.getItem('inventory_tg_chatid') || '';
+        const savedTgToken = localStorage.getItem('inventory_tg_token') || DEFAULT_TG_BOT_TOKEN;
+        const savedTgChatId = localStorage.getItem('inventory_tg_chatid') || DEFAULT_TG_CHAT_ID;
         let localSettings = {};
         try {
           localSettings = JSON.parse(localStorage.getItem('inventory_system_settings') || '{}');
@@ -8168,8 +8194,8 @@
         const currField = document.getElementById('setCurrency');
         const emailField = document.getElementById('setAlertEmail');
 
-        if (tokenField) tokenField.value = savedTgToken || localSettings.TELEGRAM_BOT_TOKEN || AppState.settings?.TELEGRAM_BOT_TOKEN || '';
-        if (chatIdField) chatIdField.value = savedTgChatId || localSettings.TELEGRAM_CHAT_ID || AppState.settings?.TELEGRAM_CHAT_ID || '';
+        if (tokenField) tokenField.value = savedTgToken || localSettings.TELEGRAM_BOT_TOKEN || AppState.settings?.TELEGRAM_BOT_TOKEN || DEFAULT_TG_BOT_TOKEN;
+        if (chatIdField) chatIdField.value = savedTgChatId || localSettings.TELEGRAM_CHAT_ID || AppState.settings?.TELEGRAM_CHAT_ID || DEFAULT_TG_CHAT_ID;
         if (compField) compField.value = localSettings.COMPANY_NAME || AppState.settings?.COMPANY_NAME || 'ប្រព័ន្ធគ្រប់គ្រងស្តុកទំនិញ PPSHV';
         if (currField) currField.value = localSettings.CURRENCY_SYMBOL || AppState.settings?.CURRENCY_SYMBOL || '$';
         if (emailField) emailField.value = localSettings.ALERT_EMAIL || AppState.settings?.ALERT_EMAIL || 'chenlongqmi@gmail.com, ppshv2024@gmail.com';
@@ -9368,8 +9394,8 @@
 
       if (res && res.success) {
         // Send alert back to Telegram if configured
-        const tgToken = AppState.settings?.TELEGRAM_BOT_TOKEN || localStorage.getItem('inventory_tg_token');
-        const tgChatId = AppState.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid');
+        const tgToken = AppState.settings?.TELEGRAM_BOT_TOKEN || localStorage.getItem('inventory_tg_token') || DEFAULT_TG_BOT_TOKEN;
+        const tgChatId = AppState.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid') || DEFAULT_TG_CHAT_ID;
         if (tgToken && tgChatId) {
           try {
             fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
