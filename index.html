@@ -4150,7 +4150,7 @@
       // (sessionStorage is automatically destroyed when browser window/tab is closed!)
       let savedUser = null;
       try {
-        const sessionData = sessionStorage.getItem('inventory_user');
+        const sessionData = sessionStorage.getItem('inventory_user') || localStorage.getItem('inventory_user');
         if (sessionData) {
           savedUser = JSON.parse(sessionData);
         }
@@ -4192,6 +4192,12 @@
         const targetTab = hashTab || savedTab || 'dashboard';
         navigateTab(targetTab);
 
+        // Restore warehouse filter
+        const savedWh = sessionStorage.getItem('inventory_wh_filter');
+        if (savedWh) {
+          AppState.selectedAdminWarehouseFilter = savedWh;
+        }
+
         // Restore scroll position
         const savedScroll = sessionStorage.getItem('inventory_scroll_top');
         if (savedScroll) {
@@ -4199,6 +4205,18 @@
             const mainElem = document.querySelector('main');
             if (mainElem) mainElem.scrollTop = parseInt(savedScroll, 10) || 0;
           }, 200);
+        }
+
+        // Restore active modal & form inputs if page was hard refreshed
+        const modalRaw = sessionStorage.getItem('inventory_active_modal_state');
+        if (modalRaw) {
+          try {
+            const modalState = JSON.parse(modalRaw);
+            sessionStorage.removeItem('inventory_active_modal_state');
+            setTimeout(() => {
+              restoreModalState(modalState);
+            }, 350);
+          } catch (e) {}
         }
 
         // Notification if just updated in background
@@ -4219,6 +4237,108 @@
       initBackgroundUpdateChecker();
       initScrollRestoration();
     });
+
+    // =========================================================================
+    // BACKGROUND REFRESH & PERSISTENT APPLICATION STATE PRESERVATION SYSTEM
+    // =========================================================================
+    function saveAppRunningState() {
+      if (!AppState.currentUser) return;
+
+      try {
+        sessionStorage.setItem('inventory_user', JSON.stringify(AppState.currentUser));
+      } catch (e) {}
+
+      if (AppState.currentTab) {
+        sessionStorage.setItem('inventory_active_tab', AppState.currentTab);
+      }
+      if (AppState.selectedAdminWarehouseFilter) {
+        sessionStorage.setItem('inventory_wh_filter', AppState.selectedAdminWarehouseFilter);
+      }
+
+      const mainElem = document.querySelector('main');
+      if (mainElem) {
+        sessionStorage.setItem('inventory_scroll_top', mainElem.scrollTop);
+      }
+
+      const modalSnapshot = getOpenModalSnapshot();
+      if (modalSnapshot) {
+        sessionStorage.setItem('inventory_active_modal_state', JSON.stringify(modalSnapshot));
+      } else {
+        sessionStorage.removeItem('inventory_active_modal_state');
+      }
+    }
+
+    function getOpenModalSnapshot() {
+      const modals = [
+        { id: 'profileModal', formId: 'profileForm' },
+        { id: 'itemModal', formId: 'itemForm' },
+        { id: 'requestItemModal', formId: 'requestItemForm' },
+        { id: 'addUserModal', formId: 'addUserForm' },
+        { id: 'warehouseModal', formId: 'warehouseForm' }
+      ];
+
+      for (const m of modals) {
+        const el = document.getElementById(m.id);
+        if (el && !el.classList.contains('hidden')) {
+          const formEl = document.getElementById(m.formId);
+          const fields = {};
+          if (formEl) {
+            const inputs = formEl.querySelectorAll('input, select, textarea');
+            inputs.forEach(inp => {
+              if (inp.id && inp.type !== 'password' && inp.type !== 'file') {
+                fields[inp.id] = inp.value;
+              }
+            });
+          }
+          return { modalId: m.id, fields };
+        }
+      }
+      return null;
+    }
+
+    function restoreModalState(modalState) {
+      if (!modalState || !modalState.modalId) return;
+
+      if (modalState.modalId === 'profileModal') {
+        openProfileModal();
+      } else if (modalState.modalId === 'itemModal') {
+        const modal = document.getElementById('itemModal');
+        if (modal) modal.classList.remove('hidden');
+      } else if (modalState.modalId === 'requestItemModal') {
+        if (typeof openRequestItemModal === 'function') openRequestItemModal();
+      } else if (modalState.modalId === 'addUserModal') {
+        if (typeof openAddUserModal === 'function') openAddUserModal();
+      } else if (modalState.modalId === 'warehouseModal') {
+        if (typeof openWarehouseModal === 'function') openWarehouseModal();
+      }
+
+      if (modalState.fields) {
+        for (const [fId, val] of Object.entries(modalState.fields)) {
+          const fieldEl = document.getElementById(fId);
+          if (fieldEl && val !== undefined && val !== '') {
+            fieldEl.value = val;
+          }
+        }
+      }
+    }
+
+    // Save running state before browser unloads (e.g. clicking browser reload icon)
+    window.addEventListener('beforeunload', () => {
+      saveAppRunningState();
+    });
+
+    // Intercept F5 and Ctrl+R / Cmd+R when user is active in app for background refresh
+    window.addEventListener('keydown', (e) => {
+      const isF5 = (e.key === 'F5' || e.keyCode === 116);
+      const isCtrlR = (e.ctrlKey || e.metaKey) && (e.key === 'r' || e.key === 'R' || e.keyCode === 82);
+
+      if ((isF5 || isCtrlR) && AppState.currentUser) {
+        e.preventDefault();
+        e.stopPropagation();
+        triggerBackgroundRefresh('keyboard');
+        return false;
+      }
+    }, true);
 
     // Handle ESC (Escape) Key Press to Cancel / Close any active Modal
     document.addEventListener('keydown', (e) => {
@@ -6275,22 +6395,89 @@
       if (tabName === 'settings') loadSettings();
     }
 
+    let isBackgroundRefreshing = false;
+
     async function refreshCurrentTab() {
+      await triggerBackgroundRefresh('button');
+    }
+
+    async function triggerBackgroundRefresh(source = 'button') {
+      if (isBackgroundRefreshing) return;
+      isBackgroundRefreshing = true;
+
+      // 1. Rotate refresh icon
       const icon = document.getElementById('refreshIcon');
       if (icon) icon.classList.add('fa-spin');
+
+      // 2. Show sleek floating glassmorphism banner
+      let banner = document.getElementById('bgRefreshFloatingBanner');
+      if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'bgRefreshFloatingBanner';
+        banner.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-[9999] bg-slate-900/90 backdrop-blur-md text-white px-4 py-2 rounded-2xl shadow-2xl border border-cyan-500/40 flex items-center space-x-2.5 text-xs font-semibold transition-all duration-300 pointer-events-none';
+        document.body.appendChild(banner);
+      }
+      banner.style.opacity = '1';
+      banner.style.transform = 'translate(-50%, 0) scale(1)';
+      banner.innerHTML = `
+        <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
+        <i class="fa-solid fa-rotate text-cyan-300 fa-spin text-sm"></i>
+        <span>កំពុង Refresh ទិន្នន័យក្នុង Background ដោយរក្សាស្ថានភាពប្រើប្រាស់...</span>
+      `;
+
+      // 3. Save scroll position
+      const mainElem = document.querySelector('main');
+      const curScroll = mainElem ? mainElem.scrollTop : 0;
+
       try {
-        await Promise.all([
+        // 4. Background silent data sync
+        const promises = [
           loadDashboard(),
           loadItems(),
           loadProductRequests()
-        ]);
-        navigateTab(AppState.currentTab);
-      } catch (e) {
-        navigateTab(AppState.currentTab);
+        ];
+        if (AppState.currentTab === 'reports') promises.push(loadReportTransactions());
+        if (AppState.currentTab === 'users') promises.push(loadUsersList());
+        if (AppState.currentTab === 'settings') promises.push(loadSettings());
+        if (AppState.currentTab === 'chat' && AppState.currentUser) promises.push(loadChatMessages(true));
+
+        await Promise.all(promises);
+
+        // 5. Update pending requests badge
+        const reqRes = await apiCall('getProductRequests');
+        if (reqRes && reqRes.success && reqRes.requests) {
+          const pending = reqRes.requests.filter(r => r.status === 'Pending').length;
+          const badge = document.getElementById('pendingRequestsBadge');
+          if (badge) {
+            badge.innerText = pending;
+            badge.classList.toggle('hidden', pending === 0);
+          }
+        }
+
+        // Restore scroll position
+        if (mainElem) mainElem.scrollTop = curScroll;
+
+        // 6. Show success indicator
+        banner.innerHTML = `
+          <i class="fa-solid fa-circle-check text-emerald-400 text-sm"></i>
+          <span class="text-emerald-100 font-bold">បាន Refresh ទិន្នន័យក្នុង Background ជោគជ័យ!</span>
+        `;
+        banner.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-[9999] bg-slate-900/95 backdrop-blur-md text-white px-4 py-2 rounded-2xl shadow-2xl border border-emerald-500/50 flex items-center space-x-2.5 text-xs font-semibold transition-all duration-300 pointer-events-none';
+      } catch (err) {
+        console.warn('Background refresh error:', err);
+        banner.innerHTML = `
+          <i class="fa-solid fa-circle-exclamation text-amber-400 text-sm"></i>
+          <span class="text-amber-100">ទិន្នន័យត្រូវបានរក្សាទុកក្នុង Local Storage</span>
+        `;
       } finally {
         setTimeout(() => {
           if (icon) icon.classList.remove('fa-spin');
-        }, 500);
+          if (banner) {
+            banner.style.opacity = '0';
+            banner.style.transform = 'translate(-50%, -10px) scale(0.95)';
+          }
+          isBackgroundRefreshing = false;
+        }, 1200);
       }
     }
 
@@ -10308,6 +10495,9 @@
     window.testTelegramConnection = testTelegramConnection;
     window.handleSaveSettings = handleSaveSettings;
     window.validateProfileForm = validateProfileForm;
+    window.triggerBackgroundRefresh = triggerBackgroundRefresh;
+    window.refreshCurrentTab = refreshCurrentTab;
+    window.saveAppRunningState = saveAppRunningState;
 
     // Run auto-scale immediately
     if (document.readyState === 'loading') {
