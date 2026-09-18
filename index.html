@@ -441,13 +441,13 @@
             </button>
           </div>
 
-          <form id="registerForm" onsubmit="handleRegister(event)" class="space-y-3">
+          <form id="registerForm" onsubmit="handleRegister(event)" novalidate class="space-y-3">
             <!-- User Profile Avatar Upload -->
             <div class="flex flex-col items-center justify-center pt-1 pb-1">
-              <div class="relative group cursor-pointer" onclick="document.getElementById('regAvatarInput').click()"
+              <div id="regAvatarWrapper" class="relative group cursor-pointer" onclick="document.getElementById('regAvatarInput').click()"
                 title="ចុចដើម្បីជ្រើសរើសរូបភាព Profile">
-                <div
-                  class="w-16 h-16 rounded-full border-2 border-dashed border-blue-400 p-0.5 bg-slate-50 shadow-sm overflow-hidden flex items-center justify-center">
+                <div id="regAvatarBox"
+                  class="w-16 h-16 rounded-full border-2 border-dashed border-blue-400 p-0.5 bg-slate-50 shadow-sm overflow-hidden flex items-center justify-center transition-all">
                   <img id="regAvatarPreview" src="https://api.dicebear.com/7.x/bottts/svg?seed=user1"
                     class="w-full h-full object-cover rounded-full">
                 </div>
@@ -464,22 +464,25 @@
               <input type="file" id="regAvatarInput" accept="image/*" class="hidden"
                 onchange="handleUserAvatarSelect(event, 'regAvatarPreview', 'regAvatarData')">
               <input type="hidden" id="regAvatarData" value="">
-              <span class="text-[10px] font-bold text-rose-600 mt-1">រូប Profile * (កាតព្វកិច្ច)</span>
+              <span id="regAvatarLabel" class="text-[10px] font-bold text-slate-500 mt-1">រូប Profile * (កាតព្វកិច្ច)</span>
+              <p id="regAvatarError" class="text-[10.5px] font-bold text-rose-600 mt-1 hidden"><i class="fa-solid fa-circle-exclamation mr-1"></i>សូមជ្រើសរើសរូបភាព Profile</p>
             </div>
 
             <div>
-              <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">ឈ្មោះពេញ (Full Name) *</label>
-              <input type="text" id="regFullName" required placeholder="ឧ. សុខ ចាន់ណា"
-                class="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none">
+              <label id="regFullNameLabel" class="block text-xs font-semibold text-slate-600 uppercase mb-1">ឈ្មោះពេញ (Full Name) *</label>
+              <input type="text" id="regFullName" placeholder="ឧ. សុខ ចាន់ណា"
+                class="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all">
+              <p id="regFullNameError" class="text-[10.5px] font-bold text-rose-600 mt-1 hidden"><i class="fa-solid fa-circle-exclamation mr-1"></i>សូមបញ្ចូលឈ្មោះពេញ</p>
             </div>
 
             <div class="grid grid-cols-2 gap-2">
               <div>
-                <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">ឈ្មោះគណនី (Username) *</label>
-                <input type="text" id="regUsername" required placeholder="username" autocomplete="username"
+                <label id="regUsernameLabel" class="block text-xs font-semibold text-slate-600 uppercase mb-1">ឈ្មោះគណនី (Username) *</label>
+                <input type="text" id="regUsername" placeholder="username" autocomplete="username"
                   lang="en" inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false"
                   oninput="cleanKhmerFromField(this)" onkeyup="cleanKhmerFromField(this)" onfocus="cleanKhmerFromField(this)"
-                  class="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none">
+                  class="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all">
+                <p id="regUsernameError" class="text-[10.5px] font-bold text-rose-600 mt-1 hidden"><i class="fa-solid fa-circle-exclamation mr-1"></i>សូមបញ្ចូលឈ្មោះគណនី</p>
               </div>
               <div>
                 <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">តួនាទី (Role)</label>
@@ -517,41 +520,44 @@
                 <input type="email" id="regEmail" placeholder="user@gmail.com"
                   lang="en" inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false"
                   oninput="cleanKhmerFromField(this)" onkeyup="cleanKhmerFromField(this)" onfocus="cleanKhmerFromField(this)"
-                  class="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none">
+                  class="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all">
               </div>
               <div>
-                <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">លេខទូរស័ព្ទ (Phone) *</label>
-                <input type="tel" id="regPhone" required placeholder="012 345 678"
-                  class="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none font-medium">
+                <label id="regPhoneLabel" class="block text-xs font-semibold text-slate-600 uppercase mb-1">លេខទូរស័ព្ទ (Phone) *</label>
+                <input type="tel" id="regPhone" placeholder="012 345 678"
+                  class="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none font-medium transition-all">
+                <p id="regPhoneError" class="text-[10.5px] font-bold text-rose-600 mt-1 hidden"><i class="fa-solid fa-circle-exclamation mr-1"></i>សូមបញ្ចូលលេខទូរស័ព្ទ</p>
               </div>
             </div>
 
             <div class="grid grid-cols-2 gap-2">
               <div>
-                <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">ពាក្យសម្ងាត់ *</label>
+                <label id="regPasswordLabel" class="block text-xs font-semibold text-slate-600 uppercase mb-1">ពាក្យសម្ងាត់ *</label>
                 <div class="relative">
-                  <input type="password" id="regPassword" required placeholder="យ៉ាងតិច 6 ខ្ទង់" minlength="4" autocomplete="new-password"
+                  <input type="password" id="regPassword" placeholder="យ៉ាងតិច 6 ខ្ទង់" minlength="4" autocomplete="new-password"
                     lang="en" inputmode="text" autocapitalize="none" autocorrect="off" spellcheck="false"
                     oninput="cleanKhmerFromField(this)" onkeyup="cleanKhmerFromField(this)" onfocus="cleanKhmerFromField(this)"
-                    class="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none">
+                    class="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all">
                   <button type="button" onclick="togglePasswordVisibility('regPassword', this)"
                     class="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600">
                     <i class="fa-regular fa-eye text-xs"></i>
                   </button>
                 </div>
+                <p id="regPasswordError" class="text-[10.5px] font-bold text-rose-600 mt-1 hidden"><i class="fa-solid fa-circle-exclamation mr-1"></i>សូមបញ្ចូលពាក្យសម្ងាត់</p>
               </div>
               <div>
-                <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">បញ្ជាក់ពាក្យសម្ងាត់ *</label>
+                <label id="regConfirmPasswordLabel" class="block text-xs font-semibold text-slate-600 uppercase mb-1">បញ្ជាក់ពាក្យសម្ងាត់ *</label>
                 <div class="relative">
-                  <input type="password" id="regConfirmPassword" required placeholder="បញ្ចូលម្តងទៀត" minlength="4" autocomplete="new-password"
+                  <input type="password" id="regConfirmPassword" placeholder="បញ្ចូលម្តងទៀត" minlength="4" autocomplete="new-password"
                     lang="en" inputmode="text" autocapitalize="none" autocorrect="off" spellcheck="false"
                     oninput="cleanKhmerFromField(this)" onkeyup="cleanKhmerFromField(this)" onfocus="cleanKhmerFromField(this)"
-                    class="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none">
+                    class="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all">
                   <button type="button" onclick="togglePasswordVisibility('regConfirmPassword', this)"
                     class="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600">
                     <i class="fa-regular fa-eye text-xs"></i>
                   </button>
                 </div>
+                <p id="regConfirmPasswordError" class="text-[10.5px] font-bold text-rose-600 mt-1 hidden"><i class="fa-solid fa-circle-exclamation mr-1"></i>សូមបញ្ចូលបញ្ជាក់ពាក្យសម្ងាត់</p>
               </div>
             </div>
 
@@ -3778,6 +3784,20 @@
       });
     }
 
+    function initRegistrationValidationListeners() {
+      ['FullName', 'Username', 'Phone', 'Password', 'ConfirmPassword'].forEach(fieldKey => {
+        const input = document.getElementById('reg' + fieldKey);
+        if (input && !input._hasErrClearListener) {
+          input._hasErrClearListener = true;
+          input.addEventListener('input', () => {
+            if (input.value.trim()) {
+              clearRegFieldError(fieldKey);
+            }
+          });
+        }
+      });
+    }
+
     function initAllCredentialEnglishInputs() {
       const fieldIds = ['loginUsername', 'loginPassword', 'regUsername', 'regEmail', 'regPassword', 'regConfirmPassword'];
       fieldIds.forEach(id => {
@@ -3788,6 +3808,7 @@
 
     document.addEventListener('DOMContentLoaded', () => {
       initAllCredentialEnglishInputs();
+      initRegistrationValidationListeners();
       updateClock();
       setInterval(updateClock, 1000);
       refreshAllWarehouseDropdowns();
@@ -4889,14 +4910,47 @@
 
           document.getElementById(previewId).src = compressedData;
           document.getElementById(dataId).value = compressedData;
+
+          if (dataId === 'regAvatarData') {
+            const avatarBox = document.getElementById('regAvatarBox');
+            if (avatarBox) {
+              avatarBox.classList.remove('border-rose-500', 'ring-2', 'ring-rose-300');
+              avatarBox.classList.add('border-blue-400');
+            }
+            const avatarLabel = document.getElementById('regAvatarLabel');
+            if (avatarLabel) {
+              avatarLabel.classList.remove('text-rose-600');
+              avatarLabel.classList.add('text-slate-500');
+            }
+            const avatarError = document.getElementById('regAvatarError');
+            if (avatarError) avatarError.classList.add('hidden');
+          }
         };
         img.src = e.target.result;
       };
       reader.readAsDataURL(file);
     }
 
+    function clearRegFieldError(fieldKey) {
+      const inputEl = document.getElementById('reg' + fieldKey);
+      const labelEl = document.getElementById('reg' + fieldKey + 'Label');
+      const errorEl = document.getElementById('reg' + fieldKey + 'Error');
+      if (inputEl) {
+        inputEl.classList.remove('border-rose-500', 'bg-rose-50/40', 'focus:ring-rose-400');
+        inputEl.classList.add('border-slate-300', 'bg-slate-50');
+      }
+      if (labelEl) {
+        labelEl.classList.remove('text-rose-600');
+        labelEl.classList.add('text-slate-600');
+      }
+      if (errorEl) {
+        errorEl.classList.add('hidden');
+      }
+    }
+    window.clearRegFieldError = clearRegFieldError;
+
     async function handleRegister(e) {
-      e.preventDefault();
+      if (e) e.preventDefault();
       const fullName = document.getElementById('regFullName').value.trim();
       const username = document.getElementById('regUsername').value.trim();
       const email = document.getElementById('regEmail').value.trim();
@@ -4907,49 +4961,104 @@
       const warehouse = document.getElementById('regWarehouse').value;
       const avatar = document.getElementById('regAvatarData').value.trim();
 
-      // STRICT VALIDATION: Check if avatar image is provided
+      let hasError = false;
+      let firstInvalidEl = null;
+
+      function setFieldError(fieldKey, errorMsg) {
+        hasError = true;
+        const inputEl = document.getElementById('reg' + fieldKey);
+        const labelEl = document.getElementById('reg' + fieldKey + 'Label');
+        const errorEl = document.getElementById('reg' + fieldKey + 'Error');
+
+        if (inputEl) {
+          inputEl.classList.add('border-rose-500', 'bg-rose-50/40', 'focus:ring-rose-400');
+          inputEl.classList.remove('border-slate-300', 'bg-slate-50');
+          if (!firstInvalidEl) firstInvalidEl = inputEl;
+        }
+        if (labelEl) {
+          labelEl.classList.add('text-rose-600');
+          labelEl.classList.remove('text-slate-600');
+        }
+        if (errorEl) {
+          errorEl.innerHTML = `<i class="fa-solid fa-circle-exclamation mr-1"></i>${errorMsg}`;
+          errorEl.classList.remove('hidden');
+        }
+      }
+
+      // Check Avatar
+      const avatarBox = document.getElementById('regAvatarBox');
+      const avatarLabel = document.getElementById('regAvatarLabel');
+      const avatarError = document.getElementById('regAvatarError');
       if (!avatar) {
-        Swal.fire({
-          icon: 'warning',
-          title: 'តម្រូវឱ្យបញ្ចូលរូបភាព Profile!',
-          html: '<p class="text-xs text-slate-600">សូម Upload រូបថតផ្ទាល់ខ្លួនរបស់អ្នកជាមុនសិន ទើបអាចបន្តទៅមុខបាន។</p>',
-          confirmButtonText: 'យល់ព្រមជ្រើសរើសរូបភាព',
-          confirmButtonColor: '#2563eb',
-          allowOutsideClick: false
-        }).then((result) => {
-          if (result.isConfirmed) {
-            setTimeout(() => {
-              const fileInput = document.getElementById('regAvatarInput');
-              if (fileInput) fileInput.click();
-            }, 120);
-          }
-        });
-        return;
+        hasError = true;
+        if (avatarBox) {
+          avatarBox.classList.add('border-rose-500', 'ring-2', 'ring-rose-300');
+          avatarBox.classList.remove('border-blue-400');
+        }
+        if (avatarLabel) {
+          avatarLabel.classList.add('text-rose-600');
+          avatarLabel.classList.remove('text-slate-500');
+        }
+        if (avatarError) avatarError.classList.remove('hidden');
+        if (!firstInvalidEl) firstInvalidEl = document.getElementById('regAvatarWrapper');
+      } else {
+        if (avatarBox) {
+          avatarBox.classList.remove('border-rose-500', 'ring-2', 'ring-rose-300');
+          avatarBox.classList.add('border-blue-400');
+        }
+        if (avatarLabel) {
+          avatarLabel.classList.remove('text-rose-600');
+          avatarLabel.classList.add('text-slate-500');
+        }
+        if (avatarError) avatarError.classList.add('hidden');
       }
 
-      // Check phone number
+      // Check Full Name
+      if (!fullName) {
+        setFieldError('FullName', 'សូមបញ្ចូលឈ្មោះពេញ');
+      } else {
+        clearRegFieldError('FullName');
+      }
+
+      // Check Username
+      if (!username) {
+        setFieldError('Username', 'សូមបញ្ចូលឈ្មោះគណនី (Username)');
+      } else if (username.length < 3) {
+        setFieldError('Username', 'ឈ្មោះគណនីត្រូវមានយ៉ាងតិច ៣ តួអក្សរ');
+      } else {
+        clearRegFieldError('Username');
+      }
+
+      // Check Phone
       if (!phone) {
-        Swal.fire({
-          icon: 'warning',
-          title: 'សូមបញ្ចូលលេខទូរស័ព្ទ!',
-          text: 'តម្រូវឱ្យមានលេខទូរស័ព្ទសម្រាប់ទំនាក់ទំនង។',
-          confirmButtonText: 'យល់ព្រម',
-          confirmButtonColor: '#2563eb'
-        });
-        document.getElementById('regPhone').focus();
-        return;
+        setFieldError('Phone', 'សូមបញ្ចូលលេខទូរស័ព្ទ');
+      } else {
+        clearRegFieldError('Phone');
       }
 
-      // Validate Password Match
-      if (password !== confirmPassword) {
-        Swal.fire({
-          icon: 'warning',
-          title: 'ពាក្យសម្ងាត់មិនត្រូវគ្នាទេ!',
-          text: 'សូមពិនិត្យ និងវាយពាក្យសម្ងាត់ទាំង ២ ប្រអប់ឱ្យដូចគ្នា។',
-          confirmButtonText: 'យល់ព្រម',
-          confirmButtonColor: '#2563eb'
-        });
-        document.getElementById('regConfirmPassword').focus();
+      // Check Password
+      if (!password) {
+        setFieldError('Password', 'សូមបញ្ចូលពាក្យសម្ងាត់');
+      } else if (password.length < 4) {
+        setFieldError('Password', 'ពាក្យសម្ងាត់ត្រូវមានយ៉ាងតិច ៤ ខ្ទង់');
+      } else {
+        clearRegFieldError('Password');
+      }
+
+      // Check Confirm Password
+      if (!confirmPassword) {
+        setFieldError('ConfirmPassword', 'សូមបញ្ចូលបញ្ជាក់ពាក្យសម្ងាត់');
+      } else if (password !== confirmPassword) {
+        setFieldError('ConfirmPassword', 'ពាក្យសម្ងាត់មិនត្រូវគ្នាទេ');
+      } else {
+        clearRegFieldError('ConfirmPassword');
+      }
+
+      if (hasError) {
+        if (firstInvalidEl) {
+          firstInvalidEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          if (firstInvalidEl.focus && firstInvalidEl.tagName === 'INPUT') firstInvalidEl.focus();
+        }
         return;
       }
 
@@ -5144,6 +5253,7 @@
       const otpCard = document.getElementById('otpCard');
       if (otpCard) otpCard.classList.toggle('hidden', view !== 'otp');
       initAllCredentialEnglishInputs();
+      initRegistrationValidationListeners();
     }
 
     function showAppView() {
