@@ -602,7 +602,7 @@
   <!-- ========================================== -->
   <!-- 2. MAIN APPLICATION LAYOUT -->
   <!-- ========================================== -->
-  <div id="mainApp" class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+  <div id="mainApp" class="hidden flex-1 flex flex-col md:flex-row overflow-hidden relative">
 
     <!-- SIDEBAR NAVIGATION -->
     <aside id="sidebar"
@@ -3566,10 +3566,17 @@
         if (selector) selector.value = savedWhFilter;
       }
 
-      // Check for active logged-in session (so Refresh NEVER kicks user out!)
+      // Clear any legacy localStorage session to enforce strict session-only authentication
+      try {
+        localStorage.removeItem('inventory_user');
+        localStorage.removeItem('inventory_login_timestamp');
+      } catch (e) {}
+
+      // Check for active logged-in session in sessionStorage ONLY
+      // (sessionStorage is automatically destroyed when browser window/tab is closed!)
       let savedUser = null;
       try {
-        const sessionData = sessionStorage.getItem('inventory_user') || localStorage.getItem('inventory_user');
+        const sessionData = sessionStorage.getItem('inventory_user');
         if (sessionData) {
           savedUser = JSON.parse(sessionData);
         }
@@ -3585,7 +3592,6 @@
           if (!savedUser.phone || savedUser.phone === '012 345 678') savedUser.phone = '066966606';
           if (!savedUser.avatar || savedUser.avatar.includes('photo-1534528741775-53994a69daeb')) savedUser.avatar = 'assets/superadmin_avatar.jpg';
           try {
-            localStorage.setItem('inventory_user', JSON.stringify(savedUser));
             sessionStorage.setItem('inventory_user', JSON.stringify(savedUser));
           } catch (e) {}
         }
@@ -4388,17 +4394,16 @@
               username: username,
               password: password
             }));
-            localStorage.setItem('inventory_user', JSON.stringify(res.user));
-            localStorage.setItem('inventory_login_timestamp', loginNow);
-            sessionStorage.removeItem('inventory_user');
-            sessionStorage.removeItem('inventory_login_timestamp');
           } else {
             localStorage.removeItem('inventory_remembered_creds');
-            sessionStorage.setItem('inventory_user', JSON.stringify(res.user));
-            sessionStorage.setItem('inventory_login_timestamp', loginNow);
-            localStorage.removeItem('inventory_user');
-            localStorage.removeItem('inventory_login_timestamp');
           }
+
+          // Strict session-only storage:
+          // Active user session is stored in sessionStorage ONLY so closing browser auto-logs out!
+          sessionStorage.setItem('inventory_user', JSON.stringify(res.user));
+          sessionStorage.setItem('inventory_login_timestamp', loginNow);
+          localStorage.removeItem('inventory_user');
+          localStorage.removeItem('inventory_login_timestamp');
           sessionStorage.removeItem('inventory_superadmin_session');
           showAppView();
           loadInitialData();
@@ -5160,17 +5165,16 @@
     let sessionDurationInterval = null;
 
     function initSessionDurationEngine() {
-      // 1. Format & display Login Time
-      let savedLoginTime = localStorage.getItem('inventory_login_timestamp') || sessionStorage.getItem('inventory_login_timestamp');
+      // 1. Format & display Login Time from sessionStorage
+      let savedLoginTime = sessionStorage.getItem('inventory_login_timestamp');
       if (!savedLoginTime) {
         savedLoginTime = new Date().toISOString();
-        const remember = localStorage.getItem('inventory_user');
-        if (remember) {
-          localStorage.setItem('inventory_login_timestamp', savedLoginTime);
-        } else {
-          sessionStorage.setItem('inventory_login_timestamp', savedLoginTime);
-        }
+        sessionStorage.setItem('inventory_login_timestamp', savedLoginTime);
       }
+      try {
+        localStorage.removeItem('inventory_login_timestamp');
+        localStorage.removeItem('inventory_user');
+      } catch (e) {}
 
       const loginDateObj = new Date(savedLoginTime);
       const formattedLoginTime = loginDateObj.toLocaleTimeString('en-US', {
@@ -7420,7 +7424,7 @@
         AppState.currentUser = u;
         try {
           sessionStorage.setItem('inventory_user', JSON.stringify(u));
-          localStorage.setItem('inventory_user', JSON.stringify(u));
+          localStorage.removeItem('inventory_user');
         } catch (e) {}
       }
 
@@ -7591,9 +7595,9 @@
           }
           saveLocalUsersToStorage();
 
-          // Update in session & local storage
+          // Update in session storage
           sessionStorage.setItem('inventory_user', JSON.stringify(u));
-          localStorage.setItem('inventory_user', JSON.stringify(u));
+          localStorage.removeItem('inventory_user');
 
           // Update session banner and all views
           showAppView();
@@ -7632,7 +7636,7 @@
         }
         saveLocalUsersToStorage();
         sessionStorage.setItem('inventory_user', JSON.stringify(u));
-        localStorage.setItem('inventory_user', JSON.stringify(u));
+        localStorage.removeItem('inventory_user');
         showAppView();
         await loadUsersList();
         closeProfileModal();
@@ -7824,9 +7828,7 @@
           // Update local session
           u.password = formValues.newPass;
           sessionStorage.setItem('inventory_user', JSON.stringify(u));
-          if (localStorage.getItem('inventory_user')) {
-            localStorage.setItem('inventory_user', JSON.stringify(u));
-          }
+          localStorage.removeItem('inventory_user');
 
           await Swal.fire({
             icon: 'success',
