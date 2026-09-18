@@ -1073,6 +1073,35 @@ function registerUser(userData) {
       `👉 <b>សូម Admin ចុចប៊ូតុងខាងក្រោមដើម្បី អនុម័ត (Approve)៖</b>`;
 
     sendTelegramAlert(regAlert, replyMarkup);
+
+    // Backup Admin Email Notification via MailApp
+    try {
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const settings = getSettingsMap(ss);
+      const adminEmail = (settings && settings['ALERT_EMAIL']) ? settings['ALERT_EMAIL'] : 'ppshv2024@gmail.com, chenlongqmi@gmail.com';
+      MailApp.sendEmail({
+        to: adminEmail,
+        subject: `[PPSHV Stock] សំណើសុំចុះឈ្មោះគណនីថ្មី: ${userData.fullName || userData.username} (${warehouse})`,
+        htmlBody: `
+          <div style="font-family: Arial, sans-serif; padding: 20px; color: #1e293b; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px;">
+            <h2 style="color: #2563eb; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">📋 សំណើសុំចុះឈ្មោះគណនីថ្មី (PPSHV Stock)</h2>
+            <p><b>ឈ្មោះពេញ:</b> ${userData.fullName || userData.username}</p>
+            <p><b>Username:</b> ${userData.username}</p>
+            <p><b>លេខទូរស័ព្ទ:</b> ${phone || '-'}</p>
+            <p><b>អ៊ីមែល:</b> ${userData.email || '-'}</p>
+            <p><b>តួនាទី:</b> ${role}</p>
+            <p><b>ស្ថានីយ/ឃ្លាំង:</b> ${warehouse}</p>
+            <p><b>ស្ថានភាព:</b> <span style="background-color: #fef3c7; color: #92400e; padding: 3px 8px; border-radius: 6px; font-weight: bold;">⏳ កំពុងរង់ចាំការអនុម័ត (Pending)</span></p>
+            <div style="margin-top: 25px; padding-top: 15px; border-top: 1px dashed #cbd5e1;">
+              <a href="${approveUrl}" style="background-color: #16a34a; color: white; padding: 10px 22px; text-decoration: none; border-radius: 6px; font-weight: bold; margin-right: 12px; display: inline-block;">✅ ចុចអនុម័ត (Approve)</a>
+              <a href="${rejectUrl}" style="background-color: #dc2626; color: white; padding: 10px 22px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">❌ បដិសេធ (Reject)</a>
+            </div>
+          </div>
+        `
+      });
+    } catch (mErr) {
+      Logger.log('Admin Email Alert Error: ' + mErr.toString());
+    }
   } catch (e) {
     Logger.log('Telegram Alert on Register Error: ' + e.toString());
   }

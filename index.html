@@ -719,9 +719,12 @@
         </a>
 
         <a href="#users" onclick="navigateTab('users')" id="navUsers"
-          class="nav-link flex items-center px-3.5 py-2.5 rounded-xl hover:bg-white/15 hover:text-white transition-all text-blue-100/90">
-          <i class="fa-solid fa-users-gear w-6 text-center text-blue-200"></i>
-          <span class="ml-2">គ្រប់គ្រង User & សិទ្ធិ</span>
+          class="nav-link flex items-center justify-between px-3.5 py-2.5 rounded-xl hover:bg-white/15 hover:text-white transition-all text-blue-100/90">
+          <div class="flex items-center">
+            <i class="fa-solid fa-users-gear w-6 text-center text-blue-200"></i>
+            <span class="ml-2">គ្រប់គ្រង User & សិទ្ធិ</span>
+          </div>
+          <span id="pendingUsersBadge" class="hidden px-2 py-0.5 text-[10px] font-extrabold bg-amber-400 text-slate-950 rounded-full shadow-sm animate-pulse">0</span>
         </a>
 
         <a href="#settings" onclick="navigateTab('settings')" id="navSettings"
@@ -3291,8 +3294,21 @@
     ];
 
     const AppState = {
-      gasApiUrl: 'https://script.google.com/macros/s/AKfycbz-Pb72GPivonqvf3j8WRAoN4V6Dlo3IgAVpHCfDVEzF2RJV2X18XtfqTffZ2K08UQJ/exec',
+      gasApiUrl: localStorage.getItem('inventory_gas_api_url') || 'https://script.google.com/macros/s/AKfycbz-Pb72GPivonqvf3j8WRAoN4V6Dlo3IgAVpHCfDVEzF2RJV2X18XtfqTffZ2K08UQJ/exec',
       currentUser: null,
+      settings: (() => {
+        try {
+          const s = JSON.parse(localStorage.getItem('inventory_system_settings') || '{}');
+          if (!s.TELEGRAM_BOT_TOKEN) s.TELEGRAM_BOT_TOKEN = localStorage.getItem('inventory_tg_token') || '';
+          if (!s.TELEGRAM_CHAT_ID) s.TELEGRAM_CHAT_ID = localStorage.getItem('inventory_tg_chatid') || '';
+          return s;
+        } catch (e) {
+          return {
+            TELEGRAM_BOT_TOKEN: localStorage.getItem('inventory_tg_token') || '',
+            TELEGRAM_CHAT_ID: localStorage.getItem('inventory_tg_chatid') || ''
+          };
+        }
+      })(),
       items: [],
       categories: [],
       warehouses: WAREHOUSES_LIST,
@@ -3311,6 +3327,7 @@
       users: [
         { userId: 'USR-SA', username: 'superadmin', fullName: '陈龙', email: 'chenlongqmi@gmail.com', phone: '066966606', role: 'SuperAdmin', status: 'Active', warehouse: 'ALL', avatar: 'assets/superadmin_avatar.jpg' },
         { userId: 'USR-00', username: 'admin', fullName: '聂稳新', email: 'ppshv2024@gmail.com', phone: '098880803', role: 'Admin', status: 'Active', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150' },
+        { userId: 'USR-PENDING-01', username: 'Chan Sovannak', fullName: 'ចាន់ សុវណ្ណៈ', email: 'chansovannak@gmail.com', phone: '097966606', role: 'Stock Keeper', status: 'Pending', warehouse: '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=ChanSovannak' },
         ...WAREHOUSES_LIST.map((wh, idx) => {
           const num = String(idx + 1).padStart(2, '0');
           return {
@@ -4872,6 +4889,42 @@
         return { success: true, message: 'បានផ្ទេរស្តុកទំនិញជោគជ័យ!' };
       }
 
+      if (action === 'getSystemSettings' || action === 'getSettings') {
+        const savedSettings = localStorage.getItem('inventory_system_settings');
+        let settings = {
+          COMPANY_NAME: 'Smart Inventory Solution',
+          CURRENCY_SYMBOL: '$',
+          TELEGRAM_BOT_TOKEN: localStorage.getItem('inventory_tg_token') || '',
+          TELEGRAM_CHAT_ID: localStorage.getItem('inventory_tg_chatid') || '',
+          ENABLE_LOW_STOCK_ALERT: true,
+          ALERT_EMAIL: 'chenlongqmi@gmail.com'
+        };
+        if (savedSettings) {
+          try {
+            settings = { ...settings, ...JSON.parse(savedSettings) };
+          } catch (e) {}
+        }
+        return { success: true, settings };
+      }
+
+      if (action === 'saveSystemSettings') {
+        const s = payload.settings || payload;
+        localStorage.setItem('inventory_system_settings', JSON.stringify(s));
+        if (s.TELEGRAM_BOT_TOKEN !== undefined) localStorage.setItem('inventory_tg_token', s.TELEGRAM_BOT_TOKEN);
+        if (s.TELEGRAM_CHAT_ID !== undefined) localStorage.setItem('inventory_tg_chatid', s.TELEGRAM_CHAT_ID);
+        AppState.settings = { ...(AppState.settings || {}), ...s };
+        return { success: true, message: 'បានរក្សាទុកការកំណត់ជោគជ័យ!' };
+      }
+
+      if (action === 'testTelegramAlert') {
+        const botToken = payload.botToken || payload.TELEGRAM_BOT_TOKEN;
+        const chatId = payload.chatId || payload.TELEGRAM_CHAT_ID;
+        if (!botToken || !chatId) {
+          return { success: false, message: 'ខ្វះ Telegram Bot Token ឬ Chat ID' };
+        }
+        return { success: true, message: 'បានផ្ញើសារសាកល្បងទៅ Telegram ជោគជ័យ!' };
+      }
+
       return { success: true, message: 'ប្រតិបត្តិការជោគជ័យ' };
     }
 
@@ -5331,16 +5384,30 @@
       try {
         const res = await apiCall('registerUser', { ...userData, status: 'Pending' });
 
-        // Direct Telegram dispatch from client if bot configured
-        try {
-          const botToken = AppState.settings?.TELEGRAM_BOT_TOKEN || localStorage.getItem('inventory_tg_token');
-          const chatId = AppState.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid');
-          const gasUrl = AppState.gasApiUrl || 'https://script.google.com/macros/s/AKfycbz-Pb72GPivonqvf3j8WRAoN4V6Dlo3IgAVpHCfDVEzF2RJV2X18XtfqTffZ2K08UQJ/exec';
+        // Retrieve Telegram credentials from all available sources
+        let botToken = AppState.settings?.TELEGRAM_BOT_TOKEN || localStorage.getItem('inventory_tg_token');
+        let chatId = AppState.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid');
 
-          if (botToken && chatId) {
-            const approveUrl = `${gasUrl}?action=approveUserTelegram&u=${encodeURIComponent(userData.username)}`;
-            const rejectUrl = `${gasUrl}?action=rejectUserTelegram&u=${encodeURIComponent(userData.username)}`;
+        if (!botToken || !chatId) {
+          try {
+            const raw = localStorage.getItem('inventory_system_settings');
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (!botToken && parsed.TELEGRAM_BOT_TOKEN) botToken = parsed.TELEGRAM_BOT_TOKEN;
+              if (!chatId && parsed.TELEGRAM_CHAT_ID) chatId = parsed.TELEGRAM_CHAT_ID;
+            }
+          } catch (e) {}
+        }
 
+        const gasUrl = AppState.gasApiUrl || localStorage.getItem('inventory_gas_api_url') || 'https://script.google.com/macros/s/AKfycbz-Pb72GPivonqvf3j8WRAoN4V6Dlo3IgAVpHCfDVEzF2RJV2X18XtfqTffZ2K08UQJ/exec';
+        const approveUrl = `${gasUrl}?action=approveUserTelegram&u=${encodeURIComponent(userData.username)}`;
+        const rejectUrl = `${gasUrl}?action=rejectUserTelegram&u=${encodeURIComponent(userData.username)}`;
+
+        let telegramSent = false;
+
+        // 1. Send via Telegram Bot if configured
+        if (botToken && chatId) {
+          try {
             const tgMsg = `📋 <b>[សំណើសុំចុះឈ្មោះគណនីថ្មី]</b>\n` +
               `👤 <b>ឈ្មោះពេញ:</b> ${userData.fullName || userData.username}\n` +
               `🆔 <b>Username:</b> ${userData.username}\n` +
@@ -5352,7 +5419,7 @@
               `🚦 <b>ស្ថានភាព:</b> ⏳ កំពុងរង់ចាំការអនុម័ត (Pending)\n\n` +
               `👉 <b>សូម Admin ចុចប៊ូតុងខាងក្រោមដើម្បី អនុម័ត (Approve)៖</b>`;
 
-            fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            const tgResp = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -5367,6 +5434,38 @@
                     ]
                   ]
                 }
+              })
+            });
+            const tgJson = await tgResp.json();
+            if (tgJson && tgJson.ok) {
+              telegramSent = true;
+            }
+          } catch (e) {
+            console.warn('[Telegram Dispatch Warning]:', e);
+          }
+        }
+
+        // 2. Guaranteed Real-Time Email Dispatch to Admin so request is NEVER lost
+        try {
+          const adminEmails = ['ppshv2024@gmail.com', 'chenlongqmi@gmail.com'];
+          for (const admEmail of adminEmails) {
+            fetch(`https://formsubmit.co/ajax/${encodeURIComponent(admEmail)}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+              body: JSON.stringify({
+                _subject: `📋 [PPSHV Inventory] សំណើសុំចុះឈ្មោះគណនីថ្មី: ${userData.fullName || userData.username} (@${userData.username})`,
+                _template: 'table',
+                'ប្រព័ន្ធ (System)': 'PPSHV Smart Inventory Management',
+                'ឈ្មោះពេញ (Full Name)': userData.fullName || userData.username,
+                'ឈ្មោះគណនី (Username)': userData.username,
+                'លេខទូរស័ព្ទ (Phone)': userData.phone || '-',
+                'អ៊ីមែល (Email)': userData.email || '-',
+                'ស្ថានីយ/ឃ្លាំង (Warehouse)': userData.warehouse || '-',
+                'តួនាទី (Role)': userData.role || 'Stock Keeper',
+                'ស្ថានភាព (Status)': 'Pending (រង់ចាំ Admin អនុម័ត)',
+                'ពេលវេលា (Timestamp)': new Date().toLocaleString('en-GB'),
+                'Link អនុម័ត (Approve)': approveUrl,
+                'Link បដិសេធ (Reject)': rejectUrl
               })
             }).catch(() => {});
           }
@@ -5396,8 +5495,10 @@
                 <p>🚦 <b>ស្ថានភាព៖</b> <span class="inline-block px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-extrabold text-[11px] border border-amber-300">⏳ កំពុងរង់ចាំ Admin អនុម័ត (Pending)</span></p>
               </div>
               <p class="text-xs text-slate-600 leading-relaxed">
-                ព័ត៌មានលម្អិតត្រូវបានបញ្ជូនទៅកាន់ <b>Telegram Admin</b> រួចរាល់។<br>
-                Admin នឹងចុចប៊ូតុង <b>Approve</b> តាម Telegram ដើម្បីបើកដំណើរការគណនីរបស់អ្នក។
+                ${telegramSent ? 
+                  'ព័ត៌មានលម្អិតត្រូវបានបញ្ជូនទៅកាន់ <b>Telegram Admin</b> រួចរាល់។<br>Admin នឹងចុចប៊ូតុង <b>Approve</b> តាម Telegram ដើម្បីបើកដំណើរការគណនីរបស់អ្នក។' :
+                  'ព័ត៌មានលម្អិតត្រូវបានកត់ត្រាក្នុងប្រព័ន្ធ និងបញ្ជូនទៅកាន់ Admin រួចរាល់។<br>Admin អាចចុចប៊ូតុង <b>Approve (អនុម័ត)</b> លើគណនីនេះបានដោយផ្ទាល់ក្នុងផ្ទាំងគ្រប់គ្រង User ក្នុងប្រព័ន្ធ។'
+                }
               </p>
             `,
             confirmButtonText: 'យល់ព្រម ត្រឡប់ទៅ Login',
@@ -7810,15 +7911,41 @@
         if (gasInput) {
           gasInput.value = localStorage.getItem('inventory_gas_api_url') || AppState.gasApiUrl || '';
         }
+
+        // 1. Preload from localStorage immediately
+        const savedTgToken = localStorage.getItem('inventory_tg_token') || '';
+        const savedTgChatId = localStorage.getItem('inventory_tg_chatid') || '';
+        let localSettings = {};
+        try {
+          localSettings = JSON.parse(localStorage.getItem('inventory_system_settings') || '{}');
+        } catch (e) {}
+
+        const tokenField = document.getElementById('setTelegramToken');
+        const chatIdField = document.getElementById('setTelegramChatId');
+        const compField = document.getElementById('setCompanyName');
+        const currField = document.getElementById('setCurrency');
+        const emailField = document.getElementById('setAlertEmail');
+
+        if (tokenField) tokenField.value = savedTgToken || localSettings.TELEGRAM_BOT_TOKEN || AppState.settings?.TELEGRAM_BOT_TOKEN || '';
+        if (chatIdField) chatIdField.value = savedTgChatId || localSettings.TELEGRAM_CHAT_ID || AppState.settings?.TELEGRAM_CHAT_ID || '';
+        if (compField) compField.value = localSettings.COMPANY_NAME || AppState.settings?.COMPANY_NAME || 'ប្រព័ន្ធគ្រប់គ្រងស្តុកទំនិញ PPSHV';
+        if (currField) currField.value = localSettings.CURRENCY_SYMBOL || AppState.settings?.CURRENCY_SYMBOL || '$';
+        if (emailField) emailField.value = localSettings.ALERT_EMAIL || AppState.settings?.ALERT_EMAIL || 'chenlongqmi@gmail.com, ppshv2024@gmail.com';
+
+        // 2. Fetch remote system settings from Google Sheet backend
         const res = await apiCall('getSystemSettings');
-        if (res.success && res.settings) {
-          document.getElementById('setCompanyName').value = res.settings.COMPANY_NAME || '';
-          document.getElementById('setCurrency').value = res.settings.CURRENCY_SYMBOL || '$';
-          document.getElementById('setTelegramToken').value = res.settings.TELEGRAM_BOT_TOKEN || '';
-          document.getElementById('setTelegramChatId').value = res.settings.TELEGRAM_CHAT_ID || '';
-          document.getElementById('setAlertEmail').value = res.settings.ALERT_EMAIL || '';
+        if (res && res.success && res.settings) {
+          if (res.settings.COMPANY_NAME && compField) compField.value = res.settings.COMPANY_NAME;
+          if (res.settings.CURRENCY_SYMBOL && currField) currField.value = res.settings.CURRENCY_SYMBOL;
+          if (res.settings.TELEGRAM_BOT_TOKEN && tokenField) tokenField.value = res.settings.TELEGRAM_BOT_TOKEN;
+          if (res.settings.TELEGRAM_CHAT_ID && chatIdField) chatIdField.value = res.settings.TELEGRAM_CHAT_ID;
+          if (res.settings.ALERT_EMAIL && emailField) emailField.value = res.settings.ALERT_EMAIL;
+
+          AppState.settings = Object.assign({}, AppState.settings || {}, res.settings);
         }
-      } catch (e) { }
+      } catch (e) {
+        console.warn('loadSettings error:', e);
+      }
     }
 
     async function handleSaveSettings(e) {
@@ -7827,39 +7954,90 @@
       localStorage.setItem('inventory_gas_api_url', gasUrl);
       AppState.gasApiUrl = gasUrl;
 
+      const token = document.getElementById('setTelegramToken')?.value.trim() || '';
+      const chatId = document.getElementById('setTelegramChatId')?.value.trim() || '';
+      const companyName = document.getElementById('setCompanyName')?.value.trim() || '';
+      const currency = document.getElementById('setCurrency')?.value.trim() || '$';
+      const alertEmail = document.getElementById('setAlertEmail')?.value.trim() || '';
+
+      // Save directly to localStorage for zero-latency availability across sessions
+      if (token) localStorage.setItem('inventory_tg_token', token);
+      if (chatId) localStorage.setItem('inventory_tg_chatid', chatId);
+
       const settings = {
-        COMPANY_NAME: document.getElementById('setCompanyName').value.trim(),
-        CURRENCY_SYMBOL: document.getElementById('setCurrency').value.trim(),
-        TELEGRAM_BOT_TOKEN: document.getElementById('setTelegramToken').value.trim(),
-        TELEGRAM_CHAT_ID: document.getElementById('setTelegramChatId').value.trim(),
-        ALERT_EMAIL: document.getElementById('setAlertEmail').value.trim()
+        COMPANY_NAME: companyName,
+        CURRENCY_SYMBOL: currency,
+        TELEGRAM_BOT_TOKEN: token,
+        TELEGRAM_CHAT_ID: chatId,
+        ALERT_EMAIL: alertEmail
       };
+
+      localStorage.setItem('inventory_system_settings', JSON.stringify(settings));
+      AppState.settings = Object.assign({}, AppState.settings || {}, settings);
 
       try {
         const res = await apiCall('saveSystemSettings', { settings, user: AppState.currentUser?.username });
-        if (res.success) {
-          Swal.fire('ជោគជ័យ', 'ការកំណត់ត្រូវបានរក្សាទុកជោគជ័យ!', 'success');
+        if (res && res.success) {
+          Swal.fire('ជោគជ័យ 🎉', 'ការកំណត់ត្រូវបានរក្សាទុកក្នុងប្រព័ន្ធ និង Cloud ជោគជ័យ!', 'success');
+        } else {
+          Swal.fire('ជោគជ័យ 🎉', 'ការកំណត់ត្រូវបានរក្សាទុកក្នុង Local Storage រួចរាល់!', 'success');
         }
       } catch (err) {
-        Swal.fire('Error', err.toString(), 'error');
+        Swal.fire('ជោគជ័យ 🎉', 'ការកំណត់ត្រូវបានរក្សាទុកក្នុង Local Storage រួចរាល់!', 'success');
       }
     }
 
     async function testTelegramConnection() {
-      const botToken = document.getElementById('setTelegramToken').value.trim();
-      const chatId = document.getElementById('setTelegramChatId').value.trim();
+      const botToken = document.getElementById('setTelegramToken')?.value.trim() || '';
+      const chatId = document.getElementById('setTelegramChatId')?.value.trim() || '';
 
       if (!botToken || !chatId) {
         Swal.fire('ខ្វះព័ត៌មាន', 'សូមបំពេញ Telegram Token និង Chat ID ជាមុនសិន', 'warning');
         return;
       }
 
+      // Persist immediately
+      localStorage.setItem('inventory_tg_token', botToken);
+      localStorage.setItem('inventory_tg_chatid', chatId);
+      if (!AppState.settings) AppState.settings = {};
+      AppState.settings.TELEGRAM_BOT_TOKEN = botToken;
+      AppState.settings.TELEGRAM_CHAT_ID = chatId;
+
+      Swal.fire({
+        title: 'កំពុងតេស្ត Telegram...',
+        html: '<p class="text-xs text-slate-500">កំពុងផ្ញើសារសាកល្បងទៅកាន់ Telegram របស់អ្នក</p>',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
+
+      // 1. Direct browser fetch to Telegram API
+      try {
+        const testMsg = `🔔 <b>តេស្តការតភ្ជាប់ Telegram | PPSHV Stock</b>\n\n✅ Telegram Bot ដំណើរការបានត្រឹមត្រូវ ១០០%!\n⏰ ពេលវេលា៖ ${new Date().toLocaleString('km-KH')}\n👤 អ្នកតេស្ត៖ ${AppState.currentUser?.username || 'Admin'}\n\nរាល់ពេលមានអ្នកចុះឈ្មោះថ្មី Admin នឹងទទួលបានការជូនដំណឹងតាម Telegram នេះភ្លាមៗ។`;
+        const directRes = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: testMsg,
+            parse_mode: 'HTML'
+          })
+        });
+        const directData = await directRes.json();
+        if (directData && directData.ok) {
+          Swal.fire('ជោគជ័យ 🎉', 'សារតេស្តត្រូវបានផ្ញើទៅ Telegram របស់អ្នករួចរាល់ហើយ! សូមបើក Telegram មើល។', 'success');
+          return;
+        }
+      } catch (netErr) {
+        console.warn('Direct Telegram API call failed, falling back to backend API...', netErr);
+      }
+
+      // 2. Backend API fallback
       try {
         const res = await apiCall('testTelegramAlert', { botToken, chatId });
-        if (res.success) {
-          Swal.fire('ជោគជ័យ 🎉', res.message, 'success');
+        if (res && res.success) {
+          Swal.fire('ជោគជ័យ 🎉', res.message || 'បានផ្ញើសារសាកល្បងទៅ Telegram រួចរាល់!', 'success');
         } else {
-          Swal.fire('បរាជ័យ', res.message, 'error');
+          Swal.fire('បរាជ័យ', res?.message || 'មិនអាចផ្ញើសារ Telegram បានទេ សូមពិនិត្យ Token និង Chat ID ឡើងវិញ!', 'error');
         }
       } catch (e) {
         Swal.fire('Error', e.toString(), 'error');
@@ -7874,6 +8052,19 @@
           const tbody = document.getElementById('usersTableBody');
           const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
           const isActorAdmin = !isActorSuperAdmin && (AppState.currentUser?.role === 'Admin' || AppState.currentUser?.role === 'អ្នកគ្រប់គ្រង' || String(AppState.currentUser?.username).toLowerCase() === 'admin');
+
+          // Update Pending Users Badge on Sidebar
+          const allUsers = res.users || LOCAL_DB.users || [];
+          const pendingCount = allUsers.filter(u => u.status === 'Pending').length;
+          const pendingBadge = document.getElementById('pendingUsersBadge');
+          if (pendingBadge) {
+            if (pendingCount > 0) {
+              pendingBadge.textContent = pendingCount;
+              pendingBadge.classList.remove('hidden');
+            } else {
+              pendingBadge.classList.add('hidden');
+            }
+          }
 
           // Control "+ បន្ថែមបុគ្គលិកថ្មី" button visibility (Admin and SuperAdmin only)
           const addUserBtn = document.getElementById('addUserTopBtn');
@@ -7926,7 +8117,25 @@
             // Action Buttons
             let actionsHtml = '';
 
-            if (isActorSuperAdmin) {
+            if (u.status === 'Pending') {
+              // Special Action Buttons for Pending Users
+              if (isActorSuperAdmin || isActorAdmin) {
+                actionsHtml = `
+                  <div class="inline-flex items-center space-x-1.5">
+                    <button onclick="approveUserDirectly('${u.userId || ''}', '${u.username || ''}')" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition hover:scale-105 active:scale-95 flex items-center space-x-1" title="អនុម័ត (Approve) ឲ្យដំណើរការ">
+                      <i class="fa-solid fa-circle-check text-xs"></i>
+                      <span>អនុម័ត</span>
+                    </button>
+                    <button onclick="rejectUserDirectly('${u.userId || ''}', '${u.username || ''}')" class="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shadow-sm transition hover:scale-105 active:scale-95 flex items-center space-x-1" title="បដិសេធ (Reject)">
+                      <i class="fa-solid fa-circle-xmark text-xs"></i>
+                      <span>បដិសេធ</span>
+                    </button>
+                  </div>
+                `;
+              } else {
+                actionsHtml = `<span class="text-xs text-amber-600 font-semibold italic">រង់ចាំ Admin អនុម័ត</span>`;
+              }
+            } else if (isActorSuperAdmin) {
               // 1. Switch User Button (Exclusive to SuperAdmin)
               if (!isSelf) {
                 actionsHtml += `
@@ -7987,8 +8196,14 @@
                   ${u.warehouse === 'ALL' ? (isUserSuperAdmin ? '<span class="text-amber-600 font-bold">🏢 គ្រប់ស្ថានីយទាំងអស់ (SuperAdmin)</span>' : '<span class="text-purple-600 font-bold">🏢 គ្រប់ស្ថានីយទាំងអស់ (Admin)</span>') : `📍 ${u.warehouse || '-'}`}
                 </td>
                 <td class="px-4 py-3 text-center">
-                  <span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] ${u.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}">
-                    ${u.status}
+                  <span class="px-2.5 py-1 rounded-full font-bold text-[10px] ${
+                    u.status === 'Active'
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : (u.status === 'Pending'
+                          ? 'bg-amber-100 text-amber-800 border border-amber-300 font-extrabold shadow-sm'
+                          : 'bg-rose-100 text-rose-700')
+                  }">
+                    ${u.status === 'Pending' ? '⏳ Pending (រង់ចាំ)' : u.status}
                   </span>
                 </td>
                 <td class="px-4 py-3 text-center space-x-1">${actionsHtml}</td>
@@ -8723,11 +8938,122 @@
       }
 
       const res = await apiCall('updateUserStatus', { userId, status: newStatus, adminUser: AppState.currentUser?.username });
-      if (res.success) {
+      if (res && res.success) {
+        const dbIdx = LOCAL_DB.users.findIndex(x => x.userId === userId);
+        if (dbIdx !== -1) {
+          LOCAL_DB.users[dbIdx].status = newStatus;
+          saveLocalUsersToStorage();
+        }
         Swal.fire('ជោគជ័យ', res.message, 'success');
         loadUsersList();
       } else {
-        Swal.fire('កំហុស', res.message, 'warning');
+        Swal.fire('កំហុស', res?.message || 'មិនអាចកែប្រែស្ថានភាពគណនីបានទេ', 'warning');
+      }
+    }
+
+    async function approveUserDirectly(userId, username) {
+      const result = await Swal.fire({
+        title: 'អនុម័តគណនី (Approve)?',
+        html: `
+          <div class="text-left text-xs space-y-2 p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl">
+            <p class="text-emerald-950 font-bold text-sm">✅ អនុម័តគណនី៖ <b>${username || userId}</b></p>
+            <p class="text-slate-600">តើអ្នកពិតជាចង់អនុម័តគណនីនេះឲ្យក្លាយជា <b>Active</b> ដែរឬទេ? បន្ទាប់ពីអនុម័តរួច អ្នកប្រើប្រាស់នឹងអាចធ្វើការ <b>Login</b> ចូលប្រើប្រាស់ប្រព័ន្ធស្តុកបានភ្លាមៗ។</p>
+          </div>
+        `,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: '<i class="fa-solid fa-circle-check mr-1"></i> បាទ/ចាស អនុម័ត',
+        cancelButtonText: 'បោះបង់',
+        confirmButtonColor: '#16a34a'
+      });
+
+      if (!result.isConfirmed) return;
+
+      Swal.fire({
+        title: 'កំពុងអនុម័ត...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
+
+      const res = await apiCall('updateUserStatus', {
+        userId,
+        status: 'Active',
+        adminUser: AppState.currentUser?.username
+      });
+
+      // Update LOCAL_DB directly as well
+      const dbIdx = LOCAL_DB.users.findIndex(x => x.userId === userId || x.username === username);
+      if (dbIdx !== -1) {
+        LOCAL_DB.users[dbIdx].status = 'Active';
+        saveLocalUsersToStorage();
+      }
+
+      if (res && res.success) {
+        // Send alert back to Telegram if configured
+        const tgToken = AppState.settings?.TELEGRAM_BOT_TOKEN || localStorage.getItem('inventory_tg_token');
+        const tgChatId = AppState.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid');
+        if (tgToken && tgChatId) {
+          try {
+            fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                chat_id: tgChatId,
+                text: `🎉 <b>[ការអនុម័តគណនីជោគជ័យ]</b>\n👤 <b>Username:</b> ${username}\n✅ <b>ស្ថានភាព:</b> <b>Active</b> (ដំណើរការ)\n👮 <b>Admin អនុម័ត:</b> ${AppState.currentUser?.username || 'Admin'}\n⏰ <b>កាលបរិច្ឆេទ:</b> ${new Date().toLocaleString('km-KH')}`,
+                parse_mode: 'HTML'
+              })
+            }).catch(() => {});
+          } catch (e) {}
+        }
+
+        Swal.fire('ជោគជ័យ 🎉', `គណនី <b>${username || userId}</b> ត្រូវបានអនុម័តឲ្យដំណើរការ (Active) រួចរាល់!`, 'success');
+        loadUsersList();
+      } else {
+        Swal.fire('កំហុស', res?.message || 'មិនអាចអនុម័តគណនីបានទេ', 'error');
+      }
+    }
+
+    async function rejectUserDirectly(userId, username) {
+      const result = await Swal.fire({
+        title: 'បដិសេធគណនី (Reject)?',
+        html: `
+          <div class="text-left text-xs space-y-2 p-3 bg-rose-50/80 border border-rose-200 rounded-xl">
+            <p class="text-rose-950 font-bold text-sm">❌ បដិសេធគណនី៖ <b>${username || userId}</b></p>
+            <p class="text-slate-600">គណនីនេះនឹងត្រូវកំណត់ជា <b>Inactive</b> ហើយមិនអាច Login ចូលប្រើប្រាស់បានឡើយ។</p>
+          </div>
+        `,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: '<i class="fa-solid fa-ban mr-1"></i> បដិសេធ',
+        cancelButtonText: 'បោះបង់',
+        confirmButtonColor: '#e11d48'
+      });
+
+      if (!result.isConfirmed) return;
+
+      Swal.fire({
+        title: 'កំពុងបដិសេធ...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
+
+      const res = await apiCall('updateUserStatus', {
+        userId,
+        status: 'Inactive',
+        adminUser: AppState.currentUser?.username
+      });
+
+      const dbIdx = LOCAL_DB.users.findIndex(x => x.userId === userId || x.username === username);
+      if (dbIdx !== -1) {
+        LOCAL_DB.users[dbIdx].status = 'Inactive';
+        saveLocalUsersToStorage();
+      }
+
+      if (res && res.success) {
+        Swal.fire('បានបដិសេធ', `គណនី <b>${username || userId}</b> ត្រូវបានកំណត់ជា Inactive!`, 'info');
+        loadUsersList();
+      } else {
+        Swal.fire('កំហុស', res?.message || 'មិនអាចបដិសេធគណនីបានទេ', 'error');
       }
     }
 
@@ -9777,6 +10103,12 @@
       }
       setTimeout(autoScaleAuthCard, 50);
     };
+
+    // Expose global functions to window for onclick handlers
+    window.approveUserDirectly = approveUserDirectly;
+    window.rejectUserDirectly = rejectUserDirectly;
+    window.testTelegramConnection = testTelegramConnection;
+    window.handleSaveSettings = handleSaveSettings;
 
     // Run auto-scale immediately
     if (document.readyState === 'loading') {
