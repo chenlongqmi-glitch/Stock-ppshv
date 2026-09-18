@@ -23,6 +23,20 @@ const SHEETS = {
 // ==========================================
 
 /**
+ * Global safe declaration for sendTelegramAlert
+ */
+function sendTelegramAlert(messageText, replyMarkup) {
+  try {
+    if (typeof sendTelegramNotification === 'function') {
+      return sendTelegramNotification(messageText, replyMarkup);
+    }
+  } catch (err) {
+    if (typeof Logger !== 'undefined') Logger.log('sendTelegramAlert Error: ' + err.toString());
+  }
+  return false;
+}
+
+/**
  * ដំណើរការពេលបើក Web App លើ Browser ឬពេល Admin ចុច Approve/Reject ពី Telegram
  */
 function doGet(e) {
@@ -872,9 +886,11 @@ function requestPasswordResetOtp(payload) {
     `⏰ មានសុពលភាពរយៈពេល 10 នាទី។`;
 
   try {
-    sendTelegramAlert(alertMsg);
+    if (typeof sendTelegramAlert === 'function') {
+      sendTelegramAlert(alertMsg);
+    }
   } catch (tgErr) {
-    Logger.log('Telegram Alert Error in password reset: ' + tgErr.toString());
+    if (typeof Logger !== 'undefined') Logger.log('Telegram Alert Error in password reset: ' + tgErr.toString());
   }
   logActivity(targetUser.username, targetUser.role, 'PASSWORD_RESET_OTP', `Requested password reset OTP for ${targetUser.username}`);
 
@@ -961,9 +977,11 @@ function resetPasswordWithOtp(payload) {
     `🕒 <b>កាលបរិច្ឆេទ:</b> ${Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd HH:mm:ss')}\n` +
     `🛡️ ស្ថានភាព៖ បានផ្លាស់ប្តូរជោគជ័យតាមរយៈ OTP`;
   try {
-    sendTelegramAlert(alertMsg);
+    if (typeof sendTelegramAlert === 'function') {
+      sendTelegramAlert(alertMsg);
+    }
   } catch (tgErr) {
-    Logger.log('Telegram Alert Error in reset password confirm: ' + tgErr.toString());
+    if (typeof Logger !== 'undefined') Logger.log('Telegram Alert Error in reset password confirm: ' + tgErr.toString());
   }
 
   logActivity(foundUsername, 'User', 'PASSWORD_RESET', `Password reset successfully via OTP for ${foundUsername}`);
