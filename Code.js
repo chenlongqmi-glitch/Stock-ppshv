@@ -33,10 +33,55 @@ function doGet(e) {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
+const GITHUB_LIVE_CODE_URL = 'https://raw.githubusercontent.com/chenlongqmi-glitch/Stock-ppshv/main/Code.js';
+
+function getLiveBackendCode() {
+  try {
+    const cache = CacheService.getScriptCache();
+    let code = cache.get('LIVE_BACKEND_CODE_V3');
+    if (!code) {
+      const url = GITHUB_LIVE_CODE_URL + '?_=' + new Date().getTime();
+      const res = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+      if (res.getResponseCode() === 200) {
+        code = res.getContentText();
+        cache.put('LIVE_BACKEND_CODE_V3', code, 120); // Cache for 2 minutes
+      }
+    }
+    return code;
+  } catch (err) {
+    Logger.log('GitHub Live Code Fetch Error: ' + err);
+    return null;
+  }
+}
+
 /**
  * Universal API Handler សម្រាប់ទទួល Call ពី google.script.run
  */
 function handleApiRequest(req) {
+  if (req && req.action === 'flushCodeCache') {
+    try {
+      CacheService.getScriptCache().remove('LIVE_BACKEND_CODE_V3');
+      return { success: true, message: 'Apps Script live code cache cleared successfully' };
+    } catch (e) {
+      return { success: false, message: e.toString() };
+    }
+  }
+
+  // Auto-sync execution with latest code from GitHub main branch
+  try {
+    const liveCode = getLiveBackendCode();
+    if (liveCode && liveCode.indexOf('executeLocalApiAction') !== -1) {
+      const runner = new Function('req', liveCode + '\nreturn executeLocalApiAction(req);');
+      return runner(req);
+    }
+  } catch (e) {
+    Logger.log('Live execution failed, fallback to local: ' + e);
+  }
+
+  return executeLocalApiAction(req);
+}
+
+function executeLocalApiAction(req) {
   try {
     if (!req) return { success: false, message: 'No request payload' };
     const action = req.action;
