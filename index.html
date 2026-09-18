@@ -461,6 +461,8 @@
             <div>
               <label id="regFullNameLabel" class="block text-xs font-semibold text-slate-600 uppercase mb-1">ឈ្មោះពេញ (Full Name) *</label>
               <input type="text" id="regFullName" placeholder="ឧ. សុខ ចាន់ណា"
+                lang="km" inputmode="text" autocapitalize="words" autocorrect="off" spellcheck="false" data-auto-km="true"
+                oninput="cleanEnFromKhmerField(this)" onkeyup="cleanEnFromKhmerField(this)" onfocus="cleanEnFromKhmerField(this)"
                 class="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all">
               <p id="regFullNameError" class="text-[10.5px] font-bold text-rose-600 mt-1 hidden"><i class="fa-solid fa-circle-exclamation mr-1"></i>សូមបញ្ចូលឈ្មោះពេញ</p>
             </div>
@@ -2752,6 +2754,8 @@
         <div>
           <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">ឈ្មោះពេញ (Full Name) *</label>
           <input type="text" id="addFullName" required placeholder="ឧ. សុខ វិសាល"
+            lang="km" inputmode="text" autocapitalize="words" autocorrect="off" spellcheck="false" data-auto-km="true"
+            oninput="cleanEnFromKhmerField(this)" onkeyup="cleanEnFromKhmerField(this)" onfocus="cleanEnFromKhmerField(this)"
             class="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500">
         </div>
 
@@ -2913,7 +2917,9 @@
             <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">ឈ្មោះពេញ (Full Name) *</label>
             <div class="relative">
               <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400"><i class="fa-solid fa-user"></i></span>
-              <input type="text" id="profileFullName" required placeholder="陈龙"
+              <input type="text" id="profileFullName" required placeholder="ឧ. សុខ ចាន់ណា"
+                lang="km" inputmode="text" autocapitalize="words" autocorrect="off" spellcheck="false" data-auto-km="true"
+                oninput="cleanEnFromKhmerField(this)" onkeyup="cleanEnFromKhmerField(this)" onfocus="cleanEnFromKhmerField(this)"
                 class="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition">
             </div>
           </div>
@@ -3801,6 +3807,165 @@
       });
     }
 
+    // ==========================================
+    // AUTO KHMER KEYBOARD CONVERTER & ENFORCEMENT
+    // Strictly for Full Name fields across application
+    // ==========================================
+    const EN_TO_KHMER_MAP = {
+      // Lowercase (NiDA Standard layout)
+      'q': 'ឆ', 'w': 'ឹ', 'e': 'េ', 'r': 'រ', 't': 'ត', 'y': 'យ', 'u': 'ុ', 'i': 'ិ', 'o': 'ោ', 'p': 'ផ', '[': 'ៀ', ']': 'ឪ',
+      'a': 'ា', 's': 'ស', 'd': 'ដ', 'f': 'ថ', 'g': 'ង', 'h': 'ហ', 'j': '្', 'k': 'ក', 'l': 'ល', ';': 'ើ', "'": '់',
+      'z': 'ឋ', 'x': 'ខ', 'c': 'ច', 'v': 'វ', 'b': 'ប', 'n': 'ន', 'm': 'ម', ',': 'ុំ', '.': '។', '/': '៊',
+
+      // Uppercase / Shifted (NiDA Standard layout)
+      'Q': 'ឈ', 'W': 'ឺ', 'E': 'ែ', 'R': 'ឬ', 'T': 'ទ', 'Y': 'ួ', 'U': 'ូ', 'I': 'ី', 'O': 'ៅ', 'P': 'ភ', '{': 'ឿ', '}': 'ឧ',
+      'A': 'ាំ', 'S': 'ៃ', 'D': 'ឌ', 'F': 'ធ', 'G': 'អ', 'H': 'ះ', 'J': 'ញ', 'K': 'គ', 'L': 'ឡ', ':': 'ោះ', '"': '៉',
+      'Z': 'ឍ', 'X': 'ឃ', 'C': 'ជ', 'V': 'េះ', 'N': 'ណ', 'M': 'ំ', '<': 'ុះ', '>': '៕', '?': '័', '^': '៍', '!': '៌',
+      '`': '«', '~': '»', '$': '៛', '@': 'ៗ', '\\': 'ឮ', '|': 'ឭ', '_': 'ឦ', '+': 'ឩ',
+
+      // Digits (NiDA Standard layout)
+      '0': '០', '1': '១', '2': '២', '3': '៣', '4': '៤',
+      '5': '៥', '6': '៦', '7': '៧', '8': '៨', '9': '៩'
+    };
+
+    function convertEnStringToKhmer(str) {
+      if (!str) return '';
+      let out = '';
+      for (let i = 0; i < str.length; i++) {
+        const ch = str[i];
+        if (EN_TO_KHMER_MAP[ch] !== undefined) {
+          out += EN_TO_KHMER_MAP[ch];
+        } else {
+          out += ch;
+        }
+      }
+      return out;
+    }
+    window.convertEnStringToKhmer = convertEnStringToKhmer;
+
+    function cleanEnFromKhmerField(inputEl) {
+      if (!inputEl) return;
+      const val = inputEl.value;
+      if (/[a-zA-Z]/.test(val)) {
+        const start = inputEl.selectionStart;
+        const converted = convertEnStringToKhmer(val);
+        inputEl.value = converted;
+        if (start !== null) {
+          const newPos = Math.min(start, converted.length);
+          inputEl.setSelectionRange(newPos, newPos);
+        }
+      }
+    }
+    window.cleanEnFromKhmerField = cleanEnFromKhmerField;
+
+    function setupAutoKhmerInput(inputEl) {
+      if (!inputEl || inputEl._hasAutoKmSetup) return;
+      inputEl._hasAutoKmSetup = true;
+
+      // Attributes to force Khmer virtual keyboard on mobile / tablet
+      inputEl.setAttribute('lang', 'km');
+      inputEl.setAttribute('inputmode', 'text');
+      inputEl.setAttribute('autocapitalize', 'words');
+      inputEl.setAttribute('autocorrect', 'off');
+      inputEl.setAttribute('spellcheck', 'false');
+
+      // Immediate clean on focus
+      inputEl.addEventListener('focus', function () {
+        cleanEnFromKhmerField(inputEl);
+      });
+
+      // Intercept before input insertion (e.g. mobile virtual keyboard suggestions)
+      inputEl.addEventListener('beforeinput', function (e) {
+        if (e.data && /[a-zA-Z]/.test(e.data)) {
+          e.preventDefault();
+          const converted = convertEnStringToKhmer(e.data);
+          if (converted) {
+            insertTextIntoField(inputEl, converted);
+          }
+        }
+      });
+
+      // Intercept composition end
+      inputEl.addEventListener('compositionend', function () {
+        cleanEnFromKhmerField(inputEl);
+      });
+
+      // Intercept physical keypresses on desktop keyboards (Windows / Mac)
+      inputEl.addEventListener('keydown', function (e) {
+        if (e.ctrlKey || e.altKey || e.metaKey) return;
+        if (['Backspace', 'Delete', 'Tab', 'Enter', 'Escape', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) {
+          return;
+        }
+
+        const code = e.code || '';
+        const key = e.key;
+
+        // If the key is already a Khmer character or whitespace, allow it directly
+        if (/[\u1780-\u17FF\s]/.test(key)) {
+          return;
+        }
+
+        // Letters KeyA - KeyZ
+        if (code.startsWith('Key')) {
+          const letter = code.slice(3);
+          const caps = Boolean(e.getModifierState && e.getModifierState('CapsLock'));
+          const isUpper = Boolean(e.shiftKey ^ caps);
+          const enChar = isUpper ? letter.toUpperCase() : letter.toLowerCase();
+          const kmChar = EN_TO_KHMER_MAP[enChar];
+
+          if (kmChar) {
+            e.preventDefault();
+            insertTextIntoField(inputEl, kmChar);
+          }
+          return;
+        }
+
+        // Digits Digit0 - Digit9 (Khmer numbers or NiDA shift symbols)
+        if (code.startsWith('Digit')) {
+          const digit = code.slice(5);
+          const shiftedSymbols = { '1': '!', '2': '@', '3': '#', '4': '$', '5': '%', '6': '^', '7': '&', '8': '*', '9': '(', '0': ')' };
+          const charPressed = e.shiftKey ? (shiftedSymbols[digit] || digit) : digit;
+          const kmChar = EN_TO_KHMER_MAP[charPressed];
+          if (kmChar) {
+            e.preventDefault();
+            insertTextIntoField(inputEl, kmChar);
+            return;
+          }
+        }
+
+        // Punctuation / symbols
+        if (EN_TO_KHMER_MAP[key]) {
+          e.preventDefault();
+          insertTextIntoField(inputEl, EN_TO_KHMER_MAP[key]);
+          return;
+        }
+      });
+
+      // Extra safeguards on input, keyup, paste
+      inputEl.addEventListener('input', function () {
+        cleanEnFromKhmerField(inputEl);
+      });
+      inputEl.addEventListener('keyup', function () {
+        cleanEnFromKhmerField(inputEl);
+      });
+      inputEl.addEventListener('paste', function () {
+        setTimeout(() => cleanEnFromKhmerField(inputEl), 10);
+      });
+    }
+    window.setupAutoKhmerInput = setupAutoKhmerInput;
+
+    function initAllFullNameKhmerInputs() {
+      const fieldIds = ['regFullName', 'addFullName', 'profileFullName', 'swalEditFullName'];
+      fieldIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) setupAutoKhmerInput(el);
+      });
+      document.querySelectorAll('input[data-auto-km="true"], input[lang="km"]').forEach(el => {
+        setupAutoKhmerInput(el);
+      });
+    }
+    window.initAllFullNameKhmerInputs = initAllFullNameKhmerInputs;
+
     function initRegistrationValidationListeners() {
       ['FullName', 'Username', 'Phone', 'Password', 'ConfirmPassword'].forEach(fieldKey => {
         const input = document.getElementById('reg' + fieldKey);
@@ -3818,7 +3983,7 @@
     function initAllCredentialEnglishInputs() {
       const fieldIds = [
         'loginUsername', 'loginPassword',
-        'regFullName', 'regUsername', 'regPhone', 'regEmail', 'regPassword', 'regConfirmPassword',
+        'regUsername', 'regPhone', 'regEmail', 'regPassword', 'regConfirmPassword',
         'profileEmail', 'profilePhone', 'profileOldPassword', 'profileNewPassword', 'profileConfirmPassword',
         'addUsername', 'addPassword',
         'forgotAccountInput', 'forgotOtpInput', 'forgotNewPassword', 'forgotConfirmPassword'
@@ -3832,11 +3997,23 @@
       });
     }
 
-    // Global capture listener: whenever user clicks or focuses any Auto-EN field, auto-setup & clean immediately
+    // Global capture listener: whenever user clicks or focuses any Auto-EN or Auto-KM field, auto-setup & clean immediately
     document.addEventListener('focusin', function (e) {
       const target = e.target;
       if (target && target.tagName === 'INPUT') {
         const id = target.id || '';
+        const isAutoKm = 
+          target.hasAttribute('data-auto-km') ||
+          target.getAttribute('lang') === 'km' ||
+          id.toLowerCase().includes('fullname') ||
+          ['regFullName', 'addFullName', 'profileFullName', 'swalEditFullName'].includes(id);
+
+        if (isAutoKm) {
+          setupAutoKhmerInput(target);
+          cleanEnFromKhmerField(target);
+          return;
+        }
+
         const isAutoEn = 
           target.hasAttribute('data-auto-en') ||
           target.getAttribute('lang') === 'en' ||
@@ -3858,6 +4035,7 @@
     }, true);
 
     document.addEventListener('DOMContentLoaded', () => {
+      initAllFullNameKhmerInputs();
       initAllCredentialEnglishInputs();
       initRegistrationValidationListeners();
       updateClock();
@@ -8381,7 +8559,10 @@
             </div>
             <div>
               <label class="block font-bold text-slate-700 mb-1">ឈ្មោះពេញ (Full Name)៖</label>
-              <input type="text" id="swalEditFullName" value="${u.fullName || ''}" placeholder="ឈ្មោះពេញ" class="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg text-xs outline-none font-medium">
+              <input type="text" id="swalEditFullName" value="${u.fullName || ''}" placeholder="ឈ្មោះពេញ"
+                lang="km" inputmode="text" autocapitalize="words" autocorrect="off" spellcheck="false" data-auto-km="true"
+                oninput="cleanEnFromKhmerField(this)" onkeyup="cleanEnFromKhmerField(this)" onfocus="cleanEnFromKhmerField(this)"
+                class="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg text-xs outline-none font-medium">
             </div>
             <div class="grid grid-cols-2 gap-2">
               <div>
@@ -8418,6 +8599,12 @@
         showCancelButton: true,
         confirmButtonText: 'រក្សាទុក',
         cancelButtonText: 'បោះបង់',
+        didOpen: () => {
+          const fnInput = document.getElementById('swalEditFullName');
+          if (fnInput && window.setupAutoKhmerInput) {
+            window.setupAutoKhmerInput(fnInput);
+          }
+        },
         preConfirm: () => {
           return {
             fullName: document.getElementById('swalEditFullName').value.trim(),
