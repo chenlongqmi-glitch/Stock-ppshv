@@ -583,6 +583,7 @@ function requestRegistrationOtp(userData) {
   const alertMsg = `🔐 <b>[សំណើសុំចុះឈ្មោះគណនីថ្មី]</b>\n` +
     `👤 <b>ឈ្មោះពេញ:</b> ${userData.fullName || userData.username}\n` +
     `🆔 <b>Username:</b> ${userData.username}\n` +
+    `📱 <b>លេខទូរស័ព្ទ:</b> ${userData.phone || '-'}\n` +
     `💼 <b>តួនាទី:</b> ${userData.role || 'Stock Keeper'}\n` +
     `📍 <b>ឃ្លាំង:</b> ${userData.warehouse || 'ឃ្លាំងទី ០១'}\n` +
     `🔑 <b>លេខកូដ OTP បញ្ជាក់ (Admin OTP):</b> <code>${otpCode}</code>\n` +
