@@ -543,7 +543,11 @@ function requestRegistrationOtp(userData) {
     `🔑 <b>លេខកូដ OTP បញ្ជាក់ (Admin OTP):</b> <code>${otpCode}</code>\n` +
     `⏰ មានសុពលភាពរយៈពេល 10 នាទី។`;
 
-  sendTelegramAlert(alertMsg);
+  try {
+    sendTelegramAlert(alertMsg);
+  } catch (tgErr) {
+    Logger.log('Telegram Alert Error in registration: ' + tgErr.toString());
+  }
 
   logActivity('SYSTEM', 'Admin', 'OTP_REQUEST', `OTP generated for user registration: ${userData.username}`);
 
@@ -568,6 +572,9 @@ function verifyOtpAndRegister(payload) {
 
   // Accept valid cached OTP or demo match
   if (validOtp && validOtp !== inputOtp && inputOtp !== '123456' && payload.otpDemo !== inputOtp) {
+    return { success: false, message: 'លេខកូដ OTP មិនត្រឹមត្រូវទេ! សូមពិនិត្យជាមួយ Admin' };
+  }
+  if (!validOtp && payload.otpDemo && payload.otpDemo !== inputOtp && inputOtp !== '123456') {
     return { success: false, message: 'លេខកូដ OTP មិនត្រឹមត្រូវទេ! សូមពិនិត្យជាមួយ Admin' };
   }
 
@@ -671,7 +678,11 @@ function requestPasswordResetOtp(payload) {
     `🔑 <b>លេខកូដ OTP បញ្ជាក់ (Reset OTP):</b> <code>${otpCode}</code>\n` +
     `⏰ មានសុពលភាពរយៈពេល 10 នាទី។`;
 
-  sendTelegramAlert(alertMsg);
+  try {
+    sendTelegramAlert(alertMsg);
+  } catch (tgErr) {
+    Logger.log('Telegram Alert Error in password reset: ' + tgErr.toString());
+  }
   logActivity(targetUser.username, targetUser.role, 'PASSWORD_RESET_OTP', `Requested password reset OTP for ${targetUser.username}`);
 
   return {
@@ -756,7 +767,11 @@ function resetPasswordWithOtp(payload) {
     `👤 <b>គណនី:</b> ${foundUsername}\n` +
     `🕒 <b>កាលបរិច្ឆេទ:</b> ${Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd HH:mm:ss')}\n` +
     `🛡️ ស្ថានភាព៖ បានផ្លាស់ប្តូរជោគជ័យតាមរយៈ OTP`;
-  sendTelegramAlert(alertMsg);
+  try {
+    sendTelegramAlert(alertMsg);
+  } catch (tgErr) {
+    Logger.log('Telegram Alert Error in reset password confirm: ' + tgErr.toString());
+  }
 
   logActivity(foundUsername, 'User', 'PASSWORD_RESET', `Password reset successfully via OTP for ${foundUsername}`);
 
@@ -806,15 +821,26 @@ function registerUser(userData) {
     status,
     new Date(),
     warehouse,
-    avatar
+    avatar,
+    userData.phone || ''
   ]);
 
   logActivity(userData.username, role, 'REGISTER', `New user registered with warehouse: ${warehouse}`);
 
+  try {
+    const regAlert = `🎉 <b>[គណនីថ្មីត្រូវបានចុះឈ្មោះជោគជ័យ]</b>\n` +
+      `👤 <b>ឈ្មោះ:</b> ${userData.fullName || userData.username}\n` +
+      `🆔 <b>Username:</b> ${userData.username}\n` +
+      `💼 <b>តួនាទី:</b> ${role}\n` +
+      `🏢 <b>ឃ្លាំង:</b> ${warehouse}\n` +
+      `🕒 <b>កាលបរិច្ឆេទ:</b> ${Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd HH:mm:ss')}`;
+    sendTelegramAlert(regAlert);
+  } catch (e) {}
+
   return {
     success: true,
     message: 'ចុះឈ្មោះ និងបញ្ជាក់ OTP ជោគជ័យ!',
-    user: { userId, username: userData.username, fullName: userData.fullName, role, warehouse, avatar }
+    user: { userId, username: userData.username, fullName: userData.fullName || userData.username, role, warehouse, avatar, phone: userData.phone || '' }
   };
 }
 
@@ -2001,6 +2027,20 @@ function sendTelegramNotification(messageText) {
     return resJson.ok;
   } catch (err) {
     Logger.log('Telegram Error: ' + err.toString());
+    return false;
+  }
+}
+
+/**
+ * ផ្ញើសារ Alert ទៅកាន់ Telegram Bot / Group
+ * @param {string} messageText សារដែលត្រូវផ្ញើ (ជា HTML format)
+ * @return {boolean} ស្ថានភាពផ្ញើជោគជ័យ ឬបរាជ័យ
+ */
+function sendTelegramAlert(messageText) {
+  try {
+    return sendTelegramNotification(messageText);
+  } catch (err) {
+    Logger.log('sendTelegramAlert Error: ' + err.toString());
     return false;
   }
 }
