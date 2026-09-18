@@ -77,6 +77,59 @@ def find_git_cmd():
 GIT_CMD = find_git_cmd()
 
 
+def find_clasp_cmd():
+    """Find a functional clasp command."""
+    candidates = [
+        "clasp",
+        "clasp.cmd",
+        os.path.expandvars(r"%AppData%\npm\clasp.cmd"),
+        os.path.expandvars(r"%ProgramFiles%\nodejs\clasp.cmd"),
+        r"C:\Program Files\nodejs\clasp.cmd",
+    ]
+    for cmd in candidates:
+        try:
+            res = subprocess.run([cmd, "-v"], capture_output=True, text=True, cwd=PROJECT_DIR, shell=True)
+            if res.returncode == 0:
+                return cmd
+        except Exception:
+            continue
+    return None
+
+
+def run_clasp_push():
+    """Push local files to Google Apps Script if clasp is configured."""
+    clasp_config = os.path.join(PROJECT_DIR, ".clasp.json")
+    if not os.path.exists(clasp_config):
+        return None  # Clasp not configured yet
+
+    clasp_cmd = find_clasp_cmd()
+    if not clasp_cmd:
+        print("  [!] រកឃើញ .clasp.json ប៉ុន្តែមិនទាន់រកឃើញ command 'clasp' ទេ។ (សូមដំណើរការ Setup_Google_Apps_Script_Sync.bat)")
+        return False
+
+    print("  [*] កំពុង Auto-Sync ទៅកាន់ Google Apps Script (clasp push)...")
+    try:
+        res = subprocess.run(
+            [clasp_cmd, "push", "-f"],
+            cwd=PROJECT_DIR,
+            capture_output=True,
+            text=True,
+            encoding='utf-8',
+            errors='replace',
+            shell=True
+        )
+        if res.returncode == 0:
+            print("  [✓] បាន Sync ទៅកាន់ Google Apps Script ជោគជ័យ! (Cloud Updated)")
+            return True
+        else:
+            err_msg = res.stderr.strip() or res.stdout.strip()
+            print(f"  [!] Clasp Push Warning: {err_msg}")
+            return False
+    except Exception as e:
+        print(f"  [!] Clasp Push Error: {e}")
+        return False
+
+
 def run_git(args, check=False):
     """Run a git command in the project directory."""
     if not GIT_CMD:
@@ -150,11 +203,14 @@ def get_project_file_snapshots():
 
 
 def do_push(changed_files_desc=""):
-    """Execute git add, commit, rebase, and push."""
+    """Execute git add, commit, rebase, and push, plus Google Apps Script auto-sync."""
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"\n===============================================================")
     print(f"  🚀 [{now_str}] ចាប់ផ្ដើមដំណើរការ Auto-Push & Deploy...")
     print(f"===============================================================")
+
+    # 0. Sync to Google Apps Script (clasp push)
+    run_clasp_push()
 
     # 1. Stage changes
     print("  [*] កំពុង Add files (git add -A)...")
@@ -208,7 +264,10 @@ def watch_loop():
     print("===============================================================")
     print(f"  [*] Watching Folder: {PROJECT_DIR}")
     print(f"  [*] Target Branch:   main")
-    print(f"  [*] Auto-Deploy:     GitHub Pages")
+    print(f"  [*] GitHub Pages:    Auto-Deploy Active")
+    has_clasp = os.path.exists(os.path.join(PROJECT_DIR, ".clasp.json"))
+    gas_status = "✅ ភ្ជាប់រួចរាល់ (Active Auto-Sync)" if has_clasp else "⚠️ មិនទាន់ភ្ជាប់ (រត់ Setup_Google_Apps_Script_Sync.bat ដើម្បីភ្ជាប់)"
+    print(f"  [*] Apps Script Sync: {gas_status}")
     print(f"  [*] Debounce Time:   {DEBOUNCE_SECONDS}s")
     print("  [*] ជំនួយ៖ រាល់ពេលលោកអ្នកកែប្រែ ឬ Save file ប្រព័ន្ធនឹង Auto-Push ភ្លាម!")
     print("  [*] ជំនួយពិសេស៖ ចុច [Enter] លើ Keyboard ដើម្បី Push ភ្លាមៗដោយដៃ។")

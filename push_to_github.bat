@@ -92,6 +92,17 @@ echo [*] កំពុង Sync ជាមួយ GitHub...
 echo [*] កំពុង Push ឡើងទៅកាន់ GitHub (Auto Deploying)...
 %GIT_CMD% push -u origin main
 
+:: 8.5. Push to Google Apps Script (if clasp configured)
+if exist "%~dp0.clasp.json" (
+    echo [*] កំពុង Sync ទៅកាន់ Google Apps Script (clasp push)...
+    call clasp push -f >nul 2>&1
+    if !ERRORLEVEL! EQU 0 (
+        echo  [✓] បាន Sync ទៅកាន់ Google Apps Script ជោគជ័យ!
+    ) else (
+        echo  [!] Clasp Push មានបញ្ហា ឬមិនទាន់បាន login។
+    )
+)
+
 if %ERRORLEVEL% EQU 0 (
     echo.
     echo ===============================================================
