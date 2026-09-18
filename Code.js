@@ -23,14 +23,150 @@ const SHEETS = {
 // ==========================================
 
 /**
- * ដំណើរការពេលបើក Web App លើ Browser
+ * ដំណើរការពេលបើក Web App លើ Browser ឬពេល Admin ចុច Approve/Reject ពី Telegram
  */
 function doGet(e) {
+  // 1. Handle direct action from Telegram Approve / Reject button clicks
+  if (e && e.parameter && e.parameter.action) {
+    const action = e.parameter.action;
+    const userId = e.parameter.userId;
+    const username = e.parameter.u || e.parameter.username || '';
+
+    if (action === 'approveUserTelegram' || action === 'approveUser') {
+      return handleTelegramUserApproval(userId, username, 'Active');
+    } else if (action === 'rejectUserTelegram' || action === 'rejectUser') {
+      return handleTelegramUserApproval(userId, username, 'Rejected');
+    }
+  }
+
+  // 2. Default Web App GUI
   const template = HtmlService.createTemplateFromFile('Index');
   return template.evaluate()
     .setTitle('ប្រព័ន្ធគ្រប់គ្រងស្តុកទំនិញ | Smart Inventory')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+/**
+ * ទទួលការចុច Approve ឬ Reject ពី Telegram Bot Inline Button
+ */
+function handleTelegramUserApproval(userId, username, targetStatus) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ensureUsersInitialized(ss);
+    const data = sheet.getDataRange().getValues();
+
+    let foundRow = -1;
+    let userFullName = username;
+    let userRole = 'Stock Keeper';
+    let userWh = '';
+
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const rId = String(row[0]).trim();
+      const rUser = String(row[1]).trim().toLowerCase();
+
+      if ((userId && rId === String(userId).trim()) || (username && rUser === String(username).trim().toLowerCase())) {
+        foundRow = i + 1;
+        userFullName = String(row[2]) || row[1];
+        userRole = String(row[6]) || 'Stock Keeper';
+        userWh = String(row[9]) || '';
+        break;
+      }
+    }
+
+    if (foundRow === -1) {
+      return HtmlService.createHtmlOutput(`
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center; padding: 50px 20px; color: #1e293b;">
+          <div style="font-size: 56px; margin-bottom: 15px;">⚠️</div>
+          <h2 style="color: #e11d48; margin-bottom: 10px;">រកមិនឃើញគណនីនេះទេ</h2>
+          <p style="color: #64748b; font-size: 14px;">គណនីនេះអាចត្រូវបានលុប ឬកែប្រែរួចរាល់ហើយ។</p>
+        </div>
+      `).setTitle('រកមិនឃើញគណនី');
+    }
+
+    // Update Status in column 8 (Status)
+    sheet.getRange(foundRow, 8).setValue(targetStatus);
+    logActivity('ADMIN_TELEGRAM', 'Admin', targetStatus === 'Active' ? 'APPROVE_USER' : 'REJECT_USER', `${targetStatus} user ${username} via Telegram`);
+
+    if (targetStatus === 'Active') {
+      sendTelegramAlert(`🎉 <b>[ការអនុម័តជោគជ័យ]</b>\n` +
+        `👤 <b>គណនី:</b> ${username} (${userFullName})\n` +
+        `💼 <b>តួនាទី:</b> ${userRole}\n` +
+        `🏢 <b>ឃ្លាំង:</b> ${userWh}\n` +
+        `✅ ស្ថានភាព៖ <b>បានអនុម័ត (Active)</b> រួចរាល់! អ្នកប្រើប្រាស់អាច Login ចូលប្រព័ន្ធបានហើយ។`
+      );
+
+      return HtmlService.createHtmlOutput(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>ការអនុម័តជោគជ័យ</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f8fafc; margin: 0; padding: 20px; display: flex; align-items: center; justify-content: center; min-height: 100vh; box-sizing: border-box; }
+            .card { background: white; border-radius: 24px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); max-width: 440px; width: 100%; padding: 35px 25px; text-align: center; border: 1px solid #e2e8f0; }
+            .icon { width: 72px; height: 72px; background: #dcfce7; color: #16a34a; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 34px; margin: 0 auto 20px; border: 4px solid #bbf7d0; }
+            h2 { color: #0f172a; margin: 0 0 8px; font-size: 20px; font-weight: 800; }
+            p { color: #64748b; font-size: 13px; line-height: 1.6; margin: 0 0 20px; }
+            .badge { display: inline-block; background: #ecfdf5; color: #059669; font-weight: 700; font-size: 11px; padding: 5px 14px; border-radius: 9999px; margin-bottom: 15px; border: 1px solid #a7f3d0; letter-spacing: 0.5px; }
+            .info-box { background: #f1f5f9; border-radius: 14px; padding: 15px; text-align: left; font-size: 12.5px; color: #334155; margin-bottom: 20px; border: 1px solid #e2e8f0; }
+            .info-box div { margin-bottom: 7px; }
+            .info-box div:last-child { margin-bottom: 0; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <div class="icon">✓</div>
+            <span class="badge">APPROVED BY ADMIN</span>
+            <h2>បានអនុម័តគណនីជោគជ័យ!</h2>
+            <p>គណនីខាងក្រោមត្រូវបានបើកដំណើរការ (Active) រួចរាល់។ អ្នកប្រើប្រាស់អាច Login ចូលប្រើប្រាស់ប្រព័ន្ធបានភ្លាមៗ។</p>
+            <div class="info-box">
+              <div>👤 <b>ឈ្មោះ៖</b> ${userFullName}</div>
+              <div>🆔 <b>Username៖</b> <code>${username}</code></div>
+              <div>💼 <b>តួនាទី៖</b> ${userRole}</div>
+              <div>🏢 <b>ឃ្លាំង៖</b> ${userWh}</div>
+              <div>🚦 <b>ស្ថានភាពថ្មី៖</b> <b style="color: #16a34a;">Active (បានអនុម័ត)</b></div>
+            </div>
+          </div>
+        </body>
+        </html>
+      `);
+    } else {
+      sendTelegramAlert(`❌ <b>[បានបដិសេធសំណើ]</b>\n` +
+        `👤 <b>គណនី:</b> ${username} (${userFullName})\n` +
+        `🚫 សំណើសុំចុះឈ្មោះត្រូវបាន Admin បដិសេធ (Rejected)។`
+      );
+
+      return HtmlService.createHtmlOutput(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>បានបដិសេធសំណើ</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f8fafc; margin: 0; padding: 20px; display: flex; align-items: center; justify-content: center; min-height: 100vh; box-sizing: border-box; }
+            .card { background: white; border-radius: 24px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); max-width: 440px; width: 100%; padding: 35px 25px; text-align: center; border: 1px solid #e2e8f0; }
+            .icon { width: 72px; height: 72px; background: #ffe4e6; color: #e11d48; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 34px; margin: 0 auto 20px; border: 4px solid #fecdd3; }
+            h2 { color: #0f172a; margin: 0 0 8px; font-size: 20px; font-weight: 800; }
+            p { color: #64748b; font-size: 13px; line-height: 1.6; margin: 0; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <div class="icon">✕</div>
+            <h2>បានបដិសេធសំណើចុះឈ្មោះ!</h2>
+            <p>សំណើសុំចុះឈ្មោះរបស់គណនី <b>${username} (${userFullName})</b> ត្រូវបានបដិសេធ (Rejected) រួចរាល់។</p>
+          </div>
+        </body>
+        </html>
+      `);
+    }
+  } catch (err) {
+    return HtmlService.createHtmlOutput('Error: ' + err.toString());
+  }
 }
 
 const GITHUB_LIVE_CODE_URL = 'https://raw.githubusercontent.com/chenlongqmi-glitch/Stock-ppshv/main/Code.js';
@@ -496,6 +632,17 @@ function loginUser(usernameOrData, password) {
       const status = String(row[7] || 'Active');
 
       if (status !== 'Active') {
+        if (status === 'Pending') {
+          return {
+            success: false,
+            message: 'គណនីរបស់អ្នកកំពុងស្ថិតក្នុងការត្រួតពិនិត្យ (Pending Approval) ដោយ Admin តាម Telegram។ សូមរង់ចាំ Admin ចុចអនុម័ត (Approve) ជាមុនសិន។'
+          };
+        } else if (status === 'Rejected') {
+          return {
+            success: false,
+            message: 'គណនីរបស់អ្នកត្រូវបានបដិសេធ (Rejected) ដោយ Admin។ សូមទាក់ទង Admin សម្រាប់ព័ត៌មានបន្ថែម។'
+          };
+        }
         return { success: false, message: 'គណនីនេះត្រូវបានផ្អាក ឬមិនទាន់ត្រូវបានអនុម័ត' };
       }
 
@@ -852,9 +999,10 @@ function registerUser(userData) {
   const salt = generateSalt();
   const hash = hashPassword(userData.password, salt);
   const role = userData.role || 'Stock Keeper';
-  const status = 'Active';
+  const status = userData.status || 'Pending'; // Default to Pending for Admin Telegram approval
   const warehouse = userData.warehouse || 'ឃ្លាំងទី ០១ - ភ្នំពេញ (សែនសុខ)';
   const avatar = userData.avatar || '';
+  const phone = userData.phone || '';
 
   sheet.appendRow([
     userId,
@@ -868,25 +1016,53 @@ function registerUser(userData) {
     new Date(),
     warehouse,
     avatar,
-    userData.phone || ''
+    phone
   ]);
 
-  logActivity(userData.username, role, 'REGISTER', `New user registered with warehouse: ${warehouse}`);
+  logActivity(userData.username, role, 'REGISTER_REQUEST', `New user registration request with warehouse: ${warehouse}, status: ${status}`);
 
+  // Send Alert to Telegram Admin with Approve & Reject buttons
   try {
-    const regAlert = `🎉 <b>[គណនីថ្មីត្រូវបានចុះឈ្មោះជោគជ័យ]</b>\n` +
-      `👤 <b>ឈ្មោះ:</b> ${userData.fullName || userData.username}\n` +
+    let webAppUrl = 'https://script.google.com/macros/s/AKfycbz-Pb72GPivonqvf3j8WRAoN4V6Dlo3IgAVpHCfDVEzF2RJV2X18XtfqTffZ2K08UQJ/exec';
+    try {
+      const liveUrl = ScriptApp.getService().getUrl();
+      if (liveUrl && liveUrl.startsWith('https://script.google.com/')) {
+        webAppUrl = liveUrl;
+      }
+    } catch (uErr) {}
+
+    const approveUrl = `${webAppUrl}?action=approveUserTelegram&userId=${encodeURIComponent(userId)}&u=${encodeURIComponent(userData.username)}`;
+    const rejectUrl = `${webAppUrl}?action=rejectUserTelegram&userId=${encodeURIComponent(userId)}&u=${encodeURIComponent(userData.username)}`;
+
+    const replyMarkup = {
+      inline_keyboard: [
+        [
+          { text: "✅ អនុម័ត (Approve)", url: approveUrl },
+          { text: "❌ បដិសេធ (Reject)", url: rejectUrl }
+        ]
+      ]
+    };
+
+    const regAlert = `📋 <b>[សំណើសុំចុះឈ្មោះគណនីថ្មី]</b>\n` +
+      `👤 <b>ឈ្មោះពេញ:</b> ${userData.fullName || userData.username}\n` +
       `🆔 <b>Username:</b> ${userData.username}\n` +
+      `📱 <b>លេខទូរស័ព្ទ:</b> ${phone || '-'}\n` +
+      `📧 <b>អ៊ីមែល:</b> ${userData.email || '-'}\n` +
       `💼 <b>តួនាទី:</b> ${role}\n` +
-      `🏢 <b>ឃ្លាំង:</b> ${warehouse}\n` +
-      `🕒 <b>កាលបរិច្ឆេទ:</b> ${Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd HH:mm:ss')}`;
-    sendTelegramAlert(regAlert);
-  } catch (e) {}
+      `🏢 <b>ស្ថានីយ/ឃ្លាំង:</b> ${warehouse}\n` +
+      `🕒 <b>កាលបរិច្ឆេទ:</b> ${Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd HH:mm:ss')}\n` +
+      `🚦 <b>ស្ថានភាព:</b> ⏳ កំពុងរង់ចាំការអនុម័ត (Pending)\n\n` +
+      `👉 <b>សូម Admin ចុចប៊ូតុងខាងក្រោមដើម្បី អនុម័ត (Approve)៖</b>`;
+
+    sendTelegramAlert(regAlert, replyMarkup);
+  } catch (e) {
+    Logger.log('Telegram Alert on Register Error: ' + e.toString());
+  }
 
   return {
     success: true,
-    message: 'ចុះឈ្មោះ និងបញ្ជាក់ OTP ជោគជ័យ!',
-    user: { userId, username: userData.username, fullName: userData.fullName || userData.username, role, warehouse, avatar, phone: userData.phone || '' }
+    message: 'សំណើសុំចុះឈ្មោះត្រូវបានបញ្ជូនទៅ Telegram Admin រួចរាល់! សូមរង់ចាំ Admin ពិនិត្យ និងចុច Approve។',
+    user: { userId, username: userData.username, fullName: userData.fullName || userData.username, role, warehouse, avatar, phone, status }
   };
 }
 
@@ -2044,7 +2220,7 @@ function getRecentMovementTrend(txData, targetWarehouse) {
 // 7. NOTIFICATIONS
 // ==========================================
 
-function sendTelegramNotification(messageText) {
+function sendTelegramNotification(messageText, replyMarkup) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const settings = getSettingsMap(ss);
@@ -2060,6 +2236,9 @@ function sendTelegramNotification(messageText) {
       text: messageText,
       parse_mode: 'HTML'
     };
+    if (replyMarkup) {
+      payload.reply_markup = replyMarkup;
+    }
 
     const options = {
       method: 'post',
@@ -2080,11 +2259,12 @@ function sendTelegramNotification(messageText) {
 /**
  * ផ្ញើសារ Alert ទៅកាន់ Telegram Bot / Group
  * @param {string} messageText សារដែលត្រូវផ្ញើ (ជា HTML format)
+ * @param {object} replyMarkup Optional inline keyboard
  * @return {boolean} ស្ថានភាពផ្ញើជោគជ័យ ឬបរាជ័យ
  */
-function sendTelegramAlert(messageText) {
+function sendTelegramAlert(messageText, replyMarkup) {
   try {
-    return sendTelegramNotification(messageText);
+    return sendTelegramNotification(messageText, replyMarkup);
   } catch (err) {
     Logger.log('sendTelegramAlert Error: ' + err.toString());
     return false;
