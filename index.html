@@ -4603,15 +4603,20 @@
         // Match warehouse users (wh01 to wh11)
         const matched = LOCAL_DB.users.find(usr => usr.username.toLowerCase() === username);
         if (matched) {
-          if (matched.status === 'Pending') {
+          if (matched.status === 'Pending' || matched.status === 'Pending_Admin') {
             return {
               success: false,
-              message: 'គណនីរបស់អ្នកកំពុងស្ថិតក្នុងការត្រួតពិនិត្យ (Pending Approval) ដោយ Admin តាម Telegram។ សូមរង់ចាំ Admin ចុចអនុម័ត (Approve) ជាមុនសិន។'
+              message: 'គណនីរបស់អ្នកកំពុងស្ថិតក្នុងការពិនិត្យដោយ Admin ក្នុងប្រព័ន្ធ (Step 1: Pending Admin)។ សូមរង់ចាំ Admin ពិនិត្យអនុម័តជាមុនសិន។'
+            };
+          } else if (matched.status === 'Pending_SuperAdmin') {
+            return {
+              success: false,
+              message: 'គណនីរបស់អ្នកបានឆ្លងកាត់ការអនុម័តពី Admin រួចរាល់ហើយ និងកំពុងរង់ចាំ SuperAdmin អនុម័តចុងក្រោយ (Step 2: Pending SuperAdmin) តាម Telegram។'
             };
           } else if (matched.status === 'Rejected') {
             return {
               success: false,
-              message: 'គណនីរបស់អ្នកត្រូវបានបដិសេធ (Rejected) ដោយ Admin។ សូមទាក់ទង Admin សម្រាប់ព័ត៌មានបន្ថែម។'
+              message: 'គណនីរបស់អ្នកត្រូវបានបដិសេធ (Rejected)។ សូមទាក់ទង Admin សម្រាប់ព័ត៌មានបន្ថែម។'
             };
           }
           return { success: true, user: matched };
@@ -4641,13 +4646,13 @@
           role: payload.role || 'Stock Keeper',
           warehouse: payload.warehouse || WAREHOUSES_LIST[0],
           avatar: payload.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${payload.username}`,
-          status: payload.status || 'Pending'
+          status: payload.status || 'Pending_Admin'
         };
         LOCAL_DB.users.push(newUser);
         saveLocalUsersToStorage();
         return {
           success: true,
-          message: 'សំណើសុំចុះឈ្មោះត្រូវបានបញ្ជូនទៅ Telegram Admin រួចរាល់! សូមរង់ចាំ Admin ពិនិត្យ និងចុច Approve។',
+          message: 'សំណើសុំចុះឈ្មោះត្រូវបានបញ្ជូនទៅកាន់ Admin ក្នុងប្រព័ន្ធរួចរាល់! សូមរង់ចាំ Admin ពិនិត្យអនុម័តជំហានដំបូង។',
           user: newUser
         };
       }
@@ -5577,76 +5582,13 @@
       }
 
       try {
-        const res = await apiCall('registerUser', { ...userData, status: 'Pending' });
+        const res = await apiCall('registerUser', { ...userData, status: 'Pending_Admin' });
 
-        // Retrieve Telegram credentials from all available sources
-        let botToken = AppState.settings?.TELEGRAM_BOT_TOKEN || localStorage.getItem('inventory_tg_token') || DEFAULT_TG_BOT_TOKEN;
-        let chatId = AppState.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid') || DEFAULT_TG_CHAT_ID;
+        // Note: Per workflow requirements, do NOT send Telegram alert to SuperAdmin upon initial registration.
+        // The request must first be approved by Admin inside the application (Step 1).
+        // Only after Admin approves in-app will the request be forwarded to SuperAdmin Telegram (Step 2).
 
-        if (!botToken || !chatId) {
-          try {
-            const raw = localStorage.getItem('inventory_system_settings');
-            if (raw) {
-              const parsed = JSON.parse(raw);
-              if (!botToken && parsed.TELEGRAM_BOT_TOKEN) botToken = parsed.TELEGRAM_BOT_TOKEN;
-              if (!chatId && parsed.TELEGRAM_CHAT_ID) chatId = parsed.TELEGRAM_CHAT_ID;
-            }
-          } catch (e) {}
-        }
-        if (!botToken) botToken = DEFAULT_TG_BOT_TOKEN;
-        if (!chatId) chatId = DEFAULT_TG_CHAT_ID;
-
-        const gasUrl = AppState.gasApiUrl || localStorage.getItem('inventory_gas_api_url') || 'https://script.google.com/macros/s/AKfycbz-Pb72GPivonqvf3j8WRAoN4V6Dlo3IgAVpHCfDVEzF2RJV2X18XtfqTffZ2K08UQJ/exec';
-        const approveUrl = `${gasUrl}?action=approveUserTelegram&u=${encodeURIComponent(userData.username)}`;
-        const rejectUrl = `${gasUrl}?action=rejectUserTelegram&u=${encodeURIComponent(userData.username)}`;
-        const webAppUsersUrl = `${window.location.origin}${window.location.pathname}#users`;
-
-        let telegramSent = false;
-
-        // 1. Send via Telegram Bot to SuperAdmin
-        if (botToken && chatId) {
-          try {
-            const tgMsg = `📋 <b>[សំណើសុំចុះឈ្មោះគណនីថ្មី]</b>\n` +
-              `👤 <b>ឈ្មោះពេញ:</b> ${userData.fullName || userData.username}\n` +
-              `🆔 <b>Username:</b> <code>${userData.username}</code>\n` +
-              `📱 <b>លេខទូរស័ព្ទ:</b> ${userData.phone || '-'}\n` +
-              `📧 <b>អ៊ីមែល:</b> ${userData.email || '-'}\n` +
-              `💼 <b>តួនាទី:</b> ${userData.role || 'Stock Keeper'}\n` +
-              `🏢 <b>ស្ថានីយ/ឃ្លាំង:</b> ${userData.warehouse || '-'}\n` +
-              `🕒 <b>កាលបរិច្ឆេទ:</b> ${new Date().toLocaleString('en-GB')}\n` +
-              `🚦 <b>ស្ថានភាព:</b> ⏳ កំពុងរង់ចាំការអនុម័ត (Pending)\n\n` +
-              `👉 <b>សូម SuperAdmin ចុចប៊ូតុងខាងក្រោមដើម្បី អនុម័ត (Approve)៖</b>`;
-
-            const tgResp = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                chat_id: chatId,
-                text: tgMsg,
-                parse_mode: 'HTML',
-                reply_markup: {
-                  inline_keyboard: [
-                    [
-                      { text: "✅ អនុម័ត (Approve)", url: approveUrl },
-                      { text: "❌ បដិសេធ (Reject)", url: rejectUrl }
-                    ],
-                    [
-                      { text: "👥 ពិនិត្យក្នុងប្រព័ន្ធ (Web App)", url: webAppUsersUrl }
-                    ]
-                  ]
-                }
-              })
-            });
-            const tgJson = await tgResp.json();
-            if (tgJson && tgJson.ok) {
-              telegramSent = true;
-            }
-          } catch (e) {
-            console.warn('[Telegram Dispatch Warning]:', e);
-          }
-        }
-
-        // 2. Guaranteed Real-Time Email Dispatch to Admin so request is NEVER lost
+        // 1. Guaranteed Real-Time Email Dispatch to Admin so Admin is notified to check the app
         try {
           const adminEmails = ['ppshv2024@gmail.com', 'chenlongqmi@gmail.com'];
           for (const admEmail of adminEmails) {
@@ -5663,14 +5605,17 @@
                 'អ៊ីមែល (Email)': userData.email || '-',
                 'ស្ថានីយ/ឃ្លាំង (Warehouse)': userData.warehouse || '-',
                 'តួនាទី (Role)': userData.role || 'Stock Keeper',
-                'ស្ថានភាព (Status)': 'Pending (រង់ចាំ Admin អនុម័ត)',
-                'ពេលវេលា (Timestamp)': new Date().toLocaleString('en-GB'),
-                'Link អនុម័ត (Approve)': approveUrl,
-                'Link បដិសេធ (Reject)': rejectUrl
+                'ស្ថានភាព (Status)': 'Pending_Admin (ជំហានទី ១: រង់ចាំ Admin ពិនិត្យអនុម័តក្នុងប្រព័ន្ធ)',
+                'ពេលវេលា (Timestamp)': new Date().toLocaleString('en-GB')
               })
             }).catch(() => {});
           }
         } catch (e) {}
+
+        // Add In-App Notification for Admin
+        if (typeof addNotification === 'function') {
+          addNotification('USER_REGISTRATION', 'សំណើគណនីថ្មី', `${userData.fullName || userData.username} បានស្នើសុំគណនីថ្មី (រង់ចាំ Admin អនុម័ត)`, userData.warehouse);
+        }
 
         if (res && res.success) {
           // Reset form
@@ -5693,13 +5638,11 @@
                 <p>🆔 <b>Username៖</b> <span class="text-blue-700 font-mono font-bold">${userData.username}</span></p>
                 <p>📱 <b>លេខទូរស័ព្ទ៖</b> <span class="text-blue-700 font-mono font-bold">${userData.phone}</span></p>
                 <p>🏢 <b>ស្ថានីយ/ឃ្លាំង៖</b> <span class="text-blue-700 font-bold">${userData.warehouse}</span></p>
-                <p>🚦 <b>ស្ថានភាព៖</b> <span class="inline-block px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-extrabold text-[11px] border border-amber-300">⏳ កំពុងរង់ចាំ Admin អនុម័ត (Pending)</span></p>
+                <p>🚦 <b>ស្ថានភាព៖</b> <span class="inline-block px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-extrabold text-[11px] border border-amber-300">⏳ ជំហានទី ១: រង់ចាំ Admin អនុម័តក្នុងប្រព័ន្ធ (Pending Admin)</span></p>
               </div>
               <p class="text-xs text-slate-600 leading-relaxed">
-                ${telegramSent ? 
-                  'ព័ត៌មានលម្អិតត្រូវបានបញ្ជូនទៅកាន់ <b>Telegram Admin</b> រួចរាល់។<br>Admin នឹងចុចប៊ូតុង <b>Approve</b> តាម Telegram ដើម្បីបើកដំណើរការគណនីរបស់អ្នក។' :
-                  'ព័ត៌មានលម្អិតត្រូវបានកត់ត្រាក្នុងប្រព័ន្ធ និងបញ្ជូនទៅកាន់ Admin រួចរាល់។<br>Admin អាចចុចប៊ូតុង <b>Approve (អនុម័ត)</b> លើគណនីនេះបានដោយផ្ទាល់ក្នុងផ្ទាំងគ្រប់គ្រង User ក្នុងប្រព័ន្ធ។'
-                }
+                ព័ត៌មានលម្អិតត្រូវបានបញ្ជូនទៅកាន់ <b>Admin ក្នុងប្រព័ន្ធ</b> រួចរាល់។<br>
+                បន្ទាប់ពី Admin ពិនិត្យ និងចុច <b>Approve (អនុម័ត)</b> ក្នុងកម្មវិធីរួចរាល់ ទើបប្រព័ន្ធបញ្ជូនបន្តទៅកាន់ <b>SuperAdmin តាមរយៈ Telegram</b> ដើម្បីអនុម័តចុងក្រោយ។
               </p>
             `,
             confirmButtonText: 'យល់ព្រម ត្រឡប់ទៅ Login',
@@ -8321,9 +8264,9 @@
           const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
           const isActorAdmin = !isActorSuperAdmin && (AppState.currentUser?.role === 'Admin' || AppState.currentUser?.role === 'អ្នកគ្រប់គ្រង' || String(AppState.currentUser?.username).toLowerCase() === 'admin');
 
-          // Update Pending Users Badge on Sidebar
+          // Update Pending Users Badge on Sidebar (counts all pending in Step 1 or Step 2)
           const allUsers = res.users || LOCAL_DB.users || [];
-          const pendingCount = allUsers.filter(u => u.status === 'Pending').length;
+          const pendingCount = allUsers.filter(u => u.status === 'Pending' || u.status === 'Pending_Admin' || u.status === 'Pending_SuperAdmin').length;
           const pendingBadge = document.getElementById('pendingUsersBadge');
           if (pendingBadge) {
             if (pendingCount > 0) {
@@ -8385,14 +8328,14 @@
             // Action Buttons
             let actionsHtml = '';
 
-            if (u.status === 'Pending') {
-              // Special Action Buttons for Pending Users
+            if (u.status === 'Pending' || u.status === 'Pending_Admin') {
+              // Special Action Buttons for Step 1 Pending Users (Waiting for Admin)
               if (isActorSuperAdmin || isActorAdmin) {
                 actionsHtml = `
                   <div class="inline-flex items-center space-x-1.5">
-                    <button onclick="approveUserDirectly('${u.userId || ''}', '${u.username || ''}')" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition hover:scale-105 active:scale-95 flex items-center space-x-1" title="អនុម័ត (Approve) ឲ្យដំណើរការ">
+                    <button onclick="approveUserDirectly('${u.userId || ''}', '${u.username || ''}')" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition hover:scale-105 active:scale-95 flex items-center space-x-1" title="${isActorSuperAdmin ? 'SuperAdmin អនុម័តផ្ទាល់ (Active)' : 'Admin អនុម័តជំហានទី ១ & បញ្ជូនទៅ SuperAdmin Telegram'}">
                       <i class="fa-solid fa-circle-check text-xs"></i>
-                      <span>អនុម័ត</span>
+                      <span>${isActorSuperAdmin ? 'អនុម័ត' : 'អនុម័ត (Admin)'}</span>
                     </button>
                     <button onclick="rejectUserDirectly('${u.userId || ''}', '${u.username || ''}')" class="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shadow-sm transition hover:scale-105 active:scale-95 flex items-center space-x-1" title="បដិសេធ (Reject)">
                       <i class="fa-solid fa-circle-xmark text-xs"></i>
@@ -8402,6 +8345,33 @@
                 `;
               } else {
                 actionsHtml = `<span class="text-xs text-amber-600 font-semibold italic">រង់ចាំ Admin អនុម័ត</span>`;
+              }
+            } else if (u.status === 'Pending_SuperAdmin') {
+              // Special Action Buttons for Step 2 Pending Users (Admin already approved; waiting for SuperAdmin Telegram)
+              if (isActorSuperAdmin) {
+                actionsHtml = `
+                  <div class="inline-flex items-center space-x-1.5">
+                    <button onclick="approveUserDirectly('${u.userId || ''}', '${u.username || ''}')" class="px-2.5 py-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-lg text-xs font-bold shadow-sm transition hover:scale-105 active:scale-95 flex items-center space-x-1" title="SuperAdmin អនុម័តចុងក្រោយ (Active)">
+                      <i class="fa-solid fa-crown text-xs text-amber-300"></i>
+                      <span>SuperAdmin អនុម័ត</span>
+                    </button>
+                    <button onclick="rejectUserDirectly('${u.userId || ''}', '${u.username || ''}')" class="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shadow-sm transition hover:scale-105 active:scale-95 flex items-center space-x-1" title="បដិសេធ (Reject)">
+                      <i class="fa-solid fa-circle-xmark text-xs"></i>
+                      <span>បដិសេធ</span>
+                    </button>
+                  </div>
+                `;
+              } else if (isActorAdmin) {
+                actionsHtml = `
+                  <div class="inline-flex items-center space-x-1">
+                    <span class="text-[10px] text-indigo-700 font-bold bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">រង់ចាំ SuperAdmin</span>
+                    <button onclick="resendToTelegramSuperAdmin('${u.userId || ''}', '${u.username || ''}')" class="px-2 py-0.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[10px] font-bold shadow-sm transition" title="ផ្ញើសាររំលឹកទៅ Telegram របស់ SuperAdmin ម្តងទៀត">
+                      <i class="fa-brands fa-telegram mr-0.5"></i> រំលឹក
+                    </button>
+                  </div>
+                `;
+              } else {
+                actionsHtml = `<span class="text-xs text-indigo-600 font-semibold italic">រង់ចាំ SuperAdmin អនុម័ត</span>`;
               }
             } else if (isActorSuperAdmin) {
               // 1. Switch User Button (Exclusive to SuperAdmin)
@@ -8440,6 +8410,20 @@
               `;
             }
 
+            // Status Badge Formatting
+            let statusBadgeHtml = '';
+            if (u.status === 'Active') {
+              statusBadgeHtml = `<span class="px-2.5 py-1 rounded-full font-bold text-[10px] bg-emerald-100 text-emerald-700 border border-emerald-300">✅ Active</span>`;
+            } else if (u.status === 'Pending' || u.status === 'Pending_Admin') {
+              statusBadgeHtml = `<span class="px-2.5 py-1 rounded-full font-bold text-[10px] bg-amber-100 text-amber-800 border border-amber-300 font-extrabold shadow-sm">⏳ ជំហានទី ១: រង់ចាំ Admin</span>`;
+            } else if (u.status === 'Pending_SuperAdmin') {
+              statusBadgeHtml = `<span class="px-2.5 py-1 rounded-full font-bold text-[10px] bg-indigo-100 text-indigo-800 border border-indigo-300 font-extrabold shadow-sm">⏳ ជំហានទី ២: រង់ចាំ SuperAdmin</span>`;
+            } else if (u.status === 'Rejected') {
+              statusBadgeHtml = `<span class="px-2.5 py-1 rounded-full font-bold text-[10px] bg-rose-100 text-rose-700 border border-rose-300">❌ Rejected</span>`;
+            } else {
+              statusBadgeHtml = `<span class="px-2.5 py-1 rounded-full font-bold text-[10px] bg-slate-100 text-slate-700">${u.status || 'Inactive'}</span>`;
+            }
+
             return `
               <tr class="hover:bg-slate-50 transition-colors ${isUserSuperAdmin ? 'bg-amber-50/20' : ''}">
                 <td class="px-3 py-3 text-center font-bold text-slate-500 text-xs">${idx + 1}</td>
@@ -8463,17 +8447,7 @@
                 <td class="px-4 py-3 text-slate-700 font-semibold text-xs">
                   ${u.warehouse === 'ALL' ? (isUserSuperAdmin ? '<span class="text-amber-600 font-bold">🏢 គ្រប់ស្ថានីយទាំងអស់ (SuperAdmin)</span>' : '<span class="text-purple-600 font-bold">🏢 គ្រប់ស្ថានីយទាំងអស់ (Admin)</span>') : `📍 ${u.warehouse || '-'}`}
                 </td>
-                <td class="px-4 py-3 text-center">
-                  <span class="px-2.5 py-1 rounded-full font-bold text-[10px] ${
-                    u.status === 'Active'
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : (u.status === 'Pending'
-                          ? 'bg-amber-100 text-amber-800 border border-amber-300 font-extrabold shadow-sm'
-                          : 'bg-rose-100 text-rose-700')
-                  }">
-                    ${u.status === 'Pending' ? '⏳ Pending (រង់ចាំ)' : u.status}
-                  </span>
-                </td>
+                <td class="px-4 py-3 text-center">${statusBadgeHtml}</td>
                 <td class="px-4 py-3 text-center space-x-1">${actionsHtml}</td>
               </tr>
             `;
@@ -9356,17 +9330,139 @@
     }
 
     async function approveUserDirectly(userId, username) {
+      const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
+      const targetUser = (LOCAL_DB.users || []).find(x => (userId && x.userId === userId) || (username && x.username === username)) || {};
+      const uId = targetUser.userId || userId;
+      const uName = targetUser.username || username;
+
+      // =========================================================================
+      // 1. ADMIN IN-APP APPROVAL (Step 1: In-App Approval -> Forward to SuperAdmin Telegram)
+      // =========================================================================
+      if (!isActorSuperAdmin) {
+        const result = await Swal.fire({
+          title: 'អនុម័តជំហានទី ១ (Admin Approval)?',
+          html: `
+            <div class="text-left text-xs space-y-2.5 p-3.5 bg-blue-50/80 border border-blue-200 rounded-xl">
+              <p class="text-blue-950 font-bold text-sm">🛡️ Admin អនុម័តគណនី៖ <b>${targetUser.fullName || uName}</b> (@${uName})</p>
+              <p class="text-slate-600 leading-relaxed">
+                តើលោកអ្នក (Admin) ពិតជាចង់អនុម័តគណនីនេះក្នុងប្រព័ន្ធដែរឬទេ?<br><br>
+                <span class="text-emerald-700 font-semibold flex items-start space-x-1.5">
+                  <i class="fa-solid fa-paper-plane mt-0.5 text-blue-600"></i>
+                  <span>បន្ទាប់ពីលោកអ្នកចុចអនុម័តរួច សំណើនេះនឹងត្រូវបញ្ជូនបន្តទៅកាន់ <b>Telegram របស់ SuperAdmin</b> ដោយស្វ័យប្រវត្តិ ដើម្បីធ្វើការអនុម័តចុងក្រោយ (Step 2: Final Approval)។</span>
+                </span>
+              </p>
+            </div>
+          `,
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonText: '<i class="fa-solid fa-paper-plane mr-1.5"></i> អនុម័ត & បញ្ជូនទៅ SuperAdmin',
+          cancelButtonText: 'បោះបង់',
+          confirmButtonColor: '#2563eb'
+        });
+
+        if (!result.isConfirmed) return;
+
+        Swal.fire({
+          title: 'កំពុងដំណើរការ...',
+          html: '<span class="text-xs text-slate-500">កំពុងអនុម័ត និងបញ្ជូនទៅ Telegram របស់ SuperAdmin...</span>',
+          allowOutsideClick: false,
+          didOpen: () => Swal.showLoading()
+        });
+
+        const res = await apiCall('updateUserStatus', {
+          userId: uId,
+          status: 'Pending_SuperAdmin',
+          adminUser: AppState.currentUser?.username
+        });
+
+        // Update LOCAL_DB
+        const dbIdx = LOCAL_DB.users.findIndex(x => x.userId === uId || x.username === uName);
+        if (dbIdx !== -1) {
+          LOCAL_DB.users[dbIdx].status = 'Pending_SuperAdmin';
+          saveLocalUsersToStorage();
+        }
+
+        // Send notification to SuperAdmin Telegram with approval links
+        const tgToken = AppState.settings?.TELEGRAM_BOT_TOKEN || localStorage.getItem('inventory_tg_token') || DEFAULT_TG_BOT_TOKEN;
+        const tgChatId = AppState.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid') || DEFAULT_TG_CHAT_ID;
+        const gasUrl = AppState.gasApiUrl || localStorage.getItem('inventory_gas_api_url') || 'https://script.google.com/macros/s/AKfycbz-Pb72GPivonqvf3j8WRAoN4V6Dlo3IgAVpHCfDVEzF2RJV2X18XtfqTffZ2K08UQJ/exec';
+        const approveUrl = `${gasUrl}?action=approveUserTelegram&userId=${encodeURIComponent(uId)}&u=${encodeURIComponent(uName)}`;
+        const rejectUrl = `${gasUrl}?action=rejectUserTelegram&userId=${encodeURIComponent(uId)}&u=${encodeURIComponent(uName)}`;
+        const webAppUsersUrl = `${window.location.origin}${window.location.pathname}#users`;
+
+        if (tgToken && tgChatId) {
+          try {
+            const tgMsg = `📋 <b>[សំណើសុំចុះឈ្មោះគណនីថ្មី - ជំហានទី ២ (SuperAdmin Approval)]</b>\n` +
+              `👤 <b>ឈ្មោះពេញ:</b> ${targetUser.fullName || uName}\n` +
+              `🆔 <b>Username:</b> <code>${uName}</code>\n` +
+              `📱 <b>លេខទូរស័ព្ទ:</b> ${targetUser.phone || '-'}\n` +
+              `📧 <b>អ៊ីមែល:</b> ${targetUser.email || '-'}\n` +
+              `💼 <b>តួនាទី:</b> ${targetUser.role || 'Stock Keeper'}\n` +
+              `🏢 <b>ស្ថានីយ/ឃ្លាំង:</b> ${targetUser.warehouse || '-'}\n` +
+              `✅ <b>បានពិនិត្យ & អនុម័តជំហានទី ១ ដោយ Admin:</b> ${AppState.currentUser?.fullName || AppState.currentUser?.username || 'Admin'}\n` +
+              `🕒 <b>កាលបរិច្ឆេទ:</b> ${new Date().toLocaleString('en-GB')}\n` +
+              `🚦 <b>ស្ថានភាព:</b> ⏳ រង់ចាំ SuperAdmin អនុម័តចុងក្រោយ (Pending SuperAdmin)\n\n` +
+              `👉 <b>សូម SuperAdmin ចុចប៊ូតុងខាងក្រោមដើម្បី អនុម័តចុងក្រោយ (Final Approve)៖</b>`;
+
+            await fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                chat_id: tgChatId,
+                text: tgMsg,
+                parse_mode: 'HTML',
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      { text: "✅ អនុម័តចុងក្រោយ (Final Approve)", url: approveUrl },
+                      { text: "❌ បដិសេធ (Reject)", url: rejectUrl }
+                    ],
+                    [
+                      { text: "👥 ពិនិត្យក្នុងប្រព័ន្ធ (Web App)", url: webAppUsersUrl }
+                    ]
+                  ]
+                }
+              })
+            });
+          } catch (e) {
+            console.warn('Telegram forward error:', e);
+          }
+        }
+
+        Swal.fire({
+          icon: 'success',
+          title: 'អនុម័តជំហានទី ១ ជោគជ័យ 🎉',
+          html: `
+            <div class="text-left text-xs space-y-2 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+              <p class="font-bold text-slate-800">✅ Admin បានអនុម័តគណនី៖ <b>${uName}</b> រួចរាល់</p>
+              <p class="text-slate-600 leading-relaxed">
+                សំណើត្រូវបានបញ្ជូនបន្តទៅកាន់ <b>Telegram របស់ SuperAdmin</b> រួចរាល់ហើយ។
+                នៅពេល SuperAdmin ចុចប៊ូតុង <b>Approve</b> តាម Telegram គណនីនេះនឹងក្លាយជា <b>Active</b> ភ្លាមៗ។
+              </p>
+            </div>
+          `,
+          confirmButtonText: 'យល់ព្រម',
+          confirmButtonColor: '#2563eb'
+        });
+
+        loadUsersList();
+        return;
+      }
+
+      // =========================================================================
+      // 2. SUPERADMIN APPROVAL (Direct / Final Approval -> Active)
+      // =========================================================================
       const result = await Swal.fire({
-        title: 'អនុម័តគណនី (Approve)?',
+        title: 'អនុម័តគណនីជាផ្លូវការ (SuperAdmin Approval)?',
         html: `
           <div class="text-left text-xs space-y-2 p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl">
-            <p class="text-emerald-950 font-bold text-sm">✅ អនុម័តគណនី៖ <b>${username || userId}</b></p>
+            <p class="text-emerald-950 font-bold text-sm">👑 SuperAdmin អនុម័តគណនី៖ <b>${targetUser.fullName || uName}</b> (@${uName})</p>
             <p class="text-slate-600">តើអ្នកពិតជាចង់អនុម័តគណនីនេះឲ្យក្លាយជា <b>Active</b> ដែរឬទេ? បន្ទាប់ពីអនុម័តរួច អ្នកប្រើប្រាស់នឹងអាចធ្វើការ <b>Login</b> ចូលប្រើប្រាស់ប្រព័ន្ធស្តុកបានភ្លាមៗ។</p>
           </div>
         `,
         icon: 'question',
         showCancelButton: true,
-        confirmButtonText: '<i class="fa-solid fa-circle-check mr-1"></i> បាទ/ចាស អនុម័ត',
+        confirmButtonText: '<i class="fa-solid fa-circle-check mr-1"></i> បាទ/ចាស អនុម័ត (Active)',
         cancelButtonText: 'បោះបង់',
         confirmButtonColor: '#16a34a'
       });
@@ -9380,13 +9476,13 @@
       });
 
       const res = await apiCall('updateUserStatus', {
-        userId,
+        userId: uId,
         status: 'Active',
         adminUser: AppState.currentUser?.username
       });
 
       // Update LOCAL_DB directly as well
-      const dbIdx = LOCAL_DB.users.findIndex(x => x.userId === userId || x.username === username);
+      const dbIdx = LOCAL_DB.users.findIndex(x => x.userId === uId || x.username === uName);
       if (dbIdx !== -1) {
         LOCAL_DB.users[dbIdx].status = 'Active';
         saveLocalUsersToStorage();
@@ -9403,17 +9499,84 @@
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 chat_id: tgChatId,
-                text: `🎉 <b>[ការអនុម័តគណនីជោគជ័យ]</b>\n👤 <b>Username:</b> ${username}\n✅ <b>ស្ថានភាព:</b> <b>Active</b> (ដំណើរការ)\n👮 <b>Admin អនុម័ត:</b> ${AppState.currentUser?.username || 'Admin'}\n⏰ <b>កាលបរិច្ឆេទ:</b> ${new Date().toLocaleString('km-KH')}`,
+                text: `🎉 <b>[ការអនុម័តគណនីជោគជ័យ]</b>\n👤 <b>Username:</b> <code>${uName}</code>\n✅ <b>ស្ថានភាព:</b> <b>Active</b> (ដំណើរការ)\n👮 <b>អនុម័តចុងក្រោយដោយ:</b> SuperAdmin\n⏰ <b>កាលបរិច្ឆេទ:</b> ${new Date().toLocaleString('km-KH')}`,
                 parse_mode: 'HTML'
               })
             }).catch(() => {});
           } catch (e) {}
         }
 
-        Swal.fire('ជោគជ័យ 🎉', `គណនី <b>${username || userId}</b> ត្រូវបានអនុម័តឲ្យដំណើរការ (Active) រួចរាល់!`, 'success');
+        Swal.fire('ជោគជ័យ 🎉', `គណនី <b>${uName}</b> ត្រូវបាន SuperAdmin អនុម័តឲ្យដំណើរការ (Active) រួចរាល់!`, 'success');
         loadUsersList();
       } else {
         Swal.fire('កំហុស', res?.message || 'មិនអាចអនុម័តគណនីបានទេ', 'error');
+      }
+    }
+
+    async function resendToTelegramSuperAdmin(userId, username) {
+      const targetUser = (LOCAL_DB.users || []).find(x => (userId && x.userId === userId) || (username && x.username === username)) || {};
+      const uId = targetUser.userId || userId;
+      const uName = targetUser.username || username;
+
+      const tgToken = AppState.settings?.TELEGRAM_BOT_TOKEN || localStorage.getItem('inventory_tg_token') || DEFAULT_TG_BOT_TOKEN;
+      const tgChatId = AppState.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid') || DEFAULT_TG_CHAT_ID;
+      const gasUrl = AppState.gasApiUrl || localStorage.getItem('inventory_gas_api_url') || 'https://script.google.com/macros/s/AKfycbz-Pb72GPivonqvf3j8WRAoN4V6Dlo3IgAVpHCfDVEzF2RJV2X18XtfqTffZ2K08UQJ/exec';
+      const approveUrl = `${gasUrl}?action=approveUserTelegram&userId=${encodeURIComponent(uId)}&u=${encodeURIComponent(uName)}`;
+      const rejectUrl = `${gasUrl}?action=rejectUserTelegram&userId=${encodeURIComponent(uId)}&u=${encodeURIComponent(uName)}`;
+      const webAppUsersUrl = `${window.location.origin}${window.location.pathname}#users`;
+
+      if (!tgToken || !tgChatId) {
+        Swal.fire('ខ្វះ Telegram Settings', 'សូមពិនិត្យមើល Telegram Bot Token និង Chat ID ក្នុងការកំណត់', 'warning');
+        return;
+      }
+
+      Swal.fire({
+        title: 'កំពុងផ្ញើទៅ Telegram...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
+
+      try {
+        const tgMsg = `📋 <b>[រំលឹក៖ សំណើសុំចុះឈ្មោះគណនីថ្មី - ជំហានទី ២]</b>\n` +
+          `👤 <b>ឈ្មោះពេញ:</b> ${targetUser.fullName || uName}\n` +
+          `🆔 <b>Username:</b> <code>${uName}</code>\n` +
+          `📱 <b>លេខទូរស័ព្ទ:</b> ${targetUser.phone || '-'}\n` +
+          `📧 <b>អ៊ីមែល:</b> ${targetUser.email || '-'}\n` +
+          `💼 <b>តួនាទី:</b> ${targetUser.role || 'Stock Keeper'}\n` +
+          `🏢 <b>ស្ថានីយ/ឃ្លាំង:</b> ${targetUser.warehouse || '-'}\n` +
+          `✅ <b>បានពិនិត្យ & អនុម័តជំហានទី ១ ដោយ Admin:</b> ${AppState.currentUser?.fullName || AppState.currentUser?.username || 'Admin'}\n` +
+          `🕒 <b>កាលបរិច្ឆេទ:</b> ${new Date().toLocaleString('en-GB')}\n` +
+          `🚦 <b>ស្ថានភាព:</b> ⏳ រង់ចាំ SuperAdmin អនុម័តចុងក្រោយ (Pending SuperAdmin)\n\n` +
+          `👉 <b>សូម SuperAdmin ចុចប៊ូតុងខាងក្រោមដើម្បី អនុម័តចុងក្រោយ (Final Approve)៖</b>`;
+
+        const resp = await fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: tgChatId,
+            text: tgMsg,
+            parse_mode: 'HTML',
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: "✅ អនុម័តចុងក្រោយ (Final Approve)", url: approveUrl },
+                  { text: "❌ បដិសេធ (Reject)", url: rejectUrl }
+                ],
+                [
+                  { text: "👥 ពិនិត្យក្នុងប្រព័ន្ធ (Web App)", url: webAppUsersUrl }
+                ]
+              ]
+            }
+          })
+        });
+        const js = await resp.json();
+        if (js && js.ok) {
+          Swal.fire('ជោគជ័យ 📢', `បានផ្ញើសាររំលឹកសំណើគណនី <b>${uName}</b> ទៅកាន់ Telegram របស់ SuperAdmin រួចរាល់!`, 'success');
+        } else {
+          Swal.fire('បរាជ័យ', js?.description || 'មិនអាចផ្ញើទៅ Telegram បានទេ', 'error');
+        }
+      } catch (err) {
+        Swal.fire('កំហុស', err.toString(), 'error');
       }
     }
 
@@ -9423,7 +9586,7 @@
         html: `
           <div class="text-left text-xs space-y-2 p-3 bg-rose-50/80 border border-rose-200 rounded-xl">
             <p class="text-rose-950 font-bold text-sm">❌ បដិសេធគណនី៖ <b>${username || userId}</b></p>
-            <p class="text-slate-600">គណនីនេះនឹងត្រូវកំណត់ជា <b>Inactive</b> ហើយមិនអាច Login ចូលប្រើប្រាស់បានឡើយ។</p>
+            <p class="text-slate-600">គណនីនេះនឹងត្រូវកំណត់ជា <b>Rejected</b> ហើយមិនអាច Login ចូលប្រើប្រាស់បានឡើយ។</p>
           </div>
         `,
         icon: 'warning',
@@ -9443,18 +9606,18 @@
 
       const res = await apiCall('updateUserStatus', {
         userId,
-        status: 'Inactive',
+        status: 'Rejected',
         adminUser: AppState.currentUser?.username
       });
 
       const dbIdx = LOCAL_DB.users.findIndex(x => x.userId === userId || x.username === username);
       if (dbIdx !== -1) {
-        LOCAL_DB.users[dbIdx].status = 'Inactive';
+        LOCAL_DB.users[dbIdx].status = 'Rejected';
         saveLocalUsersToStorage();
       }
 
       if (res && res.success) {
-        Swal.fire('បានបដិសេធ', `គណនី <b>${username || userId}</b> ត្រូវបានកំណត់ជា Inactive!`, 'info');
+        Swal.fire('បានបដិសេធ', `គណនី <b>${username || userId}</b> ត្រូវបានបដិសេធ (Rejected) រួចរាល់!`, 'info');
         loadUsersList();
       } else {
         Swal.fire('កំហុស', res?.message || 'មិនអាចបដិសេធគណនីបានទេ', 'error');
@@ -10511,6 +10674,7 @@
     // Expose global functions to window for onclick handlers
     window.approveUserDirectly = approveUserDirectly;
     window.rejectUserDirectly = rejectUserDirectly;
+    window.resendToTelegramSuperAdmin = resendToTelegramSuperAdmin;
     window.testTelegramConnection = testTelegramConnection;
     window.handleSaveSettings = handleSaveSettings;
     window.validateProfileForm = validateProfileForm;

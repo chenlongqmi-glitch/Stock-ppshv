@@ -653,15 +653,20 @@ function loginUser(usernameOrData, password) {
       const status = String(row[7] || 'Active');
 
       if (status !== 'Active') {
-        if (status === 'Pending') {
+        if (status === 'Pending' || status === 'Pending_Admin') {
           return {
             success: false,
-            message: 'គណនីរបស់អ្នកកំពុងស្ថិតក្នុងការត្រួតពិនិត្យ (Pending Approval) ដោយ Admin តាម Telegram។ សូមរង់ចាំ Admin ចុចអនុម័ត (Approve) ជាមុនសិន។'
+            message: 'គណនីរបស់អ្នកកំពុងស្ថិតក្នុងការពិនិត្យដោយ Admin ក្នុងប្រព័ន្ធ (Step 1: Pending Admin)។ សូមរង់ចាំ Admin ពិនិត្យអនុម័តជាមុនសិន។'
+          };
+        } else if (status === 'Pending_SuperAdmin') {
+          return {
+            success: false,
+            message: 'គណនីរបស់អ្នកបានឆ្លងកាត់ការអនុម័តពី Admin រួចហើយ និងកំពុងរង់ចាំ SuperAdmin អនុម័តចុងក្រោយ (Step 2: Pending SuperAdmin) តាម Telegram។'
           };
         } else if (status === 'Rejected') {
           return {
             success: false,
-            message: 'គណនីរបស់អ្នកត្រូវបានបដិសេធ (Rejected) ដោយ Admin។ សូមទាក់ទង Admin សម្រាប់ព័ត៌មានបន្ថែម។'
+            message: 'គណនីរបស់អ្នកត្រូវបានបដិសេធ (Rejected)។ សូមទាក់ទង Admin សម្រាប់ព័ត៌មានបន្ថែម។'
           };
         }
         return { success: false, message: 'គណនីនេះត្រូវបានផ្អាក ឬមិនទាន់ត្រូវបានអនុម័ត' };
@@ -1046,42 +1051,11 @@ function registerUser(userData) {
 
   logActivity(userData.username, role, 'REGISTER_REQUEST', `New user registration request with warehouse: ${warehouse}, status: ${status}`);
 
-  // Send Alert to Telegram Admin with Approve & Reject buttons
-  try {
-    let webAppUrl = 'https://script.google.com/macros/s/AKfycbz-Pb72GPivonqvf3j8WRAoN4V6Dlo3IgAVpHCfDVEzF2RJV2X18XtfqTffZ2K08UQJ/exec';
-    try {
-      const liveUrl = ScriptApp.getService().getUrl();
-      if (liveUrl && liveUrl.startsWith('https://script.google.com/')) {
-        webAppUrl = liveUrl;
-      }
-    } catch (uErr) {}
+  // Note: Per workflow requirements, do NOT send Telegram alert to SuperAdmin upon initial registration.
+  // The request must first be reviewed and approved by Admin INSIDE the application (Step 1).
+  // Only after Admin approves in-app will the request be forwarded to SuperAdmin Telegram (Step 2).
 
-    const approveUrl = `${webAppUrl}?action=approveUserTelegram&userId=${encodeURIComponent(userId)}&u=${encodeURIComponent(userData.username)}`;
-    const rejectUrl = `${webAppUrl}?action=rejectUserTelegram&userId=${encodeURIComponent(userId)}&u=${encodeURIComponent(userData.username)}`;
-
-    const replyMarkup = {
-      inline_keyboard: [
-        [
-          { text: "✅ អនុម័ត (Approve)", url: approveUrl },
-          { text: "❌ បដិសេធ (Reject)", url: rejectUrl }
-        ]
-      ]
-    };
-
-    const regAlert = `📋 <b>[សំណើសុំចុះឈ្មោះគណនីថ្មី]</b>\n` +
-      `👤 <b>ឈ្មោះពេញ:</b> ${userData.fullName || userData.username}\n` +
-      `🆔 <b>Username:</b> ${userData.username}\n` +
-      `📱 <b>លេខទូរស័ព្ទ:</b> ${phone || '-'}\n` +
-      `📧 <b>អ៊ីមែល:</b> ${userData.email || '-'}\n` +
-      `💼 <b>តួនាទី:</b> ${role}\n` +
-      `🏢 <b>ស្ថានីយ/ឃ្លាំង:</b> ${warehouse}\n` +
-      `🕒 <b>កាលបរិច្ឆេទ:</b> ${Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd HH:mm:ss')}\n` +
-      `🚦 <b>ស្ថានភាព:</b> ⏳ កំពុងរង់ចាំការអនុម័ត (Pending)\n\n` +
-      `👉 <b>សូម Admin ចុចប៊ូតុងខាងក្រោមដើម្បី អនុម័ត (Approve)៖</b>`;
-
-    sendTelegramAlert(regAlert, replyMarkup);
-
-    // Backup Admin Email Notification via MailApp
+  // Internal Admin Email Notification via MailApp (so Admin is notified to check the app)
     try {
       const ss = SpreadsheetApp.getActiveSpreadsheet();
       const settings = getSettingsMap(ss);
@@ -1217,6 +1191,63 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
       }
       if (phone !== undefined) sheet.getRange(i + 1, 12).setValue(phone);
       logActivity(admin || 'Admin', admin === 'superadmin' ? 'SuperAdmin' : 'Admin', 'UPDATE_USER', `Updated User ${uId}: fullName=${fullName}, status=${st}, role=${r}, warehouse=${wh}`);
+
+      // Forward to SuperAdmin Telegram ONLY when Admin approves Step 1 (st === 'Pending_SuperAdmin')
+      if (st === 'Pending_SuperAdmin') {
+        try {
+          let webAppUrl = 'https://script.google.com/macros/s/AKfycbz-Pb72GPivonqvf3j8WRAoN4V6Dlo3IgAVpHCfDVEzF2RJV2X18XtfqTffZ2K08UQJ/exec';
+          try {
+            const liveUrl = ScriptApp.getService().getUrl();
+            if (liveUrl && liveUrl.startsWith('https://script.google.com/')) {
+              webAppUrl = liveUrl;
+            }
+          } catch (uErr) {}
+
+          const targetUName = String(data[i][1]);
+          const targetFName = fullName || String(data[i][2]) || targetUName;
+          const targetRole = r || String(data[i][6]) || 'Stock Keeper';
+          const targetWh = wh || String(data[i][9]) || '-';
+          const targetPhone = phone || String(data[i][11] || '-');
+          const targetEmail = email || String(data[i][3] || '-');
+
+          const approveUrl = `${webAppUrl}?action=approveUserTelegram&userId=${encodeURIComponent(uId)}&u=${encodeURIComponent(targetUName)}`;
+          const rejectUrl = `${webAppUrl}?action=rejectUserTelegram&userId=${encodeURIComponent(uId)}&u=${encodeURIComponent(targetUName)}`;
+
+          const replyMarkup = {
+            inline_keyboard: [
+              [
+                { text: "✅ អនុម័តចុងក្រោយ (Final Approve)", url: approveUrl },
+                { text: "❌ បដិសេធ (Reject)", url: rejectUrl }
+              ]
+            ]
+          };
+
+          const regAlert = `📋 <b>[សំណើសុំចុះឈ្មោះគណនីថ្មី - ជំហានទី ២ (SuperAdmin Approval)]</b>\n` +
+            `👤 <b>ឈ្មោះពេញ:</b> ${targetFName}\n` +
+            `🆔 <b>Username:</b> <code>${targetUName}</code>\n` +
+            `📱 <b>លេខទូរស័ព្ទ:</b> ${targetPhone}\n` +
+            `📧 <b>អ៊ីមែល:</b> ${targetEmail}\n` +
+            `💼 <b>តួនាទី:</b> ${targetRole}\n` +
+            `🏢 <b>ស្ថានីយ/ឃ្លាំង:</b> ${targetWh}\n` +
+            `✅ <b>បានពិនិត្យ & អនុម័តជំហានទី ១ ដោយ Admin:</b> ${admin || 'Admin'}\n` +
+            `🕒 <b>កាលបរិច្ឆេទ:</b> ${Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd HH:mm:ss')}\n` +
+            `🚦 <b>ស្ថានភាព:</b> ⏳ រង់ចាំ SuperAdmin អនុម័តចុងក្រោយ (Pending SuperAdmin)\n\n` +
+            `👉 <b>សូម SuperAdmin ចុចប៊ូតុងខាងក្រោមដើម្បី អនុម័តចុងក្រោយ (Final Approve)៖</b>`;
+
+          sendTelegramAlert(regAlert, replyMarkup);
+        } catch (tgErr) {
+          Logger.log('Telegram forward error: ' + tgErr.toString());
+        }
+      } else if (st === 'Active') {
+        try {
+          const targetUName = String(data[i][1]);
+          sendTelegramAlert(`🎉 <b>[ការអនុម័តគណនីជោគជ័យ]</b>\n` +
+            `👤 <b>គណនី:</b> <code>${targetUName}</code> (${fullName || data[i][2] || targetUName})\n` +
+            `✅ ស្ថានភាព៖ <b>បានអនុម័ត (Active)</b> រួចរាល់! អ្នកប្រើប្រាស់អាច Login ចូលប្រព័ន្ធបានហើយ។`
+          );
+        } catch (e) {}
+      }
+
       return { success: true, message: 'បានកែប្រែព័ត៌មានអ្នកប្រើប្រាស់ជោគជ័យ' };
     }
   }
