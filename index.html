@@ -103,11 +103,23 @@
   <!-- SheetJS (xlsx) for Excel Reports Export -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
+  <!-- Cropper.js for Image Zooming & Cropping (Profile Picture & Product Image) -->
+  <link rel="stylesheet" href="assets/cropper.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
+  <script src="assets/cropper.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+
   <!-- Flatpickr (Optional sleek date picker helper) -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 
   <style>
+    /* Avatar circular crop box preview */
+    .cropper-avatar-mode .cropper-view-box,
+    .cropper-avatar-mode .cropper-face {
+      border-radius: 50% !important;
+    }
+
     :root {
       --app-font-sans: 'Kantumruy Pro', 'Siemreap', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       --window-dpr: 1;
@@ -627,7 +639,15 @@
               <input type="file" id="regAvatarInput" accept="image/*" class="hidden"
                 onchange="handleUserAvatarSelect(event, 'regAvatarPreview', 'regAvatarData')">
               <input type="hidden" id="regAvatarData" value="">
-              <span id="regAvatarLabel" class="text-[10px] font-bold text-slate-500 mt-1">រូប Profile * (កាតព្វកិច្ច)</span>
+              <div class="flex items-center space-x-2 mt-1">
+                <span id="regAvatarLabel" class="text-[10px] font-bold text-slate-500">រូប Profile * (កាតព្វកិច្ច)</span>
+                <button type="button" onclick="cropCurrentAvatar('regAvatarPreview', 'regAvatarData')"
+                  title="កាត់ត និង Zoom រូបភាព Profile"
+                  class="px-2 py-0.5 bg-white hover:bg-blue-50 text-slate-700 border border-slate-200 rounded-md text-[10px] font-bold flex items-center space-x-1 shadow-2xs transition">
+                  <i class="fa-solid fa-crop-simple text-blue-600"></i>
+                  <span>Crop/Zoom</span>
+                </button>
+              </div>
               <p id="regAvatarError" class="text-[10.5px] font-bold text-rose-600 mt-1 hidden"><i class="fa-solid fa-circle-exclamation mr-1"></i>សូមជ្រើសរើសរូបភាព Profile</p>
             </div>
 
@@ -2623,6 +2643,12 @@
                       class="fa-solid fa-circle-check mr-1"></i>រួចរាល់ (អាចអូសទម្លាក់រូបថ្មីបាន)</p>
                 </div>
                 <div class="flex items-center space-x-1.5 shrink-0">
+                  <button type="button" onclick="cropCurrentProductImage()"
+                    title="កាត់ត និង Zoom រូបភាព (Crop & Zoom)"
+                    class="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl transition text-xs font-semibold flex items-center space-x-1 shadow-xs">
+                    <i class="fa-solid fa-crop-simple text-blue-600"></i>
+                    <span>Crop/Zoom</span>
+                  </button>
                   <button type="button" onclick="document.getElementById('modalImageFileInput').click()"
                     title="ប្តូររូបភាព"
                     class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition text-xs font-semibold flex items-center space-x-1">
@@ -2859,6 +2885,121 @@
           បិទ
         </button>
       </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- IMAGE CROPPER & ZOOM MODAL (FOR AVATAR & PRODUCT IMAGES) -->
+  <!-- ========================================================================= -->
+  <div id="imageCropperModal" onclick="if(event.target === this) closeImageCropper()"
+    class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-3 sm:p-4 hidden">
+    <div class="w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[92vh]">
+      
+      <!-- Modal Header -->
+      <div class="px-5 py-3.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white flex items-center justify-between shadow-md shrink-0">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-white">
+            <i class="fa-solid fa-crop-simple text-sm"></i>
+          </div>
+          <div>
+            <h3 id="cropperModalTitle" class="font-bold text-sm sm:text-base leading-tight">កែសម្រួលរូបភាព (Crop & Zoom Image)</h3>
+            <p id="cropperModalSubtitle" class="text-[11px] text-blue-100/90">ពង្រីក ពង្រួម ឬកាត់តរូបភាពតាមទំហំដែលចង់បាន</p>
+          </div>
+        </div>
+        <div class="flex items-center space-x-2">
+          <span id="cropperModeBadge" class="hidden sm:inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white/20 text-white border border-white/30">
+            Profile Avatar
+          </span>
+          <button type="button" onclick="closeImageCropper()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/25 flex items-center justify-center text-white text-xs transition">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Cropper Image Canvas Container -->
+      <div class="p-3 sm:p-4 bg-slate-950 flex flex-col items-center justify-center relative overflow-hidden flex-1 min-h-[280px] max-h-[54vh]">
+        <div id="cropperContainer" class="w-full h-full flex items-center justify-center overflow-hidden">
+          <img id="cropperImageElement" src="" alt="To crop" class="max-w-full max-h-full block" style="display: block;">
+        </div>
+      </div>
+
+      <!-- Controls Toolbar -->
+      <div class="p-3.5 sm:p-4 bg-slate-50 border-t border-slate-200 space-y-2.5 shrink-0">
+        
+        <!-- Zoom Slider & Quick Zoom Buttons -->
+        <div class="flex items-center space-x-3">
+          <span class="text-xs font-bold text-slate-700 flex items-center shrink-0">
+            <i class="fa-solid fa-magnifying-glass mr-1.5 text-blue-600"></i>Zoom៖
+          </span>
+          <button type="button" onclick="cropperZoomStep(-0.1)" title="Zoom Out (ពង្រួម)"
+            class="w-8 h-8 rounded-lg bg-white border border-slate-200 hover:bg-blue-50 text-slate-700 flex items-center justify-center text-xs transition shadow-xs">
+            <i class="fa-solid fa-minus"></i>
+          </button>
+          <input type="range" id="cropperZoomRange" min="0.1" max="3" step="0.05" value="1" oninput="cropperSetZoom(this.value)"
+            class="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+          <button type="button" onclick="cropperZoomStep(0.1)" title="Zoom In (ពង្រីក)"
+            class="w-8 h-8 rounded-lg bg-white border border-slate-200 hover:bg-blue-50 text-slate-700 flex items-center justify-center text-xs transition shadow-xs">
+            <i class="fa-solid fa-plus"></i>
+          </button>
+          <span id="cropperZoomVal" class="text-[11px] font-mono font-bold text-slate-500 w-10 text-right">100%</span>
+        </div>
+
+        <!-- Aspect Ratio (for product) & Tool Buttons -->
+        <div class="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-slate-200/80">
+          
+          <!-- Aspect Ratio Options (Shown for product mode) -->
+          <div id="cropperAspectRatioGroup" class="flex items-center space-x-1">
+            <span class="text-[11px] font-bold text-slate-500 hidden sm:inline mr-1">ទំហំ៖</span>
+            <button type="button" onclick="cropperSetAspectRatio(1, this)" class="cropper-aspect-btn active px-2.5 py-1 text-xs font-bold rounded-lg border border-blue-600 bg-blue-600 text-white transition">1:1</button>
+            <button type="button" onclick="cropperSetAspectRatio(4/3, this)" class="cropper-aspect-btn px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 transition">4:3</button>
+            <button type="button" onclick="cropperSetAspectRatio(16/9, this)" class="cropper-aspect-btn px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 transition">16:9</button>
+            <button type="button" onclick="cropperSetAspectRatio(NaN, this)" class="cropper-aspect-btn px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 transition">សេរី (Free)</button>
+          </div>
+
+          <!-- Rotation, Flip & Reset Buttons -->
+          <div class="flex items-center space-x-1.5 ml-auto">
+            <button type="button" onclick="cropperRotate(-90)" title="បង្វិលឆ្វេង 90°"
+              class="px-2 py-1 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold shadow-xs flex items-center space-x-1 transition">
+              <i class="fa-solid fa-rotate-left text-[11px]"></i>
+              <span class="text-[10px]">-90°</span>
+            </button>
+            <button type="button" onclick="cropperRotate(90)" title="បង្វិលស្តាំ 90°"
+              class="px-2 py-1 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold shadow-xs flex items-center space-x-1 transition">
+              <i class="fa-solid fa-rotate-right text-[11px]"></i>
+              <span class="text-[10px]">+90°</span>
+            </button>
+            <button type="button" onclick="cropperFlipX()" title="ត្រឡប់ផ្តេក (Flip Horizontal)"
+              class="px-2 py-1 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold shadow-xs transition">
+              <i class="fa-solid fa-arrows-left-right text-[11px]"></i>
+            </button>
+            <button type="button" onclick="cropperReset()" title="កំណត់ឡើងវិញ (Reset)"
+              class="px-2 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold transition">
+              <i class="fa-solid fa-arrow-rotate-left mr-1 text-[11px]"></i>Reset
+            </button>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="px-5 py-3 bg-white border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-2 shrink-0">
+        <p class="text-[11px] text-slate-400 text-center sm:text-left">
+          <i class="fa-solid fa-hand-pointer mr-1 text-blue-500"></i>អាចប្រើ Mouse Wheel ឬ Touch Pinch ដើម្បី Zoom បានភ្លាមៗ
+        </p>
+        <div class="flex items-center space-x-2 w-full sm:w-auto justify-end">
+          <button type="button" onclick="closeImageCropper()"
+            class="flex-1 sm:flex-initial px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">
+            បោះបង់
+          </button>
+          <button type="button" onclick="cropperApply()" id="btnCropperApply"
+            class="flex-1 sm:flex-initial px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg transition flex items-center justify-center space-x-1.5">
+            <i class="fa-solid fa-crop-simple"></i>
+            <span>កាត់ត & ប្រើរូបនេះ (Apply)</span>
+          </button>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -3127,10 +3268,18 @@
             onchange="handleUserAvatarSelect(event, 'addAvatarPreview', 'addAvatarData')">
           <input type="hidden" id="addAvatarData" value="">
           <div>
-            <button type="button" onclick="document.getElementById('addAvatarInput').click()"
-              class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold">
-              <i class="fa-solid fa-camera mr-1"></i> ជ្រើសរើសរូប Profile *
-            </button>
+            <div class="flex items-center space-x-1.5">
+              <button type="button" onclick="document.getElementById('addAvatarInput').click()"
+                class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold">
+                <i class="fa-solid fa-camera mr-1"></i> ជ្រើសរើសរូប *
+              </button>
+              <button type="button" onclick="cropCurrentAvatar('addAvatarPreview', 'addAvatarData')"
+                title="កាត់ត និង Zoom រូបភាព Profile"
+                class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold flex items-center space-x-1 shadow-xs transition">
+                <i class="fa-solid fa-crop-simple text-blue-600"></i>
+                <span>Crop/Zoom</span>
+              </button>
+            </div>
             <p class="text-[10px] text-rose-500 font-bold mt-0.5">* តម្រូវឱ្យបញ្ចូលរូបភាពជាដាច់ខាត</p>
           </div>
         </div>
@@ -3262,6 +3411,12 @@
                 class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm transition flex items-center space-x-1.5">
                 <i class="fa-solid fa-upload"></i>
                 <span>Upload រូបថត <span class="text-rose-300 font-black">*</span></span>
+              </button>
+              <button type="button" onclick="cropCurrentAvatar('profileAvatarPreview', 'profileAvatarData')"
+                class="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-semibold shadow-sm transition flex items-center space-x-1"
+                title="កាត់ត និង Zoom រូបថត Profile">
+                <i class="fa-solid fa-crop-simple text-indigo-600"></i>
+                <span>Crop/Zoom</span>
               </button>
               <button type="button" onclick="randomizeProfileAvatar()"
                 class="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-xl text-xs font-semibold shadow-sm transition flex items-center space-x-1">
@@ -6106,46 +6261,280 @@
       }
     }
 
-    // --- USER AVATAR & OTP REGISTRATION FLOW ---
-    let pendingRegistrationData = null;
-    let activeGeneratedOtp = '123456';
+    // =========================================================================
+    // IMAGE CROPPER & ZOOM SYSTEM (PROFILE AVATAR & PRODUCT IMAGES)
+    // =========================================================================
+    let currentCropper = null;
+    let currentCropperCallback = null;
+    let currentCropperScaleX = 1;
+    let currentCropperMode = 'product';
+    let cropperBaseRatio = 1;
 
-    function handleUserAvatarSelect(event, previewId, dataId) {
-      const file = event.target.files?.[0];
-      if (!file) return;
+    function openImageCropper(options) {
+      if (!options || (!options.file && !options.imageSrc)) return;
 
-      if (!file.type.startsWith('image/')) {
-        Swal.fire('កំហុស', 'សូមជ្រើសរើស File ជារូបភាព (PNG, JPG, WEBP)', 'warning');
+      const mode = options.mode || 'product';
+      currentCropperMode = mode;
+      currentCropperCallback = options.onCrop || null;
+      currentCropperScaleX = 1;
+
+      const modal = document.getElementById('imageCropperModal');
+      const imgEl = document.getElementById('cropperImageElement');
+      const container = document.getElementById('cropperContainer');
+      const titleEl = document.getElementById('cropperModalTitle');
+      const subEl = document.getElementById('cropperModalSubtitle');
+      const badgeEl = document.getElementById('cropperModeBadge');
+      const aspectGroup = document.getElementById('cropperAspectRatioGroup');
+      const zoomRange = document.getElementById('cropperZoomRange');
+      const zoomVal = document.getElementById('cropperZoomVal');
+
+      if (!modal || !imgEl || !container) {
+        console.error('Cropper elements not found in DOM');
         return;
       }
 
-      const reader = new FileReader();
-      reader.onload = function (e) {
-        const img = new Image();
-        img.onload = function () {
-          const canvas = document.createElement('canvas');
-          const maxDim = 200;
-          let width = img.width;
-          let height = img.height;
-          if (width > height) {
-            if (width > maxDim) {
-              height = Math.round((height * maxDim) / width);
-              width = maxDim;
-            }
-          } else {
-            if (height > maxDim) {
-              width = Math.round((width * maxDim) / height);
-              height = maxDim;
-            }
-          }
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, width, height);
-          const compressedData = canvas.toDataURL('image/jpeg', 0.85);
+      if (titleEl && options.title) titleEl.innerText = options.title;
+      if (subEl && options.subtitle) subEl.innerText = options.subtitle;
 
-          document.getElementById(previewId).src = compressedData;
-          document.getElementById(dataId).value = compressedData;
+      if (mode === 'avatar') {
+        container.classList.add('cropper-avatar-mode');
+        if (aspectGroup) aspectGroup.classList.add('hidden');
+        if (badgeEl) {
+          badgeEl.innerText = 'Profile Avatar (1:1)';
+          badgeEl.classList.remove('hidden');
+        }
+      } else {
+        container.classList.remove('cropper-avatar-mode');
+        if (aspectGroup) aspectGroup.classList.remove('hidden');
+        if (badgeEl) {
+          badgeEl.innerText = 'Product Image';
+          badgeEl.classList.remove('hidden');
+        }
+        // Reset active aspect button to 1:1
+        const aspectBtns = document.querySelectorAll('.cropper-aspect-btn');
+        aspectBtns.forEach((btn, idx) => {
+          if (idx === 0) {
+            btn.classList.add('active', 'border-blue-600', 'bg-blue-600', 'text-white');
+            btn.classList.remove('border-slate-300', 'bg-white', 'text-slate-700');
+          } else {
+            btn.classList.remove('active', 'border-blue-600', 'bg-blue-600', 'text-white');
+            btn.classList.add('border-slate-300', 'bg-white', 'text-slate-700');
+          }
+        });
+      }
+
+      if (zoomRange) zoomRange.value = '1';
+      if (zoomVal) zoomVal.innerText = '100%';
+
+      function initCropperWithSrc(src) {
+        if (currentCropper) {
+          try { currentCropper.destroy(); } catch (e) { }
+          currentCropper = null;
+        }
+
+        imgEl.src = src;
+        modal.classList.remove('hidden');
+
+        // Allow DOM to finish layout before initializing Cropper.js
+        setTimeout(function () {
+          if (typeof Cropper === 'undefined') {
+            console.error('Cropper.js is not loaded');
+            Swal.fire('ដំណឹង', 'បណ្ណាល័យ Cropper.js កំពុងដំណើរការ សូមរង់ចាំបន្តិច...', 'info');
+            return;
+          }
+
+          try {
+            currentCropper = new Cropper(imgEl, {
+              aspectRatio: mode === 'avatar' ? 1 : 1,
+              viewMode: 1,
+              dragMode: 'move',
+              autoCropArea: mode === 'avatar' ? 0.85 : 0.9,
+              restore: false,
+              guides: true,
+              center: true,
+              highlight: false,
+              cropBoxMovable: true,
+              cropBoxResizable: true,
+              toggleDragModeOnDblclick: false,
+              zoomOnWheel: true,
+              zoomOnTouch: true,
+              ready: function () {
+                const canvasData = currentCropper.getCanvasData();
+                const imageData = currentCropper.getImageData();
+                cropperBaseRatio = canvasData && imageData && imageData.naturalWidth ? (canvasData.width / imageData.naturalWidth) : 1;
+                if (zoomRange) zoomRange.value = '1';
+                if (zoomVal) zoomVal.innerText = '100%';
+              },
+              zoom: function (e) {
+                if (cropperBaseRatio && e.detail && e.detail.ratio) {
+                  const relScale = e.detail.ratio / cropperBaseRatio;
+                  if (zoomRange) zoomRange.value = Math.max(0.1, Math.min(3, relScale)).toFixed(2);
+                  if (zoomVal) zoomVal.innerText = Math.round(relScale * 100) + '%';
+                }
+              }
+            });
+          } catch (err) {
+            console.error('Failed to initialize Cropper:', err);
+          }
+        }, 80);
+      }
+
+      if (options.file) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          initCropperWithSrc(e.target.result);
+        };
+        reader.readAsDataURL(options.file);
+      } else if (options.imageSrc) {
+        initCropperWithSrc(options.imageSrc);
+      }
+    }
+
+    function closeImageCropper() {
+      const modal = document.getElementById('imageCropperModal');
+      if (modal) modal.classList.add('hidden');
+      if (currentCropper) {
+        try { currentCropper.destroy(); } catch (e) { }
+        currentCropper = null;
+      }
+      const imgEl = document.getElementById('cropperImageElement');
+      if (imgEl) imgEl.src = '';
+    }
+
+    function cropperZoomStep(delta) {
+      if (!currentCropper) return;
+      currentCropper.zoom(delta);
+    }
+
+    function cropperSetZoom(val) {
+      if (!currentCropper || !cropperBaseRatio) return;
+      const targetRatio = cropperBaseRatio * parseFloat(val);
+      currentCropper.zoomTo(targetRatio);
+      const zoomVal = document.getElementById('cropperZoomVal');
+      if (zoomVal) zoomVal.innerText = Math.round(parseFloat(val) * 100) + '%';
+    }
+
+    function cropperRotate(deg) {
+      if (!currentCropper) return;
+      currentCropper.rotate(deg);
+    }
+
+    function cropperFlipX() {
+      if (!currentCropper) return;
+      currentCropperScaleX = currentCropperScaleX === 1 ? -1 : 1;
+      currentCropper.scaleX(currentCropperScaleX);
+    }
+
+    function cropperReset() {
+      if (!currentCropper) return;
+      currentCropper.reset();
+      currentCropperScaleX = 1;
+      currentCropper.scaleX(1);
+      if (cropperBaseRatio) {
+        currentCropper.zoomTo(cropperBaseRatio);
+      }
+      const zoomRange = document.getElementById('cropperZoomRange');
+      if (zoomRange) zoomRange.value = '1';
+      const zoomVal = document.getElementById('cropperZoomVal');
+      if (zoomVal) zoomVal.innerText = '100%';
+    }
+
+    function cropperSetAspectRatio(ratio, btnEl) {
+      if (!currentCropper) return;
+      currentCropper.setAspectRatio(ratio);
+      document.querySelectorAll('.cropper-aspect-btn').forEach(btn => {
+        btn.classList.remove('active', 'border-blue-600', 'bg-blue-600', 'text-white');
+        btn.classList.add('border-slate-300', 'bg-white', 'text-slate-700');
+      });
+      if (btnEl) {
+        btnEl.classList.remove('border-slate-300', 'bg-white', 'text-slate-700');
+        btnEl.classList.add('active', 'border-blue-600', 'bg-blue-600', 'text-white');
+      }
+    }
+
+    function cropperApply() {
+      if (!currentCropper) return;
+
+      const isAvatar = currentCropperMode === 'avatar';
+      const maxDim = isAvatar ? 300 : 700;
+
+      try {
+        const canvas = currentCropper.getCroppedCanvas({
+          maxWidth: maxDim,
+          maxHeight: maxDim,
+          imageSmoothingEnabled: true,
+          imageSmoothingQuality: 'high',
+          fillColor: '#ffffff'
+        });
+
+        if (!canvas) {
+          Swal.fire('កំហុស', 'មិនអាចកាត់តរូបភាពបានទេ សូមព្យាយាមម្តងទៀត', 'error');
+          return;
+        }
+
+        const croppedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+        if (typeof currentCropperCallback === 'function') {
+          currentCropperCallback(croppedDataUrl);
+        }
+
+        closeImageCropper();
+
+        const Toast = Swal.mixin({
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 1800,
+          timerProgressBar: true
+        });
+        Toast.fire({
+          icon: 'success',
+          title: isAvatar ? 'កែសម្រួលរូប Profile រួចរាល់!' : 'កែសម្រួលរូបទំនិញរួចរាល់!'
+        });
+      } catch (err) {
+        console.error('Cropper export error:', err);
+        Swal.fire('ដំណឹង', 'រូបភាពពីគេហទំព័រខាងក្រៅមានការការពារ (CORS) មិនអាច Export បានដោយផ្ទាល់។ សូមរក្សាទុករូបភាពលើឧបករណ៍ រួច Upload ម្តងទៀត។', 'warning');
+      }
+    }
+
+    function cropCurrentProductImage() {
+      const prevEl = document.getElementById('modalImagePreview');
+      const urlEl = document.getElementById('modalImageUrl');
+      const src = (prevEl && prevEl.src) ? prevEl.src : (urlEl ? urlEl.value : '');
+      if (!src || src === window.location.href || src.includes('placeholder')) {
+        Swal.fire('ដំណឹង', 'មិនទាន់មានរូបភាពទំនិញសម្រាប់កែសម្រួលទេ សូមជ្រើសរើសរូបភាពជាមុនសិន', 'info');
+        return;
+      }
+
+      openImageCropper({
+        imageSrc: src,
+        mode: 'product',
+        title: 'កែសម្រួលរូបភាពទំនិញ (Crop & Zoom Product)',
+        subtitle: 'ពង្រីក ពង្រួម ឬកាត់តរូបភាពទំនិញ',
+        onCrop: function (croppedData) {
+          const sizeKb = (croppedData.length * 0.75 / 1024).toFixed(1);
+          displayImagePreview(croppedData, 'រូបភាពទំនិញ (កែរួច)', `${sizeKb} KB`);
+        }
+      });
+    }
+
+    function cropCurrentAvatar(previewId, dataId) {
+      const prevEl = document.getElementById(previewId);
+      const dataEl = document.getElementById(dataId);
+      const src = (prevEl && prevEl.src) ? prevEl.src : (dataEl ? dataEl.value : '');
+      if (!src || src === window.location.href) {
+        Swal.fire('ដំណឹង', 'មិនទាន់មានរូបភាព Profile សម្រាប់កែសម្រួលទេ សូមជ្រើសរើសរូបភាពជាមុនសិន', 'info');
+        return;
+      }
+
+      openImageCropper({
+        imageSrc: src,
+        mode: 'avatar',
+        title: 'កែសម្រួលរូប Profile (Crop & Zoom Avatar)',
+        subtitle: 'ពង្រីក ពង្រួម និងតម្រឹមទំហំរូប Profile រង្វង់',
+        onCrop: function (croppedData) {
+          if (prevEl) prevEl.src = croppedData;
+          if (dataEl) dataEl.value = croppedData;
 
           if (dataId === 'regAvatarData') {
             const avatarBox = document.getElementById('regAvatarBox');
@@ -6161,14 +6550,78 @@
             const avatarError = document.getElementById('regAvatarError');
             if (avatarError) avatarError.classList.add('hidden');
           } else if (dataId === 'profileAvatarData') {
+            const avatarError = document.getElementById('profileAvatarError');
+            if (avatarError) avatarError.classList.add('hidden');
             if (typeof validateProfileForm === 'function') {
               validateProfileForm(true);
             }
           }
-        };
-        img.src = e.target.result;
-      };
-      reader.readAsDataURL(file);
+        }
+      });
+    }
+
+    // Attach to global window object for onclick handlers
+    window.openImageCropper = openImageCropper;
+    window.closeImageCropper = closeImageCropper;
+    window.cropperZoomStep = cropperZoomStep;
+    window.cropperSetZoom = cropperSetZoom;
+    window.cropperRotate = cropperRotate;
+    window.cropperFlipX = cropperFlipX;
+    window.cropperReset = cropperReset;
+    window.cropperSetAspectRatio = cropperSetAspectRatio;
+    window.cropperApply = cropperApply;
+    window.cropCurrentProductImage = cropCurrentProductImage;
+    window.cropCurrentAvatar = cropCurrentAvatar;
+
+    // --- USER AVATAR & OTP REGISTRATION FLOW ---
+    let pendingRegistrationData = null;
+    let activeGeneratedOtp = '123456';
+
+    function handleUserAvatarSelect(event, previewId, dataId) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      if (!file.type.startsWith('image/')) {
+        Swal.fire('កំហុស', 'សូមជ្រើសរើស File ជារូបភាព (PNG, JPG, WEBP)', 'warning');
+        return;
+      }
+
+      openImageCropper({
+        file: file,
+        mode: 'avatar',
+        title: 'កែសម្រួលរូប Profile (Crop & Zoom Avatar)',
+        subtitle: 'ពង្រីក ពង្រួម និងតម្រឹមទំហំរូប Profile រង្វង់',
+        onCrop: function (croppedData) {
+          const prevEl = document.getElementById(previewId);
+          const dataEl = document.getElementById(dataId);
+          if (prevEl) prevEl.src = croppedData;
+          if (dataEl) dataEl.value = croppedData;
+
+          if (dataId === 'regAvatarData') {
+            const avatarBox = document.getElementById('regAvatarBox');
+            if (avatarBox) {
+              avatarBox.classList.remove('border-rose-500', 'ring-2', 'ring-rose-300');
+              avatarBox.classList.add('border-blue-400');
+            }
+            const avatarLabel = document.getElementById('regAvatarLabel');
+            if (avatarLabel) {
+              avatarLabel.classList.remove('text-rose-600');
+              avatarLabel.classList.add('text-slate-500');
+            }
+            const avatarError = document.getElementById('regAvatarError');
+            if (avatarError) avatarError.classList.add('hidden');
+          } else if (dataId === 'profileAvatarData') {
+            const avatarError = document.getElementById('profileAvatarError');
+            if (avatarError) avatarError.classList.add('hidden');
+            if (typeof validateProfileForm === 'function') {
+              validateProfileForm(true);
+            }
+          }
+        }
+      });
+
+      // Reset file input value so selecting the same file triggers onchange
+      event.target.value = '';
     }
 
     function clearRegFieldError(fieldKey) {
@@ -7611,47 +8064,53 @@
       if (html) {
         const match = html.match(/src=["'](.*?)["']/i);
         if (match && match[1]) {
-          displayImagePreview(match[1], 'រូបភាពពី Web', 'Drag & Drop');
+          openImageCropper({
+            imageSrc: match[1],
+            mode: 'product',
+            title: 'កែសម្រួលរូបភាពទំនិញ (Crop & Zoom Product)',
+            subtitle: 'ពង្រីក ពង្រួម ឬកាត់តរូបភាពទំនិញតាមទំហំដែលចង់បាន',
+            onCrop: function (croppedDataUrl) {
+              const sizeKb = (croppedDataUrl.length * 0.75 / 1024).toFixed(1);
+              displayImagePreview(croppedDataUrl, 'រូបភាពទម្លាក់ពី Web', `${sizeKb} KB`);
+            }
+          });
           return;
         }
       }
 
       const url = event.dataTransfer?.getData('text/uri-list') || event.dataTransfer?.getData('text/plain');
       if (url && (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:image/'))) {
-        displayImagePreview(url.trim(), 'រូបភាពពី Web', 'Drag & Drop');
+        openImageCropper({
+          imageSrc: url.trim(),
+          mode: 'product',
+          title: 'កែសម្រួលរូបភាពទំនិញ (Crop & Zoom Product)',
+          subtitle: 'ពង្រីក ពង្រួម ឬកាត់តរូបភាពទំនិញតាមទំហំដែលចង់បាន',
+          onCrop: function (croppedDataUrl) {
+            const sizeKb = (croppedDataUrl.length * 0.75 / 1024).toFixed(1);
+            displayImagePreview(croppedDataUrl, 'រូបភាពទម្លាក់ពី Web', `${sizeKb} KB`);
+          }
+        });
       }
     }
 
     function processAndSetImage(file) {
       if (!file) return;
-      const reader = new FileReader();
-      reader.onload = function (e) {
-        const img = new Image();
-        img.onload = function () {
-          // Compress and resize to max 500x500 to keep it fast and lightweight
-          const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
-          const maxDim = 500;
-          if (width > height && width > maxDim) {
-            height = Math.round((height * maxDim) / width);
-            width = maxDim;
-          } else if (height > maxDim) {
-            width = Math.round((width * maxDim) / height);
-            height = maxDim;
-          }
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, width, height);
-
-          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
-          const sizeKb = (compressedDataUrl.length * 0.75 / 1024).toFixed(1);
-          displayImagePreview(compressedDataUrl, file.name, `${sizeKb} KB`);
-        };
-        img.src = e.target.result;
-      };
-      reader.readAsDataURL(file);
+      if (!file.type.startsWith('image/')) {
+        Swal.fire('កំហុស', 'សូមជ្រើសរើសប្រភេទ File ជារូបភាព (PNG, JPG, JPEG, WEBP)', 'warning');
+        return;
+      }
+      openImageCropper({
+        file: file,
+        mode: 'product',
+        title: 'កែសម្រួលរូបភាពទំនិញ (Crop & Zoom Product)',
+        subtitle: 'ពង្រីក ពង្រួម ឬកាត់តរូបភាពទំនិញតាមទំហំដែលចង់បាន',
+        onCrop: function (croppedDataUrl) {
+          const sizeKb = (croppedDataUrl.length * 0.75 / 1024).toFixed(1);
+          displayImagePreview(croppedDataUrl, file.name, `${sizeKb} KB`);
+        }
+      });
+      const fileInput = document.getElementById('modalImageFileInput');
+      if (fileInput) fileInput.value = '';
     }
 
     function handleCustomUrlInput(url) {
