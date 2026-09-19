@@ -504,7 +504,13 @@ function executeLocalApiAction(req) {
 
       case 'login':
 
-        return loginUser(payload.username, payload.password);
+        return loginUser(payload, payload.password);
+
+      case 'resetUserDeviceBinding':
+
+      case 'resetDeviceBinding':
+
+        return resetUserDeviceBinding(payload, payload.user || payload.actor);
 
       case 'requestRegistrationOtp':
 
@@ -1111,100 +1117,58 @@ function hashPassword(password, salt) {
  * ពិនិត្យ និងធានាថាមាន User Sheet និង Admin រួចរាល់
 
  */
-
 function ensureUsersInitialized(ss) {
-
   let sheet = ss.getSheetByName(SHEETS.USERS);
-
   if (!sheet || sheet.getLastRow() === 0) {
-
     setupDatabase();
-
     sheet = ss.getSheetByName(SHEETS.USERS);
-
   } else {
-
-    // Ensure column count is at least 15 for Avatar, Phone & Deletion Workflow
-
-    if (sheet.getMaxColumns() < 15) {
-
-      sheet.insertColumnsAfter(sheet.getMaxColumns(), 15 - sheet.getMaxColumns());
-
+    // Ensure column count is at least 16 for Avatar, Phone, Deletion Workflow & BoundDevices
+    if (sheet.getMaxColumns() < 16) {
+      sheet.insertColumnsAfter(sheet.getMaxColumns(), 16 - sheet.getMaxColumns());
     }
-
     try {
-
       sheet.getRange(1, 11).setValue('Avatar');
-
       sheet.getRange(1, 12).setValue('Phone');
-
       sheet.getRange(1, 13).setValue('DeleteReason');
-
       sheet.getRange(1, 14).setValue('DeleteRequestedBy');
-
       sheet.getRange(1, 15).setValue('DeleteRequestedAt');
-
+      sheet.getRange(1, 16).setValue('BoundDevices');
     } catch (colErr) {}
-
   }
-
   return sheet;
-
 }
 
 
 
-function loginUser(usernameOrData, password) {
-
+function loginUser(usernameOrData, password, extraDeviceInfo) {
   let uInput = '';
-
   let pInput = '';
-
-
+  let deviceInfo = null;
 
   if (usernameOrData && typeof usernameOrData === 'object') {
-
     uInput = String(usernameOrData.username || usernameOrData.loginUsername || '').trim().toLowerCase();
-
     pInput = String(usernameOrData.password || usernameOrData.loginPassword || '');
-
+    deviceInfo = usernameOrData.deviceInfo || extraDeviceInfo || null;
   } else {
-
     uInput = String(usernameOrData || '').trim().toLowerCase();
-
     pInput = String(password || '');
-
+    deviceInfo = extraDeviceInfo || null;
   }
-
-
 
   if (!uInput || !pInput) {
-
     return { success: false, message: 'សូមបញ្ចូលឈ្មោះគណនី និងពាក្យសម្ងាត់' };
-
   }
 
-
-
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-
   const sheet = ensureUsersInitialized(ss);
-
   const data = sheet.getDataRange().getValues();
 
-
-
-  // Headers: UserID, Username, FullName, Email, PasswordHash, Salt, Role, Status, CreatedAt
-
+  // Headers: UserID, Username, FullName, Email, PasswordHash, Salt, Role, Status, CreatedAt, Warehouse, Avatar, Phone, DeleteReason, DeleteRequestedBy, DeleteRequestedAt, BoundDevices
   for (let i = 1; i < data.length; i++) {
-
     const row = data[i];
-
     const uName = String(row[1]).trim().toLowerCase();
-
     const uEmail = String(row[3]).trim().toLowerCase();
-
-
 
     if (uName === uInput || uEmail === uInput) {
 
@@ -1265,87 +1229,130 @@ function loginUser(usernameOrData, password) {
 
 
       if (isHashMatch || isPlainMatch) {
+        // Column 16 is BoundDevices JSON
+        let boundDevices = { desktop: null, mobile: null };
+        if (row[15]) {
+          try {
+            boundDevices = JSON.parse(row[15]);
+            if (!boundDevices || typeof boundDevices !== 'object') {
+              boundDevices = { desktop: null, mobile: null };
+            }
+          } catch (e) {
+            boundDevices = { desktop: null, mobile: null };
+          }
+        }
+
+        // Validate Device Binding (Strict 1 Computer + 1 Mobile Phone per User Account)
+        if (deviceInfo && deviceInfo.deviceId) {
+          const rawType = String(deviceInfo.deviceType || 'DESKTOP').toUpperCase();
+          const devType = (rawType === 'MOBILE' || rawType === 'PHONE') ? 'MOBILE' : 'DESKTOP';
+          const devId = String(deviceInfo.deviceId).trim();
+          const devName = String(deviceInfo.deviceName || (devType === 'MOBILE' ? 'ទូរសព្ទដៃ' : 'កុំព្យូទ័រ')).trim();
+          const nowStr = new Date().toISOString();
+
+          if (devType === 'DESKTOP') {
+            if (!boundDevices.desktop || !boundDevices.desktop.deviceId) {
+              // Auto-bind first computer
+              boundDevices.desktop = {
+                deviceId: devId,
+                deviceName: devName,
+                boundAt: nowStr,
+                lastActive: nowStr
+              };
+              sheet.getRange(i + 1, 16).setValue(JSON.stringify(boundDevices));
+            } else if (boundDevices.desktop.deviceId !== devId) {
+              // Block second computer attempt!
+              return {
+                success: false,
+                deviceBlocked: true,
+                blockReason: 'DESKTOP_LIMIT_EXCEEDED',
+                boundDeviceName: boundDevices.desktop.deviceName || 'កុំព្យូទ័រដែលបានភ្ជាប់រួច',
+                boundAt: boundDevices.desktop.boundAt,
+                attemptedDeviceName: devName,
+                message: 'គណនីនេះត្រូវបានភ្ជាប់ជាមួយកុំព្យូទ័រផ្សេងរួចហើយ! គោលការណ៍សុវត្ថិភាពអនុញ្ញាតត្រឹមតែ ១ កុំព្យូទ័រ និង ១ ទូរសព្ទដៃប៉ុណ្ណោះ។ លើសពីនេះមិនអាចចូលប្រើប្រាស់បានជាដាច់ខាត។ សូមទាក់ទង Admin/SuperAdmin ប្រសិនបើលោកអ្នកបានប្តូរកុំព្យូទ័រថ្មី។'
+              };
+            } else {
+              // Matched bound computer, refresh last active
+              boundDevices.desktop.lastActive = nowStr;
+              if (devName) boundDevices.desktop.deviceName = devName;
+              sheet.getRange(i + 1, 16).setValue(JSON.stringify(boundDevices));
+            }
+          } else {
+            // MOBILE
+            if (!boundDevices.mobile || !boundDevices.mobile.deviceId) {
+              // Auto-bind first mobile phone
+              boundDevices.mobile = {
+                deviceId: devId,
+                deviceName: devName,
+                boundAt: nowStr,
+                lastActive: nowStr
+              };
+              sheet.getRange(i + 1, 16).setValue(JSON.stringify(boundDevices));
+            } else if (boundDevices.mobile.deviceId !== devId) {
+              // Block second mobile phone attempt!
+              return {
+                success: false,
+                deviceBlocked: true,
+                blockReason: 'MOBILE_LIMIT_EXCEEDED',
+                boundDeviceName: boundDevices.mobile.deviceName || 'ទូរសព្ទដៃដែលបានភ្ជាប់រួច',
+                boundAt: boundDevices.mobile.boundAt,
+                attemptedDeviceName: devName,
+                message: 'គណនីនេះត្រូវបានភ្ជាប់ជាមួយទូរសព្ទដៃផ្សេងរួចហើយ! គោលការណ៍សុវត្ថិភាពអនុញ្ញាតត្រឹមតែ ១ កុំព្យូទ័រ និង ១ ទូរសព្ទដៃប៉ុណ្ណោះ។ លើសពីនេះមិនអាចចូលប្រើប្រាស់បានជាដាច់ខាត។ សូមទាក់ទង Admin/SuperAdmin ប្រសិនបើលោកអ្នកបានប្តូរទូរសព្ទដៃថ្មី។'
+              };
+            } else {
+              // Matched bound mobile, refresh last active
+              boundDevices.mobile.lastActive = nowStr;
+              if (devName) boundDevices.mobile.deviceName = devName;
+              sheet.getRange(i + 1, 16).setValue(JSON.stringify(boundDevices));
+            }
+          }
+        }
 
         const userObj = {
-
           userId: String(row[0]),
-
           username: String(row[1]),
-
           fullName: String(row[2]),
-
           email: String(row[3]),
-
           role: String(row[6]),
-
           status: String(row[7] || 'Active'),
-
-          warehouse: String(row[9] || (String(row[6]) === 'Admin' || String(row[6]) === 'SuperAdmin' ? 'ALL' : 'ឃ្លាំងទី ០១ - ភ្នំពេញ (សែនសុខ)')),
-
+          warehouse: String(row[9] || (String(row[6]) === 'Admin' || String(row[6]) === 'SuperAdmin' ? 'ALL' : '1-K3 ស្ថានីយ (ភ្នំពេញ)')),
           avatar: String(row[10] || ''),
-
           phone: String(row[11] || ''),
-
+          boundDevices: boundDevices,
           token: Utilities.base64EncodeWebSafe(row[0] + ':' + new Date().getTime())
-
         };
 
-        logActivity(userObj.username, userObj.role, 'LOGIN', `User logged in successfully (Warehouse: ${userObj.warehouse})`);
+        logActivity(userObj.username, userObj.role, 'LOGIN', `User logged in successfully (Warehouse: ${userObj.warehouse}, Device: ${deviceInfo ? deviceInfo.deviceName : 'Web'})`);
 
         return { success: true, user: userObj };
-
       } else {
-
         return { success: false, message: 'ពាក្យសម្ងាត់មិនត្រឹមត្រូវទេ' };
-
       }
-
     }
-
   }
-
-
 
   // Fallback auto-create for SuperAdmin
-
   if (uInput === 'superadmin' && (pInput === 'superadmin123' || pInput === 'admin')) {
-
     const salt = generateSalt();
-
     const hash = hashPassword('superadmin123', salt);
-
-    sheet.appendRow(['USR-SA', 'superadmin', '陈龙', 'chenlongqmi@gmail.com', hash, salt, 'SuperAdmin', 'Active', new Date(), 'ALL', 'assets/superadmin_avatar.jpg', '066966606']);
-
+    const initialBound = JSON.stringify({ desktop: null, mobile: null });
+    sheet.appendRow(['USR-SA', 'superadmin', '陈龙', 'chenlongqmi@gmail.com', hash, salt, 'SuperAdmin', 'Active', new Date(), 'ALL', 'assets/superadmin_avatar.jpg', '066966606', '', '', '', initialBound]);
     return {
-
       success: true,
-
-      user: { userId: 'USR-SA', username: 'superadmin', fullName: '陈龙', email: 'chenlongqmi@gmail.com', phone: '066966606', role: 'SuperAdmin', warehouse: 'ALL', avatar: 'assets/superadmin_avatar.jpg' }
-
+      user: { userId: 'USR-SA', username: 'superadmin', fullName: '陈龙', email: 'chenlongqmi@gmail.com', phone: '066966606', role: 'SuperAdmin', warehouse: 'ALL', avatar: 'assets/superadmin_avatar.jpg', boundDevices: { desktop: null, mobile: null } }
     };
-
   }
 
-
-
   // If no user found and typing admin / admin123, auto-create admin
-
   if (uInput === 'admin' && pInput === 'admin123') {
-
     const salt = generateSalt();
-
     const hash = hashPassword('admin123', salt);
-
-    sheet.appendRow(['USR-001', 'admin', '聂稳新', 'ppshv2024@gmail.com', hash, salt, 'Admin', 'Active', new Date(), 'ALL', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', '098880803']);
-
+    const initialBound = JSON.stringify({ desktop: null, mobile: null });
+    sheet.appendRow(['USR-001', 'admin', '聂稳新', 'ppshv2024@gmail.com', hash, salt, 'Admin', 'Active', new Date(), 'ALL', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', '098880803', '', '', '', initialBound]);
     return {
-
       success: true,
-
-      user: { userId: 'USR-001', username: 'admin', fullName: '聂稳新', email: 'ppshv2024@gmail.com', phone: '098880803', role: 'Admin', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150' }
-
+      user: { userId: 'USR-001', username: 'admin', fullName: '聂稳新', email: 'ppshv2024@gmail.com', phone: '098880803', role: 'Admin', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', boundDevices: { desktop: null, mobile: null } }
     };
-
   }
 
 
@@ -2202,7 +2209,19 @@ function getUsersList(userOrPayload) {
 
         deleteRequestedBy: data[i][13] || '',
 
-        deleteRequestedAt: data[i][14] || ''
+        deleteRequestedAt: data[i][14] || '',
+
+        boundDevices: (function() {
+          if (data[i][15]) {
+            try {
+              const b = JSON.parse(data[i][15]);
+              return (b && typeof b === 'object') ? b : { desktop: null, mobile: null };
+            } catch (e) {
+              return { desktop: null, mobile: null };
+            }
+          }
+          return { desktop: null, mobile: null };
+        })()
 
       });
 
@@ -2249,6 +2268,100 @@ function getUsersList(userOrPayload) {
   }
 
   return { success: true, users: users };
+
+}
+
+
+
+function resetUserDeviceBinding(payload, actor) {
+
+  const targetUserId = String(payload.userId || '').trim();
+
+  const targetUsername = String(payload.username || '').trim().toLowerCase();
+
+  const deviceTypeToReset = String(payload.deviceType || 'ALL').toUpperCase(); // 'DESKTOP', 'MOBILE', or 'ALL'
+
+
+
+  if (!targetUserId && !targetUsername) {
+
+    return { success: false, message: 'សូមបញ្ជាក់ UserID ឬ Username របស់គណនី' };
+
+  }
+
+
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  const sheet = ensureUsersInitialized(ss);
+
+  const data = sheet.getDataRange().getValues();
+
+
+
+  for (let i = 1; i < data.length; i++) {
+
+    const row = data[i];
+
+    const uId = String(row[0] || '').trim();
+
+    const uName = String(row[1] || '').trim().toLowerCase();
+
+
+
+    if ((targetUserId && uId === targetUserId) || (targetUsername && uName === targetUsername)) {
+
+      let bound = { desktop: null, mobile: null };
+
+      if (row[15]) {
+
+        try {
+
+          bound = JSON.parse(row[15]);
+
+          if (!bound || typeof bound !== 'object') bound = { desktop: null, mobile: null };
+
+        } catch (e) {
+
+          bound = { desktop: null, mobile: null };
+
+        }
+
+      }
+
+
+
+      if (deviceTypeToReset === 'DESKTOP') {
+
+        bound.desktop = null;
+
+      } else if (deviceTypeToReset === 'MOBILE') {
+
+        bound.mobile = null;
+
+      } else {
+
+        bound.desktop = null;
+
+        bound.mobile = null;
+
+      }
+
+
+
+      sheet.getRange(i + 1, 16).setValue(JSON.stringify(bound));
+
+      logActivity(actor ? actor.username : 'Admin', actor ? actor.role : 'Admin', 'RESET_DEVICE', `ផ្តាច់ឧបករណ៍ (${deviceTypeToReset}) សម្រាប់គណនី ${uName}`);
+
+      return { success: true, message: 'បានផ្តាច់ឧបករណ៍ជោគជ័យ', boundDevices: bound };
+
+    }
+
+  }
+
+
+
+  return { success: false, message: 'រកមិនឃើញគណនីអ្នកប្រើប្រាស់នេះទេ' };
 
 }
 

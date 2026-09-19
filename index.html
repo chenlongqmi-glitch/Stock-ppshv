@@ -2036,13 +2036,14 @@
                     <th class="px-4 py-3.5 bg-slate-100 sticky top-0 z-20">ឈ្មោះពេញ / អ៊ីមែល</th>
                     <th class="px-4 py-3.5 bg-slate-100 sticky top-0 z-20">តួនាទី (Role)</th>
                     <th class="px-4 py-3.5 bg-slate-100 sticky top-0 z-20">ឃ្លាំងទទួលបន្ទុក</th>
+                    <th class="px-4 py-3.5 bg-slate-100 sticky top-0 z-20 text-center">ឧបករណ៍ (Devices)</th>
                     <th class="px-4 py-3.5 bg-slate-100 sticky top-0 z-20 text-center">ស្ថានភាព</th>
                     <th class="px-4 py-3.5 bg-slate-100 sticky top-0 z-20 text-center">សកម្មភាព</th>
                   </tr>
                 </thead>
                 <tbody id="usersTableBody" class="divide-y divide-slate-100 font-medium">
                   <tr>
-                    <td colspan="7" class="text-center py-10 text-slate-400">កំពុងផ្ទុកបញ្ជីអ្នកប្រើប្រាស់...</td>
+                    <td colspan="8" class="text-center py-10 text-slate-400">កំពុងផ្ទុកបញ្ជីអ្នកប្រើប្រាស់...</td>
                   </tr>
                 </tbody>
               </table>
@@ -3451,6 +3452,43 @@
           <div>
             <span class="text-[10px] text-slate-400 block font-semibold">ទីតាំងឃ្លាំង:</span>
             <span id="profileWarehouseDisplay" class="font-bold text-emerald-600 truncate block">គ្រប់ស្ថានីយ</span>
+          </div>
+        </div>
+
+        <!-- Bound Devices Section (1 PC + 1 Mobile Limit) -->
+        <div class="p-3 bg-gradient-to-br from-slate-50 to-blue-50/40 rounded-2xl border border-slate-200/90 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-800 flex items-center">
+              <i class="fa-solid fa-shield-halved text-blue-600 mr-1.5"></i>
+              <span>ឧបករណ៍ដែលបានភ្ជាប់ (Bound Devices)</span>
+            </span>
+            <span class="text-[10px] font-bold text-blue-700 bg-blue-100/70 px-2 py-0.5 rounded-full border border-blue-200">
+              កម្រិត៖ ១ កុំព្យូទ័រ + ១ ទូរសព្ទដៃ
+            </span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-0.5">
+            <!-- Bound Desktop -->
+            <div id="profileDesktopDeviceBox" class="p-2.5 bg-white rounded-xl border border-slate-200 flex items-center space-x-2.5">
+              <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                <i class="fa-solid fa-desktop text-sm"></i>
+              </div>
+              <div class="overflow-hidden flex-1">
+                <span class="text-[10px] text-slate-400 block font-semibold">កុំព្យូទ័រ (PC / Laptop)</span>
+                <span id="profileDesktopDeviceName" class="font-bold text-slate-800 truncate block text-[11px]">ទំនេរ</span>
+                <span id="profileDesktopDeviceStatus" class="text-[9.5px] text-slate-400 block"></span>
+              </div>
+            </div>
+            <!-- Bound Mobile -->
+            <div id="profileMobileDeviceBox" class="p-2.5 bg-white rounded-xl border border-slate-200 flex items-center space-x-2.5">
+              <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                <i class="fa-solid fa-mobile-screen text-sm"></i>
+              </div>
+              <div class="overflow-hidden flex-1">
+                <span class="text-[10px] text-slate-400 block font-semibold">ទូរសព្ទដៃ (Smartphone)</span>
+                <span id="profileMobileDeviceName" class="font-bold text-slate-800 truncate block text-[11px]">ទំនេរ</span>
+                <span id="profileMobileDeviceStatus" class="text-[9.5px] text-slate-400 block"></span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -5233,6 +5271,149 @@
       return outcomes;
     }
 
+    // =========================================================================
+    // DEVICE FINGERPRINTING & HARDWARE BINDING SYSTEM (1 PC + 1 MOBILE LIMIT)
+    // =========================================================================
+    function getDeviceClassification() {
+      const ua = navigator.userAgent || '';
+      const isMobile = /Mobile|Android|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua) || (window.innerWidth <= 768 && 'ontouchstart' in window);
+      return isMobile ? 'MOBILE' : 'DESKTOP';
+    }
+
+    function getFriendlyDeviceName() {
+      const ua = navigator.userAgent || '';
+      const isMobile = getDeviceClassification() === 'MOBILE';
+      let os = isMobile ? 'Mobile Phone' : 'Computer';
+      if (/Windows NT 10.0|Windows 11|Windows NT/i.test(ua)) os = 'Windows PC';
+      else if (/Macintosh|Mac OS X/i.test(ua)) os = 'Mac';
+      else if (/iPhone/i.test(ua)) os = 'iPhone';
+      else if (/iPad/i.test(ua)) os = 'iPad';
+      else if (/Android/i.test(ua)) os = 'Android Phone';
+      else if (/Linux/i.test(ua)) os = 'Linux PC';
+
+      let browser = 'Browser';
+      if (/Edg/i.test(ua)) browser = 'Edge';
+      else if (/Chrome|CriOS/i.test(ua)) browser = 'Chrome';
+      else if (/Safari/i.test(ua)) browser = 'Safari';
+      else if (/Firefox|FxiOS/i.test(ua)) browser = 'Firefox';
+
+      return `${os} (${browser})`;
+    }
+
+    function getOrCreateDeviceId() {
+      let devId = '';
+      try { devId = localStorage.getItem('inventory_device_id') || ''; } catch (e) { }
+
+      if (!devId) {
+        // Fallback to cookie check
+        const match = document.cookie.match(/(?:^|;\s*)inventory_device_id=([^;]*)/);
+        if (match && match[1]) {
+          devId = decodeURIComponent(match[1]);
+        }
+      }
+
+      if (!devId || devId.length < 10) {
+        const isMobile = getDeviceClassification() === 'MOBILE';
+        const prefix = isMobile ? 'DEV-MOB' : 'DEV-PC';
+        const rand = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const time = Date.now().toString(36).toUpperCase();
+        devId = `${prefix}-${rand}-${time}`;
+      }
+
+      // Persist to both localStorage and long-lived cookie (10 years)
+      try { localStorage.setItem('inventory_device_id', devId); } catch (e) { }
+      try {
+        const exp = new Date();
+        exp.setTime(exp.getTime() + (3650 * 24 * 60 * 60 * 1000));
+        document.cookie = `inventory_device_id=${encodeURIComponent(devId)};expires=${exp.toUTCString()};path=/;SameSite=Lax`;
+      } catch (e) { }
+
+      return devId;
+    }
+
+    function getCurrentDeviceInfo() {
+      return {
+        deviceId: getOrCreateDeviceId(),
+        deviceType: getDeviceClassification(),
+        deviceName: getFriendlyDeviceName(),
+        userAgent: navigator.userAgent || ''
+      };
+    }
+
+    function validateAndApplyDeviceBinding(user, deviceInfo) {
+      if (!user) return { success: false, message: 'User មិនត្រឹមត្រូវ' };
+      if (!deviceInfo || !deviceInfo.deviceId) {
+        deviceInfo = getCurrentDeviceInfo();
+      }
+
+      const rawType = String(deviceInfo.deviceType || 'DESKTOP').toUpperCase();
+      const devType = (rawType === 'MOBILE' || rawType === 'PHONE') ? 'MOBILE' : 'DESKTOP';
+      const devId = String(deviceInfo.deviceId).trim();
+      const devName = String(deviceInfo.deviceName || (devType === 'MOBILE' ? 'ទូរសព្ទដៃ' : 'កុំព្យូទ័រ')).trim();
+      const nowStr = new Date().toISOString();
+
+      if (!user.boundDevices || typeof user.boundDevices !== 'object') {
+        user.boundDevices = { desktop: null, mobile: null };
+      }
+
+      if (devType === 'DESKTOP') {
+        if (!user.boundDevices.desktop || !user.boundDevices.desktop.deviceId) {
+          // Auto-bind 1st desktop!
+          user.boundDevices.desktop = {
+            deviceId: devId,
+            deviceName: devName,
+            boundAt: nowStr,
+            lastActive: nowStr
+          };
+          saveLocalUsersToStorage();
+        } else if (user.boundDevices.desktop.deviceId !== devId) {
+          // 2nd Desktop BLOCKED!
+          return {
+            success: false,
+            deviceBlocked: true,
+            blockReason: 'DESKTOP_LIMIT_EXCEEDED',
+            boundDeviceName: user.boundDevices.desktop.deviceName || 'កុំព្យូទ័រដែលបានភ្ជាប់រួច',
+            boundAt: user.boundDevices.desktop.boundAt,
+            attemptedDeviceName: devName,
+            message: 'គណនីនេះត្រូវបានភ្ជាប់ជាមួយកុំព្យូទ័រផ្សេងរួចហើយ! គោលការណ៍សុវត្ថិភាពអនុញ្ញាតត្រឹមតែ ១ កុំព្យូទ័រ និង ១ ទូរសព្ទដៃប៉ុណ្ណោះ។ លើសពីនេះមិនអាចចូលប្រើប្រាស់បានជាដាច់ខាត។ សូមទាក់ទង Admin/SuperAdmin ប្រសិនបើលោកអ្នកបានប្តូរកុំព្យូទ័រថ្មី។'
+          };
+        } else {
+          user.boundDevices.desktop.lastActive = nowStr;
+          if (devName) user.boundDevices.desktop.deviceName = devName;
+          saveLocalUsersToStorage();
+        }
+      } else {
+        // MOBILE
+        if (!user.boundDevices.mobile || !user.boundDevices.mobile.deviceId) {
+          // Auto-bind 1st mobile!
+          user.boundDevices.mobile = {
+            deviceId: devId,
+            deviceName: devName,
+            boundAt: nowStr,
+            lastActive: nowStr
+          };
+          saveLocalUsersToStorage();
+        } else if (user.boundDevices.mobile.deviceId !== devId) {
+          // 2nd Mobile BLOCKED!
+          return {
+            success: false,
+            deviceBlocked: true,
+            blockReason: 'MOBILE_LIMIT_EXCEEDED',
+            boundDeviceName: user.boundDevices.mobile.deviceName || 'ទូរសព្ទដៃដែលបានភ្ជាប់រួច',
+            boundAt: user.boundDevices.mobile.boundAt,
+            attemptedDeviceName: devName,
+            message: 'គណនីនេះត្រូវបានភ្ជាប់ជាមួយទូរសព្ទដៃផ្សេងរួចហើយ! គោលការណ៍សុវត្ថិភាពអនុញ្ញាតត្រឹមតែ ១ កុំព្យូទ័រ និង ១ ទូរសព្ទដៃប៉ុណ្ណោះ។ លើសពីនេះមិនអាចចូលប្រើប្រាស់បានជាដាច់ខាត។ សូមទាក់ទង Admin/SuperAdmin ប្រសិនបើលោកអ្នកបានប្តូរទូរសព្ទដៃថ្មី។'
+          };
+        } else {
+          user.boundDevices.mobile.lastActive = nowStr;
+          if (devName) user.boundDevices.mobile.deviceName = devName;
+          saveLocalUsersToStorage();
+        }
+      }
+
+      return { success: true, user: user };
+    }
+
     function simulateLocalApi(action, payload) {
       const u = payload.user || AppState.currentUser;
       const whFilter = payload.warehouseFilter || AppState.selectedAdminWarehouseFilter;
@@ -5250,24 +5431,39 @@
       if (action === 'loginUser' || action === 'login') {
         const username = String(payload.username || '').trim().toLowerCase();
         const password = String(payload.password || '').trim();
+        const deviceInfo = payload.deviceInfo || getCurrentDeviceInfo();
 
         loadLocalUsersFromStorage();
 
         // 1. SuperAdmin Login
         if (username === 'superadmin' && (password === 'superadmin123' || password === 'admin' || password === 'superadmin')) {
-          const saUser = LOCAL_DB.users.find(u => u.username.toLowerCase() === 'superadmin' || u.userId === 'USR-SA');
+          let saUser = LOCAL_DB.users.find(u => u.username.toLowerCase() === 'superadmin' || u.userId === 'USR-SA');
+          if (!saUser) {
+            saUser = { userId: 'USR-SA', username: 'superadmin', fullName: '陈龙', email: 'chenlongqmi@gmail.com', phone: '066966606', role: 'SuperAdmin', warehouse: 'ALL', avatar: 'assets/superadmin_avatar.jpg', boundDevices: { desktop: null, mobile: null } };
+            LOCAL_DB.users.push(saUser);
+            saveLocalUsersToStorage();
+          }
+          const deviceCheck = validateAndApplyDeviceBinding(saUser, deviceInfo);
+          if (!deviceCheck.success) return deviceCheck;
           return {
             success: true,
-            user: saUser || { userId: 'USR-SA', username: 'superadmin', fullName: '陈龙', email: 'chenlongqmi@gmail.com', phone: '066966606', role: 'SuperAdmin', warehouse: 'ALL', avatar: 'assets/superadmin_avatar.jpg' }
+            user: saUser
           };
         }
 
         // 2. Admin Login
         if (username === 'admin' && (password === 'admin123' || password === 'admin')) {
-          const adUser = LOCAL_DB.users.find(u => u.username.toLowerCase() === 'admin' || u.userId === 'USR-00');
+          let adUser = LOCAL_DB.users.find(u => u.username.toLowerCase() === 'admin' || u.userId === 'USR-00');
+          if (!adUser) {
+            adUser = { userId: 'USR-00', username: 'admin', fullName: '聂稳新', email: 'ppshv2024@gmail.com', phone: '098880803', role: 'Admin', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', boundDevices: { desktop: null, mobile: null } };
+            LOCAL_DB.users.push(adUser);
+            saveLocalUsersToStorage();
+          }
+          const deviceCheck = validateAndApplyDeviceBinding(adUser, deviceInfo);
+          if (!deviceCheck.success) return deviceCheck;
           return {
             success: true,
-            user: adUser || { userId: 'USR-00', username: 'admin', fullName: '聂稳新', email: 'ppshv2024@gmail.com', phone: '098880803', role: 'Admin', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150' }
+            user: adUser
           };
         }
 
@@ -5290,6 +5486,9 @@
               message: 'គណនីរបស់អ្នកត្រូវបានបដិសេធ (Rejected)។ សូមទាក់ទង Admin សម្រាប់ព័ត៌មានបន្ថែម។'
             };
           }
+          // Validate Device Binding
+          const deviceCheck = validateAndApplyDeviceBinding(matched, deviceInfo);
+          if (!deviceCheck.success) return deviceCheck;
           return { success: true, user: matched };
         }
 
@@ -5297,6 +5496,28 @@
           success: false,
           message: 'ឈ្មោះគណនី ឬពាក្យសម្ងាត់មិនត្រឹមត្រូវទេ! ប្រសិនបើមិនទាន់មានគណនី សូមចុច «ចុះឈ្មោះ (Register)» ដើម្បីស្នើសុំគណនីថ្មី។'
         };
+      }
+
+      if (action === 'resetUserDeviceBinding' || action === 'resetDeviceBinding') {
+        const uId = payload.userId;
+        const uName = String(payload.username || '').toLowerCase();
+        const type = String(payload.deviceType || 'ALL').toUpperCase(); // 'DESKTOP', 'MOBILE', or 'ALL'
+        const target = LOCAL_DB.users.find(u => (uId && u.userId === uId) || (uName && u.username.toLowerCase() === uName));
+        if (target) {
+          if (!target.boundDevices || typeof target.boundDevices !== 'object') {
+            target.boundDevices = { desktop: null, mobile: null };
+          }
+          if (type === 'DESKTOP') {
+            target.boundDevices.desktop = null;
+          } else if (type === 'MOBILE') {
+            target.boundDevices.mobile = null;
+          } else {
+            target.boundDevices = { desktop: null, mobile: null };
+          }
+          saveLocalUsersToStorage();
+          return { success: true, message: 'បានផ្តាច់ឧបករណ៍ជោគជ័យ', boundDevices: target.boundDevices };
+        }
+        return { success: false, message: 'រកមិនឃើញ User នេះទេ' };
       }
 
       if (action === 'registerUser' || action === 'register') {
@@ -6041,9 +6262,20 @@
         }
       }
 
+      const deviceInfo = getCurrentDeviceInfo();
+
       // Fast-Path 1: Instant Local-First Authentication (< 5ms)
       loadLocalUsersFromStorage();
-      const localAuthRes = simulateLocalApi('loginUser', { username, password });
+      const localAuthRes = simulateLocalApi('loginUser', { username, password, deviceInfo });
+
+      if (localAuthRes && !localAuthRes.success && localAuthRes.deviceBlocked) {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<span>ចូលប្រព័ន្ធ</span> <i class="fa-solid fa-arrow-right-to-bracket text-sm"></i>';
+        }
+        showDeviceBlockedAlert(localAuthRes, deviceInfo);
+        return;
+      }
 
       if (localAuthRes && !localAuthRes.success && localAuthRes.message && (localAuthRes.message.includes('Pending') || localAuthRes.message.includes('Rejected') || localAuthRes.message.includes('រង់ចាំ'))) {
         if (btn) {
@@ -6061,7 +6293,11 @@
 
       // Fast-Path 2: Cloud Fallback (Only if user not found in local cache)
       try {
-        const cloudRes = await apiCall('loginUser', { username, password });
+        const cloudRes = await apiCall('loginUser', { username, password, deviceInfo });
+        if (cloudRes && !cloudRes.success && cloudRes.deviceBlocked) {
+          showDeviceBlockedAlert(cloudRes, deviceInfo);
+          return;
+        }
         if (cloudRes && cloudRes.success && cloudRes.user) {
           const existingIdx = LOCAL_DB.users.findIndex(u => u.username.toLowerCase() === cloudRes.user.username.toLowerCase());
           if (existingIdx !== -1) {
@@ -6082,6 +6318,74 @@
           btn.innerHTML = '<span>ចូលប្រព័ន្ធ</span> <i class="fa-solid fa-arrow-right-to-bracket text-sm"></i>';
         }
       }
+    }
+
+    function showDeviceBlockedAlert(res, deviceInfo) {
+      const isDesktop = res.blockReason === 'DESKTOP_LIMIT_EXCEEDED';
+      const deviceCategoryName = isDesktop ? 'កុំព្យូទ័រ (PC / Laptop)' : 'ទូរសព្ទដៃ (Smartphone)';
+      const deviceIcon = isDesktop ? 'fa-desktop' : 'fa-mobile-screen';
+
+      Swal.fire({
+        icon: 'error',
+        title: `<div class="flex items-center justify-center space-x-2 text-rose-600 font-black text-lg">
+                  <i class="fa-solid fa-ban"></i>
+                  <span>ឧបករណ៍ត្រូវបានរារាំង (Device Blocked)</span>
+                </div>`,
+        html: `
+          <div class="text-left bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs space-y-3 mt-3">
+            <div class="p-2.5 bg-rose-100/70 rounded-xl border border-rose-200 text-rose-800 font-bold flex items-start space-x-2">
+              <i class="fa-solid ${deviceIcon} text-rose-600 text-base mt-0.5 shrink-0"></i>
+              <div>
+                <p class="leading-relaxed">${res.message || 'គណនីនេះត្រូវបានភ្ជាប់ជាមួយឧបករណ៍ផ្សេងរួចហើយ!'}</p>
+              </div>
+            </div>
+
+            <div class="p-3 bg-white rounded-xl border border-slate-200/80 space-y-1.5 text-slate-700">
+              <div class="flex justify-between items-center text-[11.5px]">
+                <span class="text-slate-500">ប្រភេទឧបករណ៍៖</span>
+                <span class="font-bold text-slate-900">${deviceCategoryName}</span>
+              </div>
+              <div class="flex justify-between items-center text-[11.5px]">
+                <span class="text-slate-500">ឧបករណ៍ដែលបានភ្ជាប់រួច៖</span>
+                <span class="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">${res.boundDeviceName || 'ឧបករណ៍ចាស់'}</span>
+              </div>
+              <div class="flex justify-between items-center text-[11.5px]">
+                <span class="text-slate-500">ឧបករណ៍បច្ចុប្បន្នដែលព្យាយាមចូល៖</span>
+                <span class="font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">${res.attemptedDeviceName || deviceInfo.deviceName}</span>
+              </div>
+              ${res.boundAt ? `
+              <div class="flex justify-between items-center text-[10.5px] text-slate-400 pt-1 border-t border-slate-100">
+                <span>កាលបរិច្ឆេទភ្ជាប់៖</span>
+                <span>${new Date(res.boundAt).toLocaleString('km-KH')}</span>
+              </div>` : ''}
+            </div>
+
+            <div class="p-3 bg-gradient-to-br from-amber-50 to-orange-50/60 rounded-xl border border-amber-200 text-[11px] text-amber-900 space-y-1">
+              <p class="font-black text-amber-800 flex items-center">
+                <i class="fa-solid fa-shield-halved text-amber-600 mr-1.5"></i> គោលការណ៍សុវត្ថិភាពតឹងរ៉ឹង៖
+              </p>
+              <p class="text-slate-600 leading-relaxed">
+                គណនីនីមួយៗត្រូវបានអនុញ្ញាតឱ្យចូលប្រើប្រាស់បានត្រឹម៖
+              </p>
+              <ul class="list-disc pl-4 space-y-0.5 font-bold text-slate-800">
+                <li>កុំព្យូទ័រ (PC / Laptop) ចំនួន <b>១ គ្រឿង</b></li>
+                <li>ទូរសព្ទដៃ (Smartphone) ចំនួន <b>១ គ្រឿង</b></li>
+              </ul>
+              <p class="text-rose-600 font-bold pt-0.5">⚠️ លើសពីនេះគឺមិនអាចចូលប្រើប្រាស់បានជាដាច់ខាត!</p>
+            </div>
+
+            <div class="p-2.5 bg-blue-50/60 rounded-xl border border-blue-200 text-[11px] text-blue-800 flex items-start space-x-2">
+              <i class="fa-solid fa-circle-info text-blue-600 text-sm mt-0.5 shrink-0"></i>
+              <p class="leading-relaxed">
+                ប្រសិនបើលោកអ្នកបានប្តូរឧបករណ៍ថ្មី ឬឧបករណ៍ចាស់ខូច/បាត់ សូមទាក់ទងទៅ <b>Admin</b> ឬ <b>SuperAdmin</b> ដើម្បីធ្វើការផ្តាច់ឧបករណ៍ចាស់ (Reset Device Binding)។
+              </p>
+            </div>
+          </div>
+        `,
+        confirmButtonColor: '#e11d48',
+        confirmButtonText: 'យល់ព្រម',
+        customClass: { popup: 'rounded-3xl shadow-2xl max-w-md' }
+      });
     }
 
     // --- FORGOT PASSWORD ENGINE ---
@@ -9873,6 +10177,57 @@
               statusBadgeHtml = `<span class="px-2.5 py-1 rounded-full font-bold text-[10px] bg-slate-100 text-slate-700">${u.status || 'Inactive'}</span>`;
             }
 
+            // Bound Devices Badge Formatting (1 PC + 1 Mobile Limit)
+            const bound = u.boundDevices || { desktop: null, mobile: null };
+            const pcBound = !!(bound.desktop && bound.desktop.deviceId);
+            const phoneBound = !!(bound.mobile && bound.mobile.deviceId);
+
+            const deviceBadgesHtml = `
+              <div class="inline-flex flex-col space-y-1 text-left">
+                <div class="inline-flex items-center space-x-1.5" title="${pcBound ? `កុំព្យូទ័រ: ${escapeHtml(bound.desktop.deviceName || 'PC')} (${new Date(bound.desktop.boundAt || Date.now()).toLocaleDateString('km-KH')})` : 'កុំព្យូទ័រ: ទំនេរ (មិនទាន់ភ្ជាប់)'}">
+                  <span class="w-4 text-center"><i class="fa-solid fa-desktop ${pcBound ? 'text-blue-600' : 'text-slate-300'} text-xs"></i></span>
+                  ${pcBound ? `
+                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                      <span class="w-1.5 h-1.5 rounded-full bg-blue-500 mr-1 animate-pulse"></span>
+                      ${bound.desktop.deviceName ? (bound.desktop.deviceName.length > 13 ? escapeHtml(bound.desktop.deviceName.substring(0, 11)) + '...' : escapeHtml(bound.desktop.deviceName)) : 'PC: ភ្ជាប់រួច'}
+                    </span>
+                  ` : `
+                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-400">PC: ទំនេរ</span>
+                  `}
+                </div>
+                <div class="inline-flex items-center space-x-1.5" title="${phoneBound ? `ទូរសព្ទដៃ: ${escapeHtml(bound.mobile.deviceName || 'Mobile')} (${new Date(bound.mobile.boundAt || Date.now()).toLocaleDateString('km-KH')})` : 'ទូរសព្ទដៃ: ទំនេរ (មិនទាន់ភ្ជាប់)'}">
+                  <span class="w-4 text-center"><i class="fa-solid fa-mobile-screen ${phoneBound ? 'text-emerald-600' : 'text-slate-300'} text-xs"></i></span>
+                  ${phoneBound ? `
+                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1 animate-pulse"></span>
+                      ${bound.mobile.deviceName ? (bound.mobile.deviceName.length > 13 ? escapeHtml(bound.mobile.deviceName.substring(0, 11)) + '...' : escapeHtml(bound.mobile.deviceName)) : 'Phone: ភ្ជាប់រួច'}
+                    </span>
+                  ` : `
+                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-400">Phone: ទំនេរ</span>
+                  `}
+                </div>
+              </div>
+            `;
+
+            // Reset Device Button for Admins
+            let resetBtnHtml = '';
+            if ((isActorSuperAdmin || isActorAdmin) && (pcBound || phoneBound)) {
+              resetBtnHtml = `
+                <button onclick="openResetUserDeviceModal('${u.userId || u.username}', '${escapeHtml(u.fullName || u.username)}')" 
+                  class="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg text-xs font-semibold flex items-center space-x-1 transition hover:scale-105 active:scale-95" 
+                  title="ផ្តាច់ឧបករណ៍កុំព្យូទ័រ/ទូរសព្ទដៃ (Reset Device Binding)">
+                  <i class="fa-solid fa-link-slash text-[10px]"></i>
+                  <span>ផ្តាច់ឧបករណ៍</span>
+                </button>
+              `;
+            }
+
+            // Insert resetBtnHtml into actions if applicable
+            if (actionsHtml.includes('</div>') && resetBtnHtml) {
+              const lastDivIdx = actionsHtml.lastIndexOf('</div>');
+              actionsHtml = actionsHtml.substring(0, lastDivIdx) + resetBtnHtml + '</div>';
+            }
+
             return `
               <tr class="hover:bg-slate-50 transition-colors ${isUserSuperAdmin ? 'bg-amber-50/20' : ''}">
                 <td class="px-3 py-3 text-center font-bold text-slate-500 text-xs">${idx + 1}</td>
@@ -9896,6 +10251,7 @@
                 <td class="px-4 py-3 text-slate-700 font-semibold text-xs">
                   ${u.warehouse === 'ALL' ? (isUserSuperAdmin ? '<span class="text-amber-600 font-bold">🏢 គ្រប់ស្ថានីយទាំងអស់ (SuperAdmin)</span>' : '<span class="text-purple-600 font-bold">🏢 គ្រប់ស្ថានីយទាំងអស់ (Admin)</span>') : `📍 ${u.warehouse || '-'}`}
                 </td>
+                <td class="px-3 py-3 text-center">${deviceBadgesHtml}</td>
                 <td class="px-4 py-3 text-center">${statusBadgeHtml}</td>
                 <td class="px-4 py-3 text-center space-x-1">${actionsHtml}</td>
               </tr>
@@ -9903,6 +10259,104 @@
           }).join('');
         }
       } catch (e) { }
+    }
+
+    async function openResetUserDeviceModal(userIdOrUsername, fullName) {
+      loadLocalUsersFromStorage();
+      const target = LOCAL_DB.users.find(u => u.userId === userIdOrUsername || u.username.toLowerCase() === String(userIdOrUsername).toLowerCase());
+      if (!target) {
+        Swal.fire('កំហុស', 'រកមិនឃើញគណនីអ្នកប្រើប្រាស់នេះទេ', 'error');
+        return;
+      }
+      const bound = target.boundDevices || { desktop: null, mobile: null };
+      const pcInfo = bound.desktop ? `${bound.desktop.deviceName || 'កុំព្យូទ័រ'} (ភ្ជាប់: ${new Date(bound.desktop.boundAt).toLocaleDateString('km-KH')})` : 'មិនទាន់មានភ្ជាប់';
+      const mobInfo = bound.mobile ? `${bound.mobile.deviceName || 'ទូរសព្ទដៃ'} (ភ្ជាប់: ${new Date(bound.mobile.boundAt).toLocaleDateString('km-KH')})` : 'មិនទាន់មានភ្ជាប់';
+
+      const { value: selectedOption } = await Swal.fire({
+        title: `<div class="text-base font-bold text-slate-800 flex items-center justify-center space-x-2">
+                  <i class="fa-solid fa-link-slash text-amber-500"></i>
+                  <span>ផ្តាច់ឧបករណ៍៖ ${escapeHtml(fullName || target.username)}</span>
+                </div>`,
+        html: `
+          <div class="text-left text-xs space-y-3 p-2 text-slate-700">
+            <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1.5">
+              <p><b>💻 កុំព្យូទ័រដែលបានភ្ជាប់៖</b> <span class="text-blue-700 font-semibold">${pcInfo}</span></p>
+              <p><b>📱 ទូរសព្ទដៃដែលបានភ្ជាប់៖</b> <span class="text-emerald-700 font-semibold">${mobInfo}</span></p>
+            </div>
+            <p class="font-bold text-slate-700">សូមជ្រើសរើសឧបករណ៍ដែលចង់ផ្តាច់ (Reset):</p>
+            <div class="space-y-2">
+              <label class="flex items-center space-x-2.5 p-2 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer">
+                <input type="radio" name="resetDeviceType" value="DESKTOP" ${bound.desktop ? 'checked' : 'disabled'}>
+                <span class="font-semibold ${bound.desktop ? 'text-slate-800' : 'text-slate-400'}">💻 ផ្តាច់តែកុំព្យូទ័រ (Reset Desktop)</span>
+              </label>
+              <label class="flex items-center space-x-2.5 p-2 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer">
+                <input type="radio" name="resetDeviceType" value="MOBILE" ${!bound.desktop && bound.mobile ? 'checked' : ''} ${bound.mobile ? '' : 'disabled'}>
+                <span class="font-semibold ${bound.mobile ? 'text-slate-800' : 'text-slate-400'}">📱 ផ្តាច់តែទូរសព្ទដៃ (Reset Mobile)</span>
+              </label>
+              <label class="flex items-center space-x-2.5 p-2 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer">
+                <input type="radio" name="resetDeviceType" value="ALL" ${bound.desktop && bound.mobile ? '' : ''}>
+                <span class="font-semibold text-rose-600">🔄 ផ្តាច់ឧបករណ៍ទាំងពីរ (Reset Both Devices)</span>
+              </label>
+            </div>
+            <p class="text-[11px] text-slate-400 italic">
+              * បន្ទាប់ពីផ្តាច់រួច User នឹងអាច Login លើឧបករណ៍ថ្មីបានជាស្វ័យប្រវត្តិ។
+            </p>
+          </div>
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonColor: '#f59e0b',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: '<i class="fa-solid fa-check mr-1"></i> ផ្តាច់ឧបករណ៍',
+        cancelButtonText: 'បោះបង់',
+        preConfirm: () => {
+          const checked = document.querySelector('input[name="resetDeviceType"]:checked');
+          if (!checked) {
+            Swal.showValidationMessage('សូមជ្រើសរើសប្រភេទឧបករណ៍ដែលចង់ផ្តាច់');
+            return false;
+          }
+          return checked.value;
+        }
+      });
+
+      if (!selectedOption) return;
+
+      Swal.fire({
+        title: 'កំពុងផ្តាច់ឧបករណ៍...',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+      });
+
+      try {
+        const res = await apiCall('resetUserDeviceBinding', {
+          userId: target.userId,
+          username: target.username,
+          deviceType: selectedOption,
+          actor: AppState.currentUser
+        });
+
+        if (res && res.success) {
+          if (!target.boundDevices) target.boundDevices = { desktop: null, mobile: null };
+          if (selectedOption === 'DESKTOP') target.boundDevices.desktop = null;
+          else if (selectedOption === 'MOBILE') target.boundDevices.mobile = null;
+          else target.boundDevices = { desktop: null, mobile: null };
+          saveLocalUsersToStorage();
+
+          Swal.fire({
+            icon: 'success',
+            title: 'ជោគជ័យ!',
+            text: `បានផ្តាច់ឧបករណ៍សម្រាប់ ${fullName || target.username} រួចរាល់ហើយ`,
+            timer: 1500,
+            showConfirmButton: false
+          });
+
+          if (typeof loadUsersList === 'function') loadUsersList();
+        } else {
+          Swal.fire('កំហុស', res?.message || 'មិនអាចផ្តាច់ឧបករណ៍បានទេ', 'error');
+        }
+      } catch (err) {
+        Swal.fire('Error', err.toString(), 'error');
+      }
     }
 
     function openAddUserModal() {
@@ -10047,6 +10501,44 @@
       if (roleDisplay) roleDisplay.innerText = u.role || 'Staff';
       const whDisplay = document.getElementById('profileWarehouseDisplay');
       if (whDisplay) whDisplay.innerText = u.warehouse === 'ALL' ? 'គ្រប់ស្ថានីយទាំងអស់' : (u.warehouse || '-');
+
+      // Bound Devices Information (1 PC + 1 Mobile limit)
+      const bound = u.boundDevices || { desktop: null, mobile: null };
+      const curDev = getCurrentDeviceInfo();
+
+      const deskNameEl = document.getElementById('profileDesktopDeviceName');
+      const deskStatusEl = document.getElementById('profileDesktopDeviceStatus');
+      if (deskNameEl) {
+        if (bound.desktop && bound.desktop.deviceId) {
+          deskNameEl.innerText = bound.desktop.deviceName || 'កុំព្យូទ័រ';
+          const isThisDesk = (bound.desktop.deviceId === curDev.deviceId);
+          if (deskStatusEl) {
+            deskStatusEl.innerHTML = isThisDesk
+              ? `<span class="text-blue-600 font-bold"><i class="fa-solid fa-circle-check mr-0.5"></i>ម៉ាស៊ីនបច្ចុប្បន្ន</span>`
+              : `<span class="text-slate-400">ភ្ជាប់: ${new Date(bound.desktop.boundAt || Date.now()).toLocaleDateString('km-KH')}</span>`;
+          }
+        } else {
+          deskNameEl.innerText = 'ទំនេរ (មិនទាន់ភ្ជាប់)';
+          if (deskStatusEl) deskStatusEl.innerHTML = `<span class="text-emerald-600 font-medium">អាច Login លើកុំព្យូទ័របាន</span>`;
+        }
+      }
+
+      const mobNameEl = document.getElementById('profileMobileDeviceName');
+      const mobStatusEl = document.getElementById('profileMobileDeviceStatus');
+      if (mobNameEl) {
+        if (bound.mobile && bound.mobile.deviceId) {
+          mobNameEl.innerText = bound.mobile.deviceName || 'ទូរសព្ទដៃ';
+          const isThisMob = (bound.mobile.deviceId === curDev.deviceId);
+          if (mobStatusEl) {
+            mobStatusEl.innerHTML = isThisMob
+              ? `<span class="text-emerald-600 font-bold"><i class="fa-solid fa-circle-check mr-0.5"></i>ទូរសព្ទបច្ចុប្បន្ន</span>`
+              : `<span class="text-slate-400">ភ្ជាប់: ${new Date(bound.mobile.boundAt || Date.now()).toLocaleDateString('km-KH')}</span>`;
+          }
+        } else {
+          mobNameEl.innerText = 'ទំនេរ (មិនទាន់ភ្ជាប់)';
+          if (mobStatusEl) mobStatusEl.innerHTML = `<span class="text-emerald-600 font-medium">អាច Login លើទូរសព្ទបាន</span>`;
+        }
+      }
 
       // Editable inputs
       const fnInput = document.getElementById('profileFullName');
