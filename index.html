@@ -9184,7 +9184,7 @@
             return (curId && uId && curId === uId) || (curUsername && uUsername && curUsername === uUsername);
           };
 
-          let filteredUsers = (res.users || []).filter(u => !isUnregisteredDummyUser(u));
+          let filteredUsers = (res.users || []).filter(u => !isUnregisteredDummyUser(u) && u.status !== 'Deleted' && u.status !== 'deleted');
           if (isActorSuperAdmin) {
             filteredUsers = filteredUsers.filter(u => !isSelfUser(u));
           } else if (isActorAdmin) {
@@ -10401,12 +10401,26 @@
         });
 
         try {
-          const res = await apiCall('requestUserDeletion', {
+          let res = await apiCall('requestUserDeletion', {
             userId: uId,
             username: uName,
             reason: reason,
             adminUser: actor?.username
           });
+
+          // Smart fallback if deployed Google Apps Script does not recognize requestUserDeletion yet
+          if (!res || (!res.success && res.message && (res.message.includes('Unknown action') || res.message.includes('not found')))) {
+            console.warn('Backend returned Unknown action for requestUserDeletion, falling back to updateUserStatus(Pending_Deletion)...');
+            res = await apiCall('updateUserStatus', {
+              userId: uId,
+              status: 'Pending_Deletion',
+              adminUser: actor?.username
+            });
+            if (res && res.success) {
+              res.success = true;
+              res.message = 'បានបញ្ជូនសំណើសុំលុបគណនីទៅកាន់ SuperAdmin ពិនិត្យរួចរាល់!';
+            }
+          }
 
           if (res && res.success) {
             // Update LOCAL_DB
@@ -10512,6 +10526,12 @@
                 <p class="italic text-[11px] mt-0.5">${escapeHtml(targetUser.deleteReason)}</p>
               </div>
             ` : ''}
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">
+                <i class="fa-solid fa-pen mr-1 text-slate-500"></i>មូលហេតុនៃការលុប (ស្រេចចិត្ត)៖
+              </label>
+              <textarea id="swalSuperAdminDeleteReason" rows="2" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition" placeholder="សរសេរបញ្ជាក់មូលហេតុ (ប្រសិនបើមាន)..."></textarea>
+            </div>
             <div class="p-2.5 bg-rose-50 rounded-xl border border-rose-200 text-rose-700 text-xs">
               <p class="font-bold flex items-center mb-1">
                 <i class="fa-solid fa-triangle-exclamation mr-1.5 text-rose-500"></i>
@@ -10527,10 +10547,14 @@
         cancelButtonColor: '#64748b',
         confirmButtonText: '<i class="fa-solid fa-trash-can mr-1"></i> យល់ព្រមលុបជាស្ថាពរ',
         cancelButtonText: 'បោះបង់',
-        reverseButtons: true
+        reverseButtons: true,
+        preConfirm: () => {
+          return document.getElementById('swalSuperAdminDeleteReason')?.value?.trim() || 'លុបផ្ទាល់ដោយ SuperAdmin';
+        }
       });
 
       if (!result.isConfirmed) return;
+      const superAdminReason = result.value || 'លុបផ្ទាល់ដោយ SuperAdmin';
 
       Swal.fire({
         title: 'កំពុងលុបគណនី...',
@@ -10542,11 +10566,26 @@
       });
 
       try {
-        const res = await apiCall('deleteUser', {
+        let res = await apiCall('deleteUser', {
           userId: uId,
           username: uName,
-          adminUser: actor?.username
+          adminUser: actor?.username,
+          reason: superAdminReason
         });
+
+        // Smart fallback if deployed Google Apps Script does not recognize deleteUser yet
+        if (!res || (!res.success && res.message && (res.message.includes('Unknown action') || res.message.includes('not found')))) {
+          console.warn('Backend returned Unknown action for deleteUser, falling back to updateUserStatus(Deleted)...');
+          res = await apiCall('updateUserStatus', {
+            userId: uId,
+            status: 'Deleted',
+            adminUser: actor?.username
+          });
+          if (res && res.success) {
+            res.success = true;
+            res.message = 'បានលុបអ្នកប្រើប្រាស់ចេញពីប្រព័ន្ធជោគជ័យ!';
+          }
+        }
 
         if (res && res.success) {
           // Remove from local memory database
@@ -10636,11 +10675,32 @@
       });
 
       try {
-        const res = await apiCall('approveUserDeletion', {
+        let res = await apiCall('approveUserDeletion', {
           userId: uId,
           username: uName,
           adminUser: actor?.username
         });
+
+        // Smart fallback if deployed Google Apps Script does not recognize approveUserDeletion yet
+        if (!res || (!res.success && res.message && (res.message.includes('Unknown action') || res.message.includes('not found')))) {
+          console.warn('approveUserDeletion not recognized on GAS, falling back to deleteUser / updateUserStatus...');
+          res = await apiCall('deleteUser', {
+            userId: uId,
+            username: uName,
+            adminUser: actor?.username
+          });
+          if (!res || (!res.success && res.message && (res.message.includes('Unknown action') || res.message.includes('not found')))) {
+            res = await apiCall('updateUserStatus', {
+              userId: uId,
+              status: 'Deleted',
+              adminUser: actor?.username
+            });
+            if (res && res.success) {
+              res.success = true;
+              res.message = 'បានអនុម័តការលុបគណនីចេញពីប្រព័ន្ធរួចរាល់';
+            }
+          }
+        }
 
         if (res && res.success) {
           const idx = LOCAL_DB.users.findIndex(u => (uId && u.userId === uId) || (uName && u.username === uName));
@@ -10724,11 +10784,25 @@
       });
 
       try {
-        const res = await apiCall('rejectUserDeletion', {
+        let res = await apiCall('rejectUserDeletion', {
           userId: uId,
           username: uName,
           adminUser: actor?.username
         });
+
+        // Smart fallback if deployed Google Apps Script does not recognize rejectUserDeletion yet
+        if (!res || (!res.success && res.message && (res.message.includes('Unknown action') || res.message.includes('not found')))) {
+          console.warn('rejectUserDeletion not recognized on GAS, falling back to updateUserStatus(Active)...');
+          res = await apiCall('updateUserStatus', {
+            userId: uId,
+            status: 'Active',
+            adminUser: actor?.username
+          });
+          if (res && res.success) {
+            res.success = true;
+            res.message = 'បានបដិសេធការលុបគណនី។ គណនីត្រូវបានរក្សាទុក និងដំណើរការ (Active) ជាធម្មតាវិញ';
+          }
+        }
 
         if (res && res.success) {
           const idx = LOCAL_DB.users.findIndex(u => (uId && u.userId === uId) || (uName && u.username === uName));

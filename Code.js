@@ -2322,6 +2322,18 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
 
       }
 
+      if (st === 'Deleted' || st === 'deleted' || st === 'delete') {
+
+        const deletedUName = String(data[i][1]);
+
+        sheet.deleteRow(i + 1);
+
+        logActivity(admin || 'Admin', admin === 'superadmin' ? 'SuperAdmin' : 'Admin', 'DELETE_USER', `Deleted User ${uId} (@${deletedUName})`);
+
+        return { success: true, message: `បានលុបអ្នកប្រើប្រាស់ ${deletedUName} ចេញពីប្រព័ន្ធជោគជ័យ` };
+
+      }
+
       if (fullName) sheet.getRange(i + 1, 3).setValue(fullName);
 
       if (email !== undefined) sheet.getRange(i + 1, 4).setValue(email);
