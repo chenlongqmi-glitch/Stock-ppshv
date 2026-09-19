@@ -3717,80 +3717,23 @@
     }
 
     function triggerAppUpdate(newVer) {
-      if (window._isApplyingUpdate) return;
-
-      // 1. Show floating banner notifying user of background update
-      showUpdateNoticeBadge(newVer);
-
-      // 2. Perform silent auto refresh automatically
-      if (isModalOpen()) {
-        // If a modal is currently open, wait until it closes (or max 4s) then refresh immediately
-        if (window._silentUpdateTimer) clearInterval(window._silentUpdateTimer);
-        let waited = 0;
-        window._silentUpdateTimer = setInterval(() => {
-          waited += 800;
-          if (!isModalOpen() || waited >= 4000) {
-            clearInterval(window._silentUpdateTimer);
-            applyAppUpdateNow(newVer);
-          }
-        }, 800);
-      } else {
-        // Automatically perform background reload after 1 second
-        setTimeout(() => {
-          applyAppUpdateNow(newVer);
-        }, 1000);
+      if (!newVer || newVer === currentAppVersion) return;
+      currentAppVersion = newVer;
+      // Perform silent background data sync without reloading the page or disrupting the user
+      if (typeof triggerBackgroundRefresh === 'function') {
+        triggerBackgroundRefresh('auto-update');
       }
     }
 
     function showUpdateNoticeBadge(newVer) {
-      let badge = document.getElementById('appUpdateFloatingBadge');
-      if (!badge) {
-        badge = document.createElement('div');
-        badge.id = 'appUpdateFloatingBadge';
-        badge.className = 'fixed top-3 right-4 z-50 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-600 text-white text-xs px-4 py-2.5 rounded-2xl shadow-2xl border border-white/40 flex items-center space-x-2.5 backdrop-blur-md cursor-pointer transition-all hover:scale-105 active:scale-95 animate-pulse';
-        badge.onclick = () => applyAppUpdateNow(newVer);
-        badge.innerHTML = `
-          <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
-          <i class="fa-solid fa-rotate text-sm text-cyan-200 fa-spin"></i>
-          <div>
-            <span class="font-bold block text-[11.5px]">✨ រកឃើញកំណែថ្មី (Auto-Update)</span>
-            <span class="text-[9.5px] text-blue-100">កំពុង Update ដោយស្វ័យប្រវត្តិ មិនបាច់ចុច F5...</span>
-          </div>
-        `;
-        document.body.appendChild(badge);
-      }
+      // Intentionally kept minimal / silent to not disturb the user
     }
 
     function applyAppUpdateNow(newVer) {
-      if (window._isApplyingUpdate) return;
-      window._isApplyingUpdate = true;
-
-      // Save all current states before reloading so user stays exactly where they are!
-      try {
-        if (typeof saveAppRunningState === 'function') saveAppRunningState();
-      } catch (e) {}
-
-      if (AppState.currentUser) {
-        sessionStorage.setItem('inventory_user', JSON.stringify(AppState.currentUser));
+      currentAppVersion = newVer;
+      if (typeof triggerBackgroundRefresh === 'function') {
+        triggerBackgroundRefresh('auto-update');
       }
-      if (AppState.currentTab) {
-        sessionStorage.setItem('inventory_active_tab', AppState.currentTab);
-      }
-      if (AppState.selectedAdminWarehouseFilter) {
-        sessionStorage.setItem('inventory_wh_filter', AppState.selectedAdminWarehouseFilter);
-      }
-      const mainElem = document.querySelector('main');
-      if (mainElem) {
-        sessionStorage.setItem('inventory_scroll_top', mainElem.scrollTop);
-      }
-
-      // Mark that an update occurred so welcome toast is shown
-      sessionStorage.setItem('inventory_just_updated', 'true');
-
-      // Seamless reload with cache-busting timestamp query parameter to bypass browser disk cache completely!
-      const url = new URL(window.location.href);
-      url.searchParams.set('_v', Date.now());
-      window.location.replace(url.toString());
     }
 
     function initLiveReloadSSE() {
@@ -6683,32 +6626,26 @@
       if (isBackgroundRefreshing) return;
       isBackgroundRefreshing = true;
 
-      // 1. Rotate refresh icon
+      // 1. Subtle indicator on refresh icon button only (no popups or banners)
       const icon = document.getElementById('refreshIcon');
-      if (icon) icon.classList.add('fa-spin');
-
-      // 2. Show sleek floating glassmorphism banner
-      let banner = document.getElementById('bgRefreshFloatingBanner');
-      if (!banner) {
-        banner = document.createElement('div');
-        banner.id = 'bgRefreshFloatingBanner';
-        banner.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-[9999] bg-slate-900/90 backdrop-blur-md text-white px-4 py-2 rounded-2xl shadow-2xl border border-cyan-500/40 flex items-center space-x-2.5 text-xs font-semibold transition-all duration-300 pointer-events-none';
-        document.body.appendChild(banner);
+      const btn = icon ? icon.closest('button') : null;
+      if (icon) {
+        icon.classList.add('fa-spin', 'text-blue-600');
       }
-      banner.style.opacity = '1';
-      banner.style.transform = 'translate(-50%, 0) scale(1)';
-      banner.innerHTML = `
-        <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
-        <i class="fa-solid fa-rotate text-cyan-300 fa-spin text-sm"></i>
-        <span>កំពុង Refresh ទិន្នន័យក្នុង Background ដោយរក្សាស្ថានភាពប្រើប្រាស់...</span>
-      `;
+      if (btn) {
+        btn.classList.add('pointer-events-none', 'opacity-70');
+      }
 
-      // 3. Save scroll position
+      // Ensure any legacy banner element is removed from DOM completely
+      const existingBanner = document.getElementById('bgRefreshFloatingBanner');
+      if (existingBanner) existingBanner.remove();
+
+      // 2. Preserve scroll position so user experience is not disrupted
       const mainElem = document.querySelector('main');
       const curScroll = mainElem ? mainElem.scrollTop : 0;
 
       try {
-        // 4. Background silent data sync
+        // 3. Silent background data sync
         const promises = [
           loadDashboard(),
           loadItems(),
@@ -6721,7 +6658,7 @@
 
         await Promise.all(promises);
 
-        // 5. Update pending requests badge
+        // 4. Update pending requests badge
         const reqRes = await apiCall('getProductRequests');
         if (reqRes && reqRes.success && reqRes.requests) {
           const pending = reqRes.requests.filter(r => r.status === 'Pending').length;
@@ -6734,28 +6671,21 @@
 
         // Restore scroll position
         if (mainElem) mainElem.scrollTop = curScroll;
-
-        // 6. Show success indicator
-        banner.innerHTML = `
-          <i class="fa-solid fa-circle-check text-emerald-400 text-sm"></i>
-          <span class="text-emerald-100 font-bold">បាន Refresh ទិន្នន័យក្នុង Background ជោគជ័យ!</span>
-        `;
-        banner.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-[9999] bg-slate-900/95 backdrop-blur-md text-white px-4 py-2 rounded-2xl shadow-2xl border border-emerald-500/50 flex items-center space-x-2.5 text-xs font-semibold transition-all duration-300 pointer-events-none';
       } catch (err) {
         console.warn('Background refresh error:', err);
-        banner.innerHTML = `
-          <i class="fa-solid fa-circle-exclamation text-amber-400 text-sm"></i>
-          <span class="text-amber-100">ទិន្នន័យត្រូវបានរក្សាទុកក្នុង Local Storage</span>
-        `;
       } finally {
-        setTimeout(() => {
-          if (icon) icon.classList.remove('fa-spin');
-          if (banner) {
-            banner.style.opacity = '0';
-            banner.style.transform = 'translate(-50%, -10px) scale(0.95)';
-          }
-          isBackgroundRefreshing = false;
-        }, 1200);
+        if (icon) {
+          icon.classList.remove('fa-spin', 'text-blue-600');
+          // Brief subtle emerald feedback on icon itself before returning to normal
+          icon.classList.add('text-emerald-500');
+          setTimeout(() => {
+            if (icon) icon.classList.remove('text-emerald-500');
+          }, 700);
+        }
+        if (btn) {
+          btn.classList.remove('pointer-events-none', 'opacity-70');
+        }
+        isBackgroundRefreshing = false;
       }
     }
 
