@@ -5428,7 +5428,7 @@
             return { success: false, message: 'មិនអាចស្នើសុំលុបគណនី SuperAdmin បានឡើយ!' };
           }
 
-          const reason = String(payload.reason || '').trim();
+          const reason = String(payload.reason || payload.deleteReason || '').trim();
           if (!reason) {
             return { success: false, message: 'សូមបញ្ជាក់ពីមូលហេតុនៃការលុបគណនី!' };
           }
@@ -5520,7 +5520,7 @@
 
           // If actor is Admin (not SuperAdmin), automatically route to requestUserDeletion
           if (isActorAdmin && !isActorSuperAdmin) {
-            const reason = String(payload.reason || '').trim();
+            const reason = String(payload.reason || payload.deleteReason || '').trim();
             if (!reason) {
               return { success: false, message: 'សូមបញ្ជាក់ពីមូលហេតុនៃការលុបគណនី!' };
             }
@@ -9148,6 +9148,22 @@
       try {
         const res = await apiCall('getUsersList');
         if (res.success) {
+          // Synchronize fresh user records into LOCAL_DB.users and localStorage
+          if (Array.isArray(res.users)) {
+            res.users.forEach(ru => {
+              const idx = LOCAL_DB.users.findIndex(lu =>
+                (ru.userId && lu.userId === ru.userId) ||
+                (ru.username && lu.username && lu.username.toLowerCase() === ru.username.toLowerCase())
+              );
+              if (idx !== -1) {
+                LOCAL_DB.users[idx] = { ...LOCAL_DB.users[idx], ...ru };
+              } else {
+                LOCAL_DB.users.push(ru);
+              }
+            });
+            saveLocalUsersToStorage();
+          }
+
           const tbody = document.getElementById('usersTableBody');
           const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
           const isActorAdmin = !isActorSuperAdmin && (AppState.currentUser?.role === 'Admin' || AppState.currentUser?.role === 'អ្នកគ្រប់គ្រង' || String(AppState.currentUser?.username).toLowerCase() === 'admin');
@@ -9376,13 +9392,16 @@
             if (u.status === 'Active') {
               statusBadgeHtml = `<span class="px-2.5 py-1 rounded-full font-bold text-[10px] bg-emerald-100 text-emerald-700 border border-emerald-300">✅ Active</span>`;
             } else if (u.status === 'Pending_Deletion') {
+              const reasonSnippet = u.deleteReason ? (u.deleteReason.length > 20 ? escapeHtml(u.deleteReason.substring(0, 20)) + '...' : escapeHtml(u.deleteReason)) : 'មើលមូលហេតុ';
               statusBadgeHtml = `
                 <div class="flex flex-col items-center">
                   <span class="px-2.5 py-1 rounded-full font-bold text-[10px] bg-rose-100 text-rose-800 border border-rose-300 font-extrabold shadow-sm animate-pulse inline-flex items-center space-x-1">
                     <i class="fa-solid fa-triangle-exclamation text-rose-600 text-[10px] mr-1"></i>
                     <span>⚠️ ស្នើសុំលុប</span>
                   </span>
-                  ${u.deleteReason ? `<span class="text-[10px] text-rose-600 font-semibold italic mt-0.5 cursor-pointer hover:underline inline-flex items-center" onclick="viewUserDeleteReason('${u.userId || u.username}')" title="${escapeHtml(u.deleteReason)}"><i class="fa-solid fa-comment-dots mr-0.5"></i>មូលហេតុ...</span>` : ''}
+                  <span class="text-[10px] text-rose-600 font-semibold italic mt-0.5 cursor-pointer hover:underline inline-flex items-center" onclick="viewUserDeleteReason('${u.userId || u.username}')" title="${escapeHtml(u.deleteReason || 'គ្មានការបញ្ជាក់')}">
+                    <i class="fa-solid fa-comment-dots mr-0.5"></i>${reasonSnippet}
+                  </span>
                 </div>
               `;
             } else if (u.status === 'Pending' || u.status === 'Pending_Admin') {
@@ -10399,13 +10418,13 @@
           allowOutsideClick: false,
           didOpen: () => Swal.showLoading()
         });
-
         try {
           let res = await apiCall('requestUserDeletion', {
             userId: uId,
             username: uName,
             reason: reason,
-            adminUser: actor?.username
+            deleteReason: reason,
+            adminUser: actor?.fullName || actor?.username || 'Admin'
           });
 
           // Smart fallback if deployed Google Apps Script does not recognize requestUserDeletion yet
@@ -10414,6 +10433,10 @@
             res = await apiCall('updateUserStatus', {
               userId: uId,
               status: 'Pending_Deletion',
+              reason: reason,
+              deleteReason: reason,
+              deleteRequestedBy: actor?.fullName || actor?.username || 'Admin',
+              deleteRequestedAt: new Date().toISOString(),
               adminUser: actor?.username
             });
             if (res && res.success) {
@@ -10632,7 +10655,10 @@
         return;
       }
 
-      const targetUser = (LOCAL_DB.users || []).find(u => (userId && u.userId === userId) || (username && u.username === username));
+      const targetUser = (LOCAL_DB.users || []).find(u =>
+        (userId && u.userId === userId) ||
+        (username && u.username && u.username.toLowerCase() === String(username).toLowerCase())
+      );
       const targetDisplayName = targetUser ? (targetUser.fullName || targetUser.username) : (username || userId);
       const uId = targetUser?.userId || userId;
       const uName = targetUser?.username || username;
@@ -10832,7 +10858,11 @@
     }
 
     function viewUserDeleteReason(userIdOrUsername) {
-      const u = (LOCAL_DB.users || []).find(x => (userIdOrUsername && x.userId === userIdOrUsername) || (userIdOrUsername && x.username === userIdOrUsername));
+      const q = String(userIdOrUsername || '').trim().toLowerCase();
+      const u = (LOCAL_DB.users || []).find(x =>
+        (x.userId && x.userId.toLowerCase() === q) ||
+        (x.username && x.username.toLowerCase() === q)
+      );
       if (!u) {
         Swal.fire('ព័ត៌មាន', 'រកមិនឃើញទិន្នន័យគណនីនេះឡើយ', 'info');
         return;

@@ -637,30 +637,18 @@ function executeLocalApiAction(req) {
         return deleteWarehouse(payload, payload.user);
 
       case 'deleteUser':
-
-        return deleteUser(payload.userId || payload.username || payload.id, payload.adminUser || payload.user, payload.reason);
-
+        return deleteUser(payload.userId || payload.username || payload.id, payload.adminUser || payload.user, payload.reason || payload.deleteReason);
       case 'requestUserDeletion':
-
         return requestUserDeletion(payload);
-
       case 'approveUserDeletion':
-
         return approveUserDeletion(payload);
-
       case 'rejectUserDeletion':
-
         return rejectUserDeletion(payload);
-
       case 'getUsersList':
-
       case 'getUsers':
-
         return getUsersList(payload.user || payload);
-
       case 'updateUserStatus':
-
-        return updateUserStatus(payload.userId, payload.status, payload.role, payload.warehouse, payload.adminUser, payload.avatar);
+        return updateUserStatus(payload, payload.status, payload.role, payload.warehouse, payload.adminUser, payload.avatar);
 
       case 'updateUserProfile':
 
@@ -796,7 +784,9 @@ function setupDatabase() {
 
       'UserID', 'Username', 'FullName', 'Email',
 
-      'PasswordHash', 'Salt', 'Role', 'Status', 'CreatedAt', 'Warehouse', 'Avatar', 'Phone'
+      'PasswordHash', 'Salt', 'Role', 'Status', 'CreatedAt', 'Warehouse', 'Avatar', 'Phone',
+
+      'DeleteReason', 'DeleteRequestedBy', 'DeleteRequestedAt'
 
     ];
 
@@ -1134,17 +1124,27 @@ function ensureUsersInitialized(ss) {
 
   } else {
 
-    // Ensure column count is at least 12 for Avatar & Phone
+    // Ensure column count is at least 15 for Avatar, Phone & Deletion Workflow
 
-    if (sheet.getMaxColumns() < 12) {
+    if (sheet.getMaxColumns() < 15) {
 
-      sheet.insertColumnsAfter(sheet.getMaxColumns(), 12 - sheet.getMaxColumns());
+      sheet.insertColumnsAfter(sheet.getMaxColumns(), 15 - sheet.getMaxColumns());
+
+    }
+
+    try {
 
       sheet.getRange(1, 11).setValue('Avatar');
 
       sheet.getRange(1, 12).setValue('Phone');
 
-    }
+      sheet.getRange(1, 13).setValue('DeleteReason');
+
+      sheet.getRange(1, 14).setValue('DeleteRequestedBy');
+
+      sheet.getRange(1, 15).setValue('DeleteRequestedAt');
+
+    } catch (colErr) {}
 
   }
 
@@ -2196,7 +2196,13 @@ function getUsersList(userOrPayload) {
 
         avatar: data[i][10] || '',
 
-        phone: data[i][11] || ''
+        phone: data[i][11] || '',
+
+        deleteReason: data[i][12] || '',
+
+        deleteRequestedBy: data[i][13] || '',
+
+        deleteRequestedAt: data[i][14] || ''
 
       });
 
@@ -2249,113 +2255,74 @@ function getUsersList(userOrPayload) {
 
 
 function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, avatar) {
-
   let uId = userIdOrPayload;
-
   let st = status;
-
   let r = role;
-
   let wh = warehouse;
-
   let admin = adminUser;
-
   let av = avatar;
-
   let fullName = '';
-
   let email = '';
-
   let phone = '';
-
-
+  let deleteReason = '';
+  let deleteRequestedBy = '';
+  let deleteRequestedAt = '';
 
   if (userIdOrPayload && typeof userIdOrPayload === 'object') {
-
-    uId = userIdOrPayload.userId;
-
+    uId = userIdOrPayload.userId || userIdOrPayload.username || userIdOrPayload.id;
     st = userIdOrPayload.status;
-
     r = userIdOrPayload.role;
-
     wh = userIdOrPayload.warehouse;
-
-    admin = userIdOrPayload.adminUser;
-
+    admin = userIdOrPayload.adminUser || userIdOrPayload.user;
     av = userIdOrPayload.avatar;
-
     fullName = userIdOrPayload.fullName;
-
     email = userIdOrPayload.email;
-
     phone = userIdOrPayload.phone;
-
+    deleteReason = userIdOrPayload.deleteReason || userIdOrPayload.reason || '';
+    deleteRequestedBy = userIdOrPayload.deleteRequestedBy || admin || 'Admin';
+    deleteRequestedAt = userIdOrPayload.deleteRequestedAt || '';
   }
 
-
-
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-
   const sheet = ensureUsersInitialized(ss);
-
   const data = sheet.getDataRange().getValues();
 
-
-
   for (let i = 1; i < data.length; i++) {
-
-    if (data[i][0] === uId) {
-
+    if (data[i][0] === uId || String(data[i][1]).toLowerCase() === String(uId).toLowerCase()) {
       const existingRole = String(data[i][6] || '');
-
       // Protect SuperAdmin: only SuperAdmin can modify SuperAdmin or grant SuperAdmin
-
       if (existingRole === 'SuperAdmin' && admin !== 'superadmin') {
-
         return { success: false, message: 'អ្នកគ្មានសិទ្ធិកែប្រែ ឬបិទគណនី SuperAdmin ឡើយ' };
-
       }
-
       if (r === 'SuperAdmin' && admin !== 'superadmin') {
-
         return { success: false, message: 'មានតែ SuperAdmin ប៉ុណ្ណោះដែលអាចកំណត់សិទ្ធិជា SuperAdmin បាន' };
-
       }
-
       if (st === 'Deleted' || st === 'deleted' || st === 'delete') {
-
         const deletedUName = String(data[i][1]);
-
         sheet.deleteRow(i + 1);
-
         logActivity(admin || 'Admin', admin === 'superadmin' ? 'SuperAdmin' : 'Admin', 'DELETE_USER', `Deleted User ${uId} (@${deletedUName})`);
-
         return { success: true, message: `បានលុបអ្នកប្រើប្រាស់ ${deletedUName} ចេញពីប្រព័ន្ធជោគជ័យ` };
-
       }
-
       if (fullName) sheet.getRange(i + 1, 3).setValue(fullName);
-
       if (email !== undefined) sheet.getRange(i + 1, 4).setValue(email);
-
       if (st) sheet.getRange(i + 1, 8).setValue(st);
-
       if (r) sheet.getRange(i + 1, 7).setValue(r);
-
       if (wh) sheet.getRange(i + 1, 10).setValue(wh);
-
       if (av) {
-
         try {
-
           if (av.length <= 49000) sheet.getRange(i + 1, 11).setValue(av);
-
         } catch (e) {}
-
       }
-
       if (phone !== undefined) sheet.getRange(i + 1, 12).setValue(phone);
-
+      if (st === 'Pending_Deletion') {
+        if (deleteReason) sheet.getRange(i + 1, 13).setValue(deleteReason);
+        if (deleteRequestedBy) sheet.getRange(i + 1, 14).setValue(String(deleteRequestedBy));
+        sheet.getRange(i + 1, 15).setValue(deleteRequestedAt || new Date().toISOString());
+      } else if (st === 'Active' || st === 'Inactive') {
+        sheet.getRange(i + 1, 13).setValue('');
+        sheet.getRange(i + 1, 14).setValue('');
+        sheet.getRange(i + 1, 15).setValue('');
+      }
       logActivity(admin || 'Admin', admin === 'superadmin' ? 'SuperAdmin' : 'Admin', 'UPDATE_USER', `Updated User ${uId}: fullName=${fullName}, status=${st}, role=${r}, warehouse=${wh}`);
 
 
@@ -2684,256 +2651,144 @@ function requestUserDeletion(payload) {
 
 
 
-  // Update status to Pending_Deletion
-
+  // Update status to Pending_Deletion and save deleteReason, adminUser, timestamp
   sheet.getRange(foundRow, 8).setValue('Pending_Deletion');
+  sheet.getRange(foundRow, 13).setValue(reason);
+  sheet.getRange(foundRow, 14).setValue(String(adminUser));
+  sheet.getRange(foundRow, 15).setValue(new Date().toISOString());
 
   logActivity('USERS', String(adminUser), 'REQUEST_DELETE_USER', `ស្នើសុំលុបអ្នកប្រើប្រាស់: ${targetDisplayName} (${uId}) - មូលហេតុ: ${reason}`);
 
-
-
   // Send Telegram Alert to SuperAdmin
-
   try {
-
     const gasUrl = ScriptApp.getService().getUrl();
-
     const approveUrl = `${gasUrl}?action=approveUserDeletionTelegram&userId=${encodeURIComponent(uId)}&u=${encodeURIComponent(uId)}`;
-
     const rejectUrl = `${gasUrl}?action=rejectUserDeletionTelegram&userId=${encodeURIComponent(uId)}&u=${encodeURIComponent(uId)}`;
 
-
-
     sendTelegramAlert(
-
       `⚠️ <b>[សំណើសុំលុបគណនីអ្នកប្រើប្រាស់ - Pending Deletion]</b>\n` +
-
       `👤 <b>ឈ្មោះបុគ្គលិក:</b> ${targetDisplayName}\n` +
-
       `🆔 <b>គណនី:</b> <code>${uId}</code>\n` +
-
       `💼 <b>តួនាទី:</b> ${targetRole}\n` +
-
       `🏢 <b>ឃ្លាំង/ស្ថានីយ:</b> ${targetWh || '-'}\n` +
-
       `📝 <b>មូលហេតុនៃការលុប:</b> <i>"${reason}"</i>\n` +
-
       `👮 <b>ស្នើសុំដោយ Admin:</b> ${adminUser}\n` +
-
       `🕒 <b>កាលបរិច្ឆេទ:</b> ${new Date().toLocaleString('km-KH')}\n\n` +
-
       `👉 <b>សូម SuperAdmin ពិនិត្យ និងជ្រើសរើស៖</b>`,
-
       {
-
         inline_keyboard: [
-
           [
-
             { text: "🗑️ អនុម័តលុប (Approve Delete)", url: approveUrl },
-
             { text: "❌ បដិសេធ (Reject)", url: rejectUrl }
-
           ]
-
         ]
-
       }
-
     );
-
   } catch(e) {}
 
-
-
   return {
-
     success: true,
-
     message: `បានបញ្ជូនសំណើសុំលុបគណនី ${targetDisplayName} ទៅកាន់ SuperAdmin ពិនិត្យរួចរាល់!`
-
   };
-
 }
-
-
 
 function approveUserDeletion(payload) {
-
   return deleteUser(payload, payload ? (payload.adminUser || payload.user) : 'SuperAdmin');
-
 }
-
-
 
 function rejectUserDeletion(payload) {
-
   if (!payload) return { success: false, message: 'ទិន្នន័យមិនត្រឹមត្រូវ' };
-
   const uId = payload.userId || payload.username || payload.id;
-
   const adminUser = payload.adminUser || payload.user || 'SuperAdmin';
 
-
-
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-
   const sheet = ensureUsersInitialized(ss);
-
   const data = sheet.getDataRange().getValues();
 
-
-
   for (let i = 1; i < data.length; i++) {
-
     const rowUserId = String(data[i][0] || '');
-
     const rowUsername = String(data[i][1] || '');
-
     if (rowUserId === String(uId) || rowUsername.toLowerCase() === String(uId).toLowerCase()) {
-
       sheet.getRange(i + 1, 8).setValue('Active');
-
+      sheet.getRange(i + 1, 13).setValue('');
+      sheet.getRange(i + 1, 14).setValue('');
+      sheet.getRange(i + 1, 15).setValue('');
       const targetDisplayName = data[i][2] || rowUsername;
-
       logActivity('USERS', String(adminUser), 'REJECT_DELETE_USER', `បដិសេធការលុបគណនី: ${targetDisplayName} (@${rowUsername})`);
-
       return {
-
         success: true,
-
         message: `បានបដិសេធការលុបគណនី ${targetDisplayName}។ គណនីត្រូវបានរក្សាទុកជា Active ដដែល!`
-
       };
-
     }
-
   }
-
   return { success: false, message: 'រកមិនឃើញអ្នកប្រើប្រាស់ឡើយ' };
-
 }
 
-
-
 function handleTelegramUserDeletionApproval(userId, username, actionType) {
-
   try {
-
     const uId = userId || username;
-
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-
     const sheet = ensureUsersInitialized(ss);
-
     const data = sheet.getDataRange().getValues();
 
-
-
     let foundRow = -1;
-
     let userFullName = username;
-
     let userRole = '';
-
     let userWh = '';
 
-
-
     for (let i = 1; i < data.length; i++) {
-
       const rId = String(data[i][0]).trim();
-
       const rUser = String(data[i][1]).replace(/\s+/g, ' ').trim().toLowerCase();
-
       if ((uId && rId === String(uId).trim()) || (username && rUser === String(username).toLowerCase())) {
-
         foundRow = i + 1;
-
         userFullName = String(data[i][2]) || data[i][1];
-
         userRole = String(data[i][6]) || '';
-
         userWh = String(data[i][9]) || '';
-
         break;
-
       }
-
     }
-
-
 
     if (foundRow === -1) {
-
       return HtmlService.createHtmlOutput(`
-
         <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; text-align: center; padding: 50px 20px;">
-
           <div style="font-size: 50px; margin-bottom: 10px;">⚠️</div>
-
           <h2 style="color: #e11d48;">រកមិនឃើញគណនីនេះទេ</h2>
-
           <p style="color: #64748b;">គណនីនេះប្រហែលជាត្រូវបានលុបរួចរាល់ហើយ។</p>
-
         </div>
-
       `).setTitle('រកមិនឃើញគណនី');
-
     }
-
-
 
     if (actionType === 'Approve') {
-
+      const delReason = String(data[foundRow - 1][12] || '');
+      const reqBy = String(data[foundRow - 1][13] || 'Admin');
       sheet.deleteRow(foundRow);
-
-      logActivity('SUPERADMIN_TELEGRAM', 'SuperAdmin', 'APPROVE_DELETE_USER', `អនុម័តលុបអ្នកប្រើប្រាស់: ${userFullName} (@${username})`);
-
-      sendTelegramAlert(`🗑️ <b>[ការលុបគណនីបានអនុម័ត]</b>\n👤 <b>គណនី:</b> ${username} (${userFullName})\n✅ គណនីត្រូវបាន SuperAdmin អនុម័តលុបចេញពីប្រព័ន្ធជាស្ថាពរ។`);
-
-
+      logActivity('SUPERADMIN_TELEGRAM', 'SuperAdmin', 'APPROVE_DELETE_USER', `អនុម័តលុបអ្នកប្រើប្រាស់: ${userFullName} (@${username})${delReason ? ' - មូលហេតុ: ' + delReason : ''}`);
+      sendTelegramAlert(`🗑️ <b>[ការលុបគណនីបានអនុម័ត]</b>\n👤 <b>គណនី:</b> ${username} (${userFullName})\n📝 <b>មូលហេតុ:</b> ${delReason || '-'}\n👮 <b>ស្នើសុំដោយ Admin:</b> ${reqBy}\n✅ គណនីត្រូវបាន SuperAdmin អនុម័តលុបចេញពីប្រព័ន្ធជាស្ថាពរ។`);
 
       return HtmlService.createHtmlOutput(`
-
         <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; text-align: center; padding: 50px 20px;">
-
           <div style="font-size: 50px; margin-bottom: 10px;">🗑️</div>
-
           <h2 style="color: #e11d48;">បានអនុម័តការលុបគណនីជោគជ័យ!</h2>
-
           <p style="color: #334155;">គណនី <b>${userFullName} (@${username})</b> ត្រូវបានលុបចេញពីប្រព័ន្ធទាំងស្រុង។</p>
-
+          ${delReason ? `<p style="color: #64748b; font-size: 13px; margin-top: 10px;"><i>📝 មូលហេតុ៖ "${delReason}"</i></p>` : ''}
         </div>
-
       `).setTitle('បានលុបគណនីជោគជ័យ');
-
     } else {
-
       sheet.getRange(foundRow, 8).setValue('Active');
-
+      sheet.getRange(foundRow, 13).setValue('');
+      sheet.getRange(foundRow, 14).setValue('');
+      sheet.getRange(foundRow, 15).setValue('');
       logActivity('SUPERADMIN_TELEGRAM', 'SuperAdmin', 'REJECT_DELETE_USER', `បដិសេធការលុបគណនី: ${userFullName} (@${username})`);
-
       sendTelegramAlert(`ℹ️ <b>[បានបដិសេធការលុបគណនី]</b>\n👤 <b>គណនី:</b> ${username} (${userFullName})\n🛡️ សំណើសុំលុបត្រូវបាន SuperAdmin បដិសេធ។ គណនីនៅតែ Active ដដែល។`);
 
-
-
       return HtmlService.createHtmlOutput(`
-
         <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; text-align: center; padding: 50px 20px;">
-
           <div style="font-size: 50px; margin-bottom: 10px;">🛡️</div>
-
           <h2 style="color: #2563eb;">បានបដិសេធសំណើសុំលុប</h2>
-
           <p style="color: #334155;">គណនី <b>${userFullName} (@${username})</b> ត្រូវបានរក្សាទុក និងបើកដំណើរការ (Active) ជាធម្មតាវិញ។</p>
-
         </div>
-
       `).setTitle('បានបដិសេធការលុប');
-
     }
-
   } catch(err) {
 
     return HtmlService.createHtmlOutput('កំហុស៖ ' + err.toString());
@@ -5465,20 +5320,12 @@ function getRecentMovementTrend(txData, targetWarehouse) {
 
 
 function sendTelegramNotification(messageText, replyMarkup) {
-
   try {
-
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-
     const settings = getSettingsMap(ss);
 
-
-
-    const token = settings['TELEGRAM_BOT_TOKEN'];
-
-    const chatId = settings['TELEGRAM_CHAT_ID'];
-
-
+    let token = (settings && settings['TELEGRAM_BOT_TOKEN']) ? settings['TELEGRAM_BOT_TOKEN'] : DEFAULT_TELEGRAM_BOT_TOKEN;
+    let chatId = (settings && settings['TELEGRAM_CHAT_ID']) ? settings['TELEGRAM_CHAT_ID'] : DEFAULT_TELEGRAM_CHAT_ID;
 
     if (!token || !chatId) return false;
 
