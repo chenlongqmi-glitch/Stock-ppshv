@@ -3741,11 +3741,15 @@
       return false;
     }
 
+    let isApplyingAutoUpdate = false;
+    let deployedHtmlEtag = sessionStorage.getItem('inventory_deployed_etag') || '';
+
     async function checkAppVersionInBackground() {
-      if (isUpdateChecking) return;
+      if (isUpdateChecking || isApplyingAutoUpdate) return;
       isUpdateChecking = true;
 
       try {
+        // 1. Check version.json
         const res = await fetch('version.json?_t=' + Date.now(), { cache: 'no-store' });
         if (res.ok) {
           const data = await res.json();
@@ -3753,16 +3757,34 @@
 
           if (!currentAppVersion) {
             currentAppVersion = remoteVer;
+          } else if (remoteVer && remoteVer !== currentAppVersion) {
+            console.log(`[Auto-Update] New version detected via version.json: ${remoteVer} (Current: ${currentAppVersion})`);
+            applyAppUpdateNow(remoteVer);
             return;
           }
-
-          if (remoteVer && remoteVer !== currentAppVersion) {
-            console.log(`[Auto-Update] New update detected: ${remoteVer} (Current: ${currentAppVersion})`);
-            triggerAppUpdate(remoteVer);
-          }
         }
+
+        // 2. Dual check: Check deployed index.html ETag / Last-Modified
+        try {
+          const headRes = await fetch('index.html?_chk=' + Date.now(), { method: 'HEAD', cache: 'no-store' });
+          if (headRes.ok) {
+            const etag = headRes.headers.get('etag') || headRes.headers.get('last-modified') || '';
+            if (etag) {
+              if (!deployedHtmlEtag) {
+                deployedHtmlEtag = etag;
+                sessionStorage.setItem('inventory_deployed_etag', etag);
+              } else if (etag !== deployedHtmlEtag) {
+                console.log(`[Auto-Update] Detected deployed HTML change via ETag: ${etag} (Old: ${deployedHtmlEtag})`);
+                deployedHtmlEtag = etag;
+                sessionStorage.setItem('inventory_deployed_etag', etag);
+                applyAppUpdateNow('etag_' + etag);
+                return;
+              }
+            }
+          }
+        } catch (hErr) {}
       } catch (err) {
-        // Silently ignore offline / network glitches in background check
+        // Silently ignore offline / temporary network glitches in background check
       } finally {
         isUpdateChecking = false;
       }
@@ -3782,22 +3804,59 @@
     }
 
     function triggerAppUpdate(newVer) {
-      if (!newVer || newVer === currentAppVersion) return;
-      currentAppVersion = newVer;
-      // Perform silent background data sync without reloading the page or disrupting the user
-      if (typeof triggerBackgroundRefresh === 'function') {
-        triggerBackgroundRefresh('auto-update');
-      }
-    }
-
-    function showUpdateNoticeBadge(newVer) {
-      // Intentionally kept minimal / silent to not disturb the user
+      applyAppUpdateNow(newVer);
     }
 
     function applyAppUpdateNow(newVer) {
+      if (isApplyingAutoUpdate) return;
+      isApplyingAutoUpdate = true;
       currentAppVersion = newVer;
-      if (typeof triggerBackgroundRefresh === 'function') {
-        triggerBackgroundRefresh('auto-update');
+
+      console.log(`[Auto-Update] Performing 100% Zero-Touch Auto-Update to ${newVer}...`);
+
+      const activeEl = document.activeElement;
+      const isUserTyping = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable);
+
+      const performSeamlessReload = () => {
+        // 1. Save state completely so user returns to the exact same screen, tab, and form inputs
+        try {
+          saveAppRunningState();
+          sessionStorage.setItem('inventory_just_auto_updated', 'true');
+        } catch (e) {}
+
+        // 2. Show floating auto-update indicator
+        let pill = document.getElementById('autoUpdateTopPill');
+        if (!pill) {
+          pill = document.createElement('div');
+          pill.id = 'autoUpdateTopPill';
+          pill.className = 'fixed top-3 left-1/2 -translate-x-1/2 z-[99999] bg-slate-900/95 text-white text-xs px-4 py-2.5 rounded-2xl shadow-2xl border border-blue-500/50 backdrop-blur-md flex items-center space-x-2.5 transition-all duration-300';
+          pill.innerHTML = `
+            <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
+            <i class="fa-solid fa-rotate fa-spin text-cyan-300"></i>
+            <span class="font-bold">រកឃើញការ Update ថ្មី! កំពុង Update ដោយស្វ័យប្រវត្តិ...</span>
+          `;
+          document.body.appendChild(pill);
+        }
+
+        // 3. Cache-busted reload to guarantee latest JS & HTML are fetched from server
+        setTimeout(() => {
+          const url = new URL(window.location.href);
+          url.searchParams.set('_v', Date.now());
+          window.location.replace(url.toString());
+        }, 600);
+      };
+
+      if (isUserTyping) {
+        // If user is currently typing, wait for pause or blur before reloading
+        let idleTimer = setTimeout(performSeamlessReload, 3500);
+        const onBlur = () => {
+          clearTimeout(idleTimer);
+          activeEl.removeEventListener('blur', onBlur);
+          performSeamlessReload();
+        };
+        activeEl.addEventListener('blur', onBlur, { once: true });
+      } else {
+        performSeamlessReload();
       }
     }
 
@@ -3808,7 +3867,7 @@
         evtSource.onmessage = function(e) {
           if (e.data === 'reload') {
             console.log('[LiveReload] Server notified code update. Performing auto-update...');
-            triggerAppUpdate('live_' + Date.now());
+            applyAppUpdateNow('live_' + Date.now());
           }
         };
         evtSource.onerror = function() {
@@ -3821,9 +3880,9 @@
       // Connect to instant LiveReload SSE from local server
       initLiveReloadSSE();
 
-      // Fast background polling every 4.5 seconds for remote/static hosting
+      // Fast background polling every 3.0 seconds for remote/static hosting
       setTimeout(checkAppVersionInBackground, 1000);
-      setInterval(checkAppVersionInBackground, 4500);
+      setInterval(checkAppVersionInBackground, 3000);
 
       window.addEventListener('focus', checkAppVersionInBackground);
       document.addEventListener('visibilitychange', () => {
@@ -3831,6 +3890,26 @@
           checkAppVersionInBackground();
         }
       });
+    }
+
+    function showAutoUpdateSuccessToast() {
+      const toast = document.createElement('div');
+      toast.className = 'fixed bottom-4 right-4 z-[99999] bg-slate-900/95 text-white text-xs px-4 py-2.5 rounded-2xl shadow-2xl border border-emerald-500/50 backdrop-blur-md flex items-center space-x-2.5 transition-all duration-500';
+      toast.innerHTML = `
+        <span class="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs">
+          <i class="fa-solid fa-wand-magic-sparkles"></i>
+        </span>
+        <div>
+          <p class="font-bold text-white">ប្រព័ន្ធបាន Update ដោយស្វ័យប្រវត្តិ!</p>
+          <p class="text-[10px] text-emerald-300">ទិន្នន័យ និងមុខងារចុងក្រោយត្រូវបានតម្លើងរួចរាល់</p>
+        </div>
+      `;
+      document.body.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(10px)';
+        setTimeout(() => toast.remove(), 500);
+      }, 3500);
     }
 
     function initScrollRestoration() {
@@ -4409,6 +4488,14 @@
             sessionStorage.removeItem('inventory_active_modal_state');
             restoreModalState(modalState);
           } catch (e) {}
+        }
+
+        // 6. Notification if just auto-updated seamlessly in background
+        if (sessionStorage.getItem('inventory_just_auto_updated')) {
+          sessionStorage.removeItem('inventory_just_auto_updated');
+          if (typeof showAutoUpdateSuccessToast === 'function') {
+            showAutoUpdateSuccessToast();
+          }
         }
       } else {
         // No existing session: show login screen

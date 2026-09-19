@@ -10,6 +10,7 @@ import sys
 import time
 import subprocess
 import threading
+import json
 from datetime import datetime
 
 # Enforce UTF-8 on Windows
@@ -202,6 +203,24 @@ def get_project_file_snapshots():
     return snapshots
 
 
+def update_version_json():
+    """Update version.json with current build timestamp so web clients auto-update."""
+    try:
+        now = datetime.now()
+        t_ms = int(time.time() * 1000)
+        v_data = {
+            "version": str(t_ms),
+            "buildTime": t_ms,
+            "timestamp": now.strftime("%Y-%m-%d %H:%M:%S")
+        }
+        v_path = os.path.join(PROJECT_DIR, "version.json")
+        with open(v_path, "w", encoding="utf-8") as f:
+            json.dump(v_data, f, indent=2)
+        print(f"  [✓] Updated version.json buildTime: {t_ms}")
+    except Exception as e:
+        print(f"  [!] Could not update version.json: {e}")
+
+
 def do_push(changed_files_desc=""):
     """Execute git add, commit, rebase, and push, plus Google Apps Script auto-sync."""
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -211,6 +230,9 @@ def do_push(changed_files_desc=""):
 
     # 0. Sync to Google Apps Script (clasp push)
     run_clasp_push()
+
+    # 0.5. Bump version.json so browser clients auto-detect and update
+    update_version_json()
 
     # 1. Stage changes
     print("  [*] កំពុង Add files (git add -A)...")
