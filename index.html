@@ -3489,8 +3489,32 @@
       }
     }
 
-    // Load persisted users immediately upon script load
+    // Persistent Local Items Database (Preserves new products, edits, and images across reloads)
+    function saveLocalItemsToStorage() {
+      try {
+        localStorage.setItem('inventory_items_db', JSON.stringify(LOCAL_DB.items));
+      } catch (e) {
+        console.warn('Could not save items to localStorage', e);
+      }
+    }
+
+    function loadLocalItemsFromStorage() {
+      try {
+        const saved = localStorage.getItem('inventory_items_db');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            LOCAL_DB.items = parsed;
+          }
+        }
+      } catch (e) {
+        console.warn('Could not load items from localStorage', e);
+      }
+    }
+
+    // Load persisted users and items immediately upon script load
     loadLocalUsersFromStorage();
+    loadLocalItemsFromStorage();
 
     // Helper to load remembered credentials only if user explicitly ticked Remember Me
     function loadRememberedCredentials() {
@@ -7077,6 +7101,8 @@
         if (result.isConfirmed) {
           const res = await apiCall('deleteItem', { sku, user: AppState.currentUser?.username });
           if (res.success) {
+            LOCAL_DB.items = LOCAL_DB.items.filter(i => i.sku !== sku);
+            saveLocalItemsToStorage();
             Swal.fire('បានលុប', res.message, 'success');
             await loadItems();
             await loadDashboard();
@@ -10724,6 +10750,8 @@
     window.triggerBackgroundRefresh = triggerBackgroundRefresh;
     window.refreshCurrentTab = refreshCurrentTab;
     window.saveAppRunningState = saveAppRunningState;
+    window.saveLocalItemsToStorage = saveLocalItemsToStorage;
+    window.loadLocalItemsFromStorage = loadLocalItemsFromStorage;
 
     // Run auto-scale immediately
     if (document.readyState === 'loading') {
