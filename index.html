@@ -4,11 +4,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Cache-Control" content="no-cache">
   <meta http-equiv="Pragma" content="no-cache">
   <title>ប្រព័ន្ធគ្រប់គ្រងស្តុកទំនិញ | Smart Inventory</title>
 
-  <!-- Instant Pre-Render Auth Check: Prevents Flash of Login Screen on Page Refresh -->
+  <!-- Instant Pre-Render Engine: Eliminates Flash of Login Screen and Tab/Layout Jumping on Browser Refresh -->
   <script>
     (function() {
       try {
@@ -17,6 +17,30 @@
           var u = JSON.parse(raw);
           if (u && (u.username || u.userId)) {
             document.documentElement.classList.add('app-authenticated');
+
+            // Detect target active tab before HTML body renders
+            var hashTab = window.location.hash ? window.location.hash.replace('#', '') : '';
+            var savedTab = hashTab || sessionStorage.getItem('inventory_active_tab') || 'dashboard';
+            var tabMap = {
+              'items': 'tabItems',
+              'stockin': 'tabStockIn',
+              'stockout': 'tabStockOut',
+              'transfer': 'tabTransfer',
+              'reports': 'tabReports',
+              'requests': 'tabRequests',
+              'chat': 'tabChat',
+              'users': 'tabUsers',
+              'settings': 'tabSettings'
+            };
+            if (savedTab && savedTab !== 'dashboard' && tabMap[savedTab]) {
+              var targetTabId = tabMap[savedTab];
+              var preStyle = document.createElement('style');
+              preStyle.id = 'preRenderTabStyle';
+              preStyle.textContent = 
+                'html.app-authenticated #tabDashboard { display: none !important; }\n' +
+                'html.app-authenticated #' + targetTabId + ' { display: block !important; }';
+              document.head.appendChild(preStyle);
+            }
           }
         }
       } catch (e) {}
@@ -797,13 +821,13 @@
             <div class="flex items-center space-x-2">
               <span class="text-[10px] md:text-[11px] font-semibold text-blue-100/90">គណនីកំពុងចូលប្រើប្រាស់:</span>
               <span id="activeSessionRoleBadge"
-                class="px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-white/20 text-white border border-white/30 backdrop-blur-sm">Admin</span>
+                class="px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-white/20 text-white border border-white/30 backdrop-blur-sm">...</span>
               <span class="inline-flex items-center text-[9px] text-emerald-300 font-bold">
                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1 animate-pulse"></span> Online
               </span>
             </div>
             <h3 class="text-xs md:text-sm font-bold text-white truncate drop-shadow-sm flex items-center space-x-1" id="activeSessionUserTitle">
-              System Administrator <span class="text-[10px] text-blue-200/80 font-mono font-normal">(@admin)</span>
+              កំពុងដំណើរការ...
             </h3>
           </div>
         </div>
@@ -814,7 +838,7 @@
             <i class="fa-solid fa-warehouse text-emerald-300 text-xs"></i>
             <span class="text-blue-100 text-[10px] hidden sm:inline font-medium">ឃ្លាំងកំពុងគ្រប់គ្រង:</span>
             <span class="font-bold text-emerald-300 truncate max-w-[180px] text-xs"
-              id="activeSessionWarehouseName">គ្រប់ស្ថានីយទាំងអស់</span>
+              id="activeSessionWarehouseName">...</span>
           </div>
 
           <!-- រយៈពេលចូលប្រើប្រាស់ (Live Session Duration Timer Badge) -->
@@ -855,6 +879,42 @@
           </button>
         </div>
       </div>
+      <!-- Instant Session Banner Sync Script: Renders correct User info before paint -->
+      <script>
+        (function() {
+          try {
+            var raw = sessionStorage.getItem('inventory_user') || localStorage.getItem('inventory_user');
+            if (raw) {
+              var u = JSON.parse(raw);
+              if (u) {
+                var isSA = (u.userId === 'USR-SA' || (u.username && u.username.toLowerCase() === 'superadmin'));
+                var titleEl = document.getElementById('activeSessionUserTitle');
+                if (titleEl) {
+                  var dName = isSA ? '陈龙' : (u.fullName || u.username || 'User');
+                  var uName = u.username || '';
+                  titleEl.innerHTML = dName + ' <span class="text-[10px] text-blue-200/80 font-mono font-normal">(@' + uName + ')</span>';
+                }
+                var roleEl = document.getElementById('activeSessionRoleBadge');
+                if (roleEl) {
+                  roleEl.innerText = isSA ? '👑⚡ SuperAdmin' : (u.role || 'Staff');
+                  if (isSA) {
+                    roleEl.className = 'px-2.5 py-0.5 rounded-full text-[9px] bg-gradient-to-r from-amber-400 to-amber-600 text-slate-950 font-black shadow-sm border border-amber-300';
+                  }
+                }
+                var whEl = document.getElementById('activeSessionWarehouseName');
+                if (whEl && u.warehouse) {
+                  whEl.innerText = (u.warehouse === 'ALL') ? 'គ្រប់ស្ថានីយទាំងអស់' : u.warehouse;
+                }
+                var avatarEl = document.getElementById('activeSessionAvatar');
+                if (avatarEl && (u.avatar || isSA)) {
+                  var avSrc = isSA ? 'assets/superadmin_avatar.jpg' : u.avatar;
+                  if (avSrc) avatarEl.innerHTML = '<img src="' + avSrc + '" class="w-full h-full object-cover rounded-full">';
+                }
+              }
+            }
+          } catch(e) {}
+        })();
+      </script>
 
       <!-- TOP HEADER BAR -->
       <header
@@ -948,9 +1008,10 @@
             </div>
           </div>
 
-          <button onclick="refreshCurrentTab()" title="ទាញយកទិន្នន័យថ្មី"
-            class="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 transition-all">
-            <i class="fa-solid fa-rotate text-sm" id="refreshIcon"></i>
+          <button onclick="refreshCurrentTab()" title="ទាញយក និង Refresh ទិន្នន័យថ្មីក្នុង Background ដោយមិនចាំបាច់ Reload ទំព័រ"
+            class="px-2.5 sm:px-3 py-1.5 rounded-xl border border-blue-200 bg-blue-50 hover:bg-blue-100/80 text-blue-700 transition-all flex items-center space-x-1.5 shadow-sm hover:scale-105 active:scale-95">
+            <i class="fa-solid fa-rotate text-xs sm:text-sm text-blue-600" id="refreshIcon"></i>
+            <span class="text-xs font-bold hidden sm:inline">Refresh ទិន្នន័យ</span>
           </button>
         </div>
       </header>
@@ -4309,46 +4370,45 @@
           saveLocalUsersToStorage();
           AppState.currentUser = savedUser;
         }
-        showAppView();
-        loadInitialData();
 
-        // Restore active tab
+        // 1. Restore active tab IMMEDIATELY before rendering anything
         const hashTab = window.location.hash.replace('#', '');
         const savedTab = sessionStorage.getItem('inventory_active_tab');
         const targetTab = hashTab || savedTab || 'dashboard';
         navigateTab(targetTab);
 
-        // Restore warehouse filter
+        // 2. Restore warehouse filter
         const savedWh = sessionStorage.getItem('inventory_wh_filter');
         if (savedWh) {
           AppState.selectedAdminWarehouseFilter = savedWh;
         }
 
-        // Restore scroll position
+        // 3. Render session view and load data
+        showAppView();
+        loadInitialData();
+
+        // 4. Restore scroll position instantly without delay or visual jump
         const savedScroll = sessionStorage.getItem('inventory_scroll_top');
         if (savedScroll) {
-          setTimeout(() => {
-            const mainElem = document.querySelector('main');
-            if (mainElem) mainElem.scrollTop = parseInt(savedScroll, 10) || 0;
-          }, 200);
+          const scrollVal = parseInt(savedScroll, 10) || 0;
+          const mainElem = document.querySelector('main');
+          if (mainElem) {
+            mainElem.scrollTop = scrollVal;
+          }
+          requestAnimationFrame(() => {
+            const m = document.querySelector('main');
+            if (m && m.scrollTop !== scrollVal) m.scrollTop = scrollVal;
+          });
         }
 
-        // Restore active modal & form inputs if page was hard refreshed
+        // 5. Restore active modal & form inputs if page was refreshed
         const modalRaw = sessionStorage.getItem('inventory_active_modal_state');
         if (modalRaw) {
           try {
             const modalState = JSON.parse(modalRaw);
             sessionStorage.removeItem('inventory_active_modal_state');
-            setTimeout(() => {
-              restoreModalState(modalState);
-            }, 350);
+            restoreModalState(modalState);
           } catch (e) {}
-        }
-
-        // Notification if just updated in background
-        if (sessionStorage.getItem('inventory_just_updated')) {
-          sessionStorage.removeItem('inventory_just_updated');
-          showUpdateSuccessToast();
         }
       } else {
         // No existing session: show login screen
@@ -6564,6 +6624,10 @@
     }
 
     function navigateTab(tabName) {
+      // Remove temporary pre-render style once JavaScript navigation takes control
+      const preStyle = document.getElementById('preRenderTabStyle');
+      if (preStyle) preStyle.remove();
+
       const u = AppState.currentUser;
       const isAdmin = (u && (u.role === 'Admin' || u.role === 'SuperAdmin'));
       if (!isAdmin && (tabName === 'users' || tabName === 'settings')) {

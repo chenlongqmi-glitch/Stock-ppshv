@@ -171,7 +171,10 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
         self.send_header('Access-Control-Allow-Origin', '*')
         if not self.path.startswith('/live-reload'):
-            self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            if any(self.path.lower().endswith(ext) for ext in ('.png', '.jpg', '.jpeg', '.webp', '.svg', '.ico', '.woff', '.woff2', '.ttf')):
+                self.send_header('Cache-Control', 'public, max-age=86400')
+            else:
+                self.send_header('Cache-Control', 'no-cache')
         super().end_headers()
 
     def log_message(self, format, *args):
