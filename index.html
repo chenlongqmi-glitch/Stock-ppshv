@@ -2189,14 +2189,13 @@
               </div>
             </div>
 
-            <!-- ជួរទី៥: ទីតាំងឃ្លាំង (Warehouse Location) -->
-            <div>
+            <!-- ជួរទី៥: ទីតាំងឃ្លាំង / ស្ថានីយទូទាត់ប្រាក់ (បង្ហាញតែ Admin & SuperAdmin ប៉ុណ្ណោះ) -->
+            <div id="modalLocationContainer">
               <div class="flex items-center justify-between mb-1">
-                <label class="block text-xs font-bold text-slate-700 uppercase">ទីតាំងឃ្លាំង (Warehouse Location)
-                  *</label>
+                <label class="block text-xs font-bold text-slate-700 uppercase">ស្ថានីយទូទាត់ប្រាក់ / ទីតាំងឃ្លាំង (Station / Warehouse) *</label>
                 <span id="modalLocationBadge"
                   class="text-[10px] text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-200">
-                  <i class="fa-solid fa-user-check mr-1"></i>Auto តាម User ឃ្លាំង
+                  <i class="fa-solid fa-user-shield mr-1"></i>Admin / SuperAdmin
                 </span>
               </div>
               <select id="modalLocation"
@@ -7094,21 +7093,26 @@
         defaultWh = WAREHOUSES_LIST[0];
       }
 
+            const isAdminOrSuper = (AppState.currentUser && (AppState.currentUser.role === 'Admin' || AppState.currentUser.role === 'SuperAdmin' || String(AppState.currentUser.username).toLowerCase() === 'admin' || String(AppState.currentUser.username).toLowerCase() === 'superadmin'));
+      const locContainer = document.getElementById('modalLocationContainer');
+
       if (locSelect) {
         if (defaultWh) {
           locSelect.value = defaultWh;
         }
+        locSelect.disabled = false;
+        locSelect.classList.remove('bg-slate-100', 'cursor-not-allowed', 'font-bold', 'text-blue-800');
+      }
 
-        // If user is assigned to a specific warehouse (non-admin or staff)
-        if (AppState.currentUser && AppState.currentUser.role !== 'Admin' && AppState.currentUser.role !== 'SuperAdmin' && AppState.currentUser.warehouse && AppState.currentUser.warehouse !== 'ALL') {
-          locSelect.disabled = true;
-          locSelect.classList.add('bg-slate-100', 'cursor-not-allowed', 'font-bold', 'text-blue-800');
-          if (badge) badge.innerHTML = `<i class="fa-solid fa-lock mr-1"></i>${AppState.currentUser.warehouse}`;
-        } else {
-          locSelect.disabled = false;
-          locSelect.classList.remove('bg-slate-100', 'cursor-not-allowed', 'font-bold', 'text-blue-800');
-          if (badge) badge.innerHTML = `<i class="fa-solid fa-user-check mr-1"></i>Auto តាម User (${defaultWh || 'Admin'})`;
-        }
+      // Warehouse Location Visibility:
+      // Regular User: Completely HIDDEN (auto-assigned behind the scenes)
+      // SuperAdmin & Admin: Visible and selectable as normal
+      if (isAdminOrSuper) {
+        if (locContainer) locContainer.classList.remove('hidden');
+        if (badge) badge.innerHTML = `<i class="fa-solid fa-user-shield mr-1"></i>Admin / SuperAdmin ជ្រើសរើស`;
+      } else {
+        if (locContainer) locContainer.classList.add('hidden');
+      }
       }
 
       generateRandomSku();
@@ -7135,15 +7139,20 @@
 
       refreshAllWarehouseDropdowns();
       const locSelect = document.getElementById('modalLocation');
+      const locContainer = document.getElementById('modalLocationContainer');
+      const isAdminOrSuper = (AppState.currentUser && (AppState.currentUser.role === 'Admin' || AppState.currentUser.role === 'SuperAdmin' || String(AppState.currentUser.username).toLowerCase() === 'admin' || String(AppState.currentUser.username).toLowerCase() === 'superadmin'));
+
       if (locSelect) {
-        locSelect.value = item.location || (AppState.currentUser?.warehouse && AppState.currentUser.warehouse !== 'ALL' ? AppState.currentUser.warehouse : 'ឃ្លាំងទី ០១ - ភ្នំពេញ (សែនសុខ)');
-        if (AppState.currentUser && AppState.currentUser.role !== 'Admin' && AppState.currentUser.role !== 'SuperAdmin' && AppState.currentUser.warehouse && AppState.currentUser.warehouse !== 'ALL') {
-          locSelect.disabled = true;
-          locSelect.classList.add('bg-slate-100', 'cursor-not-allowed');
-        } else {
-          locSelect.disabled = false;
-          locSelect.classList.remove('bg-slate-100', 'cursor-not-allowed');
-        }
+        locSelect.value = item.location || (AppState.currentUser?.warehouse && AppState.currentUser.warehouse !== 'ALL' ? AppState.currentUser.warehouse : WAREHOUSES_LIST[0]);
+        locSelect.disabled = false;
+        locSelect.classList.remove('bg-slate-100', 'cursor-not-allowed');
+      }
+
+      // Hide for regular users, show for Admin/SuperAdmin
+      if (isAdminOrSuper) {
+        if (locContainer) locContainer.classList.remove('hidden');
+      } else {
+        if (locContainer) locContainer.classList.add('hidden');
       }
 
       // Load and preview image
@@ -7185,8 +7194,15 @@
       const stockInQtyVal = Number(document.getElementById('modalStockInQty').value || 0);
       const finalStock = mode === 'ADD' ? stockInQtyVal : (currentStockVal + stockInQtyVal);
 
-      const finalLocation = document.getElementById('modalLocation')?.value ||
-        (AppState.currentUser && AppState.currentUser.warehouse && AppState.currentUser.warehouse !== 'ALL' ? AppState.currentUser.warehouse : 'ឃ្លាំងទី ០១ - ភ្នំពេញ (សែនសុខ)');
+      const isAdminOrSuper = (AppState.currentUser && (AppState.currentUser.role === 'Admin' || AppState.currentUser.role === 'SuperAdmin' || String(AppState.currentUser.username).toLowerCase() === 'admin' || String(AppState.currentUser.username).toLowerCase() === 'superadmin'));
+      let finalLocation = '';
+      if (isAdminOrSuper) {
+        finalLocation = document.getElementById('modalLocation')?.value || (WAREHOUSES_LIST && WAREHOUSES_LIST.length > 0 ? WAREHOUSES_LIST[0] : '1-K3 ស្ថានីយ (ភ្នំពេញ)');
+      } else {
+        finalLocation = (AppState.currentUser && AppState.currentUser.warehouse && AppState.currentUser.warehouse !== 'ALL')
+          ? AppState.currentUser.warehouse
+          : (document.getElementById('modalLocation')?.value || (WAREHOUSES_LIST && WAREHOUSES_LIST.length > 0 ? WAREHOUSES_LIST[0] : '1-K3 ស្ថានីយ (ភ្នំពេញ)'));
+      }
 
       const itemData = {
         sku: document.getElementById('modalSku').value.trim() || ('SKU-' + Math.floor(1000 + Math.random() * 9000)),
