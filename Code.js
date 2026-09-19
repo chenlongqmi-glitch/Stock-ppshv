@@ -628,6 +628,10 @@ function executeLocalApiAction(req) {
 
         return deleteWarehouse(payload, payload.user);
 
+      case 'deleteUser':
+
+        return deleteUser(payload.userId || payload.username || payload.id, payload.adminUser || payload.user);
+
       case 'getUsersList':
 
       case 'getUsers':
@@ -2493,6 +2497,118 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
   }
 
   return { success: false, message: 'User not found' };
+
+}
+
+
+
+function deleteUser(userIdOrPayload, adminUser) {
+
+  let uId = userIdOrPayload;
+
+  let admin = adminUser;
+
+
+
+  if (userIdOrPayload && typeof userIdOrPayload === 'object') {
+
+    uId = userIdOrPayload.userId || userIdOrPayload.username || userIdOrPayload.id;
+
+    admin = userIdOrPayload.adminUser || userIdOrPayload.user;
+
+  }
+
+
+
+  if (!uId) {
+
+    return { success: false, message: 'សូមបញ្ជាក់អ្នកប្រើប្រាស់ដែលត្រូវលុប' };
+
+  }
+
+
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  const sheet = ensureUsersInitialized(ss);
+
+  const data = sheet.getDataRange().getValues();
+
+
+
+  let adminUsername = '';
+
+  if (admin && typeof admin === 'object') {
+
+    adminUsername = String(admin.username || '').toLowerCase();
+
+  } else if (admin) {
+
+    adminUsername = String(admin).toLowerCase();
+
+  }
+
+
+
+  const isActorSuperAdmin = (adminUsername === 'superadmin' || (admin && admin.role === 'SuperAdmin'));
+
+
+
+  for (let i = 1; i < data.length; i++) {
+
+    const rowUserId = String(data[i][0] || '');
+
+    const rowUsername = String(data[i][1] || '');
+
+    const rowRole = String(data[i][6] || '');
+
+
+
+    if (rowUserId === String(uId) || rowUsername.toLowerCase() === String(uId).toLowerCase()) {
+
+      // Prevent deleting self
+
+      if (rowUsername.toLowerCase() === adminUsername) {
+
+        return { success: false, message: 'អ្នកមិនអាចលុបគណនីផ្ទាល់ខ្លួនរបស់អ្នកបានឡើយ' };
+
+      }
+
+
+
+      // Protect SuperAdmin
+
+      if ((rowRole === 'SuperAdmin' || rowUserId === 'USR-SA' || rowUsername.toLowerCase() === 'superadmin') && !isActorSuperAdmin) {
+
+        return { success: false, message: 'អ្នកគ្មានសិទ្ធិលុបគណនី SuperAdmin ឡើយ' };
+
+      }
+
+
+
+      const deletedFullName = data[i][2] || rowUsername;
+
+      sheet.deleteRow(i + 1);
+
+      logActivity('USERS', adminUsername || 'Admin', 'DELETE_USER', `លុបអ្នកប្រើប្រាស់: ${deletedFullName} (@${rowUsername})`);
+
+
+
+      return {
+
+        success: true,
+
+        message: `បានលុបគណនី ${deletedFullName} (@${rowUsername}) ចេញពីប្រព័ន្ធជោគជ័យ!`
+
+      };
+
+    }
+
+  }
+
+
+
+  return { success: false, message: 'រកមិនឃើញអ្នកប្រើប្រាស់ដែលត្រូវលុបឡើយ' };
 
 }
 

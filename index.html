@@ -5068,6 +5068,33 @@
         return { success: false, message: 'User not found' };
       }
 
+      if (action === 'deleteUser') {
+        const targetId = payload.userId || payload.username || payload.id;
+        const targetIdx = LOCAL_DB.users.findIndex(x => (x.userId && x.userId === targetId) || (x.username && x.username.toLowerCase() === String(targetId).toLowerCase()));
+        if (targetIdx !== -1) {
+          const targetUser = LOCAL_DB.users[targetIdx];
+          const actor = AppState.currentUser;
+          const isActorSuperAdmin = (actor?.role === 'SuperAdmin') || (String(actor?.username).toLowerCase() === 'superadmin');
+          const isActorAdmin = !isActorSuperAdmin && (actor?.role === 'Admin' || actor?.role === 'អ្នកគ្រប់គ្រង' || String(actor?.username).toLowerCase() === 'admin');
+
+          if (!isActorSuperAdmin && !isActorAdmin) {
+            return { success: false, message: 'អ្នកគ្មានសិទ្ធិលុបអ្នកប្រើប្រាស់ឡើយ!' };
+          }
+          if (targetUser.userId === actor?.userId || (targetUser.username && targetUser.username.toLowerCase() === String(actor?.username).toLowerCase())) {
+            return { success: false, message: 'អ្នកមិនអាចលុបគណនីផ្ទាល់ខ្លួនរបស់អ្នកបានឡើយ!' };
+          }
+          if ((targetUser.role === 'SuperAdmin' || targetUser.userId === 'USR-SA' || String(targetUser.username).toLowerCase() === 'superadmin') && !isActorSuperAdmin) {
+            return { success: false, message: 'អ្នកគ្មានសិទ្ធិលុបគណនី SuperAdmin ឡើយ!' };
+          }
+
+          const deletedName = targetUser.fullName || targetUser.username;
+          LOCAL_DB.users.splice(targetIdx, 1);
+          saveLocalUsersToStorage();
+          return { success: true, message: `បានលុបអ្នកប្រើប្រាស់ ${deletedName} ចេញពីប្រព័ន្ធជោគជ័យ!` };
+        }
+        return { success: false, message: 'រកមិនឃើញអ្នកប្រើប្រាស់ឡើយ' };
+      }
+
       if (action === 'getItemsList' || action === 'getItems') {
         let filteredItems = LOCAL_DB.items;
         if (targetWarehouse) {
@@ -8692,6 +8719,10 @@
                       <i class="fa-solid fa-circle-xmark text-xs"></i>
                       <span>បដិសេធ</span>
                     </button>
+                    <button onclick="handleDeleteUser('${u.userId || ''}', '${u.username || ''}')" class="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 rounded text-xs font-bold shadow-sm transition hover:scale-105 active:scale-95 inline-flex items-center space-x-1" title="លុបគណនីនេះចេញពីប្រព័ន្ធ">
+                      <i class="fa-solid fa-trash-can text-[11px]"></i>
+                      <span>លុប</span>
+                    </button>
                   </div>
                 `;
               } else {
@@ -8710,6 +8741,10 @@
                       <i class="fa-solid fa-circle-xmark text-xs"></i>
                       <span>បដិសេធ</span>
                     </button>
+                    <button onclick="handleDeleteUser('${u.userId || ''}', '${u.username || ''}')" class="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 rounded text-xs font-bold shadow-sm transition hover:scale-105 active:scale-95 inline-flex items-center space-x-1" title="លុបគណនីនេះចេញពីប្រព័ន្ធ">
+                      <i class="fa-solid fa-trash-can text-[11px]"></i>
+                      <span>លុប</span>
+                    </button>
                   </div>
                 `;
               } else if (isActorAdmin) {
@@ -8718,6 +8753,10 @@
                     <span class="text-[10px] text-indigo-700 font-bold bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">រង់ចាំ SuperAdmin</span>
                     <button onclick="resendToTelegramSuperAdmin('${u.userId || ''}', '${u.username || ''}')" class="px-2 py-0.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[10px] font-bold shadow-sm transition" title="ផ្ញើសាររំលឹកទៅ Telegram របស់ SuperAdmin ម្តងទៀត">
                       <i class="fa-brands fa-telegram mr-0.5"></i> រំលឹក
+                    </button>
+                    <button onclick="handleDeleteUser('${u.userId || ''}', '${u.username || ''}')" class="px-2 py-0.5 bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 rounded text-[10px] font-bold shadow-sm transition hover:scale-105 active:scale-95 inline-flex items-center space-x-1" title="លុបគណនីនេះចេញពីប្រព័ន្ធ">
+                      <i class="fa-solid fa-trash-can text-[10px]"></i>
+                      <span>លុប</span>
                     </button>
                   </div>
                 `;
@@ -8741,6 +8780,14 @@
                   ${u.status === 'Active' ? 'បិទដំណើរការ' : 'បើកដំណើរការ'}
                 </button>
               `;
+              if (!isSelf) {
+                actionsHtml += `
+                  <button onclick="handleDeleteUser('${u.userId || ''}', '${u.username || ''}')" class="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 rounded text-xs font-bold shadow-sm transition hover:scale-105 active:scale-95 inline-flex items-center space-x-1" title="លុបគណនីនេះចេញពីប្រព័ន្ធ">
+                    <i class="fa-solid fa-trash-can text-[11px]"></i>
+                    <span>លុប</span>
+                  </button>
+                `;
+              }
             } else if (isActorAdmin) {
               // Admin can edit other users except SuperAdmin
               actionsHtml += `
@@ -8751,6 +8798,14 @@
                   ${u.status === 'Active' ? 'បិទដំណើរការ' : 'បើកដំណើរការ'}
                 </button>
               `;
+              if (!isSelf && !isUserSuperAdmin) {
+                actionsHtml += `
+                  <button onclick="handleDeleteUser('${u.userId || ''}', '${u.username || ''}')" class="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 rounded text-xs font-bold shadow-sm transition hover:scale-105 active:scale-95 inline-flex items-center space-x-1" title="លុបគណនីនេះចេញពីប្រព័ន្ធ">
+                    <i class="fa-solid fa-trash-can text-[11px]"></i>
+                    <span>លុប</span>
+                  </button>
+                `;
+              }
             } else {
               // Regular user: can edit own profile
               actionsHtml = `
@@ -9677,6 +9732,129 @@
         loadUsersList();
       } else {
         Swal.fire('កំហុស', res?.message || 'មិនអាចកែប្រែស្ថានភាពគណនីបានទេ', 'warning');
+      }
+    }
+
+    async function handleDeleteUser(userId, username) {
+      const actor = AppState.currentUser;
+      const isActorSuperAdmin = (actor?.role === 'SuperAdmin') || (String(actor?.username).toLowerCase() === 'superadmin');
+      const isActorAdmin = !isActorSuperAdmin && (actor?.role === 'Admin' || actor?.role === 'អ្នកគ្រប់គ្រង' || String(actor?.username).toLowerCase() === 'admin');
+
+      if (!isActorSuperAdmin && !isActorAdmin) {
+        Swal.fire({
+          icon: 'error',
+          title: 'គ្មានសិទ្ធិ',
+          text: 'មានតែ SuperAdmin និង Admin ប៉ុណ្ណោះដែលអាចលុបអ្នកប្រើប្រាស់បាន!'
+        });
+        return;
+      }
+
+      // Check if self
+      if (userId === actor?.userId || (username && String(username).toLowerCase() === String(actor?.username).toLowerCase())) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'មិនអាចលុបបានទេ',
+          text: 'អ្នកមិនអាចលុបគណនីផ្ទាល់ខ្លួនដែលកំពុងចូលប្រើប្រាស់បានឡើយ!'
+        });
+        return;
+      }
+
+      // Find user details
+      let targetUser = (LOCAL_DB.users || []).find(u => (userId && u.userId === userId) || (username && u.username === username));
+      const targetDisplayName = targetUser ? (targetUser.fullName || targetUser.username) : (username || userId);
+      const targetRole = targetUser?.role || 'User';
+
+      // Protect SuperAdmin
+      if ((targetRole === 'SuperAdmin' || targetUser?.userId === 'USR-SA' || String(targetUser?.username).toLowerCase() === 'superadmin') && !isActorSuperAdmin) {
+        Swal.fire({
+          icon: 'error',
+          title: 'គ្មានសិទ្ធិ',
+          text: 'អ្នកគ្មានសិទ្ធិលុបគណនី SuperAdmin ឡើយ!'
+        });
+        return;
+      }
+
+      const result = await Swal.fire({
+        title: 'តើអ្នកពិតជាចង់លុប?',
+        html: `
+          <div class="text-left text-xs space-y-2.5 p-3 bg-slate-50 rounded-2xl border border-slate-200 mt-2">
+            <p class="text-slate-600">អ្នកកំពុងស្នើសុំលុបគណនីអ្នកប្រើប្រាស់៖</p>
+            <div class="flex items-center space-x-2.5 bg-white p-2.5 rounded-xl border border-slate-200">
+              <div class="w-9 h-9 rounded-full overflow-hidden bg-slate-100 flex-shrink-0 border border-slate-200">
+                <img src="${targetUser?.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + (username || 'user')}" class="w-full h-full object-cover">
+              </div>
+              <div>
+                <p class="font-bold text-slate-800 text-xs">${targetDisplayName}</p>
+                <p class="text-[10px] text-slate-400 font-mono">@${username || userId} (${targetRole})</p>
+              </div>
+            </div>
+            <div class="p-2.5 bg-rose-50 rounded-xl border border-rose-200 text-rose-700 text-xs">
+              <p class="font-bold flex items-center mb-1">
+                <i class="fa-solid fa-triangle-exclamation mr-1.5 text-rose-500"></i>
+                ការព្រមានសំខាន់៖
+              </p>
+              <p class="text-[11px] leading-relaxed">ទិន្នន័យគណនីនេះនឹងត្រូវលុបចេញពីប្រព័ន្ធទាំងស្រុង ហើយមិនអាចត្រឡប់វិញបានឡើយ!</p>
+            </div>
+          </div>
+        `,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#e11d48',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: '<i class="fa-solid fa-trash-can mr-1"></i> យល់ព្រមលុប',
+        cancelButtonText: 'បោះបង់',
+        reverseButtons: true
+      });
+
+      if (!result.isConfirmed) return;
+
+      Swal.fire({
+        title: 'កំពុងលុបគណនី...',
+        text: 'សូមរង់ចាំមួយភ្លែត',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
+      try {
+        const res = await apiCall('deleteUser', {
+          userId: userId,
+          username: username,
+          adminUser: actor?.username
+        });
+
+        if (res && res.success) {
+          // Remove from local memory database
+          const idx = LOCAL_DB.users.findIndex(u => (userId && u.userId === userId) || (username && u.username === username));
+          if (idx !== -1) {
+            LOCAL_DB.users.splice(idx, 1);
+            saveLocalUsersToStorage();
+          }
+
+          // Reload table smoothly
+          await loadUsersList();
+
+          Swal.fire({
+            icon: 'success',
+            title: 'ជោគជ័យ!',
+            text: res.message || 'បានលុបអ្នកប្រើប្រាស់ចេញពីប្រព័ន្ធរួចរាល់',
+            timer: 2200,
+            showConfirmButton: false
+          });
+        } else {
+          Swal.fire({
+            icon: 'error',
+            title: 'បរាជ័យ',
+            text: res?.message || 'មិនអាចលុបអ្នកប្រើប្រាស់បានទេ'
+          });
+        }
+      } catch (err) {
+        Swal.fire({
+          icon: 'error',
+          title: 'កំហុសប្រព័ន្ធ',
+          text: 'មានបញ្ហាក្នុងការតភ្ជាប់ សូមព្យាយាមម្តងទៀត'
+        });
       }
     }
 
