@@ -5512,7 +5512,12 @@ function logActivity(user, role, action, details) {
 
         const messageText = String(chatData.messageText || '').trim();
 
-        const itemReference = chatData.itemReference ? JSON.stringify(chatData.itemReference) : '';
+        let itemReference = '';
+        if (chatData.itemReference) {
+          itemReference = (typeof chatData.itemReference === 'string') ? chatData.itemReference : JSON.stringify(chatData.itemReference);
+        } else if (chatData.registrationData) {
+          itemReference = (typeof chatData.registrationData === 'string') ? chatData.registrationData : JSON.stringify(chatData.registrationData);
+        }
 
 
 
@@ -5653,9 +5658,8 @@ function logActivity(user, role, action, details) {
               senderAvatar: row[7],
 
               messageText: row[8],
-
-              itemReference: itemRef
-
+              itemReference: itemRef,
+              registrationData: (itemRef && (itemRef.type === 'USER_REGISTRATION' || itemRef.username || itemRef.userId)) ? itemRef : null
             });
 
           }

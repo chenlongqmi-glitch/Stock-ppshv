@@ -931,32 +931,6 @@
 
       <!-- SCROLLABLE PAGE BODY -->
       <main class="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-slate-50/70">
-        <!-- ADMIN PENDING REGISTRATIONS ALERT BANNER -->
-        <div id="adminPendingAlertBanner" class="hidden mb-5 p-4 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white shadow-lg shadow-amber-500/20 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 animate-fade-in border border-amber-300/40">
-          <div class="flex items-center space-x-3.5">
-            <div class="w-10 h-10 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center text-lg text-amber-100 flex-shrink-0 animate-bounce">
-              <i class="fa-solid fa-user-clock"></i>
-            </div>
-            <div>
-              <div class="flex items-center space-x-2">
-                <span class="px-2.5 py-0.5 rounded-full bg-white text-rose-600 text-[10px] font-black uppercase tracking-wider shadow-xs">🔔 សេចក្តីជូនដំណឹង Admin</span>
-                <span id="adminPendingAlertCount" class="text-xs font-bold text-amber-100">មាន ១ សំណើ</span>
-              </div>
-              <p id="adminPendingAlertText" class="text-xs md:text-sm font-bold text-white mt-1">
-                មានសំណើសុំចុះឈ្មោះគណនីថ្មីកំពុងរង់ចាំការពិនិត្យ & អនុម័តពី Admin
-              </p>
-            </div>
-          </div>
-          <div class="flex items-center space-x-2 w-full md:w-auto justify-end">
-            <button type="button" onclick="openPendingRegistrationsModal()" class="px-4 py-2 bg-white hover:bg-amber-50 text-amber-900 rounded-xl text-xs font-black shadow-md flex items-center space-x-1.5 transition active:scale-95 cursor-pointer">
-              <i class="fa-solid fa-user-check text-emerald-600"></i>
-              <span>🔍 ពិនិត្យ & អនុម័តភ្លាមៗ</span>
-            </button>
-            <button type="button" onclick="dismissPendingAlertBanner()" class="p-2 hover:bg-white/20 text-white rounded-xl text-xs transition cursor-pointer" title="បិទការជូនដំណឹង">
-              <i class="fa-solid fa-xmark"></i>
-            </button>
-          </div>
-        </div>
 
 
         <!-- ========================================== -->
@@ -5895,6 +5869,19 @@
               avatar: userData.avatar,
               status: 'Pending_Admin',
               createdAt: new Date().toISOString().slice(0, 16).replace('T', ' ')
+            },
+            itemReference: {
+              type: 'USER_REGISTRATION',
+              userId: res?.user?.userId || ('USR-' + Date.now().toString().slice(-4)),
+              username: userData.username,
+              fullName: userData.fullName || userData.username,
+              phone: userData.phone || '',
+              email: userData.email || '',
+              role: userData.role || 'Stock Keeper',
+              warehouse: userData.warehouse,
+              avatar: userData.avatar,
+              status: 'Pending_Admin',
+              createdAt: new Date().toISOString().slice(0, 16).replace('T', ' ')
             }
           };
           apiCall('sendChatMessage', { data: chatCardPayload }).catch(() => {});
@@ -10335,24 +10322,31 @@
     }
 
     function renderNotificationDrawer() {
+      const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
+      const filteredList = notificationsList.filter(n => {
+        if (n.type === 'USER_REGISTRATION' && isActorSuperAdmin) return false;
+        return true;
+      });
+
       const listEl = document.getElementById('notifList');
       const badge = document.getElementById('notifBadge');
       if (badge) {
-        badge.innerText = notificationsList.length;
-        badge.classList.toggle('hidden', notificationsList.length === 0);
+        badge.innerText = filteredList.length;
+        badge.classList.toggle('hidden', filteredList.length === 0);
       }
 
       if (!listEl) return;
-      if (notificationsList.length === 0) {
+      if (filteredList.length === 0) {
         listEl.innerHTML = '<div class="p-4 text-center text-slate-400 text-xs">មិនទាន់មានការជូនដំណឹងថ្មីទេ</div>';
         return;
       }
 
-      listEl.innerHTML = notificationsList.map(n => `
-        <div class="p-2.5 rounded-xl border border-slate-100 bg-slate-50/80 hover:bg-white transition-all">
+      listEl.innerHTML = filteredList.map(n => `
+        <div ${n.type === 'USER_REGISTRATION' ? 'onclick="navigateTab(\'chat\'); switchChatChannel(\'ALL_WAREHOUSES\', \'📢 បន្ទប់ជជែកទូទៅ (All Stations & Admin)\', \'ទំនាក់ទំនងសាធារណៈគ្រប់ស្ថានីយទាំងអស់\', \'https://api.dicebear.com/7.x/identicon/svg?seed=AllWarehouses\'); toggleNotificationDropdown();"' : ''}
+          class="p-2.5 rounded-xl border border-slate-100 bg-slate-50/80 hover:bg-white transition-all cursor-pointer">
           <div class="flex items-center justify-between">
             <span class="font-bold text-slate-800 text-xs flex items-center">
-              <span class="w-2 h-2 rounded-full ${n.type === 'STOCK_OUT' ? 'bg-amber-500' : n.type === 'STOCK_IN' ? 'bg-emerald-500' : 'bg-blue-500'} mr-1.5"></span>
+              <span class="w-2 h-2 rounded-full ${n.type === 'STOCK_OUT' ? 'bg-amber-500' : n.type === 'STOCK_IN' ? 'bg-emerald-500' : n.type === 'USER_REGISTRATION' ? 'bg-rose-500 animate-pulse' : 'bg-blue-500'} mr-1.5"></span>
               ${n.title}
             </span>
             <span class="text-[10px] font-mono text-slate-400">${n.time}</span>
@@ -10703,10 +10697,39 @@
       if (icon && !isSilent) icon.classList.add('fa-spin');
 
       try {
+        // Ensure users list is loaded so registration cards always have full phone, email, and live status
+        if (!AppState.users || AppState.users.length === 0 || !LOCAL_DB.users || LOCAL_DB.users.length <= 2) {
+          try {
+            const uRes = await apiCall('getUsersList');
+            if (uRes && uRes.success && uRes.users) {
+              AppState.users = uRes.users;
+              if (Array.isArray(LOCAL_DB.users)) {
+                uRes.users.forEach(u => {
+                  const idx = LOCAL_DB.users.findIndex(x => x.userId === u.userId || (u.username && x.username && x.username.toLowerCase() === u.username.toLowerCase()));
+                  if (idx !== -1) LOCAL_DB.users[idx] = { ...LOCAL_DB.users[idx], ...u };
+                  else LOCAL_DB.users.push(u);
+                });
+              } else {
+                LOCAL_DB.users = uRes.users;
+              }
+            }
+          } catch (err) {}
+        }
+
         const res = await apiCall('getChatMessages', { channelId: currentChatChannel });
         if (res && res.success) {
           const msgs = res.messages || [];
           renderChatMessagesList(msgs);
+
+          // If users list is still not loaded, fetch in background and re-render
+          if (!AppState.users || AppState.users.length === 0) {
+            apiCall('getUsersList').then(uRes => {
+              if (uRes && uRes.success && uRes.users) {
+                AppState.users = uRes.users;
+                renderChatMessagesList(msgs);
+              }
+            }).catch(() => {});
+          }
 
           // Play sound if new incoming message
           if (msgs.length > cachedChatMessagesCount && cachedChatMessagesCount > 0) {
@@ -10747,39 +10770,100 @@
         const avatar = m.senderAvatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${m.senderUsername}`;
 
         let itemCard = '';
-        // 1. Interactive User Registration Approval Card for Admin
         let regCardHtml = '';
+
+        // 1. Detection of User Registration Message (From registrationData, itemReference, messageText or msgId)
         let regData = m.registrationData;
-        if (!regData && m.itemReference && m.itemReference.type === 'USER_REGISTRATION') {
-          regData = m.itemReference;
+        if (!regData && m.itemReference) {
+          if (m.itemReference.type === 'USER_REGISTRATION' || m.itemReference.username || m.itemReference.userId) {
+            regData = m.itemReference;
+          }
         }
 
-        if (regData) {
-          const liveUser = (LOCAL_DB.users || []).find(u => (regData.userId && u.userId === regData.userId) || (u.username && u.username.toLowerCase() === String(regData.username).toLowerCase()));
-          const curStatus = liveUser ? liveUser.status : (regData.status || 'Pending_Admin');
-          const isActorAdminOrSuper = AppState.currentUser && (AppState.currentUser.role === 'Admin' || AppState.currentUser.role === 'SuperAdmin' || String(AppState.currentUser.username).toLowerCase() === 'admin' || String(AppState.currentUser.username).toLowerCase() === 'superadmin');
+        const msgText = String(m.messageText || '');
+        const isRegMessage = Boolean(regData) || msgText.includes('សំណើសុំចុះឈ្មោះ') || String(m.msgId || '').includes('REG');
+
+        if (isRegMessage) {
+          // Check if current logged in user is SuperAdmin - per user request, skip for superadmin
+          const actorRole = String(AppState.currentUser?.role || '').toLowerCase();
+          const actorName = String(AppState.currentUser?.username || '').toLowerCase();
+          const isActorSuperAdmin = (actorRole === 'superadmin' || actorName === 'superadmin');
+          if (isActorSuperAdmin) {
+            // For SuperAdmin, do not display Step 1 Admin registration request cards in chat
+            return '';
+          }
+
+          // Check if current user is Admin (Admin, អ្នកគ្រប់គ្រង, or admin username)
+          const isActorAdmin = actorRole.includes('admin') || actorRole.includes('គ្រប់គ្រង') || actorName === 'admin' || AppState.currentUser?.warehouse === 'ALL';
+
+          // Extract information from text if regData fields are missing
+          let extractedUsername = regData?.username || m.senderUsername || '';
+          let extractedFullName = regData?.fullName || m.senderFullName || '';
+          let extractedWarehouse = regData?.warehouse || m.senderWarehouse || '';
+
+          const matchU = msgText.match(/@([a-zA-Z0-9_.-]+)/);
+          if (matchU && matchU[1]) {
+            extractedUsername = matchU[1];
+          }
+
+          const matchName = msgText.match(/គណនីថ្មី:\s*([^(@\n]+)/);
+          if (matchName && matchName[1]) {
+            extractedFullName = matchName[1].trim();
+          }
+
+          const matchWh = msgText.match(/ស្ថានីយ:\s*([^)\n]+)/);
+          if (matchWh && matchWh[1]) {
+            extractedWarehouse = matchWh[1].trim();
+          }
+
+          // Lookup matching user in LOCAL_DB.users and AppState.users for full profile
+          const allUsers = [...(LOCAL_DB.users || []), ...(AppState.users || [])];
+          const matchedUser = allUsers.find(u =>
+            (extractedUsername && String(u.username || '').toLowerCase() === extractedUsername.toLowerCase()) ||
+            (extractedUsername && String(u.userId || '').toLowerCase() === extractedUsername.toLowerCase()) ||
+            (m.senderUsername && String(u.username || '').toLowerCase() === String(m.senderUsername || '').toLowerCase()) ||
+            (extractedFullName && String(u.fullName || '').toLowerCase() === extractedFullName.toLowerCase())
+          ) || {};
+
+          const finalUserId = regData?.userId || matchedUser.userId || ('USR-' + (extractedUsername || m.senderUsername));
+          const finalUsername = matchedUser.username || extractedUsername || m.senderUsername;
+          const finalFullName = matchedUser.fullName || extractedFullName || m.senderFullName || finalUsername;
+          const finalPhone = matchedUser.phone || regData?.phone || '';
+          const finalEmail = matchedUser.email || regData?.email || '';
+          const finalRole = matchedUser.role || regData?.role || m.senderRole || 'Stock Keeper';
+          const finalWarehouse = matchedUser.warehouse || regData?.warehouse || extractedWarehouse || m.senderWarehouse || '-';
+          const finalStatus = matchedUser.status || regData?.status || 'Pending_Admin';
+          const finalCreatedAt = matchedUser.createdAt || regData?.createdAt || m.timestamp || new Date().toLocaleString('km-KH');
 
           let statusBadge = '';
           let actionButtons = '';
 
-          if (curStatus === 'Pending_Admin' || curStatus === 'Pending') {
-            statusBadge = `<span class="inline-flex items-center px-2.5 py-1 rounded-lg bg-amber-100 text-amber-800 text-xs font-bold border border-amber-300">
+          const isPending = !finalStatus || finalStatus === 'Pending' || finalStatus === 'Pending_Admin' || (finalStatus.toLowerCase().includes('pending') && !finalStatus.toLowerCase().includes('superadmin'));
+
+          if (isPending) {
+            statusBadge = `<span class="inline-flex items-center px-3 py-1 rounded-full bg-amber-100 text-amber-900 text-xs font-black border border-amber-300 shadow-xs">
               <i class="fa-solid fa-clock mr-1.5 animate-pulse text-amber-600"></i>⏳ ជំហានទី ១: រង់ចាំ Admin អនុម័ត (Pending Admin)
             </span>`;
 
-            if (isActorAdminOrSuper) {
+            if (isActorAdmin) {
               actionButtons = `
-                <div class="mt-3 pt-3 border-t border-slate-200 flex flex-wrap items-center gap-2">
-                  <button type="button" onclick="approveUserFromChat('${regData.userId || ''}', '${regData.username}')"
-                    class="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 flex items-center space-x-1.5 transition active:scale-95 cursor-pointer">
-                    <i class="fa-solid fa-circle-check"></i>
-                    <span>✅ អនុម័តបឋម & បញ្ជូនទៅ SuperAdmin</span>
-                  </button>
-                  <button type="button" onclick="rejectUserFromChat('${regData.userId || ''}', '${regData.username}')"
-                    class="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition active:scale-95 cursor-pointer">
-                    <i class="fa-solid fa-circle-xmark"></i>
-                    <span>❌ បដិសេធ (Reject)</span>
-                  </button>
+                <div class="mt-3.5 pt-3 border-t border-amber-200/80 flex flex-wrap items-center justify-between gap-2.5">
+                  <div class="text-[11px] font-bold text-amber-900 flex items-center">
+                    <i class="fa-solid fa-shield-halved text-emerald-600 mr-1.5"></i>
+                    <span>Admin ពិនិត្យ & អនុម័តជំហានទី ១</span>
+                  </div>
+                  <div class="flex items-center space-x-2.5">
+                    <button type="button" onclick="rejectUserFromChat('${finalUserId}', '${finalUsername}')"
+                      class="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-black flex items-center space-x-1.5 transition active:scale-95 cursor-pointer shadow-xs">
+                      <i class="fa-solid fa-circle-xmark text-sm"></i>
+                      <span>❌ បដិសេធ (Reject)</span>
+                    </button>
+                    <button type="button" onclick="approveUserFromChat('${finalUserId}', '${finalUsername}')"
+                      class="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-black shadow-md shadow-emerald-600/25 flex items-center space-x-1.5 transition active:scale-95 cursor-pointer">
+                      <i class="fa-solid fa-circle-check text-sm"></i>
+                      <span>✅ អនុម័តបឋម & បញ្ជូនទៅ SuperAdmin</span>
+                    </button>
+                  </div>
                 </div>
               `;
             } else {
@@ -10790,79 +10874,135 @@
                 </div>
               `;
             }
-          } else if (curStatus === 'Pending_SuperAdmin') {
-            statusBadge = `<span class="inline-flex items-center px-2.5 py-1 rounded-lg bg-blue-100 text-blue-800 text-xs font-bold border border-blue-300">
+          } else if (finalStatus === 'Pending_SuperAdmin') {
+            statusBadge = `<span class="inline-flex items-center px-3 py-1 rounded-full bg-blue-100 text-blue-900 text-xs font-black border border-blue-300 shadow-xs">
               <i class="fa-solid fa-paper-plane mr-1.5 text-blue-600"></i>✓ Admin បានអនុម័តរួច -> ⏳ រង់ចាំ SuperAdmin អនុម័តតាម Telegram
             </span>`;
 
-            if (isActorAdminOrSuper) {
-              const isSuper = AppState.currentUser && (AppState.currentUser.role === 'SuperAdmin' || String(AppState.currentUser.username).toLowerCase() === 'superadmin');
+            if (isActorAdmin) {
               actionButtons = `
-                <div class="mt-3 pt-3 border-t border-slate-200 flex flex-wrap items-center gap-2">
-                  ${isSuper ? `
-                    <button type="button" onclick="approveUserDirectly('${regData.userId || ''}', '${regData.username}')"
-                      class="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl text-xs font-bold shadow-md flex items-center space-x-1.5 transition active:scale-95 cursor-pointer">
-                      <i class="fa-solid fa-crown text-amber-300"></i>
-                      <span>👑 SuperAdmin ចុចអនុម័តភ្លាមៗ (Active)</span>
-                    </button>
-                  ` : ''}
-                  <button type="button" onclick="resendToTelegramSuperAdmin('${regData.userId || ''}', '${regData.username}')"
-                    class="px-3 py-2 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition active:scale-95 cursor-pointer">
+                <div class="mt-3.5 pt-3 border-t border-blue-200/80 flex flex-wrap items-center justify-between gap-2.5">
+                  <div class="text-[11px] text-slate-600 flex items-center">
+                    <i class="fa-brands fa-telegram text-sky-500 mr-1.5 text-sm"></i>
+                    <span>សំណើបានបញ្ជូនទៅ Telegram របស់ SuperAdmin រួចរាល់</span>
+                  </div>
+                  <button type="button" onclick="resendToTelegramSuperAdmin('${finalUserId}', '${finalUsername}')"
+                    class="px-4 py-2 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition active:scale-95 cursor-pointer shadow-xs">
                     <i class="fa-brands fa-telegram"></i>
                     <span>🔄 ផ្ញើទៅ Telegram ម្តងទៀត</span>
                   </button>
                 </div>
               `;
             }
-          } else if (curStatus === 'Active') {
-            statusBadge = `<span class="inline-flex items-center px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-300">
+          } else if (finalStatus === 'Active') {
+            statusBadge = `<span class="inline-flex items-center px-3 py-1 rounded-full bg-emerald-100 text-emerald-900 text-xs font-black border border-emerald-300 shadow-xs">
               <i class="fa-solid fa-circle-check mr-1.5 text-emerald-600"></i>🎉 គណនីបានអនុម័តពេញលេញរួចរាល់ (Active)
             </span>`;
-          } else if (curStatus === 'Rejected') {
-            statusBadge = `<span class="inline-flex items-center px-2.5 py-1 rounded-lg bg-rose-100 text-rose-800 text-xs font-bold border border-rose-300">
+          } else if (finalStatus === 'Rejected') {
+            statusBadge = `<span class="inline-flex items-center px-3 py-1 rounded-full bg-rose-100 text-rose-900 text-xs font-black border border-rose-300 shadow-xs">
               <i class="fa-solid fa-circle-xmark mr-1.5 text-rose-600"></i>❌ សំណើត្រូវបានបដិសេធ (Rejected)
             </span>`;
           }
 
+          const phoneDisplay = finalPhone ? `<a href="tel:${escapeHtml(finalPhone)}" class="font-extrabold text-blue-700 hover:underline font-mono text-xs">${escapeHtml(finalPhone)}</a>` : `<span class="text-slate-400 font-semibold">មិនមាន</span>`;
+          const emailDisplay = finalEmail ? `<a href="mailto:${escapeHtml(finalEmail)}" class="font-bold text-slate-800 hover:underline text-xs truncate block">${escapeHtml(finalEmail)}</a>` : `<span class="text-slate-400 font-semibold">មិនមាន</span>`;
+
           regCardHtml = `
-            <div class="mt-2.5 p-4 rounded-2xl bg-gradient-to-br from-white to-slate-50 border-2 border-indigo-200 shadow-md max-w-lg text-slate-800">
-              <!-- Card Header -->
-              <div class="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-200">
-                <div class="flex items-center space-x-2">
-                  <div class="w-8 h-8 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center text-sm shadow-xs">
-                    <i class="fa-solid fa-user-plus"></i>
+            <div class="mt-2.5 p-4 md:p-5 rounded-2xl bg-gradient-to-br from-amber-50/70 via-white to-orange-50/50 border-2 border-amber-300 shadow-md max-w-xl text-slate-800 space-y-3.5">
+              <!-- Top Row: Icon, Badges, Status -->
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-amber-200/80 gap-2.5">
+                <div class="flex items-center space-x-3">
+                  <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-amber-500 via-orange-500 to-rose-500 text-white flex items-center justify-center text-lg shadow-md flex-shrink-0">
+                    <i class="fa-solid fa-user-clock"></i>
                   </div>
                   <div>
-                    <h5 class="text-xs font-bold text-slate-900">សំណើសុំចុះឈ្មោះគណនីថ្មី</h5>
-                    <p class="text-[10px] text-slate-400">ប្រព័ន្ធគ្រប់គ្រងស្តុក PPSHV</p>
+                    <div class="flex items-center space-x-2">
+                      <span class="px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 text-[10px] font-black uppercase tracking-wider border border-rose-200 shadow-xs">🔔 សេចក្តីជូនដំណឹង ADMIN</span>
+                      <span class="text-[10px] text-amber-900 font-bold bg-amber-100/80 px-2 py-0.5 rounded-full border border-amber-200">គណនីថ្មី</span>
+                    </div>
+                    <h5 class="text-sm font-black text-slate-900 mt-0.5">សំណើសុំចុះឈ្មោះគណនីបុគ្គលិកថ្មី</h5>
                   </div>
                 </div>
-                ${statusBadge}
+                <div>${statusBadge}</div>
               </div>
 
-              <!-- User Info Grid -->
-              <div class="grid grid-cols-2 gap-2 text-xs py-1">
-                <div class="bg-white/80 p-2 rounded-xl border border-slate-200/80">
-                  <span class="text-[10px] text-slate-400 block font-semibold uppercase">👤 ឈ្មោះពេញ</span>
-                  <span class="font-bold text-slate-800 text-xs">${escapeHtml(regData.fullName || regData.username)}</span>
+              <!-- Full User Details Grid -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                <!-- Full Name -->
+                <div class="bg-white/95 p-3 rounded-xl border border-slate-200 shadow-xs flex items-center space-x-3">
+                  <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-sm flex-shrink-0">
+                    <i class="fa-solid fa-user"></i>
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <span class="text-[10px] text-slate-400 block font-bold uppercase tracking-wider">👤 ឈ្មោះពេញ (Full Name)</span>
+                    <span class="font-extrabold text-slate-900 truncate block text-xs sm:text-sm">${escapeHtml(finalFullName)}</span>
+                  </div>
                 </div>
-                <div class="bg-white/80 p-2 rounded-xl border border-slate-200/80">
-                  <span class="text-[10px] text-slate-400 block font-semibold uppercase">🆔 Username</span>
-                  <span class="font-bold font-mono text-blue-700 text-xs">@${escapeHtml(regData.username)}</span>
+
+                <!-- Username -->
+                <div class="bg-white/95 p-3 rounded-xl border border-slate-200 shadow-xs flex items-center space-x-3">
+                  <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-sm flex-shrink-0">
+                    <i class="fa-solid fa-at"></i>
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <span class="text-[10px] text-slate-400 block font-bold uppercase tracking-wider">🆔 ឈ្មោះគណនី (Username)</span>
+                    <span class="font-mono font-black text-indigo-700 truncate block text-xs sm:text-sm">@${escapeHtml(finalUsername)}</span>
+                  </div>
                 </div>
-                <div class="bg-white/80 p-2 rounded-xl border border-slate-200/80">
-                  <span class="text-[10px] text-slate-400 block font-semibold uppercase">📱 ទូរស័ព្ទ</span>
-                  <span class="font-bold font-mono text-slate-700 text-xs">${escapeHtml(regData.phone || '-')}</span>
+
+                <!-- Phone -->
+                <div class="bg-white/95 p-3 rounded-xl border border-slate-200 shadow-xs flex items-center space-x-3">
+                  <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-sm flex-shrink-0">
+                    <i class="fa-solid fa-phone"></i>
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <span class="text-[10px] text-slate-400 block font-bold uppercase tracking-wider">📱 លេខទូរស័ព្ទ (Phone)</span>
+                    ${phoneDisplay}
+                  </div>
                 </div>
-                <div class="bg-white/80 p-2 rounded-xl border border-slate-200/80">
-                  <span class="text-[10px] text-slate-400 block font-semibold uppercase">💼 តួនាទី</span>
-                  <span class="font-bold text-indigo-700 text-xs">${escapeHtml(regData.role || 'Stock Keeper')}</span>
+
+                <!-- Email -->
+                <div class="bg-white/95 p-3 rounded-xl border border-slate-200 shadow-xs flex items-center space-x-3">
+                  <div class="w-8 h-8 rounded-lg bg-violet-50 text-violet-600 flex items-center justify-center text-sm flex-shrink-0">
+                    <i class="fa-solid fa-envelope"></i>
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <span class="text-[10px] text-slate-400 block font-bold uppercase tracking-wider">📧 អ៊ីមែល (Email)</span>
+                    ${emailDisplay}
+                  </div>
                 </div>
-                <div class="col-span-2 bg-white/80 p-2 rounded-xl border border-slate-200/80">
-                  <span class="text-[10px] text-slate-400 block font-semibold uppercase">🏢 ស្ថានីយទូទាត់ប្រាក់ / ឃ្លាំង</span>
-                  <span class="font-bold text-slate-800 text-xs flex items-center">
-                    <i class="fa-solid fa-location-dot text-rose-500 mr-1.5 text-xs"></i>${escapeHtml(regData.warehouse || '-')}
-                  </span>
+
+                <!-- Role -->
+                <div class="bg-white/95 p-3 rounded-xl border border-slate-200 shadow-xs flex items-center space-x-3">
+                  <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center text-sm flex-shrink-0">
+                    <i class="fa-solid fa-briefcase"></i>
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <span class="text-[10px] text-slate-400 block font-bold uppercase tracking-wider">💼 តួនាទី (Role)</span>
+                    <span class="font-extrabold text-amber-800 text-xs">${escapeHtml(finalRole)}</span>
+                  </div>
+                </div>
+
+                <!-- Registration Time -->
+                <div class="bg-white/95 p-3 rounded-xl border border-slate-200 shadow-xs flex items-center space-x-3">
+                  <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center text-sm flex-shrink-0">
+                    <i class="fa-solid fa-calendar-days"></i>
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <span class="text-[10px] text-slate-400 block font-bold uppercase tracking-wider">📅 ម៉ោងស្នើសុំ (Registration Time)</span>
+                    <span class="font-medium text-slate-700 text-xs truncate block">${escapeHtml(finalCreatedAt)}</span>
+                  </div>
+                </div>
+
+                <!-- Station / Warehouse (Full Width) -->
+                <div class="sm:col-span-2 bg-white/95 p-3 rounded-xl border border-slate-200 shadow-xs flex items-center space-x-3">
+                  <div class="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center text-sm flex-shrink-0">
+                    <i class="fa-solid fa-location-dot"></i>
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <span class="text-[10px] text-slate-400 block font-bold uppercase tracking-wider">🏢 ស្ថានីយទូទាត់ប្រាក់ / ទីតាំងឃ្លាំង (Station / Warehouse)</span>
+                    <span class="font-extrabold text-slate-900 text-xs sm:text-sm truncate block">${escapeHtml(finalWarehouse)}</span>
+                  </div>
                 </div>
               </div>
 
@@ -10872,7 +11012,7 @@
           `;
         }
 
-        if (m.itemReference) {
+        if (m.itemReference && !isRegMessage) {
           itemCard = `
             <div class="mt-2 p-2.5 rounded-xl ${isMe ? 'bg-blue-700/60 border border-blue-400/40 text-white' : 'bg-slate-100 border border-slate-200 text-slate-800'} text-xs">
               <div class="flex items-center space-x-2">
@@ -10887,36 +11027,37 @@
         }
 
         return `
-          <div class="flex items-start space-x-2.5 ${isMe ? 'flex-row-reverse space-x-reverse' : ''}">
+          <div class="flex items-start space-x-2.5 ${isMe && !regCardHtml ? 'flex-row-reverse space-x-reverse' : ''}">
             <img src="${avatar}" class="w-8 h-8 rounded-full object-cover border border-slate-200 shadow-sm shrink-0 mt-0.5">
-            <div class="flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[80%] sm:max-w-[70%]">
+            <div class="flex flex-col ${isMe && !regCardHtml ? 'items-end' : 'items-start'} max-w-[85%] sm:max-w-[75%]">
               
               <!-- Sender Header -->
-              <div class="flex items-center space-x-1.5 mb-1 text-[11px] ${isMe ? 'flex-row-reverse space-x-reverse' : ''}">
+              <div class="flex items-center space-x-1.5 mb-1 text-[11px] ${isMe && !regCardHtml ? 'flex-row-reverse space-x-reverse' : ''}">
                 <span class="font-bold text-slate-800">${m.senderFullName || m.senderUsername}</span>
                 <span class="px-1.5 py-0.2 rounded text-[9px] font-bold ${
                   m.senderRole === 'SuperAdmin' ? 'bg-amber-100 text-amber-800 font-black border border-amber-300' :
-                  m.senderRole === 'Admin' ? 'bg-purple-100 text-purple-700' : 'bg-slate-200 text-slate-700'
+                  m.senderRole === 'Admin' || m.senderRole === 'អ្នកគ្រប់គ្រង' ? 'bg-purple-100 text-purple-700' : 'bg-slate-200 text-slate-700'
                 }">${m.senderRole}</span>
                 <span class="text-[10px] text-slate-400">• ${m.senderWarehouse ? m.senderWarehouse.split(' - ')[0] : ''}</span>
               </div>
 
-              <!-- Message Bubble -->
-              <div class="p-3 rounded-2xl shadow-sm text-xs md:text-sm leading-relaxed ${isMe ?
-            'bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-tr-none' :
-            'bg-white border border-slate-200 text-slate-800 rounded-tl-none'
-          }">
-                <p class="whitespace-pre-wrap font-medium">${escapeHtml(m.messageText)}</p>
-                ${itemCard}
-                ${regCardHtml}
-              </div>
+              <!-- Message Bubble / Registration Card -->
+              ${regCardHtml ? regCardHtml : `
+                <div class="p-3 rounded-2xl shadow-sm text-xs md:text-sm leading-relaxed ${isMe ?
+                  'bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-tr-none' :
+                  'bg-white border border-slate-200 text-slate-800 rounded-tl-none'
+                }">
+                  <p class="whitespace-pre-wrap font-medium">${escapeHtml(m.messageText)}</p>
+                  ${itemCard}
+                </div>
+              `}
 
               <!-- Timestamp -->
               <span class="text-[10px] font-mono text-slate-400 mt-1 px-1">${m.timestamp}</span>
             </div>
           </div>
         `;
-      }).join('');
+      }).filter(Boolean).join('');
 
       // Auto scroll to bottom
       container.scrollTop = container.scrollHeight;
@@ -11161,10 +11302,21 @@
     function checkPendingRegistrationsForAdmin(silent = false) {
       const actor = AppState.currentUser;
       if (!actor) return;
-      const isActorAdmin = (actor.role === 'Admin' || actor.role === 'SuperAdmin' || String(actor.username).toLowerCase() === 'admin' || String(actor.username).toLowerCase() === 'superadmin');
+
+      const isSuperAdmin = (actor.role === 'SuperAdmin' || String(actor.username).toLowerCase() === 'superadmin');
+      if (isSuperAdmin) {
+        // SuperAdmin does not need to see Step 1 Admin pending registration alerts
+        const chatBadge = document.getElementById('chatBadge');
+        if (chatBadge) chatBadge.classList.add('hidden');
+        return;
+      }
+
+      const actorRole = String(actor.role || '').toLowerCase();
+      const actorName = String(actor.username || '').toLowerCase();
+      const isActorAdmin = actorRole.includes('admin') || actorRole.includes('គ្រប់គ្រង') || actorName === 'admin' || actor.warehouse === 'ALL';
       if (!isActorAdmin) {
-        const banner = document.getElementById('adminPendingAlertBanner');
-        if (banner) banner.classList.add('hidden');
+        const chatBadge = document.getElementById('chatBadge');
+        if (chatBadge) chatBadge.classList.add('hidden');
         return;
       }
 
@@ -11172,20 +11324,15 @@
       const allUsers = LOCAL_DB.users || [];
       const pendingUsers = allUsers.filter(u => u.status === 'Pending_Admin' || u.status === 'Pending');
 
-      // 1. Update Top Alert Banner on Dashboard
-      const banner = document.getElementById('adminPendingAlertBanner');
-      const countBadge = document.getElementById('adminPendingAlertCount');
-      const textEl = document.getElementById('adminPendingAlertText');
-      if (banner) {
+      // 1. Update LiveChat Tab Badge in Sidebar
+      const chatBadge = document.getElementById('chatBadge');
+      if (chatBadge) {
         if (pendingUsers.length > 0) {
-          banner.classList.remove('hidden');
-          if (countBadge) countBadge.innerText = `មាន ${pendingUsers.length} សំណើ`;
-          const firstUser = pendingUsers[0];
-          if (textEl) {
-            textEl.innerHTML = `មានសំណើចុះឈ្មោះថ្មីពី៖ <b>${escapeHtml(firstUser.fullName || firstUser.username)}</b> (@${escapeHtml(firstUser.username)}) - ស្ថានីយ៖ <b>${escapeHtml(firstUser.warehouse || '-')}</b> រង់ចាំ Admin ពិនិត្យ & អនុម័ត`;
-          }
+          chatBadge.innerText = pendingUsers.length;
+          chatBadge.classList.remove('hidden');
+          chatBadge.title = `មាន ${pendingUsers.length} សំណើចុះឈ្មោះក្នុង បន្ទប់ជជែកទូទៅ (All Stations & Admin)`;
         } else {
-          banner.classList.add('hidden');
+          chatBadge.classList.add('hidden');
         }
       }
 
@@ -11208,10 +11355,9 @@
         }
       }
 
-      // 4. Proactive Alert Modal Popup on Login
-      if (!silent && pendingUsers.length > 0) {
-        // Open the verification modal proactively so Admin is immediately alerted
-        openPendingRegistrationsModal();
+      // 4. If Chat Tab is currently open, refresh messages immediately
+      if (AppState.currentTab === 'chat' && typeof loadChatMessages === 'function') {
+        loadChatMessages(true);
       }
     }
 
