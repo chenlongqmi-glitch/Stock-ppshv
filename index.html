@@ -8749,23 +8749,29 @@
           }
 
           // Strict Role Visibility:
-          // 1. SuperAdmin: មើលឃើញទាំងអស់
-          // 2. Admin: មើលឃើញ User ទាំងអស់ តែមិនអាចឃើញ SuperAdmin
+          // 1. SuperAdmin: មើលឃើញ User ទាំងអស់ (មិនចាំបាច់បង្ហាញព័ត៌មានរបស់ខ្លួនឯងក្នុងតារាងទេ)
+          // 2. Admin: មើលឃើញ User ទាំងអស់ តែមិនបង្ហាញ SuperAdmin និងមិនបង្ហាញព័ត៌មានរបស់ខ្លួនឯងក្នុងតារាងទេ
           // 3. User ធម្មតា: អាចមើលឃើញព័ត៌មានខ្លួនឯងតែមួយគត់
+          const isSelfUser = (u) => {
+            const curId = AppState.currentUser?.userId;
+            const curUsername = String(AppState.currentUser?.username || '').trim().toLowerCase();
+            const uId = u.userId;
+            const uUsername = String(u.username || '').trim().toLowerCase();
+            return (curId && uId && curId === uId) || (curUsername && uUsername && curUsername === uUsername);
+          };
+
           let filteredUsers = res.users || [];
           if (isActorSuperAdmin) {
-            filteredUsers = res.users || [];
+            filteredUsers = (res.users || []).filter(u => !isSelfUser(u));
           } else if (isActorAdmin) {
             filteredUsers = (res.users || []).filter(u =>
+              !isSelfUser(u) &&
               u.role !== 'SuperAdmin' &&
               String(u.username).toLowerCase() !== 'superadmin' &&
               String(u.userId).toUpperCase() !== 'USR-SA'
             );
           } else {
-            filteredUsers = (res.users || []).filter(u =>
-              (u.userId && u.userId === AppState.currentUser?.userId) ||
-              (u.username && String(u.username).toLowerCase() === String(AppState.currentUser?.username).toLowerCase())
-            );
+            filteredUsers = (res.users || []).filter(u => isSelfUser(u));
           }
 
           if (filteredUsers.length === 0) {
