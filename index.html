@@ -2253,7 +2253,9 @@
               <div class="px-2">
                 <p class="text-xs sm:text-sm font-bold text-slate-700">ចុចទីនេះដើម្បីជ្រើសរើសរូបភាព (Upload)</p>
                 <p class="text-[11px] text-slate-400 mt-1">ឬអូសទម្លាក់រូបភាពមកទីនេះ (Drag & Drop)</p>
-                <p class="text-[10px] text-blue-500 font-medium mt-1">PNG, JPG, JPEG, WEBP (ស្វ័យប្រវត្តិបង្រួមទំហំ)</p>
+                <p class="text-[10px] text-emerald-600 font-semibold mt-1 flex items-center justify-center">
+                  <i class="fa-brands fa-google-drive text-emerald-500 mr-1 text-xs"></i>ស្វ័យប្រវត្តិកត់ត្រាទៅកាន់ Google Drive Folder
+                </p>
               </div>
             </div>
 
@@ -4893,7 +4895,16 @@
         } else {
           LOCAL_DB.items.push(itemData);
         }
-        return { success: true, message: 'បានរក្សាទុកទំនិញជោគជ័យ!', sku: itemData.sku };
+        saveLocalItemsToStorage();
+        return { success: true, message: 'បានរក្សាទុកទំនិញជោគជ័យ!', sku: itemData.sku, imageUrl: itemData.imageUrl };
+      }
+
+      if (action === 'uploadImageToDrive' || action === 'uploadProductImage') {
+        return {
+          success: true,
+          url: payload.base64 || payload.data || payload.image,
+          message: 'បានរក្សាទុករូបភាពជោគជ័យ'
+        };
       }
 
       if (action === 'deleteItem') {
@@ -6930,7 +6941,8 @@
 
       // Load and preview image
       if (item.imageUrl && item.imageUrl.trim()) {
-        displayImagePreview(item.imageUrl, item.name || 'រូបភាពទំនិញ', '');
+        const isDrive = item.imageUrl.includes('googleusercontent.com') || item.imageUrl.includes('drive.google.com');
+        displayImagePreview(item.imageUrl, item.name || 'រូបភាពទំនិញ', isDrive ? 'Google Drive' : '');
         document.getElementById('modalImageUrlCustom').value = item.imageUrl.startsWith('data:') ? '' : item.imageUrl;
       } else {
         removeImagePreview();
@@ -7001,10 +7013,28 @@
         return;
       }
 
+      Swal.fire({
+        title: 'កំពុងរក្សាទុក...',
+        html: '<div class="text-xs text-slate-500 py-2"><i class="fa-solid fa-cloud-arrow-up text-blue-500 text-2xl mb-2 animate-bounce"></i><br>កំពុងរក្សាទុកទិន្នន័យ និងបញ្ជូនរូបភាពទៅ Google Drive Folder...</div>',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
+
       try {
         const res = await apiCall('saveOrUpdateItem', { item: itemData, user: AppState.currentUser?.username });
         if (res.success) {
-          Swal.fire('ជោគជ័យ', res.message, 'success');
+          if (res.imageUrl) {
+            itemData.imageUrl = res.imageUrl;
+          }
+          const idx = LOCAL_DB.items.findIndex(i => i.sku === itemData.sku);
+          if (idx >= 0) {
+            LOCAL_DB.items[idx] = { ...LOCAL_DB.items[idx], ...itemData };
+          } else {
+            LOCAL_DB.items.push(itemData);
+          }
+          saveLocalItemsToStorage();
+
+          Swal.fire('ជោគជ័យ 🎉', res.message || 'បានរក្សាទុកទំនិញជោគជ័យ!', 'success');
           closeItemModal();
           await loadItems();
           await loadDashboard();
