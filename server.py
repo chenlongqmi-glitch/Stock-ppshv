@@ -12,6 +12,7 @@ import threading
 import time
 import socket
 import mimetypes
+import json
 
 # Set UTF-8 encoding environment variable
 os.environ['PYTHONIOENCODING'] = 'utf-8'
@@ -104,6 +105,24 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
             self.send_response(302)
             self.send_header('Location', '/index.html')
             self.end_headers()
+            return
+
+        # Dynamic version endpoint reflecting real-time project file modification
+        if self.path.startswith('/version.json') or self.path.startswith('/api/version'):
+            latest_mtime = get_latest_project_mtime()
+            ver_obj = {
+                "version": f"v_{int(latest_mtime)}",
+                "buildTime": int(latest_mtime * 1000),
+                "timestamp": time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(latest_mtime))
+            }
+            body = json.dumps(ver_obj).encode('utf-8')
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json; charset=utf-8')
+            self.send_header('Content-Length', str(len(body)))
+            self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(body)
             return
 
         # Live-Reload SSE Endpoint

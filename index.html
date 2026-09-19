@@ -3621,26 +3621,28 @@
     }
 
     function triggerAppUpdate(newVer) {
-      // 1. Show small badge notifying user of update & background refresh
+      if (window._isApplyingUpdate) return;
+
+      // 1. Show floating banner notifying user of background update
       showUpdateNoticeBadge(newVer);
 
       // 2. Perform silent auto refresh automatically
       if (isModalOpen()) {
-        // If a modal is currently open, wait until it closes (or max 5s) then refresh immediately
+        // If a modal is currently open, wait until it closes (or max 4s) then refresh immediately
         if (window._silentUpdateTimer) clearInterval(window._silentUpdateTimer);
         let waited = 0;
         window._silentUpdateTimer = setInterval(() => {
-          waited += 1000;
-          if (!isModalOpen() || waited >= 5000) {
+          waited += 800;
+          if (!isModalOpen() || waited >= 4000) {
             clearInterval(window._silentUpdateTimer);
             applyAppUpdateNow(newVer);
           }
-        }, 1000);
+        }, 800);
       } else {
-        // Automatically perform silent background reload after 1.2s
+        // Automatically perform background reload after 1 second
         setTimeout(() => {
           applyAppUpdateNow(newVer);
-        }, 1200);
+        }, 1000);
       }
     }
 
@@ -3649,14 +3651,14 @@
       if (!badge) {
         badge = document.createElement('div');
         badge.id = 'appUpdateFloatingBadge';
-        badge.className = 'fixed top-3 right-4 z-50 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-600 text-white text-xs px-3.5 py-2 rounded-2xl shadow-2xl border border-white/40 flex items-center space-x-2.5 backdrop-blur-md cursor-pointer transition-all hover:scale-105 active:scale-95 animate-pulse';
+        badge.className = 'fixed top-3 right-4 z-50 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-600 text-white text-xs px-4 py-2.5 rounded-2xl shadow-2xl border border-white/40 flex items-center space-x-2.5 backdrop-blur-md cursor-pointer transition-all hover:scale-105 active:scale-95 animate-pulse';
         badge.onclick = () => applyAppUpdateNow(newVer);
         badge.innerHTML = `
           <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
           <i class="fa-solid fa-rotate text-sm text-cyan-200 fa-spin"></i>
           <div>
-            <span class="font-bold block text-[11px]">រកឃើញកំណែប្រែថ្មី (New Version)</span>
-            <span class="text-[9px] text-blue-100">កំពុង Refresh ស្វ័យប្រវត្តិក្នង Background...</span>
+            <span class="font-bold block text-[11.5px]">✨ រកឃើញកំណែថ្មី (Auto-Update)</span>
+            <span class="text-[9.5px] text-blue-100">កំពុង Update ដោយស្វ័យប្រវត្តិ មិនបាច់ចុច F5...</span>
           </div>
         `;
         document.body.appendChild(badge);
@@ -3664,7 +3666,14 @@
     }
 
     function applyAppUpdateNow(newVer) {
+      if (window._isApplyingUpdate) return;
+      window._isApplyingUpdate = true;
+
       // Save all current states before reloading so user stays exactly where they are!
+      try {
+        if (typeof saveAppRunningState === 'function') saveAppRunningState();
+      } catch (e) {}
+
       if (AppState.currentUser) {
         sessionStorage.setItem('inventory_user', JSON.stringify(AppState.currentUser));
       }
@@ -3679,16 +3688,38 @@
         sessionStorage.setItem('inventory_scroll_top', mainElem.scrollTop);
       }
 
-      // Mark that an update occurred
+      // Mark that an update occurred so welcome toast is shown
       sessionStorage.setItem('inventory_just_updated', 'true');
 
-      // Seamless reload
-      window.location.reload();
+      // Seamless reload with cache-busting timestamp query parameter to bypass browser disk cache completely!
+      const url = new URL(window.location.href);
+      url.searchParams.set('_v', Date.now());
+      window.location.replace(url.toString());
+    }
+
+    function initLiveReloadSSE() {
+      if (!window.EventSource) return;
+      try {
+        const evtSource = new EventSource('/live-reload');
+        evtSource.onmessage = function(e) {
+          if (e.data === 'reload') {
+            console.log('[LiveReload] Server notified code update. Performing auto-update...');
+            triggerAppUpdate('live_' + Date.now());
+          }
+        };
+        evtSource.onerror = function() {
+          // Gracefully fallback to polling if server doesn't support SSE
+        };
+      } catch (err) {}
     }
 
     function initBackgroundUpdateChecker() {
-      setTimeout(checkAppVersionInBackground, 3000);
-      setInterval(checkAppVersionInBackground, 20000);
+      // Connect to instant LiveReload SSE from local server
+      initLiveReloadSSE();
+
+      // Fast background polling every 4.5 seconds for remote/static hosting
+      setTimeout(checkAppVersionInBackground, 1000);
+      setInterval(checkAppVersionInBackground, 4500);
 
       window.addEventListener('focus', checkAppVersionInBackground);
       document.addEventListener('visibilitychange', () => {
