@@ -6,8 +6,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
   <title>ប្រព័ន្ធគ្រប់គ្រងស្តុកទំនិញ | Smart Inventory</title>
+
+  <!-- Instant Pre-Render Auth Check: Prevents Flash of Login Screen on Page Refresh -->
+  <script>
+    (function() {
+      try {
+        var raw = sessionStorage.getItem('inventory_user') || localStorage.getItem('inventory_user');
+        if (raw) {
+          var u = JSON.parse(raw);
+          if (u && (u.username || u.userId)) {
+            document.documentElement.classList.add('app-authenticated');
+          }
+        }
+      } catch (e) {}
+    })();
+  </script>
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="assets/logo_icon.png">
@@ -245,6 +259,18 @@
       50% {
         opacity: 0.5;
       }
+    }
+
+    /* Instant Anti-FOUC (Flash of Unauthenticated Content) Prevention */
+    html.app-authenticated #authSection {
+      display: none !important;
+    }
+    html.app-authenticated #mainApp {
+      display: flex !important;
+    }
+    #authSection.hidden,
+    #authSection[hidden] {
+      display: none !important;
     }
 
     /* Auto-Fit Responsive Scaling for Auth Modal (Login / Register / OTP) */
@@ -4380,6 +4406,7 @@
       } else {
         // No existing session: show login screen
         AppState.currentUser = null;
+        document.documentElement.classList.remove('app-authenticated');
         document.getElementById('authSection').classList.remove('hidden');
         document.getElementById('mainApp').classList.add('hidden');
         toggleAuthView('login');
@@ -6024,6 +6051,7 @@
     }
 
     function showAppView() {
+      document.documentElement.classList.add('app-authenticated');
       document.getElementById('authSection').classList.add('hidden');
       document.getElementById('mainApp').classList.remove('hidden');
       const u = AppState.currentUser;
@@ -6416,6 +6444,7 @@
           sessionStorage.removeItem('inventory_scroll_top');
           AppState.currentUser = null;
           AppState.loginTimestamp = null;
+          document.documentElement.classList.remove('app-authenticated');
           document.getElementById('authSection').classList.remove('hidden');
           document.getElementById('mainApp').classList.add('hidden');
           toggleAuthView('login');
