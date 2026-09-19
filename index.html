@@ -111,11 +111,25 @@
     :root {
       --app-font-sans: 'Kantumruy Pro', 'Siemreap', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       --window-dpr: 1;
+      --app-ui-scale: 1;
+    }
+
+    /* Proportional UI & Typography Auto-Scaling for Multi-Monitor Ergonomics */
+    #mainApp {
+      zoom: var(--app-ui-scale, 1);
+      transition: zoom 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+      will-change: zoom;
+    }
+
+    /* Ensure SweetAlert & Modals Scale with Active Monitor */
+    .swal2-container,
+    .app-scale-target {
+      zoom: var(--app-ui-scale, 1);
     }
 
     /* Dynamic Fluid Typography & Proportional Scaling across all Monitor Sizes */
     html {
-      font-size: clamp(13px, 0.18vw + 12px, 15.5px);
+      font-size: 14px;
       -webkit-text-size-adjust: 100%;
       -moz-text-size-adjust: 100%;
       -ms-text-size-adjust: 100%;
@@ -1073,6 +1087,19 @@
               <option value="机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)">机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
               <option value="综合办 (ផ្នែកកិច្ចការទូទៅ)">综合办 (ផ្នែកកិច្ចការទូទៅ)</option>
             </select>
+          </div>
+
+          <!-- Multi-Monitor Adaptive Scaling Widget -->
+          <div id="monitorScaleWidget"
+            class="hidden sm:flex items-center space-x-1.5 bg-slate-100 hover:bg-slate-200/90 border border-slate-200 rounded-xl px-2.5 py-1.5 text-slate-700 transition shadow-2xs"
+            title="ប្រព័ន្ធកែសម្រួលទំហំអេក្រង់ស្វ័យប្រវត្តិ (Multi-Monitor Auto-Scaler)">
+            <i class="fa-solid fa-display text-blue-600 text-xs shrink-0" id="monitorIcon"></i>
+            <span id="monitorProfileName" class="text-[11px] font-bold text-slate-700 font-sans truncate max-w-[90px] md:max-w-[130px]">Auto (100%)</span>
+            <div class="flex items-center space-x-1 ml-1 border-l border-slate-300 pl-1.5">
+              <button type="button" onclick="adjustAppZoom(-0.05)" class="w-5 h-5 flex items-center justify-center rounded-md hover:bg-white text-slate-700 hover:text-blue-600 text-xs font-black transition active:scale-90" title="បង្រួម UI (-5%)">−</button>
+              <button type="button" onclick="resetAppZoom()" id="autoScaleBtn" class="px-1.5 h-5 flex items-center justify-center rounded-md bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-black transition active:scale-95" title="កំណត់ទំហំស្វ័យប្រវត្តិតាមអេក្រង់ (Auto Scale)">Auto</button>
+              <button type="button" onclick="adjustAppZoom(0.05)" class="w-5 h-5 flex items-center justify-center rounded-md hover:bg-white text-slate-700 hover:text-blue-600 text-xs font-black transition active:scale-90" title="ពង្រីក UI (+5%)">+</button>
+            </div>
           </div>
 
           <!-- Add / Manage Warehouse Button for Admin -->
@@ -4859,8 +4886,14 @@
             body: JSON.stringify({ action: action, payload: payload })
           });
           const jsonRes = await resp.json();
-          if (jsonRes && !jsonRes.success && jsonRes.message && (jsonRes.message.includes('sendTelegramAlert') || jsonRes.message.includes('ReferenceError'))) {
-            console.warn('Backend returned Telegram alert reference error, attempting local simulation fallback...');
+          if (jsonRes && !jsonRes.success && jsonRes.message && (
+            jsonRes.message.includes('sendTelegramAlert') || 
+            jsonRes.message.includes('ReferenceError') || 
+            jsonRes.message.includes('Unknown action') || 
+            jsonRes.message.includes('is not a function') ||
+            jsonRes.message.includes('Script function not found')
+          )) {
+            console.warn('Backend returned error or unknown action, attempting local simulation fallback:', jsonRes.message);
             const fallback = simulateLocalApi(action, payload);
             if (fallback && fallback.success) return fallback;
           }
@@ -5282,6 +5315,96 @@
         return { success: false, message: 'User not found' };
       }
 
+      if (action === 'requestUserDeletion') {
+        const targetId = payload.userId || payload.username || payload.id;
+        const targetIdx = LOCAL_DB.users.findIndex(x => (x.userId && x.userId === targetId) || (x.username && x.username.toLowerCase() === String(targetId).toLowerCase()));
+        if (targetIdx !== -1) {
+          const targetUser = LOCAL_DB.users[targetIdx];
+          const actor = AppState.currentUser;
+          const isActorSuperAdmin = (actor?.role === 'SuperAdmin') || (String(actor?.username).toLowerCase() === 'superadmin');
+          const isActorAdmin = !isActorSuperAdmin && (actor?.role === 'Admin' || actor?.role === 'អ្នកគ្រប់គ្រង' || String(actor?.username).toLowerCase() === 'admin');
+
+          if (!isActorSuperAdmin && !isActorAdmin) {
+            return { success: false, message: 'អ្នកគ្មានសិទ្ធិស្នើសុំលុបអ្នកប្រើប្រាស់ឡើយ!' };
+          }
+          if (targetUser.userId === actor?.userId || (targetUser.username && targetUser.username.toLowerCase() === String(actor?.username).toLowerCase())) {
+            return { success: false, message: 'អ្នកមិនអាចលុបគណនីផ្ទាល់ខ្លួនរបស់អ្នកបានឡើយ!' };
+          }
+          if ((targetUser.role === 'SuperAdmin' || targetUser.userId === 'USR-SA' || String(targetUser.username).toLowerCase() === 'superadmin')) {
+            return { success: false, message: 'មិនអាចស្នើសុំលុបគណនី SuperAdmin បានឡើយ!' };
+          }
+
+          const reason = String(payload.reason || '').trim();
+          if (!reason) {
+            return { success: false, message: 'សូមបញ្ជាក់ពីមូលហេតុនៃការលុបគណនី!' };
+          }
+
+          targetUser.status = 'Pending_Deletion';
+          targetUser.deleteReason = reason;
+          targetUser.deleteRequestedBy = payload.adminUser || actor?.username || 'Admin';
+          targetUser.deleteRequestedAt = new Date().toISOString();
+          saveLocalUsersToStorage();
+
+          // Push into LOCAL_DB.chatMessages if exists so SuperAdmin sees in LiveChat
+          try {
+            if (LOCAL_DB.chatMessages) {
+              LOCAL_DB.chatMessages.push({
+                msgId: 'MSG-DEL-' + Date.now(),
+                timestamp: new Date().toLocaleString('km-KH'),
+                channelId: 'ALL_WAREHOUSES',
+                senderUsername: actor?.username || 'Admin',
+                senderFullName: actor?.fullName || actor?.username || 'Admin',
+                senderRole: 'Admin',
+                senderWarehouse: actor?.warehouse || 'ALL',
+                senderAvatar: actor?.avatar || '',
+                messageText: `⚠️ [សំណើសុំលុបគណនី]\n👤 គណនី: ${targetUser.fullName || targetUser.username} (@${targetUser.username})\n📝 មូលហេតុ: ${reason}\n⏳ រង់ចាំ SuperAdmin ត្រួតពិនិត្យ & Approve`
+              });
+              saveLocalChatToStorage();
+            }
+          } catch(e) {}
+
+          return {
+            success: true,
+            message: `បានបញ្ជូនសំណើសុំលុបគណនី ${targetUser.fullName || targetUser.username} ទៅកាន់ SuperAdmin ពិនិត្យរួចរាល់!`,
+            user: targetUser
+          };
+        }
+        return { success: false, message: 'រកមិនឃើញអ្នកប្រើប្រាស់ឡើយ' };
+      }
+
+      if (action === 'approveUserDeletion') {
+        const targetId = payload.userId || payload.username || payload.id;
+        const targetIdx = LOCAL_DB.users.findIndex(x => (x.userId && x.userId === targetId) || (x.username && x.username.toLowerCase() === String(targetId).toLowerCase()));
+        if (targetIdx !== -1) {
+          const targetUser = LOCAL_DB.users[targetIdx];
+          const actor = AppState.currentUser;
+          const isActorSuperAdmin = (actor?.role === 'SuperAdmin') || (String(actor?.username).toLowerCase() === 'superadmin') || (payload.adminUser && String(payload.adminUser).toLowerCase() === 'superadmin');
+          if (!isActorSuperAdmin) {
+            return { success: false, message: 'មានតែ SuperAdmin ប៉ុណ្ណោះដែលអាចអនុម័តការលុបគណនីបាន!' };
+          }
+          const deletedName = targetUser.fullName || targetUser.username;
+          LOCAL_DB.users.splice(targetIdx, 1);
+          saveLocalUsersToStorage();
+          return { success: true, message: `បានអនុម័តការលុបគណនី ${deletedName} ចេញពីប្រព័ន្ធទាំងស្រុង!` };
+        }
+        return { success: false, message: 'រកមិនឃើញអ្នកប្រើប្រាស់ឡើយ' };
+      }
+
+      if (action === 'rejectUserDeletion') {
+        const targetId = payload.userId || payload.username || payload.id;
+        const targetIdx = LOCAL_DB.users.findIndex(x => (x.userId && x.userId === targetId) || (x.username && x.username.toLowerCase() === String(targetId).toLowerCase()));
+        if (targetIdx !== -1) {
+          const targetUser = LOCAL_DB.users[targetIdx];
+          targetUser.status = 'Active';
+          delete targetUser.deleteReason;
+          delete targetUser.deleteRequestedBy;
+          delete targetUser.deleteRequestedAt;
+          saveLocalUsersToStorage();
+          return { success: true, message: `បានបដិសេធការលុបគណនី ${targetUser.fullName || targetUser.username}។ គណនីត្រូវបានរក្សាទុក និងបើកដំណើរការ (Active) ជាធម្មតាវិញ!` };
+        }
+        return { success: false, message: 'រកមិនឃើញអ្នកប្រើប្រាស់ឡើយ' };
+      }
+
       if (action === 'deleteUser') {
         const targetId = payload.userId || payload.username || payload.id;
         const targetIdx = LOCAL_DB.users.findIndex(x => (x.userId && x.userId === targetId) || (x.username && x.username.toLowerCase() === String(targetId).toLowerCase()));
@@ -5299,6 +5422,20 @@
           }
           if ((targetUser.role === 'SuperAdmin' || targetUser.userId === 'USR-SA' || String(targetUser.username).toLowerCase() === 'superadmin') && !isActorSuperAdmin) {
             return { success: false, message: 'អ្នកគ្មានសិទ្ធិលុបគណនី SuperAdmin ឡើយ!' };
+          }
+
+          // If actor is Admin (not SuperAdmin), automatically route to requestUserDeletion
+          if (isActorAdmin && !isActorSuperAdmin) {
+            const reason = String(payload.reason || '').trim();
+            if (!reason) {
+              return { success: false, message: 'សូមបញ្ជាក់ពីមូលហេតុនៃការលុបគណនី!' };
+            }
+            targetUser.status = 'Pending_Deletion';
+            targetUser.deleteReason = reason;
+            targetUser.deleteRequestedBy = payload.adminUser || actor?.username || 'Admin';
+            targetUser.deleteRequestedAt = new Date().toISOString();
+            saveLocalUsersToStorage();
+            return { success: true, message: `បានបញ្ជូនសំណើសុំលុបគណនី ${targetUser.fullName || targetUser.username} ទៅកាន់ SuperAdmin ពិនិត្យរួចរាល់!` };
           }
 
           const deletedName = targetUser.fullName || targetUser.username;
@@ -8921,9 +9058,9 @@
           const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
           const isActorAdmin = !isActorSuperAdmin && (AppState.currentUser?.role === 'Admin' || AppState.currentUser?.role === 'អ្នកគ្រប់គ្រង' || String(AppState.currentUser?.username).toLowerCase() === 'admin');
 
-          // Update Pending Users Badge on Sidebar (counts all pending in Step 1 or Step 2)
+          // Update Pending Users Badge on Sidebar (counts all pending in Step 1, Step 2, or Deletion)
           const allUsers = (res.users || LOCAL_DB.users || []).filter(u => !isUnregisteredDummyUser(u));
-          const pendingCount = allUsers.filter(u => u.status === 'Pending' || u.status === 'Pending_Admin' || u.status === 'Pending_SuperAdmin').length;
+          const pendingCount = allUsers.filter(u => u.status === 'Pending' || u.status === 'Pending_Admin' || u.status === 'Pending_SuperAdmin' || u.status === 'Pending_Deletion').length;
           const pendingBadge = document.getElementById('pendingUsersBadge');
           if (pendingBadge) {
             if (pendingCount > 0) {
@@ -8992,7 +9129,38 @@
             // Action Buttons
             let actionsHtml = '';
 
-            if (u.status === 'Pending' || u.status === 'Pending_Admin') {
+            if (u.status === 'Pending_Deletion') {
+              if (isActorSuperAdmin) {
+                actionsHtml = `
+                  <div class="inline-flex items-center gap-1.5 whitespace-nowrap">
+                    <button onclick="handleApproveUserDeletion('${u.userId || ''}', '${u.username || ''}')" class="px-2.5 py-1 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white rounded-lg text-xs font-bold shadow-xs transition hover:scale-105 active:scale-95 flex items-center space-x-1" title="SuperAdmin អនុម័តការលុបគណនីនេះចេញពីប្រព័ន្ធ">
+                      <i class="fa-solid fa-check text-xs"></i>
+                      <span>អនុម័តលុប</span>
+                    </button>
+                    <button onclick="handleRejectUserDeletion('${u.userId || ''}', '${u.username || ''}')" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold border border-slate-300 transition hover:scale-105 active:scale-95 flex items-center space-x-1" title="បដិសេធសំណើសុំលុប (រក្សាទុកគណនីជា Active)">
+                      <i class="fa-solid fa-xmark text-xs"></i>
+                      <span>បដិសេធ</span>
+                    </button>
+                    <button onclick="viewUserDeleteReason('${u.userId || u.username}')" class="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-medium transition hover:scale-105 active:scale-95" title="ពិនិត្យមើលមូលហេតុនៃការលុប">
+                      <i class="fa-solid fa-file-lines text-xs"></i>
+                    </button>
+                  </div>
+                `;
+              } else if (isActorAdmin) {
+                actionsHtml = `
+                  <div class="inline-flex items-center space-x-1">
+                    <span class="text-[10px] text-rose-700 font-bold bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200 inline-flex items-center">
+                      <i class="fa-solid fa-hourglass-half mr-1 text-rose-500"></i>រង់ចាំ SuperAdmin អនុម័ត
+                    </span>
+                    <button onclick="viewUserDeleteReason('${u.userId || u.username}')" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded text-xs transition hover:scale-105" title="មើលមូលហេតុនៃការលុប">
+                      <i class="fa-solid fa-eye text-[11px]"></i>
+                    </button>
+                  </div>
+                `;
+              } else {
+                actionsHtml = `<span class="text-xs text-rose-500 italic font-semibold">រង់ចាំ SuperAdmin ត្រួតពិនិត្យការលុប</span>`;
+              }
+            } else if (u.status === 'Pending' || u.status === 'Pending_Admin') {
               // Special Action Buttons for Step 1 Pending Users (Waiting for Admin)
               if (isActorSuperAdmin || isActorAdmin) {
                 actionsHtml = `
@@ -9113,6 +9281,16 @@
             let statusBadgeHtml = '';
             if (u.status === 'Active') {
               statusBadgeHtml = `<span class="px-2.5 py-1 rounded-full font-bold text-[10px] bg-emerald-100 text-emerald-700 border border-emerald-300">✅ Active</span>`;
+            } else if (u.status === 'Pending_Deletion') {
+              statusBadgeHtml = `
+                <div class="flex flex-col items-center">
+                  <span class="px-2.5 py-1 rounded-full font-bold text-[10px] bg-rose-100 text-rose-800 border border-rose-300 font-extrabold shadow-sm animate-pulse inline-flex items-center space-x-1">
+                    <i class="fa-solid fa-triangle-exclamation text-rose-600 text-[10px] mr-1"></i>
+                    <span>⚠️ ស្នើសុំលុប</span>
+                  </span>
+                  ${u.deleteReason ? `<span class="text-[10px] text-rose-600 font-semibold italic mt-0.5 cursor-pointer hover:underline inline-flex items-center" onclick="viewUserDeleteReason('${u.userId || u.username}')" title="${escapeHtml(u.deleteReason)}"><i class="fa-solid fa-comment-dots mr-0.5"></i>មូលហេតុ...</span>` : ''}
+                </div>
+              `;
             } else if (u.status === 'Pending' || u.status === 'Pending_Admin') {
               statusBadgeHtml = `<span class="px-2.5 py-1 rounded-full font-bold text-[10px] bg-amber-100 text-amber-800 border border-amber-300 font-extrabold shadow-sm">⏳ ជំហានទី ១: រង់ចាំ Admin</span>`;
             } else if (u.status === 'Pending_SuperAdmin') {
@@ -10056,6 +10234,9 @@
       let targetUser = (LOCAL_DB.users || []).find(u => (userId && u.userId === userId) || (username && u.username === username));
       const targetDisplayName = targetUser ? (targetUser.fullName || targetUser.username) : (username || userId);
       const targetRole = targetUser?.role || 'User';
+      const targetWh = targetUser?.warehouse || '-';
+      const uId = targetUser?.userId || userId;
+      const uName = targetUser?.username || username;
 
       // Protect SuperAdmin
       if ((targetRole === 'SuperAdmin' || targetUser?.userId === 'USR-SA' || String(targetUser?.username).toLowerCase() === 'superadmin') && !isActorSuperAdmin) {
@@ -10067,24 +10248,180 @@
         return;
       }
 
+      // =========================================================================
+      // 1. ADMIN DELETION FLOW: Requires Reason -> Sends to SuperAdmin for Approval
+      // =========================================================================
+      if (isActorAdmin && !isActorSuperAdmin) {
+        const { value: reason, isConfirmed } = await Swal.fire({
+          title: 'សំណើសុំលុបគណនីអ្នកប្រើប្រាស់',
+          html: `
+            <div class="text-left text-xs space-y-2.5 p-3.5 bg-slate-50 rounded-2xl border border-slate-200 mt-2">
+              <div class="flex items-center space-x-2.5 bg-white p-2.5 rounded-xl border border-slate-200">
+                <div class="w-10 h-10 rounded-full overflow-hidden bg-slate-100 flex-shrink-0 border border-slate-200">
+                  <img src="${targetUser?.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + uName}" class="w-full h-full object-cover">
+                </div>
+                <div>
+                  <p class="font-bold text-slate-800 text-xs">${targetDisplayName}</p>
+                  <p class="text-[10px] text-slate-400 font-mono">@${uName} (${targetRole} | ឃ្លាំង: ${targetWh})</p>
+                </div>
+              </div>
+              <div class="p-2.5 bg-amber-50 rounded-xl border border-amber-200 text-amber-800 text-xs leading-relaxed">
+                <p class="font-bold flex items-center mb-1">
+                  <i class="fa-solid fa-circle-info mr-1.5 text-amber-600"></i>
+                  នីតិវិធីលុបគណនី (Admin ➔ SuperAdmin)៖
+                </p>
+                <p class="text-[11px]">ក្នុងនាមជា Admin លោកអ្នកត្រូវសរសេរបញ្ជាក់ពីមូលហេតុនៃការលុប។ ប្រព័ន្ធនឹងបញ្ជូនទិន្នន័យនេះទៅកាន់ <b>SuperAdmin</b> ដើម្បីត្រួតពិនិត្យ និង <b>Approve</b> មុនពេលគណនីនេះត្រូវបានលុបចេញពីប្រព័ន្ធជាស្ថាពរ។</p>
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">
+                  <i class="fa-solid fa-pen mr-1 text-blue-600"></i>មូលហេតុនៃការលុបគណនី <span class="text-rose-500">*</span>
+                </label>
+                <textarea id="swalDeleteUserReason" rows="3" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition" placeholder="សូមសរសេរបញ្ជាក់ពីមូលហេតុនៃការលុប (ឧ. បុគ្គលិកឈប់ធ្វើការ, គណនីស្ទួន...)..."></textarea>
+              </div>
+            </div>
+          `,
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#e11d48',
+          cancelButtonColor: '#64748b',
+          confirmButtonText: '<i class="fa-solid fa-paper-plane mr-1"></i> បញ្ជូនសំណើទៅ SuperAdmin',
+          cancelButtonText: 'បោះបង់',
+          reverseButtons: true,
+          preConfirm: () => {
+            const inputReason = document.getElementById('swalDeleteUserReason')?.value?.trim();
+            if (!inputReason) {
+              Swal.showValidationMessage('សូមបញ្ជាក់ពីមូលហេតុនៃការលុបគណនី!');
+              return false;
+            }
+            return inputReason;
+          }
+        });
+
+        if (!isConfirmed || !reason) return;
+
+        Swal.fire({
+          title: 'កំពុងបញ្ជូនសំណើ...',
+          text: 'សូមរង់ចាំមួយភ្លែត',
+          allowOutsideClick: false,
+          didOpen: () => Swal.showLoading()
+        });
+
+        try {
+          const res = await apiCall('requestUserDeletion', {
+            userId: uId,
+            username: uName,
+            reason: reason,
+            adminUser: actor?.username
+          });
+
+          if (res && res.success) {
+            // Update LOCAL_DB
+            const dbIdx = LOCAL_DB.users.findIndex(u => (uId && u.userId === uId) || (uName && u.username === uName));
+            if (dbIdx !== -1) {
+              LOCAL_DB.users[dbIdx].status = 'Pending_Deletion';
+              LOCAL_DB.users[dbIdx].deleteReason = reason;
+              LOCAL_DB.users[dbIdx].deleteRequestedBy = actor?.fullName || actor?.username || 'Admin';
+              LOCAL_DB.users[dbIdx].deleteRequestedAt = new Date().toISOString();
+              saveLocalUsersToStorage();
+            }
+
+            // Send Telegram alert to SuperAdmin Bot
+            const tgToken = AppState.settings?.TELEGRAM_BOT_TOKEN || localStorage.getItem('inventory_tg_token') || DEFAULT_TG_BOT_TOKEN;
+            const tgChatId = AppState.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid') || DEFAULT_TG_CHAT_ID;
+            const gasUrl = AppState.gasApiUrl || localStorage.getItem('inventory_gas_api_url') || 'https://script.google.com/macros/s/AKfycbz-Pb72GPivonqvf3j8WRAoN4V6Dlo3IgAVpHCfDVEzF2RJV2X18XtfqTffZ2K08UQJ/exec';
+            const approveUrl = `${gasUrl}?action=approveUserDeletionTelegram&userId=${encodeURIComponent(uId)}&u=${encodeURIComponent(uName)}`;
+            const rejectUrl = `${gasUrl}?action=rejectUserDeletionTelegram&userId=${encodeURIComponent(uId)}&u=${encodeURIComponent(uName)}`;
+            const webAppUsersUrl = `${window.location.origin}${window.location.pathname}#users`;
+
+            if (tgToken && tgChatId) {
+              try {
+                const tgMsg = `⚠️ <b>[សំណើសុំលុបគណនីអ្នកប្រើប្រាស់ - Pending Deletion]</b>\n` +
+                  `👤 <b>ឈ្មោះបុគ្គលិក:</b> ${targetDisplayName}\n` +
+                  `🆔 <b>Username:</b> <code>${uName}</code>\n` +
+                  `💼 <b>តួនាទី:</b> ${targetRole}\n` +
+                  `🏢 <b>ឃ្លាំង/ស្ថានីយ:</b> ${targetWh}\n` +
+                  `📝 <b>មូលហេតុនៃការលុប:</b> <i>"${reason}"</i>\n` +
+                  `👮 <b>ស្នើសុំដោយ Admin:</b> ${actor?.fullName || actor?.username || 'Admin'}\n` +
+                  `🕒 <b>កាលបរិច្ឆេទ:</b> ${new Date().toLocaleString('km-KH')}\n\n` +
+                  `👉 <b>សូម SuperAdmin ពិនិត្យ និងអនុម័ត៖</b>`;
+
+                fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    chat_id: tgChatId,
+                    text: tgMsg,
+                    parse_mode: 'HTML',
+                    reply_markup: {
+                      inline_keyboard: [
+                        [
+                          { text: "🗑️ អនុម័តលុប (Approve Delete)", url: approveUrl },
+                          { text: "❌ បដិសេធ (Reject)", url: rejectUrl }
+                        ],
+                        [
+                          { text: "👥 ពិនិត្យក្នុងប្រព័ន្ធ (Web App)", url: webAppUsersUrl }
+                        ]
+                      ]
+                    }
+                  })
+                }).catch(() => {});
+              } catch(e) {}
+            }
+
+            await loadUsersList();
+
+            Swal.fire({
+              icon: 'success',
+              title: 'បានបញ្ជូនសំណើជោគជ័យ!',
+              html: `
+                <div class="text-left text-xs space-y-2 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                  <p class="font-bold text-slate-800">✅ បានបញ្ជូនសំណើសុំលុបគណនី <b>${targetDisplayName}</b> ទៅកាន់ SuperAdmin រួចរាល់!</p>
+                  <p class="text-slate-600 leading-relaxed">
+                    📝 <b>មូលហេតុ៖</b> ${escapeHtml(reason)}<br>
+                    ⏳ គណនីនេះត្រូវបានដាក់ក្នុងស្ថានភាព <b>Pending Deletion</b>។ នៅពេល SuperAdmin ពិនិត្យ និងចុច <b>Approve</b> គណនីនេះនឹងត្រូវលុបចេញពីប្រព័ន្ធជាស្ថាពរ។
+                  </p>
+                </div>
+              `,
+              confirmButtonColor: '#2563eb'
+            });
+            return;
+          } else {
+            Swal.fire('បរាជ័យ', res?.message || 'មិនអាចបញ្ជូនសំណើសុំលុបគណនីបានទេ', 'error');
+            return;
+          }
+        } catch(err) {
+          Swal.fire('កំហុស', 'មានបញ្ហាក្នុងការតភ្ជាប់ សូមព្យាយាមម្តងទៀត', 'error');
+          return;
+        }
+      }
+
+      // =========================================================================
+      // 2. SUPERADMIN DIRECT DELETION FLOW
+      // =========================================================================
       const result = await Swal.fire({
-        title: 'តើអ្នកពិតជាចង់លុប?',
+        title: 'តើលោកអ្នកពិតជាចង់លុបគណនីនេះ?',
         html: `
-          <div class="text-left text-xs space-y-2.5 p-3 bg-slate-50 rounded-2xl border border-slate-200 mt-2">
-            <p class="text-slate-600">អ្នកកំពុងស្នើសុំលុបគណនីអ្នកប្រើប្រាស់៖</p>
+          <div class="text-left text-xs space-y-2.5 p-3.5 bg-slate-50 rounded-2xl border border-slate-200 mt-2">
+            <p class="text-slate-600">អ្នកកំពុងលុបគណនីអ្នកប្រើប្រាស់ចេញពីប្រព័ន្ធ៖</p>
             <div class="flex items-center space-x-2.5 bg-white p-2.5 rounded-xl border border-slate-200">
-              <div class="w-9 h-9 rounded-full overflow-hidden bg-slate-100 flex-shrink-0 border border-slate-200">
-                <img src="${targetUser?.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + (username || 'user')}" class="w-full h-full object-cover">
+              <div class="w-10 h-10 rounded-full overflow-hidden bg-slate-100 flex-shrink-0 border border-slate-200">
+                <img src="${targetUser?.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + uName}" class="w-full h-full object-cover">
               </div>
               <div>
                 <p class="font-bold text-slate-800 text-xs">${targetDisplayName}</p>
-                <p class="text-[10px] text-slate-400 font-mono">@${username || userId} (${targetRole})</p>
+                <p class="text-[10px] text-slate-400 font-mono">@${uName} (${targetRole} | ឃ្លាំង: ${targetWh})</p>
               </div>
             </div>
+            ${targetUser?.deleteReason ? `
+              <div class="p-2.5 bg-amber-50 rounded-xl border border-amber-200 text-amber-800 text-xs">
+                <p class="font-bold"><i class="fa-solid fa-comment-dots mr-1 text-amber-600"></i>មូលហេតុលុបដែលបានស្នើសុំដោយ ${targetUser?.deleteRequestedBy || 'Admin'}៖</p>
+                <p class="italic text-[11px] mt-0.5">${escapeHtml(targetUser.deleteReason)}</p>
+              </div>
+            ` : ''}
             <div class="p-2.5 bg-rose-50 rounded-xl border border-rose-200 text-rose-700 text-xs">
               <p class="font-bold flex items-center mb-1">
                 <i class="fa-solid fa-triangle-exclamation mr-1.5 text-rose-500"></i>
-                ការព្រមានសំខាន់៖
+                ការព្រមានសំខាន់ (SuperAdmin Rights)៖
               </p>
               <p class="text-[11px] leading-relaxed">ទិន្នន័យគណនីនេះនឹងត្រូវលុបចេញពីប្រព័ន្ធទាំងស្រុង ហើយមិនអាចត្រឡប់វិញបានឡើយ!</p>
             </div>
@@ -10094,7 +10431,7 @@
         showCancelButton: true,
         confirmButtonColor: '#e11d48',
         cancelButtonColor: '#64748b',
-        confirmButtonText: '<i class="fa-solid fa-trash-can mr-1"></i> យល់ព្រមលុប',
+        confirmButtonText: '<i class="fa-solid fa-trash-can mr-1"></i> យល់ព្រមលុបជាស្ថាពរ',
         cancelButtonText: 'បោះបង់',
         reverseButtons: true
       });
@@ -10112,14 +10449,14 @@
 
       try {
         const res = await apiCall('deleteUser', {
-          userId: userId,
-          username: username,
+          userId: uId,
+          username: uName,
           adminUser: actor?.username
         });
 
         if (res && res.success) {
           // Remove from local memory database
-          const idx = LOCAL_DB.users.findIndex(u => (userId && u.userId === userId) || (username && u.username === username));
+          const idx = LOCAL_DB.users.findIndex(u => (uId && u.userId === uId) || (uName && u.username === uName));
           if (idx !== -1) {
             LOCAL_DB.users.splice(idx, 1);
             saveLocalUsersToStorage();
@@ -10149,6 +10486,217 @@
           text: 'មានបញ្ហាក្នុងការតភ្ជាប់ សូមព្យាយាមម្តងទៀត'
         });
       }
+    }
+
+    // =========================================================================
+    // SUPERADMIN APPROVAL / REJECTION HANDLERS FOR PENDING USER DELETION
+    // =========================================================================
+    async function handleApproveUserDeletion(userId, username) {
+      const actor = AppState.currentUser;
+      const isActorSuperAdmin = (actor?.role === 'SuperAdmin') || (String(actor?.username).toLowerCase() === 'superadmin');
+      if (!isActorSuperAdmin) {
+        Swal.fire('គ្មានសិទ្ធិ', 'មានតែ SuperAdmin ប៉ុណ្ណោះដែលអាចអនុម័តការលុបគណនីបាន!', 'warning');
+        return;
+      }
+
+      const targetUser = (LOCAL_DB.users || []).find(u => (userId && u.userId === userId) || (username && u.username === username));
+      const targetDisplayName = targetUser ? (targetUser.fullName || targetUser.username) : (username || userId);
+      const uId = targetUser?.userId || userId;
+      const uName = targetUser?.username || username;
+
+      const result = await Swal.fire({
+        title: 'អនុម័តការលុបគណនី (SuperAdmin Approval)?',
+        html: `
+          <div class="text-left text-xs space-y-2.5 p-3.5 bg-rose-50/80 rounded-2xl border border-rose-200 mt-2">
+            <p class="font-bold text-rose-950 text-sm">👑 SuperAdmin អនុម័តលុបគណនី៖ <b>${targetDisplayName}</b> (@${uName})</p>
+            <div class="p-3 bg-white rounded-xl border border-rose-200 space-y-1.5 text-slate-700 text-xs">
+              <div>👤 <b>ស្នើសុំដោយ៖</b> <span class="font-semibold text-purple-700">${targetUser?.deleteRequestedBy || 'Admin'}</span></div>
+              <div>🕒 <b>កាលបរិច្ឆេទស្នើ៖</b> <span>${targetUser?.deleteRequestedAt ? new Date(targetUser.deleteRequestedAt).toLocaleString('km-KH') : '-'}</span></div>
+              <div class="pt-1.5 border-t border-rose-100">
+                <span class="font-bold text-rose-800 block mb-0.5">📝 មូលហេតុនៃការលុប៖</span>
+                <p class="italic text-slate-800 font-semibold bg-rose-50/50 p-2 rounded-lg border border-rose-200">
+                  "${escapeHtml(targetUser?.deleteReason || 'គ្មានការបញ្ជាក់')}"
+                </p>
+              </div>
+            </div>
+            <p class="text-slate-600 leading-relaxed text-[11px]">
+              នៅពេលលោកអ្នកចុច «អនុម័តលុប» គណនីនេះនឹងត្រូវ<b>លុបចេញពីប្រព័ន្ធទាំងស្រុង</b>ជាស្ថាពរ ហើយមិនអាចត្រឡប់វិញបានឡើយ!
+            </p>
+          </div>
+        `,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#e11d48',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: '<i class="fa-solid fa-check mr-1.5"></i> បាទ/ចាស អនុម័តលុប',
+        cancelButtonText: 'បោះបង់',
+        reverseButtons: true
+      });
+
+      if (!result.isConfirmed) return;
+
+      Swal.fire({
+        title: 'កំពុងអនុម័តការលុប...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
+
+      try {
+        const res = await apiCall('approveUserDeletion', {
+          userId: uId,
+          username: uName,
+          adminUser: actor?.username
+        });
+
+        if (res && res.success) {
+          const idx = LOCAL_DB.users.findIndex(u => (uId && u.userId === uId) || (uName && u.username === uName));
+          if (idx !== -1) {
+            LOCAL_DB.users.splice(idx, 1);
+            saveLocalUsersToStorage();
+          }
+
+          // Send Telegram alert
+          const tgToken = AppState.settings?.TELEGRAM_BOT_TOKEN || localStorage.getItem('inventory_tg_token') || DEFAULT_TG_BOT_TOKEN;
+          const tgChatId = AppState.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid') || DEFAULT_TG_CHAT_ID;
+          if (tgToken && tgChatId) {
+            try {
+              fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  chat_id: tgChatId,
+                  text: `🗑️ <b>[បានអនុម័តការលុបគណនីជាស្ថាពរ]</b>\n👤 <b>គណនី:</b> ${targetDisplayName} (<code>${uName}</code>)\n📝 <b>មូលហេតុ:</b> ${targetUser?.deleteReason || '-'}\n👮 <b>អនុម័តដោយ:</b> SuperAdmin\n⏰ <b>កាលបរិច្ឆេទ:</b> ${new Date().toLocaleString('km-KH')}\n✅ គណនីត្រូវបានលុបចេញពីប្រព័ន្ធទាំងស្រុង។`,
+                  parse_mode: 'HTML'
+                })
+              }).catch(() => {});
+            } catch (e) {}
+          }
+
+          await loadUsersList();
+
+          Swal.fire({
+            icon: 'success',
+            title: 'អនុម័តជោគជ័យ!',
+            text: res.message || 'បានអនុម័តការលុបគណនីចេញពីប្រព័ន្ធរួចរាល់',
+            timer: 2300,
+            showConfirmButton: false
+          });
+        } else {
+          Swal.fire('បរាជ័យ', res?.message || 'មិនអាចអនុម័តការលុបបានទេ', 'error');
+        }
+      } catch(err) {
+        Swal.fire('កំហុស', 'មានបញ្ហាក្នុងការតភ្ជាប់ សូមព្យាយាមម្តងទៀត', 'error');
+      }
+    }
+
+    async function handleRejectUserDeletion(userId, username) {
+      const actor = AppState.currentUser;
+      const isActorSuperAdmin = (actor?.role === 'SuperAdmin') || (String(actor?.username).toLowerCase() === 'superadmin');
+      if (!isActorSuperAdmin) {
+        Swal.fire('គ្មានសិទ្ធិ', 'មានតែ SuperAdmin ប៉ុណ្ណោះដែលអាចបដិសេធសំណើសុំលុបគណនីបាន!', 'warning');
+        return;
+      }
+
+      const targetUser = (LOCAL_DB.users || []).find(u => (userId && u.userId === userId) || (username && u.username === username));
+      const targetDisplayName = targetUser ? (targetUser.fullName || targetUser.username) : (username || userId);
+      const uId = targetUser?.userId || userId;
+      const uName = targetUser?.username || username;
+
+      const result = await Swal.fire({
+        title: 'បដិសេធសំណើសុំលុបគណនី?',
+        html: `
+          <div class="text-left text-xs space-y-2.5 p-3.5 bg-slate-50 rounded-2xl border border-slate-200 mt-2">
+            <p class="font-bold text-slate-800 text-sm">បដិសេធសំណើសុំលុបគណនី៖ <b>${targetDisplayName}</b></p>
+            <p class="text-slate-600 leading-relaxed text-[11px]">
+              តើលោកអ្នកពិតជាចង់បដិសេធសំណើសុំលុបនេះ និងរក្សាទុកគណនីនេះឱ្យដំណើរការ <b>Active</b> ជាធម្មតាវិញដែរឬទេ?
+            </p>
+            ${targetUser?.deleteReason ? `<div class="text-[11px] text-slate-500 italic bg-white p-2.5 rounded-xl border border-slate-200">មូលហេតុដែល Admin ធ្លាប់បានស្នើ៖ "${escapeHtml(targetUser.deleteReason)}"</div>` : ''}
+          </div>
+        `,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#2563eb',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: '<i class="fa-solid fa-rotate-left mr-1"></i> រក្សាទុក (Active)',
+        cancelButtonText: 'បោះបង់'
+      });
+
+      if (!result.isConfirmed) return;
+
+      Swal.fire({
+        title: 'កំពុងដំណើរការ...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
+
+      try {
+        const res = await apiCall('rejectUserDeletion', {
+          userId: uId,
+          username: uName,
+          adminUser: actor?.username
+        });
+
+        if (res && res.success) {
+          const idx = LOCAL_DB.users.findIndex(u => (uId && u.userId === uId) || (uName && u.username === uName));
+          if (idx !== -1) {
+            LOCAL_DB.users[idx].status = 'Active';
+            delete LOCAL_DB.users[idx].deleteReason;
+            delete LOCAL_DB.users[idx].deleteRequestedBy;
+            delete LOCAL_DB.users[idx].deleteRequestedAt;
+            saveLocalUsersToStorage();
+          }
+
+          await loadUsersList();
+
+          Swal.fire({
+            icon: 'success',
+            title: 'បានបដិសេធសំណើលុប',
+            text: res.message || 'គណនីត្រូវបានរក្សាទុក និងដំណើរការ (Active) ជាធម្មតាវិញ',
+            timer: 2300,
+            showConfirmButton: false
+          });
+        } else {
+          Swal.fire('បរាជ័យ', res?.message || 'មិនអាចបដិសេធសំណើលុបបានទេ', 'error');
+        }
+      } catch(err) {
+        Swal.fire('កំហុស', 'មានបញ្ហាក្នុងការតភ្ជាប់ សូមព្យាយាមម្តងទៀត', 'error');
+      }
+    }
+
+    function viewUserDeleteReason(userIdOrUsername) {
+      const u = (LOCAL_DB.users || []).find(x => (userIdOrUsername && x.userId === userIdOrUsername) || (userIdOrUsername && x.username === userIdOrUsername));
+      if (!u) {
+        Swal.fire('ព័ត៌មាន', 'រកមិនឃើញទិន្នន័យគណនីនេះឡើយ', 'info');
+        return;
+      }
+      Swal.fire({
+        title: 'ព័ត៌មានសំណើសុំលុបគណនី',
+        html: `
+          <div class="text-left text-xs space-y-2.5 p-3.5 bg-slate-50 rounded-2xl border border-slate-200 mt-2">
+            <div class="flex items-center space-x-2.5 bg-white p-2.5 rounded-xl border border-slate-200">
+              <div class="w-10 h-10 rounded-full overflow-hidden bg-slate-100 flex-shrink-0 border border-slate-200">
+                <img src="${u.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + u.username}" class="w-full h-full object-cover">
+              </div>
+              <div>
+                <p class="font-bold text-slate-800 text-xs">${u.fullName || u.username}</p>
+                <p class="text-[10px] text-slate-400 font-mono">@${u.username} (${u.role || 'User'} | ឃ្លាំង: ${u.warehouse || '-'})</p>
+              </div>
+            </div>
+            <div class="p-3 bg-rose-50/80 rounded-xl border border-rose-200 space-y-1.5 text-slate-700 text-xs">
+              <div><span class="font-bold text-slate-600">👤 ស្នើសុំដោយ Admin៖</span> <span class="font-semibold text-purple-700">${u.deleteRequestedBy || 'Admin'}</span></div>
+              <div><span class="font-bold text-slate-600">🕒 កាលបរិច្ឆេទស្នើ៖</span> <span>${u.deleteRequestedAt ? new Date(u.deleteRequestedAt).toLocaleString('km-KH') : '-'}</span></div>
+              <div class="pt-1.5 border-t border-rose-200">
+                <span class="font-bold text-rose-800 block mb-1">📝 មូលហេតុនៃការស្នើសុំលុប៖</span>
+                <p class="p-2.5 bg-white rounded-lg border border-rose-200 text-slate-800 text-xs leading-relaxed italic">
+                  ${escapeHtml(u.deleteReason || 'គ្មានការបញ្ជាក់មូលហេតុ')}
+                </p>
+              </div>
+            </div>
+          </div>
+        `,
+        confirmButtonColor: '#2563eb',
+        confirmButtonText: 'បិទ'
+      });
     }
 
     async function approveUserDirectly(userId, username) {
@@ -12008,109 +12556,253 @@
     };
 
     // =========================================================================
-    // MULTI-MONITOR AUTO-SCALE & RESPONSIVE DEVICE ENGINE (2-3 Monitors & Mobile)
+    // HIGH-STANDARD CROSS-MONITOR ADAPTIVE ENGINE & REAL-TIME DRAG SCALER
     // =========================================================================
-    (function initResponsiveMonitorEngine() {
-      let lastDpr = window.devicePixelRatio || 1;
-      let lastProfile = '';
-      let resizeDebounce = null;
+    (function initCrossMonitorAutoScaler() {
+      let lastSw = 0;
+      let lastSh = 0;
+      let lastDpr = 0;
+      let lastW = 0;
+      let lastH = 0;
+      let lastScreenX = 0;
+      let lastAppliedScale = 1.0;
+      let lastAppliedProfile = '';
+      let toastTimeout = null;
 
-      function updateMonitorMetrics() {
+      function calculateMonitorProfileAndScale() {
+        const sw = window.screen.width;
+        const sh = window.screen.height;
         const dpr = window.devicePixelRatio || 1;
         const w = window.innerWidth;
         const h = window.innerHeight;
 
-        // Determine screen profile: mobile, tablet, laptop, desktop-hd, desktop-2k, desktop-4k
-        let profile = 'desktop-hd';
+        // Smartphone mobile standard (< 768px)
         if (w < 768) {
-          profile = 'mobile';
-        } else if (w < 1024) {
-          profile = 'tablet';
-        } else if (w < 1366) {
-          profile = 'laptop';
-        } else if (w < 1920) {
-          profile = 'desktop-hd';
-        } else if (w < 2400) {
-          profile = 'desktop-2k';
-        } else {
+          return {
+            profile: 'mobile',
+            name: 'Mobile Phone',
+            icon: 'fa-mobile-screen',
+            scale: 1.0
+          };
+        }
+
+        let profile = 'desktop-fhd';
+        let name = 'Desktop FHD (24")';
+        let icon = 'fa-display';
+        let scale = 1.08;
+
+        // Multi-Monitor Resolution and Screen Density Recognition
+        if (sw >= 3200 || w >= 3000) {
           profile = 'desktop-4k';
+          name = '4K Ultra-HD';
+          icon = 'fa-tv';
+          scale = 1.28;
+        } else if (sw >= 2400 || w >= 2200) {
+          profile = 'desktop-2k';
+          name = '2K QHD (27"+)';
+          icon = 'fa-tv';
+          scale = 1.18;
+        } else if (sw >= 1800 || w >= 1650) {
+          profile = 'desktop-fhd';
+          name = 'Desktop FHD (24")';
+          icon = 'fa-display';
+          scale = 1.08;
+        } else if (sw >= 1400 || w >= 1300) {
+          profile = 'laptop-hd';
+          name = 'Laptop (14"-16")';
+          icon = 'fa-laptop';
+          scale = 0.98;
+        } else if (sw >= 1200 || w >= 1100) {
+          profile = 'laptop-compact';
+          name = 'Compact Screen';
+          icon = 'fa-laptop';
+          scale = 0.92;
+        } else {
+          profile = 'split-window';
+          name = 'Split Screen';
+          icon = 'fa-table-columns';
+          scale = 0.88;
+        }
+
+        // Adjust for non-maximized window or split-screen
+        if (w < 1180 && scale > 0.92) {
+          scale = 0.90;
+          profile = 'split-window';
+          name = 'Split Screen';
+        } else if (h < 720 && scale > 0.96) {
+          scale = Math.min(scale, 0.94);
+        }
+
+        return { profile, name, icon, scale: Math.round(scale * 100) / 100 };
+      }
+
+      function showMonitorTransitionToast(name, scale, icon) {
+        const toast = document.getElementById('monitorTransitionToast');
+        const titleEl = document.getElementById('toastMonitorTitle');
+        const descEl = document.getElementById('toastMonitorDesc');
+        const iconEl = document.getElementById('toastMonitorIcon');
+        if (!toast || !titleEl || !descEl) return;
+
+        titleEl.textContent = `អេក្រង់៖ ${name}`;
+        descEl.textContent = `ទំហំ UI & អក្សរបានកែសម្រួល៖ ${Math.round(scale * 100)}%`;
+        if (iconEl && icon) {
+          iconEl.className = `fa-solid ${icon} text-sm`;
+        }
+
+        toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+        clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => {
+          toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+        }, 2200);
+      }
+
+      function applyAdaptiveScaling(isForced = false) {
+        const auto = calculateMonitorProfileAndScale();
+        const savedZoom = localStorage.getItem('inventory_user_zoom');
+        let effectiveScale = auto.scale;
+        let isManual = false;
+
+        if (savedZoom && savedZoom !== 'auto') {
+          const parsed = parseFloat(savedZoom);
+          if (!isNaN(parsed) && parsed >= 0.75 && parsed <= 1.6) {
+            effectiveScale = Math.round(parsed * 100) / 100;
+            isManual = true;
+          }
         }
 
         const root = document.documentElement;
-        root.setAttribute('data-screen-profile', profile);
-        root.setAttribute('data-dpr', dpr.toFixed(2));
+        const mainApp = document.getElementById('mainApp');
+        const dpr = window.devicePixelRatio || 1;
+
+        // Set CSS custom properties
+        root.style.setProperty('--app-ui-scale', effectiveScale);
+        root.style.setProperty('--app-font-scale', effectiveScale);
         root.style.setProperty('--window-dpr', dpr);
+        root.setAttribute('data-screen-profile', auto.profile);
+        root.setAttribute('data-ui-scale', effectiveScale);
 
-        // Notify if DPI or Profile shifted during cross-monitor drag
-        const dprDiff = Math.abs(dpr - lastDpr);
-        if (dprDiff > 0.05 || profile !== lastProfile) {
-          lastDpr = dpr;
-          lastProfile = profile;
+        // Scale document font-size
+        if (window.innerWidth >= 768) {
+          root.style.fontSize = (14 * effectiveScale).toFixed(2) + 'px';
+        } else {
+          root.style.fontSize = '14px';
+        }
 
-          // 1. Crisp re-render of Chart.js on monitor transition
-          if (AppState && AppState.movementChartInstance) {
-            try {
-              AppState.movementChartInstance.resize();
-            } catch (e) {}
+        // Apply zoom to main application container
+        if (mainApp) {
+          if (window.innerWidth >= 768) {
+            mainApp.style.zoom = effectiveScale;
+          } else {
+            mainApp.style.zoom = '1.0';
           }
-
-          // 2. Adjust freeze table container max-height if needed
-          const tableContainers = document.querySelectorAll('.table-container-freeze');
-          tableContainers.forEach(container => {
-            if (profile === 'mobile') {
-              container.style.maxHeight = 'calc(100vh - 210px)';
-            } else if (profile === 'laptop' || profile === 'tablet') {
-              container.style.maxHeight = 'calc(100vh - 230px)';
-            } else {
-              container.style.maxHeight = '';
-            }
-          });
         }
 
-        // Auto close mobile drawer if screen widened into desktop mode
-        if (w >= 768) {
-          toggleMobileSidebar(false);
-        }
-      }
+        // Update Header Widget
+        const profileNameEl = document.getElementById('monitorProfileName');
+        const monitorIconEl = document.getElementById('monitorIcon');
+        const autoBtn = document.getElementById('autoScaleBtn');
 
-      // 1. Debounced Window Resize Listener (Window dragged or maximized)
-      window.addEventListener('resize', function() {
-        clearTimeout(resizeDebounce);
-        resizeDebounce = setTimeout(updateMonitorMetrics, 60);
-      }, { passive: true });
-
-      // 2. Mobile Device Orientation Change
-      window.addEventListener('orientationchange', function() {
-        setTimeout(updateMonitorMetrics, 120);
-      }, { passive: true });
-
-      // 3. Monitor DPI Observer: Triggers instantaneously when dragging across monitors of different DPI
-      function watchDpiChanges() {
-        const currentDpr = window.devicePixelRatio || 1;
-        const mqString = `(resolution: ${currentDpr}dppx)`;
-        const mediaQuery = window.matchMedia(mqString);
-
-        function onDpiTransition() {
-          updateMonitorMetrics();
-          watchDpiChanges(); // Re-register for next monitor drag
+        if (profileNameEl) {
+          const percentText = `${Math.round(effectiveScale * 100)}%`;
+          profileNameEl.textContent = isManual ? `Manual (${percentText})` : `${auto.name} (${percentText})`;
+          profileNameEl.title = `អេក្រង់: ${auto.name} | ទំហំ UI: ${percentText} | DPR: ${dpr.toFixed(2)}`;
         }
 
-        if (mediaQuery.addEventListener) {
-          mediaQuery.addEventListener('change', onDpiTransition, { once: true });
-        } else if (mediaQuery.addListener) {
-          mediaQuery.addListener(onDpiTransition);
+        if (monitorIconEl && auto.icon) {
+          monitorIconEl.className = `fa-solid ${auto.icon} text-blue-600 text-xs shrink-0`;
+        }
+
+        if (autoBtn) {
+          if (isManual) {
+            autoBtn.classList.remove('bg-blue-50', 'text-blue-700');
+            autoBtn.classList.add('bg-amber-100', 'text-amber-800');
+            autoBtn.textContent = 'Auto';
+          } else {
+            autoBtn.classList.add('bg-blue-50', 'text-blue-700');
+            autoBtn.classList.remove('bg-amber-100', 'text-amber-800');
+            autoBtn.textContent = 'Auto';
+          }
+        }
+
+        // Trigger toast on real monitor transition
+        if (lastAppliedProfile && (lastAppliedProfile !== auto.profile || Math.abs(lastAppliedScale - effectiveScale) > 0.05)) {
+          showMonitorTransitionToast(auto.name, effectiveScale, auto.icon);
+        }
+
+        lastAppliedScale = effectiveScale;
+        lastAppliedProfile = auto.profile;
+
+        // Resize Chart.js canvas
+        if (AppState && AppState.movementChartInstance) {
+          try { AppState.movementChartInstance.resize(); } catch(e) {}
         }
       }
 
-      // Initial trigger
+      // Continuous Cross-Monitor Drag Observer (heartbeat)
+      function observeCrossMonitorDrag() {
+        const sw = window.screen.width;
+        const sh = window.screen.height;
+        const dpr = window.devicePixelRatio || 1;
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        const sx = window.screenX;
+
+        const screenChanged = (sw !== lastSw || sh !== lastSh);
+        const dprChanged = (Math.abs(dpr - lastDpr) > 0.02);
+        const sizeChanged = (Math.abs(w - lastW) > 10 || Math.abs(h - lastH) > 10);
+        const posCrossed = (Math.abs(sx - lastScreenX) > 250);
+
+        if (screenChanged || dprChanged || sizeChanged || posCrossed) {
+          lastSw = sw;
+          lastSh = sh;
+          lastDpr = dpr;
+          lastW = w;
+          lastH = h;
+          lastScreenX = sx;
+          applyAdaptiveScaling();
+        }
+      }
+
+      // Real-time polling every 250ms catches cross-monitor dragging instantaneously
+      setInterval(observeCrossMonitorDrag, 250);
+
+      // Window events
+      window.addEventListener('resize', () => applyAdaptiveScaling(), { passive: true });
+      window.addEventListener('orientationchange', () => setTimeout(applyAdaptiveScaling, 150), { passive: true });
+
+      // MatchMedia DPI changes
+      function watchDpi() {
+        const dpr = window.devicePixelRatio || 1;
+        const mq = window.matchMedia(`(resolution: ${dpr}dppx)`);
+        const handler = () => { applyAdaptiveScaling(); watchDpi(); };
+        if (mq.addEventListener) mq.addEventListener('change', handler, { once: true });
+        else if (mq.addListener) mq.addListener(handler);
+      }
+      watchDpi();
+
+      // Manual Zoom Controls exposed to window
+      window.adjustAppZoom = function(delta) {
+        const current = parseFloat(document.documentElement.style.getPropertyValue('--app-ui-scale')) || 1.0;
+        let newZoom = Math.round((current + delta) * 100) / 100;
+        newZoom = Math.max(0.75, Math.min(1.50, newZoom));
+        localStorage.setItem('inventory_user_zoom', newZoom);
+        applyAdaptiveScaling(true);
+      };
+
+      window.resetAppZoom = function() {
+        localStorage.removeItem('inventory_user_zoom');
+        applyAdaptiveScaling(true);
+        const auto = calculateMonitorProfileAndScale();
+        showMonitorTransitionToast(auto.name, auto.scale, auto.icon);
+      };
+
+      window.applyAdaptiveScaling = applyAdaptiveScaling;
+
+      // Immediate trigger
       if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function() {
-          updateMonitorMetrics();
-          watchDpiChanges();
-        });
+        document.addEventListener('DOMContentLoaded', () => applyAdaptiveScaling());
       } else {
-        updateMonitorMetrics();
-        watchDpiChanges();
+        applyAdaptiveScaling();
       }
     })();
 
@@ -12183,7 +12875,7 @@
       // 3. Update Sidebar Pending Users Badge
       const pendingBadge = document.getElementById('pendingUsersBadge');
       if (pendingBadge) {
-        const totalPending = allUsers.filter(u => u.status === 'Pending' || u.status === 'Pending_Admin' || u.status === 'Pending_SuperAdmin').length;
+        const totalPending = allUsers.filter(u => u.status === 'Pending' || u.status === 'Pending_Admin' || u.status === 'Pending_SuperAdmin' || u.status === 'Pending_Deletion').length;
         if (totalPending > 0) {
           pendingBadge.textContent = totalPending;
           pendingBadge.classList.remove('hidden');
@@ -12387,6 +13079,10 @@
     window.saveAppRunningState = saveAppRunningState;
     window.saveLocalItemsToStorage = saveLocalItemsToStorage;
     window.loadLocalItemsFromStorage = loadLocalItemsFromStorage;
+    window.handleDeleteUser = handleDeleteUser;
+    window.handleApproveUserDeletion = handleApproveUserDeletion;
+    window.handleRejectUserDeletion = handleRejectUserDeletion;
+    window.viewUserDeleteReason = viewUserDeleteReason;
 
     // Run auto-scale immediately
     if (document.readyState === 'loading') {
@@ -12395,6 +13091,18 @@
       autoScaleAuthCard();
     }
   </script>
+
+  <!-- Cross-Monitor Auto-Scale Floating Notification Toast -->
+  <div id="monitorTransitionToast"
+    class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 pointer-events-none transition-all duration-300 flex items-center space-x-2.5 bg-slate-900/95 backdrop-blur-md text-white px-4 py-2.5 rounded-2xl shadow-2xl border border-white/15 text-xs font-medium">
+    <div class="w-8 h-8 rounded-xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-400">
+      <i class="fa-solid fa-display text-sm" id="toastMonitorIcon"></i>
+    </div>
+    <div>
+      <p class="font-bold text-white text-xs leading-tight" id="toastMonitorTitle">អេក្រង់បានផ្លាស់ប្តូរ</p>
+      <p class="text-[11px] text-blue-200/90 font-mono" id="toastMonitorDesc">កែសម្រួល UI & អក្សរ: 100%</p>
+    </div>
+  </div>
 </body>
 
 </html>

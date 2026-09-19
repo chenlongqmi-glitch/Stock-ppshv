@@ -110,6 +110,14 @@ function doGet(e) {
 
       return handleTelegramUserApproval(userId, username, 'Rejected');
 
+    } else if (action === 'approveUserDeletionTelegram' || action === 'approveUserDeletion') {
+
+      return handleTelegramUserDeletionApproval(userId, username, 'Approve');
+
+    } else if (action === 'rejectUserDeletionTelegram' || action === 'rejectUserDeletion') {
+
+      return handleTelegramUserDeletionApproval(userId, username, 'Reject');
+
     }
 
   }
@@ -630,7 +638,19 @@ function executeLocalApiAction(req) {
 
       case 'deleteUser':
 
-        return deleteUser(payload.userId || payload.username || payload.id, payload.adminUser || payload.user);
+        return deleteUser(payload.userId || payload.username || payload.id, payload.adminUser || payload.user, payload.reason);
+
+      case 'requestUserDeletion':
+
+        return requestUserDeletion(payload);
+
+      case 'approveUserDeletion':
+
+        return approveUserDeletion(payload);
+
+      case 'rejectUserDeletion':
+
+        return rejectUserDeletion(payload);
 
       case 'getUsersList':
 
@@ -2452,11 +2472,13 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
 
 
 
-function deleteUser(userIdOrPayload, adminUser) {
+function deleteUser(userIdOrPayload, adminUser, deleteReason) {
 
   let uId = userIdOrPayload;
 
   let admin = adminUser;
+
+  let reason = deleteReason;
 
 
 
@@ -2465,6 +2487,8 @@ function deleteUser(userIdOrPayload, adminUser) {
     uId = userIdOrPayload.userId || userIdOrPayload.username || userIdOrPayload.id;
 
     admin = userIdOrPayload.adminUser || userIdOrPayload.user;
+
+    reason = userIdOrPayload.reason || userIdOrPayload.deleteReason;
 
   }
 
@@ -2536,6 +2560,22 @@ function deleteUser(userIdOrPayload, adminUser) {
 
 
 
+      // If actor is Admin (not SuperAdmin), route to requestUserDeletion
+
+      if (!isActorSuperAdmin) {
+
+        if (!reason) {
+
+          return { success: false, message: 'សូមបញ្ជាក់ពីមូលហេតុនៃការលុបគណនី!' };
+
+        }
+
+        return requestUserDeletion({ userId: uId, reason: reason, adminUser: adminUsername });
+
+      }
+
+
+
       const deletedFullName = data[i][2] || rowUsername;
 
       sheet.deleteRow(i + 1);
@@ -2559,6 +2599,334 @@ function deleteUser(userIdOrPayload, adminUser) {
 
 
   return { success: false, message: 'រកមិនឃើញអ្នកប្រើប្រាស់ដែលត្រូវលុបឡើយ' };
+
+}
+
+
+
+function requestUserDeletion(payload) {
+
+  if (!payload) return { success: false, message: 'ទិន្នន័យមិនត្រឹមត្រូវ' };
+
+  const uId = payload.userId || payload.username || payload.id;
+
+  const reason = String(payload.reason || '').trim();
+
+  const adminUser = payload.adminUser || payload.user || 'Admin';
+
+
+
+  if (!uId) return { success: false, message: 'សូមបញ្ជាក់អ្នកប្រើប្រាស់ដែលត្រូវលុប' };
+
+  if (!reason) return { success: false, message: 'សូមបញ្ជាក់ពីមូលហេតុនៃការលុបគណនី!' };
+
+
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  const sheet = ensureUsersInitialized(ss);
+
+  const data = sheet.getDataRange().getValues();
+
+
+
+  let foundRow = -1;
+
+  let targetDisplayName = uId;
+
+  let targetRole = 'User';
+
+  let targetWh = '';
+
+
+
+  for (let i = 1; i < data.length; i++) {
+
+    const rowUserId = String(data[i][0] || '');
+
+    const rowUsername = String(data[i][1] || '');
+
+    if (rowUserId === String(uId) || rowUsername.toLowerCase() === String(uId).toLowerCase()) {
+
+      foundRow = i + 1;
+
+      targetDisplayName = data[i][2] || rowUsername;
+
+      targetRole = data[i][6] || 'User';
+
+      targetWh = data[i][9] || '';
+
+      break;
+
+    }
+
+  }
+
+
+
+  if (foundRow === -1) {
+
+    return { success: false, message: 'រកមិនឃើញអ្នកប្រើប្រាស់ឡើយ' };
+
+  }
+
+
+
+  // Update status to Pending_Deletion
+
+  sheet.getRange(foundRow, 8).setValue('Pending_Deletion');
+
+  logActivity('USERS', String(adminUser), 'REQUEST_DELETE_USER', `ស្នើសុំលុបអ្នកប្រើប្រាស់: ${targetDisplayName} (${uId}) - មូលហេតុ: ${reason}`);
+
+
+
+  // Send Telegram Alert to SuperAdmin
+
+  try {
+
+    const gasUrl = ScriptApp.getService().getUrl();
+
+    const approveUrl = `${gasUrl}?action=approveUserDeletionTelegram&userId=${encodeURIComponent(uId)}&u=${encodeURIComponent(uId)}`;
+
+    const rejectUrl = `${gasUrl}?action=rejectUserDeletionTelegram&userId=${encodeURIComponent(uId)}&u=${encodeURIComponent(uId)}`;
+
+
+
+    sendTelegramAlert(
+
+      `⚠️ <b>[សំណើសុំលុបគណនីអ្នកប្រើប្រាស់ - Pending Deletion]</b>\n` +
+
+      `👤 <b>ឈ្មោះបុគ្គលិក:</b> ${targetDisplayName}\n` +
+
+      `🆔 <b>គណនី:</b> <code>${uId}</code>\n` +
+
+      `💼 <b>តួនាទី:</b> ${targetRole}\n` +
+
+      `🏢 <b>ឃ្លាំង/ស្ថានីយ:</b> ${targetWh || '-'}\n` +
+
+      `📝 <b>មូលហេតុនៃការលុប:</b> <i>"${reason}"</i>\n` +
+
+      `👮 <b>ស្នើសុំដោយ Admin:</b> ${adminUser}\n` +
+
+      `🕒 <b>កាលបរិច្ឆេទ:</b> ${new Date().toLocaleString('km-KH')}\n\n` +
+
+      `👉 <b>សូម SuperAdmin ពិនិត្យ និងជ្រើសរើស៖</b>`,
+
+      {
+
+        inline_keyboard: [
+
+          [
+
+            { text: "🗑️ អនុម័តលុប (Approve Delete)", url: approveUrl },
+
+            { text: "❌ បដិសេធ (Reject)", url: rejectUrl }
+
+          ]
+
+        ]
+
+      }
+
+    );
+
+  } catch(e) {}
+
+
+
+  return {
+
+    success: true,
+
+    message: `បានបញ្ជូនសំណើសុំលុបគណនី ${targetDisplayName} ទៅកាន់ SuperAdmin ពិនិត្យរួចរាល់!`
+
+  };
+
+}
+
+
+
+function approveUserDeletion(payload) {
+
+  return deleteUser(payload, payload ? (payload.adminUser || payload.user) : 'SuperAdmin');
+
+}
+
+
+
+function rejectUserDeletion(payload) {
+
+  if (!payload) return { success: false, message: 'ទិន្នន័យមិនត្រឹមត្រូវ' };
+
+  const uId = payload.userId || payload.username || payload.id;
+
+  const adminUser = payload.adminUser || payload.user || 'SuperAdmin';
+
+
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  const sheet = ensureUsersInitialized(ss);
+
+  const data = sheet.getDataRange().getValues();
+
+
+
+  for (let i = 1; i < data.length; i++) {
+
+    const rowUserId = String(data[i][0] || '');
+
+    const rowUsername = String(data[i][1] || '');
+
+    if (rowUserId === String(uId) || rowUsername.toLowerCase() === String(uId).toLowerCase()) {
+
+      sheet.getRange(i + 1, 8).setValue('Active');
+
+      const targetDisplayName = data[i][2] || rowUsername;
+
+      logActivity('USERS', String(adminUser), 'REJECT_DELETE_USER', `បដិសេធការលុបគណនី: ${targetDisplayName} (@${rowUsername})`);
+
+      return {
+
+        success: true,
+
+        message: `បានបដិសេធការលុបគណនី ${targetDisplayName}។ គណនីត្រូវបានរក្សាទុកជា Active ដដែល!`
+
+      };
+
+    }
+
+  }
+
+  return { success: false, message: 'រកមិនឃើញអ្នកប្រើប្រាស់ឡើយ' };
+
+}
+
+
+
+function handleTelegramUserDeletionApproval(userId, username, actionType) {
+
+  try {
+
+    const uId = userId || username;
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    const sheet = ensureUsersInitialized(ss);
+
+    const data = sheet.getDataRange().getValues();
+
+
+
+    let foundRow = -1;
+
+    let userFullName = username;
+
+    let userRole = '';
+
+    let userWh = '';
+
+
+
+    for (let i = 1; i < data.length; i++) {
+
+      const rId = String(data[i][0]).trim();
+
+      const rUser = String(data[i][1]).replace(/\s+/g, ' ').trim().toLowerCase();
+
+      if ((uId && rId === String(uId).trim()) || (username && rUser === String(username).toLowerCase())) {
+
+        foundRow = i + 1;
+
+        userFullName = String(data[i][2]) || data[i][1];
+
+        userRole = String(data[i][6]) || '';
+
+        userWh = String(data[i][9]) || '';
+
+        break;
+
+      }
+
+    }
+
+
+
+    if (foundRow === -1) {
+
+      return HtmlService.createHtmlOutput(`
+
+        <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; text-align: center; padding: 50px 20px;">
+
+          <div style="font-size: 50px; margin-bottom: 10px;">⚠️</div>
+
+          <h2 style="color: #e11d48;">រកមិនឃើញគណនីនេះទេ</h2>
+
+          <p style="color: #64748b;">គណនីនេះប្រហែលជាត្រូវបានលុបរួចរាល់ហើយ។</p>
+
+        </div>
+
+      `).setTitle('រកមិនឃើញគណនី');
+
+    }
+
+
+
+    if (actionType === 'Approve') {
+
+      sheet.deleteRow(foundRow);
+
+      logActivity('SUPERADMIN_TELEGRAM', 'SuperAdmin', 'APPROVE_DELETE_USER', `អនុម័តលុបអ្នកប្រើប្រាស់: ${userFullName} (@${username})`);
+
+      sendTelegramAlert(`🗑️ <b>[ការលុបគណនីបានអនុម័ត]</b>\n👤 <b>គណនី:</b> ${username} (${userFullName})\n✅ គណនីត្រូវបាន SuperAdmin អនុម័តលុបចេញពីប្រព័ន្ធជាស្ថាពរ។`);
+
+
+
+      return HtmlService.createHtmlOutput(`
+
+        <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; text-align: center; padding: 50px 20px;">
+
+          <div style="font-size: 50px; margin-bottom: 10px;">🗑️</div>
+
+          <h2 style="color: #e11d48;">បានអនុម័តការលុបគណនីជោគជ័យ!</h2>
+
+          <p style="color: #334155;">គណនី <b>${userFullName} (@${username})</b> ត្រូវបានលុបចេញពីប្រព័ន្ធទាំងស្រុង។</p>
+
+        </div>
+
+      `).setTitle('បានលុបគណនីជោគជ័យ');
+
+    } else {
+
+      sheet.getRange(foundRow, 8).setValue('Active');
+
+      logActivity('SUPERADMIN_TELEGRAM', 'SuperAdmin', 'REJECT_DELETE_USER', `បដិសេធការលុបគណនី: ${userFullName} (@${username})`);
+
+      sendTelegramAlert(`ℹ️ <b>[បានបដិសេធការលុបគណនី]</b>\n👤 <b>គណនី:</b> ${username} (${userFullName})\n🛡️ សំណើសុំលុបត្រូវបាន SuperAdmin បដិសេធ។ គណនីនៅតែ Active ដដែល។`);
+
+
+
+      return HtmlService.createHtmlOutput(`
+
+        <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; text-align: center; padding: 50px 20px;">
+
+          <div style="font-size: 50px; margin-bottom: 10px;">🛡️</div>
+
+          <h2 style="color: #2563eb;">បានបដិសេធសំណើសុំលុប</h2>
+
+          <p style="color: #334155;">គណនី <b>${userFullName} (@${username})</b> ត្រូវបានរក្សាទុក និងបើកដំណើរការ (Active) ជាធម្មតាវិញ។</p>
+
+        </div>
+
+      `).setTitle('បានបដិសេធការលុប');
+
+    }
+
+  } catch(err) {
+
+    return HtmlService.createHtmlOutput('កំហុស៖ ' + err.toString());
+
+  }
 
 }
 
