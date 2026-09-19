@@ -2066,7 +2066,7 @@
   <div id="itemModal" onclick="if(event.target === this) closeItemModal()"
     class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 hidden">
     <div
-      class="w-full max-w-4xl bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200 max-h-[92vh] flex flex-col">
+      class="w-full max-w-5xl bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200 max-h-[92vh] flex flex-col">
       <!-- Modal Header with Rich Vibrant Gradient -->
       <div
         class="px-6 py-4 bg-gradient-to-r from-blue-700 via-indigo-600 to-violet-700 text-white flex items-center justify-between shrink-0 shadow-md">
@@ -2126,18 +2126,20 @@
               </div>
 
               <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">លេខកូដទំនិញ (Barcode / QR
-                  Code)</label>
-                <div class="flex space-x-1.5">
-                  <input type="text" id="modalBarcode" placeholder="8850123456789"
-                    class="flex-1 h-11 px-3.5 bg-slate-50 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 font-mono font-bold text-blue-700">
-                  <button type="button" onclick="generateRandomBarcode()" title="បង្កើតលេខ Barcode ដោយស្វ័យប្រវត្តិ"
-                    class="h-11 px-3 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-xl text-xs font-bold text-slate-700 flex items-center space-x-1 shrink-0">
-                    <svg class="w-4 h-4 pointer-events-none" fill="currentColor" viewBox="0 0 24 24">
-                      <path
-                        d="M2 5h2v14H2zm3 0h1v14H5zm2 0h2v14H7zm3 0h1v14h-1zm2 0h2v14h-2zm3 0h1v14h-1zm2 0h2v14h-2zm3 0h2v14h-2z" />
-                    </svg>
+                <div class="flex items-center justify-between mb-1">
+                  <label class="block text-xs font-bold text-slate-700 uppercase">លេខកូដទំនិញ (Barcode / QR)</label>
+                  <button type="button" onclick="generateRandomBarcode()" title="ចុចដើម្បីបង្កើតលេខ Barcode ថ្មីដោយស្វ័យប្រវត្តិ"
+                    class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 hover:text-blue-800 text-[11px] font-bold border border-blue-200 transition-all active:scale-95 shadow-xs cursor-pointer">
+                    <i class="fa-solid fa-wand-magic-sparkles text-[10px] text-blue-600"></i>
                     <span>បង្កើតកូដ</span>
+                  </button>
+                </div>
+                <div class="relative flex items-center">
+                  <input type="text" id="modalBarcode" placeholder="8850123456789"
+                    class="w-full h-11 pl-3.5 pr-11 bg-slate-50 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 font-mono font-bold text-blue-700 tracking-wider transition">
+                  <button type="button" onclick="generateRandomBarcode()" title="បង្កើតលេខកូដថ្មី"
+                    class="absolute right-1.5 top-1.5 h-8 w-8 text-slate-400 hover:text-blue-600 hover:bg-blue-100/60 rounded-lg flex items-center justify-center transition active:scale-90" tabindex="-1">
+                    <i class="fa-solid fa-barcode text-sm"></i>
                   </button>
                 </div>
               </div>
@@ -3444,6 +3446,29 @@
     };
 
     // Persistent Local Users Database (Preserves avatar, names, and profile changes across reloads)
+        // Persistent Local Chat Messages Storage
+    function saveLocalChatMessagesToStorage() {
+      try {
+        localStorage.setItem('inventory_chat_messages', JSON.stringify(LOCAL_DB.chatMessages));
+      } catch (e) {
+        console.warn('Could not save chat messages to localStorage', e);
+      }
+    }
+
+    function loadLocalChatMessagesFromStorage() {
+      try {
+        const saved = localStorage.getItem('inventory_chat_messages');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            LOCAL_DB.chatMessages = parsed;
+          }
+        }
+      } catch (e) {
+        console.warn('Could not load chat messages from localStorage', e);
+      }
+    }
+
     function saveLocalUsersToStorage() {
       try {
         localStorage.setItem('inventory_users_db', JSON.stringify(LOCAL_DB.users));
@@ -4720,11 +4745,35 @@
         };
         LOCAL_DB.users.push(newUser);
         saveLocalUsersToStorage();
-        return {
-          success: true,
-          message: 'សំណើសុំចុះឈ្មោះត្រូវបានបញ្ជូនទៅកាន់ Admin ក្នុងប្រព័ន្ធរួចរាល់! សូមរង់ចាំ Admin ពិនិត្យអនុម័តជំហានដំបូង។',
-          user: newUser
+
+        // Automatically inject registration card into LiveChat
+        const regMsg = {
+          msgId: 'MSG-REG-' + Date.now().toString().slice(-6),
+          timestamp: new Date().toISOString().slice(0, 16).replace('T', ' '),
+          channelId: 'ALL_WAREHOUSES',
+          senderUsername: newUser.username,
+          senderFullName: newUser.fullName,
+          senderRole: newUser.role,
+          senderWarehouse: newUser.warehouse,
+          senderAvatar: newUser.avatar,
+          messageText: `📋 សំណើសុំចុះឈ្មោះគណនីថ្មី: ${newUser.fullName} (@${newUser.username}) - ស្ថានីយ: ${newUser.warehouse}`,
+          registrationData: {
+            type: 'USER_REGISTRATION',
+            userId: newUser.userId,
+            username: newUser.username,
+            fullName: newUser.fullName,
+            phone: newUser.phone,
+            email: newUser.email,
+            role: newUser.role,
+            warehouse: newUser.warehouse,
+            status: newUser.status,
+            createdAt: new Date().toISOString().slice(0, 16).replace('T', ' ')
+          }
         };
+        LOCAL_DB.chatMessages.push(regMsg);
+        saveLocalChatMessagesToStorage();
+
+        return { success: true, message: 'សំណើសុំចុះឈ្មោះត្រូវបានបញ្ជូនទៅកាន់ Admin ក្នុងប្រព័ន្ធរួចរាល់!', user: newUser };
       }
 
       if (action === 'requestPasswordResetOtp') {
@@ -5220,45 +5269,95 @@
 
       if (btn) {
         btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> កំពុងពិនិត្យ...';
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> កំពុងចូល...';
       }
 
-      try {
-        const res = await apiCall('loginUser', { username: username, password: password });
-        if (res && res.success) {
-          AppState.currentUser = res.user;
-          const loginNow = new Date().toISOString();
-          const remember = document.getElementById('rememberMe')?.checked;
-          if (remember) {
-            localStorage.setItem('inventory_remembered_creds', JSON.stringify({
-              username: username,
-              password: password
-            }));
-          } else {
-            localStorage.removeItem('inventory_remembered_creds');
-          }
-
-          // Strict session-only storage:
-          // Active user session is stored in sessionStorage ONLY so closing browser auto-logs out!
-          sessionStorage.setItem('inventory_user', JSON.stringify(res.user));
-          sessionStorage.setItem('inventory_login_timestamp', loginNow);
-          localStorage.removeItem('inventory_user');
-          localStorage.removeItem('inventory_login_timestamp');
-          sessionStorage.removeItem('inventory_superadmin_session');
-          showAppView();
-          loadInitialData();
-          Swal.fire({
-            icon: 'success',
-            title: `ស្វាគមន៍មកកាន់ប្រព័ន្ធ!`,
-            html: `
-              <p class="text-sm">ចូលប្រើប្រាស់ជា: <b>${res.user.fullName || res.user.username}</b> (${res.user.role})</p>
-              <p class="text-xs text-blue-600 font-bold mt-1">📍 ស្ថានីយ: ${res.user.warehouse === 'ALL' ? 'គ្រប់គ្រងគ្រប់ស្ថានីយទាំងអស់ (Admin Only)' : res.user.warehouse}</p>
-            `,
-            timer: 2500,
-            showConfirmButton: false
-          });
+      function completeSuccessfulLogin(user) {
+        AppState.currentUser = user;
+        const loginNow = new Date().toISOString();
+        const remember = document.getElementById('rememberMe')?.checked;
+        if (remember) {
+          localStorage.setItem('inventory_remembered_creds', JSON.stringify({
+            username: username,
+            password: password
+          }));
         } else {
-          Swal.fire('ចូលមិនបានទេ', (res && res.message) ? res.message : 'ឈ្មោះ ឬពាក្យសម្ងាត់មិនត្រឹមត្រូវ', 'error');
+          localStorage.removeItem('inventory_remembered_creds');
+        }
+
+        // Active session storage
+        sessionStorage.setItem('inventory_user', JSON.stringify(user));
+        sessionStorage.setItem('inventory_login_timestamp', loginNow);
+        localStorage.removeItem('inventory_user');
+        localStorage.removeItem('inventory_login_timestamp');
+        sessionStorage.removeItem('inventory_superadmin_session');
+
+        // 1. Instant Screen Transition (< 10ms)
+        showAppView();
+
+        // 2. Immediate Local Data Hydration (Never wait for cloud!)
+        if (!AppState.items || AppState.items.length === 0) {
+          AppState.items = (LOCAL_DB.items && LOCAL_DB.items.length > 0) ? [...LOCAL_DB.items] : [];
+        }
+        if (typeof populateCategoryFilter === 'function') populateCategoryFilter();
+        if (typeof renderItemsTable === 'function') renderItemsTable();
+        if (typeof populateItemSelectDropdowns === 'function') populateItemSelectDropdowns();
+
+        // 3. Pleasant auto-dismissing toast (1.2s, non-blocking)
+        Swal.fire({
+          icon: 'success',
+          title: 'ស្វាគមន៍មកកាន់ប្រព័ន្ធ! 🎉',
+          html: `
+            <p class="text-sm font-semibold">ចូលប្រើប្រាស់ជា: <b>${user.fullName || user.username}</b> (${user.role})</p>
+            <p class="text-xs text-blue-600 font-bold mt-1">📍 ស្ថានីយ: ${user.warehouse === 'ALL' ? 'គ្រប់គ្រងគ្រប់ស្ថានីយទាំងអស់ (Admin)' : user.warehouse}</p>
+          `,
+          timer: 1200,
+          showConfirmButton: false
+        });
+
+        // 4. Background Non-Blocking Cloud Synchronization
+        setTimeout(() => {
+          loadInitialData();
+        }, 50);
+
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<span>ចូលប្រព័ន្ធ</span> <i class="fa-solid fa-arrow-right-to-bracket text-sm"></i>';
+        }
+      }
+
+      // Fast-Path 1: Instant Local-First Authentication (< 5ms)
+      loadLocalUsersFromStorage();
+      const localAuthRes = simulateLocalApi('loginUser', { username, password });
+
+      if (localAuthRes && !localAuthRes.success && localAuthRes.message && (localAuthRes.message.includes('Pending') || localAuthRes.message.includes('Rejected') || localAuthRes.message.includes('រង់ចាំ'))) {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<span>ចូលប្រព័ន្ធ</span> <i class="fa-solid fa-arrow-right-to-bracket text-sm"></i>';
+        }
+        Swal.fire('ដំណឹងគណនី', localAuthRes.message, 'info');
+        return;
+      }
+
+      if (localAuthRes && localAuthRes.success && localAuthRes.user) {
+        completeSuccessfulLogin(localAuthRes.user);
+        return;
+      }
+
+      // Fast-Path 2: Cloud Fallback (Only if user not found in local cache)
+      try {
+        const cloudRes = await apiCall('loginUser', { username, password });
+        if (cloudRes && cloudRes.success && cloudRes.user) {
+          const existingIdx = LOCAL_DB.users.findIndex(u => u.username.toLowerCase() === cloudRes.user.username.toLowerCase());
+          if (existingIdx !== -1) {
+            LOCAL_DB.users[existingIdx] = cloudRes.user;
+          } else {
+            LOCAL_DB.users.push(cloudRes.user);
+          }
+          saveLocalUsersToStorage();
+          completeSuccessfulLogin(cloudRes.user);
+        } else {
+          Swal.fire('ចូលមិនបានទេ', (cloudRes && cloudRes.message) ? cloudRes.message : 'ឈ្មោះ ឬពាក្យសម្ងាត់មិនត្រឹមត្រូវ', 'error');
         }
       } catch (err) {
         Swal.fire('Error', err.toString(), 'error');
@@ -5697,6 +5796,33 @@
         }
 
         if (res && res.success) {
+        // Push registration card to Live Chat for regular Admin approval
+        try {
+          const chatCardPayload = {
+            channelId: 'ALL_WAREHOUSES',
+            messageText: `📋 សំណើសុំចុះឈ្មោះគណនីថ្មី: ${userData.fullName || userData.username} (@${userData.username}) - ស្ថានីយ: ${userData.warehouse}`,
+            senderUsername: userData.username,
+            senderFullName: userData.fullName || userData.username,
+            senderRole: userData.role || 'Stock Keeper',
+            senderWarehouse: userData.warehouse,
+            senderAvatar: userData.avatar,
+            registrationData: {
+              type: 'USER_REGISTRATION',
+              userId: res?.user?.userId || ('USR-' + Date.now().toString().slice(-4)),
+              username: userData.username,
+              fullName: userData.fullName || userData.username,
+              phone: userData.phone || '',
+              email: userData.email || '',
+              role: userData.role || 'Stock Keeper',
+              warehouse: userData.warehouse,
+              avatar: userData.avatar,
+              status: 'Pending_Admin',
+              createdAt: new Date().toISOString().slice(0, 16).replace('T', ' ')
+            }
+          };
+          apiCall('sendChatMessage', { data: chatCardPayload }).catch(() => {});
+        } catch (cPushErr) {}
+
           // Reset form
           document.getElementById('regFullName').value = '';
           document.getElementById('regUsername').value = '';
@@ -6362,6 +6488,19 @@
 
     // Navigation & Data Loading
     async function loadInitialData() {
+      // 1. Instant local memory rendering (< 5ms) so screen is never blank or delayed
+      if (LOCAL_DB.warehousesDetailed && LOCAL_DB.warehousesDetailed.length > 0) {
+        AppState.warehouses = LOCAL_DB.warehousesDetailed;
+        refreshAllWarehouseDropdowns();
+      }
+      if (LOCAL_DB.items && LOCAL_DB.items.length > 0) {
+        AppState.items = [...LOCAL_DB.items];
+        if (typeof populateCategoryFilter === 'function') populateCategoryFilter();
+        if (typeof renderItemsTable === 'function') renderItemsTable();
+        if (typeof populateItemSelectDropdowns === 'function') populateItemSelectDropdowns();
+      }
+
+      // 2. Background non-blocking cloud refresh
       try {
         const res = await apiCall('getWarehousesDetailed');
         if (res && res.success && res.warehouses && res.warehouses.length > 0) {
@@ -6370,13 +6509,13 @@
           WAREHOUSES_LIST.push(...res.warehouses);
           refreshAllWarehouseDropdowns();
         }
-      } catch (e) { }
+      } catch (e) {}
 
-      await Promise.all([
+      Promise.allSettled([
         loadDashboard(),
         loadItems(),
         loadProductRequests()
-      ]);
+      ]).catch(() => {});
     }
 
     function navigateTab(tabName) {
@@ -10497,6 +10636,131 @@
         const avatar = m.senderAvatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${m.senderUsername}`;
 
         let itemCard = '';
+        // 1. Interactive User Registration Approval Card for Admin
+        let regCardHtml = '';
+        let regData = m.registrationData;
+        if (!regData && m.itemReference && m.itemReference.type === 'USER_REGISTRATION') {
+          regData = m.itemReference;
+        }
+
+        if (regData) {
+          const liveUser = (LOCAL_DB.users || []).find(u => (regData.userId && u.userId === regData.userId) || (u.username && u.username.toLowerCase() === String(regData.username).toLowerCase()));
+          const curStatus = liveUser ? liveUser.status : (regData.status || 'Pending_Admin');
+          const isActorAdminOrSuper = AppState.currentUser && (AppState.currentUser.role === 'Admin' || AppState.currentUser.role === 'SuperAdmin' || String(AppState.currentUser.username).toLowerCase() === 'admin' || String(AppState.currentUser.username).toLowerCase() === 'superadmin');
+
+          let statusBadge = '';
+          let actionButtons = '';
+
+          if (curStatus === 'Pending_Admin' || curStatus === 'Pending') {
+            statusBadge = `<span class="inline-flex items-center px-2.5 py-1 rounded-lg bg-amber-100 text-amber-800 text-xs font-bold border border-amber-300">
+              <i class="fa-solid fa-clock mr-1.5 animate-pulse text-amber-600"></i>⏳ ជំហានទី ១: រង់ចាំ Admin អនុម័ត (Pending Admin)
+            </span>`;
+
+            if (isActorAdminOrSuper) {
+              actionButtons = `
+                <div class="mt-3 pt-3 border-t border-slate-200 flex flex-wrap items-center gap-2">
+                  <button type="button" onclick="approveUserFromChat('${regData.userId || ''}', '${regData.username}')"
+                    class="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 flex items-center space-x-1.5 transition active:scale-95 cursor-pointer">
+                    <i class="fa-solid fa-circle-check"></i>
+                    <span>✅ អនុម័តបឋម & បញ្ជូនទៅ SuperAdmin</span>
+                  </button>
+                  <button type="button" onclick="rejectUserFromChat('${regData.userId || ''}', '${regData.username}')"
+                    class="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition active:scale-95 cursor-pointer">
+                    <i class="fa-solid fa-circle-xmark"></i>
+                    <span>❌ បដិសេធ (Reject)</span>
+                  </button>
+                </div>
+              `;
+            } else {
+              actionButtons = `
+                <div class="mt-2.5 pt-2 border-t border-slate-200 text-[11px] text-slate-500 flex items-center space-x-1.5">
+                  <i class="fa-solid fa-lock text-slate-400"></i>
+                  <span>មានតែ Admin ប៉ុណ្ណោះដែលអាចចុចអនុម័តបឋមសំណើនេះបាន</span>
+                </div>
+              `;
+            }
+          } else if (curStatus === 'Pending_SuperAdmin') {
+            statusBadge = `<span class="inline-flex items-center px-2.5 py-1 rounded-lg bg-blue-100 text-blue-800 text-xs font-bold border border-blue-300">
+              <i class="fa-solid fa-paper-plane mr-1.5 text-blue-600"></i>✓ Admin បានអនុម័តរួច -> ⏳ រង់ចាំ SuperAdmin អនុម័តតាម Telegram
+            </span>`;
+
+            if (isActorAdminOrSuper) {
+              const isSuper = AppState.currentUser && (AppState.currentUser.role === 'SuperAdmin' || String(AppState.currentUser.username).toLowerCase() === 'superadmin');
+              actionButtons = `
+                <div class="mt-3 pt-3 border-t border-slate-200 flex flex-wrap items-center gap-2">
+                  ${isSuper ? `
+                    <button type="button" onclick="approveUserDirectly('${regData.userId || ''}', '${regData.username}')"
+                      class="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl text-xs font-bold shadow-md flex items-center space-x-1.5 transition active:scale-95 cursor-pointer">
+                      <i class="fa-solid fa-crown text-amber-300"></i>
+                      <span>👑 SuperAdmin ចុចអនុម័តភ្លាមៗ (Active)</span>
+                    </button>
+                  ` : ''}
+                  <button type="button" onclick="resendToTelegramSuperAdmin('${regData.userId || ''}', '${regData.username}')"
+                    class="px-3 py-2 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition active:scale-95 cursor-pointer">
+                    <i class="fa-brands fa-telegram"></i>
+                    <span>🔄 ផ្ញើទៅ Telegram ម្តងទៀត</span>
+                  </button>
+                </div>
+              `;
+            }
+          } else if (curStatus === 'Active') {
+            statusBadge = `<span class="inline-flex items-center px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-300">
+              <i class="fa-solid fa-circle-check mr-1.5 text-emerald-600"></i>🎉 គណនីបានអនុម័តពេញលេញរួចរាល់ (Active)
+            </span>`;
+          } else if (curStatus === 'Rejected') {
+            statusBadge = `<span class="inline-flex items-center px-2.5 py-1 rounded-lg bg-rose-100 text-rose-800 text-xs font-bold border border-rose-300">
+              <i class="fa-solid fa-circle-xmark mr-1.5 text-rose-600"></i>❌ សំណើត្រូវបានបដិសេធ (Rejected)
+            </span>`;
+          }
+
+          regCardHtml = `
+            <div class="mt-2.5 p-4 rounded-2xl bg-gradient-to-br from-white to-slate-50 border-2 border-indigo-200 shadow-md max-w-lg text-slate-800">
+              <!-- Card Header -->
+              <div class="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-200">
+                <div class="flex items-center space-x-2">
+                  <div class="w-8 h-8 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center text-sm shadow-xs">
+                    <i class="fa-solid fa-user-plus"></i>
+                  </div>
+                  <div>
+                    <h5 class="text-xs font-bold text-slate-900">សំណើសុំចុះឈ្មោះគណនីថ្មី</h5>
+                    <p class="text-[10px] text-slate-400">ប្រព័ន្ធគ្រប់គ្រងស្តុក PPSHV</p>
+                  </div>
+                </div>
+                ${statusBadge}
+              </div>
+
+              <!-- User Info Grid -->
+              <div class="grid grid-cols-2 gap-2 text-xs py-1">
+                <div class="bg-white/80 p-2 rounded-xl border border-slate-200/80">
+                  <span class="text-[10px] text-slate-400 block font-semibold uppercase">👤 ឈ្មោះពេញ</span>
+                  <span class="font-bold text-slate-800 text-xs">${escapeHtml(regData.fullName || regData.username)}</span>
+                </div>
+                <div class="bg-white/80 p-2 rounded-xl border border-slate-200/80">
+                  <span class="text-[10px] text-slate-400 block font-semibold uppercase">🆔 Username</span>
+                  <span class="font-bold font-mono text-blue-700 text-xs">@${escapeHtml(regData.username)}</span>
+                </div>
+                <div class="bg-white/80 p-2 rounded-xl border border-slate-200/80">
+                  <span class="text-[10px] text-slate-400 block font-semibold uppercase">📱 ទូរស័ព្ទ</span>
+                  <span class="font-bold font-mono text-slate-700 text-xs">${escapeHtml(regData.phone || '-')}</span>
+                </div>
+                <div class="bg-white/80 p-2 rounded-xl border border-slate-200/80">
+                  <span class="text-[10px] text-slate-400 block font-semibold uppercase">💼 តួនាទី</span>
+                  <span class="font-bold text-indigo-700 text-xs">${escapeHtml(regData.role || 'Stock Keeper')}</span>
+                </div>
+                <div class="col-span-2 bg-white/80 p-2 rounded-xl border border-slate-200/80">
+                  <span class="text-[10px] text-slate-400 block font-semibold uppercase">🏢 ស្ថានីយទូទាត់ប្រាក់ / ឃ្លាំង</span>
+                  <span class="font-bold text-slate-800 text-xs flex items-center">
+                    <i class="fa-solid fa-location-dot text-rose-500 mr-1.5 text-xs"></i>${escapeHtml(regData.warehouse || '-')}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Action Buttons -->
+              ${actionButtons}
+            </div>
+          `;
+        }
+
         if (m.itemReference) {
           itemCard = `
             <div class="mt-2 p-2.5 rounded-xl ${isMe ? 'bg-blue-700/60 border border-blue-400/40 text-white' : 'bg-slate-100 border border-slate-200 text-slate-800'} text-xs">
@@ -10533,6 +10797,7 @@
           }">
                 <p class="whitespace-pre-wrap font-medium">${escapeHtml(m.messageText)}</p>
                 ${itemCard}
+                ${regCardHtml}
               </div>
 
               <!-- Timestamp -->
