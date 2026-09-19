@@ -18,9 +18,9 @@
           if (u && (u.username || u.userId)) {
             document.documentElement.classList.add('app-authenticated');
 
-            // Detect target active tab before HTML body renders
+            // Detect target active tab before HTML body renders (Default to Dashboard)
             var hashTab = window.location.hash ? window.location.hash.replace('#', '') : '';
-            var savedTab = hashTab || sessionStorage.getItem('inventory_active_tab') || 'dashboard';
+            var savedTab = hashTab || 'dashboard';
             var tabMap = {
               'items': 'tabItems',
               'stockin': 'tabStockIn',
@@ -4464,10 +4464,10 @@
           AppState.currentUser = savedUser;
         }
 
-        // 1. Restore active tab IMMEDIATELY before rendering anything
+        // 1. Initial Landing Tab: Default to 'dashboard' so the beautiful Dashboard UI is always preserved
         const hashTab = window.location.hash.replace('#', '');
-        const savedTab = sessionStorage.getItem('inventory_active_tab');
-        const targetTab = hashTab || savedTab || 'dashboard';
+        const validTabs = ['dashboard', 'items', 'stockin', 'stockout', 'transfer', 'reports', 'requests', 'chat', 'users', 'settings'];
+        const targetTab = (hashTab && validTabs.includes(hashTab)) ? hashTab : 'dashboard';
         navigateTab(targetTab);
 
         // 2. Restore warehouse filter
@@ -6778,12 +6778,72 @@
       document.getElementById('tabUsers').classList.toggle('hidden', tabName !== 'users');
       document.getElementById('tabSettings').classList.toggle('hidden', tabName !== 'settings');
 
+      const NAV_TAB_CONFIG = {
+        'dashboard': {
+          inactiveClass: 'text-blue-100/90 hover:bg-white/15 hover:text-white',
+          layoutClass: 'flex items-center',
+          activeBg: 'bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500'
+        },
+        'items': {
+          inactiveClass: 'text-blue-100/90 hover:bg-white/15 hover:text-white',
+          layoutClass: 'flex items-center',
+          activeBg: 'bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500'
+        },
+        'stockin': {
+          inactiveClass: 'text-emerald-300 hover:bg-white/15 hover:text-white font-medium',
+          layoutClass: 'flex items-center',
+          activeBg: 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700'
+        },
+        'stockout': {
+          inactiveClass: 'text-amber-300 hover:bg-white/15 hover:text-white font-medium',
+          layoutClass: 'flex items-center',
+          activeBg: 'bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700'
+        },
+        'transfer': {
+          inactiveClass: 'text-blue-100/90 hover:bg-white/15 hover:text-white',
+          layoutClass: 'flex items-center',
+          activeBg: 'bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500'
+        },
+        'reports': {
+          inactiveClass: 'text-blue-100/90 hover:bg-white/15 hover:text-white',
+          layoutClass: 'flex items-center',
+          activeBg: 'bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500'
+        },
+        'requests': {
+          inactiveClass: 'text-sky-300 hover:bg-white/15 hover:text-white font-medium',
+          layoutClass: 'flex items-center justify-between',
+          activeBg: 'bg-gradient-to-r from-sky-600 via-blue-600 to-indigo-600'
+        },
+        'chat': {
+          inactiveClass: 'text-purple-300 hover:bg-white/15 hover:text-white font-medium',
+          layoutClass: 'flex items-center justify-between',
+          activeBg: 'bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600'
+        },
+        'users': {
+          inactiveClass: 'text-blue-100/90 hover:bg-white/15 hover:text-white',
+          layoutClass: 'flex items-center justify-between',
+          activeBg: 'bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500'
+        },
+        'settings': {
+          inactiveClass: 'text-blue-100/90 hover:bg-white/15 hover:text-white',
+          layoutClass: 'flex items-center',
+          activeBg: 'bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500'
+        }
+      };
+
       document.querySelectorAll('.nav-link').forEach(link => {
-        const isCurrent = link.getAttribute('href') === '#' + tabName;
+        const href = (link.getAttribute('href') || '').replace('#', '');
+        const isCurrent = (href === tabName);
+        const cfg = NAV_TAB_CONFIG[href] || {
+          inactiveClass: 'text-blue-100/90 hover:bg-white/15 hover:text-white',
+          layoutClass: 'flex items-center',
+          activeBg: 'bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500'
+        };
+
         if (isCurrent) {
-          link.className = 'nav-link flex items-center justify-between px-3.5 py-2.5 rounded-xl text-white bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500 font-bold shadow-lg shadow-slate-950/40 border border-white/30 transition-all';
+          link.className = `nav-link ${cfg.layoutClass} px-3.5 py-2.5 rounded-xl text-white ${cfg.activeBg} font-bold shadow-lg shadow-slate-950/40 border border-white/30 transition-all`;
         } else {
-          link.className = 'nav-link flex items-center justify-between px-3.5 py-2.5 rounded-xl hover:bg-white/15 hover:text-white transition-all text-blue-100/90';
+          link.className = `nav-link ${cfg.layoutClass} px-3.5 py-2.5 rounded-xl transition-all ${cfg.inactiveClass}`;
         }
       });
 
