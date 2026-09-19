@@ -1864,8 +1864,11 @@
                   <div class="flex-1 min-w-0">
                     <div class="flex items-center justify-between">
                       <p class="font-bold text-slate-800 truncate text-xs">👑 Admin Support</p>
-                      <span
-                        class="px-1.5 py-0.2 rounded text-[9px] bg-purple-100 text-purple-700 font-bold">Admin</span>
+                      <div class="flex items-center space-x-1">
+                        <span id="adminDirectBadge" class="hidden px-1.5 py-0.2 rounded-full text-[9px] bg-rose-500 text-white font-black animate-pulse">0</span>
+                        <span
+                          class="px-1.5 py-0.2 rounded text-[9px] bg-purple-100 text-purple-700 font-bold">Admin</span>
+                      </div>
                     </div>
                     <p class="text-[11px] text-slate-400 font-normal truncate">ជជែកផ្ទាល់ជាមួយ Admin</p>
                   </div>
@@ -5850,7 +5853,7 @@
         // Push registration card to Live Chat for regular Admin approval
         try {
           const chatCardPayload = {
-            channelId: 'ALL_WAREHOUSES',
+            channelId: 'ADMIN_DIRECT',
             messageText: `📋 សំណើសុំចុះឈ្មោះគណនីថ្មី: ${userData.fullName || userData.username} (@${userData.username}) - ស្ថានីយ: ${userData.warehouse}`,
             senderUsername: userData.username,
             senderFullName: userData.fullName || userData.username,
@@ -10342,7 +10345,7 @@
       }
 
       listEl.innerHTML = filteredList.map(n => `
-        <div ${n.type === 'USER_REGISTRATION' ? 'onclick="navigateTab(\'chat\'); switchChatChannel(\'ALL_WAREHOUSES\', \'📢 បន្ទប់ជជែកទូទៅ (All Stations & Admin)\', \'ទំនាក់ទំនងសាធារណៈគ្រប់ស្ថានីយទាំងអស់\', \'https://api.dicebear.com/7.x/identicon/svg?seed=AllWarehouses\'); toggleNotificationDropdown();"' : ''}
+        <div ${n.type === 'USER_REGISTRATION' ? 'onclick="navigateTab(\'chat\'); switchChatChannel(\'ADMIN_DIRECT\', \'👑 Admin Support (អ្នកគ្រប់គ្រង)\', \'ជជែកផ្ទាល់ជាមួយ Admin ប្រព័ន្ធ\', \'assets/superadmin_avatar.jpg\'); toggleNotificationDropdown();"' : ''}
           class="p-2.5 rounded-xl border border-slate-100 bg-slate-50/80 hover:bg-white transition-all cursor-pointer">
           <div class="flex items-center justify-between">
             <span class="font-bold text-slate-800 text-xs flex items-center">
@@ -10719,6 +10722,46 @@
         const res = await apiCall('getChatMessages', { channelId: currentChatChannel });
         if (res && res.success) {
           const msgs = res.messages || [];
+
+          // If current channel is ADMIN_DIRECT, ensure all pending registrations are included in the messages list
+          if (currentChatChannel === 'ADMIN_DIRECT') {
+            const allUsers = [...(LOCAL_DB.users || []), ...(AppState.users || [])];
+            const pendingUsers = allUsers.filter(u => u.status === 'Pending_Admin' || u.status === 'Pending');
+
+            pendingUsers.forEach(pu => {
+              const alreadyInMsgs = msgs.some(m =>
+                (m.registrationData && (m.registrationData.userId === pu.userId || m.registrationData.username === pu.username)) ||
+                (m.itemReference && (m.itemReference.userId === pu.userId || m.itemReference.username === pu.username)) ||
+                (m.messageText && m.messageText.includes(pu.username))
+              );
+              if (!alreadyInMsgs) {
+                msgs.push({
+                  msgId: 'REG-' + (pu.userId || pu.username),
+                  timestamp: pu.createdAt || new Date().toLocaleString('km-KH'),
+                  channelId: 'ADMIN_DIRECT',
+                  senderUsername: pu.username,
+                  senderFullName: pu.fullName || pu.username,
+                  senderRole: pu.role || 'Stock Keeper',
+                  senderWarehouse: pu.warehouse || 'ឃ្លាំងទូទៅ',
+                  senderAvatar: pu.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${pu.username}`,
+                  messageText: `📋 សំណើសុំចុះឈ្មោះគណនីថ្មី: ${pu.fullName || pu.username} (@${pu.username}) - ស្ថានីយ: ${pu.warehouse}`,
+                  registrationData: {
+                    type: 'USER_REGISTRATION',
+                    userId: pu.userId,
+                    username: pu.username,
+                    fullName: pu.fullName || pu.username,
+                    phone: pu.phone || '',
+                    email: pu.email || '',
+                    role: pu.role || 'Stock Keeper',
+                    warehouse: pu.warehouse,
+                    status: pu.status || 'Pending_Admin',
+                    createdAt: pu.createdAt || new Date().toLocaleString('km-KH')
+                  }
+                });
+              }
+            });
+          }
+
           renderChatMessagesList(msgs);
 
           // If users list is still not loaded, fetch in background and re-render
@@ -10782,6 +10825,12 @@
 
         const msgText = String(m.messageText || '');
         const isRegMessage = Boolean(regData) || msgText.includes('សំណើសុំចុះឈ្មោះ') || String(m.msgId || '').includes('REG');
+
+        // PER USER REQUEST: "ដកមុខងារនេះ ពីបន្ទប់ជជែកទូទៅ (All Stations & Admin) គឺបញ្ជូនទៅកាន់live chat ទៅកាន់adminផ្ទាល់វិញ"
+        // If not in ADMIN_DIRECT channel, registration messages/cards are completely excluded
+        if (currentChatChannel !== 'ADMIN_DIRECT' && isRegMessage) {
+          return '';
+        }
 
         if (isRegMessage) {
           // Check if current logged in user is SuperAdmin - per user request, skip for superadmin
@@ -11330,9 +11379,20 @@
         if (pendingUsers.length > 0) {
           chatBadge.innerText = pendingUsers.length;
           chatBadge.classList.remove('hidden');
-          chatBadge.title = `មាន ${pendingUsers.length} សំណើចុះឈ្មោះក្នុង បន្ទប់ជជែកទូទៅ (All Stations & Admin)`;
+          chatBadge.title = `មាន ${pendingUsers.length} សំណើចុះឈ្មោះរង់ចាំ Admin ពិនិត្យក្នុង Admin Support`;
         } else {
           chatBadge.classList.add('hidden');
+        }
+      }
+
+      // Update Admin Support channel badge inside Live Chat sidebar
+      const adminDirectBadge = document.getElementById('adminDirectBadge');
+      if (adminDirectBadge) {
+        if (pendingUsers.length > 0) {
+          adminDirectBadge.innerText = `${pendingUsers.length}`;
+          adminDirectBadge.classList.remove('hidden');
+        } else {
+          adminDirectBadge.classList.add('hidden');
         }
       }
 
