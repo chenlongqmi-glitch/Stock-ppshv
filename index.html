@@ -3529,25 +3529,34 @@
       movementChartInstance: null
     };
 
+    // Helper to detect dummy / unregistered seed demo accounts (wh01-wh11, @inventory.local, USR-PENDING-01)
+    function isUnregisteredDummyUser(u) {
+      if (!u) return false;
+      const uname = String(u.username || '').trim().toLowerCase();
+      const email = String(u.email || '').trim().toLowerCase();
+      const uid = String(u.userId || '').trim().toUpperCase();
+      const fullName = String(u.fullName || '').trim();
+
+      // Explicitly allow SuperAdmin and Admin
+      if (uname === 'superadmin' || uid === 'USR-SA' || uname === 'admin' || uid === 'USR-00' || uid === 'USR-001') {
+        return false;
+      }
+
+      // Check for seeded demo warehouse accounts
+      if (/^wh\d+$/i.test(uname)) return true;
+      if (email.endsWith('@inventory.local')) return true;
+      if (/^USR-\d{2}$/.test(uid)) return true; // USR-01, USR-02, ...
+      if (uid === 'USR-PENDING-01' || uname === 'chan sovannak') return true;
+      if (fullName.startsWith('បុគ្គលិក ') && fullName.includes('ស្ថានីយ') && /^wh\d+$/i.test(uname)) return true;
+
+      return false;
+    }
+
     // --- MOCK DATABASE FOR LOCAL SERVER SIMULATION ---
     const LOCAL_DB = {
       users: [
-        { userId: 'USR-SA', username: 'superadmin', fullName: '陈龙', email: 'chenlongqmi@gmail.com', phone: '066966606', role: 'SuperAdmin', status: 'Active', warehouse: 'ALL', avatar: 'assets/superadmin_avatar.jpg' },
-        { userId: 'USR-00', username: 'admin', fullName: '聂稳新', email: 'ppshv2024@gmail.com', phone: '098880803', role: 'Admin', status: 'Active', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150' },
-        { userId: 'USR-PENDING-01', username: 'Chan Sovannak', fullName: 'ចាន់ សុវណ្ណៈ', email: 'chansovannak@gmail.com', phone: '097966606', role: 'Stock Keeper', status: 'Pending', warehouse: '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=ChanSovannak' },
-        ...WAREHOUSES_LIST.map((wh, idx) => {
-          const num = String(idx + 1).padStart(2, '0');
-          return {
-            userId: `USR-${num}`,
-            username: `wh${num}`,
-            fullName: `បុគ្គលិក ${wh}`,
-            email: `wh${num}@inventory.local`,
-            role: 'Stock Keeper',
-            status: 'Active',
-            warehouse: wh,
-            avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=wh${num}`
-          };
-        })
+        { userId: 'USR-SA', username: 'superadmin', fullName: '陈龙', email: 'chenlongqmi@gmail.com', phone: '066966606', role: 'SuperAdmin', status: 'Active', warehouse: 'ALL', avatar: 'assets/superadmin_avatar.jpg', isRegistered: true },
+        { userId: 'USR-00', username: 'admin', fullName: '聂稳新', email: 'ppshv2024@gmail.com', phone: '098880803', role: 'Admin', status: 'Active', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', isRegistered: true }
       ],
       items: [
         { sku: 'SKU-001', barcode: '8850123456789', name: 'Coca Cola 330ml', category: 'ភេសជ្ជៈ', unit: 'កំប៉ុង', zone: 'តំបន់ A (ភេសជ្ជៈ)', zoneNumber: 'Z-01', costPrice: 0.45, sellingPrice: 0.65, minStock: 20, location: '1-K3 ស្ថានីយ (ភ្នំពេញ)', currentStock: 150, imageUrl: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=300', status: 'Active' },
@@ -3619,7 +3628,9 @@
         if (saved) {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            parsed.forEach(p => {
+            // Filter out all unregistered dummy demo users (wh01-wh11, @inventory.local, USR-PENDING-01)
+            const validUsers = parsed.filter(p => !isUnregisteredDummyUser(p));
+            validUsers.forEach(p => {
               // Automatically upgrade SuperAdmin profile if holding stale default info
               if (p.userId === 'USR-SA' || (p.username && p.username.toLowerCase() === 'superadmin')) {
                 if (!p.fullName || p.fullName.includes('Super Administrator')) p.fullName = '陈龙';
@@ -3645,6 +3656,9 @@
             });
           }
         }
+        // Purge any dummy demo users from LOCAL_DB.users and re-save
+        LOCAL_DB.users = LOCAL_DB.users.filter(u => !isUnregisteredDummyUser(u));
+        saveLocalUsersToStorage();
       } catch (e) {
         console.warn('Could not load users from localStorage', e);
       }
@@ -4883,12 +4897,9 @@
           return { success: true, user: matched };
         }
 
-        // Default auto-login fallback
-        const whIndex = parseInt(username.replace(/\D/g, '')) || 1;
-        const assignedWh = WAREHOUSES_LIST[Math.min(Math.max(whIndex - 1, 0), WAREHOUSES_LIST.length - 1)];
         return {
-          success: true,
-          user: { userId: 'USR-' + username, username: username, fullName: `បុគ្គលិក ${username}`, role: 'Stock Keeper', warehouse: assignedWh }
+          success: false,
+          message: 'ឈ្មោះគណនី ឬពាក្យសម្ងាត់មិនត្រឹមត្រូវទេ! ប្រសិនបើមិនទាន់មានគណនី សូមចុច «ចុះឈ្មោះ (Register)» ដើម្បីស្នើសុំគណនីថ្មី។'
         };
       }
 
@@ -5023,16 +5034,18 @@
             LOCAL_DB.users[uIdx] = { ...LOCAL_DB.users[uIdx], ...cu };
           }
         }
+        // Filter out any unregistered dummy demo users
+        const registeredUsers = LOCAL_DB.users.filter(u => !isUnregisteredDummyUser(u));
         const actor = payload.user || AppState.currentUser;
         const isSuperAdmin = (actor?.role === 'SuperAdmin') || (String(actor?.username).toLowerCase() === 'superadmin');
         const isAdmin = !isSuperAdmin && (actor?.role === 'Admin' || actor?.role === 'អ្នកគ្រប់គ្រង' || String(actor?.username).toLowerCase() === 'admin');
 
         if (isSuperAdmin) {
-          // 1. SuperAdmin មើលឃើញទាំងអស់
-          return { success: true, users: LOCAL_DB.users };
+          // 1. SuperAdmin មើលឃើញ User ទាំងអស់ដែលបាន Register
+          return { success: true, users: registeredUsers };
         } else if (isAdmin) {
           // 2. Admin មើលឃើញ User ទាំងអស់ តែមិនអាចឃើញ SuperAdmin
-          const filtered = LOCAL_DB.users.filter(u =>
+          const filtered = registeredUsers.filter(u =>
             u.role !== 'SuperAdmin' &&
             String(u.username).toLowerCase() !== 'superadmin' &&
             String(u.userId).toUpperCase() !== 'USR-SA'
@@ -5040,7 +5053,7 @@
           return { success: true, users: filtered };
         } else {
           // 3. User ធម្មតា អាចមើលឃើញព័ត៌មានខ្លួនឯងតែមួយគត់
-          const selfList = LOCAL_DB.users.filter(u =>
+          const selfList = registeredUsers.filter(u =>
             (actor?.userId && u.userId === actor.userId) ||
             (actor?.username && String(u.username).toLowerCase() === String(actor.username).toLowerCase())
           );
@@ -8730,7 +8743,7 @@
           const isActorAdmin = !isActorSuperAdmin && (AppState.currentUser?.role === 'Admin' || AppState.currentUser?.role === 'អ្នកគ្រប់គ្រង' || String(AppState.currentUser?.username).toLowerCase() === 'admin');
 
           // Update Pending Users Badge on Sidebar (counts all pending in Step 1 or Step 2)
-          const allUsers = res.users || LOCAL_DB.users || [];
+          const allUsers = (res.users || LOCAL_DB.users || []).filter(u => !isUnregisteredDummyUser(u));
           const pendingCount = allUsers.filter(u => u.status === 'Pending' || u.status === 'Pending_Admin' || u.status === 'Pending_SuperAdmin').length;
           const pendingBadge = document.getElementById('pendingUsersBadge');
           if (pendingBadge) {
@@ -8749,9 +8762,10 @@
           }
 
           // Strict Role Visibility:
-          // 1. SuperAdmin: មើលឃើញ User ទាំងអស់ (មិនចាំបាច់បង្ហាញព័ត៌មានរបស់ខ្លួនឯងក្នុងតារាងទេ)
-          // 2. Admin: មើលឃើញ User ទាំងអស់ តែមិនបង្ហាញ SuperAdmin និងមិនបង្ហាញព័ត៌មានរបស់ខ្លួនឯងក្នុងតារាងទេ
+          // 1. SuperAdmin: មើលឃើញ User ទាំងអស់ដែលបាន Register (មិនចាំបាច់បង្ហាញព័ត៌មានរបស់ខ្លួនឯងក្នុងតារាងទេ)
+          // 2. Admin: មើលឃើញ User ទាំងអស់ដែលបាន Register តែមិនបង្ហាញ SuperAdmin និងមិនបង្ហាញព័ត៌មានរបស់ខ្លួនឯងក្នុងតារាងទេ
           // 3. User ធម្មតា: អាចមើលឃើញព័ត៌មានខ្លួនឯងតែមួយគត់
+          // 4. លុបចេញរាល់ User ដែលមិនបាន Register (dummy/seed wh01-wh11, @inventory.local, etc.)
           const isSelfUser = (u) => {
             const curId = AppState.currentUser?.userId;
             const curUsername = String(AppState.currentUser?.username || '').trim().toLowerCase();
@@ -8760,18 +8774,18 @@
             return (curId && uId && curId === uId) || (curUsername && uUsername && curUsername === uUsername);
           };
 
-          let filteredUsers = res.users || [];
+          let filteredUsers = (res.users || []).filter(u => !isUnregisteredDummyUser(u));
           if (isActorSuperAdmin) {
-            filteredUsers = (res.users || []).filter(u => !isSelfUser(u));
+            filteredUsers = filteredUsers.filter(u => !isSelfUser(u));
           } else if (isActorAdmin) {
-            filteredUsers = (res.users || []).filter(u =>
+            filteredUsers = filteredUsers.filter(u =>
               !isSelfUser(u) &&
               u.role !== 'SuperAdmin' &&
               String(u.username).toLowerCase() !== 'superadmin' &&
               String(u.userId).toUpperCase() !== 'USR-SA'
             );
           } else {
-            filteredUsers = (res.users || []).filter(u => isSelfUser(u));
+            filteredUsers = filteredUsers.filter(u => isSelfUser(u));
           }
 
           if (filteredUsers.length === 0) {

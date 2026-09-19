@@ -806,74 +806,6 @@ function setupDatabase() {
 
 
 
-    // Seed 11 Warehouse / Station Users (wh01 to wh11)
-
-    const defaultWarehouses = [
-
-      '1-K3 ស្ថានីយ (ភ្នំពេញ)',
-
-      '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)',
-
-      '3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)',
-
-      '4-K76 ស្ថានីយ (ត្រែងត្រយឹង)',
-
-      '5-K114 ស្ថានីយ (កំពង់សីលា)',
-
-      '6-K135 ស្ថានីយ (ស្រែអំបិល)',
-
-      '7-K172 ស្ថានីយ (ស្ទឹងហាវ)',
-
-      '8-K182 ស្ថានីយ (ព្រះសីហនុ)',
-
-      '中心库房 (ឃ្លាំងស្តុកនៅបុងសឹង)',
-
-      '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)',
-
-      '综合办 (ផ្នែកកិច្ចការទូទៅ)'
-
-    ];
-
-
-
-    defaultWarehouses.forEach((whName, index) => {
-
-      const numStr = String(index + 1).padStart(2, '0');
-
-      const uName = 'wh' + numStr;
-
-      const uPass = 'wh' + numStr + 'pass';
-
-      const uSalt = generateSalt();
-
-      const uHash = hashPassword(uPass, uSalt);
-
-      usersSheet.appendRow([
-
-        `USR-${numStr}`,
-
-        uName,
-
-        `បុគ្គលិក ${whName}`,
-
-        `${uName}@inventory.local`,
-
-        uHash,
-
-        uSalt,
-
-        'Stock Keeper',
-
-        'Active',
-
-        new Date(),
-
-        whName
-
-      ]);
-
-    });
-
   }
 
 
@@ -2205,6 +2137,24 @@ function getUsersList(userOrPayload) {
   for (let i = 1; i < data.length; i++) {
 
     if (data[i][0]) {
+
+      const uName = String(data[i][1] || '').trim().toLowerCase();
+
+      const uEmail = String(data[i][3] || '').trim().toLowerCase();
+
+      const uId = String(data[i][0] || '').trim().toUpperCase();
+
+
+
+      // Filter out unregistered dummy seeded demo users
+
+      if (/^wh\d+$/i.test(uName) || uEmail.endsWith('@inventory.local') || /^USR-\d{2}$/.test(uId) || uId === 'USR-PENDING-01') {
+
+        continue;
+
+      }
+
+
 
       users.push({
 
