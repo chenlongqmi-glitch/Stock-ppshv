@@ -111,15 +111,12 @@ function doGet(e) {
       return handleTelegramUserApproval(userId, username, 'Rejected');
 
     } else if (action === 'approveUserDeletionTelegram' || action === 'approveUserDeletion') {
-
-      return handleTelegramUserDeletionApproval(userId, username, 'Approve');
-
+      return handleTelegramUserDeletionApproval(userId, username, 'Approve', e);
     } else if (action === 'rejectUserDeletionTelegram' || action === 'rejectUserDeletion') {
-
-      return handleTelegramUserDeletionApproval(userId, username, 'Reject');
-
+      return handleTelegramUserDeletionApproval(userId, username, 'Reject', e);
+    } else if (action === 'reviewUserDeletionTelegram' || action === 'reviewUserDeletion') {
+      return handleTelegramUserDeletionApproval(userId, username, 'Review', e);
     }
-
   }
 
 
@@ -2775,8 +2772,7 @@ function requestUserDeletion(payload) {
   // Send Telegram Alert to SuperAdmin
   try {
     const gasUrl = ScriptApp.getService().getUrl();
-    const approveUrl = `${gasUrl}?action=approveUserDeletionTelegram&userId=${encodeURIComponent(uId)}&u=${encodeURIComponent(uId)}`;
-    const rejectUrl = `${gasUrl}?action=rejectUserDeletionTelegram&userId=${encodeURIComponent(uId)}&u=${encodeURIComponent(uId)}`;
+    const reviewUrl = `${gasUrl}?action=reviewUserDeletionTelegram&userId=${encodeURIComponent(uId)}&u=${encodeURIComponent(uId)}`;
 
     sendTelegramAlert(
       `⚠️ <b>[សំណើសុំលុបគណនីអ្នកប្រើប្រាស់ - Pending Deletion]</b>\n` +
@@ -2784,15 +2780,14 @@ function requestUserDeletion(payload) {
       `🆔 <b>គណនី:</b> <code>${uId}</code>\n` +
       `💼 <b>តួនាទី:</b> ${targetRole}\n` +
       `🏢 <b>ឃ្លាំង/ស្ថានីយ:</b> ${targetWh || '-'}\n` +
-      `📝 <b>មូលហេតុនៃការលុប:</b> <i>"${reason}"</i>\n` +
+      `📝 <b>មូលហេតុនៃការលុប (Admin):</b> <i>"${reason}"</i>\n` +
       `👮 <b>ស្នើសុំដោយ Admin:</b> ${adminUser}\n` +
       `🕒 <b>កាលបរិច្ឆេទ:</b> ${new Date().toLocaleString('km-KH')}\n\n` +
-      `👉 <b>សូម SuperAdmin ពិនិត្យ និងជ្រើសរើស៖</b>`,
+      `👉 <b>សូម SuperAdmin ពិនិត្យ ផ្ទៀងផ្ទាត់ និងសរសេរមូលហេតុ Approve/Reject៖</b>`,
       {
         inline_keyboard: [
           [
-            { text: "🗑️ អនុម័តលុប (Approve Delete)", url: approveUrl },
-            { text: "❌ បដិសេធ (Reject)", url: rejectUrl }
+            { text: "👑 ផ្ទៀងផ្ទាត់ & សម្រេច (Approve / Reject)", url: reviewUrl }
           ]
         ]
       }
@@ -2806,13 +2801,56 @@ function requestUserDeletion(payload) {
 }
 
 function approveUserDeletion(payload) {
-  return deleteUser(payload, payload ? (payload.adminUser || payload.user) : 'SuperAdmin');
+  if (!payload) return { success: false, message: 'ទិន្នន័យមិនត្រឹមត្រូវ' };
+  const uId = payload.userId || payload.username || payload.id;
+  const adminUser = payload.adminUser || payload.user || 'SuperAdmin';
+  const superAdminReason = String(payload.superAdminReason || payload.reason || payload.deleteReason || '').trim();
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ensureUsersInitialized(ss);
+  const data = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < data.length; i++) {
+    const rowUserId = String(data[i][0] || '');
+    const rowUsername = String(data[i][1] || '');
+    if (rowUserId === String(uId) || rowUsername.toLowerCase() === String(uId).toLowerCase()) {
+      const targetDisplayName = data[i][2] || rowUsername;
+      const adminDeleteReason = String(data[i][12] || '');
+      const reqBy = String(data[i][13] || 'Admin');
+
+      sheet.deleteRow(i + 1);
+
+      const logMsg = `អនុម័តលុបអ្នកប្រើប្រាស់: ${targetDisplayName} (@${rowUsername}) | មូលហេតុ Admin: ${adminDeleteReason || '-'} | មូលហេតុ SuperAdmin: ${superAdminReason || '-'}`;
+      logActivity('USERS', String(adminUser), 'APPROVE_DELETE_USER', logMsg);
+
+      // Telegram notification to SuperAdmin & team
+      try {
+        sendTelegramAlert(
+          `🗑️ <b>[ការលុបគណនីបានអនុម័តដោយ SuperAdmin]</b>\n` +
+          `👤 <b>គណនី:</b> ${targetDisplayName} (<code>@${rowUsername}</code>)\n` +
+          `👮 <b>ស្នើសុំដោយ Admin:</b> ${reqBy}\n` +
+          `📝 <b>មូលហេតុស្នើសុំ (Admin):</b> <i>"${adminDeleteReason || '-'}"</i>\n` +
+          `👑 <b>អនុម័តដោយ:</b> SuperAdmin (${adminUser})\n` +
+          `✍️ <b>មូលហេតុ SuperAdmin:</b> <i>"${superAdminReason || 'បានផ្ទៀងផ្ទាត់ និងយល់ព្រមលុប'}"</i>\n` +
+          `⏰ <b>កាលបរិច្ឆេទ:</b> ${new Date().toLocaleString('km-KH')}\n` +
+          `✅ គណនីត្រូវបានលុបចេញពីប្រព័ន្ធទាំងស្រុងជាស្ថាពរ។`
+        );
+      } catch (e) {}
+
+      return {
+        success: true,
+        message: `បានអនុម័តការលុបគណនី ${targetDisplayName} ចេញពីប្រព័ន្ធទាំងស្រុង!`
+      };
+    }
+  }
+  return { success: false, message: 'រកមិនឃើញអ្នកប្រើប្រាស់ឡើយ' };
 }
 
 function rejectUserDeletion(payload) {
   if (!payload) return { success: false, message: 'ទិន្នន័យមិនត្រឹមត្រូវ' };
   const uId = payload.userId || payload.username || payload.id;
   const adminUser = payload.adminUser || payload.user || 'SuperAdmin';
+  const superAdminReason = String(payload.superAdminReason || payload.reason || '').trim();
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ensureUsersInitialized(ss);
@@ -2827,7 +2865,23 @@ function rejectUserDeletion(payload) {
       sheet.getRange(i + 1, 14).setValue('');
       sheet.getRange(i + 1, 15).setValue('');
       const targetDisplayName = data[i][2] || rowUsername;
-      logActivity('USERS', String(adminUser), 'REJECT_DELETE_USER', `បដិសេធការលុបគណនី: ${targetDisplayName} (@${rowUsername})`);
+      const reqBy = String(data[i][13] || 'Admin');
+
+      const logMsg = `បដិសេធការលុបគណនី: ${targetDisplayName} (@${rowUsername}) | មូលហេតុបដិសេធ SuperAdmin: ${superAdminReason || '-'}`;
+      logActivity('USERS', String(adminUser), 'REJECT_DELETE_USER', logMsg);
+
+      try {
+        sendTelegramAlert(
+          `🛡️ <b>[បានបដិសេធសំណើសុំលុបគណនី]</b>\n` +
+          `👤 <b>គណនី:</b> ${targetDisplayName} (<code>@${rowUsername}</code>)\n` +
+          `👮 <b>ស្នើសុំដោយ Admin:</b> ${reqBy}\n` +
+          `👑 <b>បដិសេធដោយ SuperAdmin:</b> SuperAdmin (${adminUser})\n` +
+          `✍️ <b>មូលហេតុបដិសេធ:</b> <i>"${superAdminReason || 'រក្សាទុកគណនីជាធម្មតា'}"</i>\n` +
+          `⏰ <b>កាលបរិច្ឆេទ:</b> ${new Date().toLocaleString('km-KH')}\n` +
+          `ℹ️ គណនីត្រូវបានរក្សាទុក និងដំណើរការជា Active ដដែល។`
+        );
+      } catch (e) {}
+
       return {
         success: true,
         message: `បានបដិសេធការលុបគណនី ${targetDisplayName}។ គណនីត្រូវបានរក្សាទុកជា Active ដដែល!`
@@ -2837,7 +2891,7 @@ function rejectUserDeletion(payload) {
   return { success: false, message: 'រកមិនឃើញអ្នកប្រើប្រាស់ឡើយ' };
 }
 
-function handleTelegramUserDeletionApproval(userId, username, actionType) {
+function handleTelegramUserDeletionApproval(userId, username, actionType, e) {
   try {
     const uId = userId || username;
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -2848,6 +2902,9 @@ function handleTelegramUserDeletionApproval(userId, username, actionType) {
     let userFullName = username;
     let userRole = '';
     let userWh = '';
+    let delReason = '';
+    let reqBy = 'Admin';
+    let reqAt = '';
 
     for (let i = 1; i < data.length; i++) {
       const rId = String(data[i][0]).trim();
@@ -2855,49 +2912,207 @@ function handleTelegramUserDeletionApproval(userId, username, actionType) {
       if ((uId && rId === String(uId).trim()) || (username && rUser === String(username).toLowerCase())) {
         foundRow = i + 1;
         userFullName = String(data[i][2]) || data[i][1];
-        userRole = String(data[i][6]) || '';
-        userWh = String(data[i][9]) || '';
+        userRole = String(data[i][6]) || 'User';
+        userWh = String(data[i][9]) || '-';
+        delReason = String(data[i][12] || '');
+        reqBy = String(data[i][13] || 'Admin');
+        reqAt = String(data[i][14] || '');
         break;
       }
     }
 
     if (foundRow === -1) {
       return HtmlService.createHtmlOutput(`
-        <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; text-align: center; padding: 50px 20px;">
-          <div style="font-size: 50px; margin-bottom: 10px;">⚠️</div>
-          <h2 style="color: #e11d48;">រកមិនឃើញគណនីនេះទេ</h2>
-          <p style="color: #64748b;">គណនីនេះប្រហែលជាត្រូវបានលុបរួចរាល់ហើយ។</p>
-        </div>
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>រកមិនឃើញគណនី</title>
+        <style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#f8fafc;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:20px;text-align:center;color:#334155}.card{background:#fff;padding:32px 24px;border-radius:24px;box-shadow:0 10px 25px rgba(0,0,0,0.06);max-width:400px;width:100%}</style>
+        </head>
+        <body>
+          <div class="card">
+            <div style="font-size: 54px; margin-bottom: 12px;">⚠️</div>
+            <h2 style="color: #e11d48; margin-top:0;">រកមិនឃើញគណនីនេះទេ</h2>
+            <p style="color: #64748b; font-size: 14px; line-height: 1.6;">គណនីនេះប្រហែលជាត្រូវបានលុប ឬដំណើរការរួចរាល់ហើយ។</p>
+          </div>
+        </body></html>
       `).setTitle('រកមិនឃើញគណនី');
     }
 
-    if (actionType === 'Approve') {
-      const delReason = String(data[foundRow - 1][12] || '');
-      const reqBy = String(data[foundRow - 1][13] || 'Admin');
+    const isConfirmed = e && e.parameter && (e.parameter.confirmed === '1' || e.parameter.confirmed === 'true');
+    const submittedDecision = (e && e.parameter && e.parameter.decision) ? e.parameter.decision : actionType;
+    const superAdminReason = (e && e.parameter && (e.parameter.superAdminReason || e.parameter.reason)) ? String(e.parameter.superAdminReason || e.parameter.reason).trim() : '';
+
+    // If not confirmed yet, render the interactive verification form so SuperAdmin can enter reason
+    if (!isConfirmed) {
+      const gasUrl = ScriptApp.getService().getUrl();
+      return HtmlService.createHtmlOutput(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+          <title>ផ្ទៀងផ្ទាត់សំណើសុំលុបគណនី | SuperAdmin</title>
+          <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+          <style>
+            * { box-sizing: border-box; }
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f1f5f9; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; min-height: 100vh; color: #1e293b; }
+            .card { background: #ffffff; width: 100%; max-width: 480px; border-radius: 24px; padding: 28px 24px; box-shadow: 0 20px 35px -10px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
+            .header-badge { display: inline-flex; align-items: center; gap: 6px; background: #ffe4e6; color: #e11d48; font-size: 11px; font-weight: 800; padding: 5px 12px; border-radius: 9999px; margin-bottom: 12px; text-transform: uppercase; }
+            h2 { margin: 0 0 6px 0; font-size: 20px; color: #0f172a; }
+            .sub-title { font-size: 12px; color: #64748b; margin-bottom: 20px; line-height: 1.5; }
+            .info-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 16px; margin-bottom: 18px; }
+            .user-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px dashed #cbd5e1; }
+            .avatar { width: 48px; height: 48px; border-radius: 14px; background: #e0e7ff; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #4338ca; flex-shrink: 0; font-weight: bold; border: 2px solid #c7d2fe; }
+            .detail-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; }
+            .detail-label { color: #64748b; }
+            .detail-val { font-weight: 600; color: #1e293b; }
+            .admin-reason-box { background: #fff1f2; border: 1px solid #fecdd3; border-radius: 12px; padding: 12px; margin-top: 10px; font-size: 12px; color: #9f1239; line-height: 1.5; }
+            .form-group { margin-bottom: 20px; text-align: left; }
+            label { display: block; font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 8px; }
+            textarea { width: 100%; border: 1.5px solid #cbd5e1; border-radius: 14px; padding: 12px; font-size: 13px; font-family: inherit; resize: vertical; min-height: 85px; outline: none; transition: border-color 0.2s; }
+            textarea:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+            .btn-group { display: flex; gap: 10px; flex-direction: column; }
+            .btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 13px; border-radius: 14px; font-size: 13px; font-weight: 700; cursor: pointer; border: none; transition: all 0.15s ease; text-decoration: none; }
+            .btn-approve { background: linear-gradient(135deg, #e11d48, #be123c); color: #ffffff; box-shadow: 0 4px 12px rgba(225,29,72,0.25); }
+            .btn-approve:hover { filter: brightness(1.08); }
+            .btn-reject { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; }
+            .btn-reject:hover { background: #e2e8f0; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <div class="header-badge"><i class="fa-solid fa-crown"></i> SuperAdmin Verification</div>
+            <h2>ផ្ទៀងផ្ទាត់ការលុបគណនី</h2>
+            <div class="sub-title">សូមពិនិត្យព័ត៌មានបុគ្គលិក និងសរសេរបញ្ជាក់ពីមូលហេតុមុននឹងសម្រេចចិត្ត</div>
+
+            <div class="info-box">
+              <div class="user-row">
+                <div class="avatar">${userFullName.charAt(0).toUpperCase()}</div>
+                <div>
+                  <div style="font-weight: 800; font-size: 14px; color: #0f172a;">${userFullName}</div>
+                  <div style="font-size: 11px; color: #64748b;">@${username} • ${userRole}</div>
+                </div>
+              </div>
+              <div class="detail-row"><span class="detail-label">🏢 ឃ្លាំង/ស្ថានីយ៖</span><span class="detail-val">${userWh}</span></div>
+              <div class="detail-row"><span class="detail-label">👮 ស្នើសុំដោយ Admin៖</span><span class="detail-val">${reqBy}</span></div>
+              <div class="admin-reason-box">
+                <div style="font-weight: 700; margin-bottom: 3px;"><i class="fa-solid fa-comment-dots"></i> មូលហេតុរបស់ Admin៖</div>
+                <div>"${delReason || 'គ្មានការបញ្ជាក់'}"</div>
+              </div>
+            </div>
+
+            <form method="GET" action="${gasUrl}" onsubmit="return validateForm()">
+              <input type="hidden" name="action" value="reviewUserDeletionTelegram">
+              <input type="hidden" name="userId" value="${uId}">
+              <input type="hidden" name="u" value="${username}">
+              <input type="hidden" name="confirmed" value="1">
+              <input type="hidden" name="decision" id="formDecision" value="Approve">
+
+              <div class="form-group">
+                <label><i class="fa-solid fa-pen-fancy" style="color:#2563eb;"></i> មូលហេតុ / មតិបញ្ជាក់របស់ SuperAdmin <span style="color:#e11d48;">*</span></label>
+                <textarea id="superAdminReason" name="superAdminReason" placeholder="សូមសរសេរបញ្ជាក់ពីមូលហេតុនៃការសម្រេចចិត្ត (ឧ. បានផ្ទៀងផ្ទាត់រួចរាល់ យល់ព្រមលុប... ឬ បដិសេធដោយសារ...)..." required></textarea>
+              </div>
+
+              <div class="btn-group">
+                <button type="submit" onclick="document.getElementById('formDecision').value='Approve';" class="btn btn-approve">
+                  <i class="fa-solid fa-trash-can"></i> អនុម័តលុប (Approve Delete)
+                </button>
+                <button type="submit" onclick="document.getElementById('formDecision').value='Reject';" class="btn btn-reject">
+                  <i class="fa-solid fa-shield-halved"></i> បដិសេធ (Reject Request)
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <script>
+            function validateForm() {
+              var r = document.getElementById('superAdminReason').value.trim();
+              if (!r) {
+                alert('សូមសរសេរបញ្ជាក់ពីមូលហេតុ ឬមតិយោបល់របស់ SuperAdmin!');
+                document.getElementById('superAdminReason').focus();
+                return false;
+              }
+              return true;
+            }
+          </script>
+        </body>
+        </html>
+      `).setTitle('ផ្ទៀងផ្ទាត់សំណើសុំលុបគណនី | SuperAdmin');
+    }
+
+    // Process Confirmed Decision (Approve or Reject)
+    if (submittedDecision === 'Approve') {
       sheet.deleteRow(foundRow);
-      logActivity('SUPERADMIN_TELEGRAM', 'SuperAdmin', 'APPROVE_DELETE_USER', `អនុម័តលុបអ្នកប្រើប្រាស់: ${userFullName} (@${username})${delReason ? ' - មូលហេតុ: ' + delReason : ''}`);
-      sendTelegramAlert(`🗑️ <b>[ការលុបគណនីបានអនុម័ត]</b>\n👤 <b>គណនី:</b> ${username} (${userFullName})\n📝 <b>មូលហេតុ:</b> ${delReason || '-'}\n👮 <b>ស្នើសុំដោយ Admin:</b> ${reqBy}\n✅ គណនីត្រូវបាន SuperAdmin អនុម័តលុបចេញពីប្រព័ន្ធជាស្ថាពរ។`);
+      logActivity('SUPERADMIN_WEB', 'SuperAdmin', 'APPROVE_DELETE_USER', `អនុម័តលុបអ្នកប្រើប្រាស់: ${userFullName} (@${username}) | មូលហេតុ Admin: ${delReason} | មូលហេតុ SuperAdmin: ${superAdminReason}`);
+      
+      try {
+        sendTelegramAlert(
+          `🗑️ <b>[ការលុបគណនីបានអនុម័តដោយ SuperAdmin]</b>\n` +
+          `👤 <b>គណនី:</b> ${userFullName} (<code>@${username}</code>)\n` +
+          `📝 <b>មូលហេតុ Admin:</b> <i>"${delReason || '-'}"</i>\n` +
+          `👮 <b>ស្នើសុំដោយ Admin:</b> ${reqBy}\n` +
+          `👑 <b>អនុម័តដោយ:</b> SuperAdmin\n` +
+          `✍️ <b>មូលហេតុ SuperAdmin:</b> <i>"${superAdminReason || 'យល់ព្រមតាមសំណើ'}"</i>\n` +
+          `✅ គណនីត្រូវបាន SuperAdmin អនុម័តលុបចេញពីប្រព័ន្ធជាស្ថាពរ។`
+        );
+      } catch(e) {}
 
       return HtmlService.createHtmlOutput(`
-        <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; text-align: center; padding: 50px 20px;">
-          <div style="font-size: 50px; margin-bottom: 10px;">🗑️</div>
-          <h2 style="color: #e11d48;">បានអនុម័តការលុបគណនីជោគជ័យ!</h2>
-          <p style="color: #334155;">គណនី <b>${userFullName} (@${username})</b> ត្រូវបានលុបចេញពីប្រព័ន្ធទាំងស្រុង។</p>
-          ${delReason ? `<p style="color: #64748b; font-size: 13px; margin-top: 10px;"><i>📝 មូលហេតុ៖ "${delReason}"</i></p>` : ''}
-        </div>
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>បានលុបគណនីជោគជ័យ</title>
+        <style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#f8fafc;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:20px;text-align:center;color:#334155}.card{background:#fff;padding:36px 24px;border-radius:24px;box-shadow:0 10px 25px rgba(0,0,0,0.06);max-width:420px;width:100%}</style>
+        </head>
+        <body>
+          <div class="card">
+            <div style="font-size: 54px; margin-bottom: 12px;">🗑️</div>
+            <h2 style="color: #e11d48; margin-top:0;">បានអនុម័តការលុបគណនីជោគជ័យ!</h2>
+            <p style="color: #334155; font-size: 14px;">គណនី <b>${userFullName} (@${username})</b> ត្រូវបានលុបចេញពីប្រព័ន្ធទាំងស្រុង។</p>
+            ${superAdminReason ? `<p style="background:#f1f5f9; padding:12px; border-radius:12px; color:#475569; font-size:12px; margin-top:16px;"><i>✍️ មូលហេតុ SuperAdmin៖ "${superAdminReason}"</i></p>` : ''}
+          </div>
+        </body></html>
       `).setTitle('បានលុបគណនីជោគជ័យ');
     } else {
       sheet.getRange(foundRow, 8).setValue('Active');
       sheet.getRange(foundRow, 13).setValue('');
       sheet.getRange(foundRow, 14).setValue('');
       sheet.getRange(foundRow, 15).setValue('');
-      logActivity('SUPERADMIN_TELEGRAM', 'SuperAdmin', 'REJECT_DELETE_USER', `បដិសេធការលុបគណនី: ${userFullName} (@${username})`);
-      sendTelegramAlert(`ℹ️ <b>[បានបដិសេធការលុបគណនី]</b>\n👤 <b>គណនី:</b> ${username} (${userFullName})\n🛡️ សំណើសុំលុបត្រូវបាន SuperAdmin បដិសេធ។ គណនីនៅតែ Active ដដែល។`);
+      logActivity('SUPERADMIN_WEB', 'SuperAdmin', 'REJECT_DELETE_USER', `បដិសេធការលុបគណនី: ${userFullName} (@${username}) | មូលហេតុ SuperAdmin: ${superAdminReason}`);
+      
+      try {
+        sendTelegramAlert(
+          `🛡️ <b>[បានបដិសេធសំណើសុំលុបគណនី]</b>\n` +
+          `👤 <b>គណនី:</b> ${userFullName} (<code>@${username}</code>)\n` +
+          `👮 <b>ស្នើសុំដោយ Admin:</b> ${reqBy}\n` +
+          `👑 <b>បដិសេធដោយ:</b> SuperAdmin\n` +
+          `✍️ <b>មូលហេតុបដិសេធ:</b> <i>"${superAdminReason || 'រក្សាទុកគណនីជា Active'}"</i>\n` +
+          `ℹ️ សំណើសុំលុបត្រូវបាន SuperAdmin បដិសេធ។ គណនីនៅតែ Active ដដែល។`
+        );
+      } catch(e) {}
 
       return HtmlService.createHtmlOutput(`
-        <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; text-align: center; padding: 50px 20px;">
-          <div style="font-size: 50px; margin-bottom: 10px;">🛡️</div>
-          <h2 style="color: #2563eb;">បានបដិសេធសំណើសុំលុប</h2>
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>បានបដិសេធសំណើសុំលុប</title>
+        <style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#f8fafc;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:20px;text-align:center;color:#334155}.card{background:#fff;padding:36px 24px;border-radius:24px;box-shadow:0 10px 25px rgba(0,0,0,0.06);max-width:420px;width:100%}</style>
+        </head>
+        <body>
+          <div class="card">
+            <div style="font-size: 54px; margin-bottom: 12px;">🛡️</div>
+            <h2 style="color: #2563eb; margin-top:0;">បានបដិសេធសំណើសុំលុប</h2>
+            <p style="color: #334155; font-size: 14px;">គណនី <b>${userFullName} (@${username})</b> ត្រូវបានរក្សាទុក និងបើកដំណើរការ (Active) ជាធម្មតាវិញ។</p>
+            ${superAdminReason ? `<p style="background:#f1f5f9; padding:12px; border-radius:12px; color:#475569; font-size:12px; margin-top:16px;"><i>✍️ មូលហេតុបដិសេធ៖ "${superAdminReason}"</i></p>` : ''}
+          </div>
+        </body></html>
+      `).setTitle('បានបដិសេធការលុប');
+    }
+  } catch(err) {
+    return HtmlService.createHtmlOutput('កំហុស៖ ' + err.toString());
+  }
+}
           <p style="color: #334155;">គណនី <b>${userFullName} (@${username})</b> ត្រូវបានរក្សាទុក និងបើកដំណើរការ (Active) ជាធម្មតាវិញ។</p>
         </div>
       `).setTitle('បានបដិសេធការលុប');
