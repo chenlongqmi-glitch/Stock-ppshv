@@ -6367,23 +6367,44 @@
         if (typeof renderItemsTable === 'function') renderItemsTable();
         if (typeof populateItemSelectDropdowns === 'function') populateItemSelectDropdowns();
 
-        // 3. Pleasant auto-dismissing toast (1.2s, non-blocking)
-        // Proactive Admin Registration Alert Check
-        if (user.role === 'Admin' || user.role === 'SuperAdmin' || String(user.username).toLowerCase() === 'admin' || String(user.username).toLowerCase() === 'superadmin') {
-          setTimeout(() => {
-            if (typeof checkPendingRegistrationsForAdmin === 'function') checkPendingRegistrationsForAdmin(false);
-          }, 600);
+        // 3. Pleasant auto-dismissing toast (1.1s, non-blocking)
+        const isSuperAdmin = (user.role === 'SuperAdmin' || String(user.username).toLowerCase() === 'superadmin');
+        const isAdmin = !isSuperAdmin && (user.role === 'Admin' || user.role === 'អ្នកគ្រប់គ្រង' || String(user.username).toLowerCase() === 'admin' || user.warehouse === 'ALL');
+
+        // Reset any alert dismissal suppression on fresh login so Super Admin / Admin is ALWAYS proactively alerted
+        if (isSuperAdmin) {
+          sessionStorage.removeItem('deletion_alert_dismissed_until');
+          sessionStorage.removeItem('last_seen_deletion_signature');
+          sessionStorage.removeItem('last_alerted_deletion_count');
         }
 
         Swal.fire({
           icon: 'success',
           title: 'ស្វាគមន៍មកកាន់ប្រព័ន្ធ! 🎉',
           html: `
-            <p class="text-sm font-semibold">ចូលប្រើប្រាស់ជា: <b>${user.fullName || user.username}</b> (${user.role})</p>
-            <p class="text-xs text-blue-600 font-bold mt-1">📍 ស្ថានីយ: ${user.warehouse === 'ALL' ? 'គ្រប់គ្រងគ្រប់ស្ថានីយទាំងអស់ (Admin)' : user.warehouse}</p>
+            <p class="text-sm font-semibold">ចូលប្រើប្រាស់ជា: <b>${escapeHtml(user.fullName || user.username)}</b> (${escapeHtml(user.role || 'User')})</p>
+            <p class="text-xs text-blue-600 font-bold mt-1">📍 ស្ថានីយ: ${user.warehouse === 'ALL' ? 'គ្រប់គ្រងគ្រប់ស្ថានីយទាំងអស់ (Admin)' : escapeHtml(user.warehouse || '-')}</p>
           `,
-          timer: 1200,
+          timer: 1100,
           showConfirmButton: false
+        }).then(() => {
+          // Trigger proactive alerts safely AFTER welcome toast closes
+          if (isSuperAdmin) {
+            setTimeout(() => {
+              if (typeof checkPendingDeletionsForSuperAdmin === 'function') {
+                checkPendingDeletionsForSuperAdmin(false);
+              }
+            }, 300);
+          } else if (isAdmin) {
+            setTimeout(() => {
+              if (typeof checkPendingRegistrationsForAdmin === 'function') {
+                checkPendingRegistrationsForAdmin(false);
+              }
+              if (typeof checkDeletionRepliesForAdmin === 'function') {
+                checkDeletionRepliesForAdmin(false);
+              }
+            }, 300);
+          }
         });
 
         // 4. Background Non-Blocking Cloud Synchronization
@@ -12547,22 +12568,53 @@
         }
       }
 
-      // 2. Add / Sync notifications in notificationsList
-      pendingDeletions.forEach(u => {
-        const existing = notificationsList.find(n => n.type === 'USER_DELETION_REQUEST' && (n.targetUserId === u.userId || n.targetUsername === u.username));
-        if (!existing) {
-          const timeStr = u.deleteRequestedAt ? new Date(u.deleteRequestedAt).toLocaleTimeString('km-KH', { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString('km-KH', { hour: '2-digit', minute: '2-digit' });
-          notificationsList.unshift({
-            id: 'NOTIF-DEL-' + (u.userId || u.username),
-            type: 'USER_DELETION_REQUEST',
-            title: `⚠️ សំណើសុំលុបគណនី: ${u.fullName || u.username}`,
-            message: `Admin ${u.deleteRequestedBy || 'Admin'} បានស្នើសុំលុបគណនីនេះ។ មូលហេតុ៖ "${u.deleteReason || 'គ្មានការបញ្ជាក់'}"`,
-            warehouse: u.warehouse || 'ឃ្លាំងទូទៅ',
-            user: u.username,
-            targetUserId: u.userId,
-            targetUsername: u.username,
-            time: timeStr
+      // 2. Clean & Deduplicate notificationsList
+      // Remove any stale deletion notifications if the user is no longer pending deletion
+      for (let i = notificationsList.length - 1; i >= 0; i--) {
+        const notif = notificationsList[i];
+        if (notif.type === 'USER_DELETION_REQUEST') {
+          const isStillPending = pendingDeletions.some(u => {
+            const uId = String(u.userId || '').trim().toLowerCase();
+            const uName = String(u.username || '').trim().toLowerCase();
+            const nId = String(notif.targetUserId || '').trim().toLowerCase();
+            const nName = String(notif.targetUsername || notif.user || '').trim().toLowerCase();
+            return (uId && nId && uId === nId) || (uName && nName && uName === nName);
           });
+          if (!isStillPending) {
+            notificationsList.splice(i, 1);
+          }
+        }
+      }
+
+      // Add or update pending deletion notifications without duplicate entries
+      pendingDeletions.forEach(u => {
+        const uId = String(u.userId || '').trim().toLowerCase();
+        const uName = String(u.username || '').trim().toLowerCase();
+        const timeStr = u.deleteRequestedAt ? new Date(u.deleteRequestedAt).toLocaleTimeString('km-KH', { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString('km-KH', { hour: '2-digit', minute: '2-digit' });
+        
+        const notifItem = {
+          id: 'NOTIF-DEL-' + (u.userId || u.username),
+          type: 'USER_DELETION_REQUEST',
+          title: `⚠️ សំណើសុំលុបគណនី: ${u.fullName || u.username}`,
+          message: `Admin ${u.deleteRequestedBy || 'Admin'} បានស្នើសុំលុបគណនីនេះ។ មូលហេតុ៖ "${u.deleteReason || 'គ្មានការបញ្ជាក់'}"`,
+          warehouse: u.warehouse || 'ឃ្លាំងទូទៅ',
+          user: u.username,
+          targetUserId: u.userId,
+          targetUsername: u.username,
+          time: timeStr
+        };
+
+        const existingIdx = notificationsList.findIndex(n => {
+          if (n.type !== 'USER_DELETION_REQUEST') return false;
+          const nId = String(n.targetUserId || '').trim().toLowerCase();
+          const nName = String(n.targetUsername || n.user || '').trim().toLowerCase();
+          return (uId && nId && uId === nId) || (uName && nName && uName === nName) || (n.id === notifItem.id);
+        });
+
+        if (existingIdx !== -1) {
+          notificationsList[existingIdx] = notifItem; // update existing, avoid duplicate!
+        } else {
+          notificationsList.unshift(notifItem);
         }
       });
 
@@ -12570,51 +12622,129 @@
       renderDashboardPendingDeletionsAlert(pendingDeletions);
       renderUsersTabPendingDeletionsBanner(pendingDeletions);
 
-      // Sound & Prominent Alert
+      // 3. Audio Alert & Centered Pop-up Modal Alert
       if (!silent && pendingDeletions.length > 0) {
-        const lastAlerted = parseInt(sessionStorage.getItem('last_alerted_deletion_count') || '0', 10);
-        if (pendingDeletions.length > lastAlerted) {
-          playNotificationSound();
-          const p = pendingDeletions[0];
-          Swal.fire({
-            icon: 'warning',
-            title: `<div class="flex items-center justify-center gap-2 text-rose-600 font-extrabold text-base"><i class="fa-solid fa-triangle-exclamation animate-bounce"></i> <span>សំណើសុំលុបគណនី (${pendingDeletions.length})</span></div>`,
-            html: `
-              <div class="text-left text-xs space-y-2.5 p-3 bg-rose-50/70 border border-rose-200 rounded-2xl mt-2">
-                <p class="font-bold text-slate-800">Admin <span class="text-purple-700 font-black">${escapeHtml(p.deleteRequestedBy || 'Admin')}</span> បានស្នើសុំលុបគណនីបុគ្គលិកចេញពីប្រព័ន្ធ៖</p>
-                <div class="bg-white p-3 rounded-xl border border-rose-200 shadow-2xs">
-                  <div class="flex items-center space-x-2.5">
-                    <img src="${p.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + p.username}" class="w-9 h-9 rounded-full border">
-                    <div>
-                      <p class="font-extrabold text-slate-800 text-xs">${escapeHtml(p.fullName || p.username)}</p>
-                      <p class="text-[10px] text-slate-400 font-mono">@${escapeHtml(p.username)} • ${p.role || 'User'} (${p.warehouse || '-'})</p>
+        // If a modal or decision prompt is already active on screen, don't interrupt
+        if (Swal.isVisible()) return;
+
+        const currentSig = pendingDeletions.map(u => `${u.userId || u.username}:${u.deleteReason || ''}`).sort().join('|');
+        const lastSeenSig = sessionStorage.getItem('last_seen_deletion_signature') || '';
+        const dismissedUntil = parseInt(sessionStorage.getItem('deletion_alert_dismissed_until') || '0', 10);
+        const now = Date.now();
+
+        // If new deletion request or reason changed, alert immediately!
+        // If identical signature, only alert if dismissedUntil snooze has expired
+        const isNewOrChanged = (currentSig !== lastSeenSig);
+        if (!isNewOrChanged && now < dismissedUntil) {
+          return;
+        }
+
+        // Play Warning Audio Alert chime
+        playNotificationSound();
+
+        const p = pendingDeletions[0];
+        const reqAtStr = p.deleteRequestedAt ? new Date(p.deleteRequestedAt).toLocaleTimeString('km-KH', { hour: '2-digit', minute: '2-digit' }) : '';
+        const avatarUrl = p.avatar || ('https://api.dicebear.com/7.x/bottts/svg?seed=' + encodeURIComponent(p.username));
+
+        Swal.fire({
+          position: 'center',
+          customClass: {
+            popup: 'rounded-3xl shadow-2xl border-2 border-rose-400 p-5 max-w-lg',
+            title: 'p-0 mb-1',
+            htmlContainer: 'p-0 text-left',
+            confirmButton: 'rounded-xl font-black px-5 py-3 shadow-lg shadow-rose-600/30 text-sm hover:scale-[1.02] active:scale-95 transition',
+            cancelButton: 'rounded-xl font-bold px-4 py-3 text-xs text-slate-600 hover:bg-slate-100 transition'
+          },
+          title: `
+            <div class="flex flex-col items-center justify-center gap-2 text-center pt-2">
+              <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-rose-500 via-rose-600 to-amber-500 text-white flex items-center justify-center shadow-lg shadow-rose-500/30 text-3xl animate-bounce">
+                <i class="fa-solid fa-bell"></i>
+              </div>
+              <div>
+                <h3 class="text-lg font-black text-slate-900 tracking-tight">សំណើសុំលុបគណនីបុគ្គលិក</h3>
+                <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-rose-100 text-rose-700 border border-rose-200 mt-1">
+                  <i class="fa-solid fa-crown text-amber-500"></i>
+                  <span>រង់ចាំ Super Admin ពិនិត្យ & សម្រេច (${pendingDeletions.length})</span>
+                </div>
+              </div>
+            </div>
+          `,
+          html: `
+            <div class="text-left text-xs space-y-3 mt-3">
+              <!-- Admin Request Header Card -->
+              <div class="p-3 bg-gradient-to-r from-purple-50 to-rose-50 border border-purple-200 rounded-2xl flex items-center justify-between shadow-2xs">
+                <div class="flex items-center gap-2">
+                  <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></span>
+                  <span class="text-slate-600 font-semibold">ស្នើសុំដោយ Admin៖</span>
+                  <span class="font-black text-purple-800 bg-white px-2.5 py-1 rounded-xl border border-purple-200 shadow-2xs">
+                    <i class="fa-solid fa-user-shield text-purple-600 mr-1"></i>${escapeHtml(p.deleteRequestedBy || 'Admin')}
+                  </span>
+                </div>
+                ${reqAtStr ? `<span class="text-[11px] text-slate-400 font-mono">${reqAtStr}</span>` : ''}
+              </div>
+
+              <!-- Target User Info Card -->
+              <div class="bg-white p-3.5 rounded-2xl border-2 border-rose-200 shadow-xs space-y-3">
+                <div class="flex items-center gap-3">
+                  <img src="${avatarUrl}" class="w-12 h-12 rounded-2xl border-2 border-rose-300 object-cover shadow-xs flex-shrink-0" onerror="this.src='https://api.dicebear.com/7.x/bottts/svg?seed=user'"/>
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-center justify-between">
+                      <p class="font-extrabold text-slate-900 text-sm truncate">${escapeHtml(p.fullName || p.username)}</p>
+                      <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-rose-50 text-rose-700 border border-rose-200">Pending Deletion</span>
+                    </div>
+                    <p class="text-xs text-slate-500 font-mono mt-0.5">@${escapeHtml(p.username)}</p>
+                    <div class="flex items-center gap-2 mt-1.5 text-[11px]">
+                      <span class="inline-flex items-center gap-1 font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
+                        <i class="fa-solid fa-id-badge text-blue-500"></i> ${p.role || 'User'}
+                      </span>
+                      <span class="inline-flex items-center gap-1 font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
+                        <i class="fa-solid fa-warehouse text-slate-400"></i> ${p.warehouse || '-'}
+                      </span>
                     </div>
                   </div>
-                  <div class="mt-2 pt-2 border-t border-slate-100 text-[11px] text-slate-700">
-                    <span class="font-bold text-rose-900 block mb-0.5">📝 មូលហេតុនៃការលុប (Admin)៖</span>
-                    <i class="bg-slate-50 p-2 rounded-lg block border border-slate-200 font-medium">"${escapeHtml(p.deleteReason || '-')}"</i>
+                </div>
+
+                <!-- Admin Deletion Reason Highlight -->
+                <div class="p-3 bg-rose-50/80 rounded-xl border border-rose-200">
+                  <div class="flex items-center gap-1.5 text-rose-950 font-extrabold text-xs mb-1.5">
+                    <i class="fa-solid fa-comment-dots text-rose-600"></i>
+                    <span>មូលហេតុដែល Admin បានបញ្ជាក់៖</span>
+                  </div>
+                  <div class="p-2.5 bg-white rounded-lg border border-rose-200 text-slate-800 text-xs font-medium italic leading-relaxed shadow-2xs">
+                    "${escapeHtml(p.deleteReason || 'គ្មានការបញ្ជាក់មូលហេតុ')}"
                   </div>
                 </div>
-                <p class="text-[11px] text-rose-700 font-medium leading-relaxed">
-                  សូម Super Admin ពិនិត្យ ផ្ទៀងផ្ទាត់ និងសរសេរមូលហេតុបញ្ជាក់មុននឹងសម្រេច <b>Approve (លុប)</b> ឬ <b>Reject (បដិសេធ)</b>។
-                </p>
               </div>
-            `,
-            showCancelButton: true,
-            confirmButtonColor: '#e11d48',
-            cancelButtonColor: '#64748b',
-            confirmButtonText: '<i class="fa-solid fa-crown mr-1"></i> ពិនិត្យ & សម្រេចភ្លាមៗ',
-            cancelButtonText: 'ទុកពិនិត្យពេលក្រោយ'
-          }).then(res => {
-            if (res.isConfirmed) {
-              navigateTab('users');
-              if (pendingDeletions[0]) {
-                openSuperAdminDeletionReviewModal(pendingDeletions[0].userId, pendingDeletions[0].username);
-              }
+
+              ${pendingDeletions.length > 1 ? `
+                <div class="p-2 bg-amber-50 rounded-xl border border-amber-200 text-center text-xs text-amber-900 font-bold">
+                  ⚠️ មានសំណើសុំលុបគណនីសរុបចំនួន <b>${pendingDeletions.length}</b> នាក់ កំពុងរង់ចាំការសម្រេចពី Super Admin
+                </div>
+              ` : ''}
+
+              <p class="text-[11px] text-slate-500 text-center font-medium">
+                សូម Super Admin ពិនិត្យ ផ្ទៀងផ្ទាត់ និងសរសេរមូលហេតុបញ្ជាក់មុននឹងសម្រេច <b>Approve</b> ឬ <b>Reject</b>។
+              </p>
+            </div>
+          `,
+          showCancelButton: true,
+          confirmButtonColor: '#e11d48',
+          cancelButtonColor: '#64748b',
+          confirmButtonText: '<i class="fa-solid fa-crown mr-1.5"></i> ពិនិត្យ & សម្រេចភ្លាមៗ',
+          cancelButtonText: 'ទុកពិនិត្យពេលក្រោយ',
+          allowOutsideClick: false
+        }).then(res => {
+          sessionStorage.setItem('last_seen_deletion_signature', currentSig);
+          if (res.isConfirmed) {
+            navigateTab('users');
+            if (p) {
+              openSuperAdminDeletionReviewModal(p.userId, p.username);
             }
-          });
-          sessionStorage.setItem('last_alerted_deletion_count', String(pendingDeletions.length));
-        }
+          } else {
+            // Dismissed for 90 seconds, will remind again if still unhandled or on next login
+            sessionStorage.setItem('deletion_alert_dismissed_until', String(Date.now() + 90000));
+          }
+        });
       }
     }
 
@@ -13340,29 +13470,30 @@
 
       notificationsList.unshift(notifObj);
       renderNotificationDrawer();
+
+      // For Super Admin, trigger the Centered Pop-up Modal Alert & Audio chime directly
+      if (type === 'USER_DELETION_REQUEST') {
+        const isSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin' || String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
+        if (isSuperAdmin) {
+          if (typeof checkPendingDeletionsForSuperAdmin === 'function') {
+            checkPendingDeletionsForSuperAdmin(false);
+          }
+          return;
+        }
+      }
+
       playNotificationSound();
 
-      // Floating Toast for Real-time Alert
+      // Floating Toast for Real-time Alert (for non-deletion or other users)
       Swal.fire({
         toast: true,
         position: 'top-end',
         icon: (type === 'STOCK_OUT' || type === 'USER_DELETION_REQUEST') ? 'warning' : (type === 'STOCK_IN' || type === 'USER_DELETION_APPROVED') ? 'success' : 'info',
         title: `<b>${title}</b>`,
         html: `<p class="text-xs">${message}</p><p class="text-[10px] text-slate-500 mt-0.5">📍 ${warehouse} | 👤 ${user}</p>`,
-        showConfirmButton: type === 'USER_DELETION_REQUEST',
-        confirmButtonText: 'ពិនិត្យ & សម្រេច',
-        confirmButtonColor: '#e11d48',
-        showCancelButton: type === 'USER_DELETION_REQUEST',
-        cancelButtonText: 'បិទ',
-        timer: type === 'USER_DELETION_REQUEST' ? 8000 : 4500,
+        showConfirmButton: false,
+        timer: 4500,
         timerProgressBar: true
-      }).then(res => {
-        if (res && res.isConfirmed && type === 'USER_DELETION_REQUEST') {
-          navigateTab('users');
-          if (typeof openSuperAdminDeletionReviewModal === 'function') {
-            openSuperAdminDeletionReviewModal(targetUserId, targetUsername);
-          }
-        }
       });
     }
 
@@ -13546,18 +13677,49 @@
 
     function playNotificationSound() {
       try {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(587.33, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.15);
-        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.25);
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return;
+        const audioCtx = new AudioContextClass();
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        const now = audioCtx.currentTime;
+
+        // Tone 1: E5 (659.25Hz) - gentle warning start
+        const osc1 = audioCtx.createOscillator();
+        const gain1 = audioCtx.createGain();
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(659.25, now);
+        gain1.gain.setValueAtTime(0.35, now);
+        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+        osc1.connect(gain1);
+        gain1.connect(audioCtx.destination);
+        osc1.start(now);
+        osc1.stop(now + 0.3);
+
+        // Tone 2: A5 (880Hz) - clear chime
+        const osc2 = audioCtx.createOscillator();
+        const gain2 = audioCtx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(880, now + 0.14);
+        gain2.gain.setValueAtTime(0.4, now + 0.14);
+        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+        osc2.connect(gain2);
+        gain2.connect(audioCtx.destination);
+        osc2.start(now + 0.14);
+        osc2.stop(now + 0.6);
+
+        // Tone 3: C#6 (1108.7Hz) - resonant bell ring
+        const osc3 = audioCtx.createOscillator();
+        const gain3 = audioCtx.createGain();
+        osc3.type = 'sine';
+        osc3.frequency.setValueAtTime(1108.73, now + 0.28);
+        gain3.gain.setValueAtTime(0.42, now + 0.28);
+        gain3.gain.exponentialRampToValueAtTime(0.001, now + 0.85);
+        osc3.connect(gain3);
+        gain3.connect(audioCtx.destination);
+        osc3.start(now + 0.28);
+        osc3.stop(now + 0.85);
       } catch (e) { }
     }
 
@@ -15223,6 +15385,25 @@
     window.openSuperAdminDeletionReviewModal = openSuperAdminDeletionReviewModal;
     window.checkPendingDeletionsForSuperAdmin = checkPendingDeletionsForSuperAdmin;
     window.checkDeletionRepliesForAdmin = checkDeletionRepliesForAdmin;
+
+    // Cross-Tab Real-time Alert Synchronization Listener
+    window.addEventListener('storage', (e) => {
+      if (!AppState.currentUser) return;
+      const isSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin' || String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
+      const isAdmin = !isSuperAdmin && (AppState.currentUser?.role === 'Admin' || AppState.currentUser?.role === 'អ្នកគ្រប់គ្រង' || String(AppState.currentUser?.username).toLowerCase() === 'admin' || AppState.currentUser?.warehouse === 'ALL');
+
+      if (e.key === 'inventory_users_db' && isSuperAdmin) {
+        loadLocalUsersFromStorage();
+        if (typeof checkPendingDeletionsForSuperAdmin === 'function') {
+          checkPendingDeletionsForSuperAdmin(false);
+        }
+      } else if (e.key === 'inventory_deletion_results' && isAdmin) {
+        loadDeletionResultsFromStorage();
+        if (typeof checkDeletionRepliesForAdmin === 'function') {
+          checkDeletionRepliesForAdmin(false);
+        }
+      }
+    });
 
     // Run auto-scale immediately
     if (document.readyState === 'loading') {
