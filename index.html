@@ -17144,6 +17144,56 @@
       }
     });
 
+    // =========================================================================
+    // AUTOMATIC LIVE WEB UPDATE CHECKER (Auto-Sync & Zero-Touch Refresh)
+    // =========================================================================
+    (function initAutoWebUpdateChecker() {
+      let currentBuildVersion = null;
+      let isChecking = false;
+
+      async function checkForWebUpdates() {
+        if (isChecking) return;
+        isChecking = true;
+        try {
+          const res = await fetch(`version.json?_nocache=${Date.now()}`, {
+            cache: 'no-store',
+            headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache' }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            const serverVersion = String(data.version || data.buildTime || '');
+            if (!currentBuildVersion) {
+              currentBuildVersion = serverVersion;
+            } else if (serverVersion && serverVersion !== currentBuildVersion) {
+              console.log('🚀 New web version detected:', serverVersion, 'Previous:', currentBuildVersion);
+              if (typeof showToast === 'function') {
+                showToast('🔄 មានការអាប់ដេតប្រព័ន្ធថ្មី! កំពុងផ្ទុកឡើងវិញ...', 'info');
+              }
+              setTimeout(() => {
+                window.location.reload(true);
+              }, 1200);
+            }
+          }
+        } catch (e) {
+          // Ignore network errors silently
+        } finally {
+          isChecking = false;
+        }
+      }
+
+      // Initial check after 8 seconds
+      setTimeout(checkForWebUpdates, 8000);
+      // Periodic check every 30 seconds
+      setInterval(checkForWebUpdates, 30000);
+      // Immediate check when user returns to or unlocks tab
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          checkForWebUpdates();
+        }
+      });
+      window.addEventListener('focus', checkForWebUpdates);
+    })();
+
     // Run auto-scale immediately
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', autoScaleAuthCard);
