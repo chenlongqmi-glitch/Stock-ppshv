@@ -10448,9 +10448,11 @@
           document.getElementById('stockOutOldStockValue').value = 0;
           document.getElementById('stockOutOldStockDisplay').innerText = '0 ដុំ';
           document.getElementById('stockOutRemainingDisplay').innerText = '0 ដុំ';
-          document.getElementById('stockOutTotalDisplay').value = '$0.00';
+          const sOutTot = document.getElementById('stockOutTotalDisplay');
+          if (sOutTot) sOutTot.value = '$0.00';
           await loadItems();
           await loadDashboard();
+          await loadStockOutHistory();
         } else {
           Swal.fire('កំហុស', res.message || 'មិនអាចកត់ត្រាទំនិញចេញបានទេ', 'error');
         }
@@ -10462,6 +10464,233 @@
           btn.innerHTML = '<i class="fa-solid fa-check mr-2"></i> កត់ត្រាទំនិញចេញពីស្តុក';
         }
       }
+    }
+
+    // =========================================================================
+    // STOCK IN & STOCK OUT TRANSACTION HISTORY LIST HANDLERS
+    // =========================================================================
+    AppState.stockInHistory = [];
+    AppState.stockOutHistory = [];
+
+    async function loadStockInHistory() {
+      const tbody = document.getElementById('stockInHistoryTableBody');
+      if (tbody) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-6 text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-1"></i> កំពុងផ្ទុកទិន្នន័យ...</td></tr>';
+      }
+      try {
+        const res = await apiCall('getTransactionHistory', { filters: { type: 'STOCK_IN', limit: 100 } });
+        if (res && res.success && Array.isArray(res.transactions)) {
+          AppState.stockInHistory = res.transactions;
+        } else {
+          const localTxs = (LOCAL_DB.transactions || []).filter(t => t.type === 'STOCK_IN');
+          AppState.stockInHistory = localTxs;
+        }
+      } catch (err) {
+        console.warn('loadStockInHistory error:', err);
+        const localTxs = (LOCAL_DB.transactions || []).filter(t => t.type === 'STOCK_IN');
+        AppState.stockInHistory = localTxs;
+      }
+      renderStockInHistoryTable(AppState.stockInHistory);
+    }
+
+    function filterStockInHistoryTable() {
+      const q = (document.getElementById('stockInHistorySearch')?.value || '').trim().toLowerCase();
+      if (!q) {
+        renderStockInHistoryTable(AppState.stockInHistory);
+        return;
+      }
+      const filtered = (AppState.stockInHistory || []).filter(t => {
+        return (t.docNo || t.txId || '').toLowerCase().includes(q) ||
+               (t.itemName || '').toLowerCase().includes(q) ||
+               (t.sku || '').toLowerCase().includes(q) ||
+               (t.code || t.itemCode || '').toLowerCase().includes(q) ||
+               (t.zone || '').toLowerCase().includes(q) ||
+               (t.toLocation || t.location || '').toLowerCase().includes(q) ||
+               (t.receivedBy || t.user || '').toLowerCase().includes(q) ||
+               (t.notes || '').toLowerCase().includes(q);
+      });
+      renderStockInHistoryTable(filtered);
+    }
+
+    function renderStockInHistoryTable(txs) {
+      const tbody = document.getElementById('stockInHistoryTableBody');
+      const countEl = document.getElementById('stockInHistoryCount');
+      if (countEl) countEl.innerText = `${(txs || []).length} ប្រតិបត្តិការ`;
+      if (!tbody) return;
+
+      if (!txs || txs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-slate-400">មិនទាន់មានទិន្នន័យកត់ត្រាទំនិញចូលស្តុកនៅឡើយទេ</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = txs.map(t => {
+        const docId = escapeHtml(t.docNo || t.txId || 'N/A');
+        const dStr = escapeHtml(t.date || '-');
+        const iName = escapeHtml(t.itemName || t.sku || '-');
+        const skuStr = escapeHtml(t.sku || '-');
+        const codeStr = escapeHtml(t.code || t.itemCode || '');
+        const sizeStr = escapeHtml(t.size || '');
+        const colorStr = escapeHtml(t.color || '');
+        const zoneStr = escapeHtml(t.zone || '');
+        const qtyNum = Number(t.quantity || 0);
+        const unitStr = escapeHtml(t.unit || 'ដុំ');
+        const oldSt = (t.oldStock !== undefined && t.oldStock !== null) ? Number(t.oldStock) : '-';
+        const newSt = (t.newStock !== undefined && t.newStock !== null) ? Number(t.newStock) : (oldSt !== '-' ? (oldSt + qtyNum) : '-');
+        const loc = escapeHtml(t.toLocation || t.location || '-');
+        const receiver = escapeHtml(t.receivedBy || t.user || '-');
+        const note = escapeHtml(t.notes || '-');
+
+        const attrParts = [];
+        if (sizeStr) attrParts.push(sizeStr);
+        if (colorStr) attrParts.push(colorStr);
+        const attrLine = attrParts.join(' | ') || '-';
+
+        return `
+          <tr class="hover:bg-slate-50/80 transition-colors">
+            <td class="px-3 py-2.5 font-mono font-bold text-emerald-800 text-[11px] whitespace-nowrap">
+              <span class="bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/80">${docId}</span>
+            </td>
+            <td class="px-3 py-2.5 text-slate-500 text-[11px] whitespace-nowrap">${dStr}</td>
+            <td class="px-3 py-2.5">
+              <p class="font-bold text-slate-800 text-xs">${iName}</p>
+              <div class="flex items-center space-x-1.5 text-[10px] text-slate-400 font-mono">
+                <span>SKU: ${skuStr}</span>
+                ${codeStr && codeStr !== skuStr ? `<span>• កូដ: ${codeStr}</span>` : ''}
+              </div>
+            </td>
+            <td class="px-3 py-2.5 text-slate-600 text-[11px] whitespace-nowrap">
+              <span>${attrLine}</span>
+              ${zoneStr ? `<span class="block text-[10px] text-indigo-600 font-semibold"><i class="fa-solid fa-location-dot mr-0.5"></i>${zoneStr}</span>` : ''}
+            </td>
+            <td class="px-3 py-2.5 text-center whitespace-nowrap">
+              <span class="inline-flex items-center px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-800 font-black text-xs border border-emerald-200">
+                +${qtyNum} ${unitStr}
+              </span>
+            </td>
+            <td class="px-3 py-2.5 text-center text-[11px] font-semibold text-slate-600 whitespace-nowrap">
+              ${oldSt} ➔ <span class="font-bold text-emerald-700">${newSt}</span>
+            </td>
+            <td class="px-3 py-2.5 text-slate-700 font-medium text-[11px]">${loc}</td>
+            <td class="px-3 py-2.5 text-slate-600 text-[11px] whitespace-nowrap">
+              <i class="fa-solid fa-user-check text-slate-400 mr-1"></i>${receiver}
+            </td>
+            <td class="px-3 py-2.5 text-slate-500 text-[11px] max-w-xs truncate" title="${note}">${note}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    async function loadStockOutHistory() {
+      const tbody = document.getElementById('stockOutHistoryTableBody');
+      if (tbody) {
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center py-6 text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-1"></i> កំពុងផ្ទុកទិន្នន័យ...</td></tr>';
+      }
+      try {
+        const res = await apiCall('getTransactionHistory', { filters: { type: 'STOCK_OUT', limit: 100 } });
+        if (res && res.success && Array.isArray(res.transactions)) {
+          AppState.stockOutHistory = res.transactions;
+        } else {
+          const localTxs = (LOCAL_DB.transactions || []).filter(t => t.type === 'STOCK_OUT');
+          AppState.stockOutHistory = localTxs;
+        }
+      } catch (err) {
+        console.warn('loadStockOutHistory error:', err);
+        const localTxs = (LOCAL_DB.transactions || []).filter(t => t.type === 'STOCK_OUT');
+        AppState.stockOutHistory = localTxs;
+      }
+      renderStockOutHistoryTable(AppState.stockOutHistory);
+    }
+
+    function filterStockOutHistoryTable() {
+      const q = (document.getElementById('stockOutHistorySearch')?.value || '').trim().toLowerCase();
+      if (!q) {
+        renderStockOutHistoryTable(AppState.stockOutHistory);
+        return;
+      }
+      const filtered = (AppState.stockOutHistory || []).filter(t => {
+        return (t.docNo || t.txId || '').toLowerCase().includes(q) ||
+               (t.itemName || '').toLowerCase().includes(q) ||
+               (t.sku || '').toLowerCase().includes(q) ||
+               (t.toLocation || t.location || '').toLowerCase().includes(q) ||
+               (t.user || '').toLowerCase().includes(q) ||
+               (t.reason || '').toLowerCase().includes(q) ||
+               (t.notes || '').toLowerCase().includes(q);
+      });
+      renderStockOutHistoryTable(filtered);
+    }
+
+    function renderStockOutHistoryTable(txs) {
+      const tbody = document.getElementById('stockOutHistoryTableBody');
+      const countEl = document.getElementById('stockOutHistoryCount');
+      if (countEl) countEl.innerText = `${(txs || []).length} ប្រតិបត្តិការ`;
+      if (!tbody) return;
+
+      if (!txs || txs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center py-8 text-slate-400">មិនទាន់មានទិន្នន័យកត់ត្រាទំនិញចេញពីស្តុកនៅឡើយទេ</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = txs.map(t => {
+        const docId = escapeHtml(t.docNo || t.txId || 'N/A');
+        const dStr = escapeHtml(t.date || '-');
+        const iName = escapeHtml(t.itemName || t.sku || '-');
+        const skuStr = escapeHtml(t.sku || '-');
+        const sizeStr = escapeHtml(t.size || '');
+        const colorStr = escapeHtml(t.color || '');
+        const qtyNum = Number(t.quantity || 0);
+        const unitStr = escapeHtml(t.unit || 'ដុំ');
+        const oldSt = (t.oldStock !== undefined && t.oldStock !== null) ? Number(t.oldStock) : '-';
+        const remSt = (oldSt !== '-') ? Math.max(0, oldSt - qtyNum) : '-';
+        const loc = escapeHtml(t.toLocation || t.location || '-');
+        const issuer = escapeHtml(t.user || '-');
+        const note = escapeHtml(t.notes || '-');
+
+        let reasonStr = t.reason || '';
+        if (!reasonStr && note.includes('[មូលហេតុ:')) {
+          const m = note.match(/\[មូលហេតុ:\s*([^\]]+)\]/);
+          if (m) reasonStr = m[1];
+        }
+        if (!reasonStr) reasonStr = 'ដកប្រើប្រាស់';
+
+        const attrParts = [];
+        if (sizeStr) attrParts.push(sizeStr);
+        if (colorStr) attrParts.push(colorStr);
+        const attrLine = attrParts.join(' | ') || '-';
+
+        return `
+          <tr class="hover:bg-slate-50/80 transition-colors">
+            <td class="px-3 py-2.5 font-mono font-bold text-amber-800 text-[11px] whitespace-nowrap">
+              <span class="bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/80">${docId}</span>
+            </td>
+            <td class="px-3 py-2.5 text-slate-500 text-[11px] whitespace-nowrap">${dStr}</td>
+            <td class="px-3 py-2.5">
+              <p class="font-bold text-slate-800 text-xs">${iName}</p>
+              <span class="text-[10px] text-slate-400 font-mono">${skuStr}</span>
+            </td>
+            <td class="px-3 py-2.5 text-slate-600 text-[11px] whitespace-nowrap">
+              ${attrLine}
+            </td>
+            <td class="px-3 py-2.5 text-center whitespace-nowrap">
+              <span class="inline-flex items-center px-2 py-0.5 rounded-lg bg-amber-100 text-amber-900 font-black text-xs border border-amber-300">
+                -${qtyNum} ${unitStr}
+              </span>
+            </td>
+            <td class="px-3 py-2.5 text-center text-[11px] font-bold text-slate-700 whitespace-nowrap">
+              <span class="text-blue-700">${remSt} ${unitStr}</span>
+            </td>
+            <td class="px-3 py-2.5 whitespace-nowrap">
+              <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                ${escapeHtml(reasonStr)}
+              </span>
+            </td>
+            <td class="px-3 py-2.5 text-slate-700 font-medium text-[11px]">${loc}</td>
+            <td class="px-3 py-2.5 text-slate-600 text-[11px] whitespace-nowrap">
+              <i class="fa-solid fa-user text-slate-400 mr-1"></i>${issuer}
+            </td>
+            <td class="px-3 py-2.5 text-slate-500 text-[11px] max-w-xs truncate" title="${note}">${note}</td>
+          </tr>
+        `;
+      }).join('');
     }
 
     function quickStockIn(sku) {
