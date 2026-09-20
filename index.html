@@ -908,20 +908,6 @@
             class="hidden px-2 py-0.5 rounded-full text-[9px] font-bold bg-violet-500 text-white animate-pulse shadow">0</span>
         </a>
 
-        <a href="#users" onclick="navigateTab('users')" id="navUsers"
-          class="nav-link flex items-center justify-between px-3.5 py-2.5 rounded-xl hover:bg-white/15 hover:text-white transition-all text-blue-100/90">
-          <div class="flex items-center">
-            <i class="fa-solid fa-users-gear w-6 text-center text-blue-200"></i>
-            <span class="ml-2">គ្រប់គ្រង User & សិទ្ធិ</span>
-          </div>
-          <span id="pendingUsersBadge" class="hidden px-2 py-0.5 text-[10px] font-extrabold bg-amber-400 text-slate-950 rounded-full shadow-sm animate-pulse">0</span>
-        </a>
-
-        <a href="#settings" onclick="navigateTab('settings')" id="navSettings"
-          class="nav-link flex items-center px-3.5 py-2.5 rounded-xl hover:bg-white/15 hover:text-white transition-all text-blue-100/90">
-          <i class="fa-solid fa-sliders w-6 text-center text-blue-200"></i>
-          <span class="ml-2">ការកំណត់ & Telegram</span>
-        </a>
       </nav>
     </aside>
 
@@ -1004,12 +990,6 @@
             <span class="hidden sm:inline">Profile ខ្ញុំ</span>
           </button>
 
-          <!-- SWITCH USER BUTTON (ប៊ូតុងប្តូរគណនីប្រើប្រាស់សម្រាប់ SuperAdmin) -->
-          <button id="btnSwitchUser" onclick="openSwitchUserModal()" title="ប្តូរគណនីប្រើប្រាស់ (Switch User)"
-            class="px-3 py-1 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-xl text-xs font-bold items-center space-x-1.5 border border-amber-300/40 shadow-md shadow-amber-950/40 transition-all hover:scale-105 active:scale-95 hidden">
-            <i class="fa-solid fa-repeat text-xs"></i>
-            <span class="hidden sm:inline">Switch User</span>
-          </button>
 
           <!-- RETURN TO SUPERADMIN BUTTON (ប៊ូតុងត្រឡប់ទៅកាន់ SuperAdmin វិញពេល impersonating) -->
           <button id="btnReturnSuperAdmin" onclick="exitImpersonation()" title="ត្រឡប់ទៅ SuperAdmin វិញ"
@@ -1181,6 +1161,7 @@
               title="ការកំណត់ និងគណនី (Settings & Quick Menu)"
               class="relative p-2 sm:px-2.5 sm:py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 hover:text-blue-600 transition-all flex items-center justify-center hover:scale-105 active:scale-95 shadow-sm">
               <i class="fa-solid fa-gear text-sm sm:text-base text-slate-600 transition-transform duration-300" id="topSettingsIcon"></i>
+              <span id="topSettingsBadge" class="hidden absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-rose-500 text-white text-[9px] font-extrabold rounded-full px-1 flex items-center justify-center border-2 border-white animate-pulse">0</span>
             </button>
 
             <!-- Settings Dropdown Drawer -->
@@ -1226,7 +1207,7 @@
                   </div>
                 </button>
 
-                <!-- 3. គ្រប់គ្រងuser & សិទ្ធប្រើប្រាស់ -->
+                <!-- 3. គ្រប់គ្រង User & សិទ្ធិ -->
                 <button type="button" onclick="handleTopMenuManageUsers()"
                   class="w-full text-left p-2.5 rounded-xl hover:bg-emerald-50/80 text-slate-700 hover:text-emerald-900 transition flex items-center space-x-3 group border border-transparent hover:border-emerald-200">
                   <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-sm group-hover:scale-105 group-hover:bg-emerald-600 group-hover:text-white transition shadow-sm shrink-0">
@@ -1234,8 +1215,11 @@
                   </div>
                   <div class="flex-1 min-w-0">
                     <div class="font-bold text-xs text-slate-800 group-hover:text-emerald-900 flex items-center justify-between">
-                      <span>គ្រប់គ្រងuser & សិទ្ធប្រើប្រាស់</span>
-                      <span class="text-[9px] px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 font-semibold">Admin</span>
+                      <span>គ្រប់គ្រង User & សិទ្ធិ</span>
+                      <div class="flex items-center space-x-1">
+                        <span id="pendingUsersBadge" class="hidden px-1.5 py-0.2 text-[9px] font-extrabold bg-rose-600 text-white rounded-full shadow-xs animate-pulse">0</span>
+                        <span class="text-[9px] px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 font-semibold">Admin</span>
+                      </div>
                     </div>
                     <p class="text-[10px] text-slate-400 group-hover:text-emerald-700/80 truncate">គ្រប់គ្រងគណនី បង្កើត និងកំណត់សិទ្ធិ</p>
                   </div>
@@ -10110,13 +10094,19 @@
           const allUsers = (res.users || LOCAL_DB.users || []).filter(u => !isUnregisteredDummyUser(u));
           const pendingCount = allUsers.filter(u => u.status === 'Pending' || u.status === 'Pending_Admin' || u.status === 'Pending_SuperAdmin' || u.status === 'Pending_Deletion').length;
           const pendingBadge = document.getElementById('pendingUsersBadge');
-          if (pendingBadge) {
-            if (pendingCount > 0) {
+          const topSettingsBadge = document.getElementById('topSettingsBadge');
+          if (pendingCount > 0) {
+            if (pendingBadge) {
               pendingBadge.textContent = pendingCount;
               pendingBadge.classList.remove('hidden');
-            } else {
-              pendingBadge.classList.add('hidden');
             }
+            if (topSettingsBadge) {
+              topSettingsBadge.textContent = pendingCount;
+              topSettingsBadge.classList.remove('hidden');
+            }
+          } else {
+            if (pendingBadge) pendingBadge.classList.add('hidden');
+            if (topSettingsBadge) topSettingsBadge.classList.add('hidden');
           }
 
           if (isActorSuperAdmin && typeof checkPendingDeletionsForSuperAdmin === 'function') {
@@ -12560,17 +12550,23 @@
       const allUsers = LOCAL_DB.users || [];
       const pendingDeletions = allUsers.filter(u => u.status === 'Pending_Deletion');
 
-      // 1. Sidebar pending users badge
+      // 1. Pending users badge & Settings menu badge
       const pendingBadge = document.getElementById('pendingUsersBadge');
-      if (pendingBadge) {
-        if (pendingDeletions.length > 0) {
+      const topSettingsBadge = document.getElementById('topSettingsBadge');
+      if (pendingDeletions.length > 0) {
+        if (pendingBadge) {
           pendingBadge.textContent = `⚠️ ${pendingDeletions.length}`;
           pendingBadge.classList.remove('hidden');
-          pendingBadge.className = "px-2 py-0.5 text-[10px] font-black rounded-full bg-rose-600 text-white shadow-xs animate-pulse";
+          pendingBadge.className = "px-1.5 py-0.2 text-[9px] font-extrabold rounded-full bg-rose-600 text-white shadow-xs animate-pulse";
           pendingBadge.title = `មាន ${pendingDeletions.length} សំណើសុំលុបគណនីរង់ចាំ SuperAdmin ពិនិត្យ`;
-        } else {
-          pendingBadge.classList.add('hidden');
         }
+        if (topSettingsBadge) {
+          topSettingsBadge.textContent = pendingDeletions.length;
+          topSettingsBadge.classList.remove('hidden');
+        }
+      } else {
+        if (pendingBadge) pendingBadge.classList.add('hidden');
+        if (topSettingsBadge) topSettingsBadge.classList.add('hidden');
       }
 
       // 2. Clean & Deduplicate notificationsList
@@ -15176,16 +15172,22 @@
         notifBadge.classList.remove('hidden');
       }
 
-      // 3. Update Sidebar Pending Users Badge
+      // 3. Update Pending Users Badge & Settings Menu Badge
       const pendingBadge = document.getElementById('pendingUsersBadge');
-      if (pendingBadge) {
-        const totalPending = allUsers.filter(u => u.status === 'Pending' || u.status === 'Pending_Admin' || u.status === 'Pending_SuperAdmin' || u.status === 'Pending_Deletion').length;
-        if (totalPending > 0) {
+      const topSettingsBadge = document.getElementById('topSettingsBadge');
+      const totalPending = allUsers.filter(u => u.status === 'Pending' || u.status === 'Pending_Admin' || u.status === 'Pending_SuperAdmin' || u.status === 'Pending_Deletion').length;
+      if (totalPending > 0) {
+        if (pendingBadge) {
           pendingBadge.textContent = totalPending;
           pendingBadge.classList.remove('hidden');
-        } else {
-          pendingBadge.classList.add('hidden');
         }
+        if (topSettingsBadge) {
+          topSettingsBadge.textContent = totalPending;
+          topSettingsBadge.classList.remove('hidden');
+        }
+      } else {
+        if (pendingBadge) pendingBadge.classList.add('hidden');
+        if (topSettingsBadge) topSettingsBadge.classList.add('hidden');
       }
 
       // 4. If Chat Tab is currently open, refresh messages immediately
