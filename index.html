@@ -652,6 +652,59 @@
        }
      }
 
+    /* Stock In Movable & Resizable Form Fields */
+    .stockin-field-wrapper {
+      position: relative;
+      flex: 0 0 auto;
+      box-sizing: border-box;
+      transition: box-shadow 0.15s ease, border-color 0.15s ease;
+    }
+    .stockin-field-wrapper.is-dragging {
+      opacity: 0.45;
+      transform: scale(0.98);
+      outline: 2px dashed #10b981 !important;
+      border-radius: 0.75rem;
+    }
+    .stockin-field-wrapper.drop-target-left {
+      box-shadow: -4px 0 0 0 #10b981, 0 0 12px rgba(16, 185, 129, 0.25) !important;
+    }
+    .stockin-field-wrapper.drop-target-right {
+      box-shadow: 4px 0 0 0 #10b981, 0 0 12px rgba(16, 185, 129, 0.25) !important;
+    }
+    .stockin-resize-handle {
+      touch-action: none;
+    }
+    .stockin-resize-handle:hover > div,
+    .stockin-field-wrapper.is-resizing .stockin-resize-handle > div {
+      background-color: #059669 !important;
+      height: 28px !important;
+      width: 3px !important;
+      box-shadow: 0 0 6px rgba(5, 150, 105, 0.5);
+    }
+    .stockin-field-wrapper.is-resizing {
+      user-select: none;
+    }
+    #stockinResizeBadge {
+      position: fixed;
+      z-index: 99999;
+      pointer-events: none;
+      background: #064e3b;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+      transform: translate(-50%, -120%);
+      display: none;
+    }
+    @media (max-width: 639px) {
+      .stockin-field-wrapper {
+        width: 100% !important;
+        min-width: 100% !important;
+      }
+    }
+
   </style>
 </head>
 
@@ -1713,10 +1766,20 @@
                 </div>
                 <div>
                   <h3 class="font-bold text-slate-800 text-base sm:text-lg leading-tight">កត់ត្រាទំនិញចូលស្តុក (Stock In)</h3>
-                  <p class="text-xs text-slate-400 mt-0.5">កត់ត្រាការទិញចូលពី Supplier ឬទទួលទំនិញថ្មីចូលក្នុងឃ្លាំង</p>
+                  <p class="text-xs text-slate-400 mt-0.5 flex items-center flex-wrap gap-1.5">
+                    <span>កត់ត្រាការទិញចូលពី Supplier ឬទទួលទំនិញថ្មីចូលក្នុងឃ្លាំង</span>
+                    <span class="inline-flex items-center text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.5 rounded font-medium">
+                      <i class="fa-solid fa-arrows-up-down-left-right text-[9px] mr-1"></i>អាច Move &amp; ទាញវែងខ្លីបាន
+                    </span>
+                  </p>
                 </div>
               </div>
-              <div class="flex items-center space-x-2 shrink-0">
+              <div class="flex items-center space-x-2 shrink-0 flex-wrap gap-y-1">
+                <button type="button" onclick="resetStockInCustomLayout()" title="កំណត់ទីតាំង និងទំហំប្រអប់ដើមឡើងវិញ (Reset Layout)"
+                  class="h-9 px-3 bg-slate-100 text-slate-600 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-300 border border-slate-300 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition">
+                  <i class="fa-solid fa-arrow-rotate-left text-xs"></i>
+                  <span>កំណត់ទំហំដើម</span>
+                </button>
                 <button type="button" onclick="generateStockInDocNo()" title="បង្កើតលេខឯកសារថ្មី"
                   class="h-9 px-3 bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition">
                   <i class="fa-solid fa-rotate text-xs"></i>
@@ -1732,27 +1795,31 @@
 
             <form id="stockInForm" onsubmit="handleStockInSubmit(event)" class="space-y-3">
               <!-- Hidden Old Stock & Pack Conversion Stores -->
-              <!-- Hidden Old Stock & Pack Conversion Stores -->
               <input type="hidden" id="stockInOldStockValue" value="0">
               <input type="hidden" id="stockInPackQtyVal" value="1">
               <input type="hidden" id="stockInPackUnitVal" value="">
               <input type="hidden" id="stockInBaseUnitVal" value="ដុំ">
 
-              <!-- ROW 1: ព័ត៌មានឯកសារ & ឃ្លាំង (4 Columns) -->
-              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
+              <!-- Movable and Resizable Fields Flex Container -->
+              <div id="stockInFieldsContainer" class="flex flex-wrap gap-3 items-end pt-1">
                 <!-- 1. Doc No -->
-                <div>
+                <div id="stockInField_docNo" data-field-id="docNo" data-default-width="calc(25% - 9px)" data-min-width="190" class="stockin-field-wrapper group relative" style="width: calc(25% - 9px); min-width: 190px;">
                   <label class="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center justify-between">
-                    <span><i class="fa-solid fa-file-invoice text-blue-500 mr-1.5"></i> លេខឯកសារ *</span>
-                    <button type="button" onclick="generateStockInDocNo()" class="text-xs text-blue-600 hover:underline font-semibold lowercase">auto</button>
+                    <span class="flex items-center truncate">
+                      <span class="stockin-drag-handle inline-flex items-center justify-center w-4 h-4 text-slate-400 hover:text-emerald-600 rounded cursor-grab active:cursor-grabbing mr-1" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to Move)"><i class="fa-solid fa-grip-vertical text-[11px]"></i></span>
+                      <i class="fa-solid fa-file-invoice text-blue-500 mr-1.5"></i> លេខឯកសារ *
+                    </span>
+                    <button type="button" onclick="generateStockInDocNo()" class="text-xs text-blue-600 hover:underline font-semibold lowercase shrink-0 ml-1">auto</button>
                   </label>
                   <input type="text" id="stockInDocNo" required placeholder="DOC-IN-..."
                     class="w-full h-11 px-3.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-mono font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition">
+                  <div class="stockin-resize-handle absolute top-0 -right-1.5 w-3 h-full cursor-col-resize flex items-center justify-center z-10 select-none group/resize" title="ទាញឆ្វេង/ស្តាំដើម្បីពង្រីក ឬបង្រួម (Drag to Resize)"><div class="w-1 h-6 rounded-full bg-slate-200 group-hover/resize:bg-emerald-500 group-hover:bg-slate-300 transition-colors"></div></div>
                 </div>
 
                 <!-- 2. Location -->
-                <div>
-                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1 truncate">
+                <div id="stockInField_location" data-field-id="location" data-default-width="calc(25% - 9px)" data-min-width="190" class="stockin-field-wrapper group relative" style="width: calc(25% - 9px); min-width: 190px;">
+                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center truncate">
+                    <span class="stockin-drag-handle inline-flex items-center justify-center w-4 h-4 text-slate-400 hover:text-emerald-600 rounded cursor-grab active:cursor-grabbing mr-1" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to Move)"><i class="fa-solid fa-grip-vertical text-[11px]"></i></span>
                     <i class="fa-solid fa-warehouse text-emerald-600 mr-1.5"></i> នាំចូលឃ្លាំងណា *
                   </label>
                   <select id="stockInLocation" required
@@ -1769,32 +1836,35 @@
                     <option value="机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)">机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
                     <option value="综合办 (ផ្នែកកិច្ចការទូទៅ)">综合办 (ផ្នែកកិច្ចការទូទៅ)</option>
                   </select>
+                  <div class="stockin-resize-handle absolute top-0 -right-1.5 w-3 h-full cursor-col-resize flex items-center justify-center z-10 select-none group/resize" title="ទាញឆ្វេង/ស្តាំដើម្បីពង្រីក ឬបង្រួម (Drag to Resize)"><div class="w-1 h-6 rounded-full bg-slate-200 group-hover/resize:bg-emerald-500 group-hover:bg-slate-300 transition-colors"></div></div>
                 </div>
 
                 <!-- 3. Receiver -->
-                <div>
-                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1 truncate">
+                <div id="stockInField_receiver" data-field-id="receiver" data-default-width="calc(25% - 9px)" data-min-width="170" class="stockin-field-wrapper group relative" style="width: calc(25% - 9px); min-width: 170px;">
+                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center truncate">
+                    <span class="stockin-drag-handle inline-flex items-center justify-center w-4 h-4 text-slate-400 hover:text-emerald-600 rounded cursor-grab active:cursor-grabbing mr-1" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to Move)"><i class="fa-solid fa-grip-vertical text-[11px]"></i></span>
                     <i class="fa-solid fa-user-check text-indigo-500 mr-1.5"></i> អ្នកទទួលទំនិញ *
                   </label>
                   <input type="text" id="stockInReceiver" required placeholder="ឈ្មោះអ្នកទទួល"
                     class="w-full h-11 px-3.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition">
+                  <div class="stockin-resize-handle absolute top-0 -right-1.5 w-3 h-full cursor-col-resize flex items-center justify-center z-10 select-none group/resize" title="ទាញឆ្វេង/ស្តាំដើម្បីពង្រីក ឬបង្រួម (Drag to Resize)"><div class="w-1 h-6 rounded-full bg-slate-200 group-hover/resize:bg-emerald-500 group-hover:bg-slate-300 transition-colors"></div></div>
                 </div>
 
                 <!-- 4. Zone -->
-                <div>
-                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1 truncate">
+                <div id="stockInField_zone" data-field-id="zone" data-default-width="calc(25% - 9px)" data-min-width="150" class="stockin-field-wrapper group relative" style="width: calc(25% - 9px); min-width: 150px;">
+                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center truncate">
+                    <span class="stockin-drag-handle inline-flex items-center justify-center w-4 h-4 text-slate-400 hover:text-emerald-600 rounded cursor-grab active:cursor-grabbing mr-1" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to Move)"><i class="fa-solid fa-grip-vertical text-[11px]"></i></span>
                     <i class="fa-solid fa-location-dot text-rose-500 mr-1.5"></i> តំបន់ស្តុក (Zone)
                   </label>
                   <input type="text" id="stockInZone" list="zoneOptions" placeholder="Zone..." title="តំបន់ស្តុក (Zone)"
                     class="w-full h-11 px-3.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition">
+                  <div class="stockin-resize-handle absolute top-0 -right-1.5 w-3 h-full cursor-col-resize flex items-center justify-center z-10 select-none group/resize" title="ទាញឆ្វេង/ស្តាំដើម្បីពង្រីក ឬបង្រួម (Drag to Resize)"><div class="w-1 h-6 rounded-full bg-slate-200 group-hover/resize:bg-emerald-500 group-hover:bg-slate-300 transition-colors"></div></div>
                 </div>
-              </div>
 
-              <!-- ROW 2: ព័ត៌មានទំនិញ & រូបភាពទំនិញ (12 Columns) -->
-              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end pt-1">
-                <!-- 1. Product Search (col-span-4) -->
-                <div class="lg:col-span-4">
-                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1 truncate">
+                <!-- 5. Product Search (Barcode / Keyword) -->
+                <div id="stockInField_sku" data-field-id="sku" data-default-width="calc(33.333% - 8px)" data-min-width="240" class="stockin-field-wrapper group relative" style="width: calc(33.333% - 8px); min-width: 240px;">
+                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center truncate">
+                    <span class="stockin-drag-handle inline-flex items-center justify-center w-4 h-4 text-slate-400 hover:text-emerald-600 rounded cursor-grab active:cursor-grabbing mr-1" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to Move)"><i class="fa-solid fa-grip-vertical text-[11px]"></i></span>
                     <i class="fa-solid fa-magnifying-glass text-blue-600 mr-1.5"></i> ឈ្មោះទំនិញ (Keyword/Barcode) *
                   </label>
                   <div class="relative">
@@ -1808,40 +1878,50 @@
                     </button>
                     <datalist id="stockInDatalist"></datalist>
                   </div>
+                  <div class="stockin-resize-handle absolute top-0 -right-1.5 w-3 h-full cursor-col-resize flex items-center justify-center z-10 select-none group/resize" title="ទាញឆ្វេង/ស្តាំដើម្បីពង្រីក ឬបង្រួម (Drag to Resize)"><div class="w-1 h-6 rounded-full bg-slate-200 group-hover/resize:bg-emerald-500 group-hover:bg-slate-300 transition-colors"></div></div>
                 </div>
 
-                <!-- 2. Code SKU (col-span-2) -->
-                <div class="lg:col-span-2">
-                  <label class="block text-xs font-bold text-slate-600 uppercase mb-1 truncate">
+                <!-- 6. SKU Code -->
+                <div id="stockInField_itemCode" data-field-id="itemCode" data-default-width="calc(16.666% - 10px)" data-min-width="120" class="stockin-field-wrapper group relative" style="width: calc(16.666% - 10px); min-width: 120px;">
+                  <label class="block text-xs font-bold text-slate-600 uppercase mb-1 flex items-center truncate">
+                    <span class="stockin-drag-handle inline-flex items-center justify-center w-4 h-4 text-slate-400 hover:text-emerald-600 rounded cursor-grab active:cursor-grabbing mr-1" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to Move)"><i class="fa-solid fa-grip-vertical text-[11px]"></i></span>
                     <i class="fa-solid fa-barcode text-purple-600 mr-1"></i> កូដ SKU
                   </label>
                   <input type="text" id="stockInItemCode" readonly placeholder="កូដ"
                     class="w-full h-11 px-3 bg-slate-100 border border-slate-200 rounded-xl text-xs sm:text-sm font-mono font-bold text-slate-600 outline-none">
+                  <div class="stockin-resize-handle absolute top-0 -right-1.5 w-3 h-full cursor-col-resize flex items-center justify-center z-10 select-none group/resize" title="ទាញឆ្វេង/ស្តាំដើម្បីពង្រីក ឬបង្រួម (Drag to Resize)"><div class="w-1 h-6 rounded-full bg-slate-200 group-hover/resize:bg-emerald-500 group-hover:bg-slate-300 transition-colors"></div></div>
                 </div>
 
-                <!-- 3. Size (col-span-1.5) -->
-                <div class="lg:col-span-1.5">
-                  <label class="block text-xs font-bold text-slate-600 uppercase mb-1 truncate">
+                <!-- 7. Size -->
+                <div id="stockInField_size" data-field-id="size" data-default-width="calc(12.5% - 10.5px)" data-min-width="100" class="stockin-field-wrapper group relative" style="width: calc(12.5% - 10.5px); min-width: 100px;">
+                  <label class="block text-xs font-bold text-slate-600 uppercase mb-1 flex items-center truncate">
+                    <span class="stockin-drag-handle inline-flex items-center justify-center w-4 h-4 text-slate-400 hover:text-emerald-600 rounded cursor-grab active:cursor-grabbing mr-1" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to Move)"><i class="fa-solid fa-grip-vertical text-[11px]"></i></span>
                     <i class="fa-solid fa-ruler-combined text-slate-500 mr-1"></i> ខ្នាត (Size)
                   </label>
                   <input type="text" id="stockInSize" placeholder="ខ្នាត..."
                     class="w-full h-11 px-3 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition">
+                  <div class="stockin-resize-handle absolute top-0 -right-1.5 w-3 h-full cursor-col-resize flex items-center justify-center z-10 select-none group/resize" title="ទាញឆ្វេង/ស្តាំដើម្បីពង្រីក ឬបង្រួម (Drag to Resize)"><div class="w-1 h-6 rounded-full bg-slate-200 group-hover/resize:bg-emerald-500 group-hover:bg-slate-300 transition-colors"></div></div>
                 </div>
 
-                <!-- 4. Color (col-span-1.5) -->
-                <div class="lg:col-span-1.5">
-                  <label class="block text-xs font-bold text-slate-600 uppercase mb-1 truncate">
+                <!-- 8. Color -->
+                <div id="stockInField_color" data-field-id="color" data-default-width="calc(12.5% - 10.5px)" data-min-width="100" class="stockin-field-wrapper group relative" style="width: calc(12.5% - 10.5px); min-width: 100px;">
+                  <label class="block text-xs font-bold text-slate-600 uppercase mb-1 flex items-center truncate">
+                    <span class="stockin-drag-handle inline-flex items-center justify-center w-4 h-4 text-slate-400 hover:text-emerald-600 rounded cursor-grab active:cursor-grabbing mr-1" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to Move)"><i class="fa-solid fa-grip-vertical text-[11px]"></i></span>
                     <i class="fa-solid fa-palette text-amber-500 mr-1"></i> ពណ៌ (Color)
                   </label>
                   <input type="text" id="stockInColor" placeholder="ពណ៌..."
                     class="w-full h-11 px-3 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition">
+                  <div class="stockin-resize-handle absolute top-0 -right-1.5 w-3 h-full cursor-col-resize flex items-center justify-center z-10 select-none group/resize" title="ទាញឆ្វេង/ស្តាំដើម្បីពង្រីក ឬបង្រួម (Drag to Resize)"><div class="w-1 h-6 rounded-full bg-slate-200 group-hover/resize:bg-emerald-500 group-hover:bg-slate-300 transition-colors"></div></div>
                 </div>
 
-                <!-- 5. Product Image Preview Box (col-span-3) -->
-                <div class="lg:col-span-3">
+                <!-- 9. Product Image Preview -->
+                <div id="stockInField_image" data-field-id="image" data-default-width="calc(25% - 9px)" data-min-width="190" class="stockin-field-wrapper group relative" style="width: calc(25% - 9px); min-width: 190px;">
                   <label class="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center justify-between">
-                    <span><i class="fa-solid fa-image text-emerald-600 mr-1"></i> រូបភាពទំនិញ</span>
-                    <span id="stockInImgBadge" class="text-[10px] text-slate-400 font-semibold px-1.5 py-0.5 rounded bg-slate-100">គ្មានរូបភាព</span>
+                    <span class="flex items-center truncate">
+                      <span class="stockin-drag-handle inline-flex items-center justify-center w-4 h-4 text-slate-400 hover:text-emerald-600 rounded cursor-grab active:cursor-grabbing mr-1" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to Move)"><i class="fa-solid fa-grip-vertical text-[11px]"></i></span>
+                      <i class="fa-solid fa-image text-emerald-600 mr-1"></i> រូបភាពទំនិញ
+                    </span>
+                    <span id="stockInImgBadge" class="text-[10px] text-slate-400 font-semibold px-1.5 py-0.5 rounded bg-slate-100 shrink-0">គ្មានរូបភាព</span>
                   </label>
                   <div id="stockInImgBox" onclick="previewStockInCurrentItemImage()"
                     title="ចុចដើម្បីមើលរូបភាពធំ (Click to preview)"
@@ -1858,14 +1938,15 @@
                       <i class="fa-solid fa-magnifying-glass-plus text-xs"></i>
                     </div>
                   </div>
+                  <div class="stockin-resize-handle absolute top-0 -right-1.5 w-3 h-full cursor-col-resize flex items-center justify-center z-10 select-none group/resize" title="ទាញឆ្វេង/ស្តាំដើម្បីពង្រីក ឬបង្រួម (Drag to Resize)"><div class="w-1 h-6 rounded-full bg-slate-200 group-hover/resize:bg-emerald-500 group-hover:bg-slate-300 transition-colors"></div></div>
                 </div>
-              </div>
 
-              <!-- ROW 3: QUANTITIES, UNIT SWITCHER, NOTES, BUTTONS (12 Columns) -->
-              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end pt-1">
-                <!-- Dual-Unit Switcher (col-span-2) -->
-                <div class="lg:col-span-2">
-                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1 truncate">ជម្រើសឯកតា (Unit)</label>
+                <!-- 10. Unit Switcher -->
+                <div id="stockInField_unit" data-field-id="unit" data-default-width="calc(16.666% - 10px)" data-min-width="150" class="stockin-field-wrapper group relative" style="width: calc(16.666% - 10px); min-width: 150px;">
+                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center truncate">
+                    <span class="stockin-drag-handle inline-flex items-center justify-center w-4 h-4 text-slate-400 hover:text-emerald-600 rounded cursor-grab active:cursor-grabbing mr-1" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to Move)"><i class="fa-solid fa-grip-vertical text-[11px]"></i></span>
+                    <span class="truncate">ជម្រើសឯកតា (Unit)</span>
+                  </label>
                   <div class="inline-flex w-full h-11 rounded-xl border border-emerald-300 bg-emerald-50/50 p-1 text-xs font-bold" id="stockInUnitModeWrapper">
                     <button type="button" id="btnStockInModeRetail" onclick="setStockInTransactionMode('RETAIL')"
                       class="flex-1 py-1 rounded-lg bg-emerald-600 text-white transition flex items-center justify-center space-x-1.5 shadow-2xs">
@@ -1879,21 +1960,29 @@
                     </button>
                   </div>
                   <input type="hidden" id="stockInUnitMode" value="RETAIL">
+                  <div class="stockin-resize-handle absolute top-0 -right-1.5 w-3 h-full cursor-col-resize flex items-center justify-center z-10 select-none group/resize" title="ទាញឆ្វេង/ស្តាំដើម្បីពង្រីក ឬបង្រួម (Drag to Resize)"><div class="w-1 h-6 rounded-full bg-slate-200 group-hover/resize:bg-emerald-500 group-hover:bg-slate-300 transition-colors"></div></div>
                 </div>
 
-                <!-- Old Stock (col-span-1.5) -->
-                <div class="lg:col-span-1.5">
-                  <label class="block text-xs font-bold text-slate-600 uppercase mb-1 truncate" id="stockInOldStockDetail">ស្តុកចាស់</label>
+                <!-- 11. Old Stock -->
+                <div id="stockInField_oldStock" data-field-id="oldStock" data-default-width="calc(12.5% - 10.5px)" data-min-width="110" class="stockin-field-wrapper group relative" style="width: calc(12.5% - 10.5px); min-width: 110px;">
+                  <label class="block text-xs font-bold text-slate-600 uppercase mb-1 flex items-center truncate" id="stockInOldStockDetail">
+                    <span class="stockin-drag-handle inline-flex items-center justify-center w-4 h-4 text-slate-400 hover:text-emerald-600 rounded cursor-grab active:cursor-grabbing mr-1" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to Move)"><i class="fa-solid fa-grip-vertical text-[11px]"></i></span>
+                    <span class="truncate">ស្តុកចាស់</span>
+                  </label>
                   <div class="w-full h-11 px-2.5 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center">
                     <span class="text-xs sm:text-sm font-black text-slate-800 truncate" id="stockInOldStockDisplay">0 ដុំ</span>
                   </div>
+                  <div class="stockin-resize-handle absolute top-0 -right-1.5 w-3 h-full cursor-col-resize flex items-center justify-center z-10 select-none group/resize" title="ទាញឆ្វេង/ស្តាំដើម្បីពង្រីក ឬបង្រួម (Drag to Resize)"><div class="w-1 h-6 rounded-full bg-slate-200 group-hover/resize:bg-emerald-500 group-hover:bg-slate-300 transition-colors"></div></div>
                 </div>
 
-                <!-- Qty In Input (col-span-2) -->
-                <div class="lg:col-span-2">
+                <!-- 12. Qty In -->
+                <div id="stockInField_qty" data-field-id="qty" data-default-width="calc(16.666% - 10px)" data-min-width="130" class="stockin-field-wrapper group relative" style="width: calc(16.666% - 10px); min-width: 130px;">
                   <label class="block text-xs font-bold text-emerald-900 uppercase mb-1 flex items-center justify-between">
-                    <span><i class="fa-solid fa-arrow-down text-emerald-600 mr-1"></i> ចំនួនចូលស្តុក *</span>
-                    <span class="text-xs font-extrabold text-emerald-700" id="stockInActiveUnitBadge">រាយ</span>
+                    <span class="flex items-center truncate">
+                      <span class="stockin-drag-handle inline-flex items-center justify-center w-4 h-4 text-slate-400 hover:text-emerald-600 rounded cursor-grab active:cursor-grabbing mr-1" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to Move)"><i class="fa-solid fa-grip-vertical text-[11px]"></i></span>
+                      <i class="fa-solid fa-arrow-down text-emerald-600 mr-1"></i> ចំនួនចូលស្តុក *
+                    </span>
+                    <span class="text-xs font-extrabold text-emerald-700 shrink-0 ml-1" id="stockInActiveUnitBadge">រាយ</span>
                   </label>
                   <div class="relative">
                     <input type="number" id="stockInQty" inputmode="decimal" required min="1" step="any" placeholder="0"
@@ -1901,19 +1990,25 @@
                       class="w-full h-11 text-center bg-emerald-50/60 border-2 border-emerald-400 rounded-xl px-3 text-base sm:text-lg font-black text-emerald-800 outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition shadow-2xs">
                   </div>
                   <p class="hidden text-[10px] text-emerald-700 font-medium" id="stockInInputHelper"></p>
+                  <div class="stockin-resize-handle absolute top-0 -right-1.5 w-3 h-full cursor-col-resize flex items-center justify-center z-10 select-none group/resize" title="ទាញឆ្វេង/ស្តាំដើម្បីពង្រីក ឬបង្រួម (Drag to Resize)"><div class="w-1 h-6 rounded-full bg-slate-200 group-hover/resize:bg-emerald-500 group-hover:bg-slate-300 transition-colors"></div></div>
                 </div>
 
-                <!-- New Total Stock (col-span-1.5) -->
-                <div class="lg:col-span-1.5">
-                  <label class="block text-xs font-bold text-emerald-800 uppercase mb-1 truncate" id="stockInNewTotalDetail">ស្តុកថ្មីសរុប</label>
+                <!-- 13. New Total -->
+                <div id="stockInField_newTotal" data-field-id="newTotal" data-default-width="calc(12.5% - 10.5px)" data-min-width="110" class="stockin-field-wrapper group relative" style="width: calc(12.5% - 10.5px); min-width: 110px;">
+                  <label class="block text-xs font-bold text-emerald-800 uppercase mb-1 flex items-center truncate" id="stockInNewTotalDetail">
+                    <span class="stockin-drag-handle inline-flex items-center justify-center w-4 h-4 text-slate-400 hover:text-emerald-600 rounded cursor-grab active:cursor-grabbing mr-1" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to Move)"><i class="fa-solid fa-grip-vertical text-[11px]"></i></span>
+                    <span class="truncate">ស្តុកថ្មីសរុប</span>
+                  </label>
                   <div class="w-full h-11 px-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 text-white flex items-center justify-center shadow-xs">
                     <span class="text-xs sm:text-sm font-black text-white truncate" id="stockInNewTotalDisplay">0 ដុំ</span>
                   </div>
+                  <div class="stockin-resize-handle absolute top-0 -right-1.5 w-3 h-full cursor-col-resize flex items-center justify-center z-10 select-none group/resize" title="ទាញឆ្វេង/ស្តាំដើម្បីពង្រីក ឬបង្រួម (Drag to Resize)"><div class="w-1 h-6 rounded-full bg-slate-200 group-hover/resize:bg-emerald-500 group-hover:bg-slate-300 transition-colors"></div></div>
                 </div>
 
-                <!-- Notes Input (col-span-2.5) -->
-                <div class="lg:col-span-2.5 relative">
-                  <label class="block text-xs font-bold text-slate-600 uppercase mb-1 truncate">
+                <!-- 14. Notes -->
+                <div id="stockInField_notes" data-field-id="notes" data-default-width="calc(20.833% - 9.5px)" data-min-width="160" class="stockin-field-wrapper group relative" style="width: calc(20.833% - 9.5px); min-width: 160px;">
+                  <label class="block text-xs font-bold text-slate-600 uppercase mb-1 flex items-center truncate">
+                    <span class="stockin-drag-handle inline-flex items-center justify-center w-4 h-4 text-slate-400 hover:text-emerald-600 rounded cursor-grab active:cursor-grabbing mr-1" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to Move)"><i class="fa-solid fa-grip-vertical text-[11px]"></i></span>
                     <i class="fa-solid fa-note-sticky text-amber-500 mr-1"></i> កំណត់សម្គាល់បន្ថែម
                   </label>
                   <input type="text" id="stockInNotes" placeholder="លេខវិក្កយបត្រ, ស្ថានភាព..."
@@ -1922,20 +2017,28 @@
                     <span id="stockInUnitConversionNoticeText">1 កេស = 24</span>
                     <span class="font-black text-emerald-700 ml-1" id="stockInEffectiveConversionBadge">= 0</span>
                   </div>
+                  <div class="stockin-resize-handle absolute top-0 -right-1.5 w-3 h-full cursor-col-resize flex items-center justify-center z-10 select-none group/resize" title="ទាញឆ្វេង/ស្តាំដើម្បីពង្រីក ឬបង្រួម (Drag to Resize)"><div class="w-1 h-6 rounded-full bg-slate-200 group-hover/resize:bg-emerald-500 group-hover:bg-slate-300 transition-colors"></div></div>
                 </div>
 
-                <!-- Action Buttons (col-span-2.5) -->
-                <div class="lg:col-span-2.5 flex items-center space-x-2">
-                  <button type="button" onclick="document.getElementById('stockInForm').reset(); generateStockInDocNo(); initStockInForm(); onStockInItemChange();"
-                    class="flex-1 h-11 px-3 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-1.5 shadow-2xs">
-                    <i class="fa-solid fa-rotate-left text-xs"></i>
-                    <span>សម្អាត</span>
-                  </button>
-                  <button type="submit" id="btnSubmitStockIn"
-                    class="flex-1 h-11 px-3 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold rounded-xl shadow-sm transition flex items-center justify-center space-x-1.5 text-xs sm:text-sm hover:scale-[1.01] active:scale-[0.99]">
-                    <i class="fa-solid fa-check text-xs"></i>
-                    <span>រក្សាទុក</span>
-                  </button>
+                <!-- 15. Actions -->
+                <div id="stockInField_actions" data-field-id="actions" data-default-width="calc(20.833% - 9.5px)" data-min-width="180" class="stockin-field-wrapper group relative" style="width: calc(20.833% - 9.5px); min-width: 180px;">
+                  <label class="block text-xs font-bold text-slate-400 uppercase mb-1 flex items-center truncate">
+                    <span class="stockin-drag-handle inline-flex items-center justify-center w-4 h-4 text-slate-400 hover:text-emerald-600 rounded cursor-grab active:cursor-grabbing mr-1" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to Move)"><i class="fa-solid fa-grip-vertical text-[11px]"></i></span>
+                    <span>សកម្មភាព</span>
+                  </label>
+                  <div class="flex items-center space-x-2 w-full">
+                    <button type="button" onclick="document.getElementById('stockInForm').reset(); generateStockInDocNo(); initStockInForm(); onStockInItemChange();"
+                      class="flex-1 h-11 px-3 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-1.5 shadow-2xs">
+                      <i class="fa-solid fa-rotate-left text-xs"></i>
+                      <span>សម្អាត</span>
+                    </button>
+                    <button type="submit" id="btnSubmitStockIn"
+                      class="flex-1 h-11 px-3 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold rounded-xl shadow-sm transition flex items-center justify-center space-x-1.5 text-xs sm:text-sm hover:scale-[1.01] active:scale-[0.99]">
+                      <i class="fa-solid fa-check text-xs"></i>
+                      <span>រក្សាទុក</span>
+                    </button>
+                  </div>
+                  <div class="stockin-resize-handle absolute top-0 -right-1.5 w-3 h-full cursor-col-resize flex items-center justify-center z-10 select-none group/resize" title="ទាញឆ្វេង/ស្តាំដើម្បីពង្រីក ឬបង្រួម (Drag to Resize)"><div class="w-1 h-6 rounded-full bg-slate-200 group-hover/resize:bg-emerald-500 group-hover:bg-slate-300 transition-colors"></div></div>
                 </div>
               </div>
             </form>
@@ -9106,6 +9209,7 @@
         populateItemSelectDropdowns();
         initStockInForm();
         loadStockInHistory();
+        initStockInLayoutCustomizer();
       } else if (tabName === 'stockout') {
         populateItemSelectDropdowns();
         initStockOutForm();
@@ -10432,6 +10536,316 @@
           btn.innerHTML = '<i class="fa-solid fa-check mr-2"></i> រក្សាទុកទំនិញចូលស្តុក';
         }
       }
+    }
+
+    // ==========================================
+    // Stock In Form Drag-and-Drop & Resizable Layout Engine
+    // ==========================================
+    const STOCKIN_LAYOUT_STORAGE_KEY = 'stockin_custom_layout_v2';
+    let isStockInCustomizerInitialized = false;
+
+    function initStockInLayoutCustomizer() {
+      const container = document.getElementById('stockInFieldsContainer');
+      if (!container) return;
+
+      // Always apply saved layout if available
+      applyStockInCustomLayout();
+
+      if (isStockInCustomizerInitialized) return;
+      isStockInCustomizerInitialized = true;
+
+      // Ensure floating resize badge exists
+      let resizeBadge = document.getElementById('stockinResizeBadge');
+      if (!resizeBadge) {
+        resizeBadge = document.createElement('div');
+        resizeBadge.id = 'stockinResizeBadge';
+        document.body.appendChild(resizeBadge);
+      }
+
+      let draggedItem = null;
+      let dragOverItem = null;
+      let dragOverPosition = null;
+
+      const fieldWrappers = container.querySelectorAll('.stockin-field-wrapper');
+      fieldWrappers.forEach(wrapper => {
+        const handle = wrapper.querySelector('.stockin-drag-handle');
+        if (handle) {
+          // Enable dragging ONLY when user interacts with the drag handle to protect input typing
+          handle.addEventListener('mouseenter', () => {
+            wrapper.setAttribute('draggable', 'true');
+          });
+          handle.addEventListener('mouseleave', () => {
+            if (!draggedItem) wrapper.removeAttribute('draggable');
+          });
+          handle.addEventListener('mousedown', () => {
+            wrapper.setAttribute('draggable', 'true');
+          });
+          handle.addEventListener('mouseup', () => {
+            if (!draggedItem) wrapper.removeAttribute('draggable');
+          });
+
+          // Touch-based reordering for mobile/tablets
+          handle.addEventListener('touchstart', (e) => {
+            draggedItem = wrapper;
+            wrapper.classList.add('is-dragging');
+
+            const onTouchMove = (moveEvt) => {
+              moveEvt.preventDefault();
+              const t = moveEvt.touches[0];
+              const elemBelow = document.elementFromPoint(t.clientX, t.clientY);
+              if (!elemBelow) return;
+              const targetWrapper = elemBelow.closest('.stockin-field-wrapper');
+              if (targetWrapper && targetWrapper !== draggedItem && targetWrapper.parentNode === container) {
+                const rect = targetWrapper.getBoundingClientRect();
+                const midX = rect.left + rect.width / 2;
+                if (t.clientX < midX) {
+                  container.insertBefore(draggedItem, targetWrapper);
+                } else {
+                  container.insertBefore(draggedItem, targetWrapper.nextSibling);
+                }
+              }
+            };
+
+            const onTouchEnd = () => {
+              if (draggedItem) draggedItem.classList.remove('is-dragging');
+              draggedItem = null;
+              window.removeEventListener('touchmove', onTouchMove);
+              window.removeEventListener('touchend', onTouchEnd);
+              saveStockInCustomLayout();
+            };
+
+            window.addEventListener('touchmove', onTouchMove, { passive: false });
+            window.addEventListener('touchend', onTouchEnd);
+          }, { passive: true });
+        }
+
+        wrapper.addEventListener('dragstart', (e) => {
+          draggedItem = wrapper;
+          wrapper.classList.add('is-dragging');
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', wrapper.getAttribute('data-field-id') || '');
+        });
+
+        wrapper.addEventListener('dragend', () => {
+          if (draggedItem) {
+            draggedItem.classList.remove('is-dragging');
+            draggedItem.removeAttribute('draggable');
+          }
+          container.querySelectorAll('.stockin-field-wrapper').forEach(w => {
+            w.classList.remove('drop-target-left', 'drop-target-right');
+          });
+          draggedItem = null;
+          dragOverItem = null;
+          saveStockInCustomLayout();
+        });
+
+        wrapper.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          if (!draggedItem || draggedItem === wrapper) return;
+
+          const rect = wrapper.getBoundingClientRect();
+          const mouseX = e.clientX;
+          const midX = rect.left + rect.width / 2;
+
+          container.querySelectorAll('.stockin-field-wrapper').forEach(w => {
+            if (w !== wrapper) w.classList.remove('drop-target-left', 'drop-target-right');
+          });
+
+          if (mouseX < midX) {
+            dragOverPosition = 'left';
+            wrapper.classList.add('drop-target-left');
+            wrapper.classList.remove('drop-target-right');
+          } else {
+            dragOverPosition = 'right';
+            wrapper.classList.add('drop-target-right');
+            wrapper.classList.remove('drop-target-left');
+          }
+          dragOverItem = wrapper;
+        });
+
+        wrapper.addEventListener('dragleave', (e) => {
+          if (!wrapper.contains(e.relatedTarget)) {
+            wrapper.classList.remove('drop-target-left', 'drop-target-right');
+          }
+        });
+
+        wrapper.addEventListener('drop', (e) => {
+          e.preventDefault();
+          if (!draggedItem || !dragOverItem || draggedItem === dragOverItem) return;
+
+          if (dragOverPosition === 'left') {
+            container.insertBefore(draggedItem, dragOverItem);
+          } else {
+            container.insertBefore(draggedItem, dragOverItem.nextSibling);
+          }
+
+          container.querySelectorAll('.stockin-field-wrapper').forEach(w => {
+            w.classList.remove('drop-target-left', 'drop-target-right');
+          });
+
+          saveStockInCustomLayout();
+        });
+
+        // Resize implementation
+        const resizeHandle = wrapper.querySelector('.stockin-resize-handle');
+        if (resizeHandle && !resizeHandle._boundResize) {
+          resizeHandle._boundResize = true;
+
+          const startResize = (clientX, clientY) => {
+            const startX = clientX;
+            const startWidth = wrapper.getBoundingClientRect().width;
+            const containerWidth = container.getBoundingClientRect().width;
+            const minW = Number(wrapper.getAttribute('data-min-width') || 100);
+
+            wrapper.classList.add('is-resizing');
+            document.body.style.cursor = 'col-resize';
+            document.body.style.userSelect = 'none';
+
+            resizeBadge.style.display = 'block';
+            resizeBadge.style.left = `${clientX}px`;
+            resizeBadge.style.top = `${clientY}px`;
+            resizeBadge.innerText = `ទំហំ: ${Math.round(startWidth)}px`;
+
+            const onMove = (moveEvent) => {
+              const currentX = moveEvent.touches ? moveEvent.touches[0].clientX : moveEvent.clientX;
+              const currentY = moveEvent.touches ? moveEvent.touches[0].clientY : moveEvent.clientY;
+              const deltaX = currentX - startX;
+              let newW = Math.max(minW, Math.min(containerWidth - 10, startWidth + deltaX));
+
+              wrapper.style.width = `${newW}px`;
+
+              resizeBadge.style.left = `${currentX}px`;
+              resizeBadge.style.top = `${currentY}px`;
+              resizeBadge.innerText = `ទំហំ: ${Math.round(newW)}px`;
+            };
+
+            const onEnd = () => {
+              wrapper.classList.remove('is-resizing');
+              document.body.style.cursor = '';
+              document.body.style.userSelect = '';
+              resizeBadge.style.display = 'none';
+
+              window.removeEventListener('mousemove', onMove);
+              window.removeEventListener('mouseup', onEnd);
+              window.removeEventListener('touchmove', onMove);
+              window.removeEventListener('touchend', onEnd);
+
+              saveStockInCustomLayout();
+            };
+
+            window.addEventListener('mousemove', onMove, { passive: false });
+            window.addEventListener('mouseup', onEnd);
+            window.addEventListener('touchmove', onMove, { passive: false });
+            window.addEventListener('touchend', onEnd);
+          };
+
+          resizeHandle.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            startResize(e.clientX, e.clientY);
+          });
+
+          resizeHandle.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.touches && e.touches[0]) {
+              startResize(e.touches[0].clientX, e.touches[0].clientY);
+            }
+          }, { passive: false });
+        }
+      });
+    }
+
+    function saveStockInCustomLayout() {
+      const container = document.getElementById('stockInFieldsContainer');
+      if (!container) return;
+
+      const wrappers = Array.from(container.querySelectorAll('.stockin-field-wrapper'));
+      const order = [];
+      const widths = {};
+
+      wrappers.forEach(w => {
+        const fieldId = w.getAttribute('data-field-id');
+        if (fieldId) {
+          order.push(fieldId);
+          if (w.style.width) {
+            widths[fieldId] = w.style.width;
+          }
+        }
+      });
+
+      const layoutData = { order, widths };
+      localStorage.setItem(STOCKIN_LAYOUT_STORAGE_KEY, JSON.stringify(layoutData));
+    }
+
+    function applyStockInCustomLayout() {
+      const container = document.getElementById('stockInFieldsContainer');
+      if (!container) return;
+
+      try {
+        const raw = localStorage.getItem(STOCKIN_LAYOUT_STORAGE_KEY);
+        if (!raw) return;
+        const layoutData = JSON.parse(raw);
+        if (!layoutData) return;
+
+        // Apply order
+        if (Array.isArray(layoutData.order)) {
+          layoutData.order.forEach(fieldId => {
+            const el = container.querySelector(`[data-field-id="${fieldId}"]`);
+            if (el) {
+              container.appendChild(el);
+            }
+          });
+        }
+
+        // Apply widths
+        if (layoutData.widths && typeof layoutData.widths === 'object') {
+          Object.entries(layoutData.widths).forEach(([fieldId, widthVal]) => {
+            const el = container.querySelector(`[data-field-id="${fieldId}"]`);
+            if (el && widthVal) {
+              el.style.width = widthVal;
+            }
+          });
+        }
+      } catch (err) {
+        console.warn('Error applying custom stockin layout:', err);
+      }
+    }
+
+    function resetStockInCustomLayout() {
+      const container = document.getElementById('stockInFieldsContainer');
+      if (!container) return;
+
+      localStorage.removeItem(STOCKIN_LAYOUT_STORAGE_KEY);
+
+      const defaultOrder = [
+        'docNo', 'location', 'receiver', 'zone',
+        'sku', 'itemCode', 'size', 'color', 'image',
+        'unit', 'oldStock', 'qty', 'newTotal', 'notes', 'actions'
+      ];
+
+      defaultOrder.forEach(fieldId => {
+        const el = container.querySelector(`[data-field-id="${fieldId}"]`);
+        if (el) {
+          container.appendChild(el);
+          const defWidth = el.getAttribute('data-default-width');
+          if (defWidth) {
+            el.style.width = defWidth;
+          } else {
+            el.style.width = '';
+          }
+        }
+      });
+
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: 'បានកំណត់ទម្រង់ និងទំហំដើមឡើងវិញរួចរាល់!',
+        showConfirmButton: false,
+        timer: 2000
+      });
     }
 
     function generateStockOutDocNo() {
