@@ -2039,6 +2039,7 @@
                   <tr>
                     <th class="px-3 py-3.5 bg-slate-100 sticky top-0 z-20 text-center w-12">ល.រ</th>
                     <th class="px-4 py-3.5 bg-slate-100 sticky top-0 z-20">Username</th>
+                    <th id="thUserPassword" class="px-4 py-3.5 bg-slate-100 sticky top-0 z-20 text-center hidden">លេខកូដសម្ងាត់ (Password)</th>
                     <th class="px-4 py-3.5 bg-slate-100 sticky top-0 z-20">ឈ្មោះពេញ / អ៊ីមែល</th>
                     <th class="px-4 py-3.5 bg-slate-100 sticky top-0 z-20">តួនាទី (Role)</th>
                     <th class="px-4 py-3.5 bg-slate-100 sticky top-0 z-20">ឃ្លាំងទទួលបន្ទុក</th>
@@ -5445,9 +5446,11 @@
         if (username === 'superadmin' && (password === 'superadmin123' || password === 'admin' || password === 'superadmin')) {
           let saUser = LOCAL_DB.users.find(u => u.username.toLowerCase() === 'superadmin' || u.userId === 'USR-SA');
           if (!saUser) {
-            saUser = { userId: 'USR-SA', username: 'superadmin', fullName: '陈龙', email: 'chenlongqmi@gmail.com', phone: '066966606', role: 'SuperAdmin', warehouse: 'ALL', avatar: 'assets/superadmin_avatar.jpg', boundDevices: { desktop: null, mobile: null } };
+            saUser = { userId: 'USR-SA', username: 'superadmin', password: 'superadmin123', fullName: '陈龙', email: 'chenlongqmi@gmail.com', phone: '066966606', role: 'SuperAdmin', warehouse: 'ALL', avatar: 'assets/superadmin_avatar.jpg', boundDevices: { desktop: null, mobile: null } };
             LOCAL_DB.users.push(saUser);
             saveLocalUsersToStorage();
+          } else if (!saUser.password) {
+            saUser.password = 'superadmin123';
           }
           const deviceCheck = validateAndApplyDeviceBinding(saUser, deviceInfo);
           if (!deviceCheck.success) return deviceCheck;
@@ -5461,9 +5464,11 @@
         if (username === 'admin' && (password === 'admin123' || password === 'admin')) {
           let adUser = LOCAL_DB.users.find(u => u.username.toLowerCase() === 'admin' || u.userId === 'USR-00');
           if (!adUser) {
-            adUser = { userId: 'USR-00', username: 'admin', fullName: '聂稳新', email: 'ppshv2024@gmail.com', phone: '098880803', role: 'Admin', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', boundDevices: { desktop: null, mobile: null } };
+            adUser = { userId: 'USR-00', username: 'admin', password: 'admin123', fullName: '聂稳新', email: 'ppshv2024@gmail.com', phone: '098880803', role: 'Admin', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', boundDevices: { desktop: null, mobile: null } };
             LOCAL_DB.users.push(adUser);
             saveLocalUsersToStorage();
+          } else if (!adUser.password) {
+            adUser.password = 'admin123';
           }
           const deviceCheck = validateAndApplyDeviceBinding(adUser, deviceInfo);
           if (!deviceCheck.success) return deviceCheck;
@@ -5535,6 +5540,7 @@
         const newUser = {
           userId: 'USR-' + Date.now().toString().slice(-4),
           username: payload.username,
+          password: payload.password || '',
           fullName: payload.fullName || payload.username,
           email: payload.email || '',
           phone: payload.phone || '',
@@ -5662,10 +5668,22 @@
         const actor = payload.user || AppState.currentUser;
         const isSuperAdmin = (actor?.role === 'SuperAdmin') || (String(actor?.username).toLowerCase() === 'superadmin');
         const isAdmin = !isSuperAdmin && (actor?.role === 'Admin' || actor?.role === 'អ្នកគ្រប់គ្រង' || String(actor?.username).toLowerCase() === 'admin');
+        const isPrivileged = isSuperAdmin || isAdmin;
+
+        const attachPassword = (userList) => userList.map(u => {
+          const clone = { ...u };
+          const defPwd = u.password || (String(u.username).toLowerCase() === 'superadmin' ? 'superadmin123' : (String(u.username).toLowerCase() === 'admin' ? 'admin123' : (/^wh\d+$/i.test(u.username) ? u.username + 'pass' : '123456')));
+          if (isPrivileged) {
+            clone.password = defPwd;
+          } else {
+            delete clone.password;
+          }
+          return clone;
+        });
 
         if (isSuperAdmin) {
           // 1. SuperAdmin មើលឃើញ User ទាំងអស់ដែលបាន Register
-          return { success: true, users: registeredUsers };
+          return { success: true, users: attachPassword(registeredUsers) };
         } else if (isAdmin) {
           // 2. Admin មើលឃើញ User ទាំងអស់ តែមិនអាចឃើញ SuperAdmin
           const filtered = registeredUsers.filter(u =>
@@ -5673,14 +5691,14 @@
             String(u.username).toLowerCase() !== 'superadmin' &&
             String(u.userId).toUpperCase() !== 'USR-SA'
           );
-          return { success: true, users: filtered };
+          return { success: true, users: attachPassword(filtered) };
         } else {
           // 3. User ធម្មតា អាចមើលឃើញព័ត៌មានខ្លួនឯងតែមួយគត់
           const selfList = registeredUsers.filter(u =>
             (actor?.userId && u.userId === actor.userId) ||
             (actor?.username && String(u.username).toLowerCase() === String(actor.username).toLowerCase())
           );
-          return { success: true, users: selfList.length > 0 ? selfList : (actor ? [actor] : []) };
+          return { success: true, users: attachPassword(selfList.length > 0 ? selfList : (actor ? [actor] : [])) };
         }
       }
 
@@ -5785,6 +5803,7 @@
           if (payload.email !== undefined) usr.email = payload.email;
           if (payload.phone !== undefined) usr.phone = payload.phone;
           if (payload.avatar) usr.avatar = payload.avatar;
+          if (payload.newPassword || payload.password) usr.password = payload.newPassword || payload.password;
           saveLocalUsersToStorage();
           return { success: true, message: 'បានកែប្រែព័ត៌មានអ្នកប្រើប្រាស់ជោគជ័យ' };
         }
@@ -9971,6 +9990,13 @@
           const tbody = document.getElementById('usersTableBody');
           const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
           const isActorAdmin = !isActorSuperAdmin && (AppState.currentUser?.role === 'Admin' || AppState.currentUser?.role === 'អ្នកគ្រប់គ្រង' || String(AppState.currentUser?.username).toLowerCase() === 'admin');
+          const isPrivilegedViewer = isActorSuperAdmin || isActorAdmin;
+
+          // Toggle Password column in thead
+          const thUserPassword = document.getElementById('thUserPassword');
+          if (thUserPassword) {
+            thUserPassword.classList.toggle('hidden', !isPrivilegedViewer);
+          }
 
           // Update Pending Users Badge on Sidebar (counts all pending in Step 1, Step 2, or Deletion)
           const allUsers = (res.users || LOCAL_DB.users || []).filter(u => !isUnregisteredDummyUser(u));
@@ -10023,7 +10049,8 @@
           }
 
           if (filteredUsers.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-slate-400 font-medium">មិនមានទិន្នន័យអ្នកប្រើប្រាស់ឡើយ</td></tr>`;
+            const colSpan = isPrivilegedViewer ? 9 : 8;
+            tbody.innerHTML = `<tr><td colspan="${colSpan}" class="text-center py-10 text-slate-400 font-medium">មិនមានទិន្នន័យអ្នកប្រើប្រាស់ឡើយ</td></tr>`;
             return;
           }
 
@@ -10273,6 +10300,26 @@
               actionsHtml = actionsHtml.substring(0, lastDivIdx) + resetBtnHtml + '</div>';
             }
 
+            // Password cell for Super Admin & Admin viewers only
+            let passwordTdHtml = '';
+            if (isPrivilegedViewer) {
+              const safeId = String(u.userId || u.username || idx).replace(/[^a-zA-Z0-9_-]/g, '_');
+              const userPwd = u.password || (String(u.username).toLowerCase() === 'superadmin' ? 'superadmin123' : (String(u.username).toLowerCase() === 'admin' ? 'admin123' : (/^wh\d+$/i.test(u.username) ? u.username + 'pass' : '123456')));
+              passwordTdHtml = `
+                <td class="px-3 py-3 text-center whitespace-nowrap">
+                  <div class="inline-flex items-center gap-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg px-2 py-1 shadow-2xs transition-colors">
+                    <span id="pwd-text-${safeId}" class="font-mono text-xs font-semibold text-slate-700 tracking-widest select-all min-w-[75px] inline-block text-center" data-password="${escapeHtml(userPwd)}" data-visible="false">••••••••</span>
+                    <button type="button" onclick="toggleUserPasswordVisibility('${safeId}')" class="p-1 text-slate-400 hover:text-blue-600 focus:outline-none transition rounded hover:bg-white shadow-2xs" title="បង្ហាញ ឬ លាក់លេខសម្ងាត់">
+                      <i id="pwd-icon-${safeId}" class="fa-solid fa-eye text-xs"></i>
+                    </button>
+                    <button type="button" onclick="copyUserPassword('${safeId}')" class="p-1 text-slate-400 hover:text-emerald-600 focus:outline-none transition rounded hover:bg-white shadow-2xs" title="ចម្លងលេខសម្ងាត់">
+                      <i class="fa-solid fa-copy text-xs"></i>
+                    </button>
+                  </div>
+                </td>
+              `;
+            }
+
             return `
               <tr class="hover:bg-slate-50 transition-colors ${isUserSuperAdmin ? 'bg-amber-50/20' : ''}">
                 <td class="px-3 py-3 text-center font-bold text-slate-500 text-xs">${idx + 1}</td>
@@ -10287,6 +10334,7 @@
                     </div>
                   </div>
                 </td>
+                ${passwordTdHtml}
                 <td class="px-4 py-3">
                   <div class="font-medium text-slate-800">${u.fullName || u.username}</div>
                   ${u.email ? `<div class="text-[11px] text-slate-400">${u.email}</div>` : ''}
@@ -10305,6 +10353,74 @@
         }
       } catch (e) { }
     }
+
+    function toggleUserPasswordVisibility(safeId) {
+      const textEl = document.getElementById('pwd-text-' + safeId);
+      const iconEl = document.getElementById('pwd-icon-' + safeId);
+      if (!textEl || !iconEl) return;
+      const isVisible = textEl.getAttribute('data-visible') === 'true';
+      const pwd = textEl.getAttribute('data-password') || '';
+      if (isVisible) {
+        textEl.textContent = '••••••••';
+        textEl.classList.remove('text-blue-700', 'font-bold');
+        textEl.classList.add('tracking-widest', 'text-slate-700');
+        textEl.setAttribute('data-visible', 'false');
+        iconEl.className = 'fa-solid fa-eye text-xs';
+        iconEl.parentElement.setAttribute('title', 'បង្ហាញលេខសម្ងាត់');
+      } else {
+        textEl.textContent = pwd || '(ទទេ)';
+        textEl.classList.remove('tracking-widest', 'text-slate-700');
+        textEl.classList.add('text-blue-700', 'font-bold');
+        textEl.setAttribute('data-visible', 'true');
+        iconEl.className = 'fa-solid fa-eye-slash text-xs text-rose-500';
+        iconEl.parentElement.setAttribute('title', 'លាក់លេខសម្ងាត់');
+      }
+    }
+
+    function copyUserPassword(safeId) {
+      const textEl = document.getElementById('pwd-text-' + safeId);
+      if (!textEl) return;
+      const pwd = textEl.getAttribute('data-password') || '';
+      if (!pwd) {
+        showToast('គណនីនេះមិនមានលេខសម្ងាត់ឡើយ', 'warning');
+        return;
+      }
+      copyUserPasswordToClipboardDirect(pwd);
+    }
+
+    function copyUserPasswordToClipboardDirect(pwd) {
+      if (!pwd) return;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(pwd).then(() => {
+          showToast('បានចម្លងលេខកូដសម្ងាត់ជោគជ័យ!', 'success');
+        }).catch(() => {
+          fallbackCopyText(pwd);
+        });
+      } else {
+        fallbackCopyText(pwd);
+      }
+    }
+
+    function fallbackCopyText(text) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      try {
+        document.execCommand('copy');
+        showToast('បានចម្លងលេខកូដសម្ងាត់ជោគជ័យ!', 'success');
+      } catch (err) {
+        showToast('មិនអាចចម្លងបានឡើយ', 'error');
+      }
+      document.body.removeChild(ta);
+    }
+
+    window.toggleUserPasswordVisibility = toggleUserPasswordVisibility;
+    window.copyUserPassword = copyUserPassword;
+    window.copyUserPasswordToClipboardDirect = copyUserPasswordToClipboardDirect;
 
     async function openResetUserDeviceModal(userIdOrUsername, fullName) {
       loadLocalUsersFromStorage();
@@ -11218,6 +11334,24 @@
               </div>
             </div>
             <div>
+              <label class="block font-bold text-slate-700 mb-1">លេខកូដសម្ងាត់ (Password)៖</label>
+              <div class="relative flex items-center">
+                <input type="password" id="swalEditPassword" value="${escapeHtml(u.password || '')}" placeholder="លេខសម្ងាត់ (យ៉ាងតិច 4 ខ្ទង់)" 
+                  class="w-full p-2 pr-20 bg-slate-50 border border-slate-300 rounded-lg text-xs outline-none font-mono">
+                <div class="absolute right-1.5 flex items-center space-x-1">
+                  <button type="button" onclick="const inp = document.getElementById('swalEditPassword'); const ic = document.getElementById('swalEditPwdIcon'); if (inp.type === 'password') { inp.type = 'text'; ic.className = 'fa-solid fa-eye-slash text-xs text-rose-500'; } else { inp.type = 'password'; ic.className = 'fa-solid fa-eye text-xs text-slate-400'; }" 
+                    class="p-1 text-slate-400 hover:text-blue-600 focus:outline-none transition rounded hover:bg-white shadow-2xs" title="បង្ហាញ ឬ លាក់លេខសម្ងាត់">
+                    <i id="swalEditPwdIcon" class="fa-solid fa-eye text-xs"></i>
+                  </button>
+                  <button type="button" onclick="const inp = document.getElementById('swalEditPassword'); if (inp && inp.value) { copyUserPasswordToClipboardDirect(inp.value); }" 
+                    class="p-1 text-slate-400 hover:text-emerald-600 focus:outline-none transition rounded hover:bg-white shadow-2xs" title="ចម្លងលេខសម្ងាត់">
+                    <i class="fa-solid fa-copy text-xs"></i>
+                  </button>
+                </div>
+              </div>
+              <span class="text-[10px] text-slate-400 mt-0.5 block">Admin/SuperAdmin អាចពិនិត្យ ឬផ្លាស់ប្តូរលេខសម្ងាត់ថ្មីជូន user នៅទីនេះបាន</span>
+            </div>
+            <div>
               <label class="block font-bold text-slate-700 mb-1">តួនាទី (Role)៖</label>
               <select id="swalEditRole" class="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg text-xs outline-none font-medium">
                 ${roleOptions}
@@ -11253,6 +11387,7 @@
             fullName: document.getElementById('swalEditFullName').value.trim(),
             email: document.getElementById('swalEditEmail').value.trim(),
             phone: document.getElementById('swalEditPhone').value.trim(),
+            password: document.getElementById('swalEditPassword') ? document.getElementById('swalEditPassword').value.trim() : '',
             role: document.getElementById('swalEditRole').value,
             warehouse: document.getElementById('swalEditWarehouse').value,
             status: document.getElementById('swalEditStatus').value
@@ -11266,6 +11401,8 @@
           fullName: formValues.fullName,
           email: formValues.email,
           phone: formValues.phone,
+          password: formValues.password,
+          newPassword: formValues.password,
           role: formValues.role,
           warehouse: formValues.warehouse,
           status: formValues.status,
@@ -11278,6 +11415,7 @@
             if (formValues.fullName) LOCAL_DB.users[dbIdx].fullName = formValues.fullName;
             if (formValues.email !== undefined) LOCAL_DB.users[dbIdx].email = formValues.email;
             if (formValues.phone !== undefined) LOCAL_DB.users[dbIdx].phone = formValues.phone;
+            if (formValues.password) LOCAL_DB.users[dbIdx].password = formValues.password;
             if (formValues.role) LOCAL_DB.users[dbIdx].role = formValues.role;
             if (formValues.warehouse) LOCAL_DB.users[dbIdx].warehouse = formValues.warehouse;
             if (formValues.status) LOCAL_DB.users[dbIdx].status = formValues.status;

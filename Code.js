@@ -1120,9 +1120,9 @@ function ensureUsersInitialized(ss) {
     setupDatabase();
     sheet = ss.getSheetByName(SHEETS.USERS);
   } else {
-    // Ensure column count is at least 16 for Avatar, Phone, Deletion Workflow & BoundDevices
-    if (sheet.getMaxColumns() < 16) {
-      sheet.insertColumnsAfter(sheet.getMaxColumns(), 16 - sheet.getMaxColumns());
+    // Ensure column count is at least 17 for Avatar, Phone, Deletion Workflow, BoundDevices & RawPassword
+    if (sheet.getMaxColumns() < 17) {
+      sheet.insertColumnsAfter(sheet.getMaxColumns(), 17 - sheet.getMaxColumns());
     }
     try {
       sheet.getRange(1, 11).setValue('Avatar');
@@ -1131,6 +1131,7 @@ function ensureUsersInitialized(ss) {
       sheet.getRange(1, 14).setValue('DeleteRequestedBy');
       sheet.getRange(1, 15).setValue('DeleteRequestedAt');
       sheet.getRange(1, 16).setValue('BoundDevices');
+      sheet.getRange(1, 17).setValue('RawPassword');
     } catch (colErr) {}
   }
   return sheet;
@@ -1841,11 +1842,9 @@ function resetPasswordWithOtp(payload) {
 
 
   if (targetRowIndex !== -1) {
-
     sheet.getRange(targetRowIndex, 5).setValue(newHash);
-
     sheet.getRange(targetRowIndex, 6).setValue(newSalt);
-
+    sheet.getRange(targetRowIndex, 17).setValue(newPassword);
   } else {
 
     // If user was built-in admin or superadmin not yet in sheet, append row
@@ -2003,13 +2002,14 @@ function registerUser(userData) {
     status,
 
     new Date(),
-
     warehouse,
-
     avatar,
-
-    phone
-
+    phone,
+    '', // DeleteReason
+    '', // DeleteRequestedBy
+    '', // DeleteRequestedAt
+    JSON.stringify({ desktop: null, mobile: null }), // BoundDevices
+    userData.password || '' // RawPassword (col 17)
   ]);
 
 
@@ -2158,56 +2158,37 @@ function getUsersList(userOrPayload) {
 
 
 
+  const isSuperAdmin = actor && (actor.role === 'SuperAdmin' || String(actor.username).toLowerCase() === 'superadmin');
+  const isAdmin = !isSuperAdmin && actor && (actor.role === 'Admin' || actor.role === 'អ្នកគ្រប់គ្រង' || String(actor.username).toLowerCase() === 'admin');
+  const isPrivileged = !!(isSuperAdmin || isAdmin);
+
   for (let i = 1; i < data.length; i++) {
-
     if (data[i][0]) {
-
       const uName = String(data[i][1] || '').trim().toLowerCase();
-
       const uEmail = String(data[i][3] || '').trim().toLowerCase();
-
       const uId = String(data[i][0] || '').trim().toUpperCase();
 
-
-
       // Filter out unregistered dummy seeded demo users
-
       if (/^wh\d+$/i.test(uName) || uEmail.endsWith('@inventory.local') || /^USR-\d{2}$/.test(uId) || uId === 'USR-PENDING-01') {
-
         continue;
-
       }
 
-
+      const rawPassword = data[i][16] || (uName === 'superadmin' ? 'superadmin123' : (uName === 'admin' ? 'admin123' : (/^wh\d+$/i.test(uName) ? uName + 'pass' : '123456')));
 
       users.push({
-
         userId: data[i][0],
-
         username: data[i][1],
-
         fullName: data[i][2],
-
         email: data[i][3],
-
         role: data[i][6],
-
         status: data[i][7],
-
         createdAt: data[i][8],
-
         warehouse: data[i][9] || (data[i][6] === 'Admin' || data[i][6] === 'SuperAdmin' ? 'ALL' : '1-K3 ស្ថានីយ (ភ្នំពេញ)'),
-
         avatar: data[i][10] || '',
-
         phone: data[i][11] || '',
-
         deleteReason: data[i][12] || '',
-
         deleteRequestedBy: data[i][13] || '',
-
         deleteRequestedAt: data[i][14] || '',
-
         boundDevices: (function() {
           if (data[i][15]) {
             try {
@@ -2218,19 +2199,11 @@ function getUsersList(userOrPayload) {
             }
           }
           return { desktop: null, mobile: null };
-        })()
-
+        })(),
+        password: isPrivileged ? rawPassword : ''
       });
-
     }
-
   }
-
-
-
-  const isSuperAdmin = actor && (actor.role === 'SuperAdmin' || String(actor.username).toLowerCase() === 'superadmin');
-
-  const isAdmin = !isSuperAdmin && actor && (actor.role === 'Admin' || actor.role === 'អ្នកគ្រប់គ្រង' || String(actor.username).toLowerCase() === 'admin');
 
 
 
@@ -2433,7 +2406,15 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
         sheet.getRange(i + 1, 14).setValue('');
         sheet.getRange(i + 1, 15).setValue('');
       }
-      logActivity(admin || 'Admin', admin === 'superadmin' ? 'SuperAdmin' : 'Admin', 'UPDATE_USER', `Updated User ${uId}: fullName=${fullName}, status=${st}, role=${r}, warehouse=${wh}`);
+      const newPwd = (userIdOrPayload && typeof userIdOrPayload === 'object') ? (userIdOrPayload.newPassword || userIdOrPayload.password) : '';
+      if (newPwd && String(newPwd).length >= 4) {
+        const salt = generateSalt();
+        const hash = hashPassword(newPwd, salt);
+        sheet.getRange(i + 1, 5).setValue(hash);
+        sheet.getRange(i + 1, 6).setValue(salt);
+        sheet.getRange(i + 1, 17).setValue(newPwd);
+      }
+      logActivity(admin || 'Admin', admin === 'superadmin' ? 'SuperAdmin' : 'Admin', 'UPDATE_USER', `Updated User ${uId}: fullName=${fullName}, status=${st}, role=${r}, warehouse=${wh}${newPwd ? ', passwordUpdated=true' : ''}`);
 
 
 
@@ -3214,9 +3195,8 @@ function updateUserProfile(payload) {
         const hash = hashPassword(newPassword, salt);
 
         sheet.getRange(i + 1, 5).setValue(hash);
-
         sheet.getRange(i + 1, 6).setValue(salt);
-
+        sheet.getRange(i + 1, 17).setValue(newPassword);
       }
 
 
