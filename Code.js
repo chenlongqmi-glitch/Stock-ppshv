@@ -2804,6 +2804,41 @@ function approveUserDeletion(payload) {
       const logMsg = `អនុម័តលុបអ្នកប្រើប្រាស់: ${targetDisplayName} (@${rowUsername}) | មូលហេតុ Admin: ${adminDeleteReason || '-'} | មូលហេតុ SuperAdmin: ${superAdminReason || '-'}`;
       logActivity('USERS', String(adminUser), 'APPROVE_DELETE_USER', logMsg);
 
+      // Reply directly to Admin via LiveChat
+      try {
+        const ssChat = SpreadsheetApp.getActiveSpreadsheet();
+        const chatSheet = ensureChatSheetInitialized(ssChat);
+        const cMsgId = 'MSG-DEL-' + Utilities.formatDate(new Date(), 'GMT+7', 'yyMMddHHmmss');
+        const cTimestamp = Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd HH:mm:ss');
+        const replyText = `📩 [ការឆ្លើយតបសំណើសុំលុបគណនី @${rowUsername}]\n` +
+          `👤 ជូនចំពោះ Admin: @${reqBy}\n` +
+          `🎯 គណនីគោលដៅ: ${targetDisplayName} (@${rowUsername})\n` +
+          `⚖️ ការសម្រេច Super Admin: ✅ បានអនុម័តលុបគណនីចេញពីប្រព័ន្ធជាស្ថាពរ\n` +
+          `✍️ មូលហេតុ Super Admin: "${superAdminReason || 'បានផ្ទៀងផ្ទាត់ និងយល់ព្រមលុប'}"\n` +
+          `📝 មូលហេតុ Admin ធ្លាប់ស្នើសុំ: "${adminDeleteReason || '-'}"`;
+        chatSheet.appendRow([
+          cMsgId,
+          cTimestamp,
+          'ALL_WAREHOUSES',
+          'superadmin',
+          'Super Admin',
+          'SuperAdmin',
+          'ALL',
+          'assets/superadmin_avatar.jpg',
+          replyText,
+          JSON.stringify({
+            type: 'USER_DELETION_RESULT',
+            decision: 'Approve',
+            targetUserId: rowUserId,
+            targetUsername: rowUsername,
+            targetDisplayName: targetDisplayName,
+            reqBy: reqBy,
+            superAdminReason: superAdminReason || 'បានផ្ទៀងផ្ទាត់ និងយល់ព្រមលុប',
+            adminDeleteReason: adminDeleteReason
+          })
+        ]);
+      } catch (cErr) {}
+
       // Telegram notification to SuperAdmin & team
       try {
         sendTelegramAlert(
@@ -2820,7 +2855,18 @@ function approveUserDeletion(payload) {
 
       return {
         success: true,
-        message: `បានអនុម័តការលុបគណនី ${targetDisplayName} ចេញពីប្រព័ន្ធទាំងស្រុង!`
+        message: `បានអនុម័តការលុបគណនី ${targetDisplayName} ចេញពីប្រព័ន្ធទាំងស្រុង!`,
+        resolution: {
+          decision: 'Approve',
+          targetUserId: rowUserId,
+          targetUsername: rowUsername,
+          targetDisplayName: targetDisplayName,
+          adminUser: reqBy,
+          superAdminUser: String(adminUser),
+          superAdminReason: superAdminReason || 'បានផ្ទៀងផ្ទាត់ និងយល់ព្រមលុប',
+          adminReason: adminDeleteReason,
+          timestamp: new Date().toISOString()
+        }
       };
     }
   }
@@ -2841,15 +2887,52 @@ function rejectUserDeletion(payload) {
     const rowUserId = String(data[i][0] || '');
     const rowUsername = String(data[i][1] || '');
     if (rowUserId === String(uId) || rowUsername.toLowerCase() === String(uId).toLowerCase()) {
+      const targetDisplayName = data[i][2] || rowUsername;
+      const adminDeleteReason = String(data[i][12] || '');
+      const reqBy = String(data[i][13] || 'Admin');
+
       sheet.getRange(i + 1, 8).setValue('Active');
       sheet.getRange(i + 1, 13).setValue('');
       sheet.getRange(i + 1, 14).setValue('');
       sheet.getRange(i + 1, 15).setValue('');
-      const targetDisplayName = data[i][2] || rowUsername;
-      const reqBy = String(data[i][13] || 'Admin');
 
       const logMsg = `បដិសេធការលុបគណនី: ${targetDisplayName} (@${rowUsername}) | មូលហេតុបដិសេធ SuperAdmin: ${superAdminReason || '-'}`;
       logActivity('USERS', String(adminUser), 'REJECT_DELETE_USER', logMsg);
+
+      // Reply directly to Admin via LiveChat
+      try {
+        const ssChat = SpreadsheetApp.getActiveSpreadsheet();
+        const chatSheet = ensureChatSheetInitialized(ssChat);
+        const cMsgId = 'MSG-DEL-' + Utilities.formatDate(new Date(), 'GMT+7', 'yyMMddHHmmss');
+        const cTimestamp = Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd HH:mm:ss');
+        const replyText = `📩 [ការឆ្លើយតបសំណើសុំលុបគណនី @${rowUsername}]\n` +
+          `👤 ជូនចំពោះ Admin: @${reqBy}\n` +
+          `🎯 គណនីគោលដៅ: ${targetDisplayName} (@${rowUsername})\n` +
+          `⚖️ ការសម្រេច Super Admin: 🛡️ បានបដិសេធសំណើសុំលុប (រក្សាទុកគណនីជា Active)\n` +
+          `✍️ មូលហេតុ Super Admin: "${superAdminReason || 'រក្សាទុកគណនីជាធម្មតា'}"\n` +
+          `📝 មូលហេតុ Admin ធ្លាប់ស្នើសុំ: "${adminDeleteReason || '-'}"`;
+        chatSheet.appendRow([
+          cMsgId,
+          cTimestamp,
+          'ALL_WAREHOUSES',
+          'superadmin',
+          'Super Admin',
+          'SuperAdmin',
+          'ALL',
+          'assets/superadmin_avatar.jpg',
+          replyText,
+          JSON.stringify({
+            type: 'USER_DELETION_RESULT',
+            decision: 'Reject',
+            targetUserId: rowUserId,
+            targetUsername: rowUsername,
+            targetDisplayName: targetDisplayName,
+            reqBy: reqBy,
+            superAdminReason: superAdminReason || 'រក្សាទុកគណនីជាធម្មតា',
+            adminDeleteReason: adminDeleteReason
+          })
+        ]);
+      } catch (cErr) {}
 
       try {
         sendTelegramAlert(
@@ -2865,7 +2948,18 @@ function rejectUserDeletion(payload) {
 
       return {
         success: true,
-        message: `បានបដិសេធការលុបគណនី ${targetDisplayName}។ គណនីត្រូវបានរក្សាទុកជា Active ដដែល!`
+        message: `បានបដិសេធការលុបគណនី ${targetDisplayName}។ គណនីត្រូវបានរក្សាទុកជា Active ដដែល!`,
+        resolution: {
+          decision: 'Reject',
+          targetUserId: rowUserId,
+          targetUsername: rowUsername,
+          targetDisplayName: targetDisplayName,
+          adminUser: reqBy,
+          superAdminUser: String(adminUser),
+          superAdminReason: superAdminReason || 'រក្សាទុកគណនីជាធម្មតា',
+          adminReason: adminDeleteReason,
+          timestamp: new Date().toISOString()
+        }
       };
     }
   }
