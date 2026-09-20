@@ -1631,272 +1631,216 @@
         </div>
 
         <!-- ========================================== -->
-                <!-- ========================================== -->
+        <!-- ========================================== -->
         <!-- TAB 3: STOCK IN (ស្តុកចូល) -->
         <!-- ========================================== -->
-        <div id="tabStockIn" class="max-w-6xl mx-auto space-y-6 hidden">
-          <div class="glass-card p-4 sm:p-6 rounded-3xl shadow-sm border border-slate-200/80 bg-white/95">
+        <div id="tabStockIn" class="w-full space-y-4 hidden">
+          <div class="glass-card p-4 sm:p-5 lg:p-6 rounded-2xl sm:rounded-3xl shadow-xs border border-slate-200/80 bg-white">
             <!-- Header Bar -->
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-4 border-b border-slate-100 gap-3">
-              <div class="flex items-center space-x-3">
-                <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center text-xl shadow-md shadow-emerald-500/20">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 mb-3 border-b border-slate-100 gap-2">
+              <div class="flex items-center space-x-2.5">
+                <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center text-lg shadow-sm shadow-emerald-500/20">
                   <i class="fa-solid fa-circle-arrow-down"></i>
                 </div>
                 <div>
-                  <h3 class="font-bold text-slate-800 text-base sm:text-lg leading-tight">កត់ត្រាទំនិញចូលស្តុក (Stock In Transaction)</h3>
+                  <h3 class="font-bold text-slate-800 text-base sm:text-lg leading-tight">កត់ត្រាទំនិញចូលស្តុក (Stock In)</h3>
                   <p class="text-xs text-slate-400 mt-0.5">កត់ត្រាការទិញចូលពី Supplier ឬទទួលទំនិញថ្មីចូលក្នុងឃ្លាំង</p>
                 </div>
               </div>
               <div class="flex items-center space-x-2 shrink-0">
                 <button type="button" onclick="generateStockInDocNo()" title="បង្កើតលេខឯកសារថ្មី"
-                  class="px-2.5 py-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition">
+                  class="h-9 px-3 bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition">
                   <i class="fa-solid fa-rotate text-xs"></i>
-                  <span>បង្កើតលេខកូដ</span>
+                  <span>បង្កើតកូដ</span>
                 </button>
                 <button type="button" onclick="openScannerModalForAction('stockin')"
-                  class="px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-300/80 rounded-xl text-xs font-semibold hover:bg-emerald-100 flex items-center space-x-1.5 transition">
+                  class="h-9 px-3.5 bg-emerald-50 text-emerald-700 border border-emerald-300 rounded-xl text-xs font-semibold hover:bg-emerald-100 flex items-center space-x-1.5 transition">
                   <i class="fa-solid fa-barcode text-xs"></i>
                   <span>ស្កេន Barcode</span>
                 </button>
               </div>
             </div>
 
-            <form id="stockInForm" onsubmit="handleStockInSubmit(event)" class="space-y-4">
+            <form id="stockInForm" onsubmit="handleStockInSubmit(event)" class="space-y-3">
               <!-- Hidden Old Stock & Pack Conversion Stores -->
               <input type="hidden" id="stockInOldStockValue" value="0">
               <input type="hidden" id="stockInPackQtyVal" value="1">
               <input type="hidden" id="stockInPackUnitVal" value="">
               <input type="hidden" id="stockInBaseUnitVal" value="ដុំ">
 
-              <!-- SECTION 1: DOCUMENT, WAREHOUSE & RECEIVER -->
-              <div class="p-3.5 sm:p-4 rounded-2xl bg-slate-50/90 border border-slate-200/80 space-y-3">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5 sm:gap-4">
-                  <!-- 1. លេខឯកសារ -->
-                  <div>
-                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center justify-between">
-                      <span><i class="fa-solid fa-file-invoice text-blue-600 mr-1"></i> លេខឯកសារ (Doc No) *</span>
-                      <button type="button" onclick="generateStockInDocNo()" class="text-xs text-blue-600 hover:underline font-semibold lowercase">auto</button>
-                    </label>
-                    <div class="relative">
-                      <input type="text" id="stockInDocNo" required
-                        placeholder="ឧ. DOC-IN-20260920-001"
-                        class="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-mono font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none shadow-2xs">
-                    </div>
-                  </div>
-
-                  <!-- 2. នាំចូលទៅឃ្លាំងណា -->
-                  <div>
-                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">
-                      <i class="fa-solid fa-warehouse text-emerald-600 mr-1"></i> នាំចូលទៅឃ្លាំងណា *
-                    </label>
-                    <div class="relative">
-                      <select id="stockInLocation" required
-                        class="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none shadow-2xs">
-                        <option value="1-K3 ស្ថានីយ (ភ្នំពេញ)">1-K3 ស្ថានីយ (ភ្នំពេញ)</option>
-                        <option value="2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)">2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)</option>
-                        <option value="3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)">3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)</option>
-                        <option value="4-K76 ស្ថានីយ (ត្រែងត្រយឹង)">4-K76 ស្ថានីយ (ត្រែងត្រយឹង)</option>
-                        <option value="5-K114 ស្ថានីយ (កំពង់សីលា)">5-K114 ស្ថានីយ (កំពង់សីលា)</option>
-                        <option value="6-K135 ស្ថានីយ (ស្រែអំបិល)">6-K135 ស្ថានីយ (ស្រែអំបិល)</option>
-                        <option value="7-K172 ស្ថានីយ (ស្ទឹងហាវ)">7-K172 ស្ថានីយ (ស្ទឹងហាវ)</option>
-                        <option value="8-K182 ស្ថានីយ (ព្រះសីហនុ)">8-K182 ស្ថានីយ (ព្រះសីហនុ)</option>
-                        <option value="中心库房 (ឃ្លាំងស្តុកនៅបុងសឹង)">中心库房 (ឃ្លាំងស្តុកនៅបុងសឹង)</option>
-                        <option value="机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)">机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
-                        <option value="综合办 (ផ្នែកកិច្ចការទូទៅ)">综合办 (ផ្នែកកិច្ចការទូទៅ)</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <!-- 3. អ្នកទទួលទំនិញចូល -->
-                  <div>
-                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center justify-between">
-                      <span><i class="fa-solid fa-user-check text-indigo-600 mr-1"></i> អ្នកទទួលទំនិញចូល *</span>
-                      <span class="text-[10px] text-emerald-600 font-bold"><i class="fa-solid fa-circle-check mr-0.5"></i>Auto</span>
-                    </label>
-                    <div class="relative">
-                      <input type="text" id="stockInReceiver" required placeholder="ឈ្មោះអ្នកទទួលទំនិញ"
-                        class="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none shadow-2xs">
-                    </div>
-                  </div>
+              <!-- ROW 1: PRIMARY DETAILS & PRODUCT IDENTIFIERS (12 Columns) -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-12 gap-3 items-end">
+                <!-- 1. Doc No (col-span-2) -->
+                <div class="lg:col-span-2">
+                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center justify-between">
+                    <span><i class="fa-solid fa-file-invoice text-blue-500 mr-1"></i> លេខឯកសារ *</span>
+                    <button type="button" onclick="generateStockInDocNo()" class="text-xs text-blue-600 hover:underline font-semibold lowercase">auto</button>
+                  </label>
+                  <input type="text" id="stockInDocNo" required placeholder="DOC-IN-..."
+                    class="w-full h-10.5 px-3 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-mono font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition">
                 </div>
-              </div>
 
-              <!-- SECTION 2: PRODUCT SEARCH & ATTRIBUTES -->
-              <div class="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-3.5">
-                <!-- ឈ្មោះទំនិញ (ស្វែងរកតាម Keyword: SKU, ឈ្មោះ, Barcode) -->
-                <div>
-                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1">
-                    <i class="fa-solid fa-magnifying-glass text-blue-600 mr-1"></i> ឈ្មោះទំនិញ (ស្វែងរកតាម Keyword: SKU, ឈ្មោះ, Barcode) *
+                <!-- 2. Location (col-span-2) -->
+                <div class="lg:col-span-2">
+                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1 truncate">
+                    <i class="fa-solid fa-warehouse text-emerald-600 mr-1"></i> នាំចូលឃ្លាំងណា *
+                  </label>
+                  <select id="stockInLocation" required
+                    class="w-full h-10.5 px-3 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition">
+                    <option value="1-K3 ស្ថានីយ (ភ្នំពេញ)">1-K3 ស្ថានីយ (ភ្នំពេញ)</option>
+                    <option value="2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)">2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)</option>
+                    <option value="3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)">3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)</option>
+                    <option value="4-K76 ស្ថានីយ (ត្រែងត្រយឹង)">4-K76 ស្ថានីយ (ត្រែងត្រយឹង)</option>
+                    <option value="5-K114 ស្ថានីយ (កំពង់សីលា)">5-K114 ស្ថានីយ (កំពង់សីលា)</option>
+                    <option value="6-K135 ស្ថានីយ (ស្រែអំបិល)">6-K135 ស្ថានីយ (ស្រែអំបិល)</option>
+                    <option value="7-K172 ស្ថានីយ (ស្ទឹងហាវ)">7-K172 ស្ថានីយ (ស្ទឹងហាវ)</option>
+                    <option value="8-K182 ស្ថានីយ (ព្រះសីហនុ)">8-K182 ស្ថានីយ (ព្រះសីហនុ)</option>
+                    <option value="中心库房 (ឃ្លាំងស្តុកនៅបុងសឹង)">中心库房 (ឃ្លាំងស្តុកនៅបុងសឹង)</option>
+                    <option value="机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)">机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
+                    <option value="综合办 (ផ្នែកកិច្ចការទូទៅ)">综合办 (ផ្នែកកិច្ចការទូទៅ)</option>
+                  </select>
+                </div>
+
+                <!-- 3. Receiver (col-span-2) -->
+                <div class="lg:col-span-2">
+                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1 truncate">
+                    <i class="fa-solid fa-user-check text-indigo-500 mr-1"></i> អ្នកទទួលទំនិញ *
+                  </label>
+                  <input type="text" id="stockInReceiver" required placeholder="ឈ្មោះអ្នកទទួល"
+                    class="w-full h-10.5 px-3 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition">
+                </div>
+
+                <!-- 4. Product Search (col-span-3) -->
+                <div class="lg:col-span-3">
+                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1 truncate">
+                    <i class="fa-solid fa-magnifying-glass text-blue-600 mr-1"></i> ឈ្មោះទំនិញ (Keyword/Barcode) *
                   </label>
                   <div class="relative">
-                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-slate-400 text-xs"></i>
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-xs"></i>
                     <input type="text" id="stockInSku" list="stockInDatalist" required
-                      placeholder="វាយពាក្យគន្លឹះ ឈ្មោះទំនិញ ឬ SKU / Barcode..." oninput="onStockInItemChange()"
-                      autocomplete="off"
-                      class="w-full pl-9 pr-10 py-2.5 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none shadow-2xs transition-colors">
+                      placeholder="វាយឈ្មោះទំនិញ ឬ SKU / Barcode..." oninput="onStockInItemChange()" autocomplete="off"
+                      class="w-full h-10.5 pl-8 pr-8 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition shadow-2xs">
                     <button type="button" onclick="document.getElementById('stockInSku').value=''; onStockInItemChange();"
-                      class="absolute right-3 top-3 text-slate-400 hover:text-slate-600 text-xs" title="សម្អាត">
+                      class="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 text-xs" title="សម្អាត">
                       <i class="fa-solid fa-xmark"></i>
                     </button>
                     <datalist id="stockInDatalist"></datalist>
                   </div>
                 </div>
 
-                <!-- Attributes: ខ្នាត - លេខកូដ - ពណ៌ & តំបន់ស្តុកទំនិញ -->
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
-                  <!-- លេខកូដទំនិញ -->
-                  <div>
-                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">
-                      <i class="fa-solid fa-barcode text-slate-400 mr-0.5"></i> លេខកូដ (Code/SKU)
-                    </label>
-                    <input type="text" id="stockInItemCode" readonly placeholder="កូដ SKU"
-                      class="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-700 outline-none">
-                  </div>
+                <!-- 5. Code SKU (col-span-1) -->
+                <div class="lg:col-span-1">
+                  <label class="block text-xs font-bold text-slate-600 uppercase mb-1 truncate">កូដ SKU</label>
+                  <input type="text" id="stockInItemCode" readonly placeholder="កូដ"
+                    class="w-full h-10.5 px-2.5 bg-slate-100 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-600 outline-none">
+                </div>
 
-                  <!-- ខ្នាត -->
-                  <div>
-                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">
-                      <i class="fa-solid fa-ruler-combined text-indigo-500 mr-0.5"></i> ខ្នាត (Size / Spec)
-                    </label>
-                    <input type="text" id="stockInSize" placeholder="330ml / 500g / 1L"
-                      class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none">
-                  </div>
+                <!-- 6. Size (col-span-1) -->
+                <div class="lg:col-span-1">
+                  <label class="block text-xs font-bold text-slate-600 uppercase mb-1 truncate">ខ្នាត (Size)</label>
+                  <input type="text" id="stockInSize" placeholder="ខ្នាត..."
+                    class="w-full h-10.5 px-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition">
+                </div>
 
-                  <!-- ពណ៌ -->
-                  <div>
-                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">
-                      <i class="fa-solid fa-palette text-amber-500 mr-0.5"></i> ពណ៌ (Color)
-                    </label>
-                    <input type="text" id="stockInColor" placeholder="ឧ. ខ្មៅ, ស, ក្រហម..."
-                      class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none">
-                  </div>
-
-                  <!-- តំបន់ស្តុកទំនិញ -->
-                  <div>
-                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">
-                      <i class="fa-solid fa-location-dot text-rose-500 mr-0.5"></i> តំបន់ស្តុកទំនិញ (Zone)
-                    </label>
-                    <input type="text" id="stockInZone" list="zoneOptions" placeholder="ឧ. តំបន់ A (Z-01)"
-                      class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 outline-none">
-                  </div>
+                <!-- 7. Color (col-span-1) -->
+                <div class="lg:col-span-1">
+                  <label class="block text-xs font-bold text-slate-600 uppercase mb-1 truncate">ពណ៌ (Color)</label>
+                  <input type="text" id="stockInColor" placeholder="ពណ៌..."
+                    class="w-full h-10.5 px-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition">
                 </div>
               </div>
 
-              <!-- SECTION 3: QUANTITY, DUAL-UNIT SYSTEM & STOCK CALCULATION -->
-              <div class="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-br from-emerald-50/40 via-white to-blue-50/30 border border-emerald-200/80 shadow-2xs space-y-3">
-                <!-- Dual-Unit Selection Header -->
-                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1 border-b border-emerald-100">
-                  <div class="flex items-center space-x-2">
-                    <div class="w-6 h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-xs shadow-xs">
-                      <i class="fa-solid fa-layer-group"></i>
-                    </div>
-                    <span class="text-xs font-extrabold text-emerald-950 uppercase">
-                      ឯកតា & បរិមាណចូលស្តុក (Unit & Quantity) *
-                    </span>
-                  </div>
-
-                  <!-- Toggle Buttons: Retail (រាយ) vs Bulk (កេស/ដុំ) -->
-                  <div class="inline-flex rounded-xl border border-emerald-300 bg-white p-0.5 text-xs font-bold shadow-3xs" id="stockInUnitModeWrapper">
+              <!-- ROW 2: QUANTITIES, UNIT SWITCHER, ZONE, NOTES, BUTTONS (12 Columns) -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-12 gap-3 items-end pt-1">
+                <!-- Dual-Unit Switcher (col-span-2) -->
+                <div class="lg:col-span-2">
+                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1 truncate">ជម្រើសឯកតា (Unit)</label>
+                  <div class="inline-flex w-full h-10.5 rounded-xl border border-emerald-300 bg-emerald-50/50 p-1 text-xs font-bold" id="stockInUnitModeWrapper">
                     <button type="button" id="btnStockInModeRetail" onclick="setStockInTransactionMode('RETAIL')"
-                      class="px-3 py-1 rounded-lg bg-emerald-600 text-white shadow-3xs transition flex items-center space-x-1">
-                      <i class="fa-solid fa-cube text-[10px]"></i>
-                      <span id="labelStockInModeRetail">ជារាយ (Retail)</span>
+                      class="flex-1 py-1 rounded-lg bg-emerald-600 text-white transition flex items-center justify-center space-x-1.5 shadow-2xs">
+                      <i class="fa-solid fa-cube text-xs"></i>
+                      <span id="labelStockInModeRetail">ជារាយ</span>
                     </button>
                     <button type="button" id="btnStockInModeBulk" onclick="setStockInTransactionMode('BULK')"
-                      class="px-3 py-1 rounded-lg text-emerald-800 hover:bg-emerald-50 transition flex items-center space-x-1">
-                      <i class="fa-solid fa-boxes-stacked text-[10px]"></i>
-                      <span id="labelStockInModeBulk">ជាដុំ/កេស (Bulk)</span>
+                      class="flex-1 py-1 rounded-lg text-emerald-800 hover:bg-emerald-100 transition flex items-center justify-center space-x-1.5">
+                      <i class="fa-solid fa-boxes-stacked text-xs"></i>
+                      <span id="labelStockInModeBulk">ជាដុំ/កេស</span>
                     </button>
                   </div>
                   <input type="hidden" id="stockInUnitMode" value="RETAIL">
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-1">
-                  <!-- 1. ចំនួនស្តុកចាស់ -->
-                  <div class="p-3.5 rounded-2xl bg-blue-50/80 border border-blue-200 flex flex-col justify-between">
-                    <div class="flex items-center justify-between mb-1">
-                      <span class="text-xs font-bold text-blue-800 uppercase tracking-wide">
-                        <i class="fa-solid fa-clock-rotate-left mr-1"></i> ចំនួនស្តុកចាស់
-                      </span>
-                      <span class="w-2 h-2 rounded-full bg-blue-400"></span>
-                    </div>
-                    <div class="text-xl sm:text-2xl font-black text-blue-900 tracking-tight" id="stockInOldStockDisplay">
-                      0 ដុំ
-                    </div>
-                    <p class="text-[10px] text-blue-600/90 mt-1 font-medium" id="stockInOldStockDetail">ស្តុកក្នុងដៃមុនពេលបញ្ចូល</p>
+                <!-- Old Stock (col-span-1) -->
+                <div class="lg:col-span-1">
+                  <label class="block text-xs font-bold text-slate-600 uppercase mb-1 truncate" id="stockInOldStockDetail">ស្តុកចាស់</label>
+                  <div class="w-full h-10.5 px-3 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center">
+                    <span class="text-sm font-black text-slate-800 truncate" id="stockInOldStockDisplay">0 ដុំ</span>
                   </div>
+                </div>
 
-                  <!-- 2. ចំនួនចូលស្តុក -->
-                  <div class="p-3.5 rounded-2xl bg-emerald-50/90 border-2 border-emerald-400/90 shadow-sm flex flex-col justify-between">
-                    <div class="flex items-center justify-between mb-1">
-                      <span class="text-xs font-bold text-emerald-900 uppercase tracking-wide flex items-center">
-                        <i class="fa-solid fa-arrow-down mr-1"></i> ចំនួនចូលស្តុក *
-                      </span>
-                      <span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-emerald-200 text-emerald-900 border border-emerald-300" id="stockInActiveUnitBadge">
-                        រាយ
-                      </span>
-                    </div>
+                <!-- Qty In Input (col-span-2) -->
+                <div class="lg:col-span-2">
+                  <label class="block text-xs font-bold text-emerald-900 uppercase mb-1 flex items-center justify-between">
+                    <span><i class="fa-solid fa-arrow-down text-emerald-600 mr-1"></i> ចំនួនចូលស្តុក *</span>
+                    <span class="text-xs font-extrabold text-emerald-700" id="stockInActiveUnitBadge">រាយ</span>
+                  </label>
+                  <div class="relative">
                     <input type="number" id="stockInQty" inputmode="decimal" required min="1" step="any" placeholder="0"
                       oninput="calculateStockInCalculations()"
-                      class="w-full px-3 py-1.5 bg-white border border-emerald-300 rounded-xl text-xl sm:text-2xl font-black text-emerald-700 focus:ring-2 focus:ring-emerald-500 outline-none shadow-2xs">
-                    <p class="text-[10px] text-emerald-700/90 mt-1 font-medium" id="stockInInputHelper">វាយចំនួនទំនិញដែលបានទទួល</p>
+                      class="w-full h-10.5 text-center bg-emerald-50/60 border-2 border-emerald-400 rounded-xl px-3 text-base sm:text-lg font-black text-emerald-800 outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition shadow-2xs">
                   </div>
+                  <p class="hidden text-[10px] text-emerald-700 font-medium" id="stockInInputHelper"></p>
+                </div>
 
-                  <!-- 3. ចំនួនស្តុកសរុប បច្ចុប្បន្ន -->
-                  <div class="p-3.5 rounded-2xl bg-gradient-to-br from-emerald-600 via-teal-600 to-emerald-700 text-white shadow-md shadow-emerald-900/20 flex flex-col justify-between">
-                    <div class="flex items-center justify-between mb-1">
-                      <span class="text-xs font-bold text-emerald-100 uppercase tracking-wide">
-                        <i class="fa-solid fa-calculator mr-1"></i> ស្តុកសរុប បច្ចុប្បន្ន
-                      </span>
-                      <span class="px-1.5 py-0.5 rounded-md text-[9px] font-extrabold bg-white/20 text-white border border-white/30">Auto</span>
-                    </div>
-                    <div class="text-xl sm:text-2xl font-black text-white tracking-tight drop-shadow-xs" id="stockInNewTotalDisplay">
-                      0 ដុំ
-                    </div>
-                    <p class="text-[10px] text-emerald-100/90 mt-1 font-medium" id="stockInNewTotalDetail">ស្តុកចាស់ + ចំនួនទំនិញចូលថ្មី</p>
+                <!-- New Total Stock (col-span-1) -->
+                <div class="lg:col-span-1">
+                  <label class="block text-xs font-bold text-emerald-800 uppercase mb-1 truncate" id="stockInNewTotalDetail">ស្តុកថ្មីសរុប</label>
+                  <div class="w-full h-10.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 text-white flex items-center justify-center shadow-xs">
+                    <span class="text-sm font-black text-white truncate" id="stockInNewTotalDisplay">0 ដុំ</span>
                   </div>
                 </div>
 
-                <!-- Live Unit Conversion Formula Pill -->
-                <div id="stockInUnitConversionNotice" class="hidden px-3.5 py-2 bg-emerald-100/70 border border-emerald-300 rounded-xl text-xs font-semibold text-emerald-900 flex items-center justify-between shadow-3xs">
-                  <span class="flex items-center space-x-1.5">
-                    <i class="fa-solid fa-wand-magic-sparkles text-emerald-600"></i>
-                    <span id="stockInUnitConversionNoticeText">រូបមន្តបំប្លែង៖ 1 កេស = 24 កំប៉ុង</span>
-                  </span>
-                  <span class="text-[10px] text-emerald-700 font-bold bg-white/80 px-2 py-0.5 rounded-md border border-emerald-200" id="stockInEffectiveConversionBadge">
-                    = 0 រាយ
-                  </span>
+                <!-- Zone (col-span-1) -->
+                <div class="lg:col-span-1">
+                  <label class="block text-xs font-bold text-slate-600 uppercase mb-1 truncate">
+                    <i class="fa-solid fa-location-dot text-rose-500 mr-0.5"></i> តំបន់ (Zone)
+                  </label>
+                  <input type="text" id="stockInZone" list="zoneOptions" placeholder="Zone..." title="តំបន់ស្តុក (Zone)"
+                    class="w-full h-10.5 px-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition">
                 </div>
-              </div>
 
-              <!-- SECTION 4: NOTES -->
-              <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">
-                  <i class="fa-solid fa-note-sticky text-amber-500 mr-1"></i> កំណត់សម្គាល់បន្ថែម (Notes)
-                </label>
-                <textarea id="stockInNotes" rows="2" placeholder="ព័ត៌មានលម្អិតបន្ថែម ដូចជាលេខវិក្កយបត្រ ស្ថានភាពទំនិញ ឬអ្នកប្រគល់ទំនិញ..."
-                  class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 outline-none"></textarea>
-              </div>
+                <!-- Notes Input (col-span-3) -->
+                <div class="lg:col-span-3 relative">
+                  <label class="block text-xs font-bold text-slate-600 uppercase mb-1 truncate">
+                    <i class="fa-solid fa-note-sticky text-amber-500 mr-1"></i> កំណត់សម្គាល់បន្ថែម
+                  </label>
+                  <input type="text" id="stockInNotes" placeholder="លេខវិក្កយបត្រ, ស្ថានភាព..."
+                    class="w-full h-10.5 px-3 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition">
+                  <div id="stockInUnitConversionNotice" class="hidden absolute -top-5 right-0 text-xs font-semibold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-300">
+                    <span id="stockInUnitConversionNoticeText">1 កេស = 24</span>
+                    <span class="font-black text-emerald-700 ml-1" id="stockInEffectiveConversionBadge">= 0</span>
+                  </div>
+                </div>
 
-              <!-- SUBMIT BUTTONS -->
-              <div class="pt-3 flex items-center justify-between">
-                <button type="button" onclick="document.getElementById('stockInForm').reset(); generateStockInDocNo(); initStockInForm(); onStockInItemChange();"
-                  class="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-600 hover:bg-slate-100 text-xs font-bold transition flex items-center space-x-1.5">
-                  <i class="fa-solid fa-rotate-left"></i>
-                  <span>សម្អាតទម្រង់</span>
-                </button>
-
-                <button type="submit" id="btnSubmitStockIn"
-                  class="px-7 py-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/25 transition-all flex items-center space-x-2 text-sm hover:scale-[1.02] active:scale-[0.98]">
-                  <i class="fa-solid fa-check"></i>
-                  <span>រក្សាទុកទំនិញចូលស្តុក</span>
-                </button>
+                <!-- Action Buttons (col-span-2) -->
+                <div class="lg:col-span-2 flex items-center space-x-2">
+                  <button type="button" onclick="document.getElementById('stockInForm').reset(); generateStockInDocNo(); initStockInForm(); onStockInItemChange();"
+                    class="flex-1 h-10.5 px-3 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-1.5 shadow-2xs">
+                    <i class="fa-solid fa-rotate-left text-xs"></i>
+                    <span>សម្អាត</span>
+                  </button>
+                  <button type="submit" id="btnSubmitStockIn"
+                    class="flex-1 h-10.5 px-3 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold rounded-xl shadow-sm transition flex items-center justify-center space-x-1.5 text-xs sm:text-sm hover:scale-[1.01] active:scale-[0.99]">
+                    <i class="fa-solid fa-check text-xs"></i>
+                    <span>រក្សាទុក</span>
+                  </button>
+                </div>
               </div>
             </form>
           </div>
 
           <!-- TABLE LIST CARD (ខាងក្រោម: បញ្ជីបង្ហាញពីទិន្នន័យចូល) -->
-          <div class="glass-card p-4 sm:p-6 rounded-3xl shadow-sm border border-slate-200/80 bg-white/95 space-y-4">
+          <div class="glass-card p-4 sm:p-5 lg:p-6 rounded-2xl sm:rounded-3xl shadow-xs border border-slate-200/80 bg-white space-y-4">
             <!-- Header of list -->
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
               <div class="flex items-center space-x-3">
@@ -1915,12 +1859,12 @@
               <!-- Search & Refresh -->
               <div class="flex items-center space-x-2">
                 <div class="relative flex-1 sm:flex-initial">
-                  <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                  <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-xs"></i>
                   <input type="text" id="stockInHistorySearch" oninput="filterStockInHistoryTable()" placeholder="ស្វែងរកតាមលេខឯកសារ, ឈ្មោះ, SKU..."
-                    class="w-full sm:w-64 pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm outline-none focus:ring-2 focus:ring-emerald-500 transition">
+                    class="w-full sm:w-64 pl-8 pr-3 h-9 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm outline-none focus:ring-2 focus:ring-emerald-500 transition">
                 </div>
                 <button type="button" onclick="loadStockInHistory()" title="ផ្ទុកទិន្នន័យឡើងវិញ"
-                  class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs sm:text-sm font-bold transition flex items-center space-x-1 border border-slate-200 shadow-3xs shrink-0">
+                  class="h-9 px-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs sm:text-sm font-bold transition flex items-center space-x-1.5 border border-slate-200 shadow-3xs shrink-0">
                   <i class="fa-solid fa-rotate text-xs"></i>
                   <span class="hidden sm:inline">Refresh</span>
                 </button>
@@ -1945,7 +1889,7 @@
                 </thead>
                 <tbody id="stockInHistoryTableBody" class="divide-y divide-slate-100 bg-white">
                   <tr>
-                    <td colspan="9" class="text-center py-8 text-slate-400">
+                    <td colspan="9" class="text-center py-8 text-slate-400 text-sm">
                       <i class="fa-solid fa-spinner fa-spin text-lg mb-1 block text-emerald-500"></i>
                       កំពុងផ្ទុកទិន្នន័យ...
                     </td>
@@ -1956,230 +1900,199 @@
           </div>
         </div>
 
+        <!-- ========================================== -->
         <!-- TAB 4: STOCK OUT (ស្តុកចេញ) -->
         <!-- ========================================== -->
-        <div id="tabStockOut" class="max-w-6xl mx-auto space-y-6 hidden">
-          <div class="glass-card p-4 sm:p-6 rounded-3xl shadow-sm border border-slate-200/80 bg-white/95">
+        <div id="tabStockOut" class="w-full space-y-4 hidden">
+          <div class="glass-card p-4 sm:p-5 lg:p-6 rounded-2xl sm:rounded-3xl shadow-xs border border-slate-200/80 bg-white">
             <!-- Header Bar -->
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 mb-4 border-b border-slate-100 gap-3">
-              <div class="flex items-center space-x-3">
-                <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 text-white flex items-center justify-center text-xl shadow-md shadow-amber-500/20">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 mb-3 border-b border-slate-100 gap-2">
+              <div class="flex items-center space-x-2.5">
+                <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 text-white flex items-center justify-center text-lg shadow-sm shadow-amber-500/20">
                   <i class="fa-solid fa-circle-arrow-up"></i>
                 </div>
                 <div>
-                  <h3 class="font-bold text-slate-800 text-base sm:text-lg leading-tight">កត់ត្រាទំនិញចេញពីស្តុក (Stock Out Transaction)</h3>
+                  <h3 class="font-bold text-slate-800 text-base sm:text-lg leading-tight">កត់ត្រាទំនិញចេញពីស្តុក (Stock Out)</h3>
                   <p class="text-xs text-slate-400 mt-0.5">កត់ត្រាការបើកទំនិញចេញ ការផ្ទេរទៅស្ថានីយ ឬការដកប្រើប្រាស់</p>
                 </div>
               </div>
               <div class="flex items-center space-x-2 shrink-0">
                 <button type="button" onclick="generateStockOutDocNo()" title="បង្កើតលេខឯកសារថ្មី"
-                  class="px-2.5 py-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition">
+                  class="h-9 px-3 bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition">
                   <i class="fa-solid fa-rotate text-xs"></i>
-                  <span>បង្កើតលេខកូដ</span>
+                  <span>បង្កើតកូដ</span>
                 </button>
                 <button type="button" onclick="openScannerModalForAction('stockout')"
-                  class="px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-300/80 rounded-xl text-xs font-semibold hover:bg-amber-100 flex items-center space-x-1.5 transition">
+                  class="h-9 px-3.5 bg-amber-50 text-amber-700 border border-amber-300 rounded-xl text-xs font-semibold hover:bg-amber-100 flex items-center space-x-1.5 transition">
                   <i class="fa-solid fa-barcode text-xs"></i>
                   <span>ស្កេន Barcode</span>
                 </button>
               </div>
             </div>
 
-            <form id="stockOutForm" onsubmit="handleStockOutSubmit(event)" class="space-y-4">
+            <form id="stockOutForm" onsubmit="handleStockOutSubmit(event)" class="space-y-3">
               <!-- Hidden Old Stock Store -->
               <input type="hidden" id="stockOutOldStockValue" value="0">
 
-              <!-- SECTION 1: DOCUMENT & RECIPIENT -->
-              <div class="p-3.5 sm:p-4 rounded-2xl bg-slate-50/90 border border-slate-200/80 space-y-3">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5 sm:gap-4">
-                  <!-- 1. លេខឯកសារ -->
-                  <div>
-                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center justify-between">
-                      <span><i class="fa-solid fa-file-export text-blue-600 mr-1"></i> លេខឯកសារ (Doc No) *</span>
-                      <button type="button" onclick="generateStockOutDocNo()" class="text-xs text-blue-600 hover:underline font-semibold lowercase">auto</button>
-                    </label>
-                    <input type="text" id="stockOutDocNo" required
-                      placeholder="ឧ. DOC-OUT-20260920-001"
-                      class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-mono font-bold text-slate-800 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none shadow-2xs">
-                  </div>
-
-                  <!-- 2. នាំចេញទៅឃ្លាំង ឬស្ថានីយណា -->
-                  <div>
-                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">
-                      <i class="fa-solid fa-warehouse text-amber-600 mr-1"></i> នាំចេញទៅឃ្លាំង ឬស្ថានីយណា *
-                    </label>
-                    <select id="stockOutToLocation" required
-                      class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none shadow-2xs">
-                      <option value="1-K3 ស្ថានីយ (ភ្នំពេញ)">1-K3 ស្ថានីយ (ភ្នំពេញ)</option>
-                      <option value="2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)">2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)</option>
-                      <option value="3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)">3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)</option>
-                      <option value="4-K76 ស្ថានីយ (ត្រែងត្រយឹង)">4-K76 ស្ថានីយ (ត្រែងត្រយឹង)</option>
-                      <option value="5-K114 ស្ថានីយ (កំពង់សីលា)">5-K114 ស្ថានីយ (កំពង់សីលា)</option>
-                      <option value="6-K135 ស្ថានីយ (ស្រែអំបិល)">6-K135 ស្ថានីយ (ស្រែអំបិល)</option>
-                      <option value="7-K172 ស្ថានីយ (ស្ទឹងហាវ)">7-K172 ស្ថានីយ (ស្ទឹងហាវ)</option>
-                      <option value="8-K182 ស្ថានីយ (ព្រះសីហនុ)">8-K182 ស្ថានីយ (ព្រះសីហនុ)</option>
-                      <option value="中心库房 (ឃ្លាំងស្តុកនៅបុងសឹង)">中心库房 (ឃ្លាំងស្តុកនៅបុងសឹង)</option>
-                      <option value="机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)">机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
-                      <option value="综合办 (ផ្នែកកិច្ចការទូទៅ)">综合办 (ផ្នែកកិច្ចការទូទៅ)</option>
-                      <option value="អតិថិជនក្រៅ (External Customer)">អតិថិជនក្រៅ (External Customer)</option>
-                    </select>
-                  </div>
-
-                  <!-- 3. អ្នកបើកទំនិញចេញ -->
-                  <div>
-                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">
-                      <i class="fa-solid fa-user-check text-indigo-600 mr-1"></i> អ្នកបើកទំនិញចេញ (Issuer) *
-                    </label>
-                    <input type="text" id="stockOutIssuer" required
-                      placeholder="ឈ្មោះអ្នកបើកចេញ / អ្នកទទួល..."
-                      class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none shadow-2xs">
-                  </div>
+              <!-- ROW 1: PRIMARY DETAILS & PRODUCT IDENTIFIERS (12 Columns) -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-12 gap-3 items-end">
+                <!-- 1. Doc No (col-span-2) -->
+                <div class="lg:col-span-2">
+                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center justify-between">
+                    <span><i class="fa-solid fa-file-export text-blue-500 mr-1"></i> លេខឯកសារ *</span>
+                    <button type="button" onclick="generateStockOutDocNo()" class="text-xs text-blue-600 hover:underline font-semibold lowercase">auto</button>
+                  </label>
+                  <input type="text" id="stockOutDocNo" required placeholder="DOC-OUT-..."
+                    class="w-full h-10.5 px-3 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-mono font-bold text-slate-800 focus:ring-2 focus:ring-amber-500 focus:bg-white outline-none transition">
                 </div>
-              </div>
 
-              <!-- SECTION 2: PRODUCT SEARCH & ATTRIBUTES -->
-              <div class="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-3.5">
-                <!-- ឈ្មោះទំនិញ -->
-                <div>
-                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1">
-                    <i class="fa-solid fa-magnifying-glass text-amber-600 mr-1"></i> ឈ្មោះទំនិញ (ស្វែងរកតាម Keyword: SKU, ឈ្មោះ, Barcode) *
+                <!-- 2. Location (col-span-2) -->
+                <div class="lg:col-span-2">
+                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1 truncate">
+                    <i class="fa-solid fa-warehouse text-amber-600 mr-1"></i> នាំចេញទៅឃ្លាំងណា *
+                  </label>
+                  <select id="stockOutToLocation" required
+                    class="w-full h-10.5 px-3 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-amber-500 focus:bg-white outline-none transition">
+                    <option value="1-K3 ស្ថានីយ (ភ្នំពេញ)">1-K3 ស្ថានីយ (ភ្នំពេញ)</option>
+                    <option value="2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)">2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)</option>
+                    <option value="3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)">3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)</option>
+                    <option value="4-K76 ស្ថានីយ (ត្រែងត្រយឹង)">4-K76 ស្ថានីយ (ត្រែងត្រយឹង)</option>
+                    <option value="5-K114 ស្ថានីយ (កំពង់សីលា)">5-K114 ស្ថានីយ (កំពង់សីលា)</option>
+                    <option value="6-K135 ស្ថានីយ (ស្រែអំបិល)">6-K135 ស្ថានីយ (ស្រែអំបិល)</option>
+                    <option value="7-K172 ស្ថានីយ (ស្ទឹងហាវ)">7-K172 ស្ថានីយ (ស្ទឹងហាវ)</option>
+                    <option value="8-K182 ស្ថានីយ (ព្រះសីហនុ)">8-K182 ស្ថានីយ (ព្រះសីហនុ)</option>
+                    <option value="中心库房 (ឃ្លាំងស្តុកនៅបុងសឹង)">中心库房 (ឃ្លាំងស្តុកនៅបុងសឹង)</option>
+                    <option value="机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)">机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
+                    <option value="综合办 (ផ្នែកកិច្ចការទូទៅ)">综合办 (ផ្នែកកិច្ចការទូទៅ)</option>
+                    <option value="អតិថិជនក្រៅ (External Customer)">អតិថិជនក្រៅ (External Customer)</option>
+                  </select>
+                </div>
+
+                <!-- 3. Issuer (col-span-2) -->
+                <div class="lg:col-span-2">
+                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1 truncate">
+                    <i class="fa-solid fa-user-check text-indigo-500 mr-1"></i> អ្នកបើកចេញ *
+                  </label>
+                  <input type="text" id="stockOutIssuer" required placeholder="ឈ្មោះអ្នកបើកចេញ"
+                    class="w-full h-10.5 px-3 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-amber-500 focus:bg-white outline-none transition">
+                </div>
+
+                <!-- 4. Product Search (col-span-3) -->
+                <div class="lg:col-span-3">
+                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1 truncate">
+                    <i class="fa-solid fa-magnifying-glass text-amber-600 mr-1"></i> ឈ្មោះទំនិញ (Keyword/Barcode) *
                   </label>
                   <div class="relative">
-                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-slate-400 text-xs"></i>
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-xs"></i>
                     <input type="text" id="stockOutSku" list="stockOutDatalist" required
-                      placeholder="វាយពាក្យគន្លឹះ ឈ្មោះទំនិញ ឬ SKU / Barcode..." oninput="onStockOutItemChange()"
-                      autocomplete="off"
-                      class="w-full pl-9 pr-10 py-2.5 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-amber-500 focus:bg-white outline-none shadow-2xs transition-colors">
+                      placeholder="វាយឈ្មោះទំនិញ ឬ SKU / Barcode..." oninput="onStockOutItemChange()" autocomplete="off"
+                      class="w-full h-10.5 pl-8 pr-8 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-amber-500 focus:bg-white outline-none transition shadow-2xs">
                     <button type="button" onclick="document.getElementById('stockOutSku').value=''; onStockOutItemChange();"
-                      class="absolute right-3 top-3 text-slate-400 hover:text-slate-600 text-xs" title="សម្អាត">
+                      class="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 text-xs" title="សម្អាត">
                       <i class="fa-solid fa-xmark"></i>
                     </button>
                     <datalist id="stockOutDatalist"></datalist>
                   </div>
                 </div>
 
-                <!-- ខ្នាត - លេខកូដ - ពណ៌ -->
-                <div class="grid grid-cols-3 gap-3 pt-1">
-                  <!-- លេខកូដ -->
-                  <div>
-                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">
-                      <i class="fa-solid fa-barcode text-slate-400 mr-0.5"></i> លេខកូដ (Code/SKU)
-                    </label>
-                    <input type="text" id="stockOutItemCode" readonly placeholder="កូដ SKU"
-                      class="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-700 outline-none">
-                  </div>
+                <!-- 5. Code SKU (col-span-1) -->
+                <div class="lg:col-span-1">
+                  <label class="block text-xs font-bold text-slate-600 uppercase mb-1 truncate">កូដ SKU</label>
+                  <input type="text" id="stockOutItemCode" readonly placeholder="កូដ"
+                    class="w-full h-10.5 px-2.5 bg-slate-100 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-600 outline-none">
+                </div>
 
-                  <!-- ខ្នាត / ឯកតា -->
-                  <div>
-                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">
-                      <i class="fa-solid fa-ruler text-slate-400 mr-0.5"></i> ខ្នាត / ឯកតា (Unit)
-                    </label>
-                    <input type="text" id="stockOutUnit" placeholder="ដុំ / កេស / ប្រអប់" oninput="calculateStockOutCalculations()"
-                      class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-amber-500 outline-none">
-                  </div>
+                <!-- 6. Unit (col-span-1) -->
+                <div class="lg:col-span-1">
+                  <label class="block text-xs font-bold text-slate-600 uppercase mb-1 truncate">ឯកតា (Unit)</label>
+                  <input type="text" id="stockOutUnit" placeholder="ដុំ" oninput="calculateStockOutCalculations()"
+                    class="w-full h-10.5 px-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition">
+                </div>
 
-                  <!-- ពណ៌ -->
-                  <div>
-                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">
-                      <i class="fa-solid fa-palette text-amber-500 mr-0.5"></i> ពណ៌ (Color)
-                    </label>
-                    <input type="text" id="stockOutColor" placeholder="ឧ. ខ្មៅ, ស, ក្រហម..."
-                      class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-amber-500 outline-none">
-                  </div>
+                <!-- 7. Color (col-span-1) -->
+                <div class="lg:col-span-1">
+                  <label class="block text-xs font-bold text-slate-600 uppercase mb-1 truncate">ពណ៌ (Color)</label>
+                  <input type="text" id="stockOutColor" placeholder="ពណ៌..."
+                    class="w-full h-10.5 px-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition">
                 </div>
               </div>
 
-              <!-- SECTION 3: STOCK QUANTITY COMPARISON CARDS -->
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-1">
-                <!-- ចំនួនសល់ក្នុងស្តុកចាស់ -->
-                <div class="p-3.5 rounded-2xl bg-slate-100 border border-slate-300/80 flex flex-col justify-between">
-                  <div class="flex items-center justify-between mb-1">
-                    <span class="text-xs font-bold text-slate-700 uppercase tracking-wide">
-                      <i class="fa-solid fa-boxes-stacked mr-1"></i> ស្តុកចាស់ក្នុងដៃ (Available)
-                    </span>
-                    <span class="w-2 h-2 rounded-full bg-slate-400"></span>
-                  </div>
-                  <div class="text-xl sm:text-2xl font-black text-slate-800 tracking-tight" id="stockOutOldStockDisplay">
-                    0 ដុំ
-                  </div>
-                  <p class="text-[10px] text-slate-500 mt-1" id="stockOutMinWarning">ស្តុកដែលមានអាចបើកចេញបាន</p>
-                </div>
-
-                <!-- ចំនួនបើកចេញ -->
-                <div class="p-3.5 rounded-2xl bg-amber-50/90 border-2 border-amber-400/80 shadow-sm flex flex-col justify-between">
-                  <div class="flex items-center justify-between mb-1">
-                    <span class="text-xs font-bold text-amber-900 uppercase tracking-wide">
-                      <i class="fa-solid fa-arrow-up mr-1"></i> ចំនួនបើកចេញ (Issue Qty) *
-                    </span>
-                    <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-                  </div>
-                  <input type="number" id="stockOutQty" inputmode="decimal" required min="1" step="any" placeholder="0"
-                    oninput="calculateStockOutCalculations()"
-                    class="w-full px-3 py-1.5 bg-white border border-amber-300 rounded-xl text-xl sm:text-2xl font-black text-amber-700 focus:ring-2 focus:ring-amber-500 outline-none shadow-2xs">
-                  <p class="text-[10px] text-amber-700/80 mt-1 font-medium">បញ្ចូលចំនួនទំនិញដែលត្រូវបើកចេញ</p>
-                </div>
-
-                <!-- ចំនួនសល់ក្នុងស្តុកសរុបបច្ចុប្បន្ន -->
-                <div id="stockOutRemainingCard" class="p-3.5 rounded-2xl bg-gradient-to-br from-slate-800 via-slate-900 to-indigo-950 text-white shadow-md shadow-slate-950/20 flex flex-col justify-between transition-colors">
-                  <div class="flex items-center justify-between mb-1">
-                    <span class="text-xs font-bold text-amber-200 uppercase tracking-wide">
-                      <i class="fa-solid fa-calculator mr-1"></i> ស្តុកសរុបនៅសល់ (Remaining)
-                    </span>
-                    <span class="px-1.5 py-0.5 rounded-md text-[9px] font-extrabold bg-white/20 text-white border border-white/30">Auto</span>
-                  </div>
-                  <div class="text-xl sm:text-2xl font-black text-white tracking-tight drop-shadow-xs" id="stockOutRemainingDisplay">
-                    0 ដុំ
-                  </div>
-                  <p class="text-[10px] text-slate-300 mt-1" id="stockOutRemainingNote">ស្តុកចាស់ − ចំនួនបើកចេញ</p>
-                </div>
-              </div>
-
-              <!-- SECTION 4: REASON & NOTES -->
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5 pt-1">
-                <div>
-                  <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                    <i class="fa-solid fa-clipboard-question text-slate-400 mr-1"></i> មូលហេតុនៃការដកចេញ
+              <!-- ROW 2: REASON, QUANTITIES, NOTES, BUTTONS (12 Columns) -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-12 gap-3 items-end pt-1">
+                <!-- Reason (col-span-2) -->
+                <div class="lg:col-span-2">
+                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1 truncate">
+                    <i class="fa-solid fa-clipboard-question text-slate-400 mr-1"></i> មូលហេតុនៃការដក
                   </label>
                   <select id="stockOutReason"
-                    class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-amber-500 outline-none">
+                    class="w-full h-10.5 px-3 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-amber-500 focus:bg-white outline-none transition">
                     <option value="លក់ចេញ (Sale)">លក់ចេញ (Sale)</option>
-                    <option value="ដកប្រើប្រាស់ផ្ទៃក្នុង (Internal Use)">ដកប្រើប្រាស់ផ្ទៃក្នុង (Internal Use)</option>
+                    <option value="ដកប្រើប្រាស់ផ្ទៃក្នុង (Internal Use)">ដកប្រើប្រាស់ផ្ទៃក្នុង</option>
                     <option value="ផ្ទេរទៅស្ថានីយ (Transfer)">ផ្ទេរទៅស្ថានីយ (Transfer)</option>
-                    <option value="ជួសជុល និងថែទាំ (Maintenance)">ជួសជុល និងថែទាំ (Maintenance)</option>
+                    <option value="ជួសជុល និងថែទាំ (Maintenance)">ជួសជុល & ថែទាំ</option>
                     <option value="ទំនិញគំរូ (Sample)">ទំនិញគំរូ (Sample)</option>
-                    <option value="ខូចគុណភាព/បាត់បង់ (Damaged/Lost)">ខូចគុណភាព/បាត់បង់ (Damaged/Lost)</option>
+                    <option value="ខូចគុណភាព/បាត់បង់ (Damaged/Lost)">ខូចគុណភាព / បាត់បង់</option>
                     <option value="ផ្សេងៗ (Other)">ផ្សេងៗ (Other)</option>
                   </select>
                 </div>
 
-                <div class="md:col-span-2">
-                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1">
+                <!-- Available Stock (col-span-1) -->
+                <div class="lg:col-span-1">
+                  <label class="block text-xs font-bold text-slate-600 uppercase mb-1 truncate" id="stockOutMinWarning">ស្តុកចាស់ក្នុងដៃ</label>
+                  <div class="w-full h-10.5 px-3 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center">
+                    <span class="text-sm font-black text-slate-800 truncate" id="stockOutOldStockDisplay">0 ដុំ</span>
+                  </div>
+                </div>
+
+                <!-- Issue Qty (col-span-2) -->
+                <div class="lg:col-span-2">
+                  <label class="block text-xs font-bold text-amber-900 uppercase mb-1 flex items-center justify-between">
+                    <span><i class="fa-solid fa-arrow-up text-amber-600 mr-1"></i> ចំនួនបើកចេញ *</span>
+                    <span class="text-xs font-extrabold text-amber-700">Issue</span>
+                  </label>
+                  <div class="relative">
+                    <input type="number" id="stockOutQty" inputmode="decimal" required min="1" step="any" placeholder="0"
+                      oninput="calculateStockOutCalculations()"
+                      class="w-full h-10.5 text-center bg-amber-50/60 border-2 border-amber-400 rounded-xl px-3 text-base sm:text-lg font-black text-amber-800 outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition shadow-2xs">
+                  </div>
+                </div>
+
+                <!-- Remaining Stock (col-span-1) -->
+                <div class="lg:col-span-1">
+                  <label class="block text-xs font-bold text-indigo-900 uppercase mb-1 truncate" id="stockOutRemainingNote">ស្តុកនៅសល់</label>
+                  <div id="stockOutRemainingCard" class="w-full h-10.5 px-3 rounded-xl bg-gradient-to-r from-slate-800 to-indigo-950 text-white flex items-center justify-center shadow-xs transition-colors">
+                    <span class="text-sm font-black text-white truncate" id="stockOutRemainingDisplay">0 ដុំ</span>
+                  </div>
+                </div>
+
+                <!-- Notes Input (col-span-4) -->
+                <div class="lg:col-span-4">
+                  <label class="block text-xs font-bold text-slate-600 uppercase mb-1 truncate">
                     <i class="fa-solid fa-note-sticky text-amber-500 mr-1"></i> កំណត់សម្គាល់បន្ថែម (Notes)
                   </label>
-                  <textarea id="stockOutNotes" rows="1" placeholder="ព័ត៌មានបន្ថែម ដូចជាគោលបំណងដក ផ្នែកដែលទទួល ឬកំណត់សម្គាល់ពិសេស..."
-                    class="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 outline-none"></textarea>
+                  <input type="text" id="stockOutNotes" placeholder="ព័ត៌មានបន្ថែម ដូចជាគោលបំណងដក ឬផ្នែកដែលទទួល..."
+                    class="w-full h-10.5 px-3 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition">
                 </div>
-              </div>
 
-              <!-- SUBMIT BUTTON -->
-              <div class="pt-3 flex items-center justify-between">
-                <button type="button" onclick="document.getElementById('stockOutForm').reset(); generateStockOutDocNo(); onStockOutItemChange();"
-                  class="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-600 hover:bg-slate-100 text-xs font-bold transition flex items-center space-x-1.5">
-                  <i class="fa-solid fa-rotate-left"></i>
-                  <span>សម្អាតទម្រង់</span>
-                </button>
-
-                <button type="submit" id="btnSubmitStockOut"
-                  class="px-7 py-3 bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 hover:from-amber-700 hover:to-orange-700 text-white font-bold rounded-xl shadow-lg shadow-amber-500/25 transition-all flex items-center space-x-2 text-sm hover:scale-[1.02] active:scale-[0.98]">
-                  <i class="fa-solid fa-check"></i>
-                  <span>កត់ត្រាទំនិញចេញពីស្តុក</span>
-                </button>
+                <!-- Action Buttons (col-span-2) -->
+                <div class="lg:col-span-2 flex items-center space-x-2">
+                  <button type="button" onclick="document.getElementById('stockOutForm').reset(); generateStockOutDocNo(); onStockOutItemChange();"
+                    class="flex-1 h-10.5 px-3 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-1.5 shadow-2xs">
+                    <i class="fa-solid fa-rotate-left text-xs"></i>
+                    <span>សម្អាត</span>
+                  </button>
+                  <button type="submit" id="btnSubmitStockOut"
+                    class="flex-1 h-10.5 px-3 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white font-bold rounded-xl shadow-sm transition flex items-center justify-center space-x-1.5 text-xs sm:text-sm hover:scale-[1.01] active:scale-[0.99]">
+                    <i class="fa-solid fa-check text-xs"></i>
+                    <span>កត់ត្រាចេញ</span>
+                  </button>
+                </div>
               </div>
             </form>
           </div>
 
           <!-- TABLE LIST CARD (ខាងក្រោម: បញ្ជីបង្ហាញពីទិន្នន័យចេញ) -->
-          <div class="glass-card p-4 sm:p-6 rounded-3xl shadow-sm border border-slate-200/80 bg-white/95 space-y-4">
+          <div class="glass-card p-4 sm:p-5 lg:p-6 rounded-2xl sm:rounded-3xl shadow-xs border border-slate-200/80 bg-white space-y-4">
             <!-- Header of list -->
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
               <div class="flex items-center space-x-3">
@@ -2198,12 +2111,12 @@
               <!-- Search & Refresh -->
               <div class="flex items-center space-x-2">
                 <div class="relative flex-1 sm:flex-initial">
-                  <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                  <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-xs"></i>
                   <input type="text" id="stockOutHistorySearch" oninput="filterStockOutHistoryTable()" placeholder="ស្វែងរកតាមលេខឯកសារ, ឈ្មោះ, SKU, មូលហេតុ..."
-                    class="w-full sm:w-64 pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm outline-none focus:ring-2 focus:ring-amber-500 transition">
+                    class="w-full sm:w-64 pl-8 pr-3 h-9 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm outline-none focus:ring-2 focus:ring-amber-500 transition">
                 </div>
                 <button type="button" onclick="loadStockOutHistory()" title="ផ្ទុកទិន្នន័យឡើងវិញ"
-                  class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs sm:text-sm font-bold transition flex items-center space-x-1 border border-slate-200 shadow-3xs shrink-0">
+                  class="h-9 px-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs sm:text-sm font-bold transition flex items-center space-x-1.5 border border-slate-200 shadow-3xs shrink-0">
                   <i class="fa-solid fa-rotate text-xs"></i>
                   <span class="hidden sm:inline">Refresh</span>
                 </button>
@@ -2229,7 +2142,7 @@
                 </thead>
                 <tbody id="stockOutHistoryTableBody" class="divide-y divide-slate-100 bg-white">
                   <tr>
-                    <td colspan="10" class="text-center py-8 text-slate-400">
+                    <td colspan="10" class="text-center py-8 text-slate-400 text-sm">
                       <i class="fa-solid fa-spinner fa-spin text-lg mb-1 block text-amber-500"></i>
                       កំពុងផ្ទុកទិន្នន័យ...
                     </td>
@@ -2240,7 +2153,7 @@
           </div>
         </div>
 
-                <!-- ========================================== -->
+                        <!-- ========================================== -->
         <!-- TAB 5: TRANSFER & ADJUSTMENT -->
         <!-- ========================================== -->
         <div id="tabTransfer" class="max-w-4xl mx-auto space-y-6 hidden">
