@@ -607,6 +607,18 @@ function executeLocalApiAction(req) {
 
         return sendChatMessage(payload.data || payload, payload.user);
 
+      case 'editChatMessage':
+
+        return editChatMessage(payload.msgId, payload.newText, payload.user);
+
+      case 'deleteChatMessage':
+
+        return deleteChatMessage(payload.msgId, payload.user);
+
+      case 'markChatMessagesRead':
+
+        return markChatMessagesRead(payload.channelId, payload.user);
+
       case 'getChatMessages':
 
       case 'getMessages':
@@ -6196,67 +6208,37 @@ function logActivity(user, role, action, details) {
 
 
     function ensureChatSheetInitialized(ss) {
-
       let sheet = ss.getSheetByName(SHEETS.CHAT);
-
       if (!sheet) {
-
         sheet = ss.insertSheet(SHEETS.CHAT);
-
         const headers = [
-
           'MsgID', 'Timestamp', 'ChannelID', 'SenderUsername', 'SenderFullName',
-
-          'SenderRole', 'SenderWarehouse', 'SenderAvatar', 'MessageText', 'ItemReference'
-
+          'SenderRole', 'SenderWarehouse', 'SenderAvatar', 'MessageText', 'ItemReference',
+          'IsAudio', 'AudioData', 'ReadBy', 'IsEdited', 'AudioDuration'
         ];
-
         sheet.appendRow(headers);
-
         const range = sheet.getRange(1, 1, 1, headers.length);
-
         range.setBackground('#1e293b').setFontColor('#ffffff').setFontWeight('bold');
-
         sheet.setFrozenRows(1);
-
       }
-
       return sheet;
-
     }
 
-
-
     function sendChatMessage(chatData, user) {
-
       try {
-
         const ss = SpreadsheetApp.getActiveSpreadsheet();
-
         const sheet = ensureChatSheetInitialized(ss);
 
-
-
         const msgId = 'MSG-' + Utilities.formatDate(new Date(), 'GMT+7', 'yyMMddHHmmss') + '-' + Math.floor(Math.random() * 1000);
-
         const now = new Date();
-
         const timestampStr = Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd HH:mm:ss');
 
-
-
         const channelId = chatData.channelId || 'ALL_WAREHOUSES';
-
         const senderUsername = chatData.senderUsername || (user ? user.username : 'Staff');
-
         const senderFullName = chatData.senderFullName || (user ? (user.fullName || user.username) : senderUsername);
-
         const senderRole = chatData.senderRole || (user ? user.role : 'Stock Keeper');
-
         const senderWarehouse = chatData.senderWarehouse || (user ? user.warehouse : 'ឃ្លាំងទូទៅ');
-
         const senderAvatar = chatData.senderAvatar || (user ? user.avatar : '') || '';
-
         const messageText = String(chatData.messageText || '').trim();
 
         let itemReference = '';
@@ -6266,180 +6248,203 @@ function logActivity(user, role, action, details) {
           itemReference = (typeof chatData.registrationData === 'string') ? chatData.registrationData : JSON.stringify(chatData.registrationData);
         }
 
+        const isAudio = Boolean(chatData.isAudio);
+        const audioData = chatData.audioData || '';
+        const audioDuration = Number(chatData.audioDuration || 0);
 
-
-        if (!messageText && !itemReference) {
-
+        if (!messageText && !itemReference && !audioData) {
           return { success: false, message: 'Message cannot be empty' };
-
         }
-
-
 
         sheet.appendRow([
-
           msgId,
-
           timestampStr,
-
           channelId,
-
           senderUsername,
-
           senderFullName,
-
           senderRole,
-
           senderWarehouse,
-
           senderAvatar,
-
           messageText,
-
-          itemReference
-
+          itemReference,
+          isAudio,
+          audioData,
+          JSON.stringify([senderUsername]),
+          false,
+          audioDuration
         ]);
 
-
-
         return {
-
           success: true,
-
           message: 'Message sent',
-
           chatMessage: {
-
             msgId,
-
             timestamp: timestampStr,
-
             channelId,
-
             senderUsername,
-
             senderFullName,
-
             senderRole,
-
             senderWarehouse,
-
             senderAvatar,
-
             messageText,
-
-            itemReference: chatData.itemReference || null
-
+            itemReference: chatData.itemReference || null,
+            isAudio,
+            audioData,
+            audioDuration,
+            readBy: [senderUsername],
+            isEdited: false
           }
-
         };
-
       } catch (e) {
-
         return { success: false, message: e.toString() };
-
       }
-
     }
 
-
-
-    function getChatMessages(channelId, user) {
-
+    function editChatMessage(msgId, newText, user) {
       try {
-
         const ss = SpreadsheetApp.getActiveSpreadsheet();
-
         const sheet = ensureChatSheetInitialized(ss);
-
         const data = sheet.getDataRange().getValues();
 
-        if (data.length <= 1) return { success: true, messages: [] };
+        for (let i = 1; i < data.length; i++) {
+          if (String(data[i][0]) === String(msgId)) {
+            // Permission check: only author or Admin/SuperAdmin can edit
+            if (user && user.role !== 'Admin' && user.role !== 'SuperAdmin') {
+              if (String(data[i][3]).toLowerCase() !== String(user.username || '').toLowerCase()) {
+                return { success: false, message: 'Unauthorized to edit this message' };
+              }
+            }
+            sheet.getRange(i + 1, 9).setValue(newText); // Column 9: MessageText
+            sheet.getRange(i + 1, 14).setValue(true);   // Column 14: IsEdited
+            return { success: true, message: 'Message updated' };
+          }
+        }
+        return { success: false, message: 'Message not found' };
+      } catch (e) {
+        return { success: false, message: e.toString() };
+      }
+    }
 
-
-
-        const targetChannel = channelId || 'ALL_WAREHOUSES';
-
-        const messages = [];
-
-
+    function deleteChatMessage(msgId, user) {
+      try {
+        const ss = SpreadsheetApp.getActiveSpreadsheet();
+        const sheet = ensureChatSheetInitialized(ss);
+        const data = sheet.getDataRange().getValues();
 
         for (let i = 1; i < data.length; i++) {
+          if (String(data[i][0]) === String(msgId)) {
+            // Permission check: only author or Admin/SuperAdmin can delete
+            if (user && user.role !== 'Admin' && user.role !== 'SuperAdmin') {
+              if (String(data[i][3]).toLowerCase() !== String(user.username || '').toLowerCase()) {
+                return { success: false, message: 'Unauthorized to delete this message' };
+              }
+            }
+            sheet.deleteRow(i + 1);
+            return { success: true, message: 'Message deleted' };
+          }
+        }
+        return { success: false, message: 'Message not found' };
+      } catch (e) {
+        return { success: false, message: e.toString() };
+      }
+    }
 
+    function markChatMessagesRead(channelId, user) {
+      try {
+        if (!user || !user.username) return { success: true };
+        const ss = SpreadsheetApp.getActiveSpreadsheet();
+        const sheet = ensureChatSheetInitialized(ss);
+        const data = sheet.getDataRange().getValues();
+        const myUser = String(user.username);
+
+        for (let i = 1; i < data.length; i++) {
+          const rowChannel = String(data[i][2]);
+          const senderUser = String(data[i][3]);
+
+          if ((rowChannel === channelId || channelId === 'ALL') && senderUser !== myUser) {
+            let readBy = [];
+            try {
+              readBy = data[i][12] ? JSON.parse(data[i][12]) : [];
+            } catch (e) {
+              readBy = [senderUser];
+            }
+            if (!Array.isArray(readBy)) readBy = [senderUser];
+
+            if (!readBy.includes(myUser)) {
+              readBy.push(myUser);
+              sheet.getRange(i + 1, 13).setValue(JSON.stringify(readBy));
+            }
+          }
+        }
+        return { success: true };
+      } catch (e) {
+        return { success: false, message: e.toString() };
+      }
+    }
+
+    function getChatMessages(channelId, user) {
+      try {
+        const ss = SpreadsheetApp.getActiveSpreadsheet();
+        const sheet = ensureChatSheetInitialized(ss);
+        const data = sheet.getDataRange().getValues();
+        if (data.length <= 1) return { success: true, messages: [] };
+
+        const targetChannel = channelId || 'ALL_WAREHOUSES';
+        const messages = [];
+
+        for (let i = 1; i < data.length; i++) {
           const row = data[i];
-
           const rowChannel = String(row[2]);
 
-
-
           // Direct chat channels are identified by channelId or composite e.g. "WH01_WH02" or "WH01_ADMIN"
-
           if (rowChannel === targetChannel || targetChannel === 'ALL') {
-
             let itemRef = null;
-
             if (row[9]) {
-
               try { itemRef = JSON.parse(row[9]); } catch (err) { itemRef = row[9]; }
-
             }
 
-
+            let readByList = [String(row[3])];
+            if (row[12]) {
+              try {
+                const parsed = JSON.parse(row[12]);
+                if (Array.isArray(parsed)) readByList = parsed;
+              } catch (e) {
+                readByList = [String(row[3])];
+              }
+            }
 
             messages.push({
-
               msgId: row[0],
-
               timestamp: row[1],
-
               channelId: row[2],
-
               senderUsername: row[3],
-
               senderFullName: row[4],
-
               senderRole: row[5],
-
               senderWarehouse: row[6],
-
               senderAvatar: row[7],
-
               messageText: row[8],
               itemReference: itemRef,
+              isAudio: Boolean(row[10]),
+              audioData: row[11] || '',
+              readBy: readByList,
+              isEdited: Boolean(row[13]),
+              audioDuration: Number(row[14] || 0),
               registrationData: (itemRef && (itemRef.type === 'USER_REGISTRATION' || itemRef.username || itemRef.userId)) ? itemRef : null
             });
-
           }
-
         }
 
-
-
         return { success: true, messages: messages };
-
       } catch (e) {
-
         return { success: false, message: e.toString(), messages: [] };
-
       }
-
     }
-
-
 
     function getChatChannels(user) {
-
       return {
-
         success: true,
-
         channels: [
-
           { id: 'ALL_WAREHOUSES', name: '📢 បន្ទប់ជជែកទូទៅ (All Warehouses & Admin)', type: 'group' }
-
         ]
-
       };
-
     }
-
