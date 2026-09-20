@@ -166,7 +166,10 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
                 self.wfile.write(FAVICON_SVG)
                 return
 
-        super().do_GET()
+        try:
+            super().do_GET()
+        except (ConnectionResetError, BrokenPipeError, socket.error):
+            pass
 
     def end_headers(self):
         self.send_header('Access-Control-Allow-Origin', '*')
@@ -231,8 +234,16 @@ def get_lan_ip():
     except Exception:
         return '127.0.0.1'
 
+def is_port_in_use(port):
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(0.3)
+            return s.connect_ex(('127.0.0.1', port)) == 0
+    except Exception:
+        return False
+
 class ThreadedHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
-    allow_reuse_address = True
+    allow_reuse_address = (sys.platform != 'win32')
     daemon_threads = True
 
 def main():
@@ -240,21 +251,18 @@ def main():
     selected_port = PORT
     httpd = None
 
-    kill_process_on_port(PORT)
-
     for p in range(PORT, PORT + 20):
+        if is_port_in_use(p):
+            kill_process_on_port(p)
+            time.sleep(0.3)
+            if is_port_in_use(p):
+                continue
         try:
             httpd = ThreadedHTTPServer(('0.0.0.0', p), CustomHandler)
             selected_port = p
             break
         except OSError:
-            kill_process_on_port(p)
-            try:
-                httpd = ThreadedHTTPServer(('0.0.0.0', p), CustomHandler)
-                selected_port = p
-                break
-            except OSError:
-                continue
+            continue
 
     if not httpd:
         safe_print('[-] Error: Port 3000-3019 are all occupied.')

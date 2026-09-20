@@ -739,7 +739,8 @@ function setupDatabase() {
     const headers = [
       'SKU', 'Barcode', 'ItemName', 'Category', 'Unit',
       'CostPrice', 'SellingPrice', 'MinStockLevel', 'Location',
-      'CurrentStock', 'ImageUrl', 'Status', 'UpdatedAt'
+      'CurrentStock', 'ImageUrl', 'Status', 'UpdatedAt',
+      'Size', 'Color', 'PackUnit', 'PackQty', 'Zone', 'ZoneNumber', 'Notes', 'CreatedBy'
     ];
     itemsSheet.appendRow(headers);
     formatHeaderRow(itemsSheet, headers.length, '#1e293b');
@@ -3427,7 +3428,23 @@ function getItemsList(userOrPayload, warehouseFilter) {
 
         status: String(row[11] || 'Active'),
 
-        updatedAt: row[12]
+        updatedAt: row[12],
+
+        size: String(row[13] || ''),
+
+        color: String(row[14] || ''),
+
+        packUnit: String(row[15] || ''),
+
+        packQty: Number(row[16] || 1),
+
+        zone: String(row[17] || 'តំបន់ A (ទំនិញទូទៅ)'),
+
+        zoneNumber: String(row[18] || 'Z-01'),
+
+        notes: String(row[19] || ''),
+
+        createdBy: String(row[20] || '')
 
       });
 
@@ -3901,7 +3918,23 @@ function saveOrUpdateItem(itemDataOrPayload, username) {
 
     itemData.status || 'Active',
 
-    new Date()
+    new Date(),
+
+    itemData.size || '',
+
+    itemData.color || '',
+
+    itemData.packUnit || '',
+
+    Number(itemData.packQty || 1),
+
+    itemData.zone || 'តំបន់ A (ទំនិញទូទៅ)',
+
+    itemData.zoneNumber || 'Z-01',
+
+    itemData.notes || '',
+
+    itemData.createdBy || user || 'Admin'
 
   ];
 
@@ -4399,6 +4432,15 @@ function recordStockIn(dataOrPayload, user) {
 
   const totalAmount = qty * (costPrice > 0 ? costPrice : Number(itemsData[targetRow - 1][5] || 0));
 
+  const notesFormatted = [
+    data.docNo ? `[ឯកសារ: ${data.docNo}]` : '',
+    data.receivedBy ? `[អ្នកទទួល: ${data.receivedBy}]` : '',
+    data.size ? `[ខ្នាត: ${data.size}]` : '',
+    data.color ? `[ពណ៌: ${data.color}]` : '',
+    data.zone ? `[តំបន់: ${data.zone}]` : '',
+    data.notes || ''
+  ].filter(Boolean).join(' ');
+
   const tx = recordTransactionInternal(ss, {
 
     type: 'STOCK_IN',
@@ -4415,11 +4457,11 @@ function recordStockIn(dataOrPayload, user) {
 
     totalAmount: totalAmount,
 
-    fromLocation: data.supplier || data.fromLocation || 'Supplier',
+    fromLocation: data.supplier || data.fromLocation || (data.docNo ? `Doc: ${data.docNo}` : 'Supplier'),
 
     toLocation: location,
 
-    notes: data.notes || '',
+    notes: notesFormatted,
 
     user: u ? (u.fullName || u.username) : 'Staff'
 
@@ -4427,9 +4469,9 @@ function recordStockIn(dataOrPayload, user) {
 
 
 
-  logActivity(u ? (u.fullName || u.username) : 'Staff', 'Staff', 'STOCK_IN', `Stock In +${qty} ${unit} of ${itemName} (${sku})`);
+  logActivity(u ? (u.fullName || u.username) : 'Staff', 'Staff', 'STOCK_IN', `Stock In +${qty} ${unit} of ${itemName} (${sku}) [${data.docNo || 'N/A'}]`);
 
-  sendTelegramNotification(`📥 <b>ដំណឹងស្តុកចូល (Stock In)</b>\n📦 ទំនិញ: <b>${itemName}</b>\n🔢 ចំនួន: <b>+${qty} ${unit}</b>\n📊 ស្តុកថ្មីក្នុងដៃ: <b>${newStock}</b>\n🏢 ឃ្លាំង: ${location}\n👤 ដោយ: ${u ? (u.fullName || u.username) : 'Staff'}`);
+  sendTelegramNotification(`📥 <b>ដំណឹងស្តុកចូល (Stock In)</b>\n📄 លេខឯកសារ: <b>${data.docNo || 'N/A'}</b>\n📦 ទំនិញ: <b>${itemName}</b> (${sku})\n📏 ខ្នាត: <b>${unit}</b> | 🎨 ពណ៌: <b>${data.color || '-'}</b>\n📍 តំបន់: <b>${data.zone || '-'}</b>\n🔢 ចំនួនចូល: <b>+${qty} ${unit}</b>\n📊 ស្តុកចាស់: ${data.oldStock || currentStock} ➔ ស្តុកសរុបថ្មី: <b>${newStock}</b>\n🏢 ឃ្លាំង: ${location}\n👷 អ្នកទទួល: <b>${data.receivedBy || (u ? (u.fullName || u.username) : 'Staff')}</b>\n👤 ដោយ: ${u ? (u.fullName || u.username) : 'Staff'}`);
 
 
 
@@ -4563,6 +4605,14 @@ function recordStockOut(dataOrPayload, user) {
 
 
 
+  const notesFormatted = [
+    data.docNo ? `[ឯកសារ: ${data.docNo}]` : '',
+    data.issuer ? `[អ្នកបើកចេញ: ${data.issuer}]` : '',
+    data.color ? `[ពណ៌: ${data.color}]` : '',
+    data.reason ? `[មូលហេតុ: ${data.reason}]` : '',
+    data.notes || ''
+  ].filter(Boolean).join(' ');
+
   const tx = recordTransactionInternal(ss, {
 
     type: 'STOCK_OUT',
@@ -4581,9 +4631,9 @@ function recordStockOut(dataOrPayload, user) {
 
     fromLocation: location,
 
-    toLocation: data.customer || data.toLocation || 'អតិថិជន/ដកប្រើប្រាស់',
+    toLocation: data.toLocation || data.customer || 'អតិថិជន/ដកប្រើប្រាស់',
 
-    notes: data.notes || '',
+    notes: notesFormatted,
 
     user: u ? (u.fullName || u.username) : 'Staff'
 
@@ -4591,7 +4641,9 @@ function recordStockOut(dataOrPayload, user) {
 
 
 
-  logActivity(u ? (u.fullName || u.username) : 'Staff', 'Staff', 'STOCK_OUT', `Stock Out -${qty} ${unit} of ${itemName} (${sku})`);
+  logActivity(u ? (u.fullName || u.username) : 'Staff', 'Staff', 'STOCK_OUT', `Stock Out -${qty} ${unit} of ${itemName} (${sku}) [${data.docNo || 'N/A'}]`);
+
+  sendTelegramNotification(`📤 <b>ដំណឹងស្តុកចេញ (Stock Out)</b>\n📄 លេខឯកសារ: <b>${data.docNo || 'N/A'}</b>\n📦 ទំនិញ: <b>${itemName}</b> (${sku})\n📏 ខ្នាត: <b>${unit}</b> | 🎨 ពណ៌: <b>${data.color || '-'}</b>\n👤 អ្នកបើកចេញ: <b>${data.issuer || (u ? (u.fullName || u.username) : 'Staff')}</b>\n🏢 គោលដៅ: <b>${data.toLocation || data.customer || 'ដកប្រើប្រាស់'}</b>\n🔢 ចំនួនបើកចេញ: <b>-${qty} ${unit}</b>\n📊 ស្តុកចាស់: ${currentStock} ➔ ស្តុកសរុបនៅសល់: <b>${newStock}</b>\n🏢 ឃ្លាំងដើម: ${location}\n👤 កត់ត្រាដោយ: ${u ? (u.fullName || u.username) : 'Staff'}`);
 
 
 
