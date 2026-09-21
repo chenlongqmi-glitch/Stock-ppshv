@@ -8675,7 +8675,13 @@
         }
         const navUsers = document.getElementById('navUsers');
         if (navUsers) {
-          navUsers.style.display = 'none';
+          if (isStationManager) {
+            navUsers.style.display = 'flex';
+            const navText = navUsers.querySelector('span.ml-2');
+            if (navText) navText.innerText = 'បុគ្គលិកក្នុងស្ថានីយ';
+          } else {
+            navUsers.style.display = 'none';
+          }
         }
         const navSettings = document.getElementById('navSettings');
         if (navSettings) {
@@ -8747,11 +8753,21 @@
 
         await loadDashboard();
         await loadItems();
-        if (targetUser.role !== 'Admin' && targetUser.role !== 'SuperAdmin') {
-          if (AppState.currentTab === 'users' || AppState.currentTab === 'settings') {
-            navigateTab('dashboard');
+        const isTargetAdmin = (targetUser.role === 'Admin' || targetUser.role === 'SuperAdmin');
+        const isTargetStationManager = (targetUser.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || targetUser.role === 'អ្នកគ្រប់គ្រង');
+        if (!isTargetAdmin) {
+          if (isTargetStationManager) {
+            if (AppState.currentTab === 'settings') {
+              navigateTab('dashboard');
+            } else {
+              navigateTab(AppState.currentTab);
+            }
           } else {
-            navigateTab(AppState.currentTab);
+            if (AppState.currentTab === 'users' || AppState.currentTab === 'settings') {
+              navigateTab('dashboard');
+            } else {
+              navigateTab(AppState.currentTab);
+            }
           }
         } else {
           navigateTab(AppState.currentTab);
@@ -9161,8 +9177,16 @@
       }
 
       const u = AppState.currentUser;
-      const isAdmin = (u && (u.role === 'Admin' || u.role === 'SuperAdmin'));
-      if (!isAdmin && (tabName === 'users' || tabName === 'settings')) {
+      const isSuperAdmin = (u && (u.role === 'SuperAdmin' || String(u.username).toLowerCase() === 'superadmin'));
+      const isAdmin = !isSuperAdmin && (u && (u.role === 'Admin' || String(u.username).toLowerCase() === 'admin'));
+      const isStationManager = (u && (u.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || u.role === 'អ្នកគ្រប់គ្រង'));
+      const canAccessUsers = isSuperAdmin || isAdmin || isStationManager;
+      const canAccessSettings = isSuperAdmin || isAdmin;
+
+      if (!canAccessUsers && tabName === 'users') {
+        tabName = 'dashboard';
+      }
+      if (!canAccessSettings && tabName === 'settings') {
         tabName = 'dashboard';
       }
 
@@ -9284,7 +9308,7 @@
         reports: 'របាយការណ៍ចរន្តស្តុក (Movement Ledger)',
         requests: 'សំណើសុំទំនិញបន្ថែម (Product Requisitions)',
         chat: 'Live Chat រវាងឃ្លាំង និង Admin (Direct & Group)',
-        users: 'គ្រប់គ្រងអ្នកប្រើប្រាស់ និងសិទ្ធិ (Users & Roles)',
+        users: isStationManager ? `បុគ្គលិកក្នុងស្ថានីយ (${u?.warehouse || ''})` : 'គ្រប់គ្រងអ្នកប្រើប្រាស់ និងសិទ្ធិ (Users & Roles)',
         settings: 'ការកំណត់ប្រព័ន្ធ & Telegram Bot'
       };
       document.getElementById('pageTitle').innerText = titles[tabName] || 'ប្រព័ន្ធគ្រប់គ្រងស្តុក';
@@ -13131,11 +13155,14 @@
           const tbody = document.getElementById('usersTableBody');
           const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
           const isActorAdmin = !isActorSuperAdmin && (AppState.currentUser?.role === 'Admin' || String(AppState.currentUser?.username).toLowerCase() === 'admin');
+          const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (AppState.currentUser?.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || AppState.currentUser?.role === 'អ្នកគ្រប់គ្រង');
           const isPrivilegedViewer = isActorSuperAdmin || isActorAdmin;
 
           // Update Pending Users Badge on Sidebar (counts all pending in Step 1, Step 2, or Deletion)
           const allUsers = (res.users || LOCAL_DB.users || []).filter(u => !isUnregisteredDummyUser(u));
-          const pendingCount = allUsers.filter(u => u.status === 'Pending' || u.status === 'Pending_Admin' || u.status === 'Pending_SuperAdmin' || u.status === 'Pending_Deletion').length;
+          const pendingCount = isActorStationManager ?
+            allUsers.filter(u => (u.warehouse === AppState.currentUser?.warehouse) && (u.status === 'Pending' || u.status === 'Pending_Admin' || u.status === 'Pending_SuperAdmin' || u.status === 'Pending_Deletion')).length :
+            allUsers.filter(u => u.status === 'Pending' || u.status === 'Pending_Admin' || u.status === 'Pending_SuperAdmin' || u.status === 'Pending_Deletion').length;
           const pendingBadge = document.getElementById('pendingUsersBadge');
           const topSettingsBadge = document.getElementById('topSettingsBadge');
           if (pendingCount > 0) {
@@ -13156,17 +13183,50 @@
             checkPendingDeletionsForSuperAdmin(true);
           }
 
-          // Control "+ បន្ថែមបុគ្គលិកថ្មី" button visibility (Admin and SuperAdmin only)
+          // Control "+ បន្ថែមបុគ្គលិកថ្មី" button visibility (Admin, SuperAdmin, and StationManager)
           const addUserBtn = document.getElementById('addUserTopBtn');
           if (addUserBtn) {
-            addUserBtn.classList.toggle('hidden', !isActorSuperAdmin && !isActorAdmin);
+            addUserBtn.classList.toggle('hidden', !isActorSuperAdmin && !isActorAdmin && !isActorStationManager);
+          }
+
+          // If Station Manager, customize page titles / subheaders and role filter for tabUsers
+          const tabUsersHeader = document.querySelector('#tabUsers h3');
+          const tabUsersSub = document.querySelector('#tabUsers p.text-slate-500');
+          const curAssignedWh = (AppState.currentUser?.warehouse || '').trim();
+          if (isActorStationManager) {
+            if (tabUsersHeader) tabUsersHeader.innerHTML = `<i class="fa-solid fa-users-gear mr-2 text-indigo-600"></i>បុគ្គលិកក្នុងស្ថានីយ (${escapeHtml(curAssignedWh)})`;
+            if (tabUsersSub) tabUsersSub.innerText = `បញ្ជីប្រធានក្រុម និងអ្នកកាន់ស្តុកប្រចាំ ${curAssignedWh}`;
+          } else {
+            if (tabUsersHeader) tabUsersHeader.innerHTML = `<i class="fa-solid fa-users-gear mr-2 text-blue-600"></i>គ្រប់គ្រងអ្នកប្រើប្រាស់ និងសិទ្ធិ (Users & Roles)`;
+            if (tabUsersSub) tabUsersSub.innerText = `គ្រប់គ្រងគណនីបុគ្គលិកតាមឃ្លាំងនិមួយៗ និងសិទ្ធិចូលប្រើប្រាស់`;
+          }
+
+          const roleFilterElem = document.getElementById('userRoleFilter');
+          if (roleFilterElem) {
+            if (isActorStationManager) {
+              roleFilterElem.innerHTML = `
+                <option value="ALL">គ្រប់តួនាទីទាំងអស់ (ក្នុងស្ថានីយ)</option>
+                <option value="ប្រធានក្រុម">👤 ប្រធានក្រុម</option>
+                <option value="អ្នកកាន់ស្តុក">📦 អ្នកកាន់ស្តុក</option>
+              `;
+            } else {
+              roleFilterElem.innerHTML = `
+                <option value="ALL">គ្រប់តួនាទីទាំងអស់</option>
+                <option value="SuperAdmin">👑 SuperAdmin</option>
+                <option value="Admin">🛡️ Admin</option>
+                <option value="អ្នកគ្រប់គ្រងស្ថានីយ">🏢 អ្នកគ្រប់គ្រងស្ថានីយ</option>
+                <option value="ប្រធានក្រុម">👤 ប្រធានក្រុម</option>
+                <option value="អ្នកកាន់ស្តុក">📦 អ្នកកាន់ស្តុក</option>
+              `;
+            }
           }
 
           // Strict Role Visibility:
           // 1. SuperAdmin: មើលឃើញ User ទាំងអស់ដែលបាន Register (មិនចាំបាច់បង្ហាញព័ត៌មានរបស់ខ្លួនឯងក្នុងតារាងទេ)
           // 2. Admin: មើលឃើញ User ទាំងអស់ដែលបាន Register តែមិនបង្ហាញ SuperAdmin និងមិនបង្ហាញព័ត៌មានរបស់ខ្លួនឯងក្នុងតារាងទេ
-          // 3. User ធម្មតា: អាចមើលឃើញព័ត៌មានខ្លួនឯងតែមួយគត់
-          // 4. លុបចេញរាល់ User ដែលមិនបាន Register (dummy/seed wh01-wh11, @inventory.local, etc.)
+          // 3. Station Manager: អាចមើលឃើញតែ ប្រធានក្រុម និងអ្នកកាន់ស្តុក ដែលនៅក្នុងស្ថានីយខ្លួនឯងតែប៉ុណ្ណោះ
+          // 4. User ធម្មតា: អាចមើលឃើញព័ត៌មានខ្លួនឯងតែមួយគត់
+          // 5. លុបចេញរាល់ User ដែលមិនបាន Register (dummy/seed wh01-wh11, @inventory.local, etc.)
           const isSelfUser = (u) => {
             const curId = AppState.currentUser?.userId;
             const curUsername = String(AppState.currentUser?.username || '').trim().toLowerCase();
@@ -13185,6 +13245,17 @@
               String(u.username).toLowerCase() !== 'superadmin' &&
               String(u.userId).toUpperCase() !== 'USR-SA'
             );
+          } else if (isActorStationManager) {
+            const myWh = (AppState.currentUser?.warehouse || '').trim();
+            filteredUsers = filteredUsers.filter(u => {
+              // 1. Must belong to the manager's assigned warehouse
+              const uWh = (u.warehouse || '').trim();
+              if (!myWh || uWh !== myWh) return false;
+              // 2. Can ONLY see Team Leader (ប្រធានក្រុម) and Stock Keeper (អ្នកកាន់ស្តុក)
+              const isTeamLeader = (u.role === 'ប្រធានក្រុម' || u.role === 'ប្រធាន' || u.role === 'Manager' || u.role === 'Team Leader');
+              const isStockKeeper = (u.role === 'អ្នកកាន់ស្តុក' || u.role === 'Stock Keeper' || (!u.role || u.role === 'Staff'));
+              return (isTeamLeader || isStockKeeper) && !isSelfUser(u);
+            });
           } else {
             filteredUsers = filteredUsers.filter(u => isSelfUser(u));
           }
@@ -13232,6 +13303,7 @@
       const actor = AppState.currentUser;
       const isActorSuperAdmin = (actor?.role === 'SuperAdmin') || (String(actor?.username).toLowerCase() === 'superadmin');
       const isActorAdmin = !isActorSuperAdmin && (actor?.role === 'Admin' || String(actor?.username).toLowerCase() === 'admin');
+      const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (actor?.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || actor?.role === 'អ្នកគ្រប់គ្រង');
       const isPrivilegedViewer = isActorSuperAdmin || isActorAdmin;
 
       if (!usersList || usersList.length === 0) {
@@ -13317,7 +13389,7 @@
 
         // 4. Reset Device Button
         let resetBtnHtml = '';
-        if ((isActorSuperAdmin || isActorAdmin) && (pcBound || phoneBound)) {
+        if ((isActorSuperAdmin || isActorAdmin || isActorStationManager) && (pcBound || phoneBound)) {
           resetBtnHtml = `
             <button onclick="openResetUserDeviceModal('${u.userId || u.username}', '${escapeHtml(u.fullName || u.username)}')" 
               class="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-xl text-xs font-semibold flex items-center space-x-1 transition hover:scale-105 active:scale-95 shadow-2xs" 
@@ -13362,21 +13434,22 @@
             actionsHtml = `<span class="text-xs text-rose-500 italic font-semibold">រង់ចាំ SuperAdmin ត្រួតពិនិត្យការលុប</span>`;
           }
         } else if (u.status === 'Pending' || u.status === 'Pending_Admin') {
-          if (isActorSuperAdmin || isActorAdmin) {
+          if (isActorSuperAdmin || isActorAdmin || isActorStationManager) {
             actionsHtml = `
               <div class="inline-flex flex-wrap items-center gap-1.5">
                 <button onclick="approveUserDirectly('${u.userId || ''}', '${u.username || ''}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition active:scale-95 flex items-center space-x-1">
                   <i class="fa-solid fa-circle-check text-xs"></i>
-                  <span>${isActorSuperAdmin ? 'អនុម័ត' : 'អនុម័ត (Admin)'}</span>
+                  <span>${isActorSuperAdmin ? 'អនុម័ត' : (isActorStationManager ? 'អនុម័ត (Station)' : 'អនុម័ត (Admin)')}</span>
                 </button>
                 <button onclick="rejectUserDirectly('${u.userId || ''}', '${u.username || ''}')" class="px-2.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-sm transition active:scale-95 flex items-center space-x-1">
                   <i class="fa-solid fa-circle-xmark text-xs"></i>
                   <span>បដិសេធ</span>
                 </button>
+                ${(isActorSuperAdmin || isActorAdmin) ? `
                 <button onclick="handleDeleteUser('${u.userId || ''}', '${u.username || ''}')" class="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold shadow-sm transition active:scale-95 inline-flex items-center space-x-1">
                   <i class="fa-solid fa-trash-can text-[11px]"></i>
                   <span>លុប</span>
-                </button>
+                </button>` : ''}
               </div>
             `;
           } else {
@@ -13466,6 +13539,19 @@
           }
           if (resetBtnHtml) actionsHtml += resetBtnHtml;
           actionsHtml += `</div>`;
+        } else if (isActorStationManager) {
+          actionsHtml = `<div class="inline-flex flex-wrap items-center gap-1.5">`;
+          actionsHtml += `
+            <button onclick="${isSelf ? 'openProfileModal()' : `openEditUserModal('${u.userId}')`}" class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center space-x-1 border border-slate-200 transition hover:scale-105 active:scale-95">
+              <i class="fa-solid fa-pen-to-square text-[10px]"></i>
+              <span>កែប្រែ</span>
+            </button>
+            <button onclick="toggleUserStatus('${u.userId}', '${u.status === 'Active' ? 'Inactive' : 'Active'}')" class="px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition hover:scale-105 active:scale-95 ${u.status === 'Active' ? 'bg-rose-50 text-rose-600 hover:bg-rose-100 border-rose-200' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border-emerald-200'}">
+              ${u.status === 'Active' ? 'បិទដំណើរការ' : 'បើកដំណើរការ'}
+            </button>
+          `;
+          if (resetBtnHtml) actionsHtml += resetBtnHtml;
+          actionsHtml += `</div>`;
         } else {
           actionsHtml = `
             <button onclick="openProfileModal()" class="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-bold transition inline-flex items-center space-x-1">
@@ -13481,7 +13567,7 @@
 
         const buildPwdBlock = (prefix) => {
           const id = prefix + safeId;
-          if (isPrivilegedViewer || isSelf) {
+          if (isPrivilegedViewer || isActorStationManager || isSelf) {
             return `
               <div class="inline-flex items-center gap-1 bg-slate-50 hover:bg-slate-100/90 border border-slate-200 rounded-lg px-2 py-0.5 shadow-2xs transition-colors w-fit">
                 <span id="pwd-text-${id}" class="font-mono text-xs font-semibold text-slate-700 tracking-widest select-all min-w-[65px] inline-block text-center" data-password="${escapeHtml(userPwd)}" data-visible="false">••••••••</span>
@@ -13780,6 +13866,8 @@
       document.getElementById('addAvatarData').value = '';
 
       const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
+      const isActorAdmin = !isActorSuperAdmin && (AppState.currentUser?.role === 'Admin' || String(AppState.currentUser?.username).toLowerCase() === 'admin');
+      const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (AppState.currentUser?.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || AppState.currentUser?.role === 'អ្នកគ្រប់គ្រង');
       const addRoleSelect = document.getElementById('addRole');
       if (addRoleSelect) {
         if (isActorSuperAdmin) {
@@ -13790,11 +13878,31 @@
             <option value="ប្រធានក្រុម">👤 ប្រធានក្រុម (Team Leader)</option>
             <option value="អ្នកកាន់ស្តុក" selected>📦 អ្នកកាន់ស្តុក (Stock Keeper)</option>
           `;
-        } else {
+        } else if (isActorAdmin) {
           addRoleSelect.innerHTML = `
             <option value="អ្នកគ្រប់គ្រងស្ថានីយ">🏢 អ្នកគ្រប់គ្រងស្ថានីយ (Station Manager)</option>
             <option value="ប្រធានក្រុម">👤 ប្រធានក្រុម (Team Leader)</option>
             <option value="អ្នកកាន់ស្តុក" selected>📦 អ្នកកាន់ស្តុក (Stock Keeper)</option>
+          `;
+        } else if (isActorStationManager) {
+          addRoleSelect.innerHTML = `
+            <option value="ប្រធានក្រុម">👤 ប្រធានក្រុម (Team Leader)</option>
+            <option value="អ្នកកាន់ស្តុក" selected>📦 អ្នកកាន់ស្តុក (Stock Keeper)</option>
+          `;
+        }
+      }
+
+      const addWhSelect = document.getElementById('addWarehouse');
+      if (addWhSelect) {
+        if (isActorStationManager) {
+          const myWh = AppState.currentUser?.warehouse || WAREHOUSES_LIST[0];
+          addWhSelect.innerHTML = `<option value="${myWh}" selected>📍 ${myWh}</option>`;
+          addWhSelect.disabled = true;
+        } else {
+          addWhSelect.disabled = false;
+          addWhSelect.innerHTML = `
+            <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់ (Admin/SuperAdmin)</option>
+            ${WAREHOUSES_LIST.map(w => `<option value="${w}">📍 ${w}</option>`).join('')}
           `;
         }
       }
@@ -13842,6 +13950,15 @@
       };
 
       const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
+      const isActorAdmin = !isActorSuperAdmin && (AppState.currentUser?.role === 'Admin' || String(AppState.currentUser?.username).toLowerCase() === 'admin');
+      const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (AppState.currentUser?.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || AppState.currentUser?.role === 'អ្នកគ្រប់គ្រង');
+
+      if (isActorStationManager) {
+        userData.warehouse = AppState.currentUser?.warehouse || WAREHOUSES_LIST[0];
+        if (userData.role !== 'ប្រធានក្រុម' && userData.role !== 'អ្នកកាន់ស្តុក') {
+          userData.role = 'អ្នកកាន់ស្តុក';
+        }
+      }
       if (userData.role === 'SuperAdmin' && !isActorSuperAdmin) {
         Swal.fire('គ្មានសិទ្ធិ', 'មានតែ SuperAdmin ប៉ុណ្ណោះដែលអាចបង្កើត ឬកំណត់តួនាទីជា SuperAdmin បាន!', 'warning');
         return;
@@ -14559,11 +14676,25 @@
       const userPwd = u.password || (String(u.username).toLowerCase() === 'superadmin' ? 'superadmin123' : (String(u.username).toLowerCase() === 'admin' ? 'admin123' : (/^wh\d+$/i.test(u.username) ? u.username + 'pass' : '123456')));
 
       const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
+      const isActorAdmin = !isActorSuperAdmin && (AppState.currentUser?.role === 'Admin' || String(AppState.currentUser?.username).toLowerCase() === 'admin');
+      const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (AppState.currentUser?.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || AppState.currentUser?.role === 'អ្នកគ្រប់គ្រង');
 
       // Protect SuperAdmin from non-superadmin actors
       if (u.role === 'SuperAdmin' && !isActorSuperAdmin) {
         Swal.fire('គ្មានសិទ្ធិ', 'មានតែ SuperAdmin ប៉ុណ្ណោះដែលអាចកែប្រែគណនី SuperAdmin បាន!', 'warning');
         return;
+      }
+
+      // If actor is Station Manager, they can only edit Team Leader or Stock Keeper in their own warehouse!
+      if (isActorStationManager) {
+        const myWh = (AppState.currentUser?.warehouse || '').trim();
+        const uWh = (u.warehouse || '').trim();
+        const isTL = (u.role === 'ប្រធានក្រុម' || u.role === 'ប្រធាន' || u.role === 'Manager' || u.role === 'Team Leader');
+        const isSK = (u.role === 'អ្នកកាន់ស្តុក' || u.role === 'Stock Keeper' || (!u.role || u.role === 'Staff'));
+        if (uWh !== myWh || (!isTL && !isSK)) {
+          Swal.fire('គ្មានសិទ្ធិ', 'អ្នកគ្រប់គ្រងស្ថានីយអាចកែប្រែបានតែប្រធានក្រុម និងអ្នកកាន់ស្តុកក្នុងស្ថានីយរបស់ខ្លួនប៉ុណ្ណោះ!', 'warning');
+          return;
+        }
       }
 
       let roleOptions = '';
@@ -14575,16 +14706,30 @@
           <option value="ប្រធានក្រុម" ${u.role === 'ប្រធានក្រុម' || u.role === 'ប្រធាន' || u.role === 'Manager' || u.role === 'Team Leader' ? 'selected' : ''}>👤 ប្រធានក្រុម (Team Leader)</option>
           <option value="អ្នកកាន់ស្តុក" ${u.role === 'អ្នកកាន់ស្តុក' || u.role === 'Stock Keeper' ? 'selected' : ''}>📦 អ្នកកាន់ស្តុក (Stock Keeper)</option>
         `;
-      } else {
+      } else if (isActorAdmin) {
         roleOptions = `
           ${u.role === 'Admin' ? '<option value="Admin" selected>🛡️ Admin (អ្នកគ្រប់គ្រងប្រព័ន្ធ)</option>' : ''}
           <option value="អ្នកគ្រប់គ្រងស្ថានីយ" ${u.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || u.role === 'អ្នកគ្រប់គ្រង' ? 'selected' : ''}>🏢 អ្នកគ្រប់គ្រងស្ថានីយ (Station Manager)</option>
           <option value="ប្រធានក្រុម" ${u.role === 'ប្រធានក្រុម' || u.role === 'ប្រធាន' || u.role === 'Manager' || u.role === 'Team Leader' ? 'selected' : ''}>👤 ប្រធានក្រុម (Team Leader)</option>
           <option value="អ្នកកាន់ស្តុក" ${u.role === 'អ្នកកាន់ស្តុក' || u.role === 'Stock Keeper' ? 'selected' : ''}>📦 អ្នកកាន់ស្តុក (Stock Keeper)</option>
         `;
+      } else if (isActorStationManager) {
+        roleOptions = `
+          <option value="ប្រធានក្រុម" ${u.role === 'ប្រធានក្រុម' || u.role === 'ប្រធាន' || u.role === 'Manager' || u.role === 'Team Leader' ? 'selected' : ''}>👤 ប្រធានក្រុម (Team Leader)</option>
+          <option value="អ្នកកាន់ស្តុក" ${u.role === 'អ្នកកាន់ស្តុក' || u.role === 'Stock Keeper' ? 'selected' : ''}>📦 អ្នកកាន់ស្តុក (Stock Keeper)</option>
+        `;
       }
 
-      const whOptions = WAREHOUSES_LIST.map(wh => `<option value="${wh}" ${u.warehouse === wh ? 'selected' : ''}>📍 ${wh}</option>`).join('');
+      let whOptions = '';
+      let whDisabled = '';
+      if (isActorStationManager) {
+        const myWh = AppState.currentUser?.warehouse || u.warehouse || WAREHOUSES_LIST[0];
+        whOptions = `<option value="${myWh}" selected>📍 ${myWh}</option>`;
+        whDisabled = 'disabled';
+      } else {
+        whOptions = `<option value="ALL" ${u.warehouse === 'ALL' ? 'selected' : ''}>🏢 គ្រប់ស្ថានីយទាំងអស់ (${u.role === 'SuperAdmin' ? 'SuperAdmin Only' : 'Admin Only'})</option>` +
+          WAREHOUSES_LIST.map(wh => `<option value="${wh}" ${u.warehouse === wh ? 'selected' : ''}>📍 ${wh}</option>`).join('');
+      }
 
       const { value: formValues } = await Swal.fire({
         title: `កែប្រែគណនី: ${u.username}`,
@@ -14630,7 +14775,7 @@
                   </button>
                 </div>
               </div>
-              <span class="text-[10px] text-slate-400 mt-0.5 block">Admin/SuperAdmin អាចពិនិត្យ ឬផ្លាស់ប្តូរលេខសម្ងាត់ថ្មីជូន user នៅទីនេះបាន</span>
+              <span class="text-[10px] text-slate-400 mt-0.5 block">អាចពិនិត្យ ឬផ្លាស់ប្តូរលេខសម្ងាត់ថ្មីជូន user នៅទីនេះបាន</span>
             </div>
             <div>
               <label class="block font-bold text-slate-700 mb-1">តួនាទី (Role)៖</label>
@@ -14640,8 +14785,7 @@
             </div>
             <div>
               <label class="block font-bold text-slate-700 mb-1">ឃ្លាំងដែលត្រូវគ្រប់គ្រង (Assigned Warehouse)៖</label>
-              <select id="swalEditWarehouse" class="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg text-xs outline-none font-medium">
-                <option value="ALL" ${u.warehouse === 'ALL' ? 'selected' : ''}>🏢 គ្រប់ស្ថានីយទាំងអស់ (${u.role === 'SuperAdmin' ? 'SuperAdmin Only' : 'Admin Only'})</option>
+              <select id="swalEditWarehouse" ${whDisabled} class="w-full p-2 bg-slate-50 border border-slate-300 rounded-lg text-xs outline-none font-medium">
                 ${whOptions}
               </select>
             </div>
@@ -14670,7 +14814,7 @@
             phone: document.getElementById('swalEditPhone').value.trim(),
             password: document.getElementById('swalEditPassword') ? document.getElementById('swalEditPassword').value.trim() : userPwd,
             role: document.getElementById('swalEditRole').value,
-            warehouse: document.getElementById('swalEditWarehouse').value,
+            warehouse: isActorStationManager ? (AppState.currentUser?.warehouse || u.warehouse) : document.getElementById('swalEditWarehouse').value,
             status: document.getElementById('swalEditStatus').value
           };
         }
