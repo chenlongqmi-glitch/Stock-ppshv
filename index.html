@@ -1268,10 +1268,23 @@
                 }
                 var roleEl = document.getElementById('activeSessionRoleBadge');
                 if (roleEl) {
-                  roleEl.innerText = isSA ? '👑⚡ SuperAdmin' : (u.role || 'Staff');
+                  var rText = u.role || 'Staff';
+                  var rClass = 'px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-blue-500/30 text-blue-200 border border-blue-400/30';
                   if (isSA) {
-                    roleEl.className = 'px-2.5 py-0.5 rounded-full text-[9px] bg-gradient-to-r from-amber-400 to-amber-600 text-slate-950 font-black shadow-sm border border-amber-300';
+                    rText = '👑 SuperAdmin';
+                    rClass = 'px-2.5 py-0.5 rounded-full text-[9px] bg-gradient-to-r from-amber-400 to-amber-600 text-slate-950 font-black shadow-sm border border-amber-300';
+                  } else if (u.role === 'Admin') {
+                    rText = '🛡️ Admin';
+                    rClass = 'px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-purple-500/30 text-purple-200 border border-purple-400/30';
+                  } else if (u.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || u.role === 'អ្នកគ្រប់គ្រង') {
+                    rText = '🏢 អ្នកគ្រប់គ្រងស្ថានីយ';
+                    rClass = 'px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-indigo-500/30 text-indigo-200 border border-indigo-400/30';
+                  } else if (u.role === 'ប្រធានក្រុម' || u.role === 'ប្រធាន') {
+                    rText = '👤 ប្រធានក្រុម';
+                    rClass = 'px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/30 text-emerald-200 border border-emerald-400/30';
                   }
+                  roleEl.innerText = rText;
+                  roleEl.className = rClass;
                 }
                 var whEl = document.getElementById('activeSessionWarehouseName');
                 if (whEl && u.warehouse) {
@@ -8551,25 +8564,46 @@
         sessionUserTitle.innerHTML = `${u.fullName || u.username} <span class="text-xs text-slate-400 font-mono font-normal">(@${u.username})</span>`;
       }
 
-      const isSuperAdmin = (u.role === 'SuperAdmin');
-      const isAdmin = (u.role === 'Admin' || isSuperAdmin);
+      const isSuperAdmin = (u.role === 'SuperAdmin') || (String(u.username).toLowerCase() === 'superadmin');
+      const isAdmin = !isSuperAdmin && (u.role === 'Admin' || String(u.username).toLowerCase() === 'admin');
+      const isStationManager = (u.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || u.role === 'អ្នកគ្រប់គ្រង');
+      const isTeamLeader = (u.role === 'ប្រធានក្រុម' || u.role === 'ប្រធាន' || u.role === 'Manager' || u.role === 'Team Leader');
+      const isPrivilegedAdmin = isSuperAdmin || isAdmin;
       const isImpersonating = !!sessionStorage.getItem('inventory_superadmin_session');
 
       const sessionRoleBadge = document.getElementById('activeSessionRoleBadge');
       if (sessionRoleBadge) {
-        sessionRoleBadge.innerText = isSuperAdmin ? '👑⚡ SuperAdmin' : (u.role || 'Staff');
-        sessionRoleBadge.className = `px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-          isSuperAdmin ? 'bg-gradient-to-r from-amber-400 to-amber-600 text-slate-950 font-black shadow-sm border border-amber-300' :
-          u.role === 'Admin' ? 'bg-purple-500/30 text-purple-300 border border-purple-400/30' :
-          'bg-blue-500/30 text-blue-300 border border-blue-400/30'
-        }`;
+        let roleBadgeText = u.role || 'Staff';
+        let roleBadgeClass = 'bg-blue-500/30 text-blue-200 border border-blue-400/30';
+        if (isSuperAdmin) {
+          roleBadgeText = '👑⚡ SuperAdmin';
+          roleBadgeClass = 'bg-gradient-to-r from-amber-400 to-amber-600 text-slate-950 font-black shadow-sm border border-amber-300';
+        } else if (isAdmin) {
+          roleBadgeText = '🛡️ Admin';
+          roleBadgeClass = 'bg-purple-500/30 text-purple-200 border border-purple-400/30';
+        } else if (isStationManager) {
+          roleBadgeText = '🏢 អ្នកគ្រប់គ្រងស្ថានីយ';
+          roleBadgeClass = 'bg-indigo-500/30 text-indigo-200 border border-indigo-400/30';
+        } else if (isTeamLeader) {
+          roleBadgeText = '👤 ប្រធានក្រុម';
+          roleBadgeClass = 'bg-emerald-500/30 text-emerald-200 border border-emerald-400/30';
+        } else {
+          roleBadgeText = '📦 អ្នកកាន់ស្តុក';
+          roleBadgeClass = 'bg-blue-500/30 text-blue-200 border border-blue-400/30';
+        }
+        sessionRoleBadge.innerText = roleBadgeText;
+        sessionRoleBadge.className = `px-2.5 py-0.5 rounded-full text-[10px] font-bold ${roleBadgeClass}`;
       }
 
       const sessionWarehouseName = document.getElementById('activeSessionWarehouseName');
       if (sessionWarehouseName) {
-        sessionWarehouseName.innerText = (isAdmin && AppState.selectedAdminWarehouseFilter !== 'ALL') ?
-          `${AppState.selectedAdminWarehouseFilter} (${isSuperAdmin ? 'SuperAdmin' : 'Admin'} Switch)` :
-          (u.warehouse === 'ALL' ? `🏢 គ្រប់ស្ថានីយទាំងអស់ (${isSuperAdmin ? 'SuperAdmin' : 'Admin'} Only)` : `📍 ${u.warehouse || WAREHOUSES_LIST[0]}`);
+        if (isPrivilegedAdmin) {
+          sessionWarehouseName.innerText = (AppState.selectedAdminWarehouseFilter !== 'ALL') ?
+            `${AppState.selectedAdminWarehouseFilter} (${isSuperAdmin ? 'SuperAdmin' : 'Admin'} Switch)` :
+            (u.warehouse === 'ALL' ? `🏢 គ្រប់ស្ថានីយទាំងអស់ (${isSuperAdmin ? 'SuperAdmin' : 'Admin'} Only)` : `📍 ${u.warehouse || WAREHOUSES_LIST[0]}`);
+        } else {
+          sessionWarehouseName.innerText = `📍 ${u.warehouse || WAREHOUSES_LIST[0]}`;
+        }
       }
 
       // Impersonation Banner & Top Switch User Buttons
@@ -8583,7 +8617,13 @@
         const targetRole = document.getElementById('impersonateTargetRole');
         const targetWh = document.getElementById('impersonateTargetWh');
         if (targetName) targetName.innerText = `${u.fullName || u.username} (@${u.username})`;
-        if (targetRole) targetRole.innerText = u.role || 'Staff';
+        if (targetRole) {
+          let roleTitle = u.role || 'Staff';
+          if (isStationManager) roleTitle = '🏢 អ្នកគ្រប់គ្រងស្ថានីយ';
+          else if (isTeamLeader) roleTitle = '👤 ប្រធានក្រុម';
+          else if (isAdmin) roleTitle = '🛡️ Admin';
+          targetRole.innerText = roleTitle;
+        }
         if (targetWh) targetWh.innerText = u.warehouse || 'ALL';
 
         if (btnSwitchUser) btnSwitchUser.classList.remove('hidden');
@@ -8609,7 +8649,7 @@
       const userWhContainer = document.getElementById('userWarehouseBadgeContainer');
       const userWhName = document.getElementById('userWarehouseName');
 
-      if (isAdmin) {
+      if (isPrivilegedAdmin) {
         if (whLabel) whLabel.innerText = isSuperAdmin ? 'អភិបាលកំពូល (SuperAdmin)' : 'គ្រប់គ្រងគ្រប់ស្ថានីយ';
         if (adminWhContainer) adminWhContainer.classList.remove('hidden');
         if (userWhContainer) userWhContainer.classList.add('hidden');
@@ -8625,7 +8665,9 @@
         }
       } else {
         const assignedWh = u.warehouse || WAREHOUSES_LIST[0];
-        if (whLabel) whLabel.innerText = assignedWh;
+        if (whLabel) {
+          whLabel.innerText = isStationManager ? `🏢 ${assignedWh} (អ្នកគ្រប់គ្រង)` : (isTeamLeader ? `👤 ${assignedWh} (ប្រធានក្រុម)` : `📦 ${assignedWh}`);
+        }
         if (adminWhContainer) adminWhContainer.classList.add('hidden');
         if (userWhContainer) {
           userWhContainer.classList.remove('hidden');
@@ -8653,9 +8695,26 @@
     // ==========================================
     async function impersonateUser(targetUserId) {
       try {
-        const res = await apiCall('getUsersList');
-        const userList = (res && res.success && res.users) ? res.users : LOCAL_DB.users;
-        const targetUser = userList.find(x => x.userId === targetUserId || x.username === targetUserId);
+        loadLocalUsersFromStorage();
+        const localTarget = (LOCAL_DB.users || []).find(x => (x.userId && x.userId === targetUserId) || (x.username && x.username === targetUserId));
+        let targetUser = localTarget;
+        try {
+          const res = await apiCall('getUsersList');
+          if (res && res.success && Array.isArray(res.users)) {
+            const serverTarget = res.users.find(x => (x.userId && x.userId === targetUserId) || (x.username && x.username === targetUserId));
+            if (serverTarget) {
+              targetUser = {
+                ...(localTarget || {}),
+                ...serverTarget,
+                role: (localTarget && localTarget.role) || serverTarget.role || 'Staff',
+                warehouse: (localTarget && localTarget.warehouse) || serverTarget.warehouse || 'ALL',
+                phone: (serverTarget.phone && String(serverTarget.phone).trim()) || (localTarget && localTarget.phone) || '',
+                email: (serverTarget.email && String(serverTarget.email).trim()) || (localTarget && localTarget.email) || ''
+              };
+            }
+          }
+        } catch (e) {}
+
         if (!targetUser) {
           Swal.fire('រកមិនឃើញ', 'រកមិនឃើញ User នេះក្នុងប្រព័ន្ធទេ', 'error');
           return;
@@ -8688,8 +8747,12 @@
 
         await loadDashboard();
         await loadItems();
-        if (AppState.currentTab === 'users' && targetUser.role !== 'Admin' && targetUser.role !== 'SuperAdmin') {
-          navigateTab('dashboard');
+        if (targetUser.role !== 'Admin' && targetUser.role !== 'SuperAdmin') {
+          if (AppState.currentTab === 'users' || AppState.currentTab === 'settings') {
+            navigateTab('dashboard');
+          } else {
+            navigateTab(AppState.currentTab);
+          }
         } else {
           navigateTab(AppState.currentTab);
         }
