@@ -3223,7 +3223,75 @@
             <input type="hidden" id="modalSku" value="">
             <input type="hidden" id="modalBarcode" value="">
 
-            <!-- ជួរទី៣: ប្រព័ន្ធគ្រប់គ្រងឯកតាទំនិញ (DUAL-UNIT SYSTEM: រាយ vs ដុំ/កេស) -->
+            <!-- ជួរទី៣: តំបន់ស្តុកទំនិញ & ស្តុកបច្ចុប្បន្ន & កម្រិតរំលឹក Min: (%) -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-start">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase mb-1 h-5 flex items-center truncate" title="តំបន់ស្តុកទំនិញ (Zone / Area)">
+                  <i class="fa-solid fa-location-dot text-indigo-600 mr-1"></i> តំបន់ស្តុក (Zone)
+                </label>
+                <input type="text" id="modalZone" list="zoneOptions" placeholder="ឧ. តំបន់ A (ភេសជ្ជៈ)"
+                  class="w-full h-11 px-3 bg-slate-50 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 font-medium">
+                <datalist id="zoneOptions">
+                  <option value="តំបន់ A (ភេសជ្ជៈ & ត្រជាក់)"></option>
+                  <option value="តំបន់ B (គ្រឿងទេស & ស្ងួត)"></option>
+                  <option value="តំបន់ C (សម្ភារៈប្រើប្រាស់)"></option>
+                  <option value="តំបន់ D (ស្តុកកណ្តាល)"></option>
+                </datalist>
+                <input type="hidden" id="modalZoneNumber" value="">
+              </div>
+
+              <div id="modalCurrentStockContainer">
+                <label class="block text-xs font-bold text-slate-700 uppercase mb-1 h-5 flex items-center truncate" title="ស្តុកបច្ចុប្បន្ន (Current Stock)">
+                  <i class="fa-solid fa-cubes-stacked text-slate-500 mr-1"></i> ស្តុកបច្ចុប្បន្ន (Stock)
+                </label>
+                <div class="relative">
+                  <input type="number" id="modalCurrentStockDisplay" readonly value="0"
+                    class="w-full h-11 px-3 bg-slate-100 border border-slate-300 rounded-xl text-sm outline-none font-bold text-slate-700 cursor-not-allowed">
+                  <span id="modalCurrentStockUnitLabel"
+                    class="absolute right-3 top-3 text-xs text-slate-400 font-medium pointer-events-none">នៅសល់</span>
+                </div>
+                <!-- Hidden inputs for Stock In compatibility -->
+                <input type="hidden" id="modalStockInQty" value="0">
+                <input type="hidden" id="modalStockInUnitMode" value="RETAIL">
+              </div>
+
+              <!-- កំណត់ស្តុកសល់តិចបំផុត (Min Stock: % ភាគរយ) -->
+              <div id="modalMinStockContainer">
+                <div class="flex items-center justify-between mb-1 h-5">
+                  <label class="block text-xs font-bold text-amber-800 uppercase truncate" title="កំណត់ស្តុកសល់តិចបំផុតជាភាគរយ %">
+                    <i class="fa-solid fa-bell text-amber-500 mr-1 animate-pulse"></i> កំណត់ស្តុកសល់តិចបំផុត *
+                  </label>
+                  <span id="modalMinStockUnitBadge" class="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded border border-amber-200 whitespace-nowrap flex-shrink-0" title="គិតជាភាគរយ %">
+                    % ភាគរយ
+                  </span>
+                </div>
+                <div class="relative">
+                  <input type="number" id="modalMinStockInput" inputmode="numeric" min="1" max="100" value="20" placeholder="20"
+                    oninput="onMinStockInputChanged()"
+                    class="w-full h-11 px-3.5 pr-10 bg-amber-50/40 border border-amber-300 rounded-xl text-sm font-bold text-amber-900 outline-none focus:ring-2 focus:ring-amber-500 font-mono">
+                  <span id="modalMinStockSymbol" class="absolute right-3.5 top-2.5 text-sm font-extrabold text-amber-600 pointer-events-none">%</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Preset percentage pills & Live Note -->
+            <div id="modalMinStockHelpBar" class="flex flex-wrap items-center justify-between gap-1.5 px-3 py-1.5 bg-amber-50/60 border border-amber-200/80 rounded-xl text-[11px] shadow-3xs">
+              <div class="flex items-center gap-1">
+                <span class="text-[10.5px] font-bold text-amber-900 mr-1">រើសភាគរយ %៖</span>
+                <button type="button" onclick="setMinStockPercent(5)" id="btnMinPct5" class="min-btn-preset px-2 py-0.5 text-[10px] font-bold rounded-lg bg-white text-amber-800 border border-amber-200 hover:bg-amber-100 transition shadow-3xs">5%</button>
+                <button type="button" onclick="setMinStockPercent(10)" id="btnMinPct10" class="min-btn-preset px-2 py-0.5 text-[10px] font-bold rounded-lg bg-white text-amber-800 border border-amber-200 hover:bg-amber-100 transition shadow-3xs">10%</button>
+                <button type="button" onclick="setMinStockPercent(15)" id="btnMinPct15" class="min-btn-preset px-2 py-0.5 text-[10px] font-bold rounded-lg bg-white text-amber-800 border border-amber-200 hover:bg-amber-100 transition shadow-3xs">15%</button>
+                <button type="button" onclick="setMinStockPercent(20)" id="btnMinPct20" class="min-btn-preset px-2 py-0.5 text-[10px] font-extrabold rounded-lg bg-amber-500 text-white border border-amber-600 transition shadow-3xs">20%</button>
+                <button type="button" onclick="setMinStockPercent(25)" id="btnMinPct25" class="min-btn-preset px-2 py-0.5 text-[10px] font-bold rounded-lg bg-white text-amber-800 border border-amber-200 hover:bg-amber-100 transition shadow-3xs">25%</button>
+                <button type="button" onclick="setMinStockPercent(30)" id="btnMinPct30" class="min-btn-preset px-2 py-0.5 text-[10px] font-bold rounded-lg bg-white text-amber-800 border border-amber-200 hover:bg-amber-100 transition shadow-3xs">30%</button>
+              </div>
+              <span class="text-[11px] font-semibold text-amber-900 flex items-center">
+                <i class="fa-solid fa-triangle-exclamation text-amber-600 mr-1.5"></i>
+                <span id="modalMinStockHelpDesc">រំលឹកអ្នកគ្រប់គ្រងពេលស្តុក ≤ 20%</span>
+              </span>
+            </div>
+
+            <!-- ជួរទី៤: ប្រព័ន្ធគ្រប់គ្រងឯកតាទំនិញ (DUAL-UNIT SYSTEM: រាយ vs ដុំ/កេស) -->
             <div class="p-3.5 rounded-2xl bg-gradient-to-br from-emerald-50/60 via-teal-50/30 to-blue-50/40 border-2 border-emerald-300/80 shadow-2xs space-y-2.5">
               <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-2">
@@ -3306,74 +3374,6 @@
                 </span>
                 <span class="text-[10px] text-slate-400 font-normal">គណនាស្វ័យប្រវត្តិក្នុងស្តុក</span>
               </div>
-            </div>
-
-            <!-- ជួរទី៤: តំបន់ស្តុកទំនិញ & ស្តុកបច្ចុប្បន្ន & កម្រិតរំលឹក Min: (%) -->
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-start">
-              <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase mb-1 h-5 flex items-center truncate" title="តំបន់ស្តុកទំនិញ (Zone / Area)">
-                  <i class="fa-solid fa-location-dot text-indigo-600 mr-1"></i> តំបន់ស្តុក (Zone)
-                </label>
-                <input type="text" id="modalZone" list="zoneOptions" placeholder="ឧ. តំបន់ A (ភេសជ្ជៈ)"
-                  class="w-full h-11 px-3 bg-slate-50 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 font-medium">
-                <datalist id="zoneOptions">
-                  <option value="តំបន់ A (ភេសជ្ជៈ & ត្រជាក់)"></option>
-                  <option value="តំបន់ B (គ្រឿងទេស & ស្ងួត)"></option>
-                  <option value="តំបន់ C (សម្ភារៈប្រើប្រាស់)"></option>
-                  <option value="តំបន់ D (ស្តុកកណ្តាល)"></option>
-                </datalist>
-                <input type="hidden" id="modalZoneNumber" value="">
-              </div>
-
-              <div id="modalCurrentStockContainer">
-                <label class="block text-xs font-bold text-slate-700 uppercase mb-1 h-5 flex items-center truncate" title="ស្តុកបច្ចុប្បន្ន (Current Stock)">
-                  <i class="fa-solid fa-cubes-stacked text-slate-500 mr-1"></i> ស្តុកបច្ចុប្បន្ន (Stock)
-                </label>
-                <div class="relative">
-                  <input type="number" id="modalCurrentStockDisplay" readonly value="0"
-                    class="w-full h-11 px-3 bg-slate-100 border border-slate-300 rounded-xl text-sm outline-none font-bold text-slate-700 cursor-not-allowed">
-                  <span id="modalCurrentStockUnitLabel"
-                    class="absolute right-3 top-3 text-xs text-slate-400 font-medium pointer-events-none">នៅសល់</span>
-                </div>
-                <!-- Hidden inputs for Stock In compatibility -->
-                <input type="hidden" id="modalStockInQty" value="0">
-                <input type="hidden" id="modalStockInUnitMode" value="RETAIL">
-              </div>
-
-              <!-- កំណត់ស្តុកសល់តិចបំផុត (Min Stock: % ភាគរយ) -->
-              <div id="modalMinStockContainer">
-                <div class="flex items-center justify-between mb-1 h-5">
-                  <label class="block text-xs font-bold text-amber-800 uppercase truncate" title="កំណត់ស្តុកសល់តិចបំផុតជាភាគរយ %">
-                    <i class="fa-solid fa-bell text-amber-500 mr-1 animate-pulse"></i> កំណត់ស្តុកសល់តិចបំផុត *
-                  </label>
-                  <span id="modalMinStockUnitBadge" class="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded border border-amber-200 whitespace-nowrap flex-shrink-0" title="គិតជាភាគរយ %">
-                    % ភាគរយ
-                  </span>
-                </div>
-                <div class="relative">
-                  <input type="number" id="modalMinStockInput" inputmode="numeric" min="1" max="100" value="20" placeholder="20"
-                    oninput="onMinStockInputChanged()"
-                    class="w-full h-11 px-3.5 pr-10 bg-amber-50/40 border border-amber-300 rounded-xl text-sm font-bold text-amber-900 outline-none focus:ring-2 focus:ring-amber-500 font-mono">
-                  <span id="modalMinStockSymbol" class="absolute right-3.5 top-2.5 text-sm font-extrabold text-amber-600 pointer-events-none">%</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Preset percentage pills & Live Note -->
-            <div id="modalMinStockHelpBar" class="flex flex-wrap items-center justify-between gap-1.5 px-3 py-1.5 bg-amber-50/60 border border-amber-200/80 rounded-xl text-[11px] shadow-3xs">
-              <div class="flex items-center gap-1">
-                <span class="text-[10.5px] font-bold text-amber-900 mr-1">រើសភាគរយ %៖</span>
-                <button type="button" onclick="setMinStockPercent(5)" id="btnMinPct5" class="min-btn-preset px-2 py-0.5 text-[10px] font-bold rounded-lg bg-white text-amber-800 border border-amber-200 hover:bg-amber-100 transition shadow-3xs">5%</button>
-                <button type="button" onclick="setMinStockPercent(10)" id="btnMinPct10" class="min-btn-preset px-2 py-0.5 text-[10px] font-bold rounded-lg bg-white text-amber-800 border border-amber-200 hover:bg-amber-100 transition shadow-3xs">10%</button>
-                <button type="button" onclick="setMinStockPercent(15)" id="btnMinPct15" class="min-btn-preset px-2 py-0.5 text-[10px] font-bold rounded-lg bg-white text-amber-800 border border-amber-200 hover:bg-amber-100 transition shadow-3xs">15%</button>
-                <button type="button" onclick="setMinStockPercent(20)" id="btnMinPct20" class="min-btn-preset px-2 py-0.5 text-[10px] font-extrabold rounded-lg bg-amber-500 text-white border border-amber-600 transition shadow-3xs">20%</button>
-                <button type="button" onclick="setMinStockPercent(25)" id="btnMinPct25" class="min-btn-preset px-2 py-0.5 text-[10px] font-bold rounded-lg bg-white text-amber-800 border border-amber-200 hover:bg-amber-100 transition shadow-3xs">25%</button>
-                <button type="button" onclick="setMinStockPercent(30)" id="btnMinPct30" class="min-btn-preset px-2 py-0.5 text-[10px] font-bold rounded-lg bg-white text-amber-800 border border-amber-200 hover:bg-amber-100 transition shadow-3xs">30%</button>
-              </div>
-              <span class="text-[11px] font-semibold text-amber-900 flex items-center">
-                <i class="fa-solid fa-triangle-exclamation text-amber-600 mr-1.5"></i>
-                <span id="modalMinStockHelpDesc">រំលឹកអ្នកគ្រប់គ្រងពេលស្តុក ≤ 20%</span>
-              </span>
             </div>
 
             <!-- ជួរទី៥: កំណត់សម្គាល់បន្ថែម (Notes) & អ្នកបញ្ចូលបញ្ជីមុខទំនិញ (Created By) -->
