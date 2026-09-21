@@ -3804,6 +3804,191 @@
     </div>
   </div>
 
+  <!-- D. ADD USER MODAL (បង្កើតបុគ្គលិកថ្មី) -->
+  <div id="addUserModal" onclick="if(event.target === this) closeAddUserModal()"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 hidden">
+    <div class="w-full max-w-xl bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
+      <div
+        class="px-6 py-4 bg-gradient-to-r from-indigo-700 via-purple-700 to-pink-600 text-white flex items-center justify-between shadow-md">
+        <div class="flex items-center space-x-2.5">
+          <div
+            class="w-9 h-9 rounded-2xl bg-white/20 backdrop-blur-md border border-white/25 flex items-center justify-center text-white shadow-inner">
+            <i class="fa-solid fa-user-plus text-sm"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-sm" id="userModalTitle">បន្ថែមអ្នកប្រើប្រាស់ថ្មី (Add User)</h3>
+            <p class="text-[10px] text-pink-100/80">បង្កើតគណនី និងកំណត់សិទ្ធិ</p>
+          </div>
+        </div>
+        <button onclick="closeAddUserModal()"
+          class="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition backdrop-blur-sm"><i
+            class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+
+      <form id="addUserForm" onsubmit="handleCreateUserSubmit(event)" novalidate class="p-6 space-y-3.5 max-h-[85vh] overflow-y-auto">
+        <!-- User Avatar Upload in Add User Modal -->
+        <div class="flex items-center space-x-3 pb-2 border-b border-slate-100">
+          <div class="relative cursor-pointer group" onclick="document.getElementById('addAvatarInput').click()"
+            title="ជ្រើសរើសរូបភាព Profile">
+            <div id="addAvatarBox"
+              class="w-14 h-14 rounded-full border-2 border-dashed border-blue-400 overflow-hidden bg-slate-50 flex items-center justify-center transition-all">
+              <img id="addAvatarPreview" src="https://api.dicebear.com/7.x/bottts/svg?seed=new1"
+                class="w-full h-full object-cover">
+            </div>
+            <div
+              class="absolute inset-0 bg-slate-900/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all text-white text-[10px]">
+              <i class="fa-solid fa-camera"></i>
+            </div>
+          </div>
+          <input type="file" id="addAvatarInput" accept="image/*" class="hidden"
+            onchange="handleUserAvatarSelect(event, 'addAvatarPreview', 'addAvatarData')">
+          <input type="hidden" id="addAvatarData" value="">
+          <div>
+            <div class="flex items-center space-x-1.5">
+              <button type="button" onclick="document.getElementById('addAvatarInput').click()"
+                class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold">
+                <i class="fa-solid fa-camera mr-1"></i> ជ្រើសរើសរូប *
+              </button>
+              <button type="button" onclick="cropCurrentAvatar('addAvatarPreview', 'addAvatarData')"
+                title="កាត់ត និង Zoom រូបភាព Profile"
+                class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold flex items-center space-x-1 shadow-xs transition">
+                <i class="fa-solid fa-crop-simple text-blue-600"></i>
+                <span>Crop/Zoom</span>
+              </button>
+            </div>
+            <p id="addAvatarHelp" class="text-[10px] text-rose-500 font-bold mt-0.5">* តម្រូវឱ្យបញ្ចូលរូបភាពជាដាច់ខាត</p>
+            <p id="addAvatarError" class="text-[10px] font-bold text-rose-600 mt-0.5 hidden"><i class="fa-solid fa-circle-exclamation mr-1"></i>សូមបញ្ចូលរូបថតជាដាច់ខាត!</p>
+          </div>
+        </div>
+
+        <!-- Full Name & Phone Number (2 columns) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label id="addFullNameLabel" class="block text-xs font-semibold text-slate-700 uppercase mb-1">ឈ្មោះពេញ (Full Name) *</label>
+            <input type="text" id="addFullName" placeholder="ឧ. សុខ វិសាល"
+              lang="km" inputmode="text" autocapitalize="words" autocorrect="off" spellcheck="false" data-auto-km="true"
+              oninput="clearAddUserFieldError('FullName'); cleanEnFromKhmerField(this)" onkeyup="cleanEnFromKhmerField(this)" onfocus="cleanEnFromKhmerField(this)"
+              class="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+            <p id="addFullNameError" class="text-[10.5px] font-bold text-rose-600 mt-1 hidden"><i class="fa-solid fa-circle-exclamation mr-1"></i>សូមបញ្ចូលឈ្មោះពេញ</p>
+          </div>
+          <div>
+            <label id="addPhoneLabel" class="block text-xs font-semibold text-slate-700 uppercase mb-1">លេខទូរស័ព្ទ (Phone Number) *</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 pointer-events-none text-xs">
+                <i class="fa-solid fa-phone"></i>
+              </span>
+              <input type="tel" id="addPhone" placeholder="ឧ. 012 345 678"
+                inputmode="tel" autocomplete="tel"
+                oninput="clearAddUserFieldError('Phone')"
+                class="w-full pl-8 pr-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+            </div>
+            <p id="addPhoneError" class="text-[10.5px] font-bold text-rose-600 mt-1 hidden"><i class="fa-solid fa-circle-exclamation mr-1"></i>សូមបញ្ចូលលេខទូរស័ព្ទ</p>
+          </div>
+        </div>
+
+        <!-- Username & Email (2 columns) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label id="addUsernameLabel" class="block text-xs font-semibold text-slate-700 uppercase mb-1">ឈ្មោះគណនី (Username) *</label>
+            <input type="text" id="addUsername" placeholder="username"
+              lang="en" inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false" data-auto-en="true"
+              oninput="clearAddUserFieldError('Username'); cleanKhmerFromField(this)" onkeyup="cleanKhmerFromField(this)" onfocus="cleanKhmerFromField(this)"
+              class="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+            <p id="addUsernameError" class="text-[10.5px] font-bold text-rose-600 mt-1 hidden"><i class="fa-solid fa-circle-exclamation mr-1"></i>សូមបញ្ចូលឈ្មោះគណនី (យ៉ាងតិច ៣ តួ)</p>
+          </div>
+          <div>
+            <label id="addEmailLabel" class="block text-xs font-semibold text-slate-700 uppercase mb-1">អ៊ីមែល (Email) *</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 pointer-events-none text-xs">
+                <i class="fa-solid fa-envelope"></i>
+              </span>
+              <input type="email" id="addEmail" placeholder="staff@example.com"
+                oninput="clearAddUserFieldError('Email')"
+                class="w-full pl-8 pr-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+            </div>
+            <p id="addEmailError" class="text-[10.5px] font-bold text-rose-600 mt-1 hidden"><i class="fa-solid fa-circle-exclamation mr-1"></i>សូមបញ្ចូលអ៊ីមែលឱ្យបានត្រឹមត្រូវ</p>
+          </div>
+        </div>
+
+        <!-- Password & Confirm Password (2 columns) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label id="addPasswordLabel" class="block text-xs font-semibold text-slate-700 uppercase mb-1">ពាក្យសម្ងាត់ (Password) *</label>
+            <div class="relative">
+              <input type="password" id="addPassword" placeholder="••••••••" minlength="4"
+                lang="en" inputmode="text" autocapitalize="none" autocorrect="off" spellcheck="false" data-auto-en="true"
+                oninput="clearAddUserFieldError('Password'); cleanKhmerFromField(this)" onkeyup="cleanKhmerFromField(this)" onfocus="cleanKhmerFromField(this)"
+                class="w-full pl-3.5 pr-9 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+              <button type="button" onclick="togglePasswordVisibility('addPassword', this)"
+                class="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600">
+                <i class="fa-solid fa-eye text-xs"></i>
+              </button>
+            </div>
+            <p id="addPasswordError" class="text-[10.5px] font-bold text-rose-600 mt-1 hidden"><i class="fa-solid fa-circle-exclamation mr-1"></i>សូមបញ្ចូលពាក្យសម្ងាត់ (យ៉ាងតិច ៤ ខ្ទង់)</p>
+          </div>
+          <div>
+            <label id="addConfirmPasswordLabel" class="block text-xs font-semibold text-slate-700 uppercase mb-1">បញ្ជាក់ពាក្យសម្ងាត់ (Confirm) *</label>
+            <div class="relative">
+              <input type="password" id="addConfirmPassword" placeholder="••••••••" minlength="4"
+                lang="en" inputmode="text" autocapitalize="none" autocorrect="off" spellcheck="false" data-auto-en="true"
+                oninput="clearAddUserFieldError('ConfirmPassword'); cleanKhmerFromField(this)" onkeyup="cleanKhmerFromField(this)" onfocus="cleanKhmerFromField(this)"
+                class="w-full pl-3.5 pr-9 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+              <button type="button" onclick="togglePasswordVisibility('addConfirmPassword', this)"
+                class="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600">
+                <i class="fa-solid fa-eye text-xs"></i>
+              </button>
+            </div>
+            <p id="addConfirmPasswordError" class="text-[10.5px] font-bold text-rose-600 mt-1 hidden"><i class="fa-solid fa-circle-exclamation mr-1"></i>ពាក្យសម្ងាត់ទាំងពីរមិនត្រូវគ្នាទេ</p>
+          </div>
+        </div>
+
+        <!-- Role & Warehouse (2 columns) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label id="addRoleLabel" class="block text-xs font-semibold text-slate-700 uppercase mb-1">តួនាទី (Role) *</label>
+            <select id="addRole" onchange="clearAddUserFieldError('Role'); onAddUserRoleChange(this.value)"
+              class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 transition-all">
+              <option value="អ្នកគ្រប់គ្រងស្ថានីយ">🏢 អ្នកគ្រប់គ្រងស្ថានីយ (Station Manager)</option>
+              <option value="ប្រធានក្រុម">👤 ប្រធានក្រុម (Team Leader)</option>
+              <option value="អ្នកកាន់ស្តុក" selected>📦 អ្នកកាន់ស្តុក (Stock Keeper)</option>
+            </select>
+            <p id="addRoleError" class="text-[10.5px] font-bold text-rose-600 mt-1 hidden"><i class="fa-solid fa-circle-exclamation mr-1"></i>សូមជ្រើសរើសតួនាទី</p>
+          </div>
+          <div>
+            <label id="addWarehouseLabel" class="block text-xs font-semibold text-slate-700 uppercase mb-1">ស្ថានីយដែលត្រូវគ្រប់គ្រង *</label>
+            <select id="addWarehouse" onchange="clearAddUserFieldError('Warehouse')"
+              class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 transition-all">
+              <option value="1-K3 ស្ថានីយ (ភ្នំពេញ)">1-K3 ស្ថានីយ (ភ្នំពេញ)</option>
+              <option value="2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)">2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)</option>
+              <option value="3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)">3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)</option>
+              <option value="4-K76 ស្ថានីយ (ត្រែងត្រយឹង)">4-K76 ស្ថានីយ (ត្រែងត្រយឹង)</option>
+              <option value="5-K114 ស្ថានីយ (កំពង់សីលា)">5-K114 ស្ថានីយ (កំពង់សីលា)</option>
+              <option value="6-K135 ស្ថានីយ (ស្រែអំបិល)">6-K135 ស្ថានីយ (ស្រែអំបិល)</option>
+              <option value="7-K172 ស្ថានីយ (ស្ទឹងហាវ)">7-K172 ស្ថានីយ (ស្ទឹងហាវ)</option>
+              <option value="8-K182 ស្ថានីយ (ព្រះសីហនុ)">8-K182 ស្ថានីយ (ព្រះសីហនុ)</option>
+              <option value="中心库房 (ឃ្លាំងស្តុកនៅបុងសឹង)">中心库房 (ឃ្លាំងស្តុកនៅបុងសឹង)</option>
+              <option value="机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)">机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
+              <option value="综合办 (ផ្នែកកិច្ចការទូទៅ)">综合办 (ផ្នែកកិច្ចការទូទៅ)</option>
+              <option value="ALL">គ្រប់ស្ថានីយទាំងអស់ (Admin Only)</option>
+            </select>
+            <p id="addWarehouseError" class="text-[10.5px] font-bold text-rose-600 mt-1 hidden"><i class="fa-solid fa-circle-exclamation mr-1"></i>សូមជ្រើសរើសស្ថានីយ</p>
+          </div>
+        </div>
+
+        <div class="pt-3 flex justify-end space-x-2 border-t border-slate-100">
+          <button type="button" onclick="closeAddUserModal()"
+            class="px-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 transition">
+            បោះបង់
+          </button>
+          <button type="submit"
+            class="px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 transition">
+            <i class="fa-solid fa-check mr-1"></i> បង្កើតគណនី
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- ========================================================================= -->
   <!-- IMAGE CROPPER & ZOOM MODAL (FOR AVATAR & PRODUCT IMAGES) -->
   <!-- ========================================================================= -->
@@ -4145,141 +4330,6 @@
     </div>
   </div>
 
-  <div id="addUserModal" onclick="if(event.target === this) closeAddUserModal()"
-    class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 hidden">
-    <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
-      <div
-        class="px-6 py-4 bg-gradient-to-r from-indigo-700 via-purple-700 to-pink-600 text-white flex items-center justify-between shadow-md">
-        <div class="flex items-center space-x-2.5">
-          <div
-            class="w-9 h-9 rounded-2xl bg-white/20 backdrop-blur-md border border-white/25 flex items-center justify-center text-white shadow-inner">
-            <i class="fa-solid fa-user-plus text-sm"></i>
-          </div>
-          <div>
-            <h3 class="font-bold text-sm" id="userModalTitle">បន្ថែមអ្នកប្រើប្រាស់ថ្មី (Add User)</h3>
-            <p class="text-[10px] text-pink-100/80">បង្កើតគណនី និងកំណត់សិទ្ធិ</p>
-          </div>
-        </div>
-        <button onclick="closeAddUserModal()"
-          class="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition backdrop-blur-sm"><i
-            class="fa-solid fa-xmark text-lg"></i></button>
-      </div>
-
-      <form id="addUserForm" onsubmit="handleCreateUserSubmit(event)" class="p-6 space-y-3.5">
-        <!-- User Avatar Upload in Add User Modal -->
-        <div class="flex items-center space-x-3 pb-1 border-b border-slate-100">
-          <div class="relative cursor-pointer group" onclick="document.getElementById('addAvatarInput').click()"
-            title="ជ្រើសរើសរូបភាព Profile">
-            <div
-              class="w-14 h-14 rounded-full border-2 border-dashed border-blue-400 overflow-hidden bg-slate-50 flex items-center justify-center">
-              <img id="addAvatarPreview" src="https://api.dicebear.com/7.x/bottts/svg?seed=new1"
-                class="w-full h-full object-cover">
-            </div>
-            <div
-              class="absolute inset-0 bg-slate-900/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all text-white text-[10px]">
-              <i class="fa-solid fa-camera"></i>
-            </div>
-          </div>
-          <input type="file" id="addAvatarInput" accept="image/*" class="hidden"
-            onchange="handleUserAvatarSelect(event, 'addAvatarPreview', 'addAvatarData')">
-          <input type="hidden" id="addAvatarData" value="">
-          <div>
-            <div class="flex items-center space-x-1.5">
-              <button type="button" onclick="document.getElementById('addAvatarInput').click()"
-                class="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold">
-                <i class="fa-solid fa-camera mr-1"></i> ជ្រើសរើសរូប *
-              </button>
-              <button type="button" onclick="cropCurrentAvatar('addAvatarPreview', 'addAvatarData')"
-                title="កាត់ត និង Zoom រូបភាព Profile"
-                class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-bold flex items-center space-x-1 shadow-xs transition">
-                <i class="fa-solid fa-crop-simple text-blue-600"></i>
-                <span>Crop/Zoom</span>
-              </button>
-            </div>
-            <p class="text-[10px] text-rose-500 font-bold mt-0.5">* តម្រូវឱ្យបញ្ចូលរូបភាពជាដាច់ខាត</p>
-          </div>
-        </div>
-
-        <div>
-          <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">ឈ្មោះពេញ (Full Name) *</label>
-          <input type="text" id="addFullName" required placeholder="ឧ. សុខ វិសាល"
-            lang="km" inputmode="text" autocapitalize="words" autocorrect="off" spellcheck="false" data-auto-km="true"
-            oninput="cleanEnFromKhmerField(this)" onkeyup="cleanEnFromKhmerField(this)" onfocus="cleanEnFromKhmerField(this)"
-            class="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500">
-        </div>
-
-        <div class="grid grid-cols-2 gap-2.5">
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">ឈ្មោះគណនី (Username) *</label>
-            <input type="text" id="addUsername" required placeholder="username"
-              lang="en" inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false" data-auto-en="true"
-              oninput="cleanKhmerFromField(this)" onkeyup="cleanKhmerFromField(this)" onfocus="cleanKhmerFromField(this)"
-              class="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500">
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">ពាក្យសម្ងាត់ (Password) *</label>
-            <div class="relative">
-              <input type="password" id="addPassword" required placeholder="••••••••" minlength="4"
-                lang="en" inputmode="text" autocapitalize="none" autocorrect="off" spellcheck="false" data-auto-en="true"
-                oninput="cleanKhmerFromField(this)" onkeyup="cleanKhmerFromField(this)" onfocus="cleanKhmerFromField(this)"
-                class="w-full pl-3.5 pr-9 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500">
-              <button type="button" onclick="togglePasswordVisibility('addPassword', this)"
-                class="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600">
-                <i class="fa-solid fa-eye text-xs"></i>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-2 gap-2.5">
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">តួនាទី (Role) *</label>
-            <select id="addRole" onchange="onAddUserRoleChange(this.value)"
-              class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none font-medium text-slate-700">
-              <option value="អ្នកគ្រប់គ្រងស្ថានីយ">🏢 អ្នកគ្រប់គ្រងស្ថានីយ (Station Manager)</option>
-              <option value="ប្រធានក្រុម">👤 ប្រធានក្រុម (Team Leader)</option>
-              <option value="អ្នកកាន់ស្តុក" selected>📦 អ្នកកាន់ស្តុក (Stock Keeper)</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">ស្ថានីយដែលត្រូវគ្រប់គ្រង *</label>
-            <select id="addWarehouse"
-              class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none font-medium text-slate-700">
-              <option value="1-K3 ស្ថានីយ (ភ្នំពេញ)">1-K3 ស្ថានីយ (ភ្នំពេញ)</option>
-              <option value="2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)">2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)</option>
-              <option value="3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)">3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)</option>
-              <option value="4-K76 ស្ថានីយ (ត្រែងត្រយឹង)">4-K76 ស្ថានីយ (ត្រែងត្រយឹង)</option>
-              <option value="5-K114 ស្ថានីយ (កំពង់សីលា)">5-K114 ស្ថានីយ (កំពង់សីលា)</option>
-              <option value="6-K135 ស្ថានីយ (ស្រែអំបិល)">6-K135 ស្ថានីយ (ស្រែអំបិល)</option>
-              <option value="7-K172 ស្ថានីយ (ស្ទឹងហាវ)">7-K172 ស្ថានីយ (ស្ទឹងហាវ)</option>
-              <option value="8-K182 ស្ថានីយ (ព្រះសីហនុ)">8-K182 ស្ថានីយ (ព្រះសីហនុ)</option>
-              <option value="中心库房 (ឃ្លាំងស្តុកនៅបុងសឹង)">中心库房 (ឃ្លាំងស្តុកនៅបុងសឹង)</option>
-              <option value="机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)">机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
-              <option value="综合办 (ផ្នែកកិច្ចការទូទៅ)">综合办 (ផ្នែកកិច្ចការទូទៅ)</option>
-              <option value="ALL">គ្រប់ស្ថានីយទាំងអស់ (Admin Only)</option>
-            </select>
-          </div>
-        </div>
-
-        <div>
-          <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">អ៊ីមែល (Email)</label>
-          <input type="email" id="addEmail" placeholder="staff@inventory.local"
-            class="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none">
-        </div>
-
-        <div class="pt-3 flex justify-end space-x-2">
-          <button type="button" onclick="closeAddUserModal()"
-            class="px-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50">
-            បោះបង់
-          </button>
-          <button type="submit"
-            class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20">
-            <i class="fa-solid fa-check mr-1"></i> បង្កើតគណនី
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
 
   <!-- D2. MY PROFILE MODAL (សម្រាប់ User និង Admin គ្រប់រូបកែប្រែព័ត៌មានផ្ទាល់ខ្លួន និងរូបថត) -->
   <div id="profileModal" onclick="if(event.target === this) closeProfileModal()"
@@ -8038,6 +8088,19 @@
             }
             const avatarError = document.getElementById('regAvatarError');
             if (avatarError) avatarError.classList.add('hidden');
+          } else if (dataId === 'addAvatarData') {
+            const avatarBox = document.getElementById('addAvatarBox');
+            if (avatarBox) {
+              avatarBox.classList.remove('border-rose-500', 'ring-2', 'ring-rose-300', 'bg-rose-50');
+              avatarBox.classList.add('border-blue-400');
+            }
+            const avatarLabel = document.getElementById('addAvatarLabel');
+            if (avatarLabel) {
+              avatarLabel.classList.remove('text-rose-600');
+              avatarLabel.classList.add('text-slate-500');
+            }
+            const avatarError = document.getElementById('addAvatarError');
+            if (avatarError) avatarError.classList.add('hidden');
           } else if (dataId === 'profileAvatarData') {
             const avatarError = document.getElementById('profileAvatarError');
             if (avatarError) avatarError.classList.add('hidden');
@@ -8098,6 +8161,19 @@
               avatarLabel.classList.add('text-slate-500');
             }
             const avatarError = document.getElementById('regAvatarError');
+            if (avatarError) avatarError.classList.add('hidden');
+          } else if (dataId === 'addAvatarData') {
+            const avatarBox = document.getElementById('addAvatarBox');
+            if (avatarBox) {
+              avatarBox.classList.remove('border-rose-500', 'ring-2', 'ring-rose-300', 'bg-rose-50');
+              avatarBox.classList.add('border-blue-400');
+            }
+            const avatarLabel = document.getElementById('addAvatarLabel');
+            if (avatarLabel) {
+              avatarLabel.classList.remove('text-rose-600');
+              avatarLabel.classList.add('text-slate-500');
+            }
+            const avatarError = document.getElementById('addAvatarError');
             if (avatarError) avatarError.classList.add('hidden');
           } else if (dataId === 'profileAvatarData') {
             const avatarError = document.getElementById('profileAvatarError');
@@ -13898,10 +13974,38 @@
       }
     }
 
+    function clearAddUserFieldError(fieldKey) {
+      const inputEl = document.getElementById('add' + fieldKey);
+      const labelEl = document.getElementById('add' + fieldKey + 'Label');
+      const errorEl = document.getElementById('add' + fieldKey + 'Error');
+      if (inputEl) {
+        inputEl.classList.remove('border-rose-500', 'bg-rose-50/40', 'focus:ring-rose-400', 'ring-2', 'ring-rose-200');
+        inputEl.classList.add('border-slate-300', 'bg-slate-50');
+      }
+      if (labelEl) {
+        labelEl.classList.remove('text-rose-600');
+        labelEl.classList.add('text-slate-700');
+      }
+      if (errorEl) {
+        errorEl.classList.add('hidden');
+      }
+    }
+    window.clearAddUserFieldError = clearAddUserFieldError;
+
     function openAddUserModal() {
       document.getElementById('addUserForm').reset();
       document.getElementById('addAvatarPreview').src = 'https://api.dicebear.com/7.x/bottts/svg?seed=new' + Math.floor(Math.random() * 100);
       document.getElementById('addAvatarData').value = '';
+
+      // Clear all errors and red borders
+      ['FullName', 'Phone', 'Username', 'Email', 'Password', 'ConfirmPassword', 'Role', 'Warehouse'].forEach(clearAddUserFieldError);
+      const avatarBox = document.getElementById('addAvatarBox');
+      if (avatarBox) {
+        avatarBox.classList.remove('border-rose-500', 'ring-2', 'ring-rose-300', 'bg-rose-50');
+        avatarBox.classList.add('border-blue-400');
+      }
+      const avatarError = document.getElementById('addAvatarError');
+      if (avatarError) avatarError.classList.add('hidden');
 
       const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
       const isActorAdmin = !isActorSuperAdmin && (AppState.currentUser?.role === 'Admin' || String(AppState.currentUser?.username).toLowerCase() === 'admin');
@@ -13975,21 +14079,156 @@
     }
 
     async function handleCreateUserSubmit(e) {
-      e.preventDefault();
-      const userData = {
-        fullName: document.getElementById('addFullName').value.trim(),
-        username: document.getElementById('addUsername').value.trim(),
-        password: document.getElementById('addPassword').value,
-        role: document.getElementById('addRole').value,
-        warehouse: document.getElementById('addWarehouse').value,
-        email: document.getElementById('addEmail').value.trim(),
-        avatar: document.getElementById('addAvatarData').value.trim(),
-        adminUser: AppState.currentUser?.username
-      };
+      if (e) e.preventDefault();
+
+      const fullName = (document.getElementById('addFullName')?.value || '').trim();
+      const phone = (document.getElementById('addPhone')?.value || '').trim();
+      const username = (document.getElementById('addUsername')?.value || '').trim();
+      const email = (document.getElementById('addEmail')?.value || '').trim();
+      const password = document.getElementById('addPassword')?.value || '';
+      const confirmPassword = document.getElementById('addConfirmPassword')?.value || '';
+      const role = document.getElementById('addRole')?.value || '';
+      const warehouse = document.getElementById('addWarehouse')?.value || '';
+      const avatar = (document.getElementById('addAvatarData')?.value || '').trim();
+
+      let hasError = false;
+      let firstInvalidEl = null;
+
+      function setAddUserFieldError(fieldKey, errorMsg) {
+        hasError = true;
+        const inputEl = document.getElementById('add' + fieldKey);
+        const labelEl = document.getElementById('add' + fieldKey + 'Label');
+        const errorEl = document.getElementById('add' + fieldKey + 'Error');
+
+        if (inputEl) {
+          inputEl.classList.add('border-rose-500', 'bg-rose-50/40', 'ring-2', 'ring-rose-200');
+          inputEl.classList.remove('border-slate-300', 'bg-slate-50');
+          if (!firstInvalidEl) firstInvalidEl = inputEl;
+        }
+        if (labelEl) {
+          labelEl.classList.add('text-rose-600');
+          labelEl.classList.remove('text-slate-700');
+        }
+        if (errorEl) {
+          errorEl.innerHTML = `<i class="fa-solid fa-circle-exclamation mr-1"></i>${errorMsg}`;
+          errorEl.classList.remove('hidden');
+        }
+      }
+
+      // 1. Check Avatar (រូបថត Profile ជាដាច់ខាត)
+      const avatarBox = document.getElementById('addAvatarBox');
+      const avatarError = document.getElementById('addAvatarError');
+      if (!avatar) {
+        hasError = true;
+        if (avatarBox) {
+          avatarBox.classList.add('border-rose-500', 'ring-2', 'ring-rose-300', 'bg-rose-50');
+          avatarBox.classList.remove('border-blue-400');
+        }
+        if (avatarError) avatarError.classList.remove('hidden');
+        if (!firstInvalidEl) firstInvalidEl = document.getElementById('addAvatarInput');
+      } else {
+        if (avatarBox) {
+          avatarBox.classList.remove('border-rose-500', 'ring-2', 'ring-rose-300', 'bg-rose-50');
+          avatarBox.classList.add('border-blue-400');
+        }
+        if (avatarError) avatarError.classList.add('hidden');
+      }
+
+      // 2. Check Full Name
+      if (!fullName) {
+        setAddUserFieldError('FullName', 'សូមបញ្ចូលឈ្មោះពេញ');
+      } else {
+        clearAddUserFieldError('FullName');
+      }
+
+      // 3. Check Phone Number
+      if (!phone) {
+        setAddUserFieldError('Phone', 'សូមបញ្ចូលលេខទូរស័ព្ទ');
+      } else if (phone.length < 8) {
+        setAddUserFieldError('Phone', 'លេខទូរស័ព្ទត្រូវមានយ៉ាងតិច ៨ ខ្ទង់');
+      } else {
+        clearAddUserFieldError('Phone');
+      }
+
+      // 4. Check Username
+      if (!username) {
+        setAddUserFieldError('Username', 'សូមបញ្ចូលឈ្មោះគណនី (Username)');
+      } else if (username.length < 3) {
+        setAddUserFieldError('Username', 'ឈ្មោះគណនីត្រូវមានយ៉ាងតិច ៣ តួអក្សរ');
+      } else {
+        clearAddUserFieldError('Username');
+      }
+
+      // 5. Check Email
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!email) {
+        setAddUserFieldError('Email', 'សូមបញ្ចូលអាសយដ្ឋានអ៊ីមែល');
+      } else if (!emailRegex.test(email)) {
+        setAddUserFieldError('Email', 'ទម្រង់អ៊ីមែលមិនត្រឹមត្រូវ (ឧ. name@gmail.com)');
+      } else {
+        clearAddUserFieldError('Email');
+      }
+
+      // 6. Check Password (វាយបញ្ចូល ២ ដង ដើម្បីបញ្ជាក់)
+      if (!password) {
+        setAddUserFieldError('Password', 'សូមបញ្ចូលពាក្យសម្ងាត់');
+      } else if (password.length < 4) {
+        setAddUserFieldError('Password', 'ពាក្យសម្ងាត់ត្រូវមានយ៉ាងតិច ៤ ខ្ទង់');
+      } else {
+        clearAddUserFieldError('Password');
+      }
+
+      if (!confirmPassword) {
+        setAddUserFieldError('ConfirmPassword', 'សូមវាយបញ្ចូលពាក្យសម្ងាត់ម្តងទៀតដើម្បីបញ្ជាក់');
+      } else if (confirmPassword !== password) {
+        setAddUserFieldError('ConfirmPassword', 'ពាក្យសម្ងាត់ទាំងពីរមិនត្រូវគ្នាទេ');
+      } else {
+        clearAddUserFieldError('ConfirmPassword');
+      }
+
+      // 7. Check Role & Warehouse
+      if (!role) {
+        setAddUserFieldError('Role', 'សូមជ្រើសរើសតួនាទី');
+      } else {
+        clearAddUserFieldError('Role');
+      }
+
+      if (!warehouse) {
+        setAddUserFieldError('Warehouse', 'សូមជ្រើសរើសស្ថានីយ');
+      } else {
+        clearAddUserFieldError('Warehouse');
+      }
+
+      if (hasError) {
+        if (firstInvalidEl) {
+          firstInvalidEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          if (typeof firstInvalidEl.focus === 'function') firstInvalidEl.focus();
+        }
+        Swal.fire({
+          icon: 'warning',
+          title: 'សូមបំពេញព័ត៌មានឱ្យបានគ្រប់គ្រាន់!',
+          html: '<p class="text-xs text-slate-600">សូមពិនិត្យមើលចំនុច <b class="text-rose-600">ពណ៌ក្រហម</b> ដែលមិនទាន់បានបំពេញ ឬមិនទាន់ត្រឹមត្រូវ រួចព្យាយាមម្តងទៀត។</p>',
+          confirmButtonText: 'យល់ព្រម',
+          confirmButtonColor: '#2563eb'
+        });
+        return;
+      }
 
       const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
       const isActorAdmin = !isActorSuperAdmin && (AppState.currentUser?.role === 'Admin' || String(AppState.currentUser?.username).toLowerCase() === 'admin');
       const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (AppState.currentUser?.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || AppState.currentUser?.role === 'អ្នកគ្រប់គ្រង');
+
+      const userData = {
+        fullName: fullName,
+        username: username,
+        phone: phone,
+        password: password,
+        role: role,
+        warehouse: warehouse,
+        email: email,
+        avatar: avatar,
+        adminUser: AppState.currentUser?.username
+      };
 
       if (isActorStationManager) {
         userData.warehouse = AppState.currentUser?.warehouse || WAREHOUSES_LIST[0];
@@ -14006,26 +14245,45 @@
         return;
       }
 
-      // STRICT VALIDATION: Check if avatar image is provided
-      if (!userData.avatar) {
-        Swal.fire({
-          icon: 'warning',
-          title: 'តម្រូវឱ្យបញ្ចូលរូបភាព Profile!',
-          html: '<p class="text-xs text-slate-600">សូមជ្រើសរើស ឬ Upload រូបភាព Profile សម្រាប់បុគ្គលិកថ្មីនេះជាមុនសិន ទើបអាចបង្កើតគណនីបាន។</p>',
-          confirmButtonText: 'យល់ព្រម',
-          confirmButtonColor: '#2563eb'
-        });
-        return;
-      }
+      Swal.fire({
+        title: 'កំពុងបង្កើតគណនី...',
+        text: 'សូមរង់ចាំបន្តិច ប្រព័ន្ធកំពុងបញ្ចូលព័ត៌មាន',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
 
       try {
         const res = await apiCall('registerUser', userData);
-        if (res.success) {
+        if (res && res.success) {
+          // Immediately update LOCAL_DB.users
+          const newUserId = res.userId || ('USR-' + Date.now());
+          const newObj = {
+            userId: newUserId,
+            username: userData.username,
+            fullName: userData.fullName,
+            role: userData.role,
+            warehouse: userData.warehouse,
+            email: userData.email,
+            phone: userData.phone,
+            avatar: userData.avatar,
+            plainPassword: userData.password,
+            status: 'Active',
+            createdAt: new Date().toISOString()
+          };
+          loadLocalUsersFromStorage();
+          const existingIdx = LOCAL_DB.users.findIndex(x => x.username.toLowerCase() === userData.username.toLowerCase());
+          if (existingIdx !== -1) {
+            LOCAL_DB.users[existingIdx] = { ...LOCAL_DB.users[existingIdx], ...newObj };
+          } else {
+            LOCAL_DB.users.unshift(newObj);
+          }
+          saveLocalUsersToStorage();
+
           Swal.fire('ជោគជ័យ 🎉', 'បានបង្កើតគណនីបុគ្គលិកថ្មីជោគជ័យ!', 'success');
           closeAddUserModal();
           loadUsersList();
         } else {
-          Swal.fire('កំហុស', res.message, 'warning');
+          Swal.fire('កំហុស', res?.message || 'មិនអាចបង្កើតគណនីបានទេ', 'warning');
         }
       } catch (err) {
         Swal.fire('Error', err.toString(), 'error');
