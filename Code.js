@@ -1991,6 +1991,8 @@ function registerUser(userData) {
     }
   } else if (role === 'អ្នកគ្រប់គ្រង') {
     role = 'អ្នកគ្រប់គ្រងស្ថានីយ';
+  } else if (role === 'ប្រធាន') {
+    role = 'ប្រធានក្រុម';
   }
 
   const status = userData.status || 'Pending_Admin'; // Step 1: Pending Admin in-app LiveChat approval
@@ -2402,6 +2404,9 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
       }
       if (r === 'អ្នកគ្រប់គ្រង') {
         r = 'អ្នកគ្រប់គ្រងស្ថានីយ';
+      }
+      if (r === 'ប្រធាន') {
+        r = 'ប្រធានក្រុម';
       }
       if (st === 'Deleted' || st === 'deleted' || st === 'delete') {
         const deletedUName = String(data[i][1]);
