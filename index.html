@@ -6079,11 +6079,10 @@
           if (jsonRes && !jsonRes.success && jsonRes.message && (
             jsonRes.message.includes('sendTelegramAlert') || 
             jsonRes.message.includes('ReferenceError') || 
-            jsonRes.message.includes('Unknown action') || 
             jsonRes.message.includes('is not a function') ||
             jsonRes.message.includes('Script function not found')
           )) {
-            console.warn('Backend returned error or unknown action, attempting local simulation fallback:', jsonRes.message);
+            console.warn('Backend returned script error, attempting local simulation fallback:', jsonRes.message);
             const fallback = simulateLocalApi(action, payload);
             if (fallback && fallback.success) return fallback;
           }
@@ -12995,11 +12994,26 @@
         if (res.success) {
           // Synchronize fresh user records into LOCAL_DB.users and localStorage
           if (Array.isArray(res.users)) {
+            const deletedUserIds = new Set(
+              res.users
+                .filter(ru => ru.status === 'Deleted' || ru.status === 'deleted')
+                .map(ru => ru.userId || ru.username)
+            );
+            LOCAL_DB.users = (LOCAL_DB.users || []).filter(lu => 
+              lu.status !== 'Deleted' && 
+              lu.status !== 'deleted' && 
+              !deletedUserIds.has(lu.userId) && 
+              !deletedUserIds.has(lu.username)
+            );
+
             res.users.forEach(ru => {
-              const idx = LOCAL_DB.users.findIndex(lu =>
-                (ru.userId && lu.userId === ru.userId) ||
-                (ru.username && lu.username && lu.username.toLowerCase() === ru.username.toLowerCase())
-              );
+              if (ru.status === 'Deleted' || ru.status === 'deleted') return;
+              const normRuName = String(ru.username || '').replace(/[\u200B-\u200D\uFEFF]/g, '').toLowerCase();
+              const idx = LOCAL_DB.users.findIndex(lu => {
+                if (ru.userId && lu.userId === ru.userId) return true;
+                const normLuName = String(lu.username || '').replace(/[\u200B-\u200D\uFEFF]/g, '').toLowerCase();
+                return normRuName && normLuName && normLuName === normRuName;
+              });
               if (idx !== -1) {
                 LOCAL_DB.users[idx] = { ...LOCAL_DB.users[idx], ...ru };
               } else {
@@ -14542,7 +14556,12 @@
       }
 
       // Find user details
-      let targetUser = (LOCAL_DB.users || []).find(u => (userId && u.userId === userId) || (username && u.username === username));
+      const normInputUsername = String(username || '').replace(/[\u200B-\u200D\uFEFF]/g, '').toLowerCase();
+      let targetUser = (LOCAL_DB.users || []).find(u => {
+        if (userId && u.userId === userId) return true;
+        const uUName = String(u.username || '').replace(/[\u200B-\u200D\uFEFF]/g, '').toLowerCase();
+        return (normInputUsername && uUName && uUName === normInputUsername);
+      });
       const targetDisplayName = targetUser ? (targetUser.fullName || targetUser.username) : (username || userId);
       const targetRole = targetUser?.role || 'User';
       const targetWh = targetUser?.warehouse || '-';
@@ -14617,30 +14636,25 @@
           didOpen: () => Swal.showLoading()
         });
         try {
-          let res = await apiCall('requestUserDeletion', {
+          let res = await apiCall('updateUserStatus', {
             userId: uId,
             username: uName,
+            status: 'Pending_Deletion',
             reason: reason,
             deleteReason: reason,
-            adminUser: actor?.fullName || actor?.username || 'Admin'
+            deleteRequestedBy: actor?.fullName || actor?.username || 'Admin',
+            deleteRequestedAt: new Date().toISOString(),
+            adminUser: actor?.username || 'Admin'
           });
 
-          // Smart fallback if deployed Google Apps Script does not recognize requestUserDeletion yet
           if (!res || (!res.success && res.message && (res.message.includes('Unknown action') || res.message.includes('not found')))) {
-            console.warn('Backend returned Unknown action for requestUserDeletion, falling back to updateUserStatus(Pending_Deletion)...');
-            res = await apiCall('updateUserStatus', {
+            res = await apiCall('requestUserDeletion', {
               userId: uId,
-              status: 'Pending_Deletion',
+              username: uName,
               reason: reason,
               deleteReason: reason,
-              deleteRequestedBy: actor?.fullName || actor?.username || 'Admin',
-              deleteRequestedAt: new Date().toISOString(),
-              adminUser: actor?.username
+              adminUser: actor?.fullName || actor?.username || 'Admin'
             });
-            if (res && res.success) {
-              res.success = true;
-              res.message = 'បានបញ្ជូនសំណើសុំលុបគណនីទៅកាន់ SuperAdmin ពិនិត្យរួចរាល់!';
-            }
           }
 
           if (res && res.success) {
@@ -14802,34 +14816,38 @@
       });
 
       try {
-        let res = await apiCall('deleteUser', {
+        // 1. Primary delete: Call updateUserStatus (status: 'Deleted') which is 100% supported by deployed backend
+        let res = await apiCall('updateUserStatus', {
           userId: uId,
           username: uName,
-          adminUser: actor?.username,
-          reason: superAdminReason
+          status: 'Deleted',
+          role: targetRole,
+          warehouse: targetWh,
+          adminUser: actor?.username || 'superadmin',
+          reason: superAdminReason,
+          deleteReason: superAdminReason
         });
 
-        // Smart fallback if deployed Google Apps Script does not recognize deleteUser yet
+        // 2. Also attempt deleteUser if backend supports permanent row purge
         if (!res || (!res.success && res.message && (res.message.includes('Unknown action') || res.message.includes('not found')))) {
-          console.warn('Backend returned Unknown action for deleteUser, falling back to updateUserStatus(Deleted)...');
-          res = await apiCall('updateUserStatus', {
+          res = await apiCall('deleteUser', {
             userId: uId,
-            status: 'Deleted',
-            adminUser: actor?.username
+            username: uName,
+            adminUser: actor?.username || 'superadmin',
+            reason: superAdminReason
           });
-          if (res && res.success) {
-            res.success = true;
-            res.message = 'បានលុបអ្នកប្រើប្រាស់ចេញពីប្រព័ន្ធជោគជ័យ!';
-          }
         }
 
         if (res && res.success) {
           // Remove from local memory database
-          const idx = LOCAL_DB.users.findIndex(u => (uId && u.userId === uId) || (uName && u.username === uName));
-          if (idx !== -1) {
-            LOCAL_DB.users.splice(idx, 1);
-            saveLocalUsersToStorage();
-          }
+          const normUName = String(uName || '').replace(/[\u200B-\u200D\uFEFF]/g, '').toLowerCase();
+          LOCAL_DB.users = (LOCAL_DB.users || []).filter(u => {
+            if (uId && u.userId === uId) return false;
+            const curUName = String(u.username || '').replace(/[\u200B-\u200D\uFEFF]/g, '').toLowerCase();
+            if (normUName && curUName === normUName) return false;
+            return true;
+          });
+          saveLocalUsersToStorage();
 
           // Reload table smoothly
           await loadUsersList();
@@ -14877,10 +14895,12 @@
       }
 
       loadLocalUsersFromStorage();
-      let targetUser = (LOCAL_DB.users || []).find(u =>
-        (userId && u.userId === userId) ||
-        (username && u.username && u.username.toLowerCase() === String(username).toLowerCase())
-      );
+      const normInputUsername = String(username || '').replace(/[\u200B-\u200D\uFEFF]/g, '').toLowerCase();
+      let targetUser = (LOCAL_DB.users || []).find(u => {
+        if (userId && u.userId === userId) return true;
+        const uUName = String(u.username || '').replace(/[\u200B-\u200D\uFEFF]/g, '').toLowerCase();
+        return (normInputUsername && uUName && uUName === normInputUsername);
+      });
 
       if (!targetUser) {
         try {
@@ -14888,10 +14908,11 @@
           if (res && res.success && res.users) {
             LOCAL_DB.users = res.users;
             saveLocalUsersToStorage();
-            targetUser = (LOCAL_DB.users || []).find(u =>
-              (userId && u.userId === userId) ||
-              (username && u.username && u.username.toLowerCase() === String(username).toLowerCase())
-            );
+            targetUser = (LOCAL_DB.users || []).find(u => {
+              if (userId && u.userId === userId) return true;
+              const uUName = String(u.username || '').replace(/[\u200B-\u200D\uFEFF]/g, '').toLowerCase();
+              return (normInputUsername && uUName && uUName === normInputUsername);
+            });
           }
         } catch (e) {}
       }
@@ -15019,31 +15040,34 @@
       });
 
       try {
-        let res = await apiCall('approveUserDeletion', {
+        let res = await apiCall('updateUserStatus', {
           userId: uId,
           username: uName,
+          status: 'Deleted',
           superAdminReason: superAdminReason,
           reason: superAdminReason,
-          adminUser: actor?.username
+          adminUser: actor?.username || 'superadmin'
         });
 
-        // Fallback if needed
         if (!res || (!res.success && res.message && (res.message.includes('Unknown action') || res.message.includes('not found')))) {
-          res = await apiCall('deleteUser', {
+          res = await apiCall('approveUserDeletion', {
             userId: uId,
             username: uName,
             superAdminReason: superAdminReason,
             reason: superAdminReason,
-            adminUser: actor?.username
+            adminUser: actor?.username || 'superadmin'
           });
         }
 
         if (res && res.success) {
-          const idx = LOCAL_DB.users.findIndex(u => (uId && u.userId === uId) || (uName && u.username === uName));
-          if (idx !== -1) {
-            LOCAL_DB.users.splice(idx, 1);
-            saveLocalUsersToStorage();
-          }
+          const normUName = String(uName || '').replace(/[\u200B-\u200D\uFEFF]/g, '').toLowerCase();
+          LOCAL_DB.users = (LOCAL_DB.users || []).filter(u => {
+            if (uId && u.userId === uId) return false;
+            const curUName = String(u.username || '').replace(/[\u200B-\u200D\uFEFF]/g, '').toLowerCase();
+            if (normUName && curUName === normUName) return false;
+            return true;
+          });
+          saveLocalUsersToStorage();
 
           const notifIdx = notificationsList.findIndex(n => n.type === 'USER_DELETION_REQUEST' && (n.targetUserId === uId || n.targetUsername === uName));
           if (notifIdx !== -1) {
@@ -15165,19 +15189,22 @@
       });
 
       try {
-        let res = await apiCall('rejectUserDeletion', {
+        let res = await apiCall('updateUserStatus', {
           userId: uId,
           username: uName,
+          status: 'Active',
           superAdminReason: superAdminReason,
           reason: superAdminReason,
-          adminUser: actor?.username
+          adminUser: actor?.username || 'superadmin'
         });
 
         if (!res || (!res.success && res.message && (res.message.includes('Unknown action') || res.message.includes('not found')))) {
-          res = await apiCall('updateUserStatus', {
+          res = await apiCall('rejectUserDeletion', {
             userId: uId,
-            status: 'Active',
-            adminUser: actor?.username
+            username: uName,
+            superAdminReason: superAdminReason,
+            reason: superAdminReason,
+            adminUser: actor?.username || 'superadmin'
           });
         }
 
