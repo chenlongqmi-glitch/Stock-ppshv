@@ -2623,27 +2623,53 @@
         <!-- TAB 7: USERS & ROLES (WITH WAREHOUSES ACCESS) -->
         <!-- ========================================== -->
         <div id="tabUsers" class="space-y-4 hidden">
-          <div class="glass-card p-5 rounded-2xl shadow-sm border border-slate-200">
+          <div class="glass-card p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200">
             <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div>
-                <h3 class="font-bold text-sm text-slate-800 flex items-center">
-                  <i class="fa-solid fa-users-gear mr-2 text-blue-600"></i>គ្រប់គ្រងអ្នកប្រើប្រាស់ និងសិទ្ធិ (Users &
-                  Roles)
+                <h3 class="font-bold text-sm sm:text-base text-slate-800 flex items-center">
+                  <i class="fa-solid fa-users-gear mr-2 text-blue-600"></i>គ្រប់គ្រងអ្នកប្រើប្រាស់ និងសិទ្ធិ (Users & Roles)
                 </h3>
                 <p class="text-xs text-slate-500 mt-0.5">គ្រប់គ្រងគណនីបុគ្គលិកតាមឃ្លាំងនិមួយៗ និងសិទ្ធិចូលប្រើប្រាស់</p>
               </div>
               <button onclick="openAddUserModal()" id="addUserTopBtn"
-                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 shadow-md shadow-blue-500/20">
+                class="w-full sm:w-auto px-4 py-2.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 shadow-md shadow-blue-500/20 active:scale-95 transition">
                 <i class="fa-solid fa-user-plus"></i>
                 <span>បន្ថែមបុគ្គលិកថ្មី</span>
               </button>
+            </div>
+
+            <!-- Search & Role Filter Bar -->
+            <div class="mt-3.5 pt-3.5 border-t border-slate-100 flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+              <div class="relative flex-1">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                <input type="text" id="userSearchInput" oninput="filterUsersList()"
+                  placeholder="ស្វែងរកឈ្មោះ, Username, ឬលេខទូរស័ព្ទ..."
+                  class="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none">
+              </div>
+              <select id="userRoleFilter" onchange="filterUsersList()"
+                class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="ALL">គ្រប់តួនាទីទាំងអស់</option>
+                <option value="SuperAdmin">👑 SuperAdmin</option>
+                <option value="Admin">🛡️ Admin</option>
+                <option value="អ្នកគ្រប់គ្រងស្ថានីយ">🏢 អ្នកគ្រប់គ្រងស្ថានីយ</option>
+                <option value="ប្រធានក្រុម">👤 ប្រធានក្រុម</option>
+                <option value="អ្នកកាន់ស្តុក">📦 អ្នកកាន់ស្តុក</option>
+              </select>
             </div>
           </div>
 
           <!-- SuperAdmin Pending Deletion Banner inside Users Tab -->
           <div id="usersTabPendingDeletionsBanner"></div>
 
-          <div class="glass-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <!-- 1. MOBILE CARD VIEW (< 768px) -->
+          <div id="usersMobileCardsList" class="md:hidden space-y-3">
+            <div class="text-center py-10 text-slate-400 bg-white rounded-2xl border border-slate-200 p-6">
+              កំពុងផ្ទុកបញ្ជីអ្នកប្រើប្រាស់...
+            </div>
+          </div>
+
+          <!-- 2. DESKTOP TABLE VIEW (>= 768px) -->
+          <div class="hidden md:block glass-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
             <div class="table-container-freeze custom-scrollbar">
               <table class="w-full text-left text-xs text-slate-600 border-collapse table-freeze">
                 <thead
@@ -13084,334 +13110,423 @@
             filteredUsers = filteredUsers.filter(u => isSelfUser(u));
           }
 
-          if (filteredUsers.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="8" class="text-center py-10 text-slate-400 font-medium">មិនមានទិន្នន័យអ្នកប្រើប្រាស់ឡើយ</td></tr>`;
-            return;
-          }
-
-          tbody.innerHTML = filteredUsers.map((u, idx) => {
-            const isUserSuperAdmin = (u.role === 'SuperAdmin');
-            const isUserAdmin = (u.role === 'Admin');
-            const isSelf = (AppState.currentUser?.userId === u.userId || AppState.currentUser?.username === u.username);
-
-            // Role Badge Styling
-            let roleBadgeHtml = '';
-            if (isUserSuperAdmin) {
-              roleBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-black text-[10px] bg-gradient-to-r from-amber-400 to-amber-600 text-slate-950 border border-amber-300 shadow-sm">👑 SuperAdmin</span>`;
-            } else if (isUserAdmin) {
-              roleBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-purple-100 text-purple-700">🛡️ Admin</span>`;
-            } else if (u.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || u.role === 'អ្នកគ្រប់គ្រង') {
-              roleBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-indigo-100 text-indigo-700">🏢 ${u.role === 'អ្នកគ្រប់គ្រង' ? 'អ្នកគ្រប់គ្រងស្ថានីយ' : u.role}</span>`;
-            } else if (u.role === 'ប្រធានក្រុម' || u.role === 'ប្រធាន' || u.role === 'Manager' || u.role === 'Team Leader') {
-              roleBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-emerald-100 text-emerald-700">👤 ${u.role === 'ប្រធាន' ? 'ប្រធានក្រុម' : u.role}</span>`;
-            } else {
-              roleBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-blue-100 text-blue-700">${u.role || 'Staff'}</span>`;
-            }
-
-            // Action Buttons
-            let actionsHtml = '';
-
-            if (u.status === 'Pending_Deletion') {
-              if (isActorSuperAdmin) {
-                actionsHtml = `
-                  <div class="inline-flex items-center gap-1.5 whitespace-nowrap">
-                    <button onclick="handleApproveUserDeletion('${u.userId || ''}', '${u.username || ''}')" class="px-2.5 py-1 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white rounded-lg text-xs font-bold shadow-xs transition hover:scale-105 active:scale-95 flex items-center space-x-1" title="SuperAdmin អនុម័តការលុបគណនីនេះចេញពីប្រព័ន្ធ">
-                      <i class="fa-solid fa-check text-xs"></i>
-                      <span>អនុម័តលុប</span>
-                    </button>
-                    <button onclick="handleRejectUserDeletion('${u.userId || ''}', '${u.username || ''}')" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold border border-slate-300 transition hover:scale-105 active:scale-95 flex items-center space-x-1" title="បដិសេធសំណើសុំលុប (រក្សាទុកគណនីជា Active)">
-                      <i class="fa-solid fa-xmark text-xs"></i>
-                      <span>បដិសេធ</span>
-                    </button>
-                    <button onclick="viewUserDeleteReason('${u.userId || u.username}')" class="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-medium transition hover:scale-105 active:scale-95" title="ពិនិត្យមើលមូលហេតុនៃការលុប">
-                      <i class="fa-solid fa-file-lines text-xs"></i>
-                    </button>
-                  </div>
-                `;
-              } else if (isActorAdmin) {
-                actionsHtml = `
-                  <div class="inline-flex items-center space-x-1">
-                    <span class="text-[10px] text-rose-700 font-bold bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200 inline-flex items-center">
-                      <i class="fa-solid fa-hourglass-half mr-1 text-rose-500"></i>រង់ចាំ SuperAdmin អនុម័ត
-                    </span>
-                    <button onclick="viewUserDeleteReason('${u.userId || u.username}')" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded text-xs transition hover:scale-105" title="មើលមូលហេតុនៃការលុប">
-                      <i class="fa-solid fa-eye text-[11px]"></i>
-                    </button>
-                  </div>
-                `;
-              } else {
-                actionsHtml = `<span class="text-xs text-rose-500 italic font-semibold">រង់ចាំ SuperAdmin ត្រួតពិនិត្យការលុប</span>`;
-              }
-            } else if (u.status === 'Pending' || u.status === 'Pending_Admin') {
-              // Special Action Buttons for Step 1 Pending Users (Waiting for Admin)
-              if (isActorSuperAdmin || isActorAdmin) {
-                actionsHtml = `
-                  <div class="inline-flex items-center space-x-1.5">
-                    <button onclick="approveUserDirectly('${u.userId || ''}', '${u.username || ''}')" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition hover:scale-105 active:scale-95 flex items-center space-x-1" title="${isActorSuperAdmin ? 'SuperAdmin អនុម័តផ្ទាល់ (Active)' : 'Admin អនុម័តជំហានទី ១ & បញ្ជូនទៅ SuperAdmin Telegram'}">
-                      <i class="fa-solid fa-circle-check text-xs"></i>
-                      <span>${isActorSuperAdmin ? 'អនុម័ត' : 'អនុម័ត (Admin)'}</span>
-                    </button>
-                    <button onclick="rejectUserDirectly('${u.userId || ''}', '${u.username || ''}')" class="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shadow-sm transition hover:scale-105 active:scale-95 flex items-center space-x-1" title="បដិសេធ (Reject)">
-                      <i class="fa-solid fa-circle-xmark text-xs"></i>
-                      <span>បដិសេធ</span>
-                    </button>
-                    <button onclick="handleDeleteUser('${u.userId || ''}', '${u.username || ''}')" class="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 rounded text-xs font-bold shadow-sm transition hover:scale-105 active:scale-95 inline-flex items-center space-x-1" title="លុបគណនីនេះចេញពីប្រព័ន្ធ">
-                      <i class="fa-solid fa-trash-can text-[11px]"></i>
-                      <span>លុប</span>
-                    </button>
-                  </div>
-                `;
-              } else {
-                actionsHtml = `<span class="text-xs text-amber-600 font-semibold italic">រង់ចាំ Admin អនុម័ត</span>`;
-              }
-            } else if (u.status === 'Pending_SuperAdmin') {
-              // Special Action Buttons for Step 2 Pending Users (Admin already approved; waiting for SuperAdmin Telegram)
-              if (isActorSuperAdmin) {
-                actionsHtml = `
-                  <div class="inline-flex items-center space-x-1.5">
-                    <button onclick="approveUserDirectly('${u.userId || ''}', '${u.username || ''}')" class="px-2.5 py-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-lg text-xs font-bold shadow-sm transition hover:scale-105 active:scale-95 flex items-center space-x-1" title="SuperAdmin អនុម័តចុងក្រោយ (Active)">
-                      <i class="fa-solid fa-crown text-xs text-amber-300"></i>
-                      <span>SuperAdmin អនុម័ត</span>
-                    </button>
-                    <button onclick="rejectUserDirectly('${u.userId || ''}', '${u.username || ''}')" class="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shadow-sm transition hover:scale-105 active:scale-95 flex items-center space-x-1" title="បដិសេធ (Reject)">
-                      <i class="fa-solid fa-circle-xmark text-xs"></i>
-                      <span>បដិសេធ</span>
-                    </button>
-                    <button onclick="handleDeleteUser('${u.userId || ''}', '${u.username || ''}')" class="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 rounded text-xs font-bold shadow-sm transition hover:scale-105 active:scale-95 inline-flex items-center space-x-1" title="លុបគណនីនេះចេញពីប្រព័ន្ធ">
-                      <i class="fa-solid fa-trash-can text-[11px]"></i>
-                      <span>លុប</span>
-                    </button>
-                  </div>
-                `;
-              } else if (isActorAdmin) {
-                actionsHtml = `
-                  <div class="inline-flex items-center space-x-1">
-                    <span class="text-[10px] text-indigo-700 font-bold bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">រង់ចាំ SuperAdmin</span>
-                    <button onclick="resendToTelegramSuperAdmin('${u.userId || ''}', '${u.username || ''}')" class="px-2 py-0.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[10px] font-bold shadow-sm transition" title="ផ្ញើសាររំលឹកទៅ Telegram របស់ SuperAdmin ម្តងទៀត">
-                      <i class="fa-brands fa-telegram mr-0.5"></i> រំលឹក
-                    </button>
-                    <button onclick="handleDeleteUser('${u.userId || ''}', '${u.username || ''}')" class="px-2 py-0.5 bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 rounded text-[10px] font-bold shadow-sm transition hover:scale-105 active:scale-95 inline-flex items-center space-x-1" title="លុបគណនីនេះចេញពីប្រព័ន្ធ">
-                      <i class="fa-solid fa-trash-can text-[10px]"></i>
-                      <span>លុប</span>
-                    </button>
-                  </div>
-                `;
-              } else {
-                actionsHtml = `<span class="text-xs text-indigo-600 font-semibold italic">រង់ចាំ SuperAdmin អនុម័ត</span>`;
-              }
-            } else if (isActorSuperAdmin) {
-              actionsHtml = `<div class="inline-flex items-center gap-1.5 whitespace-nowrap">`;
-              // 1. Switch User Button (Exclusive to SuperAdmin)
-              if (!isSelf) {
-                actionsHtml += `
-                  <button onclick="impersonateUser('${u.userId || u.username}')" class="px-2.5 py-1 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-lg text-xs font-bold shadow-xs transition hover:scale-105 active:scale-95 flex items-center space-x-1" title="Switch User ចូលដំណើរការជា User នេះ">
-                    <i class="fa-solid fa-repeat text-[10px]"></i>
-                    <span>Switch</span>
-                  </button>
-                `;
-              }
-              actionsHtml += `
-                <button onclick="${isSelf ? 'openProfileModal()' : `openEditUserModal('${u.userId}')`}" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center space-x-1 border border-slate-200 transition hover:scale-105 active:scale-95" title="${isSelf ? 'កែប្រែព័ត៌មានផ្ទាល់ខ្លួន & រូបថត' : 'កែប្រែព័ត៌មាន & ឃ្លាំង'}">
-                  <i class="fa-solid fa-pen-to-square text-[10px]"></i>
-                  <span>កែប្រែ</span>
-                </button>
-                <button onclick="toggleUserStatus('${u.userId}', '${u.status === 'Active' ? 'Inactive' : 'Active'}')" class="px-2 py-1 rounded-lg text-xs font-semibold border transition hover:scale-105 active:scale-95 ${u.status === 'Active' ? 'bg-rose-50 text-rose-600 hover:bg-rose-100 border-rose-200' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border-emerald-200'}">
-                  ${u.status === 'Active' ? 'បិទដំណើរការ' : 'បើកដំណើរការ'}
-                </button>
-              `;
-              if (!isSelf) {
-                actionsHtml += `
-                  <button onclick="handleDeleteUser('${u.userId || ''}', '${u.username || ''}')" class="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 rounded-lg text-xs font-bold shadow-xs transition hover:scale-105 active:scale-95 inline-flex items-center space-x-1" title="លុបគណនីនេះចេញពីប្រព័ន្ធ">
-                    <i class="fa-solid fa-trash-can text-[10px]"></i>
-                    <span>លុប</span>
-                  </button>
-                `;
-              }
-              actionsHtml += `</div>`;
-            } else if (isActorAdmin) {
-              actionsHtml = `<div class="inline-flex items-center gap-1.5 whitespace-nowrap">`;
-              // Admin can edit other users except SuperAdmin
-              actionsHtml += `
-                <button onclick="${isSelf ? 'openProfileModal()' : `openEditUserModal('${u.userId}')`}" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center space-x-1 border border-slate-200 transition hover:scale-105 active:scale-95" title="${isSelf ? 'កែប្រែព័ត៌មានផ្ទាល់ខ្លួន & រូបថត' : 'កែប្រែព័ត៌មាន & ឃ្លាំង'}">
-                  <i class="fa-solid fa-pen-to-square text-[10px]"></i>
-                  <span>កែប្រែ</span>
-                </button>
-                <button onclick="toggleUserStatus('${u.userId}', '${u.status === 'Active' ? 'Inactive' : 'Active'}')" class="px-2 py-1 rounded-lg text-xs font-semibold border transition hover:scale-105 active:scale-95 ${u.status === 'Active' ? 'bg-rose-50 text-rose-600 hover:bg-rose-100 border-rose-200' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border-emerald-200'}">
-                  ${u.status === 'Active' ? 'បិទដំណើរការ' : 'បើកដំណើរការ'}
-                </button>
-              `;
-              if (!isSelf && !isUserSuperAdmin) {
-                actionsHtml += `
-                  <button onclick="handleDeleteUser('${u.userId || ''}', '${u.username || ''}')" class="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 rounded-lg text-xs font-bold shadow-xs transition hover:scale-105 active:scale-95 inline-flex items-center space-x-1" title="លុបគណនីនេះចេញពីប្រព័ន្ធ">
-                    <i class="fa-solid fa-trash-can text-[10px]"></i>
-                    <span>លុប</span>
-                  </button>
-                `;
-              }
-              actionsHtml += `</div>`;
-            } else {
-              // Regular user: can edit own profile
-              actionsHtml = `
-                <button onclick="openProfileModal()" class="px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-xs font-bold transition inline-flex items-center space-x-1" title="កែប្រែព័ត៌មានផ្ទាល់ខ្លួន & រូបថត">
-                  <i class="fa-solid fa-user-pen"></i>
-                  <span>កែ Profile ខ្ញុំ</span>
-                </button>
-              `;
-            }
-
-            // Status Badge Formatting
-            let statusBadgeHtml = '';
-            if (u.status === 'Active') {
-              statusBadgeHtml = `<span class="px-2.5 py-1 rounded-full font-bold text-[10px] bg-emerald-100 text-emerald-700 border border-emerald-300">✅ Active</span>`;
-            } else if (u.status === 'Pending_Deletion') {
-              const reasonSnippet = u.deleteReason ? (u.deleteReason.length > 20 ? escapeHtml(u.deleteReason.substring(0, 20)) + '...' : escapeHtml(u.deleteReason)) : 'មើលមូលហេតុ';
-              statusBadgeHtml = `
-                <div class="flex flex-col items-center">
-                  <span class="px-2.5 py-1 rounded-full font-bold text-[10px] bg-rose-100 text-rose-800 border border-rose-300 font-extrabold shadow-sm animate-pulse inline-flex items-center space-x-1">
-                    <i class="fa-solid fa-triangle-exclamation text-rose-600 text-[10px] mr-1"></i>
-                    <span>⚠️ ស្នើសុំលុប</span>
-                  </span>
-                  <span class="text-[10px] text-rose-600 font-semibold italic mt-0.5 cursor-pointer hover:underline inline-flex items-center" onclick="viewUserDeleteReason('${u.userId || u.username}')" title="${escapeHtml(u.deleteReason || 'គ្មានការបញ្ជាក់')}">
-                    <i class="fa-solid fa-comment-dots mr-0.5"></i>${reasonSnippet}
-                  </span>
-                </div>
-              `;
-            } else if (u.status === 'Pending' || u.status === 'Pending_Admin') {
-              statusBadgeHtml = `<span class="px-2.5 py-1 rounded-full font-bold text-[10px] bg-amber-100 text-amber-800 border border-amber-300 font-extrabold shadow-sm">⏳ ជំហានទី ១: រង់ចាំ Admin</span>`;
-            } else if (u.status === 'Pending_SuperAdmin') {
-              statusBadgeHtml = `<span class="px-2.5 py-1 rounded-full font-bold text-[10px] bg-indigo-100 text-indigo-800 border border-indigo-300 font-extrabold shadow-sm">⏳ ជំហានទី ២: រង់ចាំ SuperAdmin</span>`;
-            } else if (u.status === 'Rejected') {
-              statusBadgeHtml = `<span class="px-2.5 py-1 rounded-full font-bold text-[10px] bg-rose-100 text-rose-700 border border-rose-300">❌ Rejected</span>`;
-            } else {
-              statusBadgeHtml = `<span class="px-2.5 py-1 rounded-full font-bold text-[10px] bg-slate-100 text-slate-700">${u.status || 'Inactive'}</span>`;
-            }
-
-            // Bound Devices Badge Formatting (1 PC + 1 Mobile Limit)
-            const bound = u.boundDevices || { desktop: null, mobile: null };
-            const pcBound = !!(bound.desktop && bound.desktop.deviceId);
-            const phoneBound = !!(bound.mobile && bound.mobile.deviceId);
-
-            const deviceBadgesHtml = `
-              <div class="inline-flex flex-col space-y-1 text-left">
-                <div class="inline-flex items-center space-x-1.5" title="${pcBound ? `កុំព្យូទ័រ: ${escapeHtml(bound.desktop.deviceName || 'PC')} (${new Date(bound.desktop.boundAt || Date.now()).toLocaleDateString('km-KH')})` : 'កុំព្យូទ័រ: ទំនេរ (មិនទាន់ភ្ជាប់)'}">
-                  <span class="w-4 text-center"><i class="fa-solid fa-desktop ${pcBound ? 'text-blue-600' : 'text-slate-300'} text-xs"></i></span>
-                  ${pcBound ? `
-                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                      <span class="w-1.5 h-1.5 rounded-full bg-blue-500 mr-1 animate-pulse"></span>
-                      ${bound.desktop.deviceName ? (bound.desktop.deviceName.length > 13 ? escapeHtml(bound.desktop.deviceName.substring(0, 11)) + '...' : escapeHtml(bound.desktop.deviceName)) : 'PC: ភ្ជាប់រួច'}
-                    </span>
-                  ` : `
-                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-400">PC: ទំនេរ</span>
-                  `}
-                </div>
-                <div class="inline-flex items-center space-x-1.5" title="${phoneBound ? `ទូរសព្ទដៃ: ${escapeHtml(bound.mobile.deviceName || 'Mobile')} (${new Date(bound.mobile.boundAt || Date.now()).toLocaleDateString('km-KH')})` : 'ទូរសព្ទដៃ: ទំនេរ (មិនទាន់ភ្ជាប់)'}">
-                  <span class="w-4 text-center"><i class="fa-solid fa-mobile-screen ${phoneBound ? 'text-emerald-600' : 'text-slate-300'} text-xs"></i></span>
-                  ${phoneBound ? `
-                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1 animate-pulse"></span>
-                      ${bound.mobile.deviceName ? (bound.mobile.deviceName.length > 13 ? escapeHtml(bound.mobile.deviceName.substring(0, 11)) + '...' : escapeHtml(bound.mobile.deviceName)) : 'Phone: ភ្ជាប់រួច'}
-                    </span>
-                  ` : `
-                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-400">Phone: ទំនេរ</span>
-                  `}
-                </div>
-              </div>
-            `;
-
-            // Reset Device Button for Admins
-            let resetBtnHtml = '';
-            if ((isActorSuperAdmin || isActorAdmin) && (pcBound || phoneBound)) {
-              resetBtnHtml = `
-                <button onclick="openResetUserDeviceModal('${u.userId || u.username}', '${escapeHtml(u.fullName || u.username)}')" 
-                  class="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg text-xs font-semibold flex items-center space-x-1 transition hover:scale-105 active:scale-95" 
-                  title="ផ្តាច់ឧបករណ៍កុំព្យូទ័រ/ទូរសព្ទដៃ (Reset Device Binding)">
-                  <i class="fa-solid fa-link-slash text-[10px]"></i>
-                  <span>ផ្តាច់ឧបករណ៍</span>
-                </button>
-              `;
-            }
-
-            // Insert resetBtnHtml into actions if applicable
-            if (actionsHtml.includes('</div>') && resetBtnHtml) {
-              const lastDivIdx = actionsHtml.lastIndexOf('</div>');
-              actionsHtml = actionsHtml.substring(0, lastDivIdx) + resetBtnHtml + '</div>';
-            }
-
-            const safeId = String(u.userId || u.username || idx).replace(/[^a-zA-Z0-9_-]/g, '_');
-            const userPwd = u.password || (String(u.username).toLowerCase() === 'superadmin' ? 'superadmin123' : (String(u.username).toLowerCase() === 'admin' ? 'admin123' : (/^wh\d+$/i.test(u.username) ? u.username + 'pass' : '123456')));
-
-            // Password component HTML (for privileged viewer or self)
-            let passwordBlockHtml = '';
-            if (isPrivilegedViewer || isSelf) {
-              passwordBlockHtml = `
-                <div class="inline-flex items-center gap-1 bg-slate-50 hover:bg-slate-100/90 border border-slate-200 rounded-lg px-2 py-0.5 shadow-2xs transition-colors w-fit">
-                  <span id="pwd-text-${safeId}" class="font-mono text-xs font-semibold text-slate-700 tracking-widest select-all min-w-[65px] inline-block text-center" data-password="${escapeHtml(userPwd)}" data-visible="false">••••••••</span>
-                  <button type="button" onclick="toggleUserPasswordVisibility('${safeId}')" class="p-1 text-slate-400 hover:text-blue-600 focus:outline-none transition rounded hover:bg-white shadow-2xs" title="បង្ហាញ ឬ លាក់លេខសម្ងាត់">
-                    <i id="pwd-icon-${safeId}" class="fa-solid fa-eye text-xs"></i>
-                  </button>
-                  <button type="button" onclick="copyUserPassword('${safeId}')" class="p-1 text-slate-400 hover:text-emerald-600 focus:outline-none transition rounded hover:bg-white shadow-2xs" title="ចម្លងលេខសម្ងាត់">
-                    <i class="fa-solid fa-copy text-xs"></i>
-                  </button>
-                </div>
-              `;
-            } else {
-              passwordBlockHtml = `<span class="text-[10px] text-slate-400 italic">••••••••</span>`;
-            }
-
-            return `
-              <tr class="hover:bg-slate-50 transition-colors ${isUserSuperAdmin ? 'bg-amber-50/20' : ''}">
-                <!-- ជួរទី1: លេខរៀង -->
-                <td class="px-3 py-3 text-center font-bold text-slate-500 text-xs">${idx + 1}</td>
-
-                <!-- ជួរទី2: រូបថត + ឈ្មោះអ្នកប្រើប្រាស់ + Email -->
-                <td class="px-4 py-3">
-                  <div class="flex items-center space-x-2.5">
-                    <div class="w-9 h-9 rounded-full overflow-hidden border border-slate-200 bg-slate-100 flex-shrink-0 shadow-2xs">
-                      <img src="${u.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + u.username}" class="w-full h-full object-cover">
-                    </div>
-                    <div class="min-w-0">
-                      <span class="font-bold text-slate-800 block text-xs truncate">${escapeHtml(u.fullName || u.username)}</span>
-                      ${u.email ? `<span class="text-[11px] text-slate-400 block truncate" title="${escapeHtml(u.email)}">${escapeHtml(u.email)}</span>` : '<span class="text-[10px] text-slate-300 italic">គ្មានអ៊ីមែល</span>'}
-                    </div>
-                  </div>
-                </td>
-
-                <!-- ជួរទី3: Username & Password នៅជាមួយគ្នា -->
-                <td class="px-4 py-3 whitespace-nowrap">
-                  <div class="flex flex-col space-y-1.5">
-                    <div>
-                      <span class="font-mono font-bold text-blue-600 text-xs">@${escapeHtml(u.username)}</span>
-                    </div>
-                    ${passwordBlockHtml}
-                  </div>
-                </td>
-
-                <!-- ជួរទី4: តួនាទី & លេខទូរស័ព្ទ -->
-                <td class="px-4 py-3 whitespace-nowrap">
-                  <div class="flex flex-col space-y-1">
-                    <div>${roleBadgeHtml}</div>
-                    ${u.phone ? `<div class="text-[11px] text-slate-600 font-mono flex items-center"><i class="fa-solid fa-phone text-[9px] mr-1.5 text-slate-400"></i>${escapeHtml(u.phone)}</div>` : '<div class="text-[10px] text-slate-300 italic">គ្មានលេខទូរស័ព្ទ</div>'}
-                  </div>
-                </td>
-
-                <!-- ជួរទី5: ឃ្លាំងទទួលបន្ទុក -->
-                <td class="px-4 py-3 text-slate-700 font-semibold text-xs whitespace-nowrap">
-                  ${u.warehouse === 'ALL' ? (isUserSuperAdmin ? '<span class="text-amber-600 font-bold">🏢 គ្រប់ស្ថានីយទាំងអស់ (SuperAdmin)</span>' : '<span class="text-purple-600 font-bold">🏢 គ្រប់ស្ថានីយទាំងអស់ (Admin)</span>') : `📍 ${u.warehouse || '-'}`}
-                </td>
-
-                <!-- ជួរទី6: ឧបករណ៍ (Devices) -->
-                <td class="px-3 py-3 text-center whitespace-nowrap">${deviceBadgesHtml}</td>
-
-                <!-- ជួរទី7: ស្ថានភាព -->
-                <td class="px-4 py-3 text-center whitespace-nowrap">${statusBadgeHtml}</td>
-
-                <!-- ជួរទី8: សកម្មភាព -->
-                <td class="px-4 py-3 text-center space-x-1 whitespace-nowrap">${actionsHtml}</td>
-              </tr>
-            `;
-          }).join('');
+          window._allRenderableUsers = filteredUsers;
+          renderUsersList(filteredUsers);
         }
       } catch (e) { }
+    }
+
+    function filterUsersList() {
+      const search = (document.getElementById('userSearchInput')?.value || '').toLowerCase().trim();
+      const roleFilter = document.getElementById('userRoleFilter')?.value || 'ALL';
+      const all = window._allRenderableUsers || [];
+
+      const filtered = all.filter(u => {
+        if (search) {
+          const name = String(u.fullName || '').toLowerCase();
+          const uname = String(u.username || '').toLowerCase();
+          const phone = String(u.phone || '').toLowerCase();
+          const wh = String(u.warehouse || '').toLowerCase();
+          const role = String(u.role || '').toLowerCase();
+          if (!name.includes(search) && !uname.includes(search) && !phone.includes(search) && !wh.includes(search) && !role.includes(search)) {
+            return false;
+          }
+        }
+        if (roleFilter !== 'ALL') {
+          if (roleFilter === 'SuperAdmin' && u.role !== 'SuperAdmin') return false;
+          if (roleFilter === 'Admin' && u.role !== 'Admin') return false;
+          if (roleFilter === 'អ្នកគ្រប់គ្រងស្ថានីយ' && u.role !== 'អ្នកគ្រប់គ្រងស្ថានីយ' && u.role !== 'អ្នកគ្រប់គ្រង') return false;
+          if (roleFilter === 'ប្រធានក្រុម' && u.role !== 'ប្រធានក្រុម' && u.role !== 'ប្រធាន' && u.role !== 'Manager') return false;
+          if (roleFilter === 'អ្នកកាន់ស្តុក' && u.role !== 'អ្នកកាន់ស្តុក' && u.role !== 'Stock Keeper') return false;
+        }
+        return true;
+      });
+
+      renderUsersList(filtered);
+    }
+
+    function renderUsersList(usersList) {
+      const tbody = document.getElementById('usersTableBody');
+      const mobileCards = document.getElementById('usersMobileCardsList');
+      if (!tbody && !mobileCards) return;
+
+      const actor = AppState.currentUser;
+      const isActorSuperAdmin = (actor?.role === 'SuperAdmin') || (String(actor?.username).toLowerCase() === 'superadmin');
+      const isActorAdmin = !isActorSuperAdmin && (actor?.role === 'Admin' || String(actor?.username).toLowerCase() === 'admin');
+      const isPrivilegedViewer = isActorSuperAdmin || isActorAdmin;
+
+      if (!usersList || usersList.length === 0) {
+        if (tbody) {
+          tbody.innerHTML = `<tr><td colspan="8" class="text-center py-12 text-slate-400 font-medium">មិនមានទិន្នន័យអ្នកប្រើប្រាស់ឡើយ</td></tr>`;
+        }
+        if (mobileCards) {
+          mobileCards.innerHTML = `
+            <div class="text-center py-10 text-slate-400 bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs">
+              <i class="fa-solid fa-users-slash text-3xl text-slate-300 mb-2 block"></i>
+              <span class="text-xs font-semibold">មិនមានទិន្នន័យអ្នកប្រើប្រាស់ឡើយ</span>
+            </div>
+          `;
+        }
+        return;
+      }
+
+      let desktopRowsHtml = '';
+      let mobileCardsHtml = '';
+
+      usersList.forEach((u, idx) => {
+        const isUserSuperAdmin = (u.role === 'SuperAdmin');
+        const isUserAdmin = (u.role === 'Admin');
+        const isSelf = (actor?.userId === u.userId || actor?.username === u.username);
+
+        // 1. Role Badge
+        let roleBadgeHtml = '';
+        if (isUserSuperAdmin) {
+          roleBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-black text-[10px] bg-gradient-to-r from-amber-400 to-amber-600 text-slate-950 border border-amber-300 shadow-sm">👑 SuperAdmin</span>`;
+        } else if (isUserAdmin) {
+          roleBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-purple-100 text-purple-700 border border-purple-200">🛡️ Admin</span>`;
+        } else if (u.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || u.role === 'អ្នកគ្រប់គ្រង') {
+          roleBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-indigo-100 text-indigo-700 border border-indigo-200">🏢 ${u.role === 'អ្នកគ្រប់គ្រង' ? 'អ្នកគ្រប់គ្រងស្ថានីយ' : u.role}</span>`;
+        } else if (u.role === 'ប្រធានក្រុម' || u.role === 'ប្រធាន' || u.role === 'Manager' || u.role === 'Team Leader') {
+          roleBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-emerald-100 text-emerald-700 border border-emerald-200">👤 ${u.role === 'ប្រធាន' ? 'ប្រធានក្រុម' : u.role}</span>`;
+        } else {
+          roleBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-blue-100 text-blue-700 border border-blue-200">📦 ${u.role || 'Stock Keeper'}</span>`;
+        }
+
+        // 2. Status Badge
+        let statusBadgeHtml = '';
+        if (u.status === 'Active') {
+          statusBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-emerald-100 text-emerald-700 border border-emerald-300 inline-flex items-center"><i class="fa-solid fa-circle-check mr-1 text-emerald-600"></i>Active</span>`;
+        } else if (u.status === 'Pending_Deletion') {
+          statusBadgeHtml = `
+            <div class="flex flex-col items-center">
+              <span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-rose-100 text-rose-800 border border-rose-300 shadow-sm animate-pulse inline-flex items-center">
+                <i class="fa-solid fa-triangle-exclamation text-rose-600 text-[10px] mr-1"></i>
+                <span>Pending Deletion</span>
+              </span>
+              <span class="text-[10px] text-rose-600 font-semibold italic mt-0.5 cursor-pointer hover:underline inline-flex items-center" onclick="viewUserDeleteReason('${u.userId || u.username}')" title="${escapeHtml(u.deleteReason || 'គ្មានការបញ្ជាក់')}">
+                <i class="fa-solid fa-comment-dots mr-0.5"></i>មើលមូលហេតុ
+              </span>
+            </div>
+          `;
+        } else if (u.status === 'Pending' || u.status === 'Pending_Admin') {
+          statusBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-amber-100 text-amber-800 border border-amber-300 shadow-sm inline-flex items-center"><i class="fa-solid fa-clock mr-1 text-amber-600"></i>Pending Admin</span>`;
+        } else if (u.status === 'Pending_SuperAdmin') {
+          statusBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-indigo-100 text-indigo-800 border border-indigo-300 shadow-sm inline-flex items-center"><i class="fa-solid fa-crown mr-1 text-amber-500"></i>Pending SuperAdmin</span>`;
+        } else if (u.status === 'Rejected') {
+          statusBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-rose-100 text-rose-700 border border-rose-300 inline-flex items-center"><i class="fa-solid fa-ban mr-1 text-rose-600"></i>Rejected</span>`;
+        } else {
+          statusBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-slate-100 text-slate-700">${u.status || 'Inactive'}</span>`;
+        }
+
+        // 3. Bound Devices
+        const bound = u.boundDevices || { desktop: null, mobile: null };
+        const pcBound = !!(bound.desktop && bound.desktop.deviceId);
+        const phoneBound = !!(bound.mobile && bound.mobile.deviceId);
+
+        const deviceBadgesHtml = `
+          <div class="inline-flex flex-wrap items-center gap-1.5 text-xs">
+            <span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[10.5px] ${pcBound ? 'font-bold bg-blue-50 text-blue-700 border border-blue-200' : 'bg-slate-100 text-slate-400'}" title="${pcBound ? `កុំព្យូទ័រ: ${escapeHtml(bound.desktop.deviceName || 'PC')}` : 'កុំព្យូទ័រ: ទំនេរ'}">
+              <i class="fa-solid fa-desktop mr-1 text-[10px] ${pcBound ? 'text-blue-600' : 'text-slate-300'}"></i>
+              <span>${pcBound ? 'PC: ភ្ជាប់រួច' : 'PC: ទំនេរ'}</span>
+            </span>
+            <span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[10.5px] ${phoneBound ? 'font-bold bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-400'}" title="${phoneBound ? `ទូរសព្ទដៃ: ${escapeHtml(bound.mobile.deviceName || 'Mobile')}` : 'ទូរសព្ទដៃ: ទំនេរ'}">
+              <i class="fa-solid fa-mobile-screen mr-1 text-[10px] ${phoneBound ? 'text-emerald-600' : 'text-slate-300'}"></i>
+              <span>${phoneBound ? 'Phone: ភ្ជាប់រួច' : 'Phone: ទំនេរ'}</span>
+            </span>
+          </div>
+        `;
+
+        // 4. Reset Device Button
+        let resetBtnHtml = '';
+        if ((isActorSuperAdmin || isActorAdmin) && (pcBound || phoneBound)) {
+          resetBtnHtml = `
+            <button onclick="openResetUserDeviceModal('${u.userId || u.username}', '${escapeHtml(u.fullName || u.username)}')" 
+              class="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-xl text-xs font-semibold flex items-center space-x-1 transition hover:scale-105 active:scale-95 shadow-2xs" 
+              title="ផ្តាច់ឧបករណ៍កុំព្យូទ័រ/ទូរសព្ទដៃ (Reset Device Binding)">
+              <i class="fa-solid fa-link-slash text-[10px]"></i>
+              <span>ផ្តាច់ឧបករណ៍</span>
+            </button>
+          `;
+        }
+
+        // 5. Actions
+        let actionsHtml = '';
+        if (u.status === 'Pending_Deletion') {
+          if (isActorSuperAdmin) {
+            actionsHtml = `
+              <div class="inline-flex flex-wrap items-center gap-1.5">
+                <button onclick="handleApproveUserDeletion('${u.userId || ''}', '${u.username || ''}')" class="px-3 py-1.5 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 text-white rounded-xl text-xs font-bold shadow-xs transition hover:scale-105 active:scale-95 flex items-center space-x-1">
+                  <i class="fa-solid fa-check text-xs"></i>
+                  <span>អនុម័តលុប</span>
+                </button>
+                <button onclick="handleRejectUserDeletion('${u.userId || ''}', '${u.username || ''}')" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold border border-slate-300 transition hover:scale-105 active:scale-95 flex items-center space-x-1">
+                  <i class="fa-solid fa-xmark text-xs"></i>
+                  <span>បដិសេធ</span>
+                </button>
+                <button onclick="viewUserDeleteReason('${u.userId || u.username}')" class="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-medium transition hover:scale-105 active:scale-95" title="ពិនិត្យមើលមូលហេតុ">
+                  <i class="fa-solid fa-file-lines text-xs"></i>
+                </button>
+              </div>
+            `;
+          } else if (isActorAdmin) {
+            actionsHtml = `
+              <div class="inline-flex items-center space-x-1.5">
+                <span class="text-[10px] text-rose-700 font-bold bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200 inline-flex items-center">
+                  <i class="fa-solid fa-hourglass-half mr-1 text-rose-500"></i>រង់ចាំ SuperAdmin អនុម័ត
+                </span>
+                <button onclick="viewUserDeleteReason('${u.userId || u.username}')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs transition" title="មើលមូលហេតុនៃការលុប">
+                  <i class="fa-solid fa-eye text-[11px]"></i>
+                </button>
+              </div>
+            `;
+          } else {
+            actionsHtml = `<span class="text-xs text-rose-500 italic font-semibold">រង់ចាំ SuperAdmin ត្រួតពិនិត្យការលុប</span>`;
+          }
+        } else if (u.status === 'Pending' || u.status === 'Pending_Admin') {
+          if (isActorSuperAdmin || isActorAdmin) {
+            actionsHtml = `
+              <div class="inline-flex flex-wrap items-center gap-1.5">
+                <button onclick="approveUserDirectly('${u.userId || ''}', '${u.username || ''}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition active:scale-95 flex items-center space-x-1">
+                  <i class="fa-solid fa-circle-check text-xs"></i>
+                  <span>${isActorSuperAdmin ? 'អនុម័ត' : 'អនុម័ត (Admin)'}</span>
+                </button>
+                <button onclick="rejectUserDirectly('${u.userId || ''}', '${u.username || ''}')" class="px-2.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-sm transition active:scale-95 flex items-center space-x-1">
+                  <i class="fa-solid fa-circle-xmark text-xs"></i>
+                  <span>បដិសេធ</span>
+                </button>
+                <button onclick="handleDeleteUser('${u.userId || ''}', '${u.username || ''}')" class="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold shadow-sm transition active:scale-95 inline-flex items-center space-x-1">
+                  <i class="fa-solid fa-trash-can text-[11px]"></i>
+                  <span>លុប</span>
+                </button>
+              </div>
+            `;
+          } else {
+            actionsHtml = `<span class="text-xs text-amber-600 font-semibold italic">រង់ចាំ Admin អនុម័ត</span>`;
+          }
+        } else if (u.status === 'Pending_SuperAdmin') {
+          if (isActorSuperAdmin) {
+            actionsHtml = `
+              <div class="inline-flex flex-wrap items-center gap-1.5">
+                <button onclick="approveUserDirectly('${u.userId || ''}', '${u.username || ''}')" class="px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl text-xs font-bold shadow-sm transition active:scale-95 flex items-center space-x-1">
+                  <i class="fa-solid fa-crown text-xs text-amber-300"></i>
+                  <span>SuperAdmin អនុម័ត</span>
+                </button>
+                <button onclick="rejectUserDirectly('${u.userId || ''}', '${u.username || ''}')" class="px-2.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-sm transition active:scale-95 flex items-center space-x-1">
+                  <i class="fa-solid fa-circle-xmark text-xs"></i>
+                  <span>បដិសេធ</span>
+                </button>
+                <button onclick="handleDeleteUser('${u.userId || ''}', '${u.username || ''}')" class="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold shadow-sm transition active:scale-95 inline-flex items-center space-x-1">
+                  <i class="fa-solid fa-trash-can text-[11px]"></i>
+                  <span>លុប</span>
+                </button>
+              </div>
+            `;
+          } else if (isActorAdmin) {
+            actionsHtml = `
+              <div class="inline-flex items-center space-x-1.5">
+                <span class="text-[10px] text-indigo-700 font-bold bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">រង់ចាំ SuperAdmin</span>
+                <button onclick="resendToTelegramSuperAdmin('${u.userId || ''}', '${u.username || ''}')" class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-bold shadow-sm transition">
+                  <i class="fa-brands fa-telegram mr-0.5"></i> រំលឹក
+                </button>
+                <button onclick="handleDeleteUser('${u.userId || ''}', '${u.username || ''}')" class="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg text-[10px] font-bold shadow-sm transition">
+                  <i class="fa-solid fa-trash-can text-[10px]"></i>
+                  <span>លុប</span>
+                </button>
+              </div>
+            `;
+          } else {
+            actionsHtml = `<span class="text-xs text-indigo-600 font-semibold italic">រង់ចាំ SuperAdmin អនុម័ត</span>`;
+          }
+        } else if (isActorSuperAdmin) {
+          actionsHtml = `<div class="inline-flex flex-wrap items-center gap-1.5">`;
+          if (!isSelf) {
+            actionsHtml += `
+              <button onclick="impersonateUser('${u.userId || u.username}')" class="px-2.5 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 text-white rounded-xl text-xs font-bold shadow-xs transition hover:scale-105 active:scale-95 flex items-center space-x-1" title="Switch User ចូលដំណើរការជា User នេះ">
+                <i class="fa-solid fa-repeat text-[10px]"></i>
+                <span>Switch</span>
+              </button>
+            `;
+          }
+          actionsHtml += `
+            <button onclick="${isSelf ? 'openProfileModal()' : `openEditUserModal('${u.userId}')`}" class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center space-x-1 border border-slate-200 transition hover:scale-105 active:scale-95">
+              <i class="fa-solid fa-pen-to-square text-[10px]"></i>
+              <span>កែប្រែ</span>
+            </button>
+            <button onclick="toggleUserStatus('${u.userId}', '${u.status === 'Active' ? 'Inactive' : 'Active'}')" class="px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition hover:scale-105 active:scale-95 ${u.status === 'Active' ? 'bg-rose-50 text-rose-600 hover:bg-rose-100 border-rose-200' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border-emerald-200'}">
+              ${u.status === 'Active' ? 'បិទដំណើរការ' : 'បើកដំណើរការ'}
+            </button>
+          `;
+          if (!isSelf) {
+            actionsHtml += `
+              <button onclick="handleDeleteUser('${u.userId || ''}', '${u.username || ''}')" class="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 rounded-xl text-xs font-bold shadow-xs transition hover:scale-105 active:scale-95 inline-flex items-center space-x-1" title="លុបគណនីនេះ">
+                <i class="fa-solid fa-trash-can text-[10px]"></i>
+                <span>លុប</span>
+              </button>
+            `;
+          }
+          if (resetBtnHtml) actionsHtml += resetBtnHtml;
+          actionsHtml += `</div>`;
+        } else if (isActorAdmin) {
+          actionsHtml = `<div class="inline-flex flex-wrap items-center gap-1.5">`;
+          actionsHtml += `
+            <button onclick="${isSelf ? 'openProfileModal()' : `openEditUserModal('${u.userId}')`}" class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center space-x-1 border border-slate-200 transition hover:scale-105 active:scale-95">
+              <i class="fa-solid fa-pen-to-square text-[10px]"></i>
+              <span>កែប្រែ</span>
+            </button>
+            <button onclick="toggleUserStatus('${u.userId}', '${u.status === 'Active' ? 'Inactive' : 'Active'}')" class="px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition hover:scale-105 active:scale-95 ${u.status === 'Active' ? 'bg-rose-50 text-rose-600 hover:bg-rose-100 border-rose-200' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border-emerald-200'}">
+              ${u.status === 'Active' ? 'បិទដំណើរការ' : 'បើកដំណើរការ'}
+            </button>
+          `;
+          if (!isSelf && !isUserSuperAdmin) {
+            actionsHtml += `
+              <button onclick="handleDeleteUser('${u.userId || ''}', '${u.username || ''}')" class="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 rounded-xl text-xs font-bold shadow-xs transition hover:scale-105 active:scale-95 inline-flex items-center space-x-1" title="លុបគណនីនេះ">
+                <i class="fa-solid fa-trash-can text-[10px]"></i>
+                <span>លុប</span>
+              </button>
+            `;
+          }
+          if (resetBtnHtml) actionsHtml += resetBtnHtml;
+          actionsHtml += `</div>`;
+        } else {
+          actionsHtml = `
+            <button onclick="openProfileModal()" class="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-bold transition inline-flex items-center space-x-1">
+              <i class="fa-solid fa-user-pen"></i>
+              <span>កែ Profile ខ្ញុំ</span>
+            </button>
+          `;
+        }
+
+        // 6. Password Block Builder
+        const safeId = String(u.userId || u.username || idx).replace(/[^a-zA-Z0-9_-]/g, '_');
+        const userPwd = u.password || (String(u.username).toLowerCase() === 'superadmin' ? 'superadmin123' : (String(u.username).toLowerCase() === 'admin' ? 'admin123' : (/^wh\d+$/i.test(u.username) ? u.username + 'pass' : '123456')));
+
+        const buildPwdBlock = (prefix) => {
+          const id = prefix + safeId;
+          if (isPrivilegedViewer || isSelf) {
+            return `
+              <div class="inline-flex items-center gap-1 bg-slate-50 hover:bg-slate-100/90 border border-slate-200 rounded-lg px-2 py-0.5 shadow-2xs transition-colors w-fit">
+                <span id="pwd-text-${id}" class="font-mono text-xs font-semibold text-slate-700 tracking-widest select-all min-w-[65px] inline-block text-center" data-password="${escapeHtml(userPwd)}" data-visible="false">••••••••</span>
+                <button type="button" onclick="toggleUserPasswordVisibility('${id}')" class="p-1 text-slate-400 hover:text-blue-600 focus:outline-none transition rounded hover:bg-white shadow-2xs" title="បង្ហាញ ឬ លាក់លេខសម្ងាត់">
+                  <i id="pwd-icon-${id}" class="fa-solid fa-eye text-xs"></i>
+                </button>
+                <button type="button" onclick="copyUserPassword('${id}')" class="p-1 text-slate-400 hover:text-emerald-600 focus:outline-none transition rounded hover:bg-white shadow-2xs" title="ចម្លងលេខសម្ងាត់">
+                  <i class="fa-solid fa-copy text-xs"></i>
+                </button>
+              </div>
+            `;
+          }
+          return `<span class="text-[10px] text-slate-400 italic">••••••••</span>`;
+        };
+
+        const pwdDesktop = buildPwdBlock('');
+        const pwdMobile = buildPwdBlock('mob_');
+
+        // 7. Desktop Table Row
+        desktopRowsHtml += `
+          <tr class="hover:bg-slate-50 transition-colors ${isUserSuperAdmin ? 'bg-amber-50/20' : ''}">
+            <td class="px-3 py-3 text-center font-bold text-slate-500 text-xs">${idx + 1}</td>
+            <td class="px-4 py-3">
+              <div class="flex items-center space-x-2.5">
+                <div class="w-9 h-9 rounded-full overflow-hidden border border-slate-200 bg-slate-100 flex-shrink-0 shadow-2xs">
+                  <img src="${u.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + u.username}" class="w-full h-full object-cover">
+                </div>
+                <div class="min-w-0">
+                  <span class="font-bold text-slate-800 block text-xs truncate">${escapeHtml(u.fullName || u.username)}</span>
+                  ${u.email ? `<span class="text-[11px] text-slate-400 block truncate" title="${escapeHtml(u.email)}">${escapeHtml(u.email)}</span>` : '<span class="text-[10px] text-slate-300 italic">គ្មានអ៊ីមែល</span>'}
+                </div>
+              </div>
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap">
+              <div class="flex flex-col space-y-1.5">
+                <div><span class="font-mono font-bold text-blue-600 text-xs">@${escapeHtml(u.username)}</span></div>
+                ${pwdDesktop}
+              </div>
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap">
+              <div class="flex flex-col space-y-1">
+                <div>${roleBadgeHtml}</div>
+                ${u.phone ? `<div class="text-[11px] text-slate-600 font-mono flex items-center"><i class="fa-solid fa-phone text-[9px] mr-1.5 text-slate-400"></i>${escapeHtml(u.phone)}</div>` : '<div class="text-[10px] text-slate-300 italic">គ្មានលេខទូរស័ព្ទ</div>'}
+              </div>
+            </td>
+            <td class="px-4 py-3 text-slate-700 font-semibold text-xs whitespace-nowrap">
+              ${u.warehouse === 'ALL' ? (isUserSuperAdmin ? '<span class="text-amber-600 font-bold">🏢 គ្រប់ស្ថានីយទាំងអស់ (SuperAdmin)</span>' : '<span class="text-purple-600 font-bold">🏢 គ្រប់ស្ថានីយទាំងអស់ (Admin)</span>') : `📍 ${u.warehouse || '-'}`}
+            </td>
+            <td class="px-3 py-3 text-center whitespace-nowrap">${deviceBadgesHtml}</td>
+            <td class="px-4 py-3 text-center whitespace-nowrap">${statusBadgeHtml}</td>
+            <td class="px-4 py-3 text-center space-x-1 whitespace-nowrap">${actionsHtml}</td>
+          </tr>
+        `;
+
+        // 8. Mobile Card View
+        mobileCardsHtml += `
+          <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm space-y-3 transition hover:shadow-md ${isUserSuperAdmin ? 'border-amber-300 ring-1 ring-amber-200 bg-amber-50/10' : ''}">
+            <!-- Card Header: Avatar, Name, Role, Status -->
+            <div class="flex items-start justify-between gap-2.5">
+              <div class="flex items-center space-x-3 min-w-0">
+                <div class="w-11 h-11 rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 flex-shrink-0 shadow-2xs">
+                  <img src="${u.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + u.username}" class="w-full h-full object-cover">
+                </div>
+                <div class="min-w-0">
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <h4 class="font-extrabold text-slate-900 text-sm truncate">${escapeHtml(u.fullName || u.username)}</h4>
+                    <span class="font-mono font-bold text-blue-600 text-[11px]">@${escapeHtml(u.username)}</span>
+                  </div>
+                  <div class="flex items-center gap-1.5 mt-1 flex-wrap">
+                    ${roleBadgeHtml}
+                    ${u.email ? `<span class="text-[10.5px] text-slate-400 truncate max-w-[150px]">${escapeHtml(u.email)}</span>` : ''}
+                  </div>
+                </div>
+              </div>
+              <div class="flex-shrink-0">
+                ${statusBadgeHtml}
+              </div>
+            </div>
+
+            <!-- Details Grid Box -->
+            <div class="bg-slate-50 rounded-xl p-3 border border-slate-100 space-y-2 text-xs">
+              <!-- Warehouse -->
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-slate-400 font-medium shrink-0 flex items-center"><i class="fa-solid fa-warehouse mr-1.5 text-blue-500 text-[11px]"></i>ឃ្លាំង</span>
+                <span class="font-bold text-slate-800 text-right truncate">
+                  ${u.warehouse === 'ALL' ? (isUserSuperAdmin ? '<span class="text-amber-600">🏢 គ្រប់ស្ថានីយ (SuperAdmin)</span>' : '<span class="text-purple-600">🏢 គ្រប់ស្ថានីយ (Admin)</span>') : `📍 ${u.warehouse || '-'}`}
+                </span>
+              </div>
+
+              <!-- Phone -->
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-slate-400 font-medium shrink-0 flex items-center"><i class="fa-solid fa-phone mr-1.5 text-emerald-500 text-[11px]"></i>ទូរស័ព្ទ</span>
+                <span class="text-right font-mono font-bold text-slate-700">
+                  ${u.phone ? `<a href="tel:${escapeHtml(u.phone)}" class="text-blue-600 hover:underline"><i class="fa-solid fa-phone-volume text-[9px] mr-1 text-emerald-500"></i>${escapeHtml(u.phone)}</a>` : '<span class="text-slate-300 font-normal italic">មិនមាន</span>'}
+                </span>
+              </div>
+
+              <!-- Password -->
+              <div class="flex items-center justify-between gap-2 pt-1.5 border-t border-slate-200/60">
+                <span class="text-slate-400 font-medium shrink-0 flex items-center"><i class="fa-solid fa-key mr-1.5 text-amber-500 text-[11px]"></i>លេខសម្ងាត់</span>
+                <div>
+                  ${pwdMobile}
+                </div>
+              </div>
+
+              <!-- Devices -->
+              <div class="flex items-center justify-between gap-2 pt-1.5 border-t border-slate-200/60">
+                <span class="text-slate-400 font-medium shrink-0 flex items-center"><i class="fa-solid fa-laptop-code mr-1.5 text-indigo-500 text-[11px]"></i>ឧបករណ៍</span>
+                <div>
+                  ${deviceBadgesHtml}
+                </div>
+              </div>
+            </div>
+
+            <!-- Mobile Action Buttons -->
+            <div class="pt-1 flex flex-wrap items-center justify-end gap-1.5">
+              ${actionsHtml}
+            </div>
+          </div>
+        `;
+      });
+
+      if (tbody) tbody.innerHTML = desktopRowsHtml;
+      if (mobileCards) mobileCards.innerHTML = mobileCardsHtml;
     }
 
     function toggleUserPasswordVisibility(safeId) {
