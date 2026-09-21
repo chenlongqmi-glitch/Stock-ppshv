@@ -6665,8 +6665,8 @@
             LOCAL_DB.users[uIdx] = { ...LOCAL_DB.users[uIdx], ...cu };
           }
         }
-        // Filter out any unregistered dummy demo users
-        const registeredUsers = LOCAL_DB.users.filter(u => !isUnregisteredDummyUser(u));
+        // Filter out any unregistered dummy demo users and deleted accounts
+        const registeredUsers = LOCAL_DB.users.filter(u => !isUnregisteredDummyUser(u) && u.status !== 'Deleted' && u.status !== 'deleted');
         const actor = payload.user || AppState.currentUser;
         const isSuperAdmin = (actor?.role === 'SuperAdmin') || (String(actor?.username).toLowerCase() === 'superadmin');
         const isAdmin = !isSuperAdmin && (actor?.role === 'Admin' || String(actor?.username).toLowerCase() === 'admin');
@@ -8929,8 +8929,16 @@
 
       try {
         const res = await apiCall('getUsersList');
-        const users = (res && res.success && res.users) ? res.users : LOCAL_DB.users;
-        window._cachedUsersForSwitch = users;
+        const rawUsers = (res && res.success && res.users) ? res.users : LOCAL_DB.users;
+        // Strictly filter out dummy/seed demo accounts (wh01-wh11, chan sovannak, etc.) and deleted accounts
+        const validUsers = (rawUsers || []).filter(u => {
+          if (!u) return false;
+          if (typeof isUnregisteredDummyUser === 'function' && isUnregisteredDummyUser(u)) return false;
+          const st = String(u.status || '').toLowerCase();
+          if (st === 'deleted' || st === 'pending_deletion') return false;
+          return true;
+        });
+        window._cachedUsersForSwitch = validUsers;
         filterSwitchUserList();
       } catch (e) {
         container.innerHTML = '<div class="text-center py-6 text-rose-500 text-xs">មិនអាចផ្ទុកបញ្ជី User បានទេ</div>';
@@ -8941,7 +8949,14 @@
       const container = document.getElementById('switchUserListContainer');
       if (!container) return;
       const query = (document.getElementById('switchUserSearchInput')?.value || '').trim().toLowerCase();
-      const users = window._cachedUsersForSwitch || LOCAL_DB.users || [];
+      const rawUsers = window._cachedUsersForSwitch || LOCAL_DB.users || [];
+      const users = (rawUsers || []).filter(u => {
+        if (!u) return false;
+        if (typeof isUnregisteredDummyUser === 'function' && isUnregisteredDummyUser(u)) return false;
+        const st = String(u.status || '').toLowerCase();
+        if (st === 'deleted' || st === 'pending_deletion') return false;
+        return true;
+      });
 
       const filtered = users.filter(u => {
         if (!query) return true;
