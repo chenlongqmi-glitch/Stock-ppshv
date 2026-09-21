@@ -3203,7 +3203,7 @@
                   <input type="text" id="modalSize" placeholder="ឧ. 330ml / 500g / 1L / XL"
                     autocomplete="off"
                     onfocus="openQuickPicker('modalSize')"
-                    oninput="openQuickPicker('modalSize', this.value)"
+                    oninput="openQuickPicker('modalSize', this.value); checkItemDuplicate();"
                     class="w-full h-11 pl-3.5 pr-8 bg-slate-50 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 font-semibold text-slate-800 focus:bg-white transition">
                   <button type="button" onclick="openQuickPicker('modalSize')"
                     class="absolute right-2.5 top-3.5 text-slate-400 hover:text-slate-600 text-xs" title="រើសខ្នាត">
@@ -3221,13 +3221,27 @@
                   <input type="text" id="modalColor" placeholder="ឧ. ខ្មៅ / ស / ក្រហម / ខៀវ"
                     autocomplete="off"
                     onfocus="openQuickPicker('modalColor')"
-                    oninput="openQuickPicker('modalColor', this.value)"
+                    oninput="openQuickPicker('modalColor', this.value); checkItemDuplicate();"
                     class="w-full h-11 pl-3.5 pr-8 bg-slate-50 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-500 font-semibold text-slate-800 focus:bg-white transition">
                   <button type="button" onclick="openQuickPicker('modalColor')"
                     class="absolute right-2.5 top-3.5 text-slate-400 hover:text-slate-600 text-xs" title="រើសពណ៌">
                     <i class="fa-solid fa-chevron-down text-[10px]"></i>
                   </button>
                 </div>
+              </div>
+            </div>
+
+            <!-- Duplicate Item Warning Banner (Name + Size + Color) -->
+            <div id="modalDuplicateWarningBanner" class="hidden p-3 rounded-2xl bg-rose-50 border-2 border-rose-300 text-rose-800 text-xs shadow-sm flex items-start space-x-2.5">
+              <div class="w-6 h-6 rounded-lg bg-rose-600 text-white flex items-center justify-center shrink-0 text-xs shadow-xs mt-0.5">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center justify-between flex-wrap gap-1">
+                  <span class="font-extrabold text-rose-900 text-xs">ទំនិញនេះមានក្នុងបញ្ជីរួចហើយ (មិនអនុញ្ញាតឱ្យបញ្ចូលស្ទួន)!</span>
+                  <span id="duplicateWarningSku" class="font-mono font-bold text-[10px] bg-white px-2 py-0.5 rounded border border-rose-300 text-rose-700"></span>
+                </div>
+                <p id="duplicateWarningText" class="text-[11px] text-rose-700 mt-1 leading-snug"></p>
               </div>
             </div>
 
@@ -9808,7 +9822,51 @@
       }
     }
 
+    function checkItemDuplicate() {
+      const name = (document.getElementById('modalName')?.value || '').trim();
+      const size = (document.getElementById('modalSize')?.value || '').trim();
+      const color = (document.getElementById('modalColor')?.value || '').trim();
+      const currentSku = (document.getElementById('modalSku')?.value || '').trim();
+      const mode = document.getElementById('itemEditMode')?.value || 'ADD';
+
+      const banner = document.getElementById('modalDuplicateWarningBanner');
+      const warningText = document.getElementById('duplicateWarningText');
+      const warningSku = document.getElementById('duplicateWarningSku');
+
+      if (!name) {
+        if (banner) banner.classList.add('hidden');
+        return null;
+      }
+
+      const norm = str => (str || '').trim().toLowerCase().replace(/\s+/g, ' ');
+
+      const duplicate = (AppState.items || []).find(i => {
+        if (mode === 'EDIT' && currentSku && i.sku.toLowerCase() === currentSku.toLowerCase()) {
+          return false;
+        }
+        const sameName = norm(i.name) === norm(name);
+        const sameSize = norm(i.size) === norm(size);
+        const sameColor = norm(i.color) === norm(color);
+        return sameName && sameSize && sameColor;
+      });
+
+      if (duplicate) {
+        if (banner && warningText && warningSku) {
+          warningSku.innerText = duplicate.sku;
+          const specParts = [duplicate.size, duplicate.color].filter(Boolean);
+          const specStr = specParts.length > 0 ? ` (${specParts.join(', ')})` : '';
+          warningText.innerHTML = `ទំនិញឈ្មោះ <b>${escapeHtml(duplicate.name)}</b>${specStr} មានក្នុងបញ្ជីរួចរាល់ហើយ។ ប្រព័ន្ធកំណត់ត្រួតពិនិត្យ <b>(ឈ្មោះ + ខ្នាត + ពណ៌)</b> មិនអនុញ្ញាតឱ្យបញ្ចូលស្ទួនឡើយ!`;
+          banner.classList.remove('hidden');
+        }
+        return duplicate;
+      } else {
+        if (banner) banner.classList.add('hidden');
+        return null;
+      }
+    }
+
     function onModalNameInput(val) {
+      checkItemDuplicate();
       const clearBtn = document.getElementById('modalNameClearBtn');
       if (clearBtn) {
         if (val && val.trim().length > 0) clearBtn.classList.remove('hidden');
@@ -9974,6 +10032,8 @@
 
       const clearBtn = document.getElementById('modalNameClearBtn');
       if (clearBtn) clearBtn.classList.remove('hidden');
+
+      checkItemDuplicate();
 
       if (typeof Swal !== 'undefined') {
         const Toast = Swal.mixin({
@@ -10150,6 +10210,7 @@
         cfg.onSelect();
       }
       closeQuickPicker();
+      checkItemDuplicate();
     }
 
     function closeQuickPicker() {
@@ -10200,6 +10261,7 @@
       if (suggestionsEl) suggestionsEl.classList.add('hidden');
       const clearBtn = document.getElementById('modalNameClearBtn');
       if (clearBtn) clearBtn.classList.add('hidden');
+      document.getElementById('modalDuplicateWarningBanner')?.classList.add('hidden');
       populateModalNameDatalist();
 
       const currentUserStr = (AppState.currentUser?.fullName || AppState.currentUser?.username || 'Admin') +
@@ -10265,6 +10327,7 @@
       if (suggestionsEl) suggestionsEl.classList.add('hidden');
       const clearBtn = document.getElementById('modalNameClearBtn');
       if (clearBtn) clearBtn.classList.remove('hidden');
+      document.getElementById('modalDuplicateWarningBanner')?.classList.add('hidden');
       populateModalNameDatalist();
 
       document.getElementById('itemEditMode').value = 'EDIT';
@@ -10404,6 +10467,39 @@
         createdAt: existingItem?.createdAt || new Date().toISOString(),
         imageUrl: document.getElementById('modalImageUrl').value.trim()
       };
+
+      // STRICT DUPLICATE VALIDATION: Name + Size + Color
+      const duplicateItem = checkItemDuplicate();
+      if (duplicateItem) {
+        const specParts = [duplicateItem.size, duplicateItem.color].filter(Boolean);
+        const specStr = specParts.length > 0 ? ` (${specParts.join(', ')})` : '';
+        Swal.fire({
+          icon: 'error',
+          title: 'ទំនិញនេះមានក្នុងបញ្ជីរួចហើយ!',
+          html: `
+            <div class="text-left bg-rose-50 border border-rose-200 rounded-xl p-3.5 text-xs space-y-2 mt-2 font-sans">
+              <p class="font-extrabold text-rose-800 flex items-center">
+                <i class="fa-solid fa-circle-xmark mr-1.5 text-rose-600 text-sm"></i>
+                ទិន្នន័យស្ទួនគ្នា៖ ឈ្មោះ + ខ្នាត + ពណ៌
+              </p>
+              <div class="text-slate-700 space-y-1.5 pt-1.5 border-t border-rose-200/70 font-medium">
+                <p>📦 <b>ឈ្មោះទំនិញ៖</b> <span class="font-bold text-slate-900">${escapeHtml(duplicateItem.name)}</span></p>
+                <p>📏 <b>ខ្នាត / ទំហំ៖</b> ${escapeHtml(duplicateItem.size || 'គ្មាន')}</p>
+                <p>🎨 <b>ពណ៌៖</b> ${escapeHtml(duplicateItem.color || 'គ្មាន')}</p>
+                <p>🏷️ <b>កូដ SKU ដែលមានស្រាប់៖</b> <span class="font-mono font-extrabold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">${escapeHtml(duplicateItem.sku)}</span></p>
+                <p>📦 <b>ស្តុកបច្ចុប្បន្ន៖</b> <span class="font-bold text-emerald-700">${duplicateItem.currentStock} ${escapeHtml(duplicateItem.unit || 'ដុំ')}</span></p>
+              </div>
+              <div class="p-2 rounded-lg bg-white/80 border border-rose-200 text-[11px] text-rose-700 font-semibold leading-relaxed">
+                <i class="fa-solid fa-triangle-exclamation mr-1 text-rose-500"></i>
+                ប្រព័ន្ធកំណត់ត្រួតពិនិត្យ <b>(ឈ្មោះ + ខ្នាត + ពណ៌)</b> មិនអនុញ្ញាតឱ្យបញ្ចូលទិន្នន័យស្ទួនគ្នានេះបានទេ។ សូមកែប្រែឈ្មោះ ខ្នាត ឬពណ៌ឱ្យខុសគ្នា ឬប្រើប្រាស់មុខទំនិញដែលមានស្រាប់។
+              </div>
+            </div>
+          `,
+          confirmButtonText: 'យល់ព្រម ពិនិត្យឡើងវិញ',
+          confirmButtonColor: '#e11d48'
+        });
+        return;
+      }
 
       // STRICT VALIDATION: Check if product image is provided
       if (!itemData.imageUrl) {

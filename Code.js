@@ -3793,61 +3793,39 @@ function saveOrUpdateItem(itemDataOrPayload, username) {
 
 
   const isNew = targetRow <= 0;
-
-  const newName = String(itemData.name || '').trim().toLowerCase();
-
+  const normStr = function(s) { return String(s || '').trim().toLowerCase().replace(/\s+/g, ' '); };
+  const newNameNorm = normStr(itemData.name);
+  const newSizeNorm = normStr(itemData.size);
+  const newColorNorm = normStr(itemData.color);
   const newBarcode = String(itemData.barcode || '').trim().toLowerCase();
-
   const newLoc = normalizeStationLocationInternal(itemData.location || '1-K3 ស្ថានីយ (ភ្នំពេញ)');
-
   itemData.location = newLoc;
 
-
-
-  // 1. DUPLICATE CHECK: Prevent duplicate Barcode or duplicate Name in the same station
-
+  // 1. DUPLICATE CHECK: Prevent duplicate item based on (Name + Size + Color)
   for (let i = 1; i < data.length; i++) {
-
     const existSku = String(data[i][0]).trim();
-
     if (!isNew && existSku === sku) continue; // Skip self when editing
 
-
-
     const existBarcode = String(data[i][1] || '').trim().toLowerCase();
-
-    const existName = String(data[i][2] || '').trim().toLowerCase();
-
-    const existLoc = normalizeStationLocationInternal(data[i][8]);
-
-
+    const existName = String(data[i][2] || '');
+    const existSize = String(data[i][13] || '');
+    const existColor = String(data[i][14] || '');
 
     if (newBarcode && existBarcode && newBarcode === existBarcode) {
-
       return {
-
         success: false,
-
-        message: `មុខទំនិញនេះមានហើយនៅក្នុងបញ្ជីនេះ! លេខកូដ Barcode (${itemData.barcode}) មានស្រាប់លើទំនិញ "${data[i][2]}" មិនអាចបញ្ចូលបន្ថែមស្ទួនបានទេ។`
-
+        message: `មុខទំនិញនេះមានហើយនៅក្នុងបញ្ជីនេះ! លេខកូដ Barcode (${itemData.barcode}) មានស្រាប់លើទំនិញ "${existName}" មិនអាចបញ្ចូលបន្ថែមស្ទួនបានទេ។`
       };
-
     }
 
-
-
-    if (newName && existName && newName === existName && newLoc === existLoc) {
-
+    if (newNameNorm && normStr(existName) === newNameNorm && normStr(existSize) === newSizeNorm && normStr(existColor) === newColorNorm) {
+      const specParts = [existSize, existColor].filter(Boolean);
+      const specStr = specParts.length > 0 ? ` (${specParts.join(', ')})` : '';
       return {
-
         success: false,
-
-        message: `មុខទំនិញនេះមានហើយនៅក្នុងបញ្ជីនេះ! មុខទំនិញ "${itemData.name}" មានរួចហើយនៅក្នុង ${data[i][8]} (SKU: ${existSku}) មិនអាចបញ្ចូលបន្ថែមស្ទួនបានទេ។`
-
+        message: `មុខទំនិញ "${itemData.name}"${specStr} មានក្នុងបញ្ជីស្តុករួចហើយ (SKU: ${existSku})! ប្រព័ន្ធកំណត់ត្រួតពិនិត្យ (ឈ្មោះ + ខ្នាត + ពណ៌) មិនអនុញ្ញាតឱ្យបញ្ចូលស្ទួនឡើយ។`
       };
-
     }
-
   }
 
 
