@@ -924,7 +924,7 @@
                 <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">តួនាទី (Role)</label>
                 <select id="regRole" onchange="onRegisterRoleChange(this.value)"
                   class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none font-medium text-slate-700">
-                  <option value="អ្នកគ្រប់គ្រង">អ្នកគ្រប់គ្រង</option>
+                  <option value="អ្នកគ្រប់គ្រងស្ថានីយ">អ្នកគ្រប់គ្រងស្ថានីយ</option>
                   <option value="ប្រធាន">ប្រធាន</option>
                   <option value="អ្នកកាន់ស្តុក">អ្នកកាន់ស្តុក</option>
                 </select>
@@ -946,7 +946,7 @@
                 <option value="中心库房 (ឃ្លាំងស្តុកនៅបុងសឹង)">中心库房 (ឃ្លាំងស្តុកនៅបុងសឹង)</option>
                 <option value="机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)">机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
                 <option value="综合办 (ផ្នែកកិច្ចការទូទៅ)">综合办 (ផ្នែកកិច្ចការទូទៅ)</option>
-                <option value="ALL">គ្រប់ស្ថានីយទាំងអស់ (Admin Only)</option>
+                <option value="ALL" disabled class="text-slate-400 bg-slate-100">គ្រប់ស្ថានីយទាំងអស់ (Admin Only)</option>
               </select>
             </div>
 
@@ -4197,9 +4197,9 @@
             <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">តួនាទី (Role) *</label>
             <select id="addRole" onchange="onAddUserRoleChange(this.value)"
               class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none font-medium text-slate-700">
-              <option value="Admin">🛡️ Admin (អ្នកគ្រប់គ្រង)</option>
-              <option value="ប្រធាន">ប្រធាន (Manager)</option>
-              <option value="អ្នកកាន់ស្តុក" selected>អ្នកកាន់ស្តុក (Stock Keeper)</option>
+              <option value="អ្នកគ្រប់គ្រងស្ថានីយ">🏢 អ្នកគ្រប់គ្រងស្ថានីយ (Station Manager)</option>
+              <option value="ប្រធាន">👤 ប្រធាន (Manager)</option>
+              <option value="អ្នកកាន់ស្តុក" selected>📦 អ្នកកាន់ស្តុក (Stock Keeper)</option>
             </select>
           </div>
           <div>
@@ -6563,7 +6563,7 @@
         const registeredUsers = LOCAL_DB.users.filter(u => !isUnregisteredDummyUser(u));
         const actor = payload.user || AppState.currentUser;
         const isSuperAdmin = (actor?.role === 'SuperAdmin') || (String(actor?.username).toLowerCase() === 'superadmin');
-        const isAdmin = !isSuperAdmin && (actor?.role === 'Admin' || actor?.role === 'អ្នកគ្រប់គ្រង' || String(actor?.username).toLowerCase() === 'admin');
+        const isAdmin = !isSuperAdmin && (actor?.role === 'Admin' || String(actor?.username).toLowerCase() === 'admin');
         const isPrivileged = isSuperAdmin || isAdmin;
 
         const attachPassword = (userList) => userList.map(u => {
@@ -6713,7 +6713,7 @@
           const targetUser = LOCAL_DB.users[targetIdx];
           const actor = AppState.currentUser;
           const isActorSuperAdmin = (actor?.role === 'SuperAdmin') || (String(actor?.username).toLowerCase() === 'superadmin');
-          const isActorAdmin = !isActorSuperAdmin && (actor?.role === 'Admin' || actor?.role === 'អ្នកគ្រប់គ្រង' || String(actor?.username).toLowerCase() === 'admin');
+          const isActorAdmin = !isActorSuperAdmin && (actor?.role === 'Admin' || String(actor?.username).toLowerCase() === 'admin');
 
           if (!isActorSuperAdmin && !isActorAdmin) {
             return { success: false, message: 'អ្នកគ្មានសិទ្ធិស្នើសុំលុបអ្នកប្រើប្រាស់ឡើយ!' };
@@ -6895,7 +6895,7 @@
           const targetUser = LOCAL_DB.users[targetIdx];
           const actor = AppState.currentUser;
           const isActorSuperAdmin = (actor?.role === 'SuperAdmin') || (String(actor?.username).toLowerCase() === 'superadmin');
-          const isActorAdmin = !isActorSuperAdmin && (actor?.role === 'Admin' || actor?.role === 'អ្នកគ្រប់គ្រង' || String(actor?.username).toLowerCase() === 'admin');
+          const isActorAdmin = !isActorSuperAdmin && (actor?.role === 'Admin' || String(actor?.username).toLowerCase() === 'admin');
 
           if (!isActorSuperAdmin && !isActorAdmin) {
             return { success: false, message: 'អ្នកគ្មានសិទ្ធិលុបអ្នកប្រើប្រាស់ឡើយ!' };
@@ -7360,7 +7360,7 @@
 
         // 3. Pleasant auto-dismissing toast (1.1s, non-blocking)
         const isSuperAdmin = (user.role === 'SuperAdmin' || String(user.username).toLowerCase() === 'superadmin');
-        const isAdmin = !isSuperAdmin && (user.role === 'Admin' || user.role === 'អ្នកគ្រប់គ្រង' || String(user.username).toLowerCase() === 'admin' || user.warehouse === 'ALL');
+        const isAdmin = !isSuperAdmin && (user.role === 'Admin' || String(user.username).toLowerCase() === 'admin');
 
         // Reset any alert dismissal suppression on fresh login so Super Admin / Admin is ALWAYS proactively alerted
         if (isSuperAdmin) {
@@ -13011,7 +13011,7 @@
 
           const tbody = document.getElementById('usersTableBody');
           const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
-          const isActorAdmin = !isActorSuperAdmin && (AppState.currentUser?.role === 'Admin' || AppState.currentUser?.role === 'អ្នកគ្រប់គ្រង' || String(AppState.currentUser?.username).toLowerCase() === 'admin');
+          const isActorAdmin = !isActorSuperAdmin && (AppState.currentUser?.role === 'Admin' || String(AppState.currentUser?.username).toLowerCase() === 'admin');
           const isPrivilegedViewer = isActorSuperAdmin || isActorAdmin;
 
           // Update Pending Users Badge on Sidebar (counts all pending in Step 1, Step 2, or Deletion)
@@ -13077,7 +13077,7 @@
 
           tbody.innerHTML = filteredUsers.map((u, idx) => {
             const isUserSuperAdmin = (u.role === 'SuperAdmin');
-            const isUserAdmin = (u.role === 'Admin' || u.role === 'អ្នកគ្រប់គ្រង');
+            const isUserAdmin = (u.role === 'Admin');
             const isSelf = (AppState.currentUser?.userId === u.userId || AppState.currentUser?.username === u.username);
 
             // Role Badge Styling
@@ -13086,6 +13086,8 @@
               roleBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-black text-[10px] bg-gradient-to-r from-amber-400 to-amber-600 text-slate-950 border border-amber-300 shadow-sm">👑 SuperAdmin</span>`;
             } else if (isUserAdmin) {
               roleBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-purple-100 text-purple-700">🛡️ Admin</span>`;
+            } else if (u.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || u.role === 'អ្នកគ្រប់គ្រង') {
+              roleBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-indigo-100 text-indigo-700">🏢 ${u.role === 'អ្នកគ្រប់គ្រង' ? 'អ្នកគ្រប់គ្រងស្ថានីយ' : u.role}</span>`;
             } else if (u.role === 'ប្រធាន' || u.role === 'Manager') {
               roleBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-emerald-100 text-emerald-700">${u.role}</span>`;
             } else {
@@ -13576,14 +13578,15 @@
           addRoleSelect.innerHTML = `
             <option value="SuperAdmin">👑 SuperAdmin (អភិបាលកំពូល)</option>
             <option value="Admin">🛡️ Admin (អ្នកគ្រប់គ្រងប្រព័ន្ធ)</option>
-            <option value="ប្រធាន">ប្រធាន (Manager)</option>
-            <option value="អ្នកកាន់ស្តុក" selected>អ្នកកាន់ស្តុក (Stock Keeper)</option>
+            <option value="អ្នកគ្រប់គ្រងស្ថានីយ">🏢 អ្នកគ្រប់គ្រងស្ថានីយ (Station Manager)</option>
+            <option value="ប្រធាន">👤 ប្រធាន (Manager)</option>
+            <option value="អ្នកកាន់ស្តុក" selected>📦 អ្នកកាន់ស្តុក (Stock Keeper)</option>
           `;
         } else {
           addRoleSelect.innerHTML = `
-            <option value="Admin">🛡️ Admin (អ្នកគ្រប់គ្រង)</option>
-            <option value="ប្រធាន">ប្រធាន (Manager)</option>
-            <option value="អ្នកកាន់ស្តុក" selected>អ្នកកាន់ស្តុក (Stock Keeper)</option>
+            <option value="អ្នកគ្រប់គ្រងស្ថានីយ">🏢 អ្នកគ្រប់គ្រងស្ថានីយ (Station Manager)</option>
+            <option value="ប្រធាន">👤 ប្រធាន (Manager)</option>
+            <option value="អ្នកកាន់ស្តុក" selected>📦 អ្នកកាន់ស្តុក (Stock Keeper)</option>
           `;
         }
       }
@@ -13598,7 +13601,7 @@
     function onAddUserRoleChange(role) {
       const whSelect = document.getElementById('addWarehouse');
       if (whSelect) {
-        if (role === 'SuperAdmin' || role === 'Admin' || role === 'អ្នកគ្រប់គ្រង') {
+        if (role === 'SuperAdmin' || role === 'Admin') {
           whSelect.value = 'ALL';
         } else if (whSelect.value === 'ALL') {
           whSelect.value = WAREHOUSES_LIST[0];
@@ -13609,7 +13612,7 @@
     function onRegisterRoleChange(role) {
       const whSelect = document.getElementById('regWarehouse');
       if (whSelect) {
-        if (role === 'Admin' || role === 'SuperAdmin' || role === 'អ្នកគ្រប់គ្រង') {
+        if (role === 'Admin' || role === 'SuperAdmin') {
           whSelect.value = 'ALL';
         } else if (whSelect.value === 'ALL') {
           whSelect.value = WAREHOUSES_LIST[0];
@@ -13633,6 +13636,10 @@
       const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
       if (userData.role === 'SuperAdmin' && !isActorSuperAdmin) {
         Swal.fire('គ្មានសិទ្ធិ', 'មានតែ SuperAdmin ប៉ុណ្ណោះដែលអាចបង្កើត ឬកំណត់តួនាទីជា SuperAdmin បាន!', 'warning');
+        return;
+      }
+      if (userData.role === 'Admin' && !isActorSuperAdmin) {
+        Swal.fire('គ្មានសិទ្ធិ', 'មានតែ SuperAdmin ប៉ុណ្ណោះដែលអាចកំណត់សិទ្ធិជា Admin បាន!', 'warning');
         return;
       }
 
@@ -14337,15 +14344,17 @@
       if (isActorSuperAdmin) {
         roleOptions = `
           <option value="SuperAdmin" ${u.role === 'SuperAdmin' ? 'selected' : ''}>👑 SuperAdmin (អភិបាលកំពូល)</option>
-          <option value="Admin" ${u.role === 'Admin' || u.role === 'អ្នកគ្រប់គ្រង' ? 'selected' : ''}>🛡️ Admin (អ្នកគ្រប់គ្រងប្រព័ន្ធ)</option>
-          <option value="ប្រធាន" ${u.role === 'ប្រធាន' || u.role === 'Manager' ? 'selected' : ''}>ប្រធាន (Manager)</option>
-          <option value="អ្នកកាន់ស្តុក" ${u.role === 'អ្នកកាន់ស្តុក' || u.role === 'Stock Keeper' ? 'selected' : ''}>អ្នកកាន់ស្តុក (Stock Keeper)</option>
+          <option value="Admin" ${u.role === 'Admin' ? 'selected' : ''}>🛡️ Admin (អ្នកគ្រប់គ្រងប្រព័ន្ធ)</option>
+          <option value="អ្នកគ្រប់គ្រងស្ថានីយ" ${u.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || u.role === 'អ្នកគ្រប់គ្រង' ? 'selected' : ''}>🏢 អ្នកគ្រប់គ្រងស្ថានីយ (Station Manager)</option>
+          <option value="ប្រធាន" ${u.role === 'ប្រធាន' || u.role === 'Manager' ? 'selected' : ''}>👤 ប្រធាន (Manager)</option>
+          <option value="អ្នកកាន់ស្តុក" ${u.role === 'អ្នកកាន់ស្តុក' || u.role === 'Stock Keeper' ? 'selected' : ''}>📦 អ្នកកាន់ស្តុក (Stock Keeper)</option>
         `;
       } else {
         roleOptions = `
-          <option value="Admin" ${u.role === 'Admin' || u.role === 'អ្នកគ្រប់គ្រង' ? 'selected' : ''}>🛡️ Admin (អ្នកគ្រប់គ្រង)</option>
-          <option value="ប្រធាន" ${u.role === 'ប្រធាន' || u.role === 'Manager' ? 'selected' : ''}>ប្រធាន (Manager)</option>
-          <option value="អ្នកកាន់ស្តុក" ${u.role === 'អ្នកកាន់ស្តុក' || u.role === 'Stock Keeper' ? 'selected' : ''}>អ្នកកាន់ស្តុក (Stock Keeper)</option>
+          ${u.role === 'Admin' ? '<option value="Admin" selected>🛡️ Admin (អ្នកគ្រប់គ្រងប្រព័ន្ធ)</option>' : ''}
+          <option value="អ្នកគ្រប់គ្រងស្ថានីយ" ${u.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || u.role === 'អ្នកគ្រប់គ្រង' ? 'selected' : ''}>🏢 អ្នកគ្រប់គ្រងស្ថានីយ (Station Manager)</option>
+          <option value="ប្រធាន" ${u.role === 'ប្រធាន' || u.role === 'Manager' ? 'selected' : ''}>👤 ប្រធាន (Manager)</option>
+          <option value="អ្នកកាន់ស្តុក" ${u.role === 'អ្នកកាន់ស្តុក' || u.role === 'Stock Keeper' ? 'selected' : ''}>📦 អ្នកកាន់ស្តុក (Stock Keeper)</option>
         `;
       }
 
@@ -14446,6 +14455,10 @@
           Swal.fire('គ្មានសិទ្ធិ', 'មានតែ SuperAdmin ប៉ុណ្ណោះដែលអាចកំណត់តួនាទីជា SuperAdmin បាន!', 'warning');
           return;
         }
+        if (formValues.role === 'Admin' && !isActorSuperAdmin && u.role !== 'Admin') {
+          Swal.fire('គ្មានសិទ្ធិ', 'មានតែ SuperAdmin ប៉ុណ្ណោះដែលអាចកំណត់សិទ្ធិជា Admin បាន!', 'warning');
+          return;
+        }
 
         const updateRes = await apiCall('updateUserStatus', {
           userId: u.userId,
@@ -14507,7 +14520,7 @@
     async function handleDeleteUser(userId, username) {
       const actor = AppState.currentUser;
       const isActorSuperAdmin = (actor?.role === 'SuperAdmin') || (String(actor?.username).toLowerCase() === 'superadmin');
-      const isActorAdmin = !isActorSuperAdmin && (actor?.role === 'Admin' || actor?.role === 'អ្នកគ្រប់គ្រង' || String(actor?.username).toLowerCase() === 'admin');
+      const isActorAdmin = !isActorSuperAdmin && (actor?.role === 'Admin' || String(actor?.username).toLowerCase() === 'admin');
 
       if (!isActorSuperAdmin && !isActorAdmin) {
         Swal.fire({
@@ -15287,7 +15300,7 @@
       const actor = AppState.currentUser;
       if (!actor) return;
       const isActorSuperAdmin = (actor.role === 'SuperAdmin') || (String(actor.username).toLowerCase() === 'superadmin');
-      const isActorAdmin = !isActorSuperAdmin && (actor.role === 'Admin' || actor.role === 'អ្នកគ្រប់គ្រង' || String(actor.username).toLowerCase() === 'admin');
+      const isActorAdmin = !isActorSuperAdmin && (actor.role === 'Admin' || String(actor.username).toLowerCase() === 'admin');
       if (!isActorAdmin) return;
 
       loadDeletionResultsFromStorage();
@@ -17081,7 +17094,8 @@
                   <span>•</span>
                   <span class="px-1.5 py-0.2 rounded text-[9px] font-bold ${
                     role === 'SuperAdmin' ? 'bg-amber-100 text-amber-800 font-black' :
-                    role === 'Admin' || role === 'អ្នកគ្រប់គ្រង' ? 'bg-purple-100 text-purple-700' : 'bg-slate-200 text-slate-700'
+                    role === 'Admin' ? 'bg-purple-100 text-purple-700' :
+                    (role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || role === 'អ្នកគ្រប់គ្រង') ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-700'
                   }">${escapeHtml(role)}</span>
                 </div>
                 <p class="text-[10px] text-slate-500 truncate mt-0.5"><i class="fa-solid fa-location-dot text-rose-500 mr-1"></i>${escapeHtml(warehouse)}</p>
@@ -17406,12 +17420,12 @@
       const myUsername = String(myUser?.username || '').toLowerCase();
       const myRole = String(myUser?.role || '');
       const isSuperAdmin = (myRole === 'SuperAdmin' || myUsername === 'superadmin');
-      const isAdmin = !isSuperAdmin && (myRole === 'Admin' || myRole === 'អ្នកគ្រប់គ្រង' || myUsername === 'admin');
+      const isAdmin = !isSuperAdmin && (myRole === 'Admin' || myUsername === 'admin');
 
       const allUsers = [...(LOCAL_DB.users || []), ...(AppState.users || [])];
 
       // Find Admin user (聂稳新)
-      const adminUser = allUsers.find(u => (u.role === 'Admin' || u.role === 'អ្នកគ្រប់គ្រង' || String(u.username).toLowerCase() === 'admin') && String(u.username).toLowerCase() !== 'superadmin') || {
+      const adminUser = allUsers.find(u => (u.role === 'Admin' || String(u.username).toLowerCase() === 'admin') && String(u.username).toLowerCase() !== 'superadmin') || {
         userId: 'USR-00',
         username: 'admin',
         fullName: '聂稳新',
@@ -17777,7 +17791,7 @@
 
       const myUsername = AppState.currentUser?.username;
       const myRole = String(AppState.currentUser?.role || '').toLowerCase();
-      const isSuperAdminOrAdmin = (myRole === 'superadmin' || myRole.includes('admin') || myRole.includes('គ្រប់គ្រង'));
+      const isSuperAdminOrAdmin = (myRole === 'superadmin' || myRole.includes('admin'));
 
       container.innerHTML = messages.map(m => {
         const isMe = (m.senderUsername === myUsername);
@@ -18019,7 +18033,8 @@
                 <span class="font-bold text-slate-800">${escapeHtml(m.senderFullName || m.senderUsername)}</span>
                 <span class="px-1.5 py-0.2 rounded text-[9px] font-bold ${
                   m.senderRole === 'SuperAdmin' ? 'bg-amber-100 text-amber-800 font-black border border-amber-300' :
-                  m.senderRole === 'Admin' || m.senderRole === 'អ្នកគ្រប់គ្រង' ? 'bg-purple-100 text-purple-700' : 'bg-slate-200 text-slate-700'
+                  m.senderRole === 'Admin' ? 'bg-purple-100 text-purple-700' :
+                  (m.senderRole === 'អ្នកគ្រប់គ្រងស្ថានីយ' || m.senderRole === 'អ្នកគ្រប់គ្រង') ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-700'
                 }">${escapeHtml(m.senderRole || 'User')}</span>
                 <span class="text-[10px] text-slate-400">• ${m.senderWarehouse ? escapeHtml(m.senderWarehouse.split(' - ')[0]) : ''}</span>
               </div>
@@ -18570,7 +18585,7 @@
 
       const actorRole = String(actor.role || '').toLowerCase();
       const actorName = String(actor.username || '').toLowerCase();
-      const isActorAdmin = isSuperAdmin || actorRole.includes('admin') || actorRole.includes('គ្រប់គ្រង') || actorName === 'admin' || actor.warehouse === 'ALL';
+      const isActorAdmin = isSuperAdmin || actorRole.includes('admin') || actorName === 'admin';
       if (!isActorAdmin) {
         const chatBadge = document.getElementById('chatBadge');
         if (chatBadge) chatBadge.classList.add('hidden');
@@ -18840,7 +18855,7 @@
     window.addEventListener('storage', (e) => {
       if (!AppState.currentUser) return;
       const isSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin' || String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
-      const isAdmin = !isSuperAdmin && (AppState.currentUser?.role === 'Admin' || AppState.currentUser?.role === 'អ្នកគ្រប់គ្រង' || String(AppState.currentUser?.username).toLowerCase() === 'admin' || AppState.currentUser?.warehouse === 'ALL');
+      const isAdmin = !isSuperAdmin && (AppState.currentUser?.role === 'Admin' || String(AppState.currentUser?.username).toLowerCase() === 'admin');
 
       // Real-time Live Chat Cross-Tab Sync
       if (e.key === 'inventory_chat_messages' || e.key === 'inventory_chat_signal') {

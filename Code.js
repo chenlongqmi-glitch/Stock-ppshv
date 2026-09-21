@@ -1984,7 +1984,14 @@ function registerUser(userData) {
 
   const hash = hashPassword(userData.password, salt);
 
-  const role = userData.role || 'Stock Keeper';
+  let role = userData.role || 'អ្នកកាន់ស្តុក';
+  if (role === 'Admin' || role === 'SuperAdmin') {
+    if (String(userData.adminUser || '').toLowerCase() !== 'superadmin') {
+      role = 'អ្នកគ្រប់គ្រងស្ថានីយ';
+    }
+  } else if (role === 'អ្នកគ្រប់គ្រង') {
+    role = 'អ្នកគ្រប់គ្រងស្ថានីយ';
+  }
 
   const status = userData.status || 'Pending_Admin'; // Step 1: Pending Admin in-app LiveChat approval
 
@@ -2169,7 +2176,7 @@ function getUsersList(userOrPayload) {
 
 
   const isSuperAdmin = actor && (actor.role === 'SuperAdmin' || String(actor.username).toLowerCase() === 'superadmin');
-  const isAdmin = !isSuperAdmin && actor && (actor.role === 'Admin' || actor.role === 'អ្នកគ្រប់គ្រង' || String(actor.username).toLowerCase() === 'admin');
+  const isAdmin = !isSuperAdmin && actor && (actor.role === 'Admin' || String(actor.username).toLowerCase() === 'admin');
   const isPrivileged = !!(isSuperAdmin || isAdmin);
 
   for (let i = 1; i < data.length; i++) {
@@ -2387,8 +2394,14 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
       if (existingRole === 'SuperAdmin' && admin !== 'superadmin') {
         return { success: false, message: 'អ្នកគ្មានសិទ្ធិកែប្រែ ឬបិទគណនី SuperAdmin ឡើយ' };
       }
-      if (r === 'SuperAdmin' && admin !== 'superadmin') {
+      if (r === 'SuperAdmin' && String(admin).toLowerCase() !== 'superadmin') {
         return { success: false, message: 'មានតែ SuperAdmin ប៉ុណ្ណោះដែលអាចកំណត់សិទ្ធិជា SuperAdmin បាន' };
+      }
+      if (r === 'Admin' && existingRole !== 'Admin' && String(admin).toLowerCase() !== 'superadmin') {
+        return { success: false, message: 'មានតែ SuperAdmin ប៉ុណ្ណោះដែលអាចកំណត់សិទ្ធិជា Admin បាន' };
+      }
+      if (r === 'អ្នកគ្រប់គ្រង') {
+        r = 'អ្នកគ្រប់គ្រងស្ថានីយ';
       }
       if (st === 'Deleted' || st === 'deleted' || st === 'delete') {
         const deletedUName = String(data[i][1]);
