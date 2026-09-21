@@ -3825,7 +3825,13 @@
             class="fa-solid fa-xmark text-lg"></i></button>
       </div>
 
-      <form id="addUserForm" onsubmit="handleCreateUserSubmit(event)" novalidate class="p-6 space-y-3.5 max-h-[85vh] overflow-y-auto">
+      <form id="addUserForm" onsubmit="handleCreateUserSubmit(event)" autocomplete="off" novalidate class="p-6 space-y-3.5 max-h-[85vh] overflow-y-auto">
+        <!-- Anti-Autofill Decoys to absorb browser credentials autofill -->
+        <div style="position:absolute;top:-9999px;left:-9999px;opacity:0;height:0;width:0;overflow:hidden;pointer-events:none;">
+          <input type="text" name="prevent_autofill_username" tabindex="-1" autocomplete="off">
+          <input type="password" name="prevent_autofill_password" tabindex="-1" autocomplete="new-password">
+        </div>
+
         <!-- User Avatar Upload in Add User Modal -->
         <div class="flex items-center space-x-3 pb-2 border-b border-slate-100">
           <div class="relative cursor-pointer group" onclick="document.getElementById('addAvatarInput').click()"
@@ -3878,7 +3884,7 @@
                 <i class="fa-solid fa-phone"></i>
               </span>
               <input type="tel" id="addPhone" placeholder="ឧ. 012 345 678"
-                inputmode="tel" autocomplete="tel"
+                inputmode="tel" autocomplete="off"
                 oninput="clearAddUserFieldError('Phone')"
                 class="w-full pl-8 pr-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 transition-all">
             </div>
@@ -3890,7 +3896,7 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label id="addUsernameLabel" class="block text-xs font-semibold text-slate-700 uppercase mb-1">ឈ្មោះគណនី (Username) *</label>
-            <input type="text" id="addUsername" placeholder="username"
+            <input type="text" id="addUsername" placeholder="username" autocomplete="off"
               lang="en" inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false" data-auto-en="true"
               oninput="clearAddUserFieldError('Username'); cleanKhmerFromField(this)" onkeyup="cleanKhmerFromField(this)" onfocus="cleanKhmerFromField(this)"
               class="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 transition-all">
@@ -3902,7 +3908,7 @@
               <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 pointer-events-none text-xs">
                 <i class="fa-solid fa-envelope"></i>
               </span>
-              <input type="email" id="addEmail" placeholder="staff@example.com"
+              <input type="email" id="addEmail" placeholder="staff@example.com" autocomplete="off"
                 oninput="clearAddUserFieldError('Email')"
                 class="w-full pl-8 pr-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 transition-all">
             </div>
@@ -3915,9 +3921,10 @@
           <div>
             <label id="addPasswordLabel" class="block text-xs font-semibold text-slate-700 uppercase mb-1">ពាក្យសម្ងាត់ (Password) *</label>
             <div class="relative">
-              <input type="password" id="addPassword" placeholder="••••••••" minlength="4"
+              <input type="password" id="addPassword" placeholder="••••••••" minlength="4" value=""
+                autocomplete="new-password"
                 lang="en" inputmode="text" autocapitalize="none" autocorrect="off" spellcheck="false" data-auto-en="true"
-                oninput="clearAddUserFieldError('Password'); cleanKhmerFromField(this)" onkeyup="cleanKhmerFromField(this)" onfocus="cleanKhmerFromField(this)"
+                oninput="clearAddUserFieldError('Password'); cleanKhmerFromField(this)" onkeyup="cleanKhmerFromField(this)" onfocus="clearAddUserFieldError('Password'); cleanKhmerFromField(this)"
                 class="w-full pl-3.5 pr-9 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 transition-all">
               <button type="button" onclick="togglePasswordVisibility('addPassword', this)"
                 class="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600">
@@ -3929,9 +3936,10 @@
           <div>
             <label id="addConfirmPasswordLabel" class="block text-xs font-semibold text-slate-700 uppercase mb-1">បញ្ជាក់ពាក្យសម្ងាត់ (Confirm) *</label>
             <div class="relative">
-              <input type="password" id="addConfirmPassword" placeholder="••••••••" minlength="4"
+              <input type="password" id="addConfirmPassword" placeholder="••••••••" minlength="4" value=""
+                autocomplete="new-password"
                 lang="en" inputmode="text" autocapitalize="none" autocorrect="off" spellcheck="false" data-auto-en="true"
-                oninput="clearAddUserFieldError('ConfirmPassword'); cleanKhmerFromField(this)" onkeyup="cleanKhmerFromField(this)" onfocus="cleanKhmerFromField(this)"
+                oninput="clearAddUserFieldError('ConfirmPassword'); cleanKhmerFromField(this)" onkeyup="cleanKhmerFromField(this)" onfocus="clearAddUserFieldError('ConfirmPassword'); cleanKhmerFromField(this)"
                 class="w-full pl-3.5 pr-9 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 transition-all">
               <button type="button" onclick="togglePasswordVisibility('addConfirmPassword', this)"
                 class="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600">
@@ -13993,9 +14001,36 @@
     window.clearAddUserFieldError = clearAddUserFieldError;
 
     function openAddUserModal() {
-      document.getElementById('addUserForm').reset();
+      const form = document.getElementById('addUserForm');
+      if (form) form.reset();
       document.getElementById('addAvatarPreview').src = 'https://api.dicebear.com/7.x/bottts/svg?seed=new' + Math.floor(Math.random() * 100);
       document.getElementById('addAvatarData').value = '';
+
+      // Clear password and confirm password inputs explicitly and block browser autofill
+      const pwdInput = document.getElementById('addPassword');
+      const confirmPwdInput = document.getElementById('addConfirmPassword');
+      if (pwdInput) {
+        pwdInput.value = '';
+        pwdInput.type = 'password';
+        const eyeBtn = pwdInput.parentElement?.querySelector('button i');
+        if (eyeBtn) eyeBtn.className = 'fa-solid fa-eye text-xs text-slate-400 hover:text-slate-600';
+      }
+      if (confirmPwdInput) {
+        confirmPwdInput.value = '';
+        confirmPwdInput.type = 'password';
+        const eyeBtn = confirmPwdInput.parentElement?.querySelector('button i');
+        if (eyeBtn) eyeBtn.className = 'fa-solid fa-eye text-xs text-slate-400 hover:text-slate-600';
+      }
+
+      // Repeated timeouts to wipe any delayed autofill by Chrome/Edge password managers
+      [20, 80, 150, 300, 600].forEach(delay => {
+        setTimeout(() => {
+          const p1 = document.getElementById('addPassword');
+          const p2 = document.getElementById('addConfirmPassword');
+          if (p1) p1.value = '';
+          if (p2) p2.value = '';
+        }, delay);
+      });
 
       // Clear all errors and red borders
       ['FullName', 'Phone', 'Username', 'Email', 'Password', 'ConfirmPassword', 'Role', 'Warehouse'].forEach(clearAddUserFieldError);
@@ -14053,6 +14088,10 @@
     }
 
     function closeAddUserModal() {
+      const p1 = document.getElementById('addPassword');
+      const p2 = document.getElementById('addConfirmPassword');
+      if (p1) p1.value = '';
+      if (p2) p2.value = '';
       document.getElementById('addUserModal').classList.add('hidden');
     }
 
