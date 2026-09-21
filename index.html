@@ -10194,22 +10194,21 @@
 
     function formatDualUnitStock(totalQty, packQty) {
       const qty = Math.max(0, Number(totalQty || 0));
-      const pQty = Math.max(1, Number(packQty || 1));
+      const pQty = Number(packQty || 0);
       if (pQty > 1) {
         const packs = Math.floor(qty / pQty);
         const loose = qty % pQty;
         return `${packs} ដុំ + ${loose} រាយ`;
       }
-      return `${qty} ដុំ + 0 រាយ`;
+      return `0 ដុំ + ${qty} រាយ`;
     }
 
     function calculateStockInCalculations() {
       const oldStock = Number(document.getElementById('stockInOldStockValue')?.value || 0);
       const retailQty = Number(document.getElementById('stockInQtyRetail')?.value || 0);
       const bulkQty = Number(document.getElementById('stockInQtyBulk')?.value || 0);
-      const baseUnit = document.getElementById('stockInBaseUnitVal')?.value || 'ដុំ';
-      const packUnit = document.getElementById('stockInPackUnitVal')?.value || '';
-      const packQty = Math.max(1, Number(document.getElementById('stockInPackQtyVal')?.value || 1));
+      const packQtyRaw = Number(document.getElementById('stockInPackQtyVal')?.value || 0);
+      const packQty = packQtyRaw > 1 ? packQtyRaw : 1;
 
       const effectiveQty = (bulkQty * packQty) + retailQty;
       const qtyInput = document.getElementById('stockInQty');
@@ -10220,16 +10219,36 @@
         modeInput.value = (bulkQty > 0 && retailQty === 0) ? 'BULK' : 'RETAIL';
       }
 
-      const newTotal = oldStock + (effectiveQty > 0 ? effectiveQty : 0);
+      let oldBulk = 0;
+      let oldRetail = 0;
+      if (packQtyRaw > 1) {
+        oldBulk = Math.floor(oldStock / packQtyRaw);
+        oldRetail = oldStock % packQtyRaw;
+      } else {
+        oldBulk = 0;
+        oldRetail = oldStock;
+      }
 
-      const newTotalEl = document.getElementById('stockInNewTotalDisplay');
-      if (newTotalEl) {
-        newTotalEl.innerText = formatDualUnitStock(newTotal, packQty);
+      let newBulk = 0;
+      let newRetail = 0;
+      if (packQtyRaw > 1) {
+        const totalRetailRaw = oldRetail + retailQty;
+        const rollover = Math.floor(totalRetailRaw / packQtyRaw);
+        newRetail = totalRetailRaw % packQtyRaw;
+        newBulk = oldBulk + bulkQty + rollover;
+      } else {
+        newBulk = oldBulk + bulkQty;
+        newRetail = oldRetail + retailQty;
       }
 
       const oldStockEl = document.getElementById('stockInOldStockDisplay');
       if (oldStockEl) {
-        oldStockEl.innerText = formatDualUnitStock(oldStock, packQty);
+        oldStockEl.innerText = `${oldBulk} ដុំ + ${oldRetail} រាយ`;
+      }
+
+      const newTotalEl = document.getElementById('stockInNewTotalDisplay');
+      if (newTotalEl) {
+        newTotalEl.innerText = `${newBulk} ដុំ + ${newRetail} រាយ`;
       }
     }
 
@@ -10318,6 +10337,25 @@
       try {
         const res = await apiCall('recordStockIn', payload);
         if (res.success) {
+          const pQtyRaw = Number(document.getElementById('stockInPackQtyVal')?.value || 0);
+          let oldBulkVal = 0, oldRetailVal = 0;
+          let newBulkVal = 0, newRetailVal = 0;
+          if (pQtyRaw > 1) {
+            oldBulkVal = Math.floor(oldStock / pQtyRaw);
+            oldRetailVal = oldStock % pQtyRaw;
+            const totR = oldRetailVal + retailQty;
+            const roll = Math.floor(totR / pQtyRaw);
+            newRetailVal = totR % pQtyRaw;
+            newBulkVal = oldBulkVal + bulkQty + roll;
+          } else {
+            oldBulkVal = 0;
+            oldRetailVal = oldStock;
+            newBulkVal = bulkQty;
+            newRetailVal = oldStock + retailQty;
+          }
+          const oldStockStr = `${oldBulkVal} ដុំ + ${oldRetailVal} រាយ`;
+          const newStockStr = `${newBulkVal} ដុំ + ${newRetailVal} រាយ`;
+
           Swal.fire({
             title: 'ជោគជ័យ!',
             html: `<div class="text-left text-sm space-y-1.5 p-2">
@@ -10327,7 +10365,7 @@
                 <p><b>ទំនិញ:</b> <span class="font-bold text-slate-800">${escapeHtml(itemName)}</span> (${escapeHtml(sku)})</p>
                 <p><b>ខ្នាត:</b> ${escapeHtml(baseUnit)} | <b>ពណ៌:</b> ${escapeHtml(color || '-')}</p>
                 <p><b>ចំនួនចូល:</b> <span class="text-emerald-700 font-black">+${effectiveQty} ${escapeHtml(baseUnit)}${modeNote}</span></p>
-                <p><b>សរុបស្តុកចាស់:</b> ${formatDualUnitStock(oldStock, packQty)} ➔ <b>សរុបស្តុកថ្មី:</b> <span class="text-emerald-700 font-black">${formatDualUnitStock(newStock, packQty)}</span></p>
+                <p><b>សរុបស្តុកចាស់:</b> ${oldStockStr} ➔ <b>សរុបស្តុកថ្មី:</b> <span class="text-emerald-700 font-black">${newStockStr}</span></p>
                 <p><b>ឃ្លាំង:</b> ${escapeHtml(location)}</p>
                 <p><b>អ្នកទទួល:</b> ${escapeHtml(receiver)}</p>
               </div>
