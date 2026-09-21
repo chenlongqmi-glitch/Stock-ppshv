@@ -8678,7 +8678,7 @@
           if (isStationManager) {
             navUsers.style.display = 'flex';
             const navText = navUsers.querySelector('span.ml-2');
-            if (navText) navText.innerText = 'បុគ្គលិកក្នុងស្ថានីយ';
+            if (navText) navText.innerText = 'គ្រប់គ្រង User & សិទ្ធិ';
           } else {
             navUsers.style.display = 'none';
           }
@@ -13197,8 +13197,8 @@
           const tabUsersSub = document.querySelector('#tabUsers p.text-slate-500');
           const curAssignedWh = (AppState.currentUser?.warehouse || '').trim();
           if (isActorStationManager) {
-            if (tabUsersHeader) tabUsersHeader.innerHTML = `<i class="fa-solid fa-users-gear mr-2 text-indigo-600"></i>បុគ្គលិកក្នុងស្ថានីយ (${escapeHtml(curAssignedWh)})`;
-            if (tabUsersSub) tabUsersSub.innerText = `បញ្ជីប្រធានក្រុម និងអ្នកកាន់ស្តុកប្រចាំ ${curAssignedWh}`;
+            if (tabUsersHeader) tabUsersHeader.innerHTML = `<i class="fa-solid fa-users-gear mr-2 text-indigo-600"></i>គ្រប់គ្រងអ្នកប្រើប្រាស់ និងសិទ្ធិ (Users & Roles) - ${escapeHtml(curAssignedWh)}`;
+            if (tabUsersSub) tabUsersSub.innerText = `មើលឃើញ និងកែប្រែបានតែ ប្រធានក្រុម និងអ្នកកាន់ស្តុក ប្រចាំ ${curAssignedWh} ប៉ុណ្ណោះ`;
           } else {
             if (tabUsersHeader) tabUsersHeader.innerHTML = `<i class="fa-solid fa-users-gear mr-2 text-blue-600"></i>គ្រប់គ្រងអ្នកប្រើប្រាស់ និងសិទ្ធិ (Users & Roles)`;
             if (tabUsersSub) tabUsersSub.innerText = `គ្រប់គ្រងគណនីបុគ្គលិកតាមឃ្លាំងនិមួយៗ និងសិទ្ធិចូលប្រើប្រាស់`;
@@ -13249,15 +13249,17 @@
               String(u.userId).toUpperCase() !== 'USR-SA'
             );
           } else if (isActorStationManager) {
-            const myWh = (AppState.currentUser?.warehouse || '').trim();
+            const myWh = String(AppState.currentUser?.warehouse || '').trim().toLowerCase();
             filteredUsers = filteredUsers.filter(u => {
               // 1. Must belong to the manager's assigned warehouse
-              const uWh = (u.warehouse || '').trim();
+              const uWh = String(u.warehouse || '').trim().toLowerCase();
               if (!myWh || uWh !== myWh) return false;
               // 2. Can ONLY see Team Leader (ប្រធានក្រុម) and Stock Keeper (អ្នកកាន់ស្តុក)
-              const isTeamLeader = (u.role === 'ប្រធានក្រុម' || u.role === 'ប្រធាន' || u.role === 'Manager' || u.role === 'Team Leader');
-              const isStockKeeper = (u.role === 'អ្នកកាន់ស្តុក' || u.role === 'Stock Keeper' || (!u.role || u.role === 'Staff'));
-              return (isTeamLeader || isStockKeeper) && !isSelfUser(u);
+              const r = String(u.role || '').trim().toLowerCase();
+              const isTeamLeader = (r === 'ប្រធានក្រុម' || r === 'ប្រធាន' || r === 'team leader' || r === 'teamleader' || r === 'manager');
+              const isStockKeeper = (r === 'អ្នកកាន់ស្តុក' || r === 'stock keeper' || r === 'stockkeeper' || r === 'staff' || r === '' || !u.role);
+              const isForbidden = (r === 'superadmin' || r === 'admin' || r === 'អ្នកគ្រប់គ្រងស្ថានីយ' || r === 'អ្នកគ្រប់គ្រង' || r === 'station manager');
+              return (isTeamLeader || isStockKeeper) && !isForbidden && !isSelfUser(u);
             });
           } else {
             filteredUsers = filteredUsers.filter(u => isSelfUser(u));
@@ -13308,6 +13310,21 @@
       const isActorAdmin = !isActorSuperAdmin && (actor?.role === 'Admin' || String(actor?.username).toLowerCase() === 'admin');
       const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (actor?.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || actor?.role === 'អ្នកគ្រប់គ្រង');
       const isPrivilegedViewer = isActorSuperAdmin || isActorAdmin;
+
+      // Double-enforce Station Manager visibility boundaries
+      if (isActorStationManager && Array.isArray(usersList)) {
+        const myWh = String(actor?.warehouse || '').trim().toLowerCase();
+        usersList = usersList.filter(u => {
+          const uWh = String(u.warehouse || '').trim().toLowerCase();
+          if (!myWh || uWh !== myWh) return false;
+          const r = String(u.role || '').trim().toLowerCase();
+          const isTeamLeader = (r === 'ប្រធានក្រុម' || r === 'ប្រធាន' || r === 'team leader' || r === 'teamleader' || r === 'manager');
+          const isStockKeeper = (r === 'អ្នកកាន់ស្តុក' || r === 'stock keeper' || r === 'stockkeeper' || r === 'staff' || r === '' || !u.role);
+          const isForbidden = (r === 'superadmin' || r === 'admin' || r === 'អ្នកគ្រប់គ្រងស្ថានីយ' || r === 'អ្នកគ្រប់គ្រង' || r === 'station manager');
+          const isSelf = (actor?.userId && u.userId && actor.userId === u.userId) || (actor?.username && u.username && String(actor.username).toLowerCase() === String(u.username).toLowerCase());
+          return (isTeamLeader || isStockKeeper) && !isForbidden && !isSelf;
+        });
+      }
 
       if (!usersList || usersList.length === 0) {
         if (tbody) {
@@ -13771,6 +13788,24 @@
       if (!target) {
         Swal.fire('កំហុស', 'រកមិនឃើញគណនីអ្នកប្រើប្រាស់នេះទេ', 'error');
         return;
+      }
+
+      const actor = AppState.currentUser;
+      const isActorSuperAdmin = (actor?.role === 'SuperAdmin') || (String(actor?.username).toLowerCase() === 'superadmin');
+      const isActorAdmin = !isActorSuperAdmin && (actor?.role === 'Admin' || String(actor?.username).toLowerCase() === 'admin');
+      const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (actor?.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || actor?.role === 'អ្នកគ្រប់គ្រង');
+
+      if (isActorStationManager) {
+        const myWh = String(actor?.warehouse || '').trim().toLowerCase();
+        const uWh = String(target.warehouse || '').trim().toLowerCase();
+        const r = String(target.role || '').trim().toLowerCase();
+        const isTL = (r === 'ប្រធានក្រុម' || r === 'ប្រធាន' || r === 'team leader' || r === 'teamleader' || r === 'manager');
+        const isSK = (r === 'អ្នកកាន់ស្តុក' || r === 'stock keeper' || r === 'stockkeeper' || r === 'staff' || r === '' || !target.role);
+        const isForbidden = (r === 'superadmin' || r === 'admin' || r === 'អ្នកគ្រប់គ្រងស្ថានីយ' || r === 'អ្នកគ្រប់គ្រង' || r === 'station manager');
+        if (uWh !== myWh || (!isTL && !isSK) || isForbidden) {
+          Swal.fire('គ្មានសិទ្ធិ', 'អ្នកគ្រប់គ្រងស្ថានីយអាចផ្តាច់ឧបករណ៍បានតែប្រធានក្រុម និងអ្នកកាន់ស្តុកក្នុងស្ថានីយរបស់ខ្លួនប៉ុណ្ណោះ!', 'warning');
+          return;
+        }
       }
       const bound = target.boundDevices || { desktop: null, mobile: null };
       const pcInfo = bound.desktop ? `${bound.desktop.deviceName || 'កុំព្យូទ័រ'} (ភ្ជាប់: ${new Date(bound.desktop.boundAt).toLocaleDateString('km-KH')})` : 'មិនទាន់មានភ្ជាប់';
@@ -14690,11 +14725,13 @@
 
       // If actor is Station Manager, they can only edit Team Leader or Stock Keeper in their own warehouse!
       if (isActorStationManager) {
-        const myWh = (AppState.currentUser?.warehouse || '').trim();
-        const uWh = (u.warehouse || '').trim();
-        const isTL = (u.role === 'ប្រធានក្រុម' || u.role === 'ប្រធាន' || u.role === 'Manager' || u.role === 'Team Leader');
-        const isSK = (u.role === 'អ្នកកាន់ស្តុក' || u.role === 'Stock Keeper' || (!u.role || u.role === 'Staff'));
-        if (uWh !== myWh || (!isTL && !isSK)) {
+        const myWh = String(AppState.currentUser?.warehouse || '').trim().toLowerCase();
+        const uWh = String(u.warehouse || '').trim().toLowerCase();
+        const r = String(u.role || '').trim().toLowerCase();
+        const isTL = (r === 'ប្រធានក្រុម' || r === 'ប្រធាន' || r === 'team leader' || r === 'teamleader' || r === 'manager');
+        const isSK = (r === 'អ្នកកាន់ស្តុក' || r === 'stock keeper' || r === 'stockkeeper' || r === 'staff' || r === '' || !u.role);
+        const isForbidden = (r === 'superadmin' || r === 'admin' || r === 'អ្នកគ្រប់គ្រងស្ថានីយ' || r === 'អ្នកគ្រប់គ្រង' || r === 'station manager');
+        if (uWh !== myWh || (!isTL && !isSK) || isForbidden) {
           Swal.fire('គ្មានសិទ្ធិ', 'អ្នកគ្រប់គ្រងស្ថានីយអាចកែប្រែបានតែប្រធានក្រុម និងអ្នកកាន់ស្តុកក្នុងស្ថានីយរបស់ខ្លួនប៉ុណ្ណោះ!', 'warning');
           return;
         }
@@ -14832,6 +14869,14 @@
           Swal.fire('គ្មានសិទ្ធិ', 'មានតែ SuperAdmin ប៉ុណ្ណោះដែលអាចកំណត់សិទ្ធិជា Admin បាន!', 'warning');
           return;
         }
+        if (isActorStationManager) {
+          const myWh = AppState.currentUser?.warehouse || '';
+          if (formValues.role !== 'ប្រធានក្រុម' && formValues.role !== 'អ្នកកាន់ស្តុក') {
+            Swal.fire('គ្មានសិទ្ធិ', 'អ្នកគ្រប់គ្រងស្ថានីយអាចកំណត់តួនាទីបានតែជា «ប្រធានក្រុម» ឬ «អ្នកកាន់ស្តុក» ប៉ុណ្ណោះ!', 'warning');
+            return;
+          }
+          formValues.warehouse = myWh;
+        }
 
         const finalPwd = formValues.password || userPwd;
         const finalPhone = (formValues.phone !== undefined && formValues.phone !== '') ? formValues.phone : (u.phone || '');
@@ -14939,10 +14984,25 @@
       const resUsers = await apiCall('getUsersList');
       const targetUser = (resUsers && resUsers.users ? resUsers.users : LOCAL_DB.users).find(x => x.userId === userId);
       const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
+      const isActorAdmin = !isActorSuperAdmin && (AppState.currentUser?.role === 'Admin' || String(AppState.currentUser?.username).toLowerCase() === 'admin');
+      const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (AppState.currentUser?.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || AppState.currentUser?.role === 'អ្នកគ្រប់គ្រង');
 
       if (targetUser && targetUser.role === 'SuperAdmin' && !isActorSuperAdmin) {
         Swal.fire('គ្មានសិទ្ធិ', 'មានតែ SuperAdmin ប៉ុណ្ណោះដែលអាចបិទ/បើកដំណើរការគណនី SuperAdmin បាន!', 'warning');
         return;
+      }
+
+      if (isActorStationManager) {
+        const myWh = String(AppState.currentUser?.warehouse || '').trim().toLowerCase();
+        const uWh = String(targetUser?.warehouse || '').trim().toLowerCase();
+        const r = String(targetUser?.role || '').trim().toLowerCase();
+        const isTL = (r === 'ប្រធានក្រុម' || r === 'ប្រធាន' || r === 'team leader' || r === 'teamleader' || r === 'manager');
+        const isSK = (r === 'អ្នកកាន់ស្តុក' || r === 'stock keeper' || r === 'stockkeeper' || r === 'staff' || r === '' || !targetUser?.role);
+        const isForbidden = (r === 'superadmin' || r === 'admin' || r === 'អ្នកគ្រប់គ្រងស្ថានីយ' || r === 'អ្នកគ្រប់គ្រង' || r === 'station manager');
+        if (uWh !== myWh || (!isTL && !isSK) || isForbidden) {
+          Swal.fire('គ្មានសិទ្ធិ', 'អ្នកគ្រប់គ្រងស្ថានីយអាចបិទ/បើកដំណើរការបានតែប្រធានក្រុម និងអ្នកកាន់ស្តុកក្នុងស្ថានីយរបស់ខ្លួនប៉ុណ្ណោះ!', 'warning');
+          return;
+        }
       }
 
       const res = await apiCall('updateUserStatus', { userId, status: newStatus, adminUser: AppState.currentUser?.username });
@@ -16191,9 +16251,24 @@
 
     async function approveUserDirectly(userId, username) {
       const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
+      const isActorAdmin = !isActorSuperAdmin && (AppState.currentUser?.role === 'Admin' || String(AppState.currentUser?.username).toLowerCase() === 'admin');
+      const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (AppState.currentUser?.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || AppState.currentUser?.role === 'អ្នកគ្រប់គ្រង');
       const targetUser = (LOCAL_DB.users || []).find(x => (userId && x.userId === userId) || (username && x.username === username)) || {};
       const uId = targetUser.userId || userId;
       const uName = targetUser.username || username;
+
+      if (isActorStationManager) {
+        const myWh = String(AppState.currentUser?.warehouse || '').trim().toLowerCase();
+        const uWh = String(targetUser.warehouse || '').trim().toLowerCase();
+        const r = String(targetUser.role || '').trim().toLowerCase();
+        const isTL = (r === 'ប្រធានក្រុម' || r === 'ប្រធាន' || r === 'team leader' || r === 'teamleader' || r === 'manager');
+        const isSK = (r === 'អ្នកកាន់ស្តុក' || r === 'stock keeper' || r === 'stockkeeper' || r === 'staff' || r === '' || !targetUser.role);
+        const isForbidden = (r === 'superadmin' || r === 'admin' || r === 'អ្នកគ្រប់គ្រងស្ថានីយ' || r === 'អ្នកគ្រប់គ្រង' || r === 'station manager');
+        if (uWh !== myWh || (!isTL && !isSK) || isForbidden) {
+          Swal.fire('គ្មានសិទ្ធិ', 'អ្នកគ្រប់គ្រងស្ថានីយអាចអនុម័តបានតែប្រធានក្រុម និងអ្នកកាន់ស្តុកក្នុងស្ថានីយរបស់ខ្លួនប៉ុណ្ណោះ!', 'warning');
+          return;
+        }
+      }
 
       // =========================================================================
       // 1. ADMIN IN-APP APPROVAL (Step 1: In-App Approval -> Forward to SuperAdmin Telegram)
@@ -16449,6 +16524,28 @@
     }
 
     async function rejectUserDirectly(userId, username) {
+      const actor = AppState.currentUser;
+      const isActorSuperAdmin = (actor?.role === 'SuperAdmin') || (String(actor?.username).toLowerCase() === 'superadmin');
+      const isActorAdmin = !isActorSuperAdmin && (actor?.role === 'Admin' || String(actor?.username).toLowerCase() === 'admin');
+      const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (actor?.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || actor?.role === 'អ្នកគ្រប់គ្រង');
+
+      if (isActorStationManager) {
+        loadLocalUsersFromStorage();
+        const target = (LOCAL_DB.users || []).find(u => (userId && u.userId === userId) || (username && u.username === username));
+        if (target) {
+          const myWh = String(actor?.warehouse || '').trim().toLowerCase();
+          const uWh = String(target?.warehouse || '').trim().toLowerCase();
+          const r = String(target?.role || '').trim().toLowerCase();
+          const isTL = (r === 'ប្រធានក្រុម' || r === 'ប្រធាន' || r === 'team leader' || r === 'teamleader' || r === 'manager');
+          const isSK = (r === 'អ្នកកាន់ស្តុក' || r === 'stock keeper' || r === 'stockkeeper' || r === 'staff' || r === '' || !target?.role);
+          const isForbidden = (r === 'superadmin' || r === 'admin' || r === 'អ្នកគ្រប់គ្រងស្ថានីយ' || r === 'អ្នកគ្រប់គ្រង' || r === 'station manager');
+          if (uWh !== myWh || (!isTL && !isSK) || isForbidden) {
+            Swal.fire('គ្មានសិទ្ធិ', 'អ្នកគ្រប់គ្រងស្ថានីយអាចបដិសេធបានតែប្រធានក្រុម និងអ្នកកាន់ស្តុកក្នុងស្ថានីយរបស់ខ្លួនប៉ុណ្ណោះ!', 'warning');
+            return;
+          }
+        }
+      }
+
       const result = await Swal.fire({
         title: 'បដិសេធគណនី (Reject)?',
         html: `
