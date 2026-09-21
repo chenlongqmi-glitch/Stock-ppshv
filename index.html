@@ -8226,11 +8226,52 @@
       try {
         const res = await apiCall('registerUser', { ...userData, status: 'Pending_Admin' });
 
-        // Note: Per workflow requirements, do NOT send Telegram alert to SuperAdmin upon initial registration.
-        // The request must first be approved by Admin inside the application (Step 1).
-        // Only after Admin approves in-app will the request be forwarded to SuperAdmin Telegram (Step 2).
+        // 1. Instant Real-time Telegram Alert to Admin & SuperAdmin
+        try {
+          const tgToken = AppState.settings?.TELEGRAM_BOT_TOKEN || localStorage.getItem('inventory_tg_token') || DEFAULT_TG_BOT_TOKEN;
+          const tgChatId = AppState.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid') || DEFAULT_TG_CHAT_ID;
+          const gasUrl = AppState.gasApiUrl || localStorage.getItem('inventory_gas_api_url') || 'https://script.google.com/macros/s/AKfycbz-Pb72GPivonqvf3j8WRAoN4V6Dlo3IgAVpHCfDVEzF2RJV2X18XtfqTffZ2K08UQJ/exec';
+          const newUid = res?.user?.userId || ('USR-' + Date.now().toString().slice(-4));
+          const approveUrl = `${gasUrl}?action=approveUserTelegram&userId=${encodeURIComponent(newUid)}&u=${encodeURIComponent(userData.username)}`;
+          const rejectUrl = `${gasUrl}?action=rejectUserTelegram&userId=${encodeURIComponent(newUid)}&u=${encodeURIComponent(userData.username)}`;
+          const webAppUsersUrl = `${window.location.origin}${window.location.pathname}#users`;
 
-        // 1. Guaranteed Real-Time Email Dispatch to Admin so Admin is notified to check the app
+          if (tgToken && tgChatId) {
+            const tgMsg = `📋 <b>[សំណើសុំចុះឈ្មោះគណនីថ្មី]</b>\n` +
+              `👤 <b>ឈ្មោះពេញ:</b> ${userData.fullName || userData.username}\n` +
+              `🆔 <b>Username:</b> <code>${userData.username}</code>\n` +
+              `📱 <b>លេខទូរស័ព្ទ:</b> ${userData.phone || '-'}\n` +
+              `📧 <b>អ៊ីមែល:</b> ${userData.email || '-'}\n` +
+              `💼 <b>តួនាទី:</b> ${userData.role || 'Stock Keeper'}\n` +
+              `🏢 <b>ស្ថានីយ/ឃ្លាំង:</b> ${userData.warehouse || '-'}\n` +
+              `🕒 <b>កាលបរិច្ឆេទ:</b> ${new Date().toLocaleString('en-GB')}\n` +
+              `🚦 <b>ស្ថានភាព:</b> ⏳ រង់ចាំ Admin / SuperAdmin អនុម័ត (Pending Approval)\n\n` +
+              `👉 <b>សូមចុចប៊ូតុងខាងក្រោមដើម្បី អនុម័ត (Approve) ឬ បដិសេធ (Reject)៖</b>`;
+
+            fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                chat_id: tgChatId,
+                text: tgMsg,
+                parse_mode: 'HTML',
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      { text: "✅ អនុម័ត (Approve)", url: approveUrl },
+                      { text: "❌ បដិសេធ (Reject)", url: rejectUrl }
+                    ],
+                    [
+                      { text: "👥 ពិនិត្យក្នុងប្រព័ន្ធ (Web App)", url: webAppUsersUrl }
+                    ]
+                  ]
+                }
+              })
+            }).catch(() => {});
+          }
+        } catch (tgErr) {}
+
+        // 2. Real-Time Email Dispatch to Admin so Admin is notified to check the app
         try {
           const adminEmails = ['ppshv2024@gmail.com', 'chenlongqmi@gmail.com'];
           for (const admEmail of adminEmails) {
@@ -8247,7 +8288,7 @@
                 'អ៊ីមែល (Email)': userData.email || '-',
                 'ស្ថានីយ/ឃ្លាំង (Warehouse)': userData.warehouse || '-',
                 'តួនាទី (Role)': userData.role || 'Stock Keeper',
-                'ស្ថានភាព (Status)': 'Pending_Admin (ជំហានទី ១: រង់ចាំ Admin ពិនិត្យអនុម័តក្នុងប្រព័ន្ធ)',
+                'ស្ថានភាព (Status)': 'Pending (រង់ចាំ Admin / SuperAdmin ពិនិត្យអនុម័ត)',
                 'ពេលវេលា (Timestamp)': new Date().toLocaleString('en-GB')
               })
             }).catch(() => {});
@@ -8256,7 +8297,7 @@
 
         // Add In-App Notification for Admin
         if (typeof addNotification === 'function') {
-          addNotification('USER_REGISTRATION', 'សំណើគណនីថ្មី', `${userData.fullName || userData.username} បានស្នើសុំគណនីថ្មី (រង់ចាំ Admin អនុម័ត)`, userData.warehouse);
+          addNotification('USER_REGISTRATION', 'សំណើគណនីថ្មី', `${userData.fullName || userData.username} បានស្នើសុំគណនីថ្មី (រង់ចាំការអនុម័ត)`, userData.warehouse);
         }
 
         if (res && res.success) {
@@ -8321,11 +8362,11 @@
                 <p>🆔 <b>Username៖</b> <span class="text-blue-700 font-mono font-bold">${userData.username}</span></p>
                 <p>📱 <b>លេខទូរស័ព្ទ៖</b> <span class="text-blue-700 font-mono font-bold">${userData.phone}</span></p>
                 <p>🏢 <b>ស្ថានីយ/ឃ្លាំង៖</b> <span class="text-blue-700 font-bold">${userData.warehouse}</span></p>
-                <p>🚦 <b>ស្ថានភាព៖</b> <span class="inline-block px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-extrabold text-[11px] border border-amber-300">⏳ ជំហានទី ១: រង់ចាំ Admin អនុម័តក្នុងប្រព័ន្ធ (Pending Admin)</span></p>
+                <p>🚦 <b>ស្ថានភាព៖</b> <span class="inline-block px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-extrabold text-[11px] border border-amber-300">⏳ រង់ចាំ Admin / SuperAdmin អនុម័ត (Pending Approval)</span></p>
               </div>
               <p class="text-xs text-slate-600 leading-relaxed">
-                ព័ត៌មានលម្អិតត្រូវបានបញ្ជូនទៅកាន់ <b>Admin ក្នុងប្រព័ន្ធ</b> រួចរាល់។<br>
-                បន្ទាប់ពី Admin ពិនិត្យ និងចុច <b>Approve (អនុម័ត)</b> ក្នុងកម្មវិធីរួចរាល់ ទើបប្រព័ន្ធបញ្ជូនបន្តទៅកាន់ <b>SuperAdmin តាមរយៈ Telegram</b> ដើម្បីអនុម័តចុងក្រោយ។
+                ព័ត៌មានលម្អិតត្រូវបានបញ្ជូនទៅកាន់ <b>Telegram និង ប្រព័ន្ធគ្រប់គ្រងរបស់ Admin & SuperAdmin</b> រួចរាល់ហើយ។<br>
+                សូមរង់ចាំ Admin ឬ SuperAdmin ពិនិត្យ និងចុច <b>Approve (អនុម័ត)</b> ដើម្បីអាចចូលប្រើប្រាស់បាន។
               </p>
             `,
             confirmButtonText: 'យល់ព្រម ត្រឡប់ទៅ Login',
@@ -18523,19 +18564,13 @@
       if (!actor) return;
 
       const isSuperAdmin = (actor.role === 'SuperAdmin' || String(actor.username).toLowerCase() === 'superadmin');
-      if (isSuperAdmin) {
-        // SuperAdmin does not need to see Step 1 Admin pending registration alerts
-        const chatBadge = document.getElementById('chatBadge');
-        if (chatBadge) chatBadge.classList.add('hidden');
-        if (typeof checkPendingDeletionsForSuperAdmin === 'function') {
-          checkPendingDeletionsForSuperAdmin(silent);
-        }
-        return;
+      if (isSuperAdmin && typeof checkPendingDeletionsForSuperAdmin === 'function') {
+        checkPendingDeletionsForSuperAdmin(silent);
       }
 
       const actorRole = String(actor.role || '').toLowerCase();
       const actorName = String(actor.username || '').toLowerCase();
-      const isActorAdmin = actorRole.includes('admin') || actorRole.includes('គ្រប់គ្រង') || actorName === 'admin' || actor.warehouse === 'ALL';
+      const isActorAdmin = isSuperAdmin || actorRole.includes('admin') || actorRole.includes('គ្រប់គ្រង') || actorName === 'admin' || actor.warehouse === 'ALL';
       if (!isActorAdmin) {
         const chatBadge = document.getElementById('chatBadge');
         if (chatBadge) chatBadge.classList.add('hidden');
