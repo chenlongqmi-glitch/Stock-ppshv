@@ -3399,7 +3399,7 @@
                   <i class="fa-solid fa-user-shield mr-1"></i>Admin / SuperAdmin
                 </span>
               </div>
-              <select id="modalLocation"
+              <select id="modalLocation" onchange="localStorage.setItem('lastSelectedWarehouseLocation', this.value)"
                 class="w-full h-11 px-3.5 bg-slate-50 border border-slate-300 rounded-xl text-sm outline-none font-bold text-slate-800 focus:ring-2 focus:ring-blue-500">
                 <option value="1-K3 ស្ថានីយ (ភ្នំពេញ)">1-K3 ស្ថានីយ (ភ្នំពេញ)</option>
                 <option value="2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)">2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)</option>
@@ -9773,8 +9773,11 @@
       const badge = document.getElementById('modalLocationBadge');
 
       let defaultWh = '';
+      const savedWh = localStorage.getItem('lastSelectedWarehouseLocation');
       if (AppState.currentUser && AppState.currentUser.warehouse && AppState.currentUser.warehouse !== 'ALL') {
         defaultWh = AppState.currentUser.warehouse;
+      } else if (savedWh && (WAREHOUSES_LIST.includes(savedWh) || (AppState.warehouses && AppState.warehouses.includes(savedWh)))) {
+        defaultWh = savedWh;
       } else if (AppState.selectedAdminWarehouseFilter && AppState.selectedAdminWarehouseFilter !== 'ALL') {
         defaultWh = AppState.selectedAdminWarehouseFilter;
       } else if (AppState.warehouses && AppState.warehouses.length > 0) {
@@ -9913,6 +9916,9 @@
         finalLocation = (AppState.currentUser && AppState.currentUser.warehouse && AppState.currentUser.warehouse !== 'ALL')
           ? AppState.currentUser.warehouse
           : (document.getElementById('modalLocation')?.value || (WAREHOUSES_LIST && WAREHOUSES_LIST.length > 0 ? WAREHOUSES_LIST[0] : '1-K3 ស្ថានីយ (ភ្នំពេញ)'));
+      }
+      if (finalLocation) {
+        localStorage.setItem('lastSelectedWarehouseLocation', finalLocation);
       }
 
       const skuInputVal = (document.getElementById('modalSku')?.value || '').trim();
@@ -15643,7 +15649,12 @@
       if (itemLoc) {
         const curVal = itemLoc.value;
         itemLoc.innerHTML = currentList.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('');
-        if (curVal && currentList.includes(curVal)) itemLoc.value = curVal;
+        const savedLoc = localStorage.getItem('lastSelectedWarehouseLocation');
+        if (curVal && currentList.includes(curVal)) {
+          itemLoc.value = curVal;
+        } else if (savedLoc && currentList.includes(savedLoc)) {
+          itemLoc.value = savedLoc;
+        }
       }
 
       // 5. Stock In Location Selector
