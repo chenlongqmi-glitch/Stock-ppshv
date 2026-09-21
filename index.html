@@ -1159,6 +1159,16 @@
             class="hidden px-2 py-0.5 rounded-full text-[9px] font-bold bg-violet-500 text-white animate-pulse shadow">0</span>
         </a>
 
+        <a href="#users" onclick="navigateTab('users')" id="navUsers"
+          class="nav-link flex items-center justify-between px-3.5 py-2.5 rounded-xl hover:bg-white/15 hover:text-white transition-all text-indigo-200 hidden">
+          <div class="flex items-center">
+            <i class="fa-solid fa-users-gear w-6 text-center text-indigo-300"></i>
+            <span class="ml-2">គ្រប់គ្រង User & សិទ្ធិ</span>
+          </div>
+          <span id="pendingUsersBadgeNav"
+            class="hidden px-2 py-0.5 rounded-full text-[9px] font-bold bg-rose-500 text-white shadow">0</span>
+        </a>
+
       </nav>
     </aside>
 
@@ -13337,7 +13347,8 @@
             filteredUsers = filteredUsers.filter(u => {
               // 1. Must belong to the manager's assigned warehouse
               const uWh = String(u.warehouse || '').trim().toLowerCase();
-              if (!myWh || uWh !== myWh) return false;
+              const isSameWh = myWh && (uWh === myWh || uWh.includes(myWh) || myWh.includes(uWh));
+              if (!isSameWh) return false;
               // 2. Can ONLY see Team Leader (ប្រធានក្រុម) and Stock Keeper (អ្នកកាន់ស្តុក)
               const r = String(u.role || '').trim().toLowerCase();
               const isTeamLeader = (r === 'ប្រធានក្រុម' || r === 'ប្រធាន' || r === 'team leader' || r === 'teamleader' || r === 'manager');
@@ -13400,7 +13411,8 @@
         const myWh = String(actor?.warehouse || '').trim().toLowerCase();
         usersList = usersList.filter(u => {
           const uWh = String(u.warehouse || '').trim().toLowerCase();
-          if (!myWh || uWh !== myWh) return false;
+          const isSameWh = myWh && (uWh === myWh || uWh.includes(myWh) || myWh.includes(uWh));
+          if (!isSameWh) return false;
           const r = String(u.role || '').trim().toLowerCase();
           const isTeamLeader = (r === 'ប្រធានក្រុម' || r === 'ប្រធាន' || r === 'team leader' || r === 'teamleader' || r === 'manager');
           const isStockKeeper = (r === 'អ្នកកាន់ស្តុក' || r === 'stock keeper' || r === 'stockkeeper' || r === 'staff' || r === '' || !u.role);
@@ -15024,11 +15036,12 @@
       if (isActorStationManager) {
         const myWh = String(AppState.currentUser?.warehouse || '').trim().toLowerCase();
         const uWh = String(u.warehouse || '').trim().toLowerCase();
+        const isSameWh = myWh && (uWh === myWh || uWh.includes(myWh) || myWh.includes(uWh));
         const r = String(u.role || '').trim().toLowerCase();
         const isTL = (r === 'ប្រធានក្រុម' || r === 'ប្រធាន' || r === 'team leader' || r === 'teamleader' || r === 'manager');
         const isSK = (r === 'អ្នកកាន់ស្តុក' || r === 'stock keeper' || r === 'stockkeeper' || r === 'staff' || r === '' || !u.role);
         const isForbidden = (r === 'superadmin' || r === 'admin' || r === 'អ្នកគ្រប់គ្រងស្ថានីយ' || r === 'អ្នកគ្រប់គ្រង' || r === 'station manager');
-        if (uWh !== myWh || (!isTL && !isSK) || isForbidden) {
+        if (!isSameWh || (!isTL && !isSK) || isForbidden) {
           Swal.fire('គ្មានសិទ្ធិ', 'អ្នកគ្រប់គ្រងស្ថានីយអាចកែប្រែបានតែប្រធានក្រុម និងអ្នកកាន់ស្តុកក្នុងស្ថានីយរបស់ខ្លួនប៉ុណ្ណោះ!', 'warning');
           return;
         }
@@ -17483,12 +17496,15 @@
     function handleTopMenuManageUsers() {
       closeSettingsDropdown();
       const u = AppState.currentUser;
-      const isAdmin = (u && (u.role === 'Admin' || u.role === 'SuperAdmin'));
-      if (!isAdmin) {
+      const isSuperAdmin = (u && (u.role === 'SuperAdmin' || String(u.username).toLowerCase() === 'superadmin'));
+      const isAdmin = !isSuperAdmin && (u && (u.role === 'Admin' || String(u.username).toLowerCase() === 'admin'));
+      const isStationManager = !isSuperAdmin && !isAdmin && (u && (u.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || u.role === 'អ្នកគ្រប់គ្រង'));
+      const canAccessUsers = isSuperAdmin || isAdmin || isStationManager;
+      if (!canAccessUsers) {
         Swal.fire({
           icon: 'warning',
           title: 'គ្មានសិទ្ធិ',
-          text: 'ទំព័រគ្រប់គ្រង User & សិទ្ធិប្រើប្រាស់ មានសម្រាប់តែ Admin និង SuperAdmin ប៉ុណ្ណោះ។',
+          text: 'ទំព័រគ្រប់គ្រង User & សិទ្ធិប្រើប្រាស់ មានសម្រាប់តែ អ្នកគ្រប់គ្រងស្ថានីយ, Admin និង SuperAdmin ប៉ុណ្ណោះ។',
           confirmButtonColor: '#3b82f6',
           confirmButtonText: 'យល់ព្រម'
         });
