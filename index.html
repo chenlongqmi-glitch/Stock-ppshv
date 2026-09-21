@@ -3167,13 +3167,30 @@
           <!-- ផ្នែកខាងឆ្វេង (LEFT COLUMN): ព័ត៌មានទំនិញ & ស្តុក & ប្រព័ន្ធឯកតាទ្វេ -->
           <div class="lg:col-span-7 space-y-3.5">
             <!-- ជួរទី១: ឈ្មោះទំនិញ (Item Name) -->
-            <div>
+            <div class="relative" id="modalNameContainer">
               <label class="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center justify-between">
                 <span><i class="fa-solid fa-tag text-blue-600 mr-1"></i> ឈ្មោះទំនិញ (Item Name) *</span>
-                <span class="text-[10px] text-slate-400 font-normal">គាំទ្រស្វែងរក Keyword (SKU, ឈ្មោះ, Barcode)</span>
+                <span class="text-[10px] text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
+                  <i class="fa-solid fa-magnifying-glass mr-1"></i>គាំទ្រស្វែងរក Keyword (SKU, ឈ្មោះ, Barcode)
+                </span>
               </label>
-              <input type="text" id="modalName" required placeholder="ឧ. កាហ្វេ Nescafe 3in1 / Coca Cola 330ml"
-                class="w-full h-11 px-3.5 bg-slate-50 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 font-semibold text-slate-800">
+              <div class="relative">
+                <input type="text" id="modalName" list="modalNameDatalist" required placeholder="ឧ. កាហ្វេ Nescafe 3in1 / Coca Cola 330ml"
+                  oninput="onModalNameInput(this.value)"
+                  onfocus="if(this.value) onModalNameInput(this.value)"
+                  autocomplete="off"
+                  class="w-full h-11 pl-3.5 pr-9 bg-slate-50 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 font-semibold text-slate-800 focus:bg-white transition">
+                <button type="button" id="modalNameClearBtn" onclick="clearModalNameInput()"
+                  class="hidden absolute right-3 top-3.5 text-slate-400 hover:text-slate-600 text-xs transition" title="សម្អាត">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+              <datalist id="modalNameDatalist"></datalist>
+
+              <!-- Floating Suggestions Dropdown for Related Items -->
+              <div id="modalNameSuggestions"
+                class="hidden absolute left-0 right-0 top-full mt-1.5 bg-white border border-blue-200 rounded-2xl shadow-xl z-50 overflow-hidden max-h-72 overflow-y-auto">
+              </div>
             </div>
 
             <!-- ជួរទី២: ខ្នាត (Size / Spec) & ពណ៌ (Color) -->
@@ -9774,6 +9791,219 @@
       }
     }
 
+    function highlightMatch(text, query) {
+      if (!text) return '';
+      if (!query) return escapeHtml(text);
+      const str = String(text);
+      const idx = str.toLowerCase().indexOf(query.toLowerCase());
+      if (idx === -1) return escapeHtml(str);
+      const before = escapeHtml(str.substring(0, idx));
+      const match = escapeHtml(str.substring(idx, idx + query.length));
+      const after = escapeHtml(str.substring(idx + query.length));
+      return `${before}<mark class="bg-amber-200 text-amber-900 font-extrabold px-0.5 rounded">${match}</mark>${after}`;
+    }
+
+    function populateModalNameDatalist() {
+      const modalDatalist = document.getElementById('modalNameDatalist');
+      if (modalDatalist && AppState.items) {
+        modalDatalist.innerHTML = AppState.items.map(i => {
+          const specParts = [i.size, i.color].filter(Boolean);
+          const specStr = specParts.length > 0 ? ` (${specParts.join(', ')})` : '';
+          return `<option value="${escapeHtml(i.name)}">${escapeHtml(i.sku)} - ${escapeHtml(i.name)}${specStr} [${escapeHtml(i.unit || 'ដុំ')}]</option>`;
+        }).join('');
+      }
+    }
+
+    function onModalNameInput(val) {
+      const clearBtn = document.getElementById('modalNameClearBtn');
+      if (clearBtn) {
+        if (val && val.trim().length > 0) clearBtn.classList.remove('hidden');
+        else clearBtn.classList.add('hidden');
+      }
+
+      const container = document.getElementById('modalNameSuggestions');
+      if (!container) return;
+
+      const q = (val || '').trim().toLowerCase();
+      if (!q) {
+        container.classList.add('hidden');
+        container.innerHTML = '';
+        return;
+      }
+
+      // Search matching items across name, sku, barcode, category
+      const matches = (AppState.items || []).filter(item => {
+        const nameMatch = (item.name || '').toLowerCase().includes(q);
+        const skuMatch = (item.sku || '').toLowerCase().includes(q);
+        const barcodeMatch = (item.barcode || '').toLowerCase().includes(q);
+        const catMatch = (item.category || '').toLowerCase().includes(q);
+        return nameMatch || skuMatch || barcodeMatch || catMatch;
+      }).slice(0, 8); // Top 8 matches for responsiveness
+
+      if (matches.length === 0) {
+        container.innerHTML = `
+          <div class="p-3 text-center text-xs text-slate-500 bg-slate-50 flex items-center justify-center space-x-2">
+            <i class="fa-solid fa-circle-check text-emerald-500 mr-1"></i>
+            <span>ឈ្មោះ "<b>${escapeHtml(val)}</b>" មិនទាន់មានក្នុងបញ្ជីទេ (អាចបង្កើតជាមុខទំនិញថ្មីបាន)</span>
+          </div>
+        `;
+        container.classList.remove('hidden');
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="px-3 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 flex items-center justify-between text-[11px] font-bold text-blue-900">
+          <span class="flex items-center">
+            <i class="fa-solid fa-sparkles text-amber-500 mr-1.5 animate-bounce"></i>
+            ឈ្មោះទំនិញស្រដៀងគ្នាដែលមានក្នុងបញ្ជី (រកឃើញ ${matches.length})
+          </span>
+          <span class="text-[10px] text-slate-500 font-medium">ចុចលើឈ្មោះដើម្បីបំពេញទិន្នន័យស្វ័យប្រវត្តិ</span>
+        </div>
+        <div class="divide-y divide-slate-100 max-h-64 overflow-y-auto">
+          ${matches.map(item => {
+            const hasImg = item.imageUrl && item.imageUrl.trim();
+            const pQty = Number(item.packQty || 1);
+            const pUnit = (item.packUnit || '').trim();
+            const packStr = (pUnit && pQty > 1) ? ` (1 ${pUnit} = ${pQty} ${item.unit})` : '';
+            return `
+              <div onclick="selectItemSuggestion('${escapeHtml(item.sku)}')"
+                class="p-2.5 hover:bg-blue-50/80 transition-colors cursor-pointer flex items-center justify-between group">
+                <div class="flex items-center space-x-3 min-w-0">
+                  <div class="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0 shadow-3xs">
+                    ${hasImg ? `<img src="${escapeHtml(item.imageUrl)}" class="w-full h-full object-cover">` : `<i class="fa-solid fa-box text-slate-400 text-sm"></i>`}
+                  </div>
+                  <div class="min-w-0">
+                    <p class="text-xs font-bold text-slate-800 group-hover:text-blue-700 transition truncate">
+                      ${highlightMatch(item.name, q)}
+                    </p>
+                    <div class="flex items-center gap-1 mt-0.5 flex-wrap">
+                      <span class="font-mono text-[9.5px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.2 rounded border border-blue-200">
+                        ${highlightMatch(item.sku, q)}
+                      </span>
+                      ${item.barcode ? `<span class="font-mono text-[9.5px] text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded">${highlightMatch(item.barcode, q)}</span>` : ''}
+                      ${item.size ? `<span class="text-[9.5px] text-slate-600 bg-slate-100 px-1.5 py-0.2 rounded">${escapeHtml(item.size)}</span>` : ''}
+                      ${item.color ? `<span class="text-[9.5px] text-amber-800 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">${escapeHtml(item.color)}</span>` : ''}
+                      <span class="text-[9.5px] text-emerald-700 font-semibold">${escapeHtml(item.unit || 'ដុំ')}${packStr}</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="text-right shrink-0 pl-2">
+                  <span class="inline-block px-2 py-0.5 rounded-lg text-[10px] font-bold ${item.currentStock > 0 ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-rose-100 text-rose-800 border border-rose-200'}">
+                    ស្តុក: ${item.currentStock} ${escapeHtml(item.unit || 'ដុំ')}
+                  </span>
+                  <span class="block text-[9.5px] text-blue-600 group-hover:underline font-bold mt-0.5">
+                    <i class="fa-solid fa-arrow-right-to-bracket mr-0.5"></i> ជ្រើសយក
+                  </span>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+      container.classList.remove('hidden');
+    }
+
+    function clearModalNameInput() {
+      const input = document.getElementById('modalName');
+      if (input) {
+        input.value = '';
+        input.focus();
+      }
+      onModalNameInput('');
+    }
+
+    function selectItemSuggestion(sku) {
+      const item = (AppState.items || []).find(i => i.sku === sku);
+      const container = document.getElementById('modalNameSuggestions');
+      if (container) container.classList.add('hidden');
+      if (!item) return;
+
+      const nameInput = document.getElementById('modalName');
+      if (nameInput) nameInput.value = item.name;
+
+      const sizeInput = document.getElementById('modalSize');
+      if (sizeInput && item.size) sizeInput.value = item.size;
+
+      const colorInput = document.getElementById('modalColor');
+      if (colorInput && item.color) colorInput.value = item.color;
+
+      const catInput = document.getElementById('modalCategory');
+      if (catInput && item.category) catInput.value = item.category;
+
+      const unitInput = document.getElementById('modalUnit');
+      if (unitInput && item.unit) unitInput.value = item.unit;
+
+      const packUnitInput = document.getElementById('modalPackUnit');
+      if (packUnitInput && item.packUnit) packUnitInput.value = item.packUnit;
+
+      const packQtyInput = document.getElementById('modalPackQty');
+      if (packQtyInput && item.packQty) packQtyInput.value = item.packQty;
+
+      const zoneInput = document.getElementById('modalZone');
+      if (zoneInput && item.zone) zoneInput.value = item.zone;
+
+      if (item.zoneNumber && document.getElementById('modalZoneNumber')) {
+        document.getElementById('modalZoneNumber').value = item.zoneNumber;
+      }
+
+      const costPriceInput = document.getElementById('modalCostPrice');
+      if (costPriceInput && item.costPrice) costPriceInput.value = item.costPrice;
+
+      const sellingPriceInput = document.getElementById('modalSellingPrice');
+      if (sellingPriceInput && item.sellingPrice) sellingPriceInput.value = item.sellingPrice;
+
+      if (item.notes && document.getElementById('modalNotes')) {
+        document.getElementById('modalNotes').value = item.notes;
+      }
+
+      updateUnitConversionPreview();
+      updateStockCalculationPreview();
+
+      let itemMinPct = item.minStockPercent !== undefined ? Number(item.minStockPercent) : null;
+      if (!itemMinPct && item.minStock !== undefined) {
+        const refBase = (item.currentStock && item.currentStock > 0) ? item.currentStock : ((item.packQty && item.packQty > 1) ? item.packQty : 50);
+        itemMinPct = Math.min(100, Math.max(5, Math.round((Number(item.minStock) / refBase) * 100)));
+      }
+      setMinStockPercent(itemMinPct || 20);
+
+      if (item.imageUrl && item.imageUrl.trim()) {
+        const isDrive = item.imageUrl.includes('googleusercontent.com') || item.imageUrl.includes('drive.google.com');
+        displayImagePreview(item.imageUrl, item.name || 'រូបភាពទំនិញ', isDrive ? 'Google Drive' : '');
+        document.getElementById('modalImageUrlCustom').value = item.imageUrl.startsWith('data:') ? '' : item.imageUrl;
+      }
+
+      const locSelect = document.getElementById('modalLocation');
+      if (locSelect && item.location) {
+        locSelect.value = item.location;
+        localStorage.setItem('lastSelectedWarehouseLocation', item.location);
+      }
+
+      const clearBtn = document.getElementById('modalNameClearBtn');
+      if (clearBtn) clearBtn.classList.remove('hidden');
+
+      if (typeof Swal !== 'undefined') {
+        const Toast = Swal.mixin({
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 2200,
+          timerProgressBar: true
+        });
+        Toast.fire({
+          icon: 'success',
+          title: `បានចម្លងព័ត៌មានពី៖ ${item.name}`
+        });
+      }
+    }
+
+    document.addEventListener('click', function (e) {
+      const container = document.getElementById('modalNameContainer');
+      const suggestions = document.getElementById('modalNameSuggestions');
+      if (suggestions && container && !container.contains(e.target)) {
+        suggestions.classList.add('hidden');
+      }
+    });
+
     function openItemModal() {
       document.getElementById('itemEditMode').value = 'ADD';
       document.getElementById('itemModalTitle').innerText = 'បន្ថែមទំនិញថ្មី';
@@ -9791,6 +10021,12 @@
       if (document.getElementById('modalBarcode')) document.getElementById('modalBarcode').value = '';
       document.getElementById('modalNotes').value = '';
       setStockInUnitMode('RETAIL');
+
+      const suggestionsEl = document.getElementById('modalNameSuggestions');
+      if (suggestionsEl) suggestionsEl.classList.add('hidden');
+      const clearBtn = document.getElementById('modalNameClearBtn');
+      if (clearBtn) clearBtn.classList.add('hidden');
+      populateModalNameDatalist();
 
       const currentUserStr = (AppState.currentUser?.fullName || AppState.currentUser?.username || 'Admin') +
         (AppState.currentUser?.role ? ` (${AppState.currentUser.role})` : '');
@@ -9850,6 +10086,12 @@
     function openEditItemModal(sku) {
       const item = AppState.items.find(i => i.sku === sku);
       if (!item) return;
+
+      const suggestionsEl = document.getElementById('modalNameSuggestions');
+      if (suggestionsEl) suggestionsEl.classList.add('hidden');
+      const clearBtn = document.getElementById('modalNameClearBtn');
+      if (clearBtn) clearBtn.classList.remove('hidden');
+      populateModalNameDatalist();
 
       document.getElementById('itemEditMode').value = 'EDIT';
       document.getElementById('itemModalTitle').innerText = `កែប្រែទំនិញ: ${item.name}`;
@@ -9919,6 +10161,8 @@
     }
 
     function closeItemModal() {
+      const suggestionsEl = document.getElementById('modalNameSuggestions');
+      if (suggestionsEl) suggestionsEl.classList.add('hidden');
       document.getElementById('itemModal').classList.add('hidden');
       removeImagePreview();
     }
@@ -10106,6 +10350,7 @@
         const el = document.getElementById(id);
         if (el) el.innerHTML = optionsHtml;
       });
+      populateModalNameDatalist();
     }
 
     function generateStockInDocNo() {
