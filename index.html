@@ -8694,6 +8694,9 @@
       }
 
       initAutoRefreshEngine();
+      if (typeof checkCurrentUserLiveRoleSync === 'function') {
+        setTimeout(checkCurrentUserLiveRoleSync, 600);
+      }
     }
 
     // ==========================================
@@ -14861,6 +14864,42 @@
         }
         saveLocalUsersToStorage();
 
+        // Immediately update and reflect in active session if this user is currently active (or impersonated)
+        const isSelfOrCurrentSession = AppState.currentUser && (
+          (AppState.currentUser.userId && (AppState.currentUser.userId === u.userId || AppState.currentUser.userId === u.username)) ||
+          (AppState.currentUser.username && (String(AppState.currentUser.username).toLowerCase() === String(u.username).toLowerCase() || String(AppState.currentUser.username).toLowerCase() === String(u.userId).toLowerCase()))
+        );
+
+        if (isSelfOrCurrentSession) {
+          AppState.currentUser.role = formValues.role;
+          AppState.currentUser.warehouse = formValues.warehouse;
+          AppState.currentUser.fullName = formValues.fullName;
+          AppState.currentUser.email = finalEmail;
+          AppState.currentUser.phone = finalPhone;
+          AppState.currentUser.status = formValues.status;
+          AppState.currentUser.password = finalPwd;
+          if (sessionStorage.getItem('inventory_user')) {
+            sessionStorage.setItem('inventory_user', JSON.stringify(AppState.currentUser));
+          }
+          if (localStorage.getItem('inventory_user')) {
+            localStorage.setItem('inventory_user', JSON.stringify(AppState.currentUser));
+          }
+          showAppView();
+          navigateTab(AppState.currentTab);
+        }
+
+        // Broadcast real-time user role change event to all browser tabs
+        if (typeof broadcastUserRoleChangeEvent === 'function') {
+          broadcastUserRoleChangeEvent({
+            userId: u.userId,
+            username: u.username,
+            role: formValues.role,
+            warehouse: formValues.warehouse,
+            status: formValues.status,
+            fullName: formValues.fullName
+          });
+        }
+
         // 2. Call backend APIs (both updateUserStatus and updateUserProfile for compatibility)
         const updateRes = await apiCall('updateUserStatus', {
           userId: u.userId,
@@ -16749,12 +16788,147 @@
     }
 
     // ==========================================
+    // REAL-TIME USER ROLE & STATUS AUTO-SYNC ENGINE
+    // ==========================================
+    let isRoleChecking = false;
+    let autoRoleSyncInterval = null;
+
+    function broadcastUserRoleChangeEvent(changeData) {
+      try {
+        localStorage.setItem('inventory_user_role_changed', JSON.stringify({
+          ...changeData,
+          timestamp: Date.now()
+        }));
+      } catch (e) {}
+    }
+
+    function applyLocalRoleSyncIfChanged() {
+      if (!AppState.currentUser) return false;
+      loadLocalUsersFromStorage();
+      const myId = AppState.currentUser.userId;
+      const myUsername = String(AppState.currentUser.username || '').toLowerCase();
+      const localUser = (LOCAL_DB.users || []).find(x => 
+        (myId && x.userId === myId) || 
+        (x.username && String(x.username).toLowerCase() === myUsername)
+      );
+
+      if (localUser) {
+        const roleChanged = (localUser.role && localUser.role !== AppState.currentUser.role);
+        const whChanged = (localUser.warehouse && localUser.warehouse !== AppState.currentUser.warehouse);
+        const statusChanged = (localUser.status && localUser.status !== AppState.currentUser.status);
+
+        if (roleChanged || whChanged || statusChanged) {
+          const oldRole = AppState.currentUser.role;
+          const newRole = localUser.role;
+
+          AppState.currentUser.role = newRole;
+          if (localUser.warehouse) AppState.currentUser.warehouse = localUser.warehouse;
+          if (localUser.status) AppState.currentUser.status = localUser.status;
+          if (localUser.fullName) AppState.currentUser.fullName = localUser.fullName;
+
+          if (sessionStorage.getItem('inventory_user')) {
+            sessionStorage.setItem('inventory_user', JSON.stringify(AppState.currentUser));
+          }
+          if (localStorage.getItem('inventory_user')) {
+            localStorage.setItem('inventory_user', JSON.stringify(AppState.currentUser));
+          }
+
+          showAppView();
+          navigateTab(AppState.currentTab);
+
+          // If account is inactivated or rejected, alert & logout
+          if (AppState.currentUser.status === 'Inactive' || AppState.currentUser.status === 'Rejected') {
+            Swal.fire({
+              icon: 'warning',
+              title: 'គណនីត្រូវបានផ្អាក!',
+              text: 'គណនីរបស់អ្នកត្រូវបានផ្អាក ឬបដិសេធដោយ Admin!',
+              confirmButtonText: 'ចាកចេញ',
+              confirmButtonColor: '#e11d48'
+            }).then(() => {
+              handleLogout();
+            });
+            return true;
+          }
+
+          if (roleChanged) {
+            Swal.fire({
+              icon: 'info',
+              title: 'តួនាទីត្រូវបានផ្លាស់ប្តូរភ្លាមៗ! ⚡',
+              html: `
+                <div class="text-center p-2 text-xs">
+                  <p class="text-slate-600 mb-2">តួនាទីរបស់អ្នកត្រូវបានកែសម្រួលក្នុងប្រព័ន្ធដោយស្វ័យប្រវត្តិ៖</p>
+                  <div class="inline-flex items-center space-x-2 bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-xl font-bold text-indigo-700">
+                    <span>${oldRole || 'Staff'}</span>
+                    <i class="fa-solid fa-arrow-right text-[10px] text-indigo-400"></i>
+                    <span>${newRole}</span>
+                  </div>
+                </div>
+              `,
+              confirmButtonText: 'យល់ព្រម',
+              confirmButtonColor: '#4f46e5',
+              timer: 4500
+            });
+          }
+          return true;
+        }
+      }
+      return false;
+    }
+
+    async function checkCurrentUserLiveRoleSync() {
+      if (!AppState.currentUser || isRoleChecking) return;
+      isRoleChecking = true;
+      try {
+        // 1. Instant check against local storage for 0ms latency
+        applyLocalRoleSyncIfChanged();
+
+        // 2. Query live server for role updates across devices
+        const uRes = await apiCall('getUsersList');
+        if (uRes && uRes.success && Array.isArray(uRes.users)) {
+          loadLocalUsersFromStorage();
+          uRes.users.forEach(ru => {
+            if (!ru || isUnregisteredDummyUser(ru)) return;
+            const idx = LOCAL_DB.users.findIndex(lu => (ru.userId && lu.userId === ru.userId) || (ru.username && lu.username === ru.username));
+            if (idx !== -1) {
+              const existing = LOCAL_DB.users[idx];
+              LOCAL_DB.users[idx] = {
+                ...existing,
+                ...ru,
+                phone: (ru.phone && String(ru.phone).trim()) ? ru.phone : (existing.phone || ''),
+                email: (ru.email && String(ru.email).trim()) ? ru.email : (existing.email || ''),
+                fullName: (ru.fullName && String(ru.fullName).trim()) ? ru.fullName : (existing.fullName || ru.username),
+                password: (ru.password && String(ru.password).trim()) ? ru.password : (existing.password || '')
+              };
+            } else {
+              LOCAL_DB.users.push(ru);
+            }
+          });
+          saveLocalUsersToStorage();
+
+          // Apply changes if any role/warehouse was updated on server
+          applyLocalRoleSyncIfChanged();
+        }
+      } catch (err) {
+        // Silent background fallback
+      } finally {
+        isRoleChecking = false;
+      }
+    }
+
+    // ==========================================
     // AUTOMATIC BACKGROUND DATA FETCH (រៀងរាល់ 25 វិនាទី)
     // ==========================================
     let autoFetchInterval = null;
 
     function initAutoRefreshEngine() {
       if (autoFetchInterval) clearInterval(autoFetchInterval);
+      if (autoRoleSyncInterval) clearInterval(autoRoleSyncInterval);
+
+      // Lightweight real-time role check every 8 seconds for immediate role updates
+      autoRoleSyncInterval = setInterval(() => {
+        if (!AppState.currentUser) return;
+        checkCurrentUserLiveRoleSync();
+      }, 8000);
 
       // Trigger silent background data fetch every 25 seconds automatically
       autoFetchInterval = setInterval(() => {
@@ -16766,6 +16940,8 @@
     async function silentAutoRefresh() {
       if (!AppState.currentUser) return;
       try {
+        await checkCurrentUserLiveRoleSync();
+
         if (AppState.currentTab === 'dashboard') await loadDashboard();
         if (AppState.currentTab === 'items') await loadItems();
         if (AppState.currentTab === 'reports') await loadReportTransactions();
@@ -16786,14 +16962,6 @@
         const actor = AppState.currentUser;
         const isSuperAdmin = (actor?.role === 'SuperAdmin' || String(actor?.username).toLowerCase() === 'superadmin');
         if (isSuperAdmin) {
-          // Check backend for user deletions
-          try {
-            const uRes = await apiCall('getUsersList');
-            if (uRes && uRes.success && uRes.users) {
-              LOCAL_DB.users = uRes.users;
-              saveLocalUsersToStorage();
-            }
-          } catch(e) {}
           if (typeof checkPendingDeletionsForSuperAdmin === 'function') {
             checkPendingDeletionsForSuperAdmin(false);
           }
@@ -19283,6 +19451,14 @@
         updateChatOnlineIndicators();
       }
 
+      // Real-time User Role & Status Cross-Tab Sync
+      if (e.key === 'inventory_user_role_changed' || e.key === 'inventory_users_db') {
+        loadLocalUsersFromStorage();
+        if (AppState.currentUser) {
+          applyLocalRoleSyncIfChanged();
+        }
+      }
+
       if ((e.key === 'inventory_users_db' || e.key === 'inventory_pending_deletion_signal') && isSuperAdmin) {
         loadLocalUsersFromStorage();
         if (typeof checkPendingDeletionsForSuperAdmin === 'function') {
@@ -19296,13 +19472,22 @@
       }
     });
 
-    // Proactive Alert Check on Tab Focus for SuperAdmin
+    // Proactive Alert & Live Role Check on Tab Focus
     window.addEventListener('focus', () => {
       if (!AppState.currentUser) return;
+      if (typeof checkCurrentUserLiveRoleSync === 'function') {
+        checkCurrentUserLiveRoleSync();
+      }
       const isSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin' || String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
       if (isSuperAdmin && typeof checkPendingDeletionsForSuperAdmin === 'function') {
         loadLocalUsersFromStorage();
         checkPendingDeletionsForSuperAdmin(false);
+      }
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && AppState.currentUser && typeof checkCurrentUserLiveRoleSync === 'function') {
+        checkCurrentUserLiveRoleSync();
       }
     });
 
