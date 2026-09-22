@@ -3416,18 +3416,11 @@ function getItemsList(userOrPayload, warehouseFilter) {
 
 
 
-  // Determine target warehouse filter
-
+  // Master product catalog: Do NOT filter out products by user's assigned warehouse!
+  // All users (Station Manager, Team Leader, Stock Keeper, Admin) must have access to the complete master catalog of products.
   let targetWarehouse = null;
-
-  if (user && user.role !== 'Admin' && user.role !== 'SuperAdmin' && user.warehouse && user.warehouse !== 'ALL' && user.warehouse !== 'គ្រប់ឃ្លាំង') {
-
-    targetWarehouse = user.warehouse;
-
-  } else if (whFilter && whFilter !== 'ALL' && whFilter !== 'គ្រប់ឃ្លាំង' && whFilter !== 'គ្រប់ឃ្លាំងទាំងអស់') {
-
+  if (whFilter && whFilter !== 'ALL' && whFilter !== 'គ្រប់ឃ្លាំង' && whFilter !== 'គ្រប់ឃ្លាំងទាំងអស់' && whFilter !== 'គ្រប់ស្ថានីយទាំងអស់') {
     targetWarehouse = whFilter;
-
   }
 
 

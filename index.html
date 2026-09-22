@@ -7425,16 +7425,13 @@
       }
 
       if (action === 'getItemsList' || action === 'getItems') {
-        let filteredItems = LOCAL_DB.items;
-        if (targetWarehouse) {
-          filteredItems = LOCAL_DB.items.filter(i => i.location === targetWarehouse);
-        }
+        loadLocalItemsFromStorage();
         return {
           success: true,
-          items: filteredItems,
-          categories: ['ភេសជ្ជៈ', 'គ្រឿងទេស', 'អាហារស្ងួត', 'សម្ភារៈប្រើប្រាស់'],
-          warehouses: WAREHOUSES_LIST,
-          activeWarehouseFilter: targetWarehouse
+          items: LOCAL_DB.items || [],
+          categories: ['ភេសជ្ជៈ', 'គ្រឿងទេស', 'អាហារស្ងួត', 'សម្ភារៈប្រើប្រាស់', 'សម្ភារៈការិយាល័យ', 'គ្រឿងបន្លាស់', 'បរិក្ខារ'],
+          warehouses: (typeof getWarehouseNamesList === 'function') ? getWarehouseNamesList() : WAREHOUSES_LIST,
+          activeWarehouseFilter: 'ALL'
         };
       }
 
@@ -10194,16 +10191,28 @@
 
     function renderItemsTable() {
       const tbody = document.getElementById('itemsTableBody');
+      if (!tbody) return;
+
+      // Ensure AppState.items is always populated with the full master list of items
+      if (!AppState.items || AppState.items.length === 0) {
+        loadLocalItemsFromStorage();
+        AppState.items = (LOCAL_DB.items && LOCAL_DB.items.length > 0) ? [...LOCAL_DB.items] : [];
+      }
+
       const searchEl = document.getElementById('itemSearchInput');
       let search = (searchEl?.value || '').toLowerCase().trim();
-      if ((search === 'superadmin' || search === 'super admin' || search === 'admin') && document.activeElement !== searchEl) {
+      const isAutofill = search && (
+        search === 'superadmin' || search === 'super admin' || search === 'admin' ||
+        (LOCAL_DB.users || []).some(u => u.username.toLowerCase() === search || (u.email && u.email.toLowerCase() === search))
+      );
+      if (isAutofill && document.activeElement !== searchEl) {
         if (searchEl) searchEl.value = '';
         search = '';
       }
       const catFilter = document.getElementById('itemCategoryFilter')?.value || 'ALL';
       const statusFilter = document.getElementById('itemStatusFilter')?.value || 'ALL';
 
-      let filtered = AppState.items.filter(item => {
+      let filtered = (AppState.items || []).filter(item => {
         if (search) {
           const match = (item.sku && item.sku.toLowerCase().includes(search)) ||
             (item.barcode && item.barcode.toLowerCase().includes(search)) ||
@@ -11305,37 +11314,48 @@
         return;
       }
 
+      // 1. Instant Optimistic Save (< 20ms)
+      const idx = LOCAL_DB.items.findIndex(i => i.sku === itemData.sku);
+      if (idx >= 0) {
+        LOCAL_DB.items[idx] = { ...LOCAL_DB.items[idx], ...itemData };
+      } else {
+        LOCAL_DB.items.unshift(itemData); // Show new product immediately at the very top!
+      }
+      saveLocalItemsToStorage();
+      AppState.items = [...LOCAL_DB.items];
+
+      // 2. Instant UI close & re-render
+      closeItemModal();
+      populateCategoryFilter();
+      renderItemsTable();
+      populateItemSelectDropdowns();
+
+      // 3. Crisp, non-blocking success notification without spinner
       Swal.fire({
-        title: 'កំពុងរក្សាទុក...',
-        html: '<div class="text-xs text-slate-500 py-2"><i class="fa-solid fa-cloud-arrow-up text-blue-500 text-2xl mb-2 animate-bounce"></i><br>កំពុងរក្សាទុកទិន្នន័យ និងបញ្ជូនរូបភាពទៅ Google Drive Folder...</div>',
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading()
+        icon: 'success',
+        title: 'ជោគជ័យ 🎉',
+        text: 'បានរក្សាទុកទំនិញជោគជ័យ!',
+        timer: 1100,
+        showConfirmButton: false
       });
 
-      try {
-        const res = await apiCall('saveOrUpdateItem', { item: itemData, user: AppState.currentUser?.username });
-        if (res.success) {
-          if (res.imageUrl) {
+      // 4. Background non-blocking cloud synchronization
+      apiCall('saveOrUpdateItem', { item: itemData, user: AppState.currentUser?.username })
+        .then(res => {
+          if (res && res.success && res.imageUrl && res.imageUrl !== itemData.imageUrl) {
             itemData.imageUrl = res.imageUrl;
+            const updatedIdx = LOCAL_DB.items.findIndex(i => i.sku === itemData.sku);
+            if (updatedIdx >= 0) {
+              LOCAL_DB.items[updatedIdx].imageUrl = res.imageUrl;
+              saveLocalItemsToStorage();
+              AppState.items = [...LOCAL_DB.items];
+              renderItemsTable();
+            }
           }
-          const idx = LOCAL_DB.items.findIndex(i => i.sku === itemData.sku);
-          if (idx >= 0) {
-            LOCAL_DB.items[idx] = { ...LOCAL_DB.items[idx], ...itemData };
-          } else {
-            LOCAL_DB.items.push(itemData);
-          }
-          saveLocalItemsToStorage();
-
-          Swal.fire('ជោគជ័យ 🎉', res.message || 'បានរក្សាទុកទំនិញជោគជ័យ!', 'success');
-          closeItemModal();
-          await loadItems();
-          await loadDashboard();
-        } else {
-          Swal.fire('កំហុស', res.message, 'error');
-        }
-      } catch (err) {
-        Swal.fire('Error', err.toString(), 'error');
-      }
+        })
+        .catch(err => {
+          console.warn('[Cloud Sync Notice]', err);
+        });
     }
 
     async function handleDeleteItem(sku) {
@@ -11354,16 +11374,23 @@
         cancelButtonText: 'បោះបង់'
       }).then(async (result) => {
         if (result.isConfirmed) {
-          const res = await apiCall('deleteItem', { sku, user: AppState.currentUser?.username });
-          if (res.success) {
-            LOCAL_DB.items = LOCAL_DB.items.filter(i => i.sku !== sku);
-            saveLocalItemsToStorage();
-            Swal.fire('បានលុប', res.message, 'success');
-            await loadItems();
-            await loadDashboard();
-          } else {
-            Swal.fire('កំហុស', res.message, 'error');
-          }
+          // Instant local delete
+          LOCAL_DB.items = LOCAL_DB.items.filter(i => i.sku !== sku);
+          saveLocalItemsToStorage();
+          AppState.items = [...LOCAL_DB.items];
+          renderItemsTable();
+          populateCategoryFilter();
+          populateItemSelectDropdowns();
+
+          Swal.fire({
+            icon: 'success',
+            title: 'បានលុបជោគជ័យ! 🗑️',
+            timer: 1000,
+            showConfirmButton: false
+          });
+
+          // Background cloud deletion
+          apiCall('deleteItem', { sku, user: AppState.currentUser?.username }).catch(console.warn);
         }
       });
     }
