@@ -761,13 +761,8 @@ function setupDatabase() {
     itemsSheet.appendRow(headers);
     formatHeaderRow(itemsSheet, headers.length, '#1e293b');
 
-    // Sample Data across 11 Toll Stations (Office Supplies & Equipment)
-    itemsSheet.appendRow(['SKU-001', '8850123456789', 'ក្រដាស Double A (A4 80gsm)', 'ក្រដាស និងឯកសារ', 'រាម', 3.80, 4.50, 20, '1-K3 ស្ថានីយ (ភ្នំពេញ)', 150, 'https://images.unsplash.com/photo-1586075010923-2dd4570fb338?w=300', 'Active', new Date()]);
-    itemsSheet.appendRow(['SKU-002', '8850123456790', 'ប៊ិចសរសេរ Ballpoint Pen 0.5mm', 'សម្ភារៈការិយាល័យទូទៅ', 'ប្រអប់', 4.50, 6.00, 10, '1-K3 ស្ថានីយ (ភ្នំពេញ)', 25, 'https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?w=300', 'Active', new Date()]);
-    itemsSheet.appendRow(['SKU-003', '8850987654321', 'ទឹកថ្នាំព្រីន Canon Cartridge 325', 'ទឹកថ្នាំ និងម៉ាស៊ីនព្រីន', 'ប្រអប់', 18.00, 22.00, 5, '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)', 12, 'https://images.unsplash.com/photo-1612815154858-60aa4c59eaa6?w=300', 'Active', new Date()]);
-    itemsSheet.appendRow(['SKU-004', '8850987654322', 'ម៉ៅស៍កុំព្យូទ័រ Logitech B100 USB', 'គ្រឿងបរិក្ខារ IT & កុំព្យូទ័រ', 'ដុំ', 4.50, 6.50, 8, '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)', 18, 'https://images.unsplash.com/photo-1615663245857-ac93bb7c39e7?w=300', 'Active', new Date()]);
-    itemsSheet.appendRow(['SKU-005', '8850987654323', 'ព្រីភ្លើងខ្សែតវែង 5 រន្ធ (5M)', 'គ្រឿងបរិក្ខារអគ្គិសនី', 'ដុំ', 6.50, 8.50, 10, '3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)', 35, 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=300', 'Active', new Date()]);
-    itemsSheet.appendRow(['SKU-006', '8850987654324', 'អំពូល LED Tube T8 18W (1.2m)', 'គ្រឿងបរិក្ខារអគ្គិសនី', 'ដើម', 2.20, 3.50, 15, '4-K76 ស្ថានីយ (ត្រែងត្រយឹង)', 60, 'https://images.unsplash.com/photo-1550985616-10810253b84d?w=300', 'Active', new Date()]);
+    // Real Master Product Catalog (Authentic Product from Image 3)
+    itemsSheet.appendRow(['SKU-001', '8850123456789', 'ប៊ិច-圆珠笔', 'សម្ភារៈការិយាល័យ', 'ប្រអប់', 0.50, 0.80, 1, '1-K3 ស្ថានីយ (ភ្នំពេញ)', 0, 'https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?w=300', 'Active', new Date(), 'Pixcell', 'ស្វាយ', 'ដើម', 12, 'តំបន់ A', 'Z-01', 'ចំណាំដើម', 'singvan327@gmail.com']);
   }
 
   // 2. Sheet Transactions
@@ -3423,9 +3418,9 @@ function getItemsList(userOrPayload, warehouseFilter) {
   // Master product catalog: Do NOT filter out products by user's assigned warehouse!
   // All users (Station Manager, Team Leader, Stock Keeper, Admin) must have access to the complete master catalog of products.
   let targetWarehouse = null;
-  if (whFilter && whFilter !== 'ALL' && whFilter !== 'គ្រប់ឃ្លាំង' && whFilter !== 'គ្រប់ឃ្លាំងទាំងអស់' && whFilter !== 'គ្រប់ស្ថានីយទាំងអស់') {
-    targetWarehouse = whFilter;
-  }
+  // if (whFilter && whFilter !== 'ALL' && whFilter !== 'គ្រប់ឃ្លាំង' && whFilter !== 'គ្រប់ឃ្លាំងទាំងអស់' && whFilter !== 'គ្រប់ស្ថានីយទាំងអស់') {
+  //   targetWarehouse = whFilter;
+  // }
 
 
 
