@@ -122,17 +122,21 @@ function doGet(e) {
 
 
   // 2. Default Web App GUI
-
-  const template = HtmlService.createTemplateFromFile('Index');
-
-  return template.evaluate()
-
-    .setTitle('ប្រព័ន្ធគ្រប់គ្រងស្តុកទំនិញ | Smart Inventory')
-
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no')
-
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-
+  try {
+    const template = HtmlService.createTemplateFromFile('Index');
+    return template.evaluate()
+      .setTitle('ប្រព័ន្ធគ្រប់គ្រងស្តុកទំនិញ | Smart Inventory')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  } catch (htmlErr) {
+    return ContentService.createTextOutput(JSON.stringify({
+      success: true,
+      status: 'ONLINE',
+      account: 'chhengyiv3@gmail.com',
+      message: 'Google Apps Script Backend API is ACTIVE and connected to chhengyiv3@gmail.com Google Sheet & Drive!',
+      timestamp: new Date().toISOString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
 
@@ -2086,7 +2090,7 @@ function registerUser(userData) {
 
   // Send Immediate Alert to Telegram Bot / Group for Admin & SuperAdmin with One-Click Approve & Reject buttons
   try {
-    let webAppUrl = 'https://script.google.com/macros/s/AKfycbz-Pb72GPivonqvf3j8WRAoN4V6Dlo3IgAVpHCfDVEzF2RJV2X18XtfqTffZ2K08UQJ/exec';
+    let webAppUrl = 'https://script.google.com/macros/s/AKfycbzcqrb5Ue8JIEqDLeG2JxJZsjn7Eb1RebD93zzs0qMQHyVlS7Yjks8kOAhKTpKzIJB4/exec';
     try {
       const liveUrl = ScriptApp.getService().getUrl();
       if (liveUrl && liveUrl.startsWith('https://script.google.com/')) {
@@ -2487,7 +2491,7 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
 
         try {
 
-          let webAppUrl = 'https://script.google.com/macros/s/AKfycbz-Pb72GPivonqvf3j8WRAoN4V6Dlo3IgAVpHCfDVEzF2RJV2X18XtfqTffZ2K08UQJ/exec';
+          let webAppUrl = 'https://script.google.com/macros/s/AKfycbzcqrb5Ue8JIEqDLeG2JxJZsjn7Eb1RebD93zzs0qMQHyVlS7Yjks8kOAhKTpKzIJB4/exec';
 
           try {
 

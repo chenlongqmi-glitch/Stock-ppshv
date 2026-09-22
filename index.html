@@ -3264,7 +3264,7 @@
                 </p>
                 <div>
                   <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Web App Exec URL</label>
-                  <input type="url" id="setGasApiUrl" value="https://script.google.com/macros/s/AKfycbz-Pb72GPivonqvf3j8WRAoN4V6Dlo3IgAVpHCfDVEzF2RJV2X18XtfqTffZ2K08UQJ/exec" placeholder="https://script.google.com/macros/s/.../exec"
+                  <input type="url" id="setGasApiUrl" value="https://script.google.com/macros/s/AKfycbzcqrb5Ue8JIEqDLeG2JxJZsjn7Eb1RebD93zzs0qMQHyVlS7Yjks8kOAhKTpKzIJB4/exec" placeholder="https://script.google.com/macros/s/.../exec"
                     class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-mono outline-none focus:ring-2 focus:ring-indigo-500">
                 </div>
               </div>
@@ -5175,7 +5175,15 @@
 
 
     const AppState = {
-      gasApiUrl: localStorage.getItem('inventory_gas_api_url') || 'https://script.google.com/macros/s/AKfycbz-Pb72GPivonqvf3j8WRAoN4V6Dlo3IgAVpHCfDVEzF2RJV2X18XtfqTffZ2K08UQJ/exec',
+      gasApiUrl: (() => {
+        const defaultUrl = 'https://script.google.com/macros/s/AKfycbzcqrb5Ue8JIEqDLeG2JxJZsjn7Eb1RebD93zzs0qMQHyVlS7Yjks8kOAhKTpKzIJB4/exec';
+        const saved = localStorage.getItem('inventory_gas_api_url');
+        if (!saved || saved.includes('AKfycbz-Pb72GPivonqvf3j8WRAoN4V6Dlo3IgAVpHCfDVEzF2RJV2X18XtfqTffZ2K08UQJ')) {
+          localStorage.setItem('inventory_gas_api_url', defaultUrl);
+          return defaultUrl;
+        }
+        return saved;
+      })(),
       currentUser: null,
       settings: (() => {
         try {
@@ -8758,7 +8766,7 @@
         try {
           const tgToken = AppState.settings?.TELEGRAM_BOT_TOKEN || localStorage.getItem('inventory_tg_token') || DEFAULT_TG_BOT_TOKEN;
           const tgChatId = AppState.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid') || DEFAULT_TG_CHAT_ID;
-          const gasUrl = AppState.gasApiUrl || localStorage.getItem('inventory_gas_api_url') || 'https://script.google.com/macros/s/AKfycbz-Pb72GPivonqvf3j8WRAoN4V6Dlo3IgAVpHCfDVEzF2RJV2X18XtfqTffZ2K08UQJ/exec';
+          const gasUrl = AppState.gasApiUrl || localStorage.getItem('inventory_gas_api_url') || 'https://script.google.com/macros/s/AKfycbzcqrb5Ue8JIEqDLeG2JxJZsjn7Eb1RebD93zzs0qMQHyVlS7Yjks8kOAhKTpKzIJB4/exec';
           const newUid = res?.user?.userId || ('USR-' + Date.now().toString().slice(-4));
           const approveUrl = `${gasUrl}?action=approveUserTelegram&userId=${encodeURIComponent(newUid)}&u=${encodeURIComponent(userData.username)}`;
           const rejectUrl = `${gasUrl}?action=rejectUserTelegram&userId=${encodeURIComponent(newUid)}&u=${encodeURIComponent(userData.username)}`;
@@ -13619,7 +13627,7 @@
         if (chatIdField) chatIdField.value = savedTgChatId || localSettings.TELEGRAM_CHAT_ID || AppState.settings?.TELEGRAM_CHAT_ID || DEFAULT_TG_CHAT_ID;
         if (compField) compField.value = localSettings.COMPANY_NAME || AppState.settings?.COMPANY_NAME || 'ប្រព័ន្ធគ្រប់គ្រងស្តុកទំនិញ PPSHV';
         if (currField) currField.value = localSettings.CURRENCY_SYMBOL || AppState.settings?.CURRENCY_SYMBOL || '$';
-        if (emailField) emailField.value = localSettings.ALERT_EMAIL || AppState.settings?.ALERT_EMAIL || 'chenlongqmi@gmail.com, ppshv2024@gmail.com';
+        if (emailField) emailField.value = localSettings.ALERT_EMAIL || AppState.settings?.ALERT_EMAIL || 'chhengyiv3@gmail.com, chenlongqmi@gmail.com, ppshv2024@gmail.com';
         if (sheetUrlInput && !sheetUrlInput.value) {
           sheetUrlInput.value = localSettings.GOOGLE_SHEET_URL || AppState.settings?.GOOGLE_SHEET_URL || '';
         }
@@ -16066,7 +16074,7 @@
             // Send Telegram alert to SuperAdmin Bot
             const tgToken = AppState.settings?.TELEGRAM_BOT_TOKEN || localStorage.getItem('inventory_tg_token') || DEFAULT_TG_BOT_TOKEN;
             const tgChatId = AppState.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid') || DEFAULT_TG_CHAT_ID;
-            const gasUrl = AppState.gasApiUrl || localStorage.getItem('inventory_gas_api_url') || 'https://script.google.com/macros/s/AKfycbz-Pb72GPivonqvf3j8WRAoN4V6Dlo3IgAVpHCfDVEzF2RJV2X18XtfqTffZ2K08UQJ/exec';
+            const gasUrl = AppState.gasApiUrl || localStorage.getItem('inventory_gas_api_url') || 'https://script.google.com/macros/s/AKfycbzcqrb5Ue8JIEqDLeG2JxJZsjn7Eb1RebD93zzs0qMQHyVlS7Yjks8kOAhKTpKzIJB4/exec';
             const reviewUrl = `${gasUrl}?action=reviewUserDeletionTelegram&userId=${encodeURIComponent(uId)}&u=${encodeURIComponent(uName)}`;
             const webAppUsersUrl = `${window.location.origin}${window.location.pathname}#users`;
 
@@ -17222,7 +17230,7 @@
         // Send notification to SuperAdmin Telegram with approval links
         const tgToken = AppState.settings?.TELEGRAM_BOT_TOKEN || localStorage.getItem('inventory_tg_token') || DEFAULT_TG_BOT_TOKEN;
         const tgChatId = AppState.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid') || DEFAULT_TG_CHAT_ID;
-        const gasUrl = AppState.gasApiUrl || localStorage.getItem('inventory_gas_api_url') || 'https://script.google.com/macros/s/AKfycbz-Pb72GPivonqvf3j8WRAoN4V6Dlo3IgAVpHCfDVEzF2RJV2X18XtfqTffZ2K08UQJ/exec';
+        const gasUrl = AppState.gasApiUrl || localStorage.getItem('inventory_gas_api_url') || 'https://script.google.com/macros/s/AKfycbzcqrb5Ue8JIEqDLeG2JxJZsjn7Eb1RebD93zzs0qMQHyVlS7Yjks8kOAhKTpKzIJB4/exec';
         const approveUrl = `${gasUrl}?action=approveUserTelegram&userId=${encodeURIComponent(uId)}&u=${encodeURIComponent(uName)}`;
         const rejectUrl = `${gasUrl}?action=rejectUserTelegram&userId=${encodeURIComponent(uId)}&u=${encodeURIComponent(uName)}`;
         const webAppUsersUrl = `${window.location.origin}${window.location.pathname}#users`;
@@ -17357,7 +17365,7 @@
 
       const tgToken = AppState.settings?.TELEGRAM_BOT_TOKEN || localStorage.getItem('inventory_tg_token') || DEFAULT_TG_BOT_TOKEN;
       const tgChatId = AppState.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid') || DEFAULT_TG_CHAT_ID;
-      const gasUrl = AppState.gasApiUrl || localStorage.getItem('inventory_gas_api_url') || 'https://script.google.com/macros/s/AKfycbz-Pb72GPivonqvf3j8WRAoN4V6Dlo3IgAVpHCfDVEzF2RJV2X18XtfqTffZ2K08UQJ/exec';
+      const gasUrl = AppState.gasApiUrl || localStorage.getItem('inventory_gas_api_url') || 'https://script.google.com/macros/s/AKfycbzcqrb5Ue8JIEqDLeG2JxJZsjn7Eb1RebD93zzs0qMQHyVlS7Yjks8kOAhKTpKzIJB4/exec';
       const approveUrl = `${gasUrl}?action=approveUserTelegram&userId=${encodeURIComponent(uId)}&u=${encodeURIComponent(uName)}`;
       const rejectUrl = `${gasUrl}?action=rejectUserTelegram&userId=${encodeURIComponent(uId)}&u=${encodeURIComponent(uName)}`;
       const webAppUsersUrl = `${window.location.origin}${window.location.pathname}#users`;
