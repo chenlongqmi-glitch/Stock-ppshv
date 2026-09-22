@@ -961,6 +961,9 @@
               <div>
                 <label id="regPhoneLabel" class="block text-xs font-semibold text-slate-600 uppercase mb-1">លេខទូរស័ព្ទ (Phone) *</label>
                 <input type="tel" id="regPhone" placeholder="012 345 678"
+                  lang="en" inputmode="tel" autocapitalize="none" autocorrect="off" spellcheck="false" data-auto-en="true"
+                  oninput="formatPhoneInput(this); clearRegFieldError('Phone');"
+                  onblur="this.value = formatPhoneNumber(this.value);"
                   class="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none font-medium transition-all">
                 <p id="regPhoneError" class="text-[10.5px] font-bold text-rose-600 mt-1 hidden"><i class="fa-solid fa-circle-exclamation mr-1"></i>សូមបញ្ចូលលេខទូរស័ព្ទ</p>
               </div>
@@ -1454,7 +1457,7 @@
               <div class="p-2 space-y-1 text-xs">
                 <!-- 1. Switch user -->
                 <button type="button" onclick="handleTopMenuSwitchUser()" id="topMenuSwitchUserBtn"
-                  class="w-full text-left p-2.5 rounded-xl hover:bg-amber-50/80 text-slate-700 hover:text-amber-900 transition flex items-center space-x-3 group border border-transparent hover:border-amber-200">
+                  class="hidden w-full text-left p-2.5 rounded-xl hover:bg-amber-50/80 text-slate-700 hover:text-amber-900 transition flex items-center space-x-3 group border border-transparent hover:border-amber-200">
                   <div class="w-8 h-8 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center text-sm group-hover:scale-105 group-hover:bg-amber-500 group-hover:text-white transition shadow-sm shrink-0">
                     <i class="fa-solid fa-repeat"></i>
                   </div>
@@ -1469,7 +1472,7 @@
 
                 <!-- 2. Google Sheet Direct Access (SuperAdmin) -->
                 <button type="button" onclick="handleOpenGoogleSheet()" id="topMenuGoogleSheetBtn"
-                  class="w-full text-left p-2.5 rounded-xl hover:bg-emerald-50/80 text-slate-700 hover:text-emerald-900 transition flex items-center space-x-3 group border border-transparent hover:border-emerald-200">
+                  class="hidden w-full text-left p-2.5 rounded-xl hover:bg-emerald-50/80 text-slate-700 hover:text-emerald-900 transition flex items-center space-x-3 group border border-transparent hover:border-emerald-200">
                   <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-sm group-hover:scale-105 group-hover:bg-emerald-600 group-hover:text-white transition shadow-sm shrink-0">
                     <i class="fa-solid fa-table-cells"></i>
                   </div>
@@ -3137,7 +3140,7 @@
               </div>
 
               <!-- Google Sheet Direct Access (SuperAdmin) -->
-              <div class="p-4 bg-emerald-50/70 rounded-2xl border border-emerald-200 space-y-3">
+              <div id="superAdminGoogleSheetCard" class="hidden p-4 bg-emerald-50/70 rounded-2xl border border-emerald-200 space-y-3">
                 <div class="flex items-center justify-between">
                   <h4 class="font-bold text-xs text-emerald-900 flex items-center">
                     <i class="fa-solid fa-file-excel mr-1.5 text-emerald-600 text-base"></i>តំណភ្ជាប់ Google Sheet (Database URL)
@@ -3943,8 +3946,9 @@
                 <i class="fa-solid fa-phone"></i>
               </span>
               <input type="tel" id="addPhone" placeholder="ឧ. 012 345 678"
-                inputmode="tel" autocomplete="off"
-                oninput="clearAddUserFieldError('Phone')"
+                lang="en" inputmode="tel" autocapitalize="none" autocorrect="off" spellcheck="false" data-auto-en="true"
+                oninput="formatPhoneInput(this); clearAddUserFieldError('Phone');"
+                onblur="this.value = formatPhoneNumber(this.value);"
                 class="w-full pl-8 pr-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 transition-all">
             </div>
             <p id="addPhoneError" class="text-[10.5px] font-bold text-rose-600 mt-1 hidden"><i class="fa-solid fa-circle-exclamation mr-1"></i>សូមបញ្ចូលលេខទូរស័ព្ទ</p>
@@ -4572,12 +4576,12 @@
               </label>
               <div class="relative">
                 <span id="profilePhoneIcon" class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 transition"><i class="fa-solid fa-phone"></i></span>
-                <input type="tel" id="profilePhone" required placeholder="066966606"
+                <input type="tel" id="profilePhone" required placeholder="012 345 678"
                   lang="en" inputmode="tel" autocapitalize="none" autocorrect="off" spellcheck="false" data-auto-en="true"
-                  oninput="cleanKhmerFromField(this); validateProfileForm(true);"
-                  onkeyup="cleanKhmerFromField(this); validateProfileForm(true);"
+                  oninput="formatPhoneInput(this); cleanKhmerFromField(this); validateProfileForm(true);"
+                  onkeyup="formatPhoneInput(this); cleanKhmerFromField(this); validateProfileForm(true);"
                   onfocus="cleanKhmerFromField(this)"
-                  onblur="validateProfileForm(true);"
+                  onblur="this.value = formatPhoneNumber(this.value); validateProfileForm(true);"
                   class="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all">
               </div>
               <p id="profilePhoneError" class="text-[11px] text-rose-600 font-bold mt-1 hidden flex items-center space-x-1.5">
@@ -4960,6 +4964,73 @@
     const DEFAULT_TG_BOT_TOKEN = '8292690919:AAFVJciyoebmTKPxg5rYsyMv56Ol2jzpibY';
     const DEFAULT_TG_CHAT_ID = '1197248107';
 
+    /**
+     * Universal Phone Number Formatter: ("0"00 000 000)
+     * Enforces leading '0' and standard spacing for all phone numbers in the system
+     */
+    function formatPhoneNumber(phone) {
+      if (!phone && phone !== 0) return '';
+      let str = String(phone).trim();
+      if (!str || str === '-' || str === 'មិនមាន' || str === 'null' || str === 'undefined' || str === 'គ្មានលេខទូរស័ព្ទ') return '';
+
+      // Handle +855 or 855 country code
+      let clean = str.replace(/[^\d+]/g, '');
+      if (clean.startsWith('+855')) {
+        clean = '0' + clean.slice(4);
+      } else if (clean.startsWith('855') && clean.length >= 11) {
+        clean = '0' + clean.slice(3);
+      }
+
+      // Extract only digits
+      let digits = clean.replace(/\D/g, '');
+      if (!digits) return str;
+
+      // Always ensure leading zero ("0") as requested: ("0"00 000 000)
+      if (!digits.startsWith('0')) {
+        digits = '0' + digits;
+      }
+
+      // Format ("0"00 000 000)
+      // 9 digits (0XX XXX XXX): 3 - 3 - 3
+      if (digits.length === 9) {
+        return `${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6)}`;
+      }
+      // 10 digits (0XX XXX XXXX): 3 - 3 - 4
+      if (digits.length === 10) {
+        return `${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6)}`;
+      }
+      // 8 digits (0XX XXX XX): 3 - 3 - 2
+      if (digits.length === 8) {
+        return `${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6)}`;
+      }
+      // More than 10 digits: 3 - 3 - rest
+      if (digits.length > 10) {
+        return `${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6)}`;
+      }
+      // Between 6 and 7 digits: 3 - rest
+      if (digits.length >= 6) {
+        return `${digits.slice(0, 3)} ${digits.slice(3)}`;
+      }
+
+      return digits;
+    }
+
+    function getCleanPhoneDigits(phone) {
+      const formatted = formatPhoneNumber(phone);
+      return formatted ? formatted.replace(/\s+/g, '') : '';
+    }
+
+    function formatPhoneInput(input) {
+      if (!input) return;
+      let val = input.value;
+      if (!val) return;
+      let cleaned = val.replace(/[^\d+\s]/g, '');
+      if (cleaned !== val) {
+        input.value = cleaned;
+      }
+    }
+
+
     const AppState = {
       gasApiUrl: localStorage.getItem('inventory_gas_api_url') || 'https://script.google.com/macros/s/AKfycbz-Pb72GPivonqvf3j8WRAoN4V6Dlo3IgAVpHCfDVEzF2RJV2X18XtfqTffZ2K08UQJ/exec',
       currentUser: null,
@@ -5015,8 +5086,8 @@
     // --- MOCK DATABASE FOR LOCAL SERVER SIMULATION ---
     const LOCAL_DB = {
       users: [
-        { userId: 'USR-SA', username: 'superadmin', fullName: '陈龙', email: 'chenlongqmi@gmail.com', phone: '066966606', role: 'SuperAdmin', status: 'Active', warehouse: 'ALL', avatar: 'assets/superadmin_avatar.jpg', isRegistered: true },
-        { userId: 'USR-00', username: 'admin', fullName: '聂稳新', email: 'ppshv2024@gmail.com', phone: '098880803', role: 'Admin', status: 'Active', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', isRegistered: true }
+        { userId: 'USR-SA', username: 'superadmin', fullName: '陈龙', email: 'chenlongqmi@gmail.com', phone: '066 966 606', role: 'SuperAdmin', status: 'Active', warehouse: 'ALL', avatar: 'assets/superadmin_avatar.jpg', isRegistered: true },
+        { userId: 'USR-00', username: 'admin', fullName: '聂稳新', email: 'ppshv2024@gmail.com', phone: '098 880 803', role: 'Admin', status: 'Active', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', isRegistered: true }
       ],
       items: [
         { sku: 'SKU-001', barcode: '8850123456789', name: 'Coca Cola 330ml', size: '330ml', color: 'ក្រហម', category: 'ភេសជ្ជៈ', unit: 'កំប៉ុង', packUnit: 'ដុំ', packQty: 24, zone: 'តំបន់ A (ភេសជ្ជៈ)', zoneNumber: 'Z-01', costPrice: 0.45, sellingPrice: 0.65, minStock: 20, location: '1-K3 ស្ថានីយ (ភ្នំពេញ)', currentStock: 150, notes: 'ភេសជ្ជៈកូកាកូឡាកំប៉ុងត្រជាក់', createdBy: 'Super Admin', createdAt: '2026-08-20', imageUrl: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=300', status: 'Active' },
@@ -5114,15 +5185,16 @@
               if (p.userId === 'USR-SA' || (p.username && p.username.toLowerCase() === 'superadmin')) {
                 if (!p.fullName || p.fullName.includes('Super Administrator')) p.fullName = '陈龙';
                 if (!p.email || p.email.includes('ppshv2024') || p.email.includes('inventory.local')) p.email = 'chenlongqmi@gmail.com';
-                if (!p.phone || p.phone === '012 345 678') p.phone = '066966606';
+                if (!p.phone || p.phone === '012 345 678') p.phone = '066 966 606';
                 if (!p.avatar || p.avatar.includes('photo-1534528741775-53994a69daeb')) p.avatar = 'assets/superadmin_avatar.jpg';
               }
               // Automatically upgrade Admin profile if holding stale default info
               if (p.userId === 'USR-00' || (p.username && p.username.toLowerCase() === 'admin')) {
                 if (!p.fullName || p.fullName.includes('System Administrator')) p.fullName = '聂稳新';
                 if (!p.email) p.email = 'ppshv2024@gmail.com';
-                if (!p.phone || p.phone === '066966606' || p.phone === '012 345 678') p.phone = '098880803';
+                if (!p.phone || p.phone === '066 966 606' || p.phone === '066966606' || p.phone === '012 345 678') p.phone = '098 880 803';
               }
+              p.phone = formatPhoneNumber(p.phone);
               const idx = LOCAL_DB.users.findIndex(u => 
                 (p.userId && u.userId === p.userId) || 
                 (p.username && u.username.toLowerCase() === p.username.toLowerCase())
@@ -5930,7 +6002,8 @@
         if (savedUser.userId === 'USR-SA' || (savedUser.username && savedUser.username.toLowerCase() === 'superadmin')) {
           if (!savedUser.fullName || savedUser.fullName.includes('Super Administrator')) savedUser.fullName = '陈龙';
           if (!savedUser.email || savedUser.email.includes('ppshv2024') || savedUser.email.includes('inventory.local')) savedUser.email = 'chenlongqmi@gmail.com';
-          if (!savedUser.phone || savedUser.phone === '012 345 678') savedUser.phone = '066966606';
+          if (!savedUser.phone || savedUser.phone === '012 345 678') savedUser.phone = '066 966 606';
+          savedUser.phone = formatPhoneNumber(savedUser.phone);
           if (!savedUser.avatar || savedUser.avatar.includes('photo-1534528741775-53994a69daeb')) savedUser.avatar = 'assets/superadmin_avatar.jpg';
           try {
             sessionStorage.setItem('inventory_user', JSON.stringify(savedUser));
@@ -6508,12 +6581,13 @@
         if (username === 'superadmin' && (password === 'superadmin123' || password === 'admin' || password === 'superadmin')) {
           let saUser = LOCAL_DB.users.find(u => u.username.toLowerCase() === 'superadmin' || u.userId === 'USR-SA');
           if (!saUser) {
-            saUser = { userId: 'USR-SA', username: 'superadmin', password: 'superadmin123', fullName: '陈龙', email: 'chenlongqmi@gmail.com', phone: '066966606', role: 'SuperAdmin', warehouse: 'ALL', avatar: 'assets/superadmin_avatar.jpg', boundDevices: { desktop: null, mobile: null } };
+            saUser = { userId: 'USR-SA', username: 'superadmin', password: 'superadmin123', fullName: '陈龙', email: 'chenlongqmi@gmail.com', phone: '066 966 606', role: 'SuperAdmin', warehouse: 'ALL', avatar: 'assets/superadmin_avatar.jpg', boundDevices: { desktop: null, mobile: null } };
             LOCAL_DB.users.push(saUser);
             saveLocalUsersToStorage();
           } else if (!saUser.password) {
             saUser.password = 'superadmin123';
           }
+          if (saUser.phone) saUser.phone = formatPhoneNumber(saUser.phone);
           const deviceCheck = validateAndApplyDeviceBinding(saUser, deviceInfo);
           if (!deviceCheck.success) return deviceCheck;
           return {
@@ -6526,12 +6600,13 @@
         if (username === 'admin' && (password === 'admin123' || password === 'admin')) {
           let adUser = LOCAL_DB.users.find(u => u.username.toLowerCase() === 'admin' || u.userId === 'USR-00');
           if (!adUser) {
-            adUser = { userId: 'USR-00', username: 'admin', password: 'admin123', fullName: '聂稳新', email: 'ppshv2024@gmail.com', phone: '098880803', role: 'Admin', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', boundDevices: { desktop: null, mobile: null } };
+            adUser = { userId: 'USR-00', username: 'admin', password: 'admin123', fullName: '聂稳新', email: 'ppshv2024@gmail.com', phone: '098 880 803', role: 'Admin', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', boundDevices: { desktop: null, mobile: null } };
             LOCAL_DB.users.push(adUser);
             saveLocalUsersToStorage();
           } else if (!adUser.password) {
             adUser.password = 'admin123';
           }
+          if (adUser.phone) adUser.phone = formatPhoneNumber(adUser.phone);
           const deviceCheck = validateAndApplyDeviceBinding(adUser, deviceInfo);
           if (!deviceCheck.success) return deviceCheck;
           return {
@@ -8412,11 +8487,12 @@
         return;
       }
 
+      const formattedPhone = formatPhoneNumber(phone);
       const userData = {
         fullName,
         username,
         email,
-        phone,
+        phone: formattedPhone,
         password,
         role,
         warehouse,
@@ -8446,7 +8522,7 @@
             const tgMsg = `📋 <b>[សំណើសុំចុះឈ្មោះគណនីថ្មី]</b>\n` +
               `👤 <b>ឈ្មោះពេញ:</b> ${userData.fullName || userData.username}\n` +
               `🆔 <b>Username:</b> <code>${userData.username}</code>\n` +
-              `📱 <b>លេខទូរស័ព្ទ:</b> ${userData.phone || '-'}\n` +
+              `📱 <b>លេខទូរស័ព្ទ:</b> ${formatPhoneNumber(userData.phone) || '-'}\n` +
               `📧 <b>អ៊ីមែល:</b> ${userData.email || '-'}\n` +
               `💼 <b>តួនាទី:</b> ${userData.role || 'Stock Keeper'}\n` +
               `🏢 <b>ស្ថានីយ/ឃ្លាំង:</b> ${userData.warehouse || '-'}\n` +
@@ -8680,6 +8756,46 @@
       initRegistrationValidationListeners();
     }
 
+    /* Check if current authenticated user is strictly SuperAdmin and NOT currently impersonating another user */
+    function isStrictSuperAdmin() {
+      const u = AppState.currentUser;
+      if (!u) return false;
+      // If currently impersonating another user, the active view is acting as that user -> hide SuperAdmin-only tools
+      if (sessionStorage.getItem('inventory_superadmin_session')) return false;
+      const role = String(u.role || '').trim();
+      const uname = String(u.username || '').trim().toLowerCase();
+      return role === 'SuperAdmin' || uname === 'superadmin';
+    }
+
+    /* Strictly update visibility of SuperAdmin exclusive tools across the whole application */
+    function updateSuperAdminExclusiveUI() {
+      const isSuper = isStrictSuperAdmin();
+
+      // 1. Quick Google Sheet Direct Access Button in top bar
+      const topGoogleSheetBtn = document.getElementById('topSuperAdminGoogleSheetBtn');
+      if (topGoogleSheetBtn) {
+        topGoogleSheetBtn.classList.toggle('hidden', !isSuper);
+      }
+
+      // 2. Settings Dropdown Menu: Google Sheet Direct Access Button
+      const menuGoogleSheetBtn = document.getElementById('topMenuGoogleSheetBtn');
+      if (menuGoogleSheetBtn) {
+        menuGoogleSheetBtn.classList.toggle('hidden', !isSuper);
+      }
+
+      // 3. Settings Dropdown Menu: Switch User Button
+      const menuSwitchUserBtn = document.getElementById('topMenuSwitchUserBtn');
+      if (menuSwitchUserBtn) {
+        menuSwitchUserBtn.classList.toggle('hidden', !isSuper);
+      }
+
+      // 4. Settings Tab: Google Sheet Database URL Card
+      const superAdminSheetCard = document.getElementById('superAdminGoogleSheetCard');
+      if (superAdminSheetCard) {
+        superAdminSheetCard.classList.toggle('hidden', !isSuper);
+      }
+    }
+
     function showAppView() {
       document.documentElement.classList.add('app-authenticated');
       document.getElementById('authSection').classList.add('hidden');
@@ -8776,7 +8892,6 @@
 
       // Impersonation Banner & Top Switch User Buttons
       const impersonationBanner = document.getElementById('impersonationBanner');
-      const btnSwitchUser = document.getElementById('btnSwitchUser');
       const btnReturnSuperAdmin = document.getElementById('btnReturnSuperAdmin');
 
       if (isImpersonating) {
@@ -8794,27 +8909,14 @@
         }
         if (targetWh) targetWh.innerText = u.warehouse || 'ALL';
 
-        if (btnSwitchUser) btnSwitchUser.classList.remove('hidden');
         if (btnReturnSuperAdmin) btnReturnSuperAdmin.classList.remove('hidden');
       } else {
         if (impersonationBanner) impersonationBanner.classList.add('hidden');
         if (btnReturnSuperAdmin) btnReturnSuperAdmin.classList.add('hidden');
-        if (btnSwitchUser) {
-          if (isSuperAdmin) {
-            btnSwitchUser.classList.remove('hidden');
-          } else {
-            btnSwitchUser.classList.add('hidden');
-          }
-        }
-        const topGoogleSheetBtn = document.getElementById('topSuperAdminGoogleSheetBtn');
-        const menuGoogleSheetBtn = document.getElementById('topMenuGoogleSheetBtn');
-        if (topGoogleSheetBtn) {
-          topGoogleSheetBtn.classList.toggle('hidden', !isSuperAdmin && !isImpersonating);
-        }
-        if (menuGoogleSheetBtn) {
-          menuGoogleSheetBtn.classList.toggle('hidden', !isSuperAdmin && !isImpersonating);
-        }
       }
+
+      // Strictly synchronize SuperAdmin exclusive UI controls (SuperAdmin ONLY, hidden for all other users)
+      updateSuperAdminExclusiveUI();
 
       // Update Session Login Time & Duration Timer
       initSessionDurationEngine();
@@ -9042,10 +9144,16 @@
 
       const filtered = users.filter(u => {
         if (!query) return true;
+        const uPhone = String(u.phone || '').toLowerCase();
+        const uPhoneFormatted = formatPhoneNumber(u.phone).toLowerCase();
+        const uPhoneClean = getCleanPhoneDigits(u.phone);
         return (u.username && u.username.toLowerCase().includes(query)) ||
           (u.fullName && u.fullName.toLowerCase().includes(query)) ||
           (u.role && u.role.toLowerCase().includes(query)) ||
           (u.warehouse && u.warehouse.toLowerCase().includes(query)) ||
+          (uPhone && uPhone.includes(query)) ||
+          (uPhoneFormatted && uPhoneFormatted.includes(query)) ||
+          (uPhoneClean && uPhoneClean.includes(query)) ||
           (u.userId && u.userId.toLowerCase().includes(query));
       });
 
@@ -9077,10 +9185,11 @@
                   ${roleBadge}
                   ${isCurrent ? '<span class="text-[9px] font-bold text-amber-700 bg-amber-200 px-1.5 py-0.2 rounded">កំពុងប្រើ</span>' : ''}
                 </div>
-                <div class="flex items-center space-x-2 text-[10px] text-slate-500 mt-0.5">
+                <div class="flex items-center space-x-2 text-[10px] text-slate-500 mt-0.5 flex-wrap">
                   <span class="font-mono text-blue-600 font-semibold">@${u.username}</span>
                   <span>•</span>
                   <span class="truncate">${u.warehouse === 'ALL' ? '🏢 គ្រប់ស្ថានីយ' : '📍 ' + (u.warehouse || '-')}</span>
+                  ${u.phone ? `<span>•</span><span class="font-mono text-slate-600 font-bold flex items-center"><i class="fa-solid fa-phone text-[8px] mr-1 text-emerald-500"></i>${escapeHtml(formatPhoneNumber(u.phone))}</span>` : ''}
                 </div>
               </div>
             </div>
@@ -9400,6 +9509,9 @@
       document.getElementById('tabChat').classList.toggle('hidden', tabName !== 'chat');
       document.getElementById('tabUsers').classList.toggle('hidden', tabName !== 'users');
       document.getElementById('tabSettings').classList.toggle('hidden', tabName !== 'settings');
+      if (tabName === 'settings') {
+        updateSuperAdminExclusiveUI();
+      }
 
       const NAV_TAB_CONFIG = {
         'dashboard': {
@@ -13157,6 +13269,7 @@
     // Settings
     async function loadSettings() {
       try {
+        updateSuperAdminExclusiveUI();
         const gasInput = document.getElementById('setGasApiUrl');
         if (gasInput) {
           gasInput.value = localStorage.getItem('inventory_gas_api_url') || AppState.gasApiUrl || '';
@@ -13500,9 +13613,12 @@
           const name = String(u.fullName || '').toLowerCase();
           const uname = String(u.username || '').toLowerCase();
           const phone = String(u.phone || '').toLowerCase();
+          const phoneFormatted = formatPhoneNumber(u.phone).toLowerCase();
+          const phoneClean = getCleanPhoneDigits(u.phone);
+          const email = String(u.email || '').toLowerCase();
           const wh = String(u.warehouse || '').toLowerCase();
           const role = String(u.role || '').toLowerCase();
-          if (!name.includes(search) && !uname.includes(search) && !phone.includes(search) && !wh.includes(search) && !role.includes(search)) {
+          if (!name.includes(search) && !uname.includes(search) && !phone.includes(search) && !phoneFormatted.includes(search) && !phoneClean.includes(search) && !email.includes(search) && !wh.includes(search) && !role.includes(search)) {
             return false;
           }
         }
@@ -17583,12 +17699,8 @@
           roleBadge.innerText = role;
         }
 
-        // Show/hide SuperAdmin exclusive options
-        const isSuperAdminUser = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin') || !!sessionStorage.getItem('inventory_superadmin_session');
-        const menuGoogleSheetBtn = document.getElementById('topMenuGoogleSheetBtn');
-        const menuSwitchUserBtn = document.getElementById('topMenuSwitchUserBtn');
-        if (menuGoogleSheetBtn) menuGoogleSheetBtn.classList.toggle('hidden', !isSuperAdminUser);
-        if (menuSwitchUserBtn) menuSwitchUserBtn.classList.toggle('hidden', !isSuperAdminUser);
+        // Show/hide SuperAdmin exclusive options strictly for actual SuperAdmin
+        updateSuperAdminExclusiveUI();
 
         dropdown.classList.remove('hidden');
         if (icon) icon.classList.add('rotate-90', 'text-blue-600');
@@ -17607,9 +17719,7 @@
 
     function handleTopMenuSwitchUser() {
       closeSettingsDropdown();
-      const isSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
-      const isImpersonating = !!sessionStorage.getItem('inventory_superadmin_session');
-      if (!isSuperAdmin && !isImpersonating) {
+      if (!isStrictSuperAdmin()) {
         Swal.fire({
           icon: 'info',
           title: 'សិទ្ធិប្រើប្រាស់',
@@ -17625,13 +17735,11 @@
     /* Direct Google Sheet Access for SuperAdmin */
     async function handleOpenGoogleSheet() {
       closeSettingsDropdown();
-      const isSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
-      const isImpersonating = !!sessionStorage.getItem('inventory_superadmin_session');
-      if (!isSuperAdmin && !isImpersonating) {
+      if (!isStrictSuperAdmin()) {
         Swal.fire({
           icon: 'warning',
-          title: 'គ្មានសិទ្ធិ',
-          text: 'មុខងារបើក Google Sheet មានសម្រាប់តែ SuperAdmin ប៉ុណ្ណោះ។',
+          title: 'គ្មានសិទ្ធិ (Access Denied)',
+          text: 'មុខងារបើក Google Sheet មានសម្រាប់តែ SuperAdmin ផ្ទាល់ប៉ុណ្ណោះ។ អ្នកផ្សេងគ្មានសិទ្ធិមើល ឬបើកប្រើប្រាស់ឡើយ។',
           confirmButtonColor: '#3b82f6',
           confirmButtonText: 'យល់ព្រម'
         });
