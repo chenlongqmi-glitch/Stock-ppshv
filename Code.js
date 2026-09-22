@@ -2179,6 +2179,7 @@ function getUsersList(userOrPayload) {
 
   const isSuperAdmin = actor && (actor.role === 'SuperAdmin' || String(actor.username).toLowerCase() === 'superadmin');
   const isAdmin = !isSuperAdmin && actor && (actor.role === 'Admin' || String(actor.username).toLowerCase() === 'admin');
+  const isStationManager = !isSuperAdmin && !isAdmin && actor && (actor.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || actor.role === 'អ្នកគ្រប់គ្រង' || String(actor.role).toLowerCase() === 'station manager');
   const isPrivileged = !!(isSuperAdmin || isAdmin);
 
   for (let i = 1; i < data.length; i++) {
@@ -2241,6 +2242,30 @@ function getUsersList(userOrPayload) {
       String(u.userId).toUpperCase() !== 'USR-SA'
 
     ) };
+
+  } else if (isStationManager) {
+
+    const myWh = String(actor.warehouse || '').trim().toLowerCase();
+
+    const filtered = users.filter(u => {
+
+      const uWh = String(u.warehouse || '').trim().toLowerCase();
+
+      const isSameWh = myWh && uWh && (uWh === myWh || uWh.includes(myWh) || myWh.includes(uWh));
+
+      const r = String(u.role || '').trim().toLowerCase();
+
+      const isTeamLeader = r.includes('ប្រធានក្រុម') || r.includes('ប្រធាន') || r.includes('team leader') || r.includes('teamleader');
+
+      const isStockKeeper = r.includes('អ្នកកាន់ស្តុក') || r.includes('stock keeper') || r.includes('stockkeeper') || r.includes('staff') || r === '' || !u.role;
+
+      const isSelf = (actor.userId && u.userId === actor.userId) || (actor.username && String(u.username).toLowerCase() === String(actor.username).toLowerCase());
+
+      return isSelf || (isSameWh && (isTeamLeader || isStockKeeper));
+
+    });
+
+    return { success: true, users: filtered };
 
   } else if (actor && (actor.userId || actor.username)) {
 

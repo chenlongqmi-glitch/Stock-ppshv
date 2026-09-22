@@ -6156,7 +6156,18 @@
     // Universal API Caller (With GAS Cloud Integration & Local Fallback)
     async function apiCall(action, payload = {}) {
       if (AppState.currentUser) {
-        if (!payload.user) payload.user = AppState.currentUser;
+        const isPrivileged = (AppState.currentUser?.role === 'SuperAdmin') || (AppState.currentUser?.role === 'Admin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin') || (String(AppState.currentUser?.username).toLowerCase() === 'admin');
+        if (!payload.user && payload.user !== null) {
+          // For getUsersList: only attach actor if SuperAdmin/Admin so backend returns raw passwords for management.
+          // For non-privileged (such as Station Manager), do NOT attach actor to payload so Google Apps Script backend returns all registered users instead of restricting to selfList!
+          if (action === 'getUsersList' || action === 'getUsers') {
+            if (isPrivileged) {
+              payload.user = AppState.currentUser;
+            }
+          } else {
+            payload.user = AppState.currentUser;
+          }
+        }
         if (!payload.warehouseFilter) payload.warehouseFilter = AppState.selectedAdminWarehouseFilter;
       }
 
@@ -6694,8 +6705,22 @@
             String(u.userId).toUpperCase() !== 'USR-SA'
           );
           return { success: true, users: attachPassword(filtered) };
+        } else if (actor && (actor.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || actor.role === 'អ្នកគ្រប់គ្រង' || String(actor.role).toLowerCase() === 'station manager')) {
+          // 3. Station Manager: អាចមើលឃើញ ប្រធានក្រុម និងអ្នកកាន់ស្តុក ក្នុងស្ថានីយខ្លួនឯង
+          const cleanWh = (str) => String(str || '').replace(/^[📍🏢\s]+/, '').trim().toLowerCase();
+          const myWh = cleanWh(actor.warehouse);
+          const filtered = registeredUsers.filter(u => {
+            const uWh = cleanWh(u.warehouse);
+            const isSameWh = myWh && uWh && (uWh === myWh || uWh.includes(myWh) || myWh.includes(uWh));
+            const r = String(u.role || '').trim().toLowerCase();
+            const isTeamLeader = r.includes('ប្រធានក្រុម') || r.includes('ប្រធាន') || r.includes('team leader') || r.includes('teamleader');
+            const isStockKeeper = r.includes('អ្នកកាន់ស្តុក') || r.includes('stock keeper') || r.includes('stockkeeper') || r.includes('staff') || r === '' || !u.role;
+            const isSelf = (actor.userId && u.userId === actor.userId) || (actor.username && String(u.username).toLowerCase() === String(actor.username).toLowerCase());
+            return isSelf || (isSameWh && (isTeamLeader || isStockKeeper));
+          });
+          return { success: true, users: attachPassword(filtered) };
         } else {
-          // 3. User ធម្មតា អាចមើលឃើញព័ត៌មានខ្លួនឯងតែមួយគត់
+          // 4. User ធម្មតា អាចមើលឃើញព័ត៌មានខ្លួនឯងតែមួយគត់
           const selfList = registeredUsers.filter(u =>
             (actor?.userId && u.userId === actor.userId) ||
             (actor?.username && String(u.username).toLowerCase() === String(actor.username).toLowerCase())
@@ -13339,15 +13364,17 @@
           // 3. Station Manager: អាចមើលឃើញតែ ប្រធានក្រុម និងអ្នកកាន់ស្តុក ដែលនៅក្នុងស្ថានីយខ្លួនឯងតែប៉ុណ្ណោះ
           // 4. User ធម្មតា: អាចមើលឃើញព័ត៌មានខ្លួនឯងតែមួយគត់
           // 5. លុបចេញរាល់ User ដែលមិនបាន Register (dummy/seed wh01-wh11, @inventory.local, etc.)
+          const cleanWh = (str) => String(str || '').replace(/^[📍🏢\s]+/, '').trim().toLowerCase();
           const isSelfUser = (u) => {
-            const curId = AppState.currentUser?.userId;
-            const curUsername = String(AppState.currentUser?.username || '').trim().toLowerCase();
-            const uId = u.userId;
-            const uUsername = String(u.username || '').trim().toLowerCase();
+            const curId = String(AppState.currentUser?.userId || '').trim().toLowerCase();
+            const curUsername = String(AppState.currentUser?.username || '').replace(/[\u200B-\u200D\uFEFF]/g, '').trim().toLowerCase();
+            const uId = String(u?.userId || '').trim().toLowerCase();
+            const uUsername = String(u?.username || '').replace(/[\u200B-\u200D\uFEFF]/g, '').trim().toLowerCase();
             return (curId && uId && curId === uId) || (curUsername && uUsername && curUsername === uUsername);
           };
 
-          let filteredUsers = (res.users || []).filter(u => !isUnregisteredDummyUser(u) && u.status !== 'Deleted' && u.status !== 'deleted');
+          const userSource = (Array.isArray(res.users) && res.users.length > 0) ? res.users : (LOCAL_DB.users || []);
+          let filteredUsers = userSource.filter(u => !isUnregisteredDummyUser(u) && u.status !== 'Deleted' && u.status !== 'deleted');
           if (isActorSuperAdmin) {
             filteredUsers = filteredUsers.filter(u => !isSelfUser(u));
           } else if (isActorAdmin) {
@@ -13358,17 +13385,17 @@
               String(u.userId).toUpperCase() !== 'USR-SA'
             );
           } else if (isActorStationManager) {
-            const myWh = String(AppState.currentUser?.warehouse || '').trim().toLowerCase();
+            const myWh = cleanWh(AppState.currentUser?.warehouse);
             filteredUsers = filteredUsers.filter(u => {
               // 1. Must belong to the manager's assigned warehouse
-              const uWh = String(u.warehouse || '').trim().toLowerCase();
-              const isSameWh = myWh && (uWh === myWh || uWh.includes(myWh) || myWh.includes(uWh));
+              const uWh = cleanWh(u.warehouse);
+              const isSameWh = myWh && uWh && (uWh === myWh || uWh.includes(myWh) || myWh.includes(uWh));
               if (!isSameWh) return false;
               // 2. Can ONLY see Team Leader (ប្រធានក្រុម) and Stock Keeper (អ្នកកាន់ស្តុក)
               const r = String(u.role || '').trim().toLowerCase();
-              const isTeamLeader = (r === 'ប្រធានក្រុម' || r === 'ប្រធាន' || r === 'team leader' || r === 'teamleader' || r === 'manager');
-              const isStockKeeper = (r === 'អ្នកកាន់ស្តុក' || r === 'stock keeper' || r === 'stockkeeper' || r === 'staff' || r === '' || !u.role);
-              const isForbidden = (r === 'superadmin' || r === 'admin' || r === 'អ្នកគ្រប់គ្រងស្ថានីយ' || r === 'អ្នកគ្រប់គ្រង' || r === 'station manager');
+              const isTeamLeader = r.includes('ប្រធានក្រុម') || r.includes('ប្រធាន') || r.includes('team leader') || r.includes('teamleader');
+              const isStockKeeper = r.includes('អ្នកកាន់ស្តុក') || r.includes('stock keeper') || r.includes('stockkeeper') || r.includes('staff') || r === '' || !u.role;
+              const isForbidden = r.includes('superadmin') || r.includes('admin') || r.includes('អ្នកគ្រប់គ្រងស្ថានីយ') || r.includes('អ្នកគ្រប់គ្រង') || r.includes('station manager');
               return (isTeamLeader || isStockKeeper) && !isForbidden && !isSelfUser(u);
             });
           } else {
@@ -13398,11 +13425,12 @@
           }
         }
         if (roleFilter !== 'ALL') {
-          if (roleFilter === 'SuperAdmin' && u.role !== 'SuperAdmin') return false;
-          if (roleFilter === 'Admin' && u.role !== 'Admin') return false;
-          if (roleFilter === 'អ្នកគ្រប់គ្រងស្ថានីយ' && u.role !== 'អ្នកគ្រប់គ្រងស្ថានីយ' && u.role !== 'អ្នកគ្រប់គ្រង') return false;
-          if (roleFilter === 'ប្រធានក្រុម' && u.role !== 'ប្រធានក្រុម' && u.role !== 'ប្រធាន' && u.role !== 'Manager') return false;
-          if (roleFilter === 'អ្នកកាន់ស្តុក' && u.role !== 'អ្នកកាន់ស្តុក' && u.role !== 'Stock Keeper') return false;
+          const r = String(u.role || '').trim().toLowerCase();
+          if (roleFilter === 'SuperAdmin' && r !== 'superadmin') return false;
+          if (roleFilter === 'Admin' && r !== 'admin') return false;
+          if (roleFilter === 'អ្នកគ្រប់គ្រងស្ថានីយ' && !r.includes('អ្នកគ្រប់គ្រង')) return false;
+          if (roleFilter === 'ប្រធានក្រុម' && !r.includes('ប្រធាន') && !r.includes('team leader')) return false;
+          if (roleFilter === 'អ្នកកាន់ស្តុក' && !r.includes('អ្នកកាន់ស្តុក') && !r.includes('stock keeper') && !r.includes('staff')) return false;
         }
         return true;
       });
@@ -13423,15 +13451,16 @@
 
       // Double-enforce Station Manager visibility boundaries
       if (isActorStationManager && Array.isArray(usersList)) {
-        const myWh = String(actor?.warehouse || '').trim().toLowerCase();
+        const cleanWh = (str) => String(str || '').replace(/^[📍🏢\s]+/, '').trim().toLowerCase();
+        const myWh = cleanWh(actor?.warehouse);
         usersList = usersList.filter(u => {
-          const uWh = String(u.warehouse || '').trim().toLowerCase();
-          const isSameWh = myWh && (uWh === myWh || uWh.includes(myWh) || myWh.includes(uWh));
+          const uWh = cleanWh(u.warehouse);
+          const isSameWh = myWh && uWh && (uWh === myWh || uWh.includes(myWh) || myWh.includes(uWh));
           if (!isSameWh) return false;
           const r = String(u.role || '').trim().toLowerCase();
-          const isTeamLeader = (r === 'ប្រធានក្រុម' || r === 'ប្រធាន' || r === 'team leader' || r === 'teamleader' || r === 'manager');
-          const isStockKeeper = (r === 'អ្នកកាន់ស្តុក' || r === 'stock keeper' || r === 'stockkeeper' || r === 'staff' || r === '' || !u.role);
-          const isForbidden = (r === 'superadmin' || r === 'admin' || r === 'អ្នកគ្រប់គ្រងស្ថានីយ' || r === 'អ្នកគ្រប់គ្រង' || r === 'station manager');
+          const isTeamLeader = r.includes('ប្រធានក្រុម') || r.includes('ប្រធាន') || r.includes('team leader') || r.includes('teamleader');
+          const isStockKeeper = r.includes('អ្នកកាន់ស្តុក') || r.includes('stock keeper') || r.includes('stockkeeper') || r.includes('staff') || r === '' || !u.role;
+          const isForbidden = r.includes('superadmin') || r.includes('admin') || r.includes('អ្នកគ្រប់គ្រងស្ថានីយ') || r.includes('អ្នកគ្រប់គ្រង') || r.includes('station manager');
           const isSelf = (actor?.userId && u.userId && actor.userId === u.userId) || (actor?.username && u.username && String(actor.username).toLowerCase() === String(u.username).toLowerCase());
           return (isTeamLeader || isStockKeeper) && !isForbidden && !isSelf;
         });
