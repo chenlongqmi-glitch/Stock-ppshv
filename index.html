@@ -2761,11 +2761,14 @@
 
             <!-- Search & Role Filter Bar -->
             <div class="mt-3.5 pt-3.5 border-t border-slate-100 flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+              <!-- Decoy inputs to absorb browser password autofill -->
+              <input type="text" style="display:none!important;" aria-hidden="true" autocomplete="username" tabindex="-1">
+              <input type="password" style="display:none!important;" aria-hidden="true" autocomplete="current-password" tabindex="-1">
               <div class="relative flex-1">
                 <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
-                <input type="search" id="userSearchInput" name="user_search_no_autofill"
-                  autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true"
-                  oninput="filterUsersList()" onfocus="if (this.value.toLowerCase() === 'superadmin') this.value = '';"
+                <input type="search" id="userSearchInput" name="user_search_prevent_autofill"
+                  autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other"
+                  oninput="filterUsersList()" onfocus="if (this.value.toLowerCase().includes('superadmin') || this.value.toLowerCase().includes('admin')) this.value = '';"
                   placeholder="ស្វែងរកឈ្មោះ, Username, ឬលេខទូរស័ព្ទ..."
                   class="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none">
               </div>
@@ -13846,10 +13849,11 @@
           const userSource = (Array.isArray(res.users) && res.users.length > 0) ? res.users : (LOCAL_DB.users || []);
           let filteredUsers = userSource.filter(u => !isUnregisteredDummyUser(u) && u.status !== 'Deleted' && u.status !== 'deleted');
           if (isActorSuperAdmin) {
-            filteredUsers = filteredUsers.filter(u => !isSelfUser(u));
+            // 1. SuperAdmin sees all users (including SuperAdmin, all Admins, Station Managers, Team Leaders, and Stock Keepers)
+            filteredUsers = filteredUsers;
           } else if (isActorAdmin) {
+            // 2. Admin sees all users and ALL other Admins (Admin and Admin see each other 100%!), only SuperAdmin is hidden
             filteredUsers = filteredUsers.filter(u =>
-              !isSelfUser(u) &&
               u.role !== 'SuperAdmin' &&
               String(u.username).toLowerCase() !== 'superadmin' &&
               String(u.userId).toUpperCase() !== 'USR-SA'
@@ -13873,7 +13877,7 @@
           }
 
           const userSearchInp = document.getElementById('userSearchInput');
-          if (userSearchInp && (userSearchInp.value.toLowerCase() === 'superadmin' || userSearchInp.value.toLowerCase() === 'super admin')) {
+          if (userSearchInp) {
             userSearchInp.value = '';
           }
 
@@ -14277,7 +14281,10 @@
                   <img src="${u.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + u.username}" class="w-full h-full object-cover">
                 </div>
                 <div class="min-w-0">
-                  <span class="font-bold text-slate-800 block text-xs truncate">${escapeHtml(u.fullName || u.username)}</span>
+                  <div class="flex items-center space-x-1.5">
+                    <span class="font-bold text-slate-800 block text-xs truncate">${escapeHtml(u.fullName || u.username)}</span>
+                    ${isSelf ? '<span class="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-blue-100 text-blue-700 border border-blue-300">ខ្ញុំ</span>' : ''}
+                  </div>
                   ${u.email ? `<span class="text-[11px] text-slate-400 block truncate" title="${escapeHtml(u.email)}">${escapeHtml(u.email)}</span>` : '<span class="text-[10px] text-slate-300 italic">គ្មានអ៊ីមែល</span>'}
                 </div>
               </div>
@@ -14318,6 +14325,7 @@
                 <div class="min-w-0">
                   <div class="flex items-center gap-1.5 flex-wrap">
                     <h4 class="font-extrabold text-slate-900 text-sm truncate">${escapeHtml(u.fullName || u.username)}</h4>
+                    ${isSelf ? '<span class="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-blue-100 text-blue-700 border border-blue-300">ខ្ញុំ</span>' : ''}
                     <span class="font-mono font-bold text-blue-600 text-[11px]">@${escapeHtml(u.username)}</span>
                   </div>
                   <div class="flex items-center gap-1.5 mt-1 flex-wrap">
