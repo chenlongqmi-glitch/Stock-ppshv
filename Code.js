@@ -1158,18 +1158,23 @@ function loginUser(usernameOrData, password, extraDeviceInfo) {
   let deviceInfo = null;
 
   if (usernameOrData && typeof usernameOrData === 'object') {
-    uInput = String(usernameOrData.username || usernameOrData.loginUsername || '').trim().toLowerCase();
+    uInput = String(usernameOrData.username || usernameOrData.loginUsername || '').trim();
     pInput = String(usernameOrData.password || usernameOrData.loginPassword || '');
     deviceInfo = usernameOrData.deviceInfo || extraDeviceInfo || null;
   } else {
-    uInput = String(usernameOrData || '').trim().toLowerCase();
+    uInput = String(usernameOrData || '').trim();
     pInput = String(password || '');
     deviceInfo = extraDeviceInfo || null;
   }
 
   if (!uInput || !pInput) {
-    return { success: false, message: 'សូមបញ្ចូលឈ្មោះគណនី និងពាក្យសម្ងាត់' };
+    return { success: false, message: 'សូមបញ្ចូលឈ្មោះគណនី អ៊ីមែល ឬលេខទូរស័ព្ទ និងពាក្យសម្ងាត់' };
   }
+
+  const lowerInput = uInput.toLowerCase();
+  const cleanInput = lowerInput.replace(/^@/, '');
+  const cleanDigits = uInput.replace(/\D/g, '');
+  const phoneInput = cleanDigits.startsWith('855') ? ('0' + cleanDigits.slice(3)) : cleanDigits;
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ensureUsersInitialized(ss);
@@ -1178,10 +1183,15 @@ function loginUser(usernameOrData, password, extraDeviceInfo) {
   // Headers: UserID, Username, FullName, Email, PasswordHash, Salt, Role, Status, CreatedAt, Warehouse, Avatar, Phone, DeleteReason, DeleteRequestedBy, DeleteRequestedAt, BoundDevices
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
-    const uName = String(row[1]).trim().toLowerCase();
-    const uEmail = String(row[3]).trim().toLowerCase();
+    const uName = String(row[1] || '').trim().toLowerCase().replace(/^@/, '');
+    const uEmail = String(row[3] || '').trim().toLowerCase();
+    const uPhone = String(row[11] || '').replace(/\D/g, '').replace(/^855/, '0');
 
-    if (uName === uInput || uEmail === uInput) {
+    const isUserMatch = (cleanInput && uName === cleanInput);
+    const isEmailMatch = (lowerInput && uEmail === lowerInput);
+    const isPhoneMatch = (phoneInput && phoneInput.length >= 8 && uPhone && (uPhone === phoneInput || uPhone.endsWith(phoneInput) || phoneInput.endsWith(uPhone)));
+
+    if (isUserMatch || isEmailMatch || isPhoneMatch) {
 
       const storedHash = String(row[4]).trim();
 
