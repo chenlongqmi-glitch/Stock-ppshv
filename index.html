@@ -2925,12 +2925,12 @@
                 </div>
 
                 <div class="px-2 pt-2 pb-1 text-[10px] font-bold uppercase text-slate-400 tracking-wider">
-                  ស្ថានីយនីមួយៗ (Direct Stations)
+                  បុគ្គលិកតាមស្ថានីយ (Station Staff)
                 </div>
 
                 <!-- Warehouses Dynamic List Container -->
                 <div id="whListContainer" class="space-y-1">
-                  <!-- Populated dynamically by refreshAllWarehouseDropdowns() -->
+                  <!-- Populated dynamically by renderDirectWarehouseContacts() -->
                 </div>
               </div>
             </div>
@@ -4256,7 +4256,7 @@
             <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
               <i class="fa-solid fa-user text-xs"></i>
             </span>
-            <input type="text" id="forgotAccountInput" placeholder="ឧ. admin ឬ wh01 ឬ user@gmail.com"
+            <input type="text" id="forgotAccountInput" placeholder="ឧ. admin ឬ sdfsdf ឬ singvan327@gmail.com"
               lang="en" inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false" data-auto-en="true"
               oninput="cleanKhmerFromField(this)" onkeyup="cleanKhmerFromField(this)" onfocus="cleanKhmerFromField(this)"
               class="w-full pl-8 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-blue-500">
@@ -5068,15 +5068,14 @@
       const uid = String(u.userId || '').trim().toUpperCase();
       const fullName = String(u.fullName || '').trim();
 
-      // Explicitly allow SuperAdmin and Admin
-      if (uname === 'superadmin' || uid === 'USR-SA' || uname === 'admin' || uid === 'USR-00' || uid === 'USR-001') {
-        return false;
-      }
+      // Explicitly allow actual users from Image 2 & SuperAdmin
+      const realUsernames = ['superadmin', 'admin', 'sdfsdf', 'singvan327@gmail.com', 'chandy'];
+      if (realUsernames.includes(uname)) return false;
 
       // Check for seeded demo warehouse accounts
       if (/^wh\d+$/i.test(uname)) return true;
       if (email.endsWith('@inventory.local')) return true;
-      if (/^USR-\d{2}$/.test(uid)) return true; // USR-01, USR-02, ...
+      if (/^USR-\d{2}$/.test(uid) && !realUsernames.includes(uname)) return true; // USR-01, USR-02, ...
       if (uid === 'USR-PENDING-01' || uname === 'chan sovannak') return true;
       if (fullName.startsWith('បុគ្គលិក ') && fullName.includes('ស្ថានីយ') && /^wh\d+$/i.test(uname)) return true;
 
@@ -5087,37 +5086,40 @@
     const LOCAL_DB = {
       users: [
         { userId: 'USR-SA', username: 'superadmin', fullName: '陈龙', email: 'chenlongqmi@gmail.com', phone: '066 966 606', role: 'SuperAdmin', status: 'Active', warehouse: 'ALL', avatar: 'assets/superadmin_avatar.jpg', isRegistered: true },
-        { userId: 'USR-00', username: 'admin', fullName: '聂稳新', email: 'ppshv2024@gmail.com', phone: '098 880 803', role: 'Admin', status: 'Active', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', isRegistered: true }
+        { userId: 'USR-00', username: 'admin', fullName: '聂稳新', email: 'ppshv2024@gmail.com', phone: '098 880 803', role: 'Admin', status: 'Active', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', isRegistered: true },
+        { userId: 'USR-01', username: 'sdfsdf', fullName: 'ចាន់ ដារា', email: '', phone: '098 666 154', role: 'អ្នកកាន់ស្តុក', status: 'Active', warehouse: '1-K3 ស្ថានីយ (ភ្នំពេញ)', avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150', isRegistered: true },
+        { userId: 'USR-02', username: 'singvan327@gmail.com', fullName: 'វិន វ៉ាន់ស៊ិញ', email: 'singvan327@gmail.com', phone: '088 663 3966', role: 'អ្នកគ្រប់គ្រងស្ថានីយ', status: 'Active', warehouse: '1-K3 ស្ថានីយ (ភ្នំពេញ)', avatar: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150', isRegistered: true },
+        { userId: 'USR-03', username: 'chandy', fullName: 'ចាន់ ឌី', email: '', phone: '095 645 854', role: 'ប្រធានក្រុម', status: 'Active', warehouse: '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)', avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150', isRegistered: true }
       ],
       items: [
         { sku: 'SKU-001', barcode: '8850123456789', name: 'Coca Cola 330ml', size: '330ml', color: 'ក្រហម', category: 'ភេសជ្ជៈ', unit: 'កំប៉ុង', packUnit: 'ដុំ', packQty: 24, zone: 'តំបន់ A (ភេសជ្ជៈ)', zoneNumber: 'Z-01', costPrice: 0.45, sellingPrice: 0.65, minStock: 20, location: '1-K3 ស្ថានីយ (ភ្នំពេញ)', currentStock: 150, notes: 'ភេសជ្ជៈកូកាកូឡាកំប៉ុងត្រជាក់', createdBy: 'Super Admin', createdAt: '2026-08-20', imageUrl: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=300', status: 'Active' },
         { sku: 'SKU-002', barcode: '8850123456790', name: 'Anchor Beer Can', size: '330ml', color: 'ខៀវ/ស', category: 'ភេសជ្ជៈ', unit: 'កំប៉ុង', packUnit: 'ដុំ', packQty: 24, zone: 'តំបន់ A (ភេសជ្ជៈ)', zoneNumber: 'Z-02', costPrice: 0.60, sellingPrice: 0.85, minStock: 24, location: '1-K3 ស្ថានីយ (ភ្នំពេញ)', currentStock: 8, notes: 'ស្រាបៀរអាន់ឆ័រស្តុកតិច', createdBy: 'Super Admin', createdAt: '2026-08-20', imageUrl: 'https://images.unsplash.com/photo-1608270586620-248524c67de9?w=300', status: 'Active' },
         { sku: 'SKU-003', barcode: '8850987654321', name: 'Nescafe 3in1 Coffee', size: '500g', color: 'ក្រហម', category: 'គ្រឿងទេស', unit: 'កញ្ចប់', packUnit: 'ប្រអប់', packQty: 30, zone: 'តំបន់ B (គ្រឿងទេស)', zoneNumber: 'Z-03', costPrice: 2.50, sellingPrice: 3.20, minStock: 10, location: '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)', currentStock: 45, notes: 'កាហ្វេ 3in1 ប្រអប់ធំ', createdBy: 'Admin (聂稳新)', createdAt: '2026-08-20', imageUrl: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=300', status: 'Active' },
-        { sku: 'SKU-004', barcode: '8850987654322', name: 'Indomie Goreng Noodle', size: '85g', color: 'ស/ក្រហម', category: 'អាហារស្ងួត', unit: 'កញ្ចប់', packUnit: 'ដុំ', packQty: 40, zone: 'តំបន់ B (អាហារស្ងួត)', zoneNumber: 'Z-04', costPrice: 0.30, sellingPrice: 0.45, minStock: 30, location: '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)', currentStock: 5, notes: 'មីឆាហិរឥណ្ឌូនេស៊ី', createdBy: 'wh02', createdAt: '2026-08-21', imageUrl: 'https://images.unsplash.com/photo-1612927601601-6638404737ce?w=300', status: 'Active' },
-        { sku: 'SKU-005', barcode: '8850987654323', name: 'Vital Premium Water 500ml', size: '500ml', color: 'ថ្លា/ខៀវ', category: 'ភេសជ្ជៈ', unit: 'ដប', packUnit: 'យួរ', packQty: 12, zone: 'តំបន់ A (ភេសជ្ជៈ)', zoneNumber: 'Z-05', costPrice: 0.20, sellingPrice: 0.35, minStock: 50, location: '3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)', currentStock: 200, notes: 'ទឹកបរិសុទ្ធវីតាល់ ១យួរ=១២ដប', createdBy: 'wh03', createdAt: '2026-08-21', imageUrl: 'https://images.unsplash.com/photo-1548839140-29a749e1bc4e?w=300', status: 'Active' },
-        { sku: 'SKU-006', barcode: '8850987654324', name: 'Red Bull Energy 250ml', size: '250ml', color: 'មាស/ខៀវ', category: 'ភេសជ្ជៈ', unit: 'កំប៉ុង', packUnit: 'ដុំ', packQty: 24, zone: 'តំបន់ A (ភេសជ្ជៈ)', zoneNumber: 'Z-06', costPrice: 0.55, sellingPrice: 0.75, minStock: 20, location: '4-K76 ស្ថានីយ (ត្រែងត្រយឹង)', currentStock: 80, notes: 'គោជល់កំប៉ុងមាស', createdBy: 'wh04', createdAt: '2026-08-21', imageUrl: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=300', status: 'Active' },
-        { sku: 'SKU-007', barcode: '8850987654325', name: 'Angkor Premium Beer', size: '330ml', color: 'ស/ក្រហម', category: 'ភេសជ្ជៈ', unit: 'កំប៉ុង', packUnit: 'ដុំ', packQty: 24, zone: 'តំបន់ A (ភេសជ្ជៈ)', zoneNumber: 'Z-07', costPrice: 0.65, sellingPrice: 0.90, minStock: 30, location: '5-K114 ស្ថានីយ (កំពង់សីលា)', currentStock: 120, notes: 'ស្រាបៀរអង្គរប្រចាំស្ថានីយ', createdBy: 'wh05', createdAt: '2026-08-21', imageUrl: 'https://images.unsplash.com/photo-1608270586620-248524c67de9?w=300', status: 'Active' },
-        { sku: 'SKU-008', barcode: '8850987654326', name: 'Ovaltine Malt Drink', size: '180ml', color: 'ទឹកក្រូច', category: 'ភេសជ្ជៈ', unit: 'ប្រអប់', packUnit: 'ដុំ', packQty: 48, zone: 'តំបន់ A (ភេសជ្ជៈ)', zoneNumber: 'Z-08', costPrice: 0.40, sellingPrice: 0.60, minStock: 15, location: '6-K135 ស្ថានីយ (ស្រែអំបិល)', currentStock: 60, notes: 'អូវ៉ាល់ទីនកូនក្មេង', createdBy: 'wh06', createdAt: '2026-08-21', imageUrl: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=300', status: 'Active' },
-        { sku: 'SKU-009', barcode: '8850987654327', name: 'MAMA Instant Cup', size: '65g', color: 'លឿង', category: 'អាហារស្ងួត', unit: 'កំប៉ុង', packUnit: 'ដុំ', packQty: 36, zone: 'តំបន់ B (អាហារស្ងួត)', zoneNumber: 'Z-09', costPrice: 0.50, sellingPrice: 0.75, minStock: 25, location: '7-K172 ស្ថានីយ (ស្ទឹងហាវ)', currentStock: 90, notes: 'មីម៉ាម៉ាកំប៉ុងស្រាប់', createdBy: 'wh07', createdAt: '2026-08-21', imageUrl: 'https://images.unsplash.com/photo-1612927601601-6638404737ce?w=300', status: 'Active' },
-        { sku: 'SKU-010', barcode: '8850987654328', name: 'Kampot Pepper 100g', size: '100g', color: 'ខ្មៅ', category: 'គ្រឿងទេស', unit: 'កញ្ចប់', packUnit: 'ប្រអប់', packQty: 10, zone: 'តំបន់ B (គ្រឿងទេស)', zoneNumber: 'Z-10', costPrice: 3.00, sellingPrice: 4.50, minStock: 10, location: '8-K182 ស្ថានីយ (ព្រះសីហនុ)', currentStock: 40, notes: 'ម្រេចកំពតធម្មជាតិ', createdBy: 'wh08', createdAt: '2026-08-21', imageUrl: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=300', status: 'Active' },
-        { sku: 'SKU-011', barcode: '8850987654329', name: 'Soy Sauce 500ml', size: '500ml', color: 'ខ្មៅ', category: 'គ្រឿងទេស', unit: 'ដប', packUnit: 'ដុំ', packQty: 12, zone: 'តំបន់ B (គ្រឿងទេស)', zoneNumber: 'Z-11', costPrice: 0.80, sellingPrice: 1.20, minStock: 20, location: '中心库房 (ឃ្លាំងស្តុកនៅបុងសឹង)', currentStock: 75, notes: 'ទឹកស៊ីអ៊ីវដបកែវ', createdBy: 'wh09', createdAt: '2026-08-21', imageUrl: 'https://images.unsplash.com/photo-1548839140-29a749e1bc4e?w=300', status: 'Active' },
-        { sku: 'SKU-012', barcode: '8850987654330', name: 'Coconut Water 330ml', size: '330ml', color: 'ស/បៃតង', category: 'ភេសជ្ជៈ', unit: 'កំប៉ុង', packUnit: 'ដុំ', packQty: 24, zone: 'តំបន់ A (ភេសជ្ជៈ)', zoneNumber: 'Z-12', costPrice: 0.50, sellingPrice: 0.80, minStock: 15, location: '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)', currentStock: 55, notes: 'ទឹកដូងកំប៉ុងធម្មជាតិ', createdBy: 'wh10', createdAt: '2026-08-21', imageUrl: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=300', status: 'Active' },
-        { sku: 'SKU-013', barcode: '8850987654331', name: 'Palm Sugar Powder 500g', size: '500g', color: 'ត្នោត', category: 'គ្រឿងទេស', unit: 'កញ្ចប់', packUnit: 'ដុំ', packQty: 20, zone: 'តំបន់ B (គ្រឿងទេស)', zoneNumber: 'Z-13', costPrice: 1.20, sellingPrice: 1.80, minStock: 15, location: '综合办 (ផ្នែកកិច្ចការទូទៅ)', currentStock: 65, notes: 'ស្ករត្នោតធម្មជាតិខ្មែរ', createdBy: 'wh11', createdAt: '2026-08-21', imageUrl: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=300', status: 'Active' }
+        { sku: 'SKU-004', barcode: '8850987654322', name: 'Indomie Goreng Noodle', size: '85g', color: 'ស/ក្រហម', category: 'អាហារស្ងួត', unit: 'កញ្ចប់', packUnit: 'ដុំ', packQty: 40, zone: 'តំបន់ B (អាហារស្ងួត)', zoneNumber: 'Z-04', costPrice: 0.30, sellingPrice: 0.45, minStock: 30, location: '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)', currentStock: 5, notes: 'មីឆាហិរឥណ្ឌូនេស៊ី', createdBy: 'chandy', createdAt: '2026-08-21', imageUrl: 'https://images.unsplash.com/photo-1612927601601-6638404737ce?w=300', status: 'Active' },
+        { sku: 'SKU-005', barcode: '8850987654323', name: 'Vital Premium Water 500ml', size: '500ml', color: 'ថ្លា/ខៀវ', category: 'ភេសជ្ជៈ', unit: 'ដប', packUnit: 'យួរ', packQty: 12, zone: 'តំបន់ A (ភេសជ្ជៈ)', zoneNumber: 'Z-05', costPrice: 0.20, sellingPrice: 0.35, minStock: 50, location: '3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)', currentStock: 200, notes: 'ទឹកបរិសុទ្ធវីតាល់ ១យួរ=១២ដប', createdBy: 'chandy', createdAt: '2026-08-21', imageUrl: 'https://images.unsplash.com/photo-1548839140-29a749e1bc4e?w=300', status: 'Active' },
+        { sku: 'SKU-006', barcode: '8850987654324', name: 'Red Bull Energy 250ml', size: '250ml', color: 'មាស/ខៀវ', category: 'ភេសជ្ជៈ', unit: 'កំប៉ុង', packUnit: 'ដុំ', packQty: 24, zone: 'តំបន់ A (ភេសជ្ជៈ)', zoneNumber: 'Z-06', costPrice: 0.55, sellingPrice: 0.75, minStock: 20, location: '4-K76 ស្ថានីយ (ត្រែងត្រយឹង)', currentStock: 80, notes: 'គោជល់កំប៉ុងមាស', createdBy: 'sdfsdf', createdAt: '2026-08-21', imageUrl: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=300', status: 'Active' },
+        { sku: 'SKU-007', barcode: '8850987654325', name: 'Angkor Premium Beer', size: '330ml', color: 'ស/ក្រហម', category: 'ភេសជ្ជៈ', unit: 'កំប៉ុង', packUnit: 'ដុំ', packQty: 24, zone: 'តំបន់ A (ភេសជ្ជៈ)', zoneNumber: 'Z-07', costPrice: 0.65, sellingPrice: 0.90, minStock: 30, location: '5-K114 ស្ថានីយ (កំពង់សីលា)', currentStock: 120, notes: 'ស្រាបៀរអង្គរប្រចាំស្ថានីយ', createdBy: 'singvan327@gmail.com', createdAt: '2026-08-21', imageUrl: 'https://images.unsplash.com/photo-1608270586620-248524c67de9?w=300', status: 'Active' },
+        { sku: 'SKU-008', barcode: '8850987654326', name: 'Ovaltine Malt Drink', size: '180ml', color: 'ទឹកក្រូច', category: 'ភេសជ្ជៈ', unit: 'ប្រអប់', packUnit: 'ដុំ', packQty: 48, zone: 'តំបន់ A (ភេសជ្ជៈ)', zoneNumber: 'Z-08', costPrice: 0.40, sellingPrice: 0.60, minStock: 15, location: '6-K135 ស្ថានីយ (ស្រែអំបិល)', currentStock: 60, notes: 'អូវ៉ាល់ទីនកូនក្មេង', createdBy: 'sdfsdf', createdAt: '2026-08-21', imageUrl: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=300', status: 'Active' },
+        { sku: 'SKU-009', barcode: '8850987654327', name: 'MAMA Instant Cup', size: '65g', color: 'លឿង', category: 'អាហារស្ងួត', unit: 'កំប៉ុង', packUnit: 'ដុំ', packQty: 36, zone: 'តំបន់ B (អាហារស្ងួត)', zoneNumber: 'Z-09', costPrice: 0.50, sellingPrice: 0.75, minStock: 25, location: '7-K172 ស្ថានីយ (ស្ទឹងហាវ)', currentStock: 90, notes: 'មីម៉ាម៉ាកំប៉ុងស្រាប់', createdBy: 'chandy', createdAt: '2026-08-21', imageUrl: 'https://images.unsplash.com/photo-1612927601601-6638404737ce?w=300', status: 'Active' },
+        { sku: 'SKU-010', barcode: '8850987654328', name: 'Kampot Pepper 100g', size: '100g', color: 'ខ្មៅ', category: 'គ្រឿងទេស', unit: 'កញ្ចប់', packUnit: 'ប្រអប់', packQty: 10, zone: 'តំបន់ B (គ្រឿងទេស)', zoneNumber: 'Z-10', costPrice: 3.00, sellingPrice: 4.50, minStock: 10, location: '8-K182 ស្ថានីយ (ព្រះសីហនុ)', currentStock: 40, notes: 'ម្រេចកំពតធម្មជាតិ', createdBy: 'singvan327@gmail.com', createdAt: '2026-08-21', imageUrl: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=300', status: 'Active' },
+        { sku: 'SKU-011', barcode: '8850987654329', name: 'Soy Sauce 500ml', size: '500ml', color: 'ខ្មៅ', category: 'គ្រឿងទេស', unit: 'ដប', packUnit: 'ដុំ', packQty: 12, zone: 'តំបន់ B (គ្រឿងទេស)', zoneNumber: 'Z-11', costPrice: 0.80, sellingPrice: 1.20, minStock: 20, location: '中心库房 (ឃ្លាំងស្តុកនៅបុងសឹង)', currentStock: 75, notes: 'ទឹកស៊ីអ៊ីវដបកែវ', createdBy: 'sdfsdf', createdAt: '2026-08-21', imageUrl: 'https://images.unsplash.com/photo-1548839140-29a749e1bc4e?w=300', status: 'Active' },
+        { sku: 'SKU-012', barcode: '8850987654330', name: 'Coconut Water 330ml', size: '330ml', color: 'ស/បៃតង', category: 'ភេសជ្ជៈ', unit: 'កំប៉ុង', packUnit: 'ដុំ', packQty: 24, zone: 'តំបន់ A (ភេសជ្ជៈ)', zoneNumber: 'Z-12', costPrice: 0.50, sellingPrice: 0.80, minStock: 15, location: '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)', currentStock: 55, notes: 'ទឹកដូងកំប៉ុងធម្មជាតិ', createdBy: 'singvan327@gmail.com', createdAt: '2026-08-21', imageUrl: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=300', status: 'Active' },
+        { sku: 'SKU-013', barcode: '8850987654331', name: 'Palm Sugar Powder 500g', size: '500g', color: 'ត្នោត', category: 'គ្រឿងទេស', unit: 'កញ្ចប់', packUnit: 'ដុំ', packQty: 20, zone: 'តំបន់ B (គ្រឿងទេស)', zoneNumber: 'Z-13', costPrice: 1.20, sellingPrice: 1.80, minStock: 15, location: '综合办 (ផ្នែកកិច្ចការទូទៅ)', currentStock: 65, notes: 'ស្ករត្នោតធម្មជាតិខ្មែរ', createdBy: 'chandy', createdAt: '2026-08-21', imageUrl: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=300', status: 'Active' }
       ],
       transactions: [
-        { txId: 'TX-20260821-01', date: '2026-08-21', type: 'STOCK_IN', sku: 'SKU-001', itemName: 'Coca Cola 330ml', quantity: 50, unit: 'កំប៉ុង', unitPrice: 0.45, totalAmount: 22.5, fromLocation: 'Supplier A', toLocation: '1-K3 ស្ថានីយ (ភ្នំពេញ)', notes: 'Restock', user: 'wh01' },
-        { txId: 'TX-20260821-02', date: '2026-08-21', type: 'STOCK_OUT', sku: 'SKU-003', itemName: 'Nescafe 3in1 Coffee', quantity: 10, unit: 'កញ្ចប់', unitPrice: 3.20, totalAmount: 32.0, fromLocation: '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)', toLocation: 'Retail Customer', notes: 'Sold', user: 'wh02' }
+        { txId: 'TX-20260821-01', date: '2026-08-21', type: 'STOCK_IN', sku: 'SKU-001', itemName: 'Coca Cola 330ml', quantity: 50, unit: 'កំប៉ុង', unitPrice: 0.45, totalAmount: 22.5, fromLocation: 'Supplier A', toLocation: '1-K3 ស្ថានីយ (ភ្នំពេញ)', notes: 'Restock', user: 'sdfsdf' },
+        { txId: 'TX-20260821-02', date: '2026-08-21', type: 'STOCK_OUT', sku: 'SKU-003', itemName: 'Nescafe 3in1 Coffee', quantity: 10, unit: 'កញ្ចប់', unitPrice: 3.20, totalAmount: 32.0, fromLocation: '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)', toLocation: 'Retail Customer', notes: 'Sold', user: 'chandy' }
       ],
       productRequests: [
-        { reqId: 'REQ-20260821-01', warehouse: '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)', itemName: 'Indomie Goreng Noodle', category: 'អាហារស្ងួត', quantity: 150, unit: 'កញ្ចប់', urgency: 'Urgent', reason: 'ស្តុកជិតដាច់សម្រាប់ចុងសប្តាហ៍', requestedBy: 'wh02', status: 'Pending', createdAt: '2026-08-21 14:30', adminNotes: '' },
-        { reqId: 'REQ-20260821-02', warehouse: '3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)', itemName: 'Vital Premium Water 500ml', category: 'ភេសជ្ជៈ', quantity: 200, unit: 'ដប', urgency: 'Normal', reason: 'កុម្ម៉ង់បំពេញស្តុកប្រចាំខែ', requestedBy: 'wh03', status: 'Approved', createdAt: '2026-08-21 11:20', adminNotes: 'បានបញ្ជាទិញរួចរាល់' },
-        { reqId: 'REQ-20260821-03', warehouse: '5-K114 ស្ថានីយ (កំពង់សីលា)', itemName: 'Angkor Premium Beer', category: 'ភេសជ្ជៈ', quantity: 80, unit: 'កំប៉ុង', urgency: 'Urgent', reason: 'តម្រូវការភ្ញៀវទេសចរច្រើន', requestedBy: 'wh05', status: 'Pending', createdAt: '2026-08-21 15:45', adminNotes: '' }
+        { reqId: 'REQ-20260821-01', warehouse: '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)', itemName: 'Indomie Goreng Noodle', category: 'អាហារស្ងួត', quantity: 150, unit: 'កញ្ចប់', urgency: 'Urgent', reason: 'ស្តុកជិតដាច់សម្រាប់ចុងសប្តាហ៍', requestedBy: 'chandy', status: 'Pending', createdAt: '2026-08-21 14:30', adminNotes: '' },
+        { reqId: 'REQ-20260821-02', warehouse: '1-K3 ស្ថានីយ (ភ្នំពេញ)', itemName: 'Vital Premium Water 500ml', category: 'ភេសជ្ជៈ', quantity: 200, unit: 'ដប', urgency: 'Normal', reason: 'កុម្ម៉ង់បំពេញស្តុកប្រចាំខែ', requestedBy: 'sdfsdf', status: 'Approved', createdAt: '2026-08-21 11:20', adminNotes: 'បានបញ្ជាទិញរួចរាល់' },
+        { reqId: 'REQ-20260821-03', warehouse: '1-K3 ស្ថានីយ (ភ្នំពេញ)', itemName: 'Angkor Premium Beer', category: 'ភេសជ្ជៈ', quantity: 80, unit: 'កំប៉ុង', urgency: 'Urgent', reason: 'តម្រូវការភ្ញៀវទេសចរច្រើន', requestedBy: 'singvan327@gmail.com', status: 'Pending', createdAt: '2026-08-21 15:45', adminNotes: '' }
       ],
       chatMessages: [
-        { msgId: 'MSG-001', timestamp: '2026-08-21 14:10', channelId: 'ALL_WAREHOUSES', senderUsername: 'admin', senderFullName: 'System Administrator (Admin)', senderRole: 'Admin', senderWarehouse: 'ALL', senderAvatar: 'assets/superadmin_avatar.jpg', messageText: 'សួស្តីបុគ្គលិកគ្រប់ស្ថានីយទាំងអស់! សូមជួយត្រួតពិនិត្យស្តុកទំនិញចុងសប្តាហ៍នេះផង 🙏', itemReference: null },
-        { msgId: 'MSG-002', timestamp: '2026-08-21 14:15', channelId: 'ALL_WAREHOUSES', senderUsername: 'wh01', senderFullName: 'បុគ្គលិក 1-K3 ស្ថានីយ (ភ្នំពេញ)', senderRole: 'Stock Keeper', senderWarehouse: '1-K3 ស្ថានីយ (ភ្នំពេញ)', senderAvatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=wh01', messageText: '1-K3 ស្ថានីយ បានរាប់ស្តុក និងកត់ត្រារួចរាល់ហើយបង 👍', itemReference: null },
-        { msgId: 'MSG-003', timestamp: '2026-08-21 14:22', channelId: 'ALL_WAREHOUSES', senderUsername: 'wh02', senderFullName: 'បុគ្គលិក 2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)', senderRole: 'Stock Keeper', senderWarehouse: '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)', senderAvatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=wh02', messageText: 'តើមានស្ថានីយណាមានសល់ស្តុក Nescafe 3in1 ទេ? ខាងខ្ញុំជិតដាច់ស្តុកហើយ', itemReference: { sku: 'SKU-003', name: 'Nescafe 3in1 Coffee', qty: 50 } },
-        { msgId: 'MSG-004', timestamp: '2026-08-21 14:25', channelId: 'ALL_WAREHOUSES', senderUsername: 'wh03', senderFullName: 'បុគ្គលិក 3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)', senderRole: 'Stock Keeper', senderWarehouse: '3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)', senderAvatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=wh03', messageText: 'ខាង 3-K43 ស្ថានីយ នៅសល់ច្រើន អាចធ្វើការស្នើសុំ Transfer បានបង!', itemReference: null }
+        { msgId: 'MSG-001', timestamp: '2026-08-21 14:10', channelId: 'ALL_WAREHOUSES', senderUsername: 'admin', senderFullName: '聂稳新 (Admin)', senderRole: 'Admin', senderWarehouse: 'ALL', senderAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', messageText: 'សួស្តីបុគ្គលិកគ្រប់ស្ថានីយទាំងអស់! សូមជួយត្រួតពិនិត្យស្តុកទំនិញចុងសប្តាហ៍នេះផង 🙏', itemReference: null },
+        { msgId: 'MSG-002', timestamp: '2026-08-21 14:15', channelId: 'ALL_WAREHOUSES', senderUsername: 'sdfsdf', senderFullName: 'ចាន់ ដារា', senderRole: 'អ្នកកាន់ស្តុក', senderWarehouse: '1-K3 ស្ថានីយ (ភ្នំពេញ)', senderAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150', messageText: '1-K3 ស្ថានីយ បានរាប់ស្តុក និងកត់ត្រារួចរាល់ហើយបង 👍', itemReference: null },
+        { msgId: 'MSG-003', timestamp: '2026-08-21 14:22', channelId: 'ALL_WAREHOUSES', senderUsername: 'singvan327@gmail.com', senderFullName: 'វិន វ៉ាន់ស៊ិញ', senderRole: 'អ្នកគ្រប់គ្រងស្ថានីយ', senderWarehouse: '1-K3 ស្ថានីយ (ភ្នំពេញ)', senderAvatar: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150', messageText: 'តើមានស្ថានីយណាមានសល់ស្តុក Nescafe 3in1 ទេ? ខាងខ្ញុំជិតដាច់ស្តុកហើយ', itemReference: { sku: 'SKU-003', name: 'Nescafe 3in1 Coffee', qty: 50 } },
+        { msgId: 'MSG-004', timestamp: '2026-08-21 14:25', channelId: 'ALL_WAREHOUSES', senderUsername: 'chandy', senderFullName: 'ចាន់ ឌី', senderRole: 'ប្រធានក្រុម', senderWarehouse: '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)', senderAvatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150', messageText: 'ខាង 2-K26 ស្ថានីយ នៅសល់ច្រើន អាចធ្វើការស្នើសុំ Transfer បានបង!', itemReference: null }
       ]
     };
 
@@ -6615,7 +6617,7 @@
           };
         }
 
-        // Match warehouse users (wh01 to wh11)
+        // Match registered users (Image 2)
         const matched = LOCAL_DB.users.find(usr => usr.username.toLowerCase() === username);
         if (matched) {
           if (matched.status === 'Pending' || matched.status === 'Pending_Admin') {
@@ -17439,27 +17441,10 @@
         if (curVal && currentList.includes(curVal)) reqWh.value = curVal;
       }
 
-      // 9. Team Chat Direct Warehouse Channels List
+      // 9. Team Chat Direct Station Users Contacts List
       const chatContainer = document.getElementById('whListContainer');
-      if (chatContainer) {
-        chatContainer.innerHTML = currentList.map((wh, idx) => {
-          const numStr = String(idx + 1).padStart(2, '0');
-          const cleanName = wh.replace(/^ស្ថានីយ\s*-\s*\d+\s*/, '').replace(/^ឃ្លាំងទី\s*\d+\s*-\s*/, '');
-          return `
-            <div onclick="switchChatChannel('${wh}', '${wh}', 'ទំនាក់ទំនងផ្ទាល់ជាមួយ ${wh}', 'https://api.dicebear.com/7.x/bottts/svg?seed=wh${numStr}')"
-              id="channel-${wh}"
-              class="chat-channel-item flex items-center space-x-3 p-2.5 rounded-2xl cursor-pointer hover:bg-slate-100 transition duration-150 group">
-              <div class="relative flex-shrink-0">
-                <img src="https://api.dicebear.com/7.x/bottts/svg?seed=wh${numStr}" class="w-9 h-9 rounded-xl object-cover border border-slate-200 shadow-sm bg-white">
-                <span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full"></span>
-              </div>
-              <div class="flex-1 min-w-0">
-                <p class="text-xs font-bold text-slate-800 truncate">${wh}</p>
-                <p class="text-[11px] text-slate-400 font-normal truncate">${cleanName}</p>
-              </div>
-            </div>
-          `;
-        }).join('');
+      if (chatContainer && typeof renderDirectWarehouseContacts === 'function') {
+        renderDirectWarehouseContacts();
       }
     }
 
@@ -18356,7 +18341,12 @@
         let isDirectOnline = true;
         if (currentChatChannel === 'ADMIN_DIRECT') isDirectOnline = isUserOnline('admin');
         else if (currentChatChannel === 'SUPERADMIN_DIRECT') isDirectOnline = isUserOnline('superadmin');
-        else if (currentChatChannel.startsWith('WH_')) {
+        else if (currentChatChannel.startsWith('DIRECT_')) {
+          const parts = currentChatChannel.replace('DIRECT_', '').split('__');
+          const myUname = String(AppState.currentUser?.username || '').toLowerCase();
+          const otherUname = parts.find(p => p !== myUname) || parts[0];
+          isDirectOnline = isUserOnline(otherUname);
+        } else if (currentChatChannel.startsWith('WH_')) {
           const whIdx = parseInt(currentChatChannel.replace('WH_', '').replace('_DIRECT', ''), 10) - 1;
           const whName = WAREHOUSES_LIST[whIdx];
           isDirectOnline = isWarehouseOnline(whName);
@@ -18431,15 +18421,12 @@
           directTargetTitle = `👑 SuperAdmin (${u.fullName || u.username})`;
           directTargetSubtitle = `ជជែកផ្ទាល់ជាមួយ SuperAdmin (@${u.username})`;
           directTargetAvatar = 'assets/superadmin_avatar.jpg';
-        } else if (u.warehouse) {
-          const whIdx = WAREHOUSES_LIST.findIndex(w => w === u.warehouse);
-          if (whIdx !== -1) {
-            const num = String(whIdx + 1).padStart(2, '0');
-            directTargetChannel = `WH_${num}_DIRECT`;
-            directTargetTitle = `📍 ${u.warehouse}`;
-            directTargetSubtitle = `ជជែកផ្ទាល់រវាងឃ្លាំង (${u.warehouse.split(' - ')[1] || u.warehouse})`;
-            directTargetAvatar = `https://api.dicebear.com/7.x/bottts/svg?seed=wh${num}`;
-          }
+        } else {
+          const myUname = String(AppState.currentUser?.username || '').toLowerCase();
+          directTargetChannel = getDirectChannelId(myUname, u.username);
+          directTargetTitle = `💬 ${u.fullName || u.username}`;
+          directTargetSubtitle = `${u.role || 'បុគ្គលិក'} • ${u.warehouse || ''}`;
+          directTargetAvatar = avatar;
         }
 
         return `
@@ -18938,40 +18925,83 @@
       container.innerHTML = html;
     }
 
+    function getDirectChannelId(u1, u2) {
+      const p1 = String(u1 || '').trim().toLowerCase();
+      const p2 = String(u2 || '').trim().toLowerCase();
+      if (!p1 || !p2) return 'ALL_WAREHOUSES';
+      const sorted = [p1, p2].sort();
+      return `DIRECT_${sorted[0]}__${sorted[1]}`;
+    }
+
     function renderDirectWarehouseContacts() {
       const container = document.getElementById('whListContainer') || document.getElementById('directWarehouseChannelsContainer');
       if (!container) return;
 
-      const myWh = AppState.currentUser?.warehouse;
+      const myUser = AppState.currentUser || {};
+      const myUsername = String(myUser.username || '').toLowerCase();
+      const allUsers = (AppState.users && AppState.users.length ? AppState.users : (LOCAL_DB.users || []))
+        .filter(u => u && !isUnregisteredDummyUser(u) && u.status !== 'Deleted' && u.status !== 'deleted');
 
-      container.innerHTML = WAREHOUSES_LIST.map((wh, idx) => {
-        const num = String(idx + 1).padStart(2, '0');
-        const channelId = `WH_${num}_DIRECT`;
-        const avatar = `https://api.dicebear.com/7.x/bottts/svg?seed=wh${num}`;
-        const isMyWh = (myWh === wh);
-        const isWhActive = isWarehouseOnline(wh);
+      // Filter to station users / direct staff (exclude SuperAdmin since SuperAdmin is already in management contacts)
+      const stationStaff = allUsers.filter(u => {
+        const role = String(u.role || '');
+        const uname = String(u.username || '').toLowerCase();
+        return role !== 'SuperAdmin' && uname !== 'superadmin';
+      });
+
+      if (!stationStaff.length) {
+        container.innerHTML = `<div class="p-3 text-center text-xs text-slate-400">មិនមានគណនីបុគ្គលិកទេ</div>`;
+        return;
+      }
+
+      container.innerHTML = stationStaff.map((u) => {
+        const uname = String(u.username || '').toLowerCase();
+        const isMe = (uname === myUsername);
+        const isOnline = isUserOnline(uname);
+        const channelId = isMe ? `DIRECT_${uname}__notes` : getDirectChannelId(myUsername, uname);
+        const avatar = u.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(u.username)}`;
+        const roleName = u.role || 'បុគ្គលិក';
+        const whName = u.warehouse || '1-K3 ស្ថានីយ (ភ្នំពេញ)';
+        const cleanWh = whName.replace(/^ស្ថានីយ\s*-\s*\d+\s*/, '').replace(/^ឃ្លាំងទី\s*\d+\s*-\s*/, '');
+
+        let roleBadgeClass = 'bg-slate-100 text-slate-700 border-slate-200';
+        if (roleName === 'Admin') {
+          roleBadgeClass = 'bg-blue-100 text-blue-700 border-blue-200';
+        } else if (roleName === 'អ្នកគ្រប់គ្រងស្ថានីយ' || roleName === 'អ្នកគ្រប់គ្រង') {
+          roleBadgeClass = 'bg-indigo-100 text-indigo-700 border-indigo-200';
+        } else if (roleName === 'ប្រធានក្រុម') {
+          roleBadgeClass = 'bg-emerald-100 text-emerald-700 border-emerald-200';
+        } else if (roleName === 'អ្នកកាន់ស្តុក') {
+          roleBadgeClass = 'bg-amber-100 text-amber-800 border-amber-200';
+        }
+
+        const chatTitle = isMe ? `📝 កំណត់ត្រាផ្ទាល់ខ្លួន (${escapeHtml(u.fullName || u.username)})` : `💬 ${escapeHtml(u.fullName || u.username)}`;
+        const chatSubtitle = `${escapeHtml(roleName)} • ${escapeHtml(whName)}`;
 
         return `
-          <div onclick="switchChatChannel('${channelId}', '📍 ${wh}', 'ជជែកផ្ទាល់រវាងឃ្លាំង (${wh.split(' - ')[1] || wh})', '${avatar}')"
+          <div onclick="switchChatChannel('${channelId}', '${chatTitle}', '${chatSubtitle}', '${avatar}')"
             id="channel-${channelId}"
             class="chat-channel-item p-2.5 rounded-xl cursor-pointer transition-all flex items-center space-x-3 hover:bg-slate-50 border border-transparent ${currentChatChannel === channelId ? 'bg-violet-50/80 border-violet-200 text-violet-950 font-bold' : ''}">
             <div class="relative flex-shrink-0">
-              <img src="${avatar}" class="w-10 h-10 rounded-xl object-cover border border-slate-200 shadow-sm bg-slate-100">
-              <span class="status-dot absolute -bottom-0.5 -right-0.5 w-3 h-3 ${isWhActive ? 'bg-emerald-500' : 'bg-slate-300'} border-2 border-white rounded-full"></span>
+              <img src="${avatar}" onerror="this.src='https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(u.username)}'"
+                class="w-10 h-10 rounded-xl object-cover border border-slate-200 shadow-sm bg-slate-100">
+              <span class="status-dot absolute -bottom-0.5 -right-0.5 w-3 h-3 ${isOnline ? 'bg-emerald-500' : 'bg-slate-300'} border-2 border-white rounded-full"></span>
             </div>
             <div class="flex-1 min-w-0">
               <div class="flex items-center justify-between">
-                <p class="font-bold text-slate-800 truncate text-xs">ឃ្លាំងទី ${num} ${isMyWh ? '<span class="text-[10px] text-blue-600 font-semibold">(ខ្ញុំ)</span>' : ''}</p>
-                <div class="flex items-center space-x-1">
-                  <span class="text-[9px] ${isWhActive ? 'text-emerald-600 font-bold' : 'text-slate-400'} font-mono">${isWhActive ? '● Online' : 'WH-' + num}</span>
-                </div>
+                <p class="font-bold text-slate-800 truncate text-xs">${escapeHtml(u.fullName || u.username)} ${isMe ? '<span class="text-[10px] text-blue-600 font-semibold">(ខ្ញុំ)</span>' : ''}</p>
+                <span class="px-1.5 py-0.2 rounded text-[9px] font-bold border ${roleBadgeClass}">${escapeHtml(roleName)}</span>
               </div>
-              <p class="text-[11px] text-slate-400 font-normal truncate">${wh.split(' - ')[1] || wh}</p>
+              <div class="flex items-center justify-between text-[11px] text-slate-400 mt-0.5">
+                <span class="truncate flex items-center"><i class="fa-solid fa-location-dot text-rose-400 mr-1 text-[10px]"></i>${escapeHtml(cleanWh)}</span>
+                <span class="text-[9px] font-bold ${isOnline ? 'text-emerald-600' : 'text-slate-400'} ml-1 flex-shrink-0">• ${isOnline ? 'Online' : 'Offline'}</span>
+              </div>
             </div>
           </div>
         `;
       }).join('');
     }
+    const renderDirectUserContacts = renderDirectWarehouseContacts;
 
     function filterChatChannels() {
       const q = (document.getElementById('chatSearchInput')?.value || '').toLowerCase().trim();
@@ -18993,7 +19023,12 @@
       let isOnline = true;
       if (channelId === 'ADMIN_DIRECT') isOnline = isUserOnline('admin');
       else if (channelId === 'SUPERADMIN_DIRECT') isOnline = isUserOnline('superadmin');
-      else if (channelId.startsWith('WH_')) {
+      else if (channelId.startsWith('DIRECT_')) {
+        const parts = channelId.replace('DIRECT_', '').split('__');
+        const myUname = String(AppState.currentUser?.username || '').toLowerCase();
+        const otherUname = parts.find(p => p !== myUname) || parts[0];
+        isOnline = isUserOnline(otherUname);
+      } else if (channelId.startsWith('WH_')) {
         const whIdx = parseInt(channelId.replace('WH_', '').replace('_DIRECT', ''), 10) - 1;
         const whName = WAREHOUSES_LIST[whIdx];
         isOnline = isWarehouseOnline(whName);
@@ -19599,16 +19634,24 @@
     function showDemoCredentials() {
       if (typeof Swal !== 'undefined') {
         Swal.fire({
-          title: '🔑 គណនីគំរូសម្រាប់ Login',
+          title: '🔑 គណនីជាក់ស្តែងក្នុងប្រព័ន្ធ (Users)',
           html: `
             <div class="text-left text-xs space-y-2.5 p-2 bg-slate-50 rounded-xl border border-slate-200">
               <div class="p-2 bg-blue-50 rounded-lg border border-blue-200">
-                <p class="font-bold text-blue-800">👑 Admin (គ្រប់គ្រងគ្រប់ឃ្លាំង):</p>
+                <p class="font-bold text-blue-800">👑 Admin (គ្រប់ស្ថានីយទាំងអស់):</p>
                 <p class="font-mono text-slate-700">Username: <b class="text-blue-600">admin</b> | Password: <b class="text-blue-600">admin123</b></p>
               </div>
+              <div class="p-2 bg-amber-50 rounded-lg border border-amber-200">
+                <p class="font-bold text-amber-800">📦 អ្នកកាន់ស្តុក (1-K3 ភ្នំពេញ - ចាន់ ដារា):</p>
+                <p class="font-mono text-slate-700">Username: <b class="text-amber-700">sdfsdf</b> | Password: <b class="text-amber-700">123456</b></p>
+              </div>
+              <div class="p-2 bg-indigo-50 rounded-lg border border-indigo-200">
+                <p class="font-bold text-indigo-800">🏢 អ្នកគ្រប់គ្រងស្ថានីយ (1-K3 ភ្នំពេញ - វិន វ៉ាន់ស៊ិញ):</p>
+                <p class="font-mono text-slate-700">Username: <b class="text-indigo-700">singvan327@gmail.com</b> | Password: <b class="text-indigo-700">123456</b></p>
+              </div>
               <div class="p-2 bg-emerald-50 rounded-lg border border-emerald-200">
-                <p class="font-bold text-emerald-800">🏢 បុគ្គលិកតាមឃ្លាំង (wh01 ដល់ wh08):</p>
-                <p class="font-mono text-slate-700">Username: <b class="text-emerald-600">wh01</b> (ឬ wh02, wh05...) | Password: <b class="text-emerald-600">123456</b></p>
+                <p class="font-bold text-emerald-800">👤 ប្រធានក្រុម (2-K26 កំពង់ស្ពឺ កើត - ចាន់ ឌី):</p>
+                <p class="font-mono text-slate-700">Username: <b class="text-emerald-700">chandy</b> | Password: <b class="text-emerald-700">123456</b></p>
               </div>
             </div>
           `,
