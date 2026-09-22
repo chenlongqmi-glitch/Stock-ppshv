@@ -13972,7 +13972,7 @@
         const isUserAdmin = (u.role === 'Admin');
         const isSelf = (actor?.userId === u.userId || actor?.username === u.username);
 
-        // 1. Role Badge
+        // 1. Role Badge & Quick Instant Role Selector
         let roleBadgeHtml = '';
         if (isUserSuperAdmin) {
           roleBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-black text-[10px] bg-gradient-to-r from-amber-400 to-amber-600 text-slate-950 border border-amber-300 shadow-sm">👑 SuperAdmin</span>`;
@@ -13984,6 +13984,44 @@
           roleBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-emerald-100 text-emerald-700 border border-emerald-200">👤 ${u.role === 'ប្រធាន' ? 'ប្រធានក្រុម' : u.role}</span>`;
         } else {
           roleBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-blue-100 text-blue-700 border border-blue-200">📦 ${u.role || 'Stock Keeper'}</span>`;
+        }
+
+        const canChangeRole = !isSelf && (
+          isActorSuperAdmin ||
+          (isActorAdmin && !isUserSuperAdmin && !isUserAdmin) ||
+          (isActorStationManager && (u.role === 'ប្រធានក្រុម' || u.role === 'អ្នកកាន់ស្តុក' || !u.role))
+        );
+
+        let roleSelectorHtml = '';
+        if (canChangeRole) {
+          let opts = '';
+          if (isActorSuperAdmin) {
+            opts += `
+              <option value="SuperAdmin" ${u.role === 'SuperAdmin' ? 'selected' : ''}>👑 SuperAdmin</option>
+              <option value="Admin" ${u.role === 'Admin' ? 'selected' : ''}>🛡️ Admin</option>
+              <option value="អ្នកគ្រប់គ្រងស្ថានីយ" ${(u.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || u.role === 'អ្នកគ្រប់គ្រង') ? 'selected' : ''}>🏢 អ្នកគ្រប់គ្រងស្ថានីយ</option>
+              <option value="ប្រធានក្រុម" ${(u.role === 'ប្រធានក្រុម' || u.role === 'ប្រធាន' || u.role === 'Team Leader') ? 'selected' : ''}>👤 ប្រធានក្រុម</option>
+              <option value="អ្នកកាន់ស្តុក" ${(u.role === 'អ្នកកាន់ស្តុក' || u.role === 'Stock Keeper' || !u.role) ? 'selected' : ''}>📦 អ្នកកាន់ស្តុក</option>
+            `;
+          } else if (isActorAdmin) {
+            opts += `
+              <option value="អ្នកគ្រប់គ្រងស្ថានីយ" ${(u.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || u.role === 'អ្នកគ្រប់គ្រង') ? 'selected' : ''}>🏢 អ្នកគ្រប់គ្រងស្ថានីយ</option>
+              <option value="ប្រធានក្រុម" ${(u.role === 'ប្រធានក្រុម' || u.role === 'ប្រធាន' || u.role === 'Team Leader') ? 'selected' : ''}>👤 ប្រធានក្រុម</option>
+              <option value="អ្នកកាន់ស្តុក" ${(u.role === 'អ្នកកាន់ស្តុក' || u.role === 'Stock Keeper' || !u.role) ? 'selected' : ''}>📦 អ្នកកាន់ស្តុក</option>
+            `;
+          } else if (isActorStationManager) {
+            opts += `
+              <option value="ប្រធានក្រុម" ${(u.role === 'ប្រធានក្រុម' || u.role === 'ប្រធាន' || u.role === 'Team Leader') ? 'selected' : ''}>👤 ប្រធានក្រុម</option>
+              <option value="អ្នកកាន់ស្តុក" ${(u.role === 'អ្នកកាន់ស្តុក' || u.role === 'Stock Keeper' || !u.role) ? 'selected' : ''}>📦 អ្នកកាន់ស្តុក</option>
+            `;
+          }
+          roleSelectorHtml = `
+            <select onchange="handleDirectUserRoleChange('${u.userId || u.username}', this.value)"
+              class="text-[10.5px] font-bold py-0.5 px-1.5 bg-slate-50 hover:bg-white border border-slate-200 hover:border-indigo-400 rounded-lg shadow-2xs outline-none cursor-pointer text-slate-700 transition"
+              title="ប្តូរតួនាទីភ្លាមៗ">
+              ${opts}
+            </select>
+          `;
         }
 
         // 2. Status Badge
@@ -14252,7 +14290,10 @@
             </td>
             <td class="px-4 py-3 whitespace-nowrap">
               <div class="flex flex-col space-y-1">
-                <div>${roleBadgeHtml}</div>
+                <div class="flex items-center space-x-1.5 flex-wrap gap-1">
+                  ${roleBadgeHtml}
+                  ${roleSelectorHtml}
+                </div>
                 ${u.phone ? `<div class="text-[11px] text-slate-600 font-mono flex items-center"><i class="fa-solid fa-phone text-[9px] mr-1.5 text-slate-400"></i>${escapeHtml(u.phone)}</div>` : '<div class="text-[10px] text-slate-300 italic">គ្មានលេខទូរស័ព្ទ</div>'}
               </div>
             </td>
@@ -14281,6 +14322,7 @@
                   </div>
                   <div class="flex items-center gap-1.5 mt-1 flex-wrap">
                     ${roleBadgeHtml}
+                    ${roleSelectorHtml}
                     ${u.email ? `<span class="text-[10.5px] text-slate-400 truncate max-w-[150px]">${escapeHtml(u.email)}</span>` : ''}
                   </div>
                 </div>
@@ -15715,101 +15757,59 @@
         const finalPhone = (formValues.phone !== undefined && formValues.phone !== '') ? formValues.phone : (u.phone || '');
         const finalEmail = (formValues.email !== undefined && formValues.email !== '') ? formValues.email : (u.email || '');
 
-        // 1. Immediately update and persist in LOCAL_DB so user changes never disappear
+        // 1. Instant optimistic update across all components and tabs (0ms latency, zero refresh required)
+        applyUserRoleChangeInstantly(u.userId, formValues.role, formValues.warehouse, formValues.status, formValues.fullName);
+
+        // Update password, phone, email in LOCAL_DB
         const dbIdx = LOCAL_DB.users.findIndex(x => (x.userId && x.userId === u.userId) || (x.username && x.username === u.username));
         if (dbIdx !== -1) {
-          LOCAL_DB.users[dbIdx] = {
-            ...LOCAL_DB.users[dbIdx],
-            fullName: formValues.fullName,
-            email: finalEmail,
-            phone: finalPhone,
-            password: finalPwd,
-            role: formValues.role,
-            warehouse: formValues.warehouse,
-            status: formValues.status
-          };
-        } else {
-          LOCAL_DB.users.push({
-            ...u,
-            fullName: formValues.fullName,
-            email: finalEmail,
-            phone: finalPhone,
-            password: finalPwd,
-            role: formValues.role,
-            warehouse: formValues.warehouse,
-            status: formValues.status
-          });
-        }
-        saveLocalUsersToStorage();
-
-        // Immediately update and reflect in active session if this user is currently active (or impersonated)
-        const isSelfOrCurrentSession = AppState.currentUser && (
-          (AppState.currentUser.userId && (AppState.currentUser.userId === u.userId || AppState.currentUser.userId === u.username)) ||
-          (AppState.currentUser.username && (String(AppState.currentUser.username).toLowerCase() === String(u.username).toLowerCase() || String(AppState.currentUser.username).toLowerCase() === String(u.userId).toLowerCase()))
-        );
-
-        if (isSelfOrCurrentSession) {
-          AppState.currentUser.role = formValues.role;
-          AppState.currentUser.warehouse = formValues.warehouse;
-          AppState.currentUser.fullName = formValues.fullName;
-          AppState.currentUser.email = finalEmail;
-          AppState.currentUser.phone = finalPhone;
-          AppState.currentUser.status = formValues.status;
-          AppState.currentUser.password = finalPwd;
-          if (sessionStorage.getItem('inventory_user')) {
-            sessionStorage.setItem('inventory_user', JSON.stringify(AppState.currentUser));
-          }
-          if (localStorage.getItem('inventory_user')) {
-            localStorage.setItem('inventory_user', JSON.stringify(AppState.currentUser));
-          }
-          showAppView();
-          navigateTab(AppState.currentTab);
+          LOCAL_DB.users[dbIdx].email = finalEmail;
+          LOCAL_DB.users[dbIdx].phone = finalPhone;
+          LOCAL_DB.users[dbIdx].password = finalPwd;
+          saveLocalUsersToStorage();
         }
 
-        // Broadcast real-time user role change event to all browser tabs
-        if (typeof broadcastUserRoleChangeEvent === 'function') {
-          broadcastUserRoleChangeEvent({
-            userId: u.userId,
-            username: u.username,
-            role: formValues.role,
-            warehouse: formValues.warehouse,
-            status: formValues.status,
-            fullName: formValues.fullName
-          });
-        }
-
-        // 2. Call backend APIs (both updateUserStatus and updateUserProfile for compatibility)
-        const updateRes = await apiCall('updateUserStatus', {
-          userId: u.userId,
-          username: u.username,
-          fullName: formValues.fullName,
-          email: finalEmail,
-          phone: finalPhone,
-          password: finalPwd,
-          newPassword: finalPwd,
-          role: formValues.role,
-          warehouse: formValues.warehouse,
-          status: formValues.status,
-          adminUser: AppState.currentUser?.username
+        // Show instant success feedback
+        const Toast = Swal.mixin({
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 2500,
+          timerProgressBar: true
+        });
+        Toast.fire({
+          icon: 'success',
+          title: `បានធ្វើបច្ចុប្បន្នភាព ${formValues.fullName || u.username} ជោគជ័យភ្លាមៗ! ⚡`
         });
 
-        try {
-          await apiCall('updateUserProfile', {
-            userId: u.userId,
-            username: u.username,
-            fullName: formValues.fullName,
-            email: finalEmail,
-            phone: finalPhone,
-            newPassword: finalPwd
-          });
-        } catch (pErr) {}
-
-        if (updateRes && updateRes.success) {
-          Swal.fire('ជោគជ័យ', 'បានធ្វើបច្ចុប្បន្នភាពគណនីជោគជ័យ!', 'success');
-        } else {
-          Swal.fire('ជោគជ័យ', 'បានធ្វើបច្ចុប្បន្នភាពគណនីជោគជ័យ!', 'success');
-        }
-        loadUsersList();
+        // 2. Background API call without blocking UI or requiring user refresh
+        (async () => {
+          try {
+            await apiCall('updateUserStatus', {
+              userId: u.userId,
+              username: u.username,
+              fullName: formValues.fullName,
+              email: finalEmail,
+              phone: finalPhone,
+              password: finalPwd,
+              newPassword: finalPwd,
+              role: formValues.role,
+              warehouse: formValues.warehouse,
+              status: formValues.status,
+              adminUser: AppState.currentUser?.username
+            });
+            await apiCall('updateUserProfile', {
+              userId: u.userId,
+              username: u.username,
+              fullName: formValues.fullName,
+              email: finalEmail,
+              phone: finalPhone,
+              newPassword: finalPwd
+            }).catch(() => {});
+          } catch (err) {
+            console.warn('Background update user error:', err);
+          }
+        })();
       }
     }
 
@@ -17703,16 +17703,241 @@
     // ==========================================
     // REAL-TIME USER ROLE & STATUS AUTO-SYNC ENGINE
     // ==========================================
+    // REAL-TIME USER ROLE SYNCHRONIZATION ENGINE
+    // ==========================================
     let isRoleChecking = false;
     let autoRoleSyncInterval = null;
 
+    const roleSyncBroadcastChannel = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('stock_role_sync_channel') : null;
+
+    if (roleSyncBroadcastChannel) {
+      roleSyncBroadcastChannel.onmessage = (event) => {
+        if (event && event.data && event.data.type === 'USER_ROLE_CHANGED') {
+          handleIncomingRoleSync(event.data);
+        }
+      };
+    }
+
     function broadcastUserRoleChangeEvent(changeData) {
       try {
-        localStorage.setItem('inventory_user_role_changed', JSON.stringify({
+        const payload = {
+          type: 'USER_ROLE_CHANGED',
           ...changeData,
           timestamp: Date.now()
-        }));
+        };
+        if (roleSyncBroadcastChannel) {
+          roleSyncBroadcastChannel.postMessage(payload);
+        }
+        localStorage.setItem('inventory_user_role_changed', JSON.stringify(payload));
       } catch (e) {}
+    }
+
+    function handleIncomingRoleSync(changeData) {
+      if (!changeData) return;
+      loadLocalUsersFromStorage();
+
+      const targetId = changeData.userId || changeData.username;
+      if (targetId) {
+        const uIdx = (LOCAL_DB.users || []).findIndex(x => 
+          (x.userId && x.userId === targetId) || 
+          (x.username && String(x.username).toLowerCase() === String(targetId).toLowerCase())
+        );
+        if (uIdx !== -1) {
+          if (changeData.role) LOCAL_DB.users[uIdx].role = changeData.role;
+          if (changeData.warehouse) LOCAL_DB.users[uIdx].warehouse = changeData.warehouse;
+          if (changeData.status) LOCAL_DB.users[uIdx].status = changeData.status;
+          if (changeData.fullName) LOCAL_DB.users[uIdx].fullName = changeData.fullName;
+          saveLocalUsersToStorage();
+        }
+      }
+
+      // 1. Check if current active session is affected
+      applyLocalRoleSyncIfChanged();
+
+      // 2. Re-render Users Table immediately if on users tab
+      if (AppState.currentTab === 'users') {
+        const curList = window._allRenderableUsers || LOCAL_DB.users;
+        if (targetId && Array.isArray(curList)) {
+          curList.forEach(u => {
+            if ((u.userId && u.userId === targetId) || (u.username && String(u.username).toLowerCase() === String(targetId).toLowerCase())) {
+              if (changeData.role) u.role = changeData.role;
+              if (changeData.warehouse) u.warehouse = changeData.warehouse;
+              if (changeData.status) u.status = changeData.status;
+              if (changeData.fullName) u.fullName = changeData.fullName;
+            }
+          });
+          renderUsersList(curList);
+        } else if (typeof loadUsersList === 'function') {
+          loadUsersList();
+        }
+      }
+
+      // 3. Re-render Live Chat Contacts immediately
+      if (typeof renderDirectUserContacts === 'function') {
+        renderDirectUserContacts();
+      }
+
+      // 4. Re-render Switch User Modal immediately
+      if (typeof renderSwitchUserList === 'function') {
+        renderSwitchUserList();
+      }
+
+      // 5. Re-render Online Users Modal immediately
+      if (typeof renderOnlineUsersModalList === 'function') {
+        renderOnlineUsersModalList();
+      }
+    }
+
+    function applyUserRoleChangeInstantly(targetUserIdOrUsername, newRole, newWh, newStatus, newFullName) {
+      if (!targetUserIdOrUsername || !newRole) return;
+      loadLocalUsersFromStorage();
+
+      let target = (LOCAL_DB.users || []).find(x => 
+        (x.userId && x.userId === targetUserIdOrUsername) || 
+        (x.username && String(x.username).toLowerCase() === String(targetUserIdOrUsername).toLowerCase())
+      );
+
+      if (target) {
+        target.role = newRole;
+        if (newWh !== undefined && newWh !== '') target.warehouse = newWh;
+        if (newStatus !== undefined && newStatus !== '') target.status = newStatus;
+        if (newFullName !== undefined && newFullName !== '') target.fullName = newFullName;
+      } else {
+        target = {
+          userId: targetUserIdOrUsername,
+          username: targetUserIdOrUsername,
+          role: newRole,
+          warehouse: newWh || 'ALL',
+          status: newStatus || 'Active',
+          fullName: newFullName || targetUserIdOrUsername
+        };
+        LOCAL_DB.users.push(target);
+      }
+      saveLocalUsersToStorage();
+
+      // Check if current user is affected
+      const myId = AppState.currentUser?.userId;
+      const myUsername = String(AppState.currentUser?.username || '').toLowerCase();
+      const isSelf = (myId && (myId === target.userId || myId === target.username)) ||
+        (myUsername && (myUsername === String(target.username).toLowerCase() || myUsername === String(target.userId).toLowerCase()));
+
+      if (isSelf) {
+        AppState.currentUser.role = newRole;
+        if (newWh !== undefined && newWh !== '') AppState.currentUser.warehouse = newWh;
+        if (newStatus !== undefined && newStatus !== '') AppState.currentUser.status = newStatus;
+        if (newFullName !== undefined && newFullName !== '') AppState.currentUser.fullName = newFullName;
+
+        if (sessionStorage.getItem('inventory_user')) {
+          sessionStorage.setItem('inventory_user', JSON.stringify(AppState.currentUser));
+        }
+        if (localStorage.getItem('inventory_user')) {
+          localStorage.setItem('inventory_user', JSON.stringify(AppState.currentUser));
+        }
+
+        showAppView();
+        navigateTab(AppState.currentTab);
+      }
+
+      // Re-render Users Table immediately
+      if (Array.isArray(window._allRenderableUsers)) {
+        window._allRenderableUsers.forEach(u => {
+          if ((u.userId && u.userId === target.userId) || (u.username && String(u.username).toLowerCase() === String(target.username).toLowerCase())) {
+            u.role = newRole;
+            if (newWh !== undefined && newWh !== '') u.warehouse = newWh;
+            if (newStatus !== undefined && newStatus !== '') u.status = newStatus;
+            if (newFullName !== undefined && newFullName !== '') u.fullName = newFullName;
+          }
+        });
+        renderUsersList(window._allRenderableUsers);
+      } else if (typeof loadUsersList === 'function') {
+        loadUsersList();
+      }
+
+      // Re-render Live Chat Contacts immediately
+      if (typeof renderDirectUserContacts === 'function') {
+        renderDirectUserContacts();
+      }
+
+      // Re-render Switch User Modal immediately
+      if (typeof renderSwitchUserList === 'function') {
+        renderSwitchUserList();
+      }
+
+      // Broadcast to all other tabs immediately
+      broadcastUserRoleChangeEvent({
+        userId: target.userId,
+        username: target.username,
+        role: newRole,
+        warehouse: target.warehouse,
+        status: target.status,
+        fullName: target.fullName
+      });
+    }
+
+    async function handleDirectUserRoleChange(userId, newRole) {
+      if (!userId || !newRole) return;
+      loadLocalUsersFromStorage();
+      const u = (LOCAL_DB.users || []).find(x => (x.userId && x.userId === userId) || (x.username && x.username === userId));
+      if (!u) return;
+
+      const oldRole = u.role || 'Staff';
+      if (oldRole === newRole) return;
+
+      const actor = AppState.currentUser;
+      const isActorSuperAdmin = (actor?.role === 'SuperAdmin') || (String(actor?.username).toLowerCase() === 'superadmin');
+      const isActorAdmin = !isActorSuperAdmin && (actor?.role === 'Admin' || String(actor?.username).toLowerCase() === 'admin');
+      const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (actor?.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || actor?.role === 'អ្នកគ្រប់គ្រង');
+
+      if (u.role === 'SuperAdmin' && !isActorSuperAdmin) {
+        Swal.fire('គ្មានសិទ្ធិ', 'មានតែ SuperAdmin ប៉ុណ្ណោះដែលអាចកែប្រែគណនី SuperAdmin បាន!', 'warning');
+        if (typeof loadUsersList === 'function') loadUsersList();
+        return;
+      }
+      if (newRole === 'SuperAdmin' && !isActorSuperAdmin) {
+        Swal.fire('គ្មានសិទ្ធិ', 'មានតែ SuperAdmin ប៉ុណ្ណោះដែលអាចកំណត់តួនាទីជា SuperAdmin បាន!', 'warning');
+        if (typeof loadUsersList === 'function') loadUsersList();
+        return;
+      }
+      if (newRole === 'Admin' && !isActorSuperAdmin) {
+        Swal.fire('គ្មានសិទ្ធិ', 'មានតែ SuperAdmin ប៉ុណ្ណោះដែលអាចកំណត់សិទ្ធិជា Admin បាន!', 'warning');
+        if (typeof loadUsersList === 'function') loadUsersList();
+        return;
+      }
+      if (isActorStationManager && newRole !== 'ប្រធានក្រុម' && newRole !== 'អ្នកកាន់ស្តុក') {
+        Swal.fire('គ្មានសិទ្ធិ', 'អ្នកគ្រប់គ្រងស្ថានីយអាចកំណត់បានតែជា ប្រធានក្រុម ឬ អ្នកកាន់ស្តុក ប៉ុណ្ណោះ!', 'warning');
+        if (typeof loadUsersList === 'function') loadUsersList();
+        return;
+      }
+
+      // 1. Instant optimistic update across whole UI (0ms latency, zero refresh required)
+      applyUserRoleChangeInstantly(u.userId, newRole, u.warehouse, u.status, u.fullName);
+
+      // 2. Toast notification
+      const Toast = Swal.mixin({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true
+      });
+      Toast.fire({
+        icon: 'success',
+        title: `បានប្តូរតួនាទី ${u.fullName || u.username} ទៅជា «${newRole}» ភ្លាមៗ! ⚡`
+      });
+
+      // 3. Background API sync
+      try {
+        await apiCall('updateUserStatus', {
+          userId: u.userId,
+          username: u.username,
+          role: newRole,
+          warehouse: u.warehouse,
+          status: u.status,
+          adminUser: AppState.currentUser?.username
+        });
+      } catch (e) {
+        console.warn('Background role sync error:', e);
+      }
     }
 
     function applyLocalRoleSyncIfChanged() {
@@ -17764,22 +17989,16 @@
           }
 
           if (roleChanged) {
-            Swal.fire({
+            const Toast = Swal.mixin({
+              toast: true,
+              position: 'top-end',
+              showConfirmButton: false,
+              timer: 4000,
+              timerProgressBar: true
+            });
+            Toast.fire({
               icon: 'info',
-              title: 'តួនាទីត្រូវបានផ្លាស់ប្តូរភ្លាមៗ! ⚡',
-              html: `
-                <div class="text-center p-2 text-xs">
-                  <p class="text-slate-600 mb-2">តួនាទីរបស់អ្នកត្រូវបានកែសម្រួលក្នុងប្រព័ន្ធដោយស្វ័យប្រវត្តិ៖</p>
-                  <div class="inline-flex items-center space-x-2 bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-xl font-bold text-indigo-700">
-                    <span>${oldRole || 'Staff'}</span>
-                    <i class="fa-solid fa-arrow-right text-[10px] text-indigo-400"></i>
-                    <span>${newRole}</span>
-                  </div>
-                </div>
-              `,
-              confirmButtonText: 'យល់ព្រម',
-              confirmButtonColor: '#4f46e5',
-              timer: 4500
+              title: `តួនាទីរបស់អ្នកត្រូវបានប្តូរទៅជា «${newRole}» ភ្លាមៗ! ⚡`
             });
           }
           return true;
@@ -17799,11 +18018,22 @@
         const uRes = await apiCall('getUsersList');
         if (uRes && uRes.success && Array.isArray(uRes.users)) {
           loadLocalUsersFromStorage();
+          let anyChanged = false;
+
           uRes.users.forEach(ru => {
             if (!ru || isUnregisteredDummyUser(ru)) return;
             const idx = LOCAL_DB.users.findIndex(lu => (ru.userId && lu.userId === ru.userId) || (ru.username && lu.username === ru.username));
             if (idx !== -1) {
               const existing = LOCAL_DB.users[idx];
+              const roleDiff = ru.role && ru.role !== existing.role;
+              const whDiff = ru.warehouse && ru.warehouse !== existing.warehouse;
+              const statusDiff = ru.status && ru.status !== existing.status;
+              const nameDiff = ru.fullName && ru.fullName !== existing.fullName;
+
+              if (roleDiff || whDiff || statusDiff || nameDiff) {
+                anyChanged = true;
+              }
+
               LOCAL_DB.users[idx] = {
                 ...existing,
                 ...ru,
@@ -17814,12 +18044,24 @@
               };
             } else {
               LOCAL_DB.users.push(ru);
+              anyChanged = true;
             }
           });
-          saveLocalUsersToStorage();
 
-          // Apply changes if any role/warehouse was updated on server
-          applyLocalRoleSyncIfChanged();
+          if (anyChanged) {
+            saveLocalUsersToStorage();
+            applyLocalRoleSyncIfChanged();
+
+            if (AppState.currentTab === 'users' && typeof filterUsersList === 'function') {
+              filterUsersList();
+            }
+            if (typeof renderDirectUserContacts === 'function') {
+              renderDirectUserContacts();
+            }
+            if (typeof renderSwitchUserList === 'function') {
+              renderSwitchUserList();
+            }
+          }
         }
       } catch (err) {
         // Silent background fallback
@@ -17829,7 +18071,7 @@
     }
 
     // ==========================================
-    // AUTOMATIC BACKGROUND DATA FETCH (រៀងរាល់ 25 វិនាទី)
+    // AUTOMATIC BACKGROUND DATA FETCH & REAL-TIME ENGINE
     // ==========================================
     let autoFetchInterval = null;
 
@@ -17837,21 +18079,22 @@
       if (autoFetchInterval) clearInterval(autoFetchInterval);
       if (autoRoleSyncInterval) clearInterval(autoRoleSyncInterval);
 
-      // Lightweight real-time role check (active tab only, 30s interval)
+      // Ultra-responsive real-time role check (active tab only, 4s interval)
       autoRoleSyncInterval = setInterval(() => {
         if (!AppState.currentUser || document.hidden) return;
         checkCurrentUserLiveRoleSync();
-      }, 30000);
+      }, 4000);
 
-      // Trigger silent background data fetch (active tab only, 50s interval)
+      // Trigger silent background data fetch (active tab only, 35s interval)
       autoFetchInterval = setInterval(() => {
         if (!AppState.currentUser || document.hidden) return;
         silentAutoRefresh();
-      }, 50000);
+      }, 35000);
 
       // Auto-revalidate instantly when user returns to the app tab
       document.addEventListener('visibilitychange', () => {
         if (!document.hidden && AppState.currentUser) {
+          checkCurrentUserLiveRoleSync();
           silentAutoRefresh();
         }
       });
@@ -20536,6 +20779,10 @@
     window.openSuperAdminDeletionReviewModal = openSuperAdminDeletionReviewModal;
     window.checkPendingDeletionsForSuperAdmin = checkPendingDeletionsForSuperAdmin;
     window.checkDeletionRepliesForAdmin = checkDeletionRepliesForAdmin;
+    window.handleDirectUserRoleChange = handleDirectUserRoleChange;
+    window.applyUserRoleChangeInstantly = applyUserRoleChangeInstantly;
+    window.handleIncomingRoleSync = handleIncomingRoleSync;
+    window.broadcastUserRoleChangeEvent = broadcastUserRoleChangeEvent;
 
     // Cross-Tab Real-time Alert Synchronization Listener
     window.addEventListener('storage', (e) => {
@@ -20555,9 +20802,19 @@
 
       // Real-time User Role & Status Cross-Tab Sync
       if (e.key === 'inventory_user_role_changed' || e.key === 'inventory_users_db') {
-        loadLocalUsersFromStorage();
-        if (AppState.currentUser) {
-          applyLocalRoleSyncIfChanged();
+        let changeData = null;
+        try {
+          if (e.key === 'inventory_user_role_changed' && e.newValue) {
+            changeData = JSON.parse(e.newValue);
+          }
+        } catch (err) {}
+        if (typeof handleIncomingRoleSync === 'function') {
+          handleIncomingRoleSync(changeData);
+        } else {
+          loadLocalUsersFromStorage();
+          if (AppState.currentUser) {
+            applyLocalRoleSyncIfChanged();
+          }
         }
       }
 
