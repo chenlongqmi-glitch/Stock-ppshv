@@ -1501,8 +1501,8 @@
                 </button>
 
                 <!-- 3. គ្រប់គ្រង User & សិទ្ធិ -->
-                <button type="button" onclick="handleTopMenuManageUsers()"
-                  class="w-full text-left p-2.5 rounded-xl hover:bg-emerald-50/80 text-slate-700 hover:text-emerald-900 transition flex items-center space-x-3 group border border-transparent hover:border-emerald-200">
+                <button type="button" id="topMenuManageUsersBtn" onclick="handleTopMenuManageUsers()"
+                  class="hidden w-full text-left p-2.5 rounded-xl hover:bg-emerald-50/80 text-slate-700 hover:text-emerald-900 transition flex items-center space-x-3 group border border-transparent hover:border-emerald-200">
                   <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-sm group-hover:scale-105 group-hover:bg-emerald-600 group-hover:text-white transition shadow-sm shrink-0">
                     <i class="fa-solid fa-users-gear"></i>
                   </div>
@@ -1519,8 +1519,8 @@
                 </button>
 
                 <!-- 4. ការកំណត់ & Telegram -->
-                <button type="button" onclick="handleTopMenuSettingsTelegram()"
-                  class="w-full text-left p-2.5 rounded-xl hover:bg-indigo-50/80 text-slate-700 hover:text-indigo-900 transition flex items-center space-x-3 group border border-transparent hover:border-indigo-200">
+                <button type="button" id="topMenuSettingsTelegramBtn" onclick="handleTopMenuSettingsTelegram()"
+                  class="hidden w-full text-left p-2.5 rounded-xl hover:bg-indigo-50/80 text-slate-700 hover:text-indigo-900 transition flex items-center space-x-3 group border border-transparent hover:border-indigo-200">
                   <div class="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center text-sm group-hover:scale-105 group-hover:bg-indigo-600 group-hover:text-white transition shadow-sm shrink-0">
                     <i class="fa-solid fa-gear"></i>
                   </div>
@@ -8796,6 +8796,33 @@
       }
     }
 
+    /* Strictly update visibility of Settings dropdown menu and SuperAdmin tools based on user roles */
+    function updateSettingsMenuPermissions() {
+      // 1. Update SuperAdmin exclusive controls
+      updateSuperAdminExclusiveUI();
+
+      const u = AppState.currentUser;
+      const isSuperAdmin = (u && (u.role === 'SuperAdmin' || String(u.username).toLowerCase() === 'superadmin'));
+      const isAdmin = !isSuperAdmin && (u && (u.role === 'Admin' || String(u.username).toLowerCase() === 'admin'));
+      const isStationManager = !isSuperAdmin && !isAdmin && (u && (u.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || u.role === 'អ្នកគ្រប់គ្រង' || String(u.role).toLowerCase() === 'station manager'));
+
+      // Stock Keeper (អ្នកកាន់ស្តុក) and Team Leader (ប្រធានក្រុម) or regular staff CANNOT access Manage Users
+      const canAccessUsers = isSuperAdmin || isAdmin || isStationManager;
+      const canAccessSettings = isSuperAdmin || isAdmin;
+
+      // 2. Settings Dropdown: Manage Users & Permissions item (Hidden for Stock Keeper & Team Leader)
+      const menuManageUsersBtn = document.getElementById('topMenuManageUsersBtn');
+      if (menuManageUsersBtn) {
+        menuManageUsersBtn.classList.toggle('hidden', !canAccessUsers);
+      }
+
+      // 3. Settings Dropdown: Settings & Telegram item (Hidden for non-Admins)
+      const menuSettingsTelegramBtn = document.getElementById('topMenuSettingsTelegramBtn');
+      if (menuSettingsTelegramBtn) {
+        menuSettingsTelegramBtn.classList.toggle('hidden', !canAccessSettings);
+      }
+    }
+
     function showAppView() {
       document.documentElement.classList.add('app-authenticated');
       document.getElementById('authSection').classList.add('hidden');
@@ -8915,8 +8942,8 @@
         if (btnReturnSuperAdmin) btnReturnSuperAdmin.classList.add('hidden');
       }
 
-      // Strictly synchronize SuperAdmin exclusive UI controls (SuperAdmin ONLY, hidden for all other users)
-      updateSuperAdminExclusiveUI();
+      // Strictly synchronize Settings dropdown permissions & SuperAdmin exclusive UI controls
+      updateSettingsMenuPermissions();
 
       // Update Session Login Time & Duration Timer
       initSessionDurationEngine();
@@ -17699,8 +17726,8 @@
           roleBadge.innerText = role;
         }
 
-        // Show/hide SuperAdmin exclusive options strictly for actual SuperAdmin
-        updateSuperAdminExclusiveUI();
+        // Strictly synchronize Settings dropdown permissions & SuperAdmin options
+        updateSettingsMenuPermissions();
 
         dropdown.classList.remove('hidden');
         if (icon) icon.classList.add('rotate-90', 'text-blue-600');
