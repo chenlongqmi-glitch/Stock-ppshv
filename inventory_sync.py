@@ -25,7 +25,7 @@ if sys.platform == "win32":
 
 
 # Default Web App Deployment URL (Paste your deployed Google Apps Script Web App URL here)
-WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzcqrb5Ue8JIEqDLeG2JxJZsjn7Eb1RebD93zzs0qMQHyVlS7Yjks8kOAhKTpKzIJB4/exec"
+WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxqw7NPsE8pWqeYPAwTqxFakzFD5lTzGR1N5mlL-n2oZMp4FeDpGENFnEAjf6gSddk/exec"
 
 # ANSI Colors for Terminal UI
 class Colors:

@@ -2139,7 +2139,7 @@ function registerUser(userData) {
 
   // Send Immediate Alert to Telegram Bot / Group for Admin & SuperAdmin with One-Click Approve & Reject buttons
   try {
-    let webAppUrl = 'https://script.google.com/macros/s/AKfycbzcqrb5Ue8JIEqDLeG2JxJZsjn7Eb1RebD93zzs0qMQHyVlS7Yjks8kOAhKTpKzIJB4/exec';
+    let webAppUrl = 'https://script.google.com/macros/s/AKfycbxqw7NPsE8pWqeYPAwTqxFakzFD5lTzGR1N5mlL-n2oZMp4FeDpGENFnEAjf6gSddk/exec';
     try {
       const liveUrl = ScriptApp.getService().getUrl();
       if (liveUrl && liveUrl.startsWith('https://script.google.com/')) {
@@ -2540,7 +2540,7 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
 
         try {
 
-          let webAppUrl = 'https://script.google.com/macros/s/AKfycbzcqrb5Ue8JIEqDLeG2JxJZsjn7Eb1RebD93zzs0qMQHyVlS7Yjks8kOAhKTpKzIJB4/exec';
+          let webAppUrl = 'https://script.google.com/macros/s/AKfycbxqw7NPsE8pWqeYPAwTqxFakzFD5lTzGR1N5mlL-n2oZMp4FeDpGENFnEAjf6gSddk/exec';
 
           try {
 
