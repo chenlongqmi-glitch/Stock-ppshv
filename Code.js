@@ -131,7 +131,12 @@ function doGet(e) {
 
   // 2. Default Web App GUI
   try {
-    const template = HtmlService.createTemplateFromFile('Index');
+    let template;
+    try {
+      template = HtmlService.createTemplateFromFile('Index');
+    } catch (e1) {
+      template = HtmlService.createTemplateFromFile('index');
+    }
     return template.evaluate()
       .setTitle('ប្រព័ន្ធគ្រប់គ្រងស្តុកទំនិញ | Smart Inventory')
       .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no')
