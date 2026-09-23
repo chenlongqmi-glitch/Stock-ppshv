@@ -7101,6 +7101,36 @@
         user.boundDevices = { desktop: null, mobile: null };
       }
 
+      const isSuperAdminAccount = (user.username && user.username.toLowerCase() === 'superadmin') || user.role === 'SuperAdmin';
+
+      if (!isSuperAdminAccount) {
+        if (devType === 'DESKTOP') {
+          if (user.boundDevices.desktop && user.boundDevices.desktop.deviceId && user.boundDevices.desktop.deviceId !== devId) {
+            return {
+              success: false,
+              deviceBlocked: true,
+              blockReason: 'DESKTOP_LIMIT_EXCEEDED',
+              boundDeviceName: user.boundDevices.desktop.deviceName || 'កុំព្យូទ័រដែលបានភ្ជាប់រួច',
+              boundAt: user.boundDevices.desktop.boundAt,
+              attemptedDeviceName: devName,
+              message: 'គណនីនេះត្រូវបានភ្ជាប់ជាមួយកុំព្យូទ័រផ្សេងរួចហើយ! គោលការណ៍សុវត្ថិភាពអនុញ្ញាតត្រឹមតែ ១ កុំព្យូទ័រ និង ១ ទូរសព្ទដៃប៉ុណ្ណោះ។ មិនអាចប្រើប្រាស់កុំព្យូទ័រ ២ ក្នុងពេលតែមួយបានទេ។ សូមចុច Log out (ចាកចេញ) ពីកុំព្យូទ័រចាស់ជាមុនសិន ឬទាក់ទង Admin/SuperAdmin ប្រសិនបើលោកអ្នកបានប្តូរកុំព្យូទ័រថ្មី។'
+            };
+          }
+        } else {
+          if (user.boundDevices.mobile && user.boundDevices.mobile.deviceId && user.boundDevices.mobile.deviceId !== devId) {
+            return {
+              success: false,
+              deviceBlocked: true,
+              blockReason: 'MOBILE_LIMIT_EXCEEDED',
+              boundDeviceName: user.boundDevices.mobile.deviceName || 'ទូរសព្ទដៃដែលបានភ្ជាប់រួច',
+              boundAt: user.boundDevices.mobile.boundAt,
+              attemptedDeviceName: devName,
+              message: 'គណនីនេះត្រូវបានភ្ជាប់ជាមួយទូរសព្ទដៃផ្សេងរួចហើយ! គោលការណ៍សុវត្ថិភាពអនុញ្ញាតត្រឹមតែ ១ កុំព្យូទ័រ និង ១ ទូរសព្ទដៃប៉ុណ្ណោះ។ មិនអាចប្រើប្រាស់ទូរសព្ទដៃ ២ ក្នុងពេលតែមួយបានទេ។ សូមចុច Log out (ចាកចេញ) ពីទូរសព្ទដៃចាស់ជាមុនសិន ឬទាក់ទង Admin/SuperAdmin ប្រសិនបើលោកអ្នកបានប្តូរទូរសព្ទដៃថ្មី។'
+            };
+          }
+        }
+      }
+
       if (devType === 'DESKTOP') {
         user.boundDevices.desktop = {
           deviceId: devId,
@@ -8310,23 +8340,7 @@
         btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i><span>កំពុងផ្ទៀងផ្ទាត់...</span>';
       }
 
-      // Fast-Path 1: Instant Local-First Authentication (< 5ms)
-      loadLocalUsersFromStorage();
-      const localAuthRes = simulateLocalApi('loginUser', { username, password, deviceInfo });
-
-      if (localAuthRes && localAuthRes.success && localAuthRes.user) {
-        completeSuccessfulLogin(localAuthRes.user);
-        // Non-blocking background sync to cloud
-        apiCall('loginUser', { username, password, deviceInfo }).catch(() => {});
-        return;
-      }
-
-      if (localAuthRes && !localAuthRes.success && localAuthRes.message && (localAuthRes.message.includes('Pending') || localAuthRes.message.includes('Rejected') || localAuthRes.message.includes('រង់ចាំ'))) {
-        Swal.fire('ដំណឹងគណនី', localAuthRes.message, 'info');
-        return;
-      }
-
-      // Fast-Path 2: Cloud Fallback (if user not found in local cache)
+      // 1. Authenticate with Cloud first so all computers strictly verify real-time device binding
       try {
         const cloudRes = await apiCall('loginUser', { username, password, deviceInfo });
         if (cloudRes && cloudRes.success && cloudRes.user) {
@@ -8339,11 +8353,29 @@
           saveLocalUsersToStorage();
           completeSuccessfulLogin(cloudRes.user);
           return;
-        } else {
-          Swal.fire('ចូលមិនបានទេ', (cloudRes && cloudRes.message) ? cloudRes.message : 'ឈ្មោះ ឬពាក្យសម្ងាត់មិនត្រឹមត្រូវ', 'error');
+        } else if (cloudRes && cloudRes.deviceBlocked) {
+          // Block 2nd computer or 2nd mobile attempt!
+          showDeviceBlockedAlert(cloudRes, deviceInfo);
+          return;
+        } else if (cloudRes && !cloudRes.success) {
+          Swal.fire('ចូលមិនបានទេ', cloudRes.message || 'ឈ្មោះ ឬពាក្យសម្ងាត់មិនត្រឹមត្រូវ', 'error');
+          return;
         }
       } catch (err) {
-        Swal.fire('Error', err.toString(), 'error');
+        console.warn('[Login] Cloud login error, fallback to local cache:', err);
+        // Fallback to local only if completely offline
+        loadLocalUsersFromStorage();
+        const localAuthRes = simulateLocalApi('loginUser', { username, password, deviceInfo });
+        if (localAuthRes && localAuthRes.success && localAuthRes.user) {
+          completeSuccessfulLogin(localAuthRes.user);
+          return;
+        } else if (localAuthRes && localAuthRes.deviceBlocked) {
+          showDeviceBlockedAlert(localAuthRes, deviceInfo);
+          return;
+        } else if (localAuthRes && !localAuthRes.success) {
+          Swal.fire('ដំណឹងគណនី', localAuthRes.message || 'ឈ្មោះ ឬពាក្យសម្ងាត់មិនត្រឹមត្រូវ', 'info');
+          return;
+        }
       } finally {
         if (btn) {
           btn.disabled = false;

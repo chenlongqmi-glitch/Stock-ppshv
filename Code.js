@@ -1425,13 +1425,49 @@ function loginUser(usernameOrData, password, extraDeviceInfo) {
           }
         }
 
-        // Record device information without any device blocking restrictions
+        // Validate Device Binding (Strict 1 Computer + 1 Mobile Phone per User Account)
         if (deviceInfo && deviceInfo.deviceId) {
           const rawType = String(deviceInfo.deviceType || 'DESKTOP').toUpperCase();
           const devType = (rawType === 'MOBILE' || rawType === 'PHONE') ? 'MOBILE' : 'DESKTOP';
           const devId = String(deviceInfo.deviceId).trim();
           const devName = String(deviceInfo.deviceName || (devType === 'MOBILE' ? 'ទូរសព្ទដៃ' : 'កុំព្យូទ័រ')).trim();
           const nowStr = new Date().toISOString();
+
+          // SuperAdmin is exempt so the root administrator is never locked out
+          const isSuperAdminAccount = (cleanInput === 'superadmin' || String(row[6]) === 'SuperAdmin');
+
+          if (!isSuperAdminAccount) {
+            if (devType === 'DESKTOP') {
+              if (boundDevices.desktop && boundDevices.desktop.deviceId && boundDevices.desktop.deviceId !== devId) {
+                // Block 2nd computer attempt!
+                logActivity(String(row[1]), String(row[6] || 'User'), 'LOGIN_BLOCKED_DEVICE', `Blocked 2nd computer login attempt from ${devName} (already bound to ${boundDevices.desktop.deviceName || 'PC 1'})`);
+                return {
+                  success: false,
+                  deviceBlocked: true,
+                  blockReason: 'DESKTOP_LIMIT_EXCEEDED',
+                  boundDeviceName: boundDevices.desktop.deviceName || 'កុំព្យូទ័រដែលបានភ្ជាប់រួច',
+                  boundAt: boundDevices.desktop.boundAt,
+                  attemptedDeviceName: devName,
+                  message: 'គណនីនេះត្រូវបានភ្ជាប់ជាមួយកុំព្យូទ័រផ្សេងរួចហើយ! គោលការណ៍សុវត្ថិភាពអនុញ្ញាតត្រឹមតែ ១ កុំព្យូទ័រ និង ១ ទូរសព្ទដៃប៉ុណ្ណោះ។ មិនអាចប្រើប្រាស់កុំព្យូទ័រ ២ ក្នុងពេលតែមួយបានទេ។ សូមចុច Log out (ចាកចេញ) ពីកុំព្យូទ័រចាស់ជាមុនសិន ឬទាក់ទង Admin/SuperAdmin ប្រសិនបើលោកអ្នកបានប្តូរកុំព្យូទ័រថ្មី។'
+                };
+              }
+            } else {
+              // MOBILE
+              if (boundDevices.mobile && boundDevices.mobile.deviceId && boundDevices.mobile.deviceId !== devId) {
+                // Block 2nd mobile attempt!
+                logActivity(String(row[1]), String(row[6] || 'User'), 'LOGIN_BLOCKED_DEVICE', `Blocked 2nd mobile login attempt from ${devName} (already bound to ${boundDevices.mobile.deviceName || 'Phone 1'})`);
+                return {
+                  success: false,
+                  deviceBlocked: true,
+                  blockReason: 'MOBILE_LIMIT_EXCEEDED',
+                  boundDeviceName: boundDevices.mobile.deviceName || 'ទូរសព្ទដៃដែលបានភ្ជាប់រួច',
+                  boundAt: boundDevices.mobile.boundAt,
+                  attemptedDeviceName: devName,
+                  message: 'គណនីនេះត្រូវបានភ្ជាប់ជាមួយទូរសព្ទដៃផ្សេងរួចហើយ! គោលការណ៍សុវត្ថិភាពអនុញ្ញាតត្រឹមតែ ១ កុំព្យូទ័រ និង ១ ទូរសព្ទដៃប៉ុណ្ណោះ។ មិនអាចប្រើប្រាស់ទូរសព្ទដៃ ២ ក្នុងពេលតែមួយបានទេ។ សូមចុច Log out (ចាកចេញ) ពីទូរសព្ទដៃចាស់ជាមុនសិន ឬទាក់ទង Admin/SuperAdmin ប្រសិនបើលោកអ្នកបានប្តូរទូរសព្ទដៃថ្មី។'
+                };
+              }
+            }
+          }
 
           if (devType === 'DESKTOP') {
             boundDevices.desktop = {
