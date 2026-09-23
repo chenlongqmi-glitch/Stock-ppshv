@@ -8308,51 +8308,37 @@
         btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i><span>កំពុងផ្ទៀងផ្ទាត់...</span>';
       }
 
+      // Fast-Path 1: Instant Local-First Authentication (< 5ms)
+      loadLocalUsersFromStorage();
+      const localAuthRes = simulateLocalApi('loginUser', { username, password, deviceInfo });
+
+      if (localAuthRes && localAuthRes.success && localAuthRes.user) {
+        completeSuccessfulLogin(localAuthRes.user);
+        // Non-blocking background sync to cloud
+        apiCall('loginUser', { username, password, deviceInfo }).catch(() => {});
+        return;
+      }
+
+      if (localAuthRes && !localAuthRes.success && localAuthRes.message && (localAuthRes.message.includes('Pending') || localAuthRes.message.includes('Rejected') || localAuthRes.message.includes('រង់ចាំ'))) {
+        Swal.fire('ដំណឹងគណនី', localAuthRes.message, 'info');
+        return;
+      }
+
+      // Fast-Path 2: Cloud Fallback (if user not found in local cache)
       try {
-        const gasUrl = AppState.gasApiUrl || localStorage.getItem('inventory_gas_api_url');
-        let cloudRes = null;
-
-        // 1. Authoritative Cloud Verification (real-time check across all computers/phones)
-        if (gasUrl && gasUrl.startsWith('https://script.google.com/')) {
-          try {
-            cloudRes = await apiCall('loginUser', { username, password, deviceInfo });
-          } catch (netErr) {
-            console.warn('[Login] Cloud verification network error, falling back to local:', netErr);
-          }
-        }
-
-        if (cloudRes) {
-          if (cloudRes.success && cloudRes.user) {
-            const existingIdx = LOCAL_DB.users.findIndex(u => u.username.toLowerCase() === cloudRes.user.username.toLowerCase());
-            if (existingIdx !== -1) {
-              LOCAL_DB.users[existingIdx] = cloudRes.user;
-            } else {
-              LOCAL_DB.users.push(cloudRes.user);
-            }
-            saveLocalUsersToStorage();
-            completeSuccessfulLogin(cloudRes.user);
-            return;
-          } else if (cloudRes.deviceBlocked && cloudRes.user) {
-            completeSuccessfulLogin(cloudRes.user);
-            return;
+        const cloudRes = await apiCall('loginUser', { username, password, deviceInfo });
+        if (cloudRes && cloudRes.success && cloudRes.user) {
+          const existingIdx = LOCAL_DB.users.findIndex(u => u.username.toLowerCase() === cloudRes.user.username.toLowerCase());
+          if (existingIdx !== -1) {
+            LOCAL_DB.users[existingIdx] = cloudRes.user;
           } else {
-            Swal.fire('ចូលមិនបានទេ', cloudRes.message || 'ឈ្មោះ ឬពាក្យសម្ងាត់មិនត្រឹមត្រូវ', 'error');
-            return;
+            LOCAL_DB.users.push(cloudRes.user);
           }
-        }
-
-        // 2. Offline / Local-first fallback (if network is unavailable)
-        loadLocalUsersFromStorage();
-        const localAuthRes = simulateLocalApi('loginUser', { username, password, deviceInfo });
-        if (localAuthRes && localAuthRes.success && localAuthRes.user) {
-          completeSuccessfulLogin(localAuthRes.user);
-          return;
-        } else if (localAuthRes && !localAuthRes.success && localAuthRes.message && (localAuthRes.message.includes('Pending') || localAuthRes.message.includes('Rejected') || localAuthRes.message.includes('រង់ចាំ'))) {
-          Swal.fire('ដំណឹងគណនី', localAuthRes.message, 'info');
+          saveLocalUsersToStorage();
+          completeSuccessfulLogin(cloudRes.user);
           return;
         } else {
-          Swal.fire('ចូលមិនបានទេ', (localAuthRes && localAuthRes.message) ? localAuthRes.message : 'ឈ្មោះ ឬពាក្យសម្ងាត់មិនត្រឹមត្រូវ', 'error');
-          return;
+          Swal.fire('ចូលមិនបានទេ', (cloudRes && cloudRes.message) ? cloudRes.message : 'ឈ្មោះ ឬពាក្យសម្ងាត់មិនត្រឹមត្រូវ', 'error');
         }
       } catch (err) {
         Swal.fire('Error', err.toString(), 'error');
