@@ -6429,6 +6429,75 @@
     window.addEventListener('pagehide', handleBrowserCloseUnload);
     window.addEventListener('beforeunload', handleBrowserCloseUnload);
 
+    const deviceSessionChannel = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('stock_device_session_channel') : null;
+    if (deviceSessionChannel) {
+      deviceSessionChannel.onmessage = (event) => {
+        if (!event || !event.data || !AppState.currentUser) return;
+        if (event.data.type === 'DEVICE_SESSION_TAKEOVER') {
+          const d = event.data;
+          const isSameUser = (AppState.currentUser.userId && d.userId === AppState.currentUser.userId) ||
+                             (AppState.currentUser.username && String(AppState.currentUser.username).toLowerCase() === String(d.username).toLowerCase());
+          if (isSameUser) {
+            const myDev = getCurrentDeviceInfo();
+            const myRawType = String(myDev.deviceType || 'DESKTOP').toUpperCase();
+            const myDevType = (myRawType === 'MOBILE' || myRawType === 'PHONE') ? 'MOBILE' : 'DESKTOP';
+            const incomingRawType = String(d.deviceType || 'DESKTOP').toUpperCase();
+            const incomingDevType = (incomingRawType === 'MOBILE' || incomingRawType === 'PHONE') ? 'MOBILE' : 'DESKTOP';
+
+            if (myDevType === incomingDevType && myDev.deviceId !== d.deviceId) {
+              terminateSessionImmediately(`គណនីរបស់អ្នកត្រូវបានចូលប្រើនៅលើ${myDevType === 'DESKTOP' ? 'កុំព្យូទ័រ' : 'ទូរសព្ទដៃ'}ផ្សេងទៀត!`);
+            }
+          }
+        }
+      };
+    }
+
+    function terminateSessionImmediately(reasonMessage = 'គណនីរបស់អ្នកត្រូវបានចូលប្រើនៅលើឧបករណ៍ផ្សេងទៀត!', reasonTitle = 'ឧបករណ៍ត្រូវបានកាត់ផ្តាច់') {
+      if (typeof sessionDurationInterval !== 'undefined' && sessionDurationInterval) {
+        clearInterval(sessionDurationInterval);
+      }
+      sessionStorage.removeItem('inventory_user');
+      sessionStorage.removeItem('inventory_login_timestamp');
+      sessionStorage.removeItem('inventory_superadmin_session');
+      sessionStorage.removeItem('inventory_active_tab');
+      sessionStorage.removeItem('inventory_scroll_top');
+      localStorage.removeItem('inventory_user');
+      localStorage.removeItem('inventory_login_timestamp');
+
+      AppState.currentUser = null;
+      AppState.loginTimestamp = null;
+      AppState.items = [];
+
+      document.documentElement.classList.remove('app-authenticated');
+      const authSec = document.getElementById('authSection');
+      const mainApp = document.getElementById('mainApp');
+      if (authSec) authSec.classList.remove('hidden');
+      if (mainApp) mainApp.classList.add('hidden');
+      if (typeof toggleAuthView === 'function') toggleAuthView('login');
+      if (typeof loadRememberedCredentials === 'function') loadRememberedCredentials();
+
+      Swal.fire({
+        icon: 'warning',
+        title: `<span class="text-rose-600 font-bold">${reasonTitle}</span>`,
+        html: `
+          <div class="text-left text-xs p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-rose-800 space-y-2 mt-2">
+            <p class="font-bold flex items-center text-sm">
+              <i class="fa-solid fa-triangle-exclamation mr-2 text-rose-600"></i> ${reasonMessage}
+            </p>
+            <p class="leading-relaxed">
+              គោលការណ៍សុវត្ថិភាពអនុញ្ញាតត្រឹមតែ <b>១ កុំព្យូទ័រ</b> និង <b>១ ទូរសព្ទដៃ</b> ក្នុងពេលតែមួយ។
+            </p>
+            <p class="text-slate-500 font-semibold text-[11px]">
+              ឧបករណ៍នេះត្រូវបានកាត់ផ្តាច់ និងចាកចេញភ្លាមៗដោយស្វ័យប្រវត្តិ។
+            </p>
+          </div>
+        `,
+        timer: 3500,
+        showConfirmButton: false,
+        customClass: { popup: 'rounded-3xl max-w-md shadow-2xl' }
+      });
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       registerTabSession();
       initAllFullNameKhmerInputs();
@@ -6521,11 +6590,7 @@
         const curDevInfo = getCurrentDeviceInfo();
         const devCheck = validateAndApplyDeviceBinding(AppState.currentUser, curDevInfo);
         if (!devCheck.success && devCheck.deviceBlocked) {
-          sessionStorage.removeItem('inventory_user');
-          localStorage.removeItem('inventory_user');
-          AppState.currentUser = null;
-          showDeviceBlockedAlert(devCheck, curDevInfo, savedUser.username, savedUser.password);
-          showLoginView();
+          terminateSessionImmediately('គណនីរបស់អ្នកត្រូវបានចូលប្រើនៅលើឧបករណ៍ផ្សេងទៀត!');
           return;
         }
 
@@ -6538,11 +6603,7 @@
               deviceInfo: devInfo
             });
             if (cloudCheck && cloudCheck.deviceBlocked) {
-              sessionStorage.removeItem('inventory_user');
-              localStorage.removeItem('inventory_user');
-              AppState.currentUser = null;
-              showDeviceBlockedAlert(cloudCheck, devInfo, savedUser.username, savedUser.password);
-              showLoginView();
+              terminateSessionImmediately('គណនីរបស់អ្នកត្រូវបានចូលប្រើនៅលើឧបករណ៍ផ្សេងទៀត!');
             }
           } catch (e) {}
         }, 150);
@@ -7120,39 +7181,11 @@
         user.boundDevices = { desktop: null, mobile: null };
       }
 
-      if (!forceSwitch) {
-        if (devType === 'DESKTOP') {
-          if (user.boundDevices.desktop && user.boundDevices.desktop.deviceId && user.boundDevices.desktop.deviceId !== devId) {
-            return {
-              success: false,
-              deviceBlocked: true,
-              blockReason: 'DESKTOP_LIMIT_EXCEEDED',
-              boundDeviceName: user.boundDevices.desktop.deviceName || 'កុំព្យូទ័រដែលបានភ្ជាប់រួច',
-              boundAt: user.boundDevices.desktop.boundAt,
-              attemptedDeviceName: devName,
-              message: 'គណនីនេះត្រូវបានភ្ជាប់ជាមួយកុំព្យូទ័រផ្សេងរួចហើយ! គោលការណ៍សុវត្ថិភាពអនុញ្ញាតត្រឹមតែ ១ កុំព្យូទ័រ និង ១ ទូរសព្ទដៃប៉ុណ្ណោះ។ មិនអាចប្រើប្រាស់កុំព្យូទ័រ ២ ក្នុងពេលតែមួយបានទេ។ សូមចុច Log out (ចាកចេញ) ពីកុំព្យូទ័រចាស់ជាមុនសិន ឬទាក់ទង Admin/SuperAdmin ប្រសិនបើលោកអ្នកបានប្តូរកុំព្យូទ័រថ្មី។'
-            };
-          }
-        } else {
-          if (user.boundDevices.mobile && user.boundDevices.mobile.deviceId && user.boundDevices.mobile.deviceId !== devId) {
-            return {
-              success: false,
-              deviceBlocked: true,
-              blockReason: 'MOBILE_LIMIT_EXCEEDED',
-              boundDeviceName: user.boundDevices.mobile.deviceName || 'ទូរសព្ទដៃដែលបានភ្ជាប់រួច',
-              boundAt: user.boundDevices.mobile.boundAt,
-              attemptedDeviceName: devName,
-              message: 'គណនីនេះត្រូវបានភ្ជាប់ជាមួយទូរសព្ទដៃផ្សេងរួចហើយ! គោលការណ៍សុវត្ថិភាពអនុញ្ញាតត្រឹមតែ ១ កុំព្យូទ័រ និង ១ ទូរសព្ទដៃប៉ុណ្ណោះ។ មិនអាចប្រើប្រាស់ទូរសព្ទដៃ ២ ក្នុងពេលតែមួយបានទេ។ សូមចុច Log out (ចាកចេញ) ពីទូរសព្ទដៃចាស់ជាមុនសិន ឬទាក់ទង Admin/SuperAdmin ប្រសិនបើលោកអ្នកបានប្តូរទូរសព្ទដៃថ្មី។'
-            };
-          }
-        }
-      }
-
       if (devType === 'DESKTOP') {
         user.boundDevices.desktop = {
           deviceId: devId,
           deviceName: devName,
-          boundAt: (user.boundDevices.desktop && user.boundDevices.desktop.boundAt && !forceSwitch) ? user.boundDevices.desktop.boundAt : nowStr,
+          boundAt: nowStr,
           lastActive: nowStr
         };
         saveLocalUsersToStorage();
@@ -7160,7 +7193,7 @@
         user.boundDevices.mobile = {
           deviceId: devId,
           deviceName: devName,
-          boundAt: (user.boundDevices.mobile && user.boundDevices.mobile.boundAt && !forceSwitch) ? user.boundDevices.mobile.boundAt : nowStr,
+          boundAt: nowStr,
           lastActive: nowStr
         };
         saveLocalUsersToStorage();
@@ -8249,6 +8282,105 @@
     }
 
     // --- AUTHENTICATION & PROFILE LOGIC ---
+    function completeSuccessfulLogin(user, username = '', password = '') {
+      AppState.currentUser = user;
+      const loginNow = new Date().toISOString();
+      const remember = document.getElementById('rememberMe')?.checked;
+      const uVal = username || document.getElementById('loginUsername')?.value?.trim() || user.username || '';
+      const pVal = password || document.getElementById('loginPassword')?.value || '';
+      if (remember && uVal && pVal) {
+        localStorage.setItem('inventory_remembered_creds', JSON.stringify({
+          username: uVal,
+          password: pVal
+        }));
+      } else if (!remember) {
+        localStorage.removeItem('inventory_remembered_creds');
+      }
+
+      // Active session storage
+      sessionStorage.setItem('inventory_user', JSON.stringify(user));
+      sessionStorage.setItem('inventory_login_timestamp', loginNow);
+      localStorage.removeItem('inventory_user');
+      localStorage.removeItem('inventory_login_timestamp');
+      sessionStorage.removeItem('inventory_superadmin_session');
+
+      // Broadcast session takeover immediately across tabs/windows
+      try {
+        if (typeof deviceSessionChannel !== 'undefined' && deviceSessionChannel) {
+          deviceSessionChannel.postMessage({
+            type: 'DEVICE_SESSION_TAKEOVER',
+            userId: user.userId,
+            username: user.username,
+            deviceType: getCurrentDeviceInfo().deviceType,
+            deviceId: getCurrentDeviceInfo().deviceId,
+            timestamp: Date.now()
+          });
+        }
+      } catch (e) {}
+
+      // 1. Instant Screen Transition (< 10ms)
+      showAppView();
+
+      // 2. Immediate Local Data Hydration (Never wait for cloud!)
+      if (!AppState.items || AppState.items.length === 0) {
+        AppState.items = (LOCAL_DB.items && LOCAL_DB.items.length > 0) ? [...LOCAL_DB.items] : [];
+      }
+      if (typeof populateCategoryFilter === 'function') populateCategoryFilter();
+      if (typeof renderItemsTable === 'function') renderItemsTable();
+      if (typeof populateItemSelectDropdowns === 'function') populateItemSelectDropdowns();
+
+      // 3. Pleasant auto-dismissing toast (1.1s, non-blocking)
+      const isSuperAdmin = (user.role === 'SuperAdmin' || String(user.username).toLowerCase() === 'superadmin');
+      const isAdmin = !isSuperAdmin && (user.role === 'Admin' || String(user.username).toLowerCase() === 'admin');
+
+      // Reset any alert dismissal suppression on fresh login so Super Admin / Admin is ALWAYS proactively alerted
+      if (isSuperAdmin) {
+        sessionStorage.removeItem('deletion_alert_dismissed_until');
+        sessionStorage.removeItem('last_seen_deletion_signature');
+        sessionStorage.removeItem('last_alerted_deletion_count');
+      }
+
+      Swal.fire({
+        icon: 'success',
+        title: 'ស្វាគមន៍មកកាន់ប្រព័ន្ធ! 🎉',
+        html: `
+          <p class="text-sm font-semibold">ចូលប្រើប្រាស់ជា: <b>${escapeHtml(user.fullName || user.username)}</b> (${escapeHtml(user.role || 'User')})</p>
+          <p class="text-xs text-blue-600 font-bold mt-1">📍 ស្ថានីយ: ${user.warehouse === 'ALL' ? 'គ្រប់គ្រងគ្រប់ស្ថានីយទាំងអស់ (Admin)' : escapeHtml(user.warehouse || '-')}</p>
+        `,
+        timer: 1100,
+        showConfirmButton: false
+      }).then(() => {
+        // Trigger proactive alerts safely AFTER welcome toast closes
+        if (isSuperAdmin) {
+          setTimeout(() => {
+            if (typeof checkPendingDeletionsForSuperAdmin === 'function') {
+              checkPendingDeletionsForSuperAdmin(false);
+            }
+          }, 300);
+        } else if (isAdmin) {
+          setTimeout(() => {
+            if (typeof checkPendingRegistrationsForAdmin === 'function') {
+              checkPendingRegistrationsForAdmin(false);
+            }
+            if (typeof checkDeletionRepliesForAdmin === 'function') {
+              checkDeletionRepliesForAdmin(false);
+            }
+          }, 300);
+        }
+      });
+
+      // 4. Background Non-Blocking Cloud Synchronization
+      setTimeout(() => {
+        loadInitialData();
+      }, 50);
+
+      const btn = document.getElementById('loginBtn');
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<span>ចូលប្រព័ន្ធ</span> <i class="fa-solid fa-arrow-right-to-bracket text-sm"></i>';
+      }
+    }
+
     async function handleLogin(e) {
       if (e) e.preventDefault();
       const usernameInput = document.getElementById('loginUsername');
@@ -8261,93 +8393,6 @@
       if (!username || !password) {
         Swal.fire('សូមបំពេញព័ត៌មាន', 'សូមបញ្ចូលឈ្មោះគណនី អ៊ីមែល ឬលេខទូរស័ព្ទ និងពាក្យសម្ងាត់', 'warning');
         return;
-      }
-
-      if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> កំពុងចូល...';
-      }
-
-      function completeSuccessfulLogin(user) {
-        AppState.currentUser = user;
-        const loginNow = new Date().toISOString();
-        const remember = document.getElementById('rememberMe')?.checked;
-        if (remember) {
-          localStorage.setItem('inventory_remembered_creds', JSON.stringify({
-            username: username,
-            password: password
-          }));
-        } else {
-          localStorage.removeItem('inventory_remembered_creds');
-        }
-
-        // Active session storage
-        sessionStorage.setItem('inventory_user', JSON.stringify(user));
-        sessionStorage.setItem('inventory_login_timestamp', loginNow);
-        localStorage.removeItem('inventory_user');
-        localStorage.removeItem('inventory_login_timestamp');
-        sessionStorage.removeItem('inventory_superadmin_session');
-
-        // 1. Instant Screen Transition (< 10ms)
-        showAppView();
-
-        // 2. Immediate Local Data Hydration (Never wait for cloud!)
-        if (!AppState.items || AppState.items.length === 0) {
-          AppState.items = (LOCAL_DB.items && LOCAL_DB.items.length > 0) ? [...LOCAL_DB.items] : [];
-        }
-        if (typeof populateCategoryFilter === 'function') populateCategoryFilter();
-        if (typeof renderItemsTable === 'function') renderItemsTable();
-        if (typeof populateItemSelectDropdowns === 'function') populateItemSelectDropdowns();
-
-        // 3. Pleasant auto-dismissing toast (1.1s, non-blocking)
-        const isSuperAdmin = (user.role === 'SuperAdmin' || String(user.username).toLowerCase() === 'superadmin');
-        const isAdmin = !isSuperAdmin && (user.role === 'Admin' || String(user.username).toLowerCase() === 'admin');
-
-        // Reset any alert dismissal suppression on fresh login so Super Admin / Admin is ALWAYS proactively alerted
-        if (isSuperAdmin) {
-          sessionStorage.removeItem('deletion_alert_dismissed_until');
-          sessionStorage.removeItem('last_seen_deletion_signature');
-          sessionStorage.removeItem('last_alerted_deletion_count');
-        }
-
-        Swal.fire({
-          icon: 'success',
-          title: 'ស្វាគមន៍មកកាន់ប្រព័ន្ធ! 🎉',
-          html: `
-            <p class="text-sm font-semibold">ចូលប្រើប្រាស់ជា: <b>${escapeHtml(user.fullName || user.username)}</b> (${escapeHtml(user.role || 'User')})</p>
-            <p class="text-xs text-blue-600 font-bold mt-1">📍 ស្ថានីយ: ${user.warehouse === 'ALL' ? 'គ្រប់គ្រងគ្រប់ស្ថានីយទាំងអស់ (Admin)' : escapeHtml(user.warehouse || '-')}</p>
-          `,
-          timer: 1100,
-          showConfirmButton: false
-        }).then(() => {
-          // Trigger proactive alerts safely AFTER welcome toast closes
-          if (isSuperAdmin) {
-            setTimeout(() => {
-              if (typeof checkPendingDeletionsForSuperAdmin === 'function') {
-                checkPendingDeletionsForSuperAdmin(false);
-              }
-            }, 300);
-          } else if (isAdmin) {
-            setTimeout(() => {
-              if (typeof checkPendingRegistrationsForAdmin === 'function') {
-                checkPendingRegistrationsForAdmin(false);
-              }
-              if (typeof checkDeletionRepliesForAdmin === 'function') {
-                checkDeletionRepliesForAdmin(false);
-              }
-            }, 300);
-          }
-        });
-
-        // 4. Background Non-Blocking Cloud Synchronization
-        setTimeout(() => {
-          loadInitialData();
-        }, 50);
-
-        if (btn) {
-          btn.disabled = false;
-          btn.innerHTML = '<span>ចូលប្រព័ន្ធ</span> <i class="fa-solid fa-arrow-right-to-bracket text-sm"></i>';
-        }
       }
 
       const deviceInfo = getCurrentDeviceInfo();
@@ -8368,10 +8413,9 @@
             LOCAL_DB.users.push(cloudRes.user);
           }
           saveLocalUsersToStorage();
-          completeSuccessfulLogin(cloudRes.user);
+          completeSuccessfulLogin(cloudRes.user, username, password);
           return;
         } else if (cloudRes && cloudRes.deviceBlocked) {
-          // Block 2nd computer or 2nd mobile attempt!
           showDeviceBlockedAlert(cloudRes, deviceInfo, username, password);
           return;
         } else if (cloudRes && !cloudRes.success) {
@@ -8384,7 +8428,7 @@
         loadLocalUsersFromStorage();
         const localAuthRes = simulateLocalApi('loginUser', { username, password, deviceInfo });
         if (localAuthRes && localAuthRes.success && localAuthRes.user) {
-          completeSuccessfulLogin(localAuthRes.user);
+          completeSuccessfulLogin(localAuthRes.user, username, password);
           return;
         } else if (localAuthRes && localAuthRes.deviceBlocked) {
           showDeviceBlockedAlert(localAuthRes, deviceInfo, username, password);
@@ -8485,7 +8529,7 @@
               else LOCAL_DB.users.push(switchRes.user);
               saveLocalUsersToStorage();
               Swal.close();
-              completeSuccessfulLogin(switchRes.user);
+              completeSuccessfulLogin(switchRes.user, username, password);
             } else {
               Swal.fire('មិនអាចប្តូរបានទេ', (switchRes && switchRes.message) ? switchRes.message : 'មានបញ្ហាក្នុងការប្តូរឧបករណ៍', 'error');
             }
@@ -19062,25 +19106,7 @@
 
               if (bound && bound.deviceId && bound.deviceId !== myDev.deviceId) {
                 console.warn('[Security] Kicked out because account is active on another device:', bound);
-                sessionStorage.removeItem('inventory_user');
-                localStorage.removeItem('inventory_user');
-                AppState.currentUser = null;
-                Swal.fire({
-                  icon: 'warning',
-                  title: '<span class="text-rose-600 font-bold">ឧបករណ៍ត្រូវបានកាត់ផ្តាច់ (Session Terminated)</span>',
-                  html: `
-                    <div class="text-left text-xs p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 space-y-2 mt-2">
-                      <p class="font-bold">⚠️ គណនីរបស់អ្នកត្រូវបានចូលប្រើប្រាស់នៅលើឧបករណ៍ផ្សេងទៀត!</p>
-                      <p>គោលការណ៍សុវត្ថិភាពអនុញ្ញាតត្រឹមតែ <b>១ កុំព្យូទ័រ</b> និង <b>១ ទូរសព្ទដៃ</b> ប៉ុណ្ណោះ។ មិនអាចប្រើប្រាស់ ២ កុំព្យូទ័រ ឬ ២ ទូរសព្ទក្នុងពេលតែមួយបានទេ។</p>
-                      <p class="text-slate-600">ឧបករណ៍នេះត្រូវបានចាកចេញ (Logout) ដោយស្វ័យប្រវត្តិ។</p>
-                    </div>
-                  `,
-                  confirmButtonText: 'យល់ព្រម',
-                  confirmButtonColor: '#e11d48',
-                  customClass: { popup: 'rounded-3xl max-w-md' }
-                }).then(() => {
-                  window.location.reload();
-                });
+                terminateSessionImmediately(`គណនីរបស់អ្នកត្រូវបានចូលប្រើនៅលើ${devType === 'DESKTOP' ? 'កុំព្យូទ័រ' : 'ទូរសព្ទដៃ'}ផ្សេងទៀត!`);
                 return;
               }
             }
@@ -19168,11 +19194,11 @@
       if (autoFetchInterval) clearInterval(autoFetchInterval);
       if (autoRoleSyncInterval) clearInterval(autoRoleSyncInterval);
 
-      // Ultra-responsive real-time role check (active tab only, 4s interval)
+      // Ultra-responsive real-time role & device session check (active tab only, 2.5s interval)
       autoRoleSyncInterval = setInterval(() => {
         if (!AppState.currentUser || document.hidden) return;
         checkCurrentUserLiveRoleSync();
-      }, 4000);
+      }, 2500);
 
       // Ultra-responsive silent background data fetch (active tab only, 5s interval for instant cross-device updates)
       autoFetchInterval = setInterval(() => {
@@ -19180,11 +19206,16 @@
         silentAutoRefresh();
       }, 5000);
 
-      // Auto-revalidate instantly when user returns to the app tab
+      // Auto-revalidate instantly when user returns to the app tab or focuses window
       document.addEventListener('visibilitychange', () => {
         if (!document.hidden && AppState.currentUser) {
           checkCurrentUserLiveRoleSync();
           silentAutoRefresh();
+        }
+      });
+      window.addEventListener('focus', () => {
+        if (AppState.currentUser) {
+          checkCurrentUserLiveRoleSync();
         }
       });
     }

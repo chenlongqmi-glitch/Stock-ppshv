@@ -1425,60 +1425,38 @@ function loginUser(usernameOrData, password, extraDeviceInfo) {
           }
         }
 
-        // Validate Device Binding (Strict 1 Computer + 1 Mobile Phone per User Account - Applies to ALL users)
+        // Validate Device Binding (Strict 1 Computer + 1 Mobile Phone per User Account - Seamless Auto-Takeover & Immediate Old Device Kickout)
         if (deviceInfo && deviceInfo.deviceId) {
           const rawType = String(deviceInfo.deviceType || 'DESKTOP').toUpperCase();
           const devType = (rawType === 'MOBILE' || rawType === 'PHONE') ? 'MOBILE' : 'DESKTOP';
           const devId = String(deviceInfo.deviceId).trim();
           const devName = String(deviceInfo.deviceName || (devType === 'MOBILE' ? 'ទូរសព្ទដៃ' : 'កុំព្យូទ័រ')).trim();
           const nowStr = new Date().toISOString();
-          const isForceSwitch = !!(usernameOrData && usernameOrData.forceSwitchDevice);
 
-          if (!isForceSwitch) {
-            if (devType === 'DESKTOP') {
-              if (boundDevices.desktop && boundDevices.desktop.deviceId && boundDevices.desktop.deviceId !== devId) {
-                // Block 2nd computer attempt!
-                logActivity(String(row[1]), String(row[6] || 'User'), 'LOGIN_BLOCKED_DEVICE', `Blocked 2nd computer login attempt from ${devName} (already bound to ${boundDevices.desktop.deviceName || 'PC 1'})`);
-                return {
-                  success: false,
-                  deviceBlocked: true,
-                  blockReason: 'DESKTOP_LIMIT_EXCEEDED',
-                  boundDeviceName: boundDevices.desktop.deviceName || 'កុំព្យូទ័រដែលបានភ្ជាប់រួច',
-                  boundAt: boundDevices.desktop.boundAt,
-                  attemptedDeviceName: devName,
-                  message: 'គណនីនេះត្រូវបានភ្ជាប់ជាមួយកុំព្យូទ័រផ្សេងរួចហើយ! គោលការណ៍សុវត្ថិភាពអនុញ្ញាតត្រឹមតែ ១ កុំព្យូទ័រ និង ១ ទូរសព្ទដៃប៉ុណ្ណោះ។ មិនអាចប្រើប្រាស់កុំព្យូទ័រ ២ ក្នុងពេលតែមួយបានទេ។ សូមចុច Log out (ចាកចេញ) ពីកុំព្យូទ័រចាស់ជាមុនសិន ឬទាក់ទង Admin/SuperAdmin ប្រសិនបើលោកអ្នកបានប្តូរកុំព្យូទ័រថ្មី។'
-                };
-              }
-            } else {
-              // MOBILE
-              if (boundDevices.mobile && boundDevices.mobile.deviceId && boundDevices.mobile.deviceId !== devId) {
-                // Block 2nd mobile attempt!
-                logActivity(String(row[1]), String(row[6] || 'User'), 'LOGIN_BLOCKED_DEVICE', `Blocked 2nd mobile login attempt from ${devName} (already bound to ${boundDevices.mobile.deviceName || 'Phone 1'})`);
-                return {
-                  success: false,
-                  deviceBlocked: true,
-                  blockReason: 'MOBILE_LIMIT_EXCEEDED',
-                  boundDeviceName: boundDevices.mobile.deviceName || 'ទូរសព្ទដៃដែលបានភ្ជាប់រួច',
-                  boundAt: boundDevices.mobile.boundAt,
-                  attemptedDeviceName: devName,
-                  message: 'គណនីនេះត្រូវបានភ្ជាប់ជាមួយទូរសព្ទដៃផ្សេងរួចហើយ! គោលការណ៍សុវត្ថិភាពអនុញ្ញាតត្រឹមតែ ១ កុំព្យូទ័រ និង ១ ទូរសព្ទដៃប៉ុណ្ណោះ។ មិនអាចប្រើប្រាស់ទូរសព្ទដៃ ២ ក្នុងពេលតែមួយបានទេ។ សូមចុច Log out (ចាកចេញ) ពីទូរសព្ទដៃចាស់ជាមុនសិន ឬទាក់ទង Admin/SuperAdmin ប្រសិនបើលោកអ្នកបានប្តូរទូរសព្ទដៃថ្មី។'
-                };
-              }
-            }
+          const prevBound = (devType === 'DESKTOP') ? boundDevices.desktop : boundDevices.mobile;
+          const isTakeover = !!(prevBound && prevBound.deviceId && prevBound.deviceId !== devId);
+
+          if (isTakeover) {
+            logActivity(
+              String(row[1]),
+              String(row[6] || 'User'),
+              'DEVICE_TAKEOVER',
+              `ប្តូរ${devType === 'DESKTOP' ? 'កុំព្យូទ័រ' : 'ទូរសព្ទដៃ'}ពី "${prevBound.deviceName || 'ឧបករណ៍ចាស់'}" មក "${devName}" ដោយស្វ័យប្រវត្តិ (ឧបករណ៍ចាស់ត្រូវបានកាត់ផ្តាច់ភ្លាមៗ)`
+            );
           }
 
           if (devType === 'DESKTOP') {
             boundDevices.desktop = {
               deviceId: devId,
               deviceName: devName,
-              boundAt: (boundDevices.desktop && boundDevices.desktop.boundAt) ? boundDevices.desktop.boundAt : nowStr,
+              boundAt: nowStr,
               lastActive: nowStr
             };
           } else {
             boundDevices.mobile = {
               deviceId: devId,
               deviceName: devName,
-              boundAt: (boundDevices.mobile && boundDevices.mobile.boundAt) ? boundDevices.mobile.boundAt : nowStr,
+              boundAt: nowStr,
               lastActive: nowStr
             };
           }
