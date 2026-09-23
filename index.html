@@ -1863,6 +1863,13 @@
                 </div>
               </div>
 
+              <button onclick="syncAllItemsToCloud()" id="btnSyncItemsToSheet"
+                title="ធ្វើសមកាលកម្មទំនិញទាំងអស់ទៅ Google Sheets"
+                class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 shadow-md shadow-emerald-500/20 transition-all active:scale-95">
+                <i class="fa-solid fa-cloud-arrow-up"></i>
+                <span>Sync ទៅ Google Sheet</span>
+              </button>
+
               <button onclick="openItemModal()"
                 class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 shadow-md shadow-blue-500/20">
                 <i class="fa-solid fa-plus"></i>
@@ -10429,6 +10436,77 @@
     }
 
     // Items Management
+    async function syncAllItemsToCloud(silent = false) {
+      try {
+        const items = (AppState.items && AppState.items.length > 0) ? AppState.items : (LOCAL_DB.items || []);
+        if (!items || items.length === 0) {
+          if (!silent) Swal.fire('គ្មានទិន្នន័យ', 'មិនមានទំនិញក្នុងប្រព័ន្ធសម្រាប់ Sync ទៅ Google Sheets ទេ', 'info');
+          return;
+        }
+
+        const btn = document.getElementById('btnSyncItemsToSheet');
+        if (btn) {
+          btn.disabled = true;
+          btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>កំពុង Sync...</span>';
+        }
+
+        if (!silent) {
+          Swal.fire({
+            title: 'កំពុង Sync ទៅ Google Sheet...',
+            html: `កំពុងបញ្ជូនទិន្នន័យទំនិញ <b>${items.length}</b> មុខទៅកាន់ Google Sheets...`,
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+          });
+        }
+
+        const res = await apiCall('syncAllItems', {
+          items: items,
+          user: AppState.currentUser ? AppState.currentUser.username : 'Admin'
+        });
+
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i><span>Sync ទៅ Google Sheet</span>';
+        }
+
+        if (res && res.success) {
+          if (!silent) {
+            Swal.fire({
+              icon: 'success',
+              title: 'ជោគជ័យ!',
+              text: res.message || 'បាន Sync ទំនិញទាំងអស់ទៅ Google Sheets រួចរាល់!',
+              confirmButtonColor: '#10b981'
+            });
+          }
+          return true;
+        } else {
+          if (!silent) {
+            Swal.fire({
+              icon: 'error',
+              title: 'បរាជ័យ',
+              text: res ? res.message : 'មិនអាច Sync ទៅ Google Sheets បានទេ'
+            });
+          }
+          return false;
+        }
+      } catch (err) {
+        console.error('syncAllItemsToCloud error:', err);
+        const btn = document.getElementById('btnSyncItemsToSheet');
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i><span>Sync ទៅ Google Sheet</span>';
+        }
+        if (!silent) {
+          Swal.fire({
+            icon: 'error',
+            title: 'មានបញ្ហា',
+            text: 'Sync មិនជោគជ័យ៖ ' + (err.message || err)
+          });
+        }
+        return false;
+      }
+    }
+
     async function loadItems() {
       try {
         const res = await apiCall('getItemsList');
@@ -10468,6 +10546,11 @@
           AppState.items = mergedList;
           LOCAL_DB.items = [...mergedList];
           saveLocalItemsToStorage();
+
+          if (remoteItems.length === 0 && mergedList.length > 0) {
+            // Google Sheet is empty! Automatically seed/sync all items to Google Sheet in background
+            syncAllItemsToCloud(true);
+          }
 
           AppState.categories = res.categories || [];
           if (res.warehouses && res.warehouses.length > 0) {

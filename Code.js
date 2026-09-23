@@ -561,6 +561,22 @@ function executeLocalApiAction(req) {
 
         return saveOrUpdateItem(payload.item || payload, payload.user);
 
+      case 'syncAllItems':
+
+      case 'syncProducts':
+
+      case 'syncItems':
+
+        return syncAllItems(payload.items || payload, payload.user);
+
+      case 'setupDatabase':
+
+      case 'initDatabase':
+
+        setupDatabase();
+
+        return { success: true, message: 'បានដំឡើងរចនាសម្ព័ន្ធ Google Sheets ជោគជ័យ' };
+
       case 'uploadImageToDrive':
 
       case 'uploadProductImage':
@@ -752,6 +768,21 @@ function doPost(e) {
 // ==========================================
 
 /**
+ * ដំណើរការដោយស្វ័យប្រវត្តិពេលបើក Google Sheet
+ */
+function onOpen() {
+  try {
+    const ui = SpreadsheetApp.getUi();
+    ui.createMenu('⚡ Smart Inventory')
+      .addItem('🔄 ដំឡើងរចនាសម្ព័ន្ធតារាង និងទិន្នន័យ (Setup Database & Items)', 'setupDatabase')
+      .addItem('📦 បញ្ចូលទំនិញគំរូ (Seed Master Catalog)', 'setupDatabase')
+      .addToUi();
+  } catch (e) {
+    if (typeof Logger !== 'undefined') Logger.log('onOpen menu notice: ' + e.toString());
+  }
+}
+
+/**
  * មុខងារបង្កើត និងកំណត់រចនាសម្ព័ន្ធ Google Sheets ដោយស្វ័យប្រវត្តិ
  */
 function setupDatabase() {
@@ -759,21 +790,24 @@ function setupDatabase() {
 
   // 1. Sheet Items
   let itemsSheet = getOrCreateSheet(ss, SHEETS.ITEMS);
-  if (itemsSheet.getLastRow() === 0) {
-    const headers = [
-      'SKU', 'Barcode', 'ItemName', 'Category', 'Unit',
-      'CostPrice', 'SellingPrice', 'MinStockLevel', 'Location',
-      'CurrentStock', 'ImageUrl', 'Status', 'UpdatedAt',
-      'Size', 'Color', 'PackUnit', 'PackQty', 'Zone', 'ZoneNumber', 'Notes', 'CreatedBy'
-    ];
-    itemsSheet.appendRow(headers);
-    formatHeaderRow(itemsSheet, headers.length, '#1e293b');
+  const itemHeaders = [
+    'SKU', 'Barcode', 'ItemName', 'Category', 'Unit',
+    'CostPrice', 'SellingPrice', 'MinStockLevel', 'Location',
+    'CurrentStock', 'ImageUrl', 'Status', 'UpdatedAt',
+    'Size', 'Color', 'PackUnit', 'PackQty', 'Zone', 'ZoneNumber', 'Notes', 'CreatedBy'
+  ];
 
-    // Authentic Master Product Catalog (from Image 1)
-    itemsSheet.appendRow(['SKU-7501', 'SKU-7501', 'ប៊ិច-圆珠笔', 'សម្ភារៈការិយាល័យ', 'ដើម', 0.50, 0.80, 1, 'គ្រប់ស្ថានីយទាំងអស់', 0, 'assets/SKU-7501.jpg', 'Active', new Date(), 'Pixcell', 'ខ្មៅ', 'ប្រអប់', 12, 'តំបន់ A', 'Z-01', 'ចំណាំដើម', 'sdfsdf']);
-    itemsSheet.appendRow(['SKU-9144', 'SKU-9144', 'ទឹកលុប-涂改液', 'សម្ភារៈការិយាល័យ', 'ដើម', 0.50, 0.80, 1, 'គ្រប់ស្ថានីយទាំងអស់', 0, 'assets/SKU-9144.jpg', 'Active', new Date(), 'Pixcell', 'ស', 'ប្រអប់', 12, 'តំបន់ A (ទំនិញទូទៅ)', 'Z-01', 'ចំណាំសិន', 'singvan327@gmail.com']);
-    itemsSheet.appendRow(['SKU-9050', 'SKU-9050', 'ប៊ិច-圆珠笔', 'សម្ភារៈការិយាល័យ', 'ដើម', 0.50, 0.80, 1, 'គ្រប់ស្ថានីយទាំងអស់', 0, 'assets/SKU-9050.jpg', 'Active', new Date(), 'Pixcell', 'ក្រហម', 'ប្រអប់', 12, 'តំបន់ A', 'Z-01', 'ចំណាំសិន', 'singvan327@gmail.com']);
-    itemsSheet.appendRow(['SKU-9649', 'SKU-9649', 'ប៊ិច-圆珠笔', 'សម្ភារៈការិយាល័យ', 'ដើម', 0.50, 0.80, 1, 'គ្រប់ស្ថានីយទាំងអស់', 0, 'assets/SKU-9649.jpg', 'Active', new Date(), 'Pixcell', 'ខៀវ', 'ប្រអប់', 12, 'តំបន់ A', 'Z-01', 'ចំណាំសិន', 'singvan327@gmail.com']);
+  if (itemsSheet.getLastRow() === 0) {
+    itemsSheet.appendRow(itemHeaders);
+    formatHeaderRow(itemsSheet, itemHeaders.length, '#1e293b');
+  }
+
+  // ប្រសិនបើតារាងទំនិញនៅទទេ (មានត្រឹម Header ឬតិចជាងនេះ) សូមបញ្ចូលទំនិញគំរូភ្លាម
+  if (itemsSheet.getLastRow() <= 1) {
+    itemsSheet.appendRow(['SKU-7501', 'SKU-7501', 'ប៊ិច-圆珠笔', 'សម្ភារៈការិយាល័យ', 'ដើម', 0.50, 0.80, 1, 'គ្រប់ស្ថានីយទាំងអស់', 0, 'assets/SKU-7501.jpg', 'Active', new Date(), 'Pixcell', 'ខ្មៅ', 'ប្រអប់', 12, 'តំបន់ A', 'Z-01', 'ចំណាំដើម', 'Admin']);
+    itemsSheet.appendRow(['SKU-9144', 'SKU-9144', 'ទឹកលុប-涂改液', 'សម្ភារៈការិយាល័យ', 'ដើម', 0.50, 0.80, 1, 'គ្រប់ស្ថានីយទាំងអស់', 0, 'assets/SKU-9144.jpg', 'Active', new Date(), 'Pixcell', 'ស', 'ប្រអប់', 12, 'តំបន់ A (ទំនិញទូទៅ)', 'Z-01', 'ចំណាំសិន', 'Admin']);
+    itemsSheet.appendRow(['SKU-9050', 'SKU-9050', 'ប៊ិច-圆珠笔', 'សម្ភារៈការិយាល័យ', 'ដើម', 0.50, 0.80, 1, 'គ្រប់ស្ថានីយទាំងអស់', 0, 'assets/SKU-9050.jpg', 'Active', new Date(), 'Pixcell', 'ក្រហម', 'ប្រអប់', 12, 'តំបន់ A', 'Z-01', 'ចំណាំសិន', 'Admin']);
+    itemsSheet.appendRow(['SKU-9649', 'SKU-9649', 'ប៊ិច-圆珠笔', 'សម្ភារៈការិយាល័យ', 'ដើម', 0.50, 0.80, 1, 'គ្រប់ស្ថានីយទាំងអស់', 0, 'assets/SKU-9649.jpg', 'Active', new Date(), 'Pixcell', 'ខៀវ', 'ប្រអប់', 12, 'តំបន់ A', 'Z-01', 'ចំណាំសិន', 'Admin']);
   }
 
   // 2. Sheet Transactions
@@ -3414,7 +3448,7 @@ function getItemsList(userOrPayload, warehouseFilter) {
 
   let sheet = ss.getSheetByName(SHEETS.ITEMS);
 
-  if (!sheet) {
+  if (!sheet || sheet.getLastRow() <= 1) {
 
     setupDatabase();
 
@@ -3788,7 +3822,7 @@ function saveOrUpdateItem(itemDataOrPayload, username) {
 
   let sheet = ss.getSheetByName(SHEETS.ITEMS);
 
-  if (!sheet) {
+  if (!sheet || sheet.getLastRow() === 0) {
 
     setupDatabase();
 
@@ -4007,6 +4041,93 @@ function saveOrUpdateItem(itemDataOrPayload, username) {
 
   }
 
+}
+
+
+
+/**
+ * ធ្វើសមកាលកម្មទំនិញទាំងអស់ពី Web App ទៅកាន់ Google Sheets (SHEETS.ITEMS)
+ */
+function syncAllItems(itemsListOrPayload, username) {
+  try {
+    let itemsList = itemsListOrPayload;
+    let user = username;
+    if (itemsListOrPayload && typeof itemsListOrPayload === 'object' && !Array.isArray(itemsListOrPayload)) {
+      itemsList = itemsListOrPayload.items || itemsListOrPayload.itemsList || [];
+      user = itemsListOrPayload.user || username;
+    }
+    if (!Array.isArray(itemsList) || itemsList.length === 0) {
+      return { success: false, message: 'គ្មានទិន្នន័យទំនិញសម្រាប់ Sync ទេ' };
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName(SHEETS.ITEMS);
+    if (!sheet || sheet.getLastRow() === 0) {
+      setupDatabase();
+      sheet = ss.getSheetByName(SHEETS.ITEMS);
+    }
+
+    const data = sheet.getDataRange().getValues();
+    const existingMap = {}; // sku -> rowIndex (1-based)
+    for (let i = 1; i < data.length; i++) {
+      const sku = String(data[i][0] || '').trim();
+      if (sku) existingMap[sku] = i + 1;
+    }
+
+    let updatedCount = 0;
+    let addedCount = 0;
+
+    for (let i = 0; i < itemsList.length; i++) {
+      const item = itemsList[i];
+      if (!item) continue;
+      const sku = String(item.sku || '').trim() || ('SKU-' + Utilities.formatDate(new Date(), 'GMT+7', 'yyMMddHHmmss') + i);
+      const rowValues = [
+        sku,
+        item.barcode || sku,
+        item.name || '',
+        item.category || 'ទូទៅ',
+        item.unit || 'ដុំ',
+        Number(item.costPrice || 0),
+        Number(item.sellingPrice || 0),
+        Number(item.minStock || 0),
+        normalizeStationLocationInternal(item.location || 'គ្រប់ស្ថានីយទាំងអស់'),
+        Number(item.currentStock !== undefined ? item.currentStock : (item.stock || 0)),
+        item.imageUrl || '',
+        item.status || 'Active',
+        new Date(),
+        item.size || '',
+        item.color || '',
+        item.packUnit || '',
+        Number(item.packQty || 1),
+        item.zone || 'តំបន់ A',
+        item.zoneNumber || 'Z-01',
+        item.notes || '',
+        item.createdBy || user || 'Admin'
+      ];
+
+      if (existingMap[sku]) {
+        sheet.getRange(existingMap[sku], 1, 1, rowValues.length).setValues([rowValues]);
+        updatedCount++;
+      } else {
+        sheet.appendRow(rowValues);
+        existingMap[sku] = sheet.getLastRow();
+        addedCount++;
+      }
+    }
+
+    logActivity(user || 'System', 'Staff', 'SYNC_ALL_ITEMS', `Synced ${itemsList.length} items (${addedCount} added, ${updatedCount} updated) to Google Sheet`);
+
+    return {
+      success: true,
+      message: `បានធ្វើសមកាលកម្មទំនិញ ${itemsList.length} មុខទៅ Google Sheet ជោគជ័យ! (បន្ថែមថ្មី: ${addedCount}, កែប្រែ: ${updatedCount})`,
+      addedCount: addedCount,
+      updatedCount: updatedCount,
+      totalCount: itemsList.length
+    };
+  } catch (err) {
+    if (typeof Logger !== 'undefined') Logger.log('syncAllItems error: ' + err.toString());
+    return { success: false, message: 'Sync បរាជ័យ: ' + err.toString() };
+  }
 }
 
 
