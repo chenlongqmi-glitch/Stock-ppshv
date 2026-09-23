@@ -42,9 +42,11 @@ const SHEETS = {
 function authorizeScopes() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   Logger.log('Connected to Sheet: ' + ss.getName());
-  const root = DriveApp.getRootFolder();
-  Logger.log('Connected to Google Drive: ' + root.getName());
-  return 'SUCCESS: Google Drive & Google Sheets Authorized!';
+  const testFile = DriveApp.createFile('auth_test.txt', 'Authorized ' + new Date().toISOString());
+  Logger.log('Created test file: ' + testFile.getName() + ' with ID: ' + testFile.getId());
+  testFile.setTrashed(true);
+  Logger.log('SUCCESS: Full Google Drive Create/Write Permission Authorized!');
+  return 'SUCCESS: Full Google Drive & Google Sheets Authorized!';
 }
 
 
