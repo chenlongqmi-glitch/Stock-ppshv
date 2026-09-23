@@ -6737,6 +6737,12 @@
                 }
               } else if (res && !res.success) {
                 console.warn(`[Cloud Sync] Mutation ${action} response:`, res.message);
+                if (action === 'logoutUser' || action === 'logout') {
+                  if (res.message && res.message.includes('Unknown action')) {
+                    apiCall('resetUserDeviceBinding', payload).catch(() => {});
+                  }
+                  return;
+                }
                 if (typeof Swal !== 'undefined' && res.message) {
                   Swal.fire({
                     icon: 'warning',
