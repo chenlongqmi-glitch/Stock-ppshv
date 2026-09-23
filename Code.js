@@ -3304,17 +3304,6 @@ function handleTelegramUserDeletionApproval(userId, username, actionType, e) {
     return HtmlService.createHtmlOutput('កំហុស៖ ' + err.toString());
   }
 }
-          <p style="color: #334155;">គណនី <b>${userFullName} (@${username})</b> ត្រូវបានរក្សាទុក និងបើកដំណើរការ (Active) ជាធម្មតាវិញ។</p>
-        </div>
-      `).setTitle('បានបដិសេធការលុប');
-    }
-  } catch(err) {
-
-    return HtmlService.createHtmlOutput('កំហុស៖ ' + err.toString());
-
-  }
-
-}
 
 
 
