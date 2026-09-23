@@ -6688,7 +6688,7 @@
       'updateUserProfile', 'updateProfile', 'addWarehouse', 'deleteWarehouse',
       'updateUserStatus', 'deleteUser', 'requestUserDeletion', 'approveUserDeletion',
       'rejectUserDeletion', 'createProductRequest', 'updateProductRequestStatus',
-      'saveSettings', 'sendChatMessage', 'sendChat'
+      'saveSettings', 'sendChatMessage', 'sendChat', 'logoutUser', 'logout'
     ]);
 
     async function apiCall(action, payload = {}) {
@@ -7010,7 +7010,7 @@
             boundDeviceName: user.boundDevices.desktop.deviceName || 'កុំព្យូទ័រដែលបានភ្ជាប់រួច',
             boundAt: user.boundDevices.desktop.boundAt,
             attemptedDeviceName: devName,
-            message: 'គណនីនេះត្រូវបានភ្ជាប់ជាមួយកុំព្យូទ័រផ្សេងរួចហើយ! គោលការណ៍សុវត្ថិភាពអនុញ្ញាតត្រឹមតែ ១ កុំព្យូទ័រ និង ១ ទូរសព្ទដៃប៉ុណ្ណោះ។ លើសពីនេះមិនអាចចូលប្រើប្រាស់បានជាដាច់ខាត។ សូមទាក់ទង Admin/SuperAdmin ប្រសិនបើលោកអ្នកបានប្តូរកុំព្យូទ័រថ្មី។'
+            message: 'គណនីនេះត្រូវបានភ្ជាប់ជាមួយកុំព្យូទ័រផ្សេងរួចហើយ! គោលការណ៍សុវត្ថិភាពអនុញ្ញាតត្រឹមតែ ១ កុំព្យូទ័រ និង ១ ទូរសព្ទដៃប៉ុណ្ណោះ។ លើសពីនេះមិនអាចចូលប្រើប្រាស់បានជាដាច់ខាត។ សូមចុច Log out (ចាកចេញ) ពីកុំព្យូទ័រចាស់ជាមុនសិន ឬទាក់ទង Admin/SuperAdmin ប្រសិនបើលោកអ្នកបានប្តូរកុំព្យូទ័រថ្មី។'
           };
         } else {
           user.boundDevices.desktop.lastActive = nowStr;
@@ -7037,7 +7037,7 @@
             boundDeviceName: user.boundDevices.mobile.deviceName || 'ទូរសព្ទដៃដែលបានភ្ជាប់រួច',
             boundAt: user.boundDevices.mobile.boundAt,
             attemptedDeviceName: devName,
-            message: 'គណនីនេះត្រូវបានភ្ជាប់ជាមួយទូរសព្ទដៃផ្សេងរួចហើយ! គោលការណ៍សុវត្ថិភាពអនុញ្ញាតត្រឹមតែ ១ កុំព្យូទ័រ និង ១ ទូរសព្ទដៃប៉ុណ្ណោះ។ លើសពីនេះមិនអាចចូលប្រើប្រាស់បានជាដាច់ខាត។ សូមទាក់ទង Admin/SuperAdmin ប្រសិនបើលោកអ្នកបានប្តូរទូរសព្ទដៃថ្មី។'
+            message: 'គណនីនេះត្រូវបានភ្ជាប់ជាមួយទូរសព្ទដៃផ្សេងរួចហើយ! គោលការណ៍សុវត្ថិភាពអនុញ្ញាតត្រឹមតែ ១ កុំព្យូទ័រ និង ១ ទូរសព្ទដៃប៉ុណ្ណោះ។ លើសពីនេះមិនអាចចូលប្រើប្រាស់បានជាដាច់ខាត។ សូមចុច Log out (ចាកចេញ) ពីទូរសព្ទដៃចាស់ជាមុនសិន ឬទាក់ទង Admin/SuperAdmin ប្រសិនបើលោកអ្នកបានប្តូរទូរសព្ទដៃថ្មី។'
           };
         } else {
           user.boundDevices.mobile.lastActive = nowStr;
@@ -7194,6 +7194,44 @@
           return { success: true, message: 'បានផ្តាច់ឧបករណ៍ជោគជ័យ', boundDevices: target.boundDevices };
         }
         return { success: false, message: 'រកមិនឃើញ User នេះទេ' };
+      }
+
+      if (action === 'logoutUser' || action === 'logout') {
+        const uId = payload.userId;
+        const uName = String(payload.username || '').toLowerCase();
+        const devInfo = payload.deviceInfo || getCurrentDeviceInfo();
+        const rawType = String(payload.deviceType || (devInfo ? devInfo.deviceType : 'DESKTOP')).toUpperCase();
+        const devType = (rawType === 'MOBILE' || rawType === 'PHONE') ? 'MOBILE' : 'DESKTOP';
+        const devId = devInfo && devInfo.deviceId ? String(devInfo.deviceId).trim() : '';
+
+        const target = LOCAL_DB.users.find(u => (uId && u.userId === uId) || (uName && u.username.toLowerCase() === uName));
+        if (target) {
+          if (!target.boundDevices || typeof target.boundDevices !== 'object') {
+            target.boundDevices = { desktop: null, mobile: null };
+          }
+          if (devId) {
+            if (target.boundDevices.desktop && target.boundDevices.desktop.deviceId === devId) {
+              target.boundDevices.desktop = null;
+            } else if (target.boundDevices.mobile && target.boundDevices.mobile.deviceId === devId) {
+              target.boundDevices.mobile = null;
+            } else {
+              if (devType === 'DESKTOP') {
+                target.boundDevices.desktop = null;
+              } else {
+                target.boundDevices.mobile = null;
+              }
+            }
+          } else {
+            if (devType === 'DESKTOP') {
+              target.boundDevices.desktop = null;
+            } else {
+              target.boundDevices.mobile = null;
+            }
+          }
+          saveLocalUsersToStorage();
+          return { success: true, message: 'បានចាកចេញជោគជ័យ', boundDevices: target.boundDevices };
+        }
+        return { success: true, message: 'User not found in local cache' };
       }
 
       if (action === 'registerUser' || action === 'register') {
@@ -8194,51 +8232,59 @@
 
       const deviceInfo = getCurrentDeviceInfo();
 
-      // Fast-Path 1: Instant Local-First Authentication (< 5ms)
-      loadLocalUsersFromStorage();
-      const localAuthRes = simulateLocalApi('loginUser', { username, password, deviceInfo });
-
-      if (localAuthRes && !localAuthRes.success && localAuthRes.deviceBlocked) {
-        if (btn) {
-          btn.disabled = false;
-          btn.innerHTML = '<span>ចូលប្រព័ន្ធ</span> <i class="fa-solid fa-arrow-right-to-bracket text-sm"></i>';
-        }
-        showDeviceBlockedAlert(localAuthRes, deviceInfo);
-        return;
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i><span>កំពុងផ្ទៀងផ្ទាត់...</span>';
       }
 
-      if (localAuthRes && !localAuthRes.success && localAuthRes.message && (localAuthRes.message.includes('Pending') || localAuthRes.message.includes('Rejected') || localAuthRes.message.includes('រង់ចាំ'))) {
-        if (btn) {
-          btn.disabled = false;
-          btn.innerHTML = '<span>ចូលប្រព័ន្ធ</span> <i class="fa-solid fa-arrow-right-to-bracket text-sm"></i>';
-        }
-        Swal.fire('ដំណឹងគណនី', localAuthRes.message, 'info');
-        return;
-      }
-
-      if (localAuthRes && localAuthRes.success && localAuthRes.user) {
-        completeSuccessfulLogin(localAuthRes.user);
-        return;
-      }
-
-      // Fast-Path 2: Cloud Fallback (Only if user not found in local cache)
       try {
-        const cloudRes = await apiCall('loginUser', { username, password, deviceInfo });
-        if (cloudRes && !cloudRes.success && cloudRes.deviceBlocked) {
-          showDeviceBlockedAlert(cloudRes, deviceInfo);
-          return;
-        }
-        if (cloudRes && cloudRes.success && cloudRes.user) {
-          const existingIdx = LOCAL_DB.users.findIndex(u => u.username.toLowerCase() === cloudRes.user.username.toLowerCase());
-          if (existingIdx !== -1) {
-            LOCAL_DB.users[existingIdx] = cloudRes.user;
-          } else {
-            LOCAL_DB.users.push(cloudRes.user);
+        const gasUrl = AppState.gasApiUrl || localStorage.getItem('inventory_gas_api_url');
+        let cloudRes = null;
+
+        // 1. Authoritative Cloud Verification (real-time check across all computers/phones)
+        if (gasUrl && gasUrl.startsWith('https://script.google.com/')) {
+          try {
+            cloudRes = await apiCall('loginUser', { username, password, deviceInfo });
+          } catch (netErr) {
+            console.warn('[Login] Cloud verification network error, falling back to local:', netErr);
           }
-          saveLocalUsersToStorage();
-          completeSuccessfulLogin(cloudRes.user);
+        }
+
+        if (cloudRes) {
+          if (cloudRes.success && cloudRes.user) {
+            const existingIdx = LOCAL_DB.users.findIndex(u => u.username.toLowerCase() === cloudRes.user.username.toLowerCase());
+            if (existingIdx !== -1) {
+              LOCAL_DB.users[existingIdx] = cloudRes.user;
+            } else {
+              LOCAL_DB.users.push(cloudRes.user);
+            }
+            saveLocalUsersToStorage();
+            completeSuccessfulLogin(cloudRes.user);
+            return;
+          } else if (cloudRes.deviceBlocked) {
+            showDeviceBlockedAlert(cloudRes, deviceInfo);
+            return;
+          } else {
+            Swal.fire('ចូលមិនបានទេ', cloudRes.message || 'ឈ្មោះ ឬពាក្យសម្ងាត់មិនត្រឹមត្រូវ', 'error');
+            return;
+          }
+        }
+
+        // 2. Offline / Local-first fallback (if network is unavailable)
+        loadLocalUsersFromStorage();
+        const localAuthRes = simulateLocalApi('loginUser', { username, password, deviceInfo });
+        if (localAuthRes && localAuthRes.success && localAuthRes.user) {
+          completeSuccessfulLogin(localAuthRes.user);
+          return;
+        } else if (localAuthRes && !localAuthRes.success && localAuthRes.deviceBlocked) {
+          showDeviceBlockedAlert(localAuthRes, deviceInfo);
+          return;
+        } else if (localAuthRes && !localAuthRes.success && localAuthRes.message && (localAuthRes.message.includes('Pending') || localAuthRes.message.includes('Rejected') || localAuthRes.message.includes('រង់ចាំ'))) {
+          Swal.fire('ដំណឹងគណនី', localAuthRes.message, 'info');
+          return;
         } else {
-          Swal.fire('ចូលមិនបានទេ', (cloudRes && cloudRes.message) ? cloudRes.message : 'ឈ្មោះ ឬពាក្យសម្ងាត់មិនត្រឹមត្រូវ', 'error');
+          Swal.fire('ចូលមិនបានទេ', (localAuthRes && localAuthRes.message) ? localAuthRes.message : 'ឈ្មោះ ឬពាក្យសម្ងាត់មិនត្រឹមត្រូវ', 'error');
+          return;
         }
       } catch (err) {
         Swal.fire('Error', err.toString(), 'error');
@@ -8307,7 +8353,7 @@
             <div class="p-2.5 bg-blue-50/60 rounded-xl border border-blue-200 text-[11px] text-blue-800 flex items-start space-x-2">
               <i class="fa-solid fa-circle-info text-blue-600 text-sm mt-0.5 shrink-0"></i>
               <p class="leading-relaxed">
-                ប្រសិនបើលោកអ្នកបានប្តូរឧបករណ៍ថ្មី ឬឧបករណ៍ចាស់ខូច/បាត់ សូមទាក់ទងទៅ <b>Admin</b> ឬ <b>SuperAdmin</b> ដើម្បីធ្វើការផ្តាច់ឧបករណ៍ចាស់ (Reset Device Binding)។
+                ប្រសិនបើលោកអ្នកចង់ប្តូរមកប្រើប្រាស់ឧបករណ៍នេះ សូមចុច <b>Log out (ចាកចេញ)</b> ពីឧបករណ៍ចាស់ជាមុនសិន។ ប្រសិនបើឧបករណ៍ចាស់ខូច/បាត់ ឬមិនអាចចូល Logout បានទេ សូមទាក់ទងទៅ <b>Admin</b> ឬ <b>SuperAdmin</b> ដើម្បីធ្វើការផ្តាច់ឧបករណ៍ចាស់ (Reset Device Binding)។
               </p>
             </div>
           </div>
@@ -9797,13 +9843,9 @@
     }
 
     function handleLogout() {
-      if (sessionDurationInterval) clearInterval(sessionDurationInterval);
-      localStorage.removeItem('inventory_login_timestamp');
-      sessionStorage.removeItem('inventory_login_timestamp');
-      sessionStorage.removeItem('inventory_superadmin_session');
       Swal.fire({
         title: 'តើអ្នកប្រាកដជាចង់ចាកចេញឬ?',
-        text: 'លោកអ្នកនឹងត្រូវ Login ឡើងវិញដើម្បីចូលប្រើប្រាស់',
+        text: 'លោកអ្នកនឹងត្រូវ Login ឡើងវិញដើម្បីចូលប្រើប្រាស់ (ឧបករណ៍នេះនឹងត្រូវបានផ្តាច់ចេញ ដើម្បីអនុញ្ញាតឱ្យចូលប្រើលើឧបករណ៍ផ្សេងបាន)',
         icon: 'question',
         showCancelButton: true,
         confirmButtonText: 'ចាកចេញ (Logout)',
@@ -9811,9 +9853,50 @@
         confirmButtonColor: '#ef4444'
       }).then((result) => {
         if (result.isConfirmed) {
+          if (sessionDurationInterval) clearInterval(sessionDurationInterval);
+
+          const currentUser = AppState.currentUser;
+          const devInfo = getCurrentDeviceInfo();
+          const rawType = String(devInfo.deviceType || 'DESKTOP').toUpperCase();
+          const devType = (rawType === 'MOBILE' || rawType === 'PHONE') ? 'MOBILE' : 'DESKTOP';
+
+          // 1. Release device slot in local cache
+          if (currentUser) {
+            loadLocalUsersFromStorage();
+            const targetU = LOCAL_DB.users.find(u => 
+              (currentUser.userId && u.userId === currentUser.userId) || 
+              (currentUser.username && String(u.username).toLowerCase() === String(currentUser.username).toLowerCase())
+            );
+            if (targetU) {
+              if (!targetU.boundDevices || typeof targetU.boundDevices !== 'object') {
+                targetU.boundDevices = { desktop: null, mobile: null };
+              }
+              if (devType === 'DESKTOP') {
+                targetU.boundDevices.desktop = null;
+              } else {
+                targetU.boundDevices.mobile = null;
+              }
+              saveLocalUsersToStorage();
+            }
+
+            // 2. Call cloud logout to release slot on Google Sheets
+            try {
+              apiCall('logoutUser', {
+                userId: currentUser.userId,
+                username: currentUser.username,
+                deviceInfo: devInfo,
+                deviceType: devType
+              }).catch(e => console.warn('[Logout] Cloud notification notice:', e));
+            } catch (err) {
+              console.warn('[Logout] Dispatch error:', err);
+            }
+          }
+
+          localStorage.removeItem('inventory_login_timestamp');
+          sessionStorage.removeItem('inventory_login_timestamp');
+          sessionStorage.removeItem('inventory_superadmin_session');
           sessionStorage.removeItem('inventory_user');
           localStorage.removeItem('inventory_user');
-          sessionStorage.removeItem('inventory_superadmin_session');
           sessionStorage.removeItem('inventory_active_tab');
           sessionStorage.removeItem('inventory_scroll_top');
           AppState.currentUser = null;
@@ -9823,6 +9906,18 @@
           document.getElementById('mainApp').classList.add('hidden');
           toggleAuthView('login');
           loadRememberedCredentials();
+
+          const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 2000,
+            timerProgressBar: true
+          });
+          Toast.fire({
+            icon: 'info',
+            title: 'បានចាកចេញពីប្រព័ន្ធដោយជោគជ័យ'
+          });
         }
       });
     }

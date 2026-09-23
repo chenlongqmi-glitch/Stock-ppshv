@@ -576,6 +576,12 @@ function executeLocalApiAction(req) {
 
         return loginUser(payload, payload.password);
 
+      case 'logoutUser':
+
+      case 'logout':
+
+        return logoutUser(payload);
+
       case 'resetUserDeviceBinding':
 
       case 'resetDeviceBinding':
@@ -1399,7 +1405,7 @@ function loginUser(usernameOrData, password, extraDeviceInfo) {
                 boundDeviceName: boundDevices.desktop.deviceName || 'កុំព្យូទ័រដែលបានភ្ជាប់រួច',
                 boundAt: boundDevices.desktop.boundAt,
                 attemptedDeviceName: devName,
-                message: 'គណនីនេះត្រូវបានភ្ជាប់ជាមួយកុំព្យូទ័រផ្សេងរួចហើយ! គោលការណ៍សុវត្ថិភាពអនុញ្ញាតត្រឹមតែ ១ កុំព្យូទ័រ និង ១ ទូរសព្ទដៃប៉ុណ្ណោះ។ លើសពីនេះមិនអាចចូលប្រើប្រាស់បានជាដាច់ខាត។ សូមទាក់ទង Admin/SuperAdmin ប្រសិនបើលោកអ្នកបានប្តូរកុំព្យូទ័រថ្មី។'
+                message: 'គណនីនេះត្រូវបានភ្ជាប់ជាមួយកុំព្យូទ័រផ្សេងរួចហើយ! គោលការណ៍សុវត្ថិភាពអនុញ្ញាតត្រឹមតែ ១ កុំព្យូទ័រ និង ១ ទូរសព្ទដៃប៉ុណ្ណោះ។ លើសពីនេះមិនអាចចូលប្រើប្រាស់បានជាដាច់ខាត។ សូមចុច Log out (ចាកចេញ) ពីកុំព្យូទ័រចាស់ជាមុនសិន ឬទាក់ទង Admin/SuperAdmin ប្រសិនបើលោកអ្នកបានប្តូរកុំព្យូទ័រថ្មី។'
               };
             } else {
               // Matched bound computer, refresh last active
@@ -1427,7 +1433,7 @@ function loginUser(usernameOrData, password, extraDeviceInfo) {
                 boundDeviceName: boundDevices.mobile.deviceName || 'ទូរសព្ទដៃដែលបានភ្ជាប់រួច',
                 boundAt: boundDevices.mobile.boundAt,
                 attemptedDeviceName: devName,
-                message: 'គណនីនេះត្រូវបានភ្ជាប់ជាមួយទូរសព្ទដៃផ្សេងរួចហើយ! គោលការណ៍សុវត្ថិភាពអនុញ្ញាតត្រឹមតែ ១ កុំព្យូទ័រ និង ១ ទូរសព្ទដៃប៉ុណ្ណោះ។ លើសពីនេះមិនអាចចូលប្រើប្រាស់បានជាដាច់ខាត។ សូមទាក់ទង Admin/SuperAdmin ប្រសិនបើលោកអ្នកបានប្តូរទូរសព្ទដៃថ្មី។'
+                message: 'គណនីនេះត្រូវបានភ្ជាប់ជាមួយទូរសព្ទដៃផ្សេងរួចហើយ! គោលការណ៍សុវត្ថិភាពអនុញ្ញាតត្រឹមតែ ១ កុំព្យូទ័រ និង ១ ទូរសព្ទដៃប៉ុណ្ណោះ។ លើសពីនេះមិនអាចចូលប្រើប្រាស់បានជាដាច់ខាត។ សូមចុច Log out (ចាកចេញ) ពីទូរសព្ទដៃចាស់ជាមុនសិន ឬទាក់ទង Admin/SuperAdmin ប្រសិនបើលោកអ្នកបានប្តូរទូរសព្ទដៃថ្មី។'
               };
             } else {
               // Matched bound mobile, refresh last active
@@ -2495,6 +2501,130 @@ function resetUserDeviceBinding(payload, actor) {
 
 
   return { success: false, message: 'រកមិនឃើញគណនីអ្នកប្រើប្រាស់នេះទេ' };
+
+}
+
+
+
+function logoutUser(payload) {
+
+  if (!payload) return { success: true };
+
+  const targetUserId = String(payload.userId || '').trim();
+
+  const targetUsername = String(payload.username || '').trim().toLowerCase();
+
+  const deviceInfo = payload.deviceInfo || null;
+
+  const rawType = String(payload.deviceType || (deviceInfo ? deviceInfo.deviceType : 'DESKTOP')).toUpperCase();
+
+  const devType = (rawType === 'MOBILE' || rawType === 'PHONE') ? 'MOBILE' : 'DESKTOP';
+
+  const devId = deviceInfo && deviceInfo.deviceId ? String(deviceInfo.deviceId).trim() : '';
+
+
+
+  if (!targetUserId && !targetUsername) {
+
+    return { success: false, message: 'Missing user identifier' };
+
+  }
+
+
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  const sheet = ensureUsersInitialized(ss);
+
+  const data = sheet.getDataRange().getValues();
+
+
+
+  for (let i = 1; i < data.length; i++) {
+
+    const row = data[i];
+
+    const uId = String(row[0] || '').trim();
+
+    const uName = String(row[1] || '').trim().toLowerCase();
+
+
+
+    if ((targetUserId && uId === targetUserId) || (targetUsername && uName === targetUsername)) {
+
+      let bound = { desktop: null, mobile: null };
+
+      if (row[15]) {
+
+        try {
+
+          bound = JSON.parse(row[15]);
+
+          if (!bound || typeof bound !== 'object') bound = { desktop: null, mobile: null };
+
+        } catch (e) {
+
+          bound = { desktop: null, mobile: null };
+
+        }
+
+      }
+
+
+
+      if (devId) {
+
+        if (bound.desktop && bound.desktop.deviceId === devId) {
+
+          bound.desktop = null;
+
+        } else if (bound.mobile && bound.mobile.deviceId === devId) {
+
+          bound.mobile = null;
+
+        } else {
+
+          if (devType === 'DESKTOP') {
+
+            bound.desktop = null;
+
+          } else {
+
+            bound.mobile = null;
+
+          }
+
+        }
+
+      } else {
+
+        if (devType === 'DESKTOP') {
+
+          bound.desktop = null;
+
+        } else {
+
+          bound.mobile = null;
+
+        }
+
+      }
+
+
+
+      sheet.getRange(i + 1, 16).setValue(JSON.stringify(bound));
+
+      logActivity(uName, String(row[6] || 'User'), 'LOGOUT', `User logged out from ${devType} (${deviceInfo ? deviceInfo.deviceName : devType})`);
+
+      return { success: true, message: 'បានចាកចេញដោយជោគជ័យ', boundDevices: bound };
+
+    }
+
+  }
+
+
+
+  return { success: true, message: 'User not found in sheet' };
 
 }
 
