@@ -3733,7 +3733,7 @@ function uploadImageToGoogleDrive(base64Data, fileName, folderName) {
     const settings = getSettingsMap(ss);
 
     // ស្វែងរកតាមរយៈ Google Drive Folder ID (កំណត់ដោយអ្នកប្រើប្រាស់)
-    let targetFolderId = settings['DRIVE_IMAGE_FOLDER_ID'];
+    let targetFolderId = settings['DRIVE_IMAGE_FOLDER_ID'] || DEFAULT_DRIVE_FOLDER_ID || '1_pn3xY4G0wnaqLcT44VGPEz9W1_4E_Qm';
     if (folderName && (folderName.includes('/') || (folderName.length >= 25 && !folderName.includes(' ')))) {
       targetFolderId = folderName;
     }
