@@ -46,6 +46,14 @@ const DEFAULT_TELEGRAM_CHAT_ID = '1197248107';
 
 
 
+// Global Default Google Drive Product Images Folder
+
+const DEFAULT_DRIVE_FOLDER_ID = '1_pn3xY4G0wnaqLcT44VGPEz9W1_4E_Qm';
+
+const DEFAULT_DRIVE_FOLDER_URL = 'https://drive.google.com/drive/u/2/folders/1_pn3xY4G0wnaqLcT44VGPEz9W1_4E_Qm';
+
+
+
 // ==========================================
 
 // 1. WEB APP ROUTING (doGet & doPost)
@@ -557,7 +565,7 @@ function executeLocalApiAction(req) {
 
       case 'uploadProductImage':
 
-        return uploadImageToGoogleDrive(payload.base64 || payload.data || payload.image, payload.fileName, payload.folderName);
+        return uploadImageToGoogleDrive(payload.base64 || payload.data || payload.image, payload.fileName, payload.folderName || payload.folderId || payload.folderUrl || DEFAULT_DRIVE_FOLDER_ID);
 
       case 'deleteItem':
 
@@ -941,6 +949,10 @@ function setupDatabase() {
     setSheet.appendRow(['ENABLE_LOW_STOCK_ALERT', 'TRUE', 'បើក/បិទ ការជូនដំណឹងស្តុកទាប']);
 
     setSheet.appendRow(['ALERT_EMAIL', '', 'អ៊ីមែលទទួលដំណឹងពេលស្តុកជិតអស់']);
+
+    setSheet.appendRow(['DRIVE_IMAGE_FOLDER_ID', DEFAULT_DRIVE_FOLDER_ID, 'Google Drive Folder ID សម្រាប់ផ្ទុករូបភាពទំនិញ']);
+
+    setSheet.appendRow(['DRIVE_IMAGE_FOLDER_URL', DEFAULT_DRIVE_FOLDER_URL, 'តំណភ្ជាប់ Google Drive Folder សម្រាប់ផ្ទុករូបភាពទំនិញ']);
 
     setSheet.appendRow(['DRIVE_IMAGE_FOLDER', 'Stock_Product_Images', 'ឈ្មោះ Folder ក្នុង Google Drive សម្រាប់ផ្ទុករូបភាពទំនិញ']);
 
@@ -3636,131 +3648,104 @@ function uploadImageToGoogleDrive(base64Data, fileName, folderName) {
 
 
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-
     const settings = getSettingsMap(ss);
 
-    const targetFolder = folderName || settings['DRIVE_IMAGE_FOLDER'] || 'Stock_Product_Images';
-
-
-
-    let folder;
-
-    const folders = DriveApp.getFoldersByName(targetFolder);
-
-    if (folders.hasNext()) {
-
-      folder = folders.next();
-
-    } else {
-
-      folder = DriveApp.createFolder(targetFolder);
-
-      folder.setDescription('ផ្ទុករូបភាពទំនិញនៃប្រព័ន្ធគ្រប់គ្រងស្តុក (Stock Inventory Management)');
-
+    // ស្វែងរកតាមរយៈ Google Drive Folder ID (កំណត់ដោយអ្នកប្រើប្រាស់)
+    let targetFolderId = settings['DRIVE_IMAGE_FOLDER_ID'] || DEFAULT_DRIVE_FOLDER_ID;
+    if (folderName && (folderName.includes('/') || (folderName.length >= 25 && !folderName.includes(' ')))) {
+      targetFolderId = folderName;
     }
 
+    let folder = null;
 
+    // 1. ស្វែងរកតាមរយៈ Folder ID ជាអាទិភាពខ្ពស់បំផុត
+    if (targetFolderId) {
+      try {
+        let cleanFolderId = String(targetFolderId).trim();
+        const urlMatch = cleanFolderId.match(/folders\/([a-zA-Z0-9_-]+)/);
+        if (urlMatch) {
+          cleanFolderId = urlMatch[1];
+        }
+        folder = DriveApp.getFolderById(cleanFolderId);
+      } catch (fIdErr) {
+        if (typeof Logger !== 'undefined') Logger.log('DriveApp.getFolderById notice: ' + fIdErr.toString());
+      }
+    }
+
+    // 1.1 ប្រសិនបើរករកតាម ID ខាងលើមិនឃើញ សាកល្បង DEFAULT_DRIVE_FOLDER_ID
+    if (!folder && DEFAULT_DRIVE_FOLDER_ID) {
+      try {
+        folder = DriveApp.getFolderById(DEFAULT_DRIVE_FOLDER_ID);
+      } catch (defErr) {
+        if (typeof Logger !== 'undefined') Logger.log('DriveApp.getFolderById DEFAULT notice: ' + defErr.toString());
+      }
+    }
+
+    // 2. ប្រសិនបើរករកតាម ID មិនឃើញ ទើបស្វែងរកតាមឈ្មោះ Folder
+    if (!folder) {
+      const targetFolder = (folderName && !folderName.includes('/') && folderName.length < 25)
+        ? folderName
+        : (settings['DRIVE_IMAGE_FOLDER'] || 'Stock_Product_Images');
+      const folders = DriveApp.getFoldersByName(targetFolder);
+      if (folders.hasNext()) {
+        folder = folders.next();
+      } else {
+        folder = DriveApp.createFolder(targetFolder);
+        folder.setDescription('ផ្ទុករូបភាពទំនិញនៃប្រព័ន្ធគ្រប់គ្រងស្តុក (Stock Inventory Management)');
+      }
+    }
 
     // កំណត់សិទ្ធិ Folder ឱ្យ Anyone with link can view
-
     try {
-
       folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-
     } catch (fErr) {}
 
-
-
     // ញែក MIME type និង base64 payload
-
     let contentType = 'image/jpeg';
-
     let rawBase64 = base64Data;
 
-
-
     if (base64Data.indexOf(';base64,') !== -1) {
-
       const parts = base64Data.split(';base64,');
-
       contentType = parts[0].replace('data:', '') || 'image/jpeg';
-
       rawBase64 = parts[1];
-
     } else if (base64Data.startsWith('data:')) {
-
       const parts = base64Data.split(',');
-
       contentType = parts[0].split(';')[0].replace('data:', '') || 'image/jpeg';
-
       rawBase64 = parts[1];
-
     }
 
-
-
     // កំណត់កន្ទុយ File
-
     let ext = 'jpg';
-
     if (contentType.includes('png')) ext = 'png';
-
     else if (contentType.includes('webp')) ext = 'webp';
-
     else if (contentType.includes('gif')) ext = 'gif';
 
-
-
     const cleanBaseName = (fileName || ('item_' + Utilities.formatDate(new Date(), 'GMT+7', 'yyyyMMdd_HHmmss'))).replace(/\.[^/.]+$/, '');
-
     const cleanFileName = cleanBaseName + '.' + ext;
 
-
-
     const decodedBytes = Utilities.base64Decode(rawBase64);
-
     const blob = Utilities.newBlob(decodedBytes, contentType, cleanFileName);
 
-
-
     const file = folder.createFile(blob);
-
     try {
-
       file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-
     } catch (shareErr) {}
 
-
-
     const fileId = file.getId();
-
     // High-performance direct content CDN URL for <img> tags without CORS or cookie auth requirements
-
     const directUrl = 'https://lh3.googleusercontent.com/d/' + fileId;
-
     const driveViewUrl = 'https://drive.google.com/file/d/' + fileId + '/view';
 
-
-
     return {
-
       success: true,
-
       url: directUrl,
-
       fileId: fileId,
-
       driveViewUrl: driveViewUrl,
-
       folderId: folder.getId(),
-
-      folderName: targetFolder,
-
+      folderName: folder.getName(),
+      folderUrl: DEFAULT_DRIVE_FOLDER_URL,
       fileName: cleanFileName,
-
       message: 'បានរក្សាទុករូបភាពទៅ Google Drive ជោគជ័យ'
-
     };
 
   } catch (err) {
@@ -3903,26 +3888,15 @@ function saveOrUpdateItem(itemDataOrPayload, username) {
 
 
 
-  // ស្វ័យប្រវត្តិកត់ត្រារូបភាពទៅក្នុង Google Drive Folder ប្រសិនបើរូបភាពជា Base64
-
   if (itemData.imageUrl && (itemData.imageUrl.startsWith('data:image/') || itemData.imageUrl.length > 500)) {
-
     try {
-
-      const driveUpload = uploadImageToGoogleDrive(itemData.imageUrl, sku, 'Stock_Product_Images');
-
+      const driveUpload = uploadImageToGoogleDrive(itemData.imageUrl, sku, DEFAULT_DRIVE_FOLDER_ID);
       if (driveUpload && driveUpload.success && driveUpload.url) {
-
         itemData.imageUrl = driveUpload.url;
-
       }
-
     } catch (dErr) {
-
       if (typeof Logger !== 'undefined') Logger.log('Drive upload error in saveOrUpdateItem: ' + dErr.toString());
-
     }
-
   }
 
 
@@ -6081,17 +6055,13 @@ function getSettingsMap(ss) {
   const sheet = ss.getSheetByName(SHEETS.SETTINGS);
 
   const map = {
-
     'TELEGRAM_BOT_TOKEN': DEFAULT_TELEGRAM_BOT_TOKEN,
-
     'TELEGRAM_CHAT_ID': DEFAULT_TELEGRAM_CHAT_ID,
-
     'ENABLE_LOW_STOCK_ALERT': 'TRUE',
-
     'ALERT_EMAIL': 'chenlongqmi@gmail.com',
-
+    'DRIVE_IMAGE_FOLDER_ID': DEFAULT_DRIVE_FOLDER_ID,
+    'DRIVE_IMAGE_FOLDER_URL': DEFAULT_DRIVE_FOLDER_URL,
     'DRIVE_IMAGE_FOLDER': 'Stock_Product_Images'
-
   };
 
   if (!sheet) return map;

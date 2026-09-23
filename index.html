@@ -3291,6 +3291,29 @@
                 </div>
               </div>
 
+              <!-- Google Drive Product Image Storage Folder -->
+              <div class="p-4 bg-amber-50/70 rounded-2xl border border-amber-200 space-y-3">
+                <div class="flex items-center justify-between">
+                  <h4 class="font-bold text-xs text-amber-900 flex items-center">
+                    <i class="fa-brands fa-google-drive mr-1.5 text-amber-600 text-base"></i>Google Drive ផ្ទុករូបភាពទំនិញ (Product Images Storage)
+                  </h4>
+                  <span class="text-[9px] px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 font-bold border border-amber-300">Cloud Storage</span>
+                </div>
+                <p class="text-[11px] text-slate-500">
+                  តំណភ្ជាប់ Google Drive Folder សម្រាប់ផ្ទុករាល់រូបភាពទំនិញដែលបាន Upload ដោយស្វ័យប្រវត្តិ។
+                </p>
+                <div class="flex items-center space-x-2">
+                  <input type="url" id="setDriveFolderUrl" placeholder="https://drive.google.com/drive/folders/..."
+                    value="https://drive.google.com/drive/u/2/folders/1_pn3xY4G0wnaqLcT44VGPEz9W1_4E_Qm"
+                    class="flex-1 px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-mono outline-none focus:ring-2 focus:ring-amber-500">
+                  <button type="button" onclick="handleOpenDriveFolder()"
+                    class="px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-sm flex items-center space-x-1.5 transition shrink-0">
+                    <i class="fa-solid fa-folder-open"></i>
+                    <span>បើក Folder</span>
+                  </button>
+                </div>
+              </div>
+
               <div>
                 <label class="block text-xs font-bold text-slate-700 uppercase mb-1">អ៊ីមែលទទួលការជូនដំណឹង (Alert
                   Email)</label>
@@ -3716,9 +3739,11 @@
                 <div class="min-w-0 pr-2">
                   <div class="flex items-center space-x-1.5">
                     <p id="imagePreviewName" class="text-xs font-bold text-slate-800 truncate">រូបភាពទំនិញ</p>
-                    <span class="inline-flex items-center px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-md text-[10px] font-bold shrink-0">
-                      <i class="fa-brands fa-google-drive text-emerald-600 mr-1"></i>Google Drive
-                    </span>
+                    <div id="imageDriveBadgeContainer">
+                      <span class="inline-flex items-center px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-md text-[10px] font-bold shrink-0">
+                        <i class="fa-brands fa-google-drive text-emerald-600 mr-1"></i>Google Drive
+                      </span>
+                    </div>
                   </div>
                   <p id="imagePreviewSize" class="text-[10px] text-emerald-600 font-semibold"><i
                       class="fa-solid fa-circle-check mr-1"></i>រួចរាល់ (អាចអូសទម្លាក់រូបថ្មីបាន)</p>
@@ -6689,7 +6714,21 @@
               headers: { 'Content-Type': 'text/plain;charset=utf-8' },
               body: JSON.stringify({ action: action, payload: payload })
             }).then(r => r.json()).then(res => {
-              if (res && !res.success) {
+              if (res && res.success) {
+                // If Google Apps Script returned a new permanent Google Drive URL, update local store
+                if (res.sku && res.imageUrl && (res.imageUrl.startsWith('http://') || res.imageUrl.startsWith('https://'))) {
+                  const updatedIdx = LOCAL_DB.items.findIndex(i => i.sku === res.sku);
+                  if (updatedIdx >= 0 && LOCAL_DB.items[updatedIdx].imageUrl !== res.imageUrl) {
+                    LOCAL_DB.items[updatedIdx].imageUrl = res.imageUrl;
+                    saveLocalItemsToStorage();
+                    AppState.items = [...LOCAL_DB.items];
+                    if (typeof renderItemsTable === 'function') renderItemsTable();
+                    if (typeof broadcastInventoryMutation === 'function') {
+                      broadcastInventoryMutation('ITEM_SAVED', { item: LOCAL_DB.items[updatedIdx], items: AppState.items });
+                    }
+                  }
+                }
+              } else if (res && !res.success) {
                 console.warn(`[Cloud Sync] Mutation ${action} response:`, res.message);
               }
             }).catch(e => {
@@ -6735,7 +6774,8 @@
         } else if (gasUrl && gasUrl.startsWith('https://script.google.com/')) {
           try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 6000);
+            const timeoutMs = (action === 'uploadImageToDrive' || action === 'uploadProductImage') ? 35000 : 8000;
+            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
             const resp = await fetch(gasUrl, {
               method: 'POST',
@@ -7684,6 +7724,8 @@
         return {
           success: true,
           url: payload.base64 || payload.data || payload.image,
+          folderUrl: 'https://drive.google.com/drive/u/2/folders/1_pn3xY4G0wnaqLcT44VGPEz9W1_4E_Qm',
+          folderId: '1_pn3xY4G0wnaqLcT44VGPEz9W1_4E_Qm',
           message: 'បានរក្សាទុករូបភាពជោគជ័យ'
         };
       }
@@ -8015,6 +8057,7 @@
         localStorage.setItem('inventory_system_settings', JSON.stringify(s));
         if (s.TELEGRAM_BOT_TOKEN !== undefined) localStorage.setItem('inventory_tg_token', s.TELEGRAM_BOT_TOKEN);
         if (s.TELEGRAM_CHAT_ID !== undefined) localStorage.setItem('inventory_tg_chatid', s.TELEGRAM_CHAT_ID);
+        if (s.DRIVE_IMAGE_FOLDER_URL !== undefined) localStorage.setItem('inventory_drive_image_folder', s.DRIVE_IMAGE_FOLDER_URL);
         AppState.settings = { ...(AppState.settings || {}), ...s };
         return { success: true, message: 'បានរក្សាទុកការកំណត់ជោគជ័យ!' };
       }
@@ -10456,6 +10499,32 @@
       if (currentVal) select.value = currentVal;
     }
 
+    function formatDriveImageUrl(url) {
+      if (!url || typeof url !== 'string') return '';
+      url = url.trim();
+      if (url.startsWith('data:image/') || url.startsWith('blob:')) return url;
+      if (url.includes('googleusercontent.com/d/')) return url;
+      const matchFile = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+      if (matchFile) return `https://lh3.googleusercontent.com/d/${matchFile[1]}`;
+      const matchId = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+      if (matchId && url.includes('drive.google.com')) return `https://lh3.googleusercontent.com/d/${matchId[1]}`;
+      return url;
+    }
+
+    function handleProductImgError(img) {
+      if (!img) return;
+      const src = img.getAttribute('src') || '';
+      if (src.includes('googleusercontent.com/d/')) {
+        const fileId = src.split('/d/')[1]?.split(/[?#]/)[0];
+        if (fileId && !img.dataset.hasTriedThumbnail) {
+          img.dataset.hasTriedThumbnail = 'true';
+          img.src = `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`;
+          return;
+        }
+      }
+      img.src = 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=150';
+    }
+
     function renderItemsTable() {
       const tbody = document.getElementById('itemsTableBody');
       if (!tbody) return;
@@ -10548,9 +10617,9 @@
           <!-- ជួរទី៣: រូបភាព (Image) - ចុចលើរូបដើម្បីមើលរូបភាពធំ -->
           <td class="px-4 py-2.5 text-center">
             <div class="relative inline-block group/img" onclick="event.stopPropagation(); previewLargeImage('${escapeHtml(item.imageUrl)}', '${escapeHtml(item.name)}', '${item.sku}', '${item.barcode || '-'}', '${item.unit || 'ដុំ'}', ${item.currentStock || 0}, '${escapeHtml(getUserDisplayName(item.createdBy))}', '${escapeHtml(item.zone || '-')}')" title="ចុចដើម្បីមើលរូបភាពធំ">
-              <img src="${item.imageUrl || 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=150'}" 
+              <img src="${formatDriveImageUrl(item.imageUrl) || 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=150'}" 
                 loading="lazy" decoding="async"
-                onerror="this.src='https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=150'" 
+                onerror="handleProductImgError(this)" 
                 class="w-11 h-11 object-cover rounded-xl border border-slate-200 shadow-sm mx-auto cursor-zoom-in group-hover/img:scale-110 group-hover/img:ring-2 group-hover/img:ring-blue-400 transition-all duration-200">
               <span class="absolute -bottom-1 -right-1 bg-slate-900/80 text-white text-[8px] p-0.5 rounded-full opacity-0 group-hover/img:opacity-100 transition"><i class="fa-solid fa-magnifying-glass-plus"></i></span>
             </div>
@@ -10728,11 +10797,104 @@
       }
     }
 
+    let currentImageUploadAbortCtrl = null;
+
+    async function autoUploadProductImageToDrive(base64Data, name) {
+      if (!base64Data || !base64Data.startsWith('data:image/')) return;
+
+      const badge = document.getElementById('imageDriveBadgeContainer');
+      const sizeEl = document.getElementById('imagePreviewSize');
+
+      if (badge) {
+        badge.innerHTML = `
+          <span class="inline-flex items-center px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-md text-[10px] font-bold shadow-3xs animate-pulse">
+            <i class="fa-solid fa-spinner fa-spin mr-1 text-blue-500"></i>Google Drive...
+          </span>
+        `;
+      }
+      if (sizeEl) {
+        sizeEl.innerHTML = `<i class="fa-solid fa-cloud-arrow-up text-blue-500 mr-1 animate-bounce"></i>កំពុងស្វ័យប្រវត្តិតភ្ជាប់ Google Drive...`;
+      }
+
+      const sku = (document.getElementById('modalSku')?.value || '').trim() || ('SKU-' + Date.now());
+      const itemName = (document.getElementById('modalName')?.value || '').trim() || 'item';
+      const cleanFileName = `${sku}_${itemName}`.replace(/[\\/:*?"<>|\s]/g, '_');
+
+      try {
+        const driveFolderUrl = document.getElementById('setDriveFolderUrl')?.value?.trim() || 'https://drive.google.com/drive/u/2/folders/1_pn3xY4G0wnaqLcT44VGPEz9W1_4E_Qm';
+        const res = await apiCall('uploadImageToDrive', {
+          base64: base64Data,
+          fileName: cleanFileName,
+          folderId: '1_pn3xY4G0wnaqLcT44VGPEz9W1_4E_Qm',
+          folderUrl: driveFolderUrl
+        });
+
+        // Ensure user hasn't cleared or changed image while uploading
+        if (document.getElementById('modalImageUrl')?.value === base64Data) {
+          if (res && res.success && res.url && (res.url.startsWith('http://') || res.url.startsWith('https://'))) {
+            document.getElementById('modalImageUrl').value = res.url;
+            const viewUrl = res.driveViewUrl || `https://drive.google.com/drive/u/2/folders/1_pn3xY4G0wnaqLcT44VGPEz9W1_4E_Qm`;
+            if (badge) {
+              badge.innerHTML = `
+                <a href="${viewUrl}" target="_blank" title="បើកមើលរូបភាពក្នុង Google Drive"
+                  class="inline-flex items-center px-2 py-0.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300 rounded-md text-[10px] font-bold shadow-3xs transition">
+                  <i class="fa-brands fa-google-drive text-emerald-600 mr-1 text-[11px]"></i>
+                  <span>Google Drive (រួចរាល់)</span>
+                  <i class="fa-solid fa-arrow-up-right-from-square ml-1 text-[8px] text-emerald-600"></i>
+                </a>
+              `;
+            }
+            if (sizeEl) {
+              sizeEl.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-600 mr-1"></i>បានរក្សាទុកក្នុង Google Drive ដោយជោគជ័យ`;
+            }
+          } else {
+            if (badge) {
+              badge.innerHTML = `
+                <span class="inline-flex items-center px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md text-[10px] font-bold shadow-3xs">
+                  <i class="fa-brands fa-google-drive text-emerald-600 mr-1"></i>Google Drive
+                </span>
+              `;
+            }
+            if (sizeEl) {
+              sizeEl.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-600 mr-1"></i>រួចរាល់ (រក្សាទុកទៅ Drive ពេលចុច Save)`;
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[Auto Drive Upload notice]', err);
+        if (badge) {
+          badge.innerHTML = `
+            <span class="inline-flex items-center px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md text-[10px] font-bold shadow-3xs">
+              <i class="fa-brands fa-google-drive text-emerald-600 mr-1"></i>Google Drive
+            </span>
+          `;
+        }
+      }
+    }
+
     function displayImagePreview(src, name = 'រូបភាពទំនិញ', size = '') {
       document.getElementById('modalImageUrl').value = src;
       document.getElementById('modalImagePreview').src = src;
       document.getElementById('imagePreviewName').innerText = name;
       document.getElementById('imagePreviewSize').innerHTML = size ? `<i class="fa-solid fa-circle-check mr-1"></i>${size}` : `<i class="fa-solid fa-circle-check mr-1"></i>រួចរាល់`;
+
+      const badge = document.getElementById('imageDriveBadgeContainer');
+      if (src && (src.includes('googleusercontent.com') || src.includes('drive.google.com'))) {
+        const fileIdMatch = src.match(/\/d\/([a-zA-Z0-9_-]+)/) || src.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+        const viewLink = fileIdMatch ? `https://drive.google.com/file/d/${fileIdMatch[1]}/view` : 'https://drive.google.com/drive/u/2/folders/1_pn3xY4G0wnaqLcT44VGPEz9W1_4E_Qm';
+        if (badge) {
+          badge.innerHTML = `
+            <a href="${viewLink}" target="_blank" title="បើកមើលក្នុង Google Drive"
+              class="inline-flex items-center px-2 py-0.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300 rounded-md text-[10px] font-bold shadow-3xs transition">
+              <i class="fa-brands fa-google-drive text-emerald-600 mr-1 text-[11px]"></i>
+              <span>Google Drive</span>
+              <i class="fa-solid fa-arrow-up-right-from-square ml-1 text-[8px] text-emerald-600"></i>
+            </a>
+          `;
+        }
+      } else if (src && src.startsWith('data:image/')) {
+        autoUploadProductImageToDrive(src, name);
+      }
 
       document.getElementById('imageUploadBox').classList.add('hidden');
       document.getElementById('imagePreviewCard').classList.remove('hidden');
@@ -13211,7 +13373,12 @@
 
       document.getElementById('largeImgModalTitle').innerText = name || 'រូបភាពទំនិញ';
       document.getElementById('largeImgModalSku').innerText = `កូដ SKU: ${sku || '-'}`;
-      document.getElementById('largeImgModalSrc').src = imageUrl || 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=800';
+      const directSrc = formatDriveImageUrl(imageUrl);
+      const imgEl = document.getElementById('largeImgModalSrc');
+      if (imgEl) {
+        imgEl.src = directSrc || 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=800';
+        imgEl.onerror = function() { handleProductImgError(this); };
+      }
       document.getElementById('largeImgModalName').innerText = name || '-';
       document.getElementById('largeImgModalBarcode').innerText = barcode || '-';
       document.getElementById('largeImgModalStock').innerText = `${stock || 0} ${unit || 'ដុំ'}`;
@@ -13891,12 +14058,18 @@
         const compField = document.getElementById('setCompanyName');
         const currField = document.getElementById('setCurrency');
         const emailField = document.getElementById('setAlertEmail');
+        const driveFolderInput = document.getElementById('setDriveFolderUrl');
+        const defaultDriveUrl = 'https://drive.google.com/drive/u/2/folders/1_pn3xY4G0wnaqLcT44VGPEz9W1_4E_Qm';
+        const savedDriveUrl = localStorage.getItem('inventory_drive_image_folder') || localSettings.DRIVE_IMAGE_FOLDER_URL || localSettings.DRIVE_IMAGE_FOLDER_ID;
 
         if (tokenField) tokenField.value = savedTgToken || localSettings.TELEGRAM_BOT_TOKEN || AppState.settings?.TELEGRAM_BOT_TOKEN || DEFAULT_TG_BOT_TOKEN;
         if (chatIdField) chatIdField.value = savedTgChatId || localSettings.TELEGRAM_CHAT_ID || AppState.settings?.TELEGRAM_CHAT_ID || DEFAULT_TG_CHAT_ID;
         if (compField) compField.value = localSettings.COMPANY_NAME || AppState.settings?.COMPANY_NAME || 'ប្រព័ន្ធគ្រប់គ្រងស្តុកទំនិញ PPSHV';
         if (currField) currField.value = localSettings.CURRENCY_SYMBOL || AppState.settings?.CURRENCY_SYMBOL || '$';
         if (emailField) emailField.value = localSettings.ALERT_EMAIL || AppState.settings?.ALERT_EMAIL || 'chhengyiv3@gmail.com, chenlongqmi@gmail.com, ppshv2024@gmail.com';
+        if (driveFolderInput) {
+          driveFolderInput.value = savedDriveUrl || AppState.settings?.DRIVE_IMAGE_FOLDER_URL || defaultDriveUrl;
+        }
         if (sheetUrlInput && !sheetUrlInput.value) {
           sheetUrlInput.value = localSettings.GOOGLE_SHEET_URL || AppState.settings?.GOOGLE_SHEET_URL || '';
         }
@@ -13909,6 +14082,11 @@
           if (res.settings.TELEGRAM_BOT_TOKEN && tokenField) tokenField.value = res.settings.TELEGRAM_BOT_TOKEN;
           if (res.settings.TELEGRAM_CHAT_ID && chatIdField) chatIdField.value = res.settings.TELEGRAM_CHAT_ID;
           if (res.settings.ALERT_EMAIL && emailField) emailField.value = res.settings.ALERT_EMAIL;
+          if (res.settings.DRIVE_IMAGE_FOLDER_URL || res.settings.DRIVE_IMAGE_FOLDER_ID) {
+            const driveVal = res.settings.DRIVE_IMAGE_FOLDER_URL || (res.settings.DRIVE_IMAGE_FOLDER_ID ? `https://drive.google.com/drive/folders/${res.settings.DRIVE_IMAGE_FOLDER_ID}` : '');
+            if (driveFolderInput && driveVal) driveFolderInput.value = driveVal;
+            localStorage.setItem('inventory_drive_image_folder', driveVal);
+          }
           if (res.settings.GOOGLE_SHEET_URL) {
             if (sheetUrlInput) sheetUrlInput.value = res.settings.GOOGLE_SHEET_URL;
             AppState.googleSheetUrl = res.settings.GOOGLE_SHEET_URL;
@@ -13948,13 +14126,24 @@
       if (token) localStorage.setItem('inventory_tg_token', token);
       if (chatId) localStorage.setItem('inventory_tg_chatid', chatId);
 
+      const driveFolderUrl = document.getElementById('setDriveFolderUrl') ? document.getElementById('setDriveFolderUrl').value.trim() : 'https://drive.google.com/drive/u/2/folders/1_pn3xY4G0wnaqLcT44VGPEz9W1_4E_Qm';
+      if (driveFolderUrl) {
+        localStorage.setItem('inventory_drive_image_folder', driveFolderUrl);
+      }
+
+      let driveFolderId = driveFolderUrl;
+      const dMatch = driveFolderUrl.match(/folders\/([a-zA-Z0-9_-]+)/);
+      if (dMatch) driveFolderId = dMatch[1];
+
       const settings = {
         COMPANY_NAME: companyName,
         CURRENCY_SYMBOL: currency,
         TELEGRAM_BOT_TOKEN: token,
         TELEGRAM_CHAT_ID: chatId,
         ALERT_EMAIL: alertEmail,
-        GOOGLE_SHEET_URL: googleSheetUrl
+        GOOGLE_SHEET_URL: googleSheetUrl,
+        DRIVE_IMAGE_FOLDER_URL: driveFolderUrl,
+        DRIVE_IMAGE_FOLDER_ID: driveFolderId
       };
 
       localStorage.setItem('inventory_system_settings', JSON.stringify(settings));
@@ -18796,6 +18985,11 @@
           showConfirmButton: false
         });
       }
+    }
+
+    function handleOpenDriveFolder() {
+      const url = document.getElementById('setDriveFolderUrl')?.value.trim() || 'https://drive.google.com/drive/u/2/folders/1_pn3xY4G0wnaqLcT44VGPEz9W1_4E_Qm';
+      window.open(url, '_blank');
     }
 
     function handleTopMenuProfile() {
