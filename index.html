@@ -14640,6 +14640,13 @@
                 <option value="ប្រធានក្រុម">👤 ប្រធានក្រុម</option>
                 <option value="អ្នកកាន់ស្តុក">📦 អ្នកកាន់ស្តុក</option>
               `;
+            } else if (isActorAdmin) {
+              roleFilterElem.innerHTML = `
+                <option value="ALL">គ្រប់តួនាទីទាំងអស់</option>
+                <option value="អ្នកគ្រប់គ្រងស្ថានីយ">🏢 អ្នកគ្រប់គ្រងស្ថានីយ</option>
+                <option value="ប្រធានក្រុម">👤 ប្រធានក្រុម</option>
+                <option value="អ្នកកាន់ស្តុក">📦 អ្នកកាន់ស្តុក</option>
+              `;
             } else {
               roleFilterElem.innerHTML = `
                 <option value="ALL">គ្រប់តួនាទីទាំងអស់</option>
@@ -14653,8 +14660,8 @@
           }
 
           // Strict Role Visibility:
-          // 1. SuperAdmin: មើលឃើញ User ទាំងអស់ដែលបាន Register (មិនចាំបាច់បង្ហាញព័ត៌មានរបស់ខ្លួនឯងក្នុងតារាងទេ)
-          // 2. Admin: មើលឃើញ User ទាំងអស់ដែលបាន Register តែមិនបង្ហាញ SuperAdmin និងមិនបង្ហាញព័ត៌មានរបស់ខ្លួនឯងក្នុងតារាងទេ
+          // 1. SuperAdmin: មើលឃើញ User ទាំងអស់ដែលបាន Register (រួមទាំង SuperAdmin និង Admin ទាំងអស់)
+          // 2. Admin: មិនអាចមើលឃើញ SuperAdmin និង Admin ឡើយ (មើលឃើញតែ អ្នកគ្រប់គ្រងស្ថានីយ, ប្រធានក្រុម, អ្នកកាន់ស្តុក)
           // 3. Station Manager: អាចមើលឃើញតែ ប្រធានក្រុម និងអ្នកកាន់ស្តុក ដែលនៅក្នុងស្ថានីយខ្លួនឯងតែប៉ុណ្ណោះ
           // 4. User ធម្មតា: អាចមើលឃើញព័ត៌មានខ្លួនឯងតែមួយគត់
           // 5. លុបចេញរាល់ User ដែលមិនបាន Register (dummy/seed wh01-wh11, @inventory.local, etc.)
@@ -14673,12 +14680,14 @@
             // 1. SuperAdmin sees all users (including SuperAdmin, all Admins, Station Managers, Team Leaders, and Stock Keepers)
             filteredUsers = filteredUsers;
           } else if (isActorAdmin) {
-            // 2. Admin sees all users and ALL other Admins (Admin and Admin see each other 100%!), only SuperAdmin is hidden
-            filteredUsers = filteredUsers.filter(u =>
-              u.role !== 'SuperAdmin' &&
-              String(u.username).toLowerCase() !== 'superadmin' &&
-              String(u.userId).toUpperCase() !== 'USR-SA'
-            );
+            // 2. Admin cannot see SuperAdmin or Admin accounts (neither other Admins nor Admin role)
+            filteredUsers = filteredUsers.filter(u => {
+              const r = String(u.role || '').trim().toLowerCase();
+              const uName = String(u.username || '').toLowerCase();
+              const uId = String(u.userId || '').toUpperCase();
+              const isAdminOrSA = (r === 'superadmin' || r === 'admin' || uName === 'superadmin' || uName === 'admin' || uId === 'USR-SA' || uId === 'USR-00' || uId === 'USR-001');
+              return !isAdminOrSA;
+            });
           } else if (isActorStationManager) {
             const myWh = cleanWh(AppState.currentUser?.warehouse);
             filteredUsers = filteredUsers.filter(u => {
@@ -16432,9 +16441,15 @@
       const isActorAdmin = !isActorSuperAdmin && (AppState.currentUser?.role === 'Admin' || String(AppState.currentUser?.username).toLowerCase() === 'admin');
       const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (AppState.currentUser?.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || AppState.currentUser?.role === 'អ្នកគ្រប់គ្រង');
 
-      // Protect SuperAdmin from non-superadmin actors
-      if (u.role === 'SuperAdmin' && !isActorSuperAdmin) {
+      // Protect SuperAdmin and Admin from unauthorized editing
+      const isTargetSA = (u.role === 'SuperAdmin' || u.userId === 'USR-SA' || String(u.username).toLowerCase() === 'superadmin');
+      const isTargetAdmin = (u.role === 'Admin' || u.userId === 'USR-00' || u.userId === 'USR-001' || String(u.username).toLowerCase() === 'admin');
+      if (isTargetSA && !isActorSuperAdmin) {
         Swal.fire('គ្មានសិទ្ធិ', 'មានតែ SuperAdmin ប៉ុណ្ណោះដែលអាចកែប្រែគណនី SuperAdmin បាន!', 'warning');
+        return;
+      }
+      if (isTargetAdmin && !isActorSuperAdmin) {
+        Swal.fire('គ្មានសិទ្ធិ', 'មានតែ SuperAdmin ប៉ុណ្ណោះដែលអាចកែប្រែគណនី Admin បាន!', 'warning');
         return;
       }
 
@@ -16464,7 +16479,6 @@
         `;
       } else if (isActorAdmin) {
         roleOptions = `
-          ${u.role === 'Admin' ? '<option value="Admin" selected>🛡️ Admin (អ្នកគ្រប់គ្រងប្រព័ន្ធ)</option>' : ''}
           <option value="អ្នកគ្រប់គ្រងស្ថានីយ" ${u.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || u.role === 'អ្នកគ្រប់គ្រង' ? 'selected' : ''}>🏢 អ្នកគ្រប់គ្រងស្ថានីយ (Station Manager)</option>
           <option value="ប្រធានក្រុម" ${u.role === 'ប្រធានក្រុម' || u.role === 'ប្រធាន' || u.role === 'Manager' || u.role === 'Team Leader' ? 'selected' : ''}>👤 ប្រធានក្រុម (Team Leader)</option>
           <option value="អ្នកកាន់ស្តុក" ${u.role === 'អ្នកកាន់ស្តុក' || u.role === 'Stock Keeper' ? 'selected' : ''}>📦 អ្នកកាន់ស្តុក (Stock Keeper)</option>
@@ -16729,12 +16743,20 @@
       const uId = targetUser?.userId || userId;
       const uName = targetUser?.username || username;
 
-      // Protect SuperAdmin
+      // Protect SuperAdmin and Admin
       if ((targetRole === 'SuperAdmin' || targetUser?.userId === 'USR-SA' || String(targetUser?.username).toLowerCase() === 'superadmin') && !isActorSuperAdmin) {
         Swal.fire({
           icon: 'error',
           title: 'គ្មានសិទ្ធិ',
           text: 'អ្នកគ្មានសិទ្ធិលុបគណនី SuperAdmin ឡើយ!'
+        });
+        return;
+      }
+      if ((targetRole === 'Admin' || targetUser?.userId === 'USR-00' || targetUser?.userId === 'USR-001' || String(targetUser?.username).toLowerCase() === 'admin') && !isActorSuperAdmin) {
+        Swal.fire({
+          icon: 'error',
+          title: 'គ្មានសិទ្ធិ',
+          text: 'អ្នកគ្មានសិទ្ធិលុបគណនី Admin ឡើយ!'
         });
         return;
       }

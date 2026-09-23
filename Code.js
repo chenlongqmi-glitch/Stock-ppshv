@@ -2320,16 +2320,13 @@ function getUsersList(userOrPayload) {
     return { success: true, users: users };
 
   } else if (isAdmin) {
-
-    return { success: true, users: users.filter(u =>
-
-      u.role !== 'SuperAdmin' &&
-
-      String(u.username).toLowerCase() !== 'superadmin' &&
-
-      String(u.userId).toUpperCase() !== 'USR-SA'
-
-    ) };
+    return { success: true, users: users.filter(u => {
+      const r = String(u.role || '').trim().toLowerCase();
+      const uName = String(u.username || '').toLowerCase();
+      const uId = String(u.userId || '').toUpperCase();
+      const isAdminOrSA = (r === 'superadmin' || r === 'admin' || uName === 'superadmin' || uName === 'admin' || uId === 'USR-SA' || uId === 'USR-00' || uId === 'USR-001');
+      return !isAdminOrSA;
+    }) };
 
   } else if (isStationManager) {
 
