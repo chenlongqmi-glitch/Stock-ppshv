@@ -761,8 +761,11 @@ function setupDatabase() {
     itemsSheet.appendRow(headers);
     formatHeaderRow(itemsSheet, headers.length, '#1e293b');
 
-    // Real Master Product Catalog (Authentic Product from Image 3)
-    itemsSheet.appendRow(['SKU-001', '8850123456789', 'ប៊ិច-圆珠笔', 'សម្ភារៈការិយាល័យ', 'ប្រអប់', 0.50, 0.80, 1, '1-K3 ស្ថានីយ (ភ្នំពេញ)', 0, 'https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?w=300', 'Active', new Date(), 'Pixcell', 'ស្វាយ', 'ដើម', 12, 'តំបន់ A', 'Z-01', 'ចំណាំដើម', 'singvan327@gmail.com']);
+    // Authentic Master Product Catalog (from Image 1)
+    itemsSheet.appendRow(['SKU-7501', 'SKU-7501', 'ប៊ិច-圆珠笔', 'សម្ភារៈការិយាល័យ', 'ដើម', 0.50, 0.80, 1, 'គ្រប់ស្ថានីយទាំងអស់', 0, 'assets/SKU-7501.jpg', 'Active', new Date(), 'Pixcell', 'ខ្មៅ', 'ប្រអប់', 12, 'តំបន់ A', 'Z-01', 'ចំណាំដើម', 'sdfsdf']);
+    itemsSheet.appendRow(['SKU-9144', 'SKU-9144', 'ទឹកលុប-涂改液', 'សម្ភារៈការិយាល័យ', 'ដើម', 0.50, 0.80, 1, 'គ្រប់ស្ថានីយទាំងអស់', 0, 'assets/SKU-9144.jpg', 'Active', new Date(), 'Pixcell', 'ស', 'ប្រអប់', 12, 'តំបន់ A (ទំនិញទូទៅ)', 'Z-01', 'ចំណាំសិន', 'singvan327@gmail.com']);
+    itemsSheet.appendRow(['SKU-9050', 'SKU-9050', 'ប៊ិច-圆珠笔', 'សម្ភារៈការិយាល័យ', 'ដើម', 0.50, 0.80, 1, 'គ្រប់ស្ថានីយទាំងអស់', 0, 'assets/SKU-9050.jpg', 'Active', new Date(), 'Pixcell', 'ក្រហម', 'ប្រអប់', 12, 'តំបន់ A', 'Z-01', 'ចំណាំសិន', 'singvan327@gmail.com']);
+    itemsSheet.appendRow(['SKU-9649', 'SKU-9649', 'ប៊ិច-圆珠笔', 'សម្ភារៈការិយាល័យ', 'ដើម', 0.50, 0.80, 1, 'គ្រប់ស្ថានីយទាំងអស់', 0, 'assets/SKU-9649.jpg', 'Active', new Date(), 'Pixcell', 'ខៀវ', 'ប្រអប់', 12, 'តំបន់ A', 'Z-01', 'ចំណាំសិន', 'singvan327@gmail.com']);
   }
 
   // 2. Sheet Transactions
