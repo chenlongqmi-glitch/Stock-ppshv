@@ -10536,12 +10536,23 @@
             };
           });
 
-          // Also keep any local-only items not yet in remote
-          masterMap.forEach((it, sku) => {
-            if (!mergedList.some(m => m.sku === sku)) {
-              mergedList.push(it);
-            }
-          });
+          // When remote items exist, prioritize Google Sheet as Single Source of Truth
+          if (remoteItems.length === 0) {
+            masterMap.forEach((it, sku) => {
+              if (!mergedList.some(m => m.sku === sku)) {
+                mergedList.push(it);
+              }
+            });
+          } else {
+            // Keep only un-synced newly added items (filter out old mock/demo items)
+            masterMap.forEach((it, sku) => {
+              const itName = (it.name || '').toLowerCase();
+              const isMock = itName.includes('beer') || itName.includes('coca') || itName.includes('indomie') || (itName === 'ប៊ិច' && !it.name.includes('-'));
+              if (!isMock && it._isPendingSync && !mergedList.some(m => m.sku === sku)) {
+                mergedList.push(it);
+              }
+            });
+          }
 
           AppState.items = mergedList;
           LOCAL_DB.items = [...mergedList];
