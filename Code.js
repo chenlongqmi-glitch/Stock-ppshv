@@ -36,6 +36,18 @@ const SHEETS = {
 
 };
 
+/**
+ * មុខងារសម្រាប់ចុច Run លើកដំបូង ដើម្បីសុំសិទ្ធិ Google Drive និង Google Sheets
+ */
+function authorizeScopes() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  Logger.log('Connected to Sheet: ' + ss.getName());
+  const root = DriveApp.getRootFolder();
+  Logger.log('Connected to Google Drive: ' + root.getName());
+  return 'SUCCESS: Google Drive & Google Sheets Authorized!';
+}
+
+
 
 
 // Global Default Telegram Bot Credentials for SuperAdmin
@@ -124,10 +136,24 @@ function doGet(e) {
       return handleTelegramUserDeletionApproval(userId, username, 'Reject', e);
     } else if (action === 'reviewUserDeletionTelegram' || action === 'reviewUserDeletion') {
       return handleTelegramUserDeletionApproval(userId, username, 'Review', e);
+    } else {
+      // General API handler for GET requests
+      try {
+        let payload = {};
+        if (e.parameter.payload) {
+          try { payload = JSON.parse(e.parameter.payload); } catch (ex) { payload = e.parameter; }
+        } else {
+          payload = e.parameter;
+        }
+        const apiRes = handleApiRequest({ action: action, payload: payload });
+        return ContentService.createTextOutput(JSON.stringify(apiRes || { success: true }))
+          .setMimeType(ContentService.MimeType.JSON);
+      } catch (getErr) {
+        return ContentService.createTextOutput(JSON.stringify({ success: false, message: getErr.toString() }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
     }
   }
-
-
 
   // 2. Default Web App GUI
   try {
@@ -148,6 +174,34 @@ function doGet(e) {
       account: 'chhengyiv3@gmail.com',
       message: 'Google Apps Script Backend API is ACTIVE and connected to chhengyiv3@gmail.com Google Sheet & Drive!',
       timestamp: new Date().toISOString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * ដំណើរការទទួល Request តាមរយៈ HTTP POST ពី Web App (GitHub Pages)
+ */
+function doPost(e) {
+  try {
+    let req = {};
+    if (e && e.postData && e.postData.contents) {
+      try {
+        req = JSON.parse(e.postData.contents);
+      } catch (parseErr) {
+        req = { action: (e.parameter && e.parameter.action) || 'unknown', payload: e.parameter || {} };
+      }
+    } else if (e && e.parameter) {
+      req = { action: e.parameter.action, payload: e.parameter };
+    }
+
+    const result = handleApiRequest(req);
+    return ContentService.createTextOutput(JSON.stringify(result || { success: true }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    if (typeof Logger !== 'undefined') Logger.log('doPost Error: ' + err.toString());
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      message: 'Server error: ' + err.toString()
     })).setMimeType(ContentService.MimeType.JSON);
   }
 }
@@ -3679,14 +3733,14 @@ function uploadImageToGoogleDrive(base64Data, fileName, folderName) {
     const settings = getSettingsMap(ss);
 
     // ស្វែងរកតាមរយៈ Google Drive Folder ID (កំណត់ដោយអ្នកប្រើប្រាស់)
-    let targetFolderId = settings['DRIVE_IMAGE_FOLDER_ID'] || DEFAULT_DRIVE_FOLDER_ID;
+    let targetFolderId = settings['DRIVE_IMAGE_FOLDER_ID'];
     if (folderName && (folderName.includes('/') || (folderName.length >= 25 && !folderName.includes(' ')))) {
       targetFolderId = folderName;
     }
 
     let folder = null;
 
-    // 1. ស្វែងរកតាមរយៈ Folder ID ជាអាទិភាពខ្ពស់បំផុត
+    // 1. ស្វែងរកតាមរយៈ Folder ID ប្រសិនបើអ្នកប្រើបានកំណត់
     if (targetFolderId) {
       try {
         let cleanFolderId = String(targetFolderId).trim();
@@ -3700,27 +3754,25 @@ function uploadImageToGoogleDrive(base64Data, fileName, folderName) {
       }
     }
 
-    // 1.1 ប្រសិនបើរករកតាម ID ខាងលើមិនឃើញ សាកល្បង DEFAULT_DRIVE_FOLDER_ID
-    if (!folder && DEFAULT_DRIVE_FOLDER_ID) {
+    // 2. ប្រសិនបើរករកតាម ID មិនឃើញ ឬមិនទាន់កំណត់ រកតាមឈ្មោះ Folder 'Stock_Product_Images' ក្នុង Drive របស់ម្ចាស់គណនី
+    if (!folder) {
+      const targetFolderName = settings['DRIVE_IMAGE_FOLDER'] || 'Stock_Product_Images';
       try {
-        folder = DriveApp.getFolderById(DEFAULT_DRIVE_FOLDER_ID);
-      } catch (defErr) {
-        if (typeof Logger !== 'undefined') Logger.log('DriveApp.getFolderById DEFAULT notice: ' + defErr.toString());
+        const folders = DriveApp.getFoldersByName(targetFolderName);
+        if (folders.hasNext()) {
+          folder = folders.next();
+        } else {
+          folder = DriveApp.createFolder(targetFolderName);
+          folder.setDescription('ផ្ទុករូបភាពទំនិញនៃប្រព័ន្ធគ្រប់គ្រងស្តុក (Stock Inventory Management)');
+        }
+      } catch (fNameErr) {
+        if (typeof Logger !== 'undefined') Logger.log('Drive folder by name notice: ' + fNameErr.toString());
       }
     }
 
-    // 2. ប្រសិនបើរករកតាម ID មិនឃើញ ទើបស្វែងរកតាមឈ្មោះ Folder
+    // 3. Fallback ជាចុងក្រោយ បង្កើត Folder ក្នុង Root Drive របស់ខ្លួនឯង
     if (!folder) {
-      const targetFolder = (folderName && !folderName.includes('/') && folderName.length < 25)
-        ? folderName
-        : (settings['DRIVE_IMAGE_FOLDER'] || 'Stock_Product_Images');
-      const folders = DriveApp.getFoldersByName(targetFolder);
-      if (folders.hasNext()) {
-        folder = folders.next();
-      } else {
-        folder = DriveApp.createFolder(targetFolder);
-        folder.setDescription('ផ្ទុករូបភាពទំនិញនៃប្រព័ន្ធគ្រប់គ្រងស្តុក (Stock Inventory Management)');
-      }
+      folder = DriveApp.getRootFolder();
     }
 
     // កំណត់សិទ្ធិ Folder ឱ្យ Anyone with link can view
@@ -3754,7 +3806,23 @@ function uploadImageToGoogleDrive(base64Data, fileName, folderName) {
     const decodedBytes = Utilities.base64Decode(rawBase64);
     const blob = Utilities.newBlob(decodedBytes, contentType, cleanFileName);
 
-    const file = folder.createFile(blob);
+    let file = null;
+    try {
+      file = folder.createFile(blob);
+    } catch (createErr) {
+      if (typeof Logger !== 'undefined') Logger.log('createFile in target folder failed, creating Stock_Product_Images folder: ' + createErr.toString());
+      const rootFolders = DriveApp.getFoldersByName('Stock_Product_Images');
+      if (rootFolders.hasNext()) {
+        folder = rootFolders.next();
+      } else {
+        folder = DriveApp.createFolder('Stock_Product_Images');
+      }
+      try {
+        folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      } catch (fErr2) {}
+      file = folder.createFile(blob);
+    }
+
     try {
       file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     } catch (shareErr) {}
@@ -3771,7 +3839,6 @@ function uploadImageToGoogleDrive(base64Data, fileName, folderName) {
       driveViewUrl: driveViewUrl,
       folderId: folder.getId(),
       folderName: folder.getName(),
-      folderUrl: DEFAULT_DRIVE_FOLDER_URL,
       fileName: cleanFileName,
       message: 'បានរក្សាទុករូបភាពទៅ Google Drive ជោគជ័យ'
     };
@@ -3918,13 +3985,18 @@ function saveOrUpdateItem(itemDataOrPayload, username) {
 
   if (itemData.imageUrl && (itemData.imageUrl.startsWith('data:image/') || itemData.imageUrl.length > 500)) {
     try {
-      const driveUpload = uploadImageToGoogleDrive(itemData.imageUrl, sku, DEFAULT_DRIVE_FOLDER_ID);
+      const driveUpload = uploadImageToGoogleDrive(itemData.imageUrl, sku);
       if (driveUpload && driveUpload.success && driveUpload.url) {
         itemData.imageUrl = driveUpload.url;
       }
     } catch (dErr) {
       if (typeof Logger !== 'undefined') Logger.log('Drive upload error in saveOrUpdateItem: ' + dErr.toString());
     }
+  }
+
+  // Safety guard against Google Sheets cell limit (50,000 characters)
+  if (itemData.imageUrl && itemData.imageUrl.startsWith('data:') && itemData.imageUrl.length > 500) {
+    itemData.imageUrl = '';
   }
 
 
