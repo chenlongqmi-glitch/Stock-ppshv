@@ -3879,6 +3879,10 @@ function saveOrUpdateItem(itemDataOrPayload, username) {
 
   }
 
+  if (user && typeof user === 'object') {
+    user = user.username || user.userId || '';
+  }
+
 
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -3907,7 +3911,7 @@ function saveOrUpdateItem(itemDataOrPayload, username) {
 
   for (let i = 1; i < data.length; i++) {
 
-    if (String(data[i][0]).trim() === sku) {
+    if (String(data[i][0]).trim().toLowerCase() === sku.toLowerCase()) {
 
       targetRow = i + 1;
 
@@ -3931,7 +3935,7 @@ function saveOrUpdateItem(itemDataOrPayload, username) {
   // 1. DUPLICATE CHECK: Prevent duplicate item based on (Name + Size + Color)
   for (let i = 1; i < data.length; i++) {
     const existSku = String(data[i][0]).trim();
-    if (!isNew && existSku === sku) continue; // Skip self when editing
+    if (!isNew && existSku.toLowerCase() === sku.toLowerCase()) continue; // Skip self when editing
 
     const existBarcode = String(data[i][1] || '').trim().toLowerCase();
     const existName = String(data[i][2] || '');
@@ -3958,16 +3962,18 @@ function saveOrUpdateItem(itemDataOrPayload, username) {
 
 
   // 2. STATION ACCESS CONTROL: Users can only add/edit items belonging to their own station
-
-  if (user && user !== 'admin' && user !== 'superadmin') {
+  // Master catalog items (គ្រប់ស្ថានីយទាំងអស់) are company-wide and can be managed by authorized staff
+  if (user && String(user).toLowerCase() !== 'admin' && String(user).toLowerCase() !== 'superadmin') {
 
     const uObj = getUserByUsernameInternal(ss, user);
 
-    if (uObj && uObj.role !== 'SuperAdmin' && uObj.warehouse && uObj.warehouse !== 'ALL') {
+    const isAdminOrLeader = uObj && (uObj.role === 'SuperAdmin' || uObj.role === 'Admin' || uObj.role === 'ប្រធានក្រុម');
+
+    if (uObj && !isAdminOrLeader && uObj.warehouse && uObj.warehouse !== 'ALL' && uObj.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
 
       const uWh = normalizeStationLocationInternal(uObj.warehouse);
 
-      if (uWh !== newLoc) {
+      if (newLoc && newLoc !== 'គ្រប់ស្ថានីយទាំងអស់' && uWh !== newLoc) {
 
         return {
 
@@ -4237,16 +4243,17 @@ function deleteItem(skuOrPayload, username) {
 
 
       // Check user permissions: can only delete items from own station
-
-      if (user && user !== 'admin' && user !== 'superadmin') {
+      if (user && String(user).toLowerCase() !== 'admin' && String(user).toLowerCase() !== 'superadmin') {
 
         const uObj = getUserByUsernameInternal(ss, user);
 
-        if (uObj && uObj.role !== 'SuperAdmin' && uObj.warehouse && uObj.warehouse !== 'ALL') {
+        const isAdminOrLeader = uObj && (uObj.role === 'SuperAdmin' || uObj.role === 'Admin' || uObj.role === 'ប្រធានក្រុម');
+
+        if (uObj && !isAdminOrLeader && uObj.warehouse && uObj.warehouse !== 'ALL' && uObj.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
 
           const uWh = normalizeStationLocationInternal(uObj.warehouse);
 
-          if (uWh !== itemLoc) {
+          if (itemLoc && itemLoc !== 'គ្រប់ស្ថានីយទាំងអស់' && uWh !== itemLoc) {
 
             return {
 

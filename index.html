@@ -6737,6 +6737,15 @@
                 }
               } else if (res && !res.success) {
                 console.warn(`[Cloud Sync] Mutation ${action} response:`, res.message);
+                if (typeof Swal !== 'undefined' && res.message) {
+                  Swal.fire({
+                    icon: 'warning',
+                    title: 'ការជូនដំណឹងពី Google Sheet',
+                    text: res.message,
+                    confirmButtonText: 'យល់ព្រម',
+                    confirmButtonColor: '#e11d48'
+                  });
+                }
               }
             }).catch(e => {
               console.warn(`[Cloud Sync] Background write ${action} network notice:`, e.message);
@@ -10892,6 +10901,7 @@
     }
 
     let currentImageUploadAbortCtrl = null;
+    let currentProductImageUploadPromise = null;
 
     async function autoUploadProductImageToDrive(base64Data, name) {
       if (!base64Data || !base64Data.startsWith('data:image/')) return;
@@ -10954,6 +10964,7 @@
             }
           }
         }
+        return res;
       } catch (err) {
         console.warn('[Auto Drive Upload notice]', err);
         if (badge) {
@@ -10963,6 +10974,7 @@
             </span>
           `;
         }
+        return null;
       }
     }
 
@@ -10987,7 +10999,7 @@
           `;
         }
       } else if (src && src.startsWith('data:image/')) {
-        autoUploadProductImageToDrive(src, name);
+        currentProductImageUploadPromise = autoUploadProductImageToDrive(src, name);
       }
 
       document.getElementById('imageUploadBox').classList.add('hidden');
@@ -11727,6 +11739,15 @@
         }
 
         const unitVal = (document.getElementById('modalUnit')?.value || '').trim() || 'ដុំ';
+
+        if (currentProductImageUploadPromise) {
+          try {
+            await Promise.race([
+              currentProductImageUploadPromise,
+              new Promise(r => setTimeout(r, 6000))
+            ]);
+          } catch (e) {}
+        }
 
         let imageVal = (document.getElementById('modalImageUrl')?.value || '').trim();
         if (!imageVal) {
