@@ -12,7 +12,7 @@
   <script>
     (function() {
       try {
-        var raw = sessionStorage.getItem('inventory_user') || localStorage.getItem('inventory_user');
+        var raw = sessionStorage.getItem('inventory_user');
         if (raw) {
           var u = JSON.parse(raw);
           if (u && (u.username || u.userId)) {
@@ -1367,7 +1367,7 @@
       <script>
         (function() {
           try {
-            var raw = sessionStorage.getItem('inventory_user') || localStorage.getItem('inventory_user');
+            var raw = sessionStorage.getItem('inventory_user');
             if (raw) {
               var u = JSON.parse(raw);
               if (u) {
@@ -6335,9 +6335,100 @@
           }
         }
       }
-    }, true);
+    // =========================================================================
+    // TAB LIFECYCLE & AUTO-LOGOUT ON BROWSER/TAB CLOSE (X)
+    // =========================================================================
+    const TAB_HEARTBEAT_KEY = 'inventory_active_tabs';
+    let currentTabSessionId = null;
+
+    function registerTabSession() {
+      currentTabSessionId = 'tab_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
+      sessionStorage.setItem('inventory_tab_session_id', currentTabSessionId);
+
+      const updateTabs = () => {
+        try {
+          const raw = localStorage.getItem(TAB_HEARTBEAT_KEY);
+          let tabs = raw ? JSON.parse(raw) : {};
+          const now = Date.now();
+          const active = {};
+          for (let id in tabs) {
+            if (now - tabs[id] < 12000) active[id] = tabs[id];
+          }
+          active[currentTabSessionId] = now;
+          localStorage.setItem(TAB_HEARTBEAT_KEY, JSON.stringify(active));
+        } catch (e) {}
+      };
+
+      updateTabs();
+      setInterval(updateTabs, 4000);
+    }
+
+    function handleBrowserCloseUnload() {
+      const user = AppState.currentUser;
+      if (!user) return;
+
+      const tabId = currentTabSessionId || sessionStorage.getItem('inventory_tab_session_id');
+      let remainingTabsCount = 0;
+      try {
+        const raw = localStorage.getItem(TAB_HEARTBEAT_KEY);
+        let tabs = raw ? JSON.parse(raw) : {};
+        if (tabId && tabs[tabId]) delete tabs[tabId];
+        localStorage.setItem(TAB_HEARTBEAT_KEY, JSON.stringify(tabs));
+        remainingTabsCount = Object.keys(tabs).length;
+      } catch (e) {}
+
+      // If this was the last tab closed on this browser:
+      if (remainingTabsCount <= 0) {
+        // 1. Release slot locally
+        const devInfo = getCurrentDeviceInfo();
+        const rawType = String(devInfo.deviceType || 'DESKTOP').toUpperCase();
+        const devType = (rawType === 'MOBILE' || rawType === 'PHONE') ? 'MOBILE' : 'DESKTOP';
+        try {
+          loadLocalUsersFromStorage();
+          const targetU = LOCAL_DB.users.find(u => 
+            (user.userId && u.userId === user.userId) || 
+            (user.username && String(u.username).toLowerCase() === String(user.username).toLowerCase())
+          );
+          if (targetU && targetU.boundDevices) {
+            if (devType === 'DESKTOP') targetU.boundDevices.desktop = null;
+            else targetU.boundDevices.mobile = null;
+            saveLocalUsersToStorage();
+          }
+        } catch (e) {}
+
+        // 2. Send beacon or keepalive fetch to Google Sheets to release slot immediately
+        const gasUrl = AppState.gasApiUrl || localStorage.getItem('inventory_gas_api_url') || 'https://script.google.com/macros/s/AKfycbxqw7NPsE8pWqeYPAwTqxFakzFD5lTzGR1N5mlL-n2oZMp4FeDpGENFnEAjf6gSddk/exec';
+        const payloadStr = JSON.stringify({
+          action: 'logoutUser',
+          payload: {
+            userId: user.userId,
+            username: user.username,
+            deviceInfo: devInfo,
+            deviceType: devType
+          }
+        });
+
+        try {
+          if (navigator.sendBeacon) {
+            const blob = new Blob([payloadStr], { type: 'text/plain;charset=utf-8' });
+            navigator.sendBeacon(gasUrl, blob);
+          } else {
+            fetch(gasUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+              body: payloadStr,
+              keepalive: true
+            }).catch(() => {});
+          }
+        } catch (e) {}
+      }
+    }
+
+    window.addEventListener('pagehide', handleBrowserCloseUnload);
+    window.addEventListener('beforeunload', handleBrowserCloseUnload);
 
     document.addEventListener('DOMContentLoaded', () => {
+      registerTabSession();
       initAllFullNameKhmerInputs();
       initAllCredentialEnglishInputs();
       if (window.initAllPasswordToggles) window.initAllPasswordToggles();
@@ -6389,7 +6480,7 @@
       // (sessionStorage is automatically destroyed when browser window/tab is closed!)
       let savedUser = null;
       try {
-        const sessionData = sessionStorage.getItem('inventory_user') || localStorage.getItem('inventory_user');
+        const sessionData = sessionStorage.getItem('inventory_user');
         if (sessionData) {
           savedUser = JSON.parse(sessionData);
         }
@@ -6423,6 +6514,17 @@
           saveLocalUsersToStorage();
           AppState.currentUser = savedUser;
         }
+
+        // Re-assert device binding locally and sync to cloud in background (seamless page reload handling)
+        validateAndApplyDeviceBinding(AppState.currentUser, getCurrentDeviceInfo());
+        setTimeout(() => {
+          const devInfo = getCurrentDeviceInfo();
+          apiCall('loginUser', {
+            username: savedUser.username,
+            password: savedUser.password || 'admin123',
+            deviceInfo: devInfo
+          }).catch(() => {});
+        }, 150);
 
         // 1. Initial Landing Tab: Default to 'dashboard' so the beautiful Dashboard UI is always preserved
         const hashTab = window.location.hash.replace('#', '');
