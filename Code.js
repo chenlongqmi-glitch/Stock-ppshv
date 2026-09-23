@@ -1425,18 +1425,16 @@ function loginUser(usernameOrData, password, extraDeviceInfo) {
           }
         }
 
-        // Validate Device Binding (Strict 1 Computer + 1 Mobile Phone per User Account)
+        // Validate Device Binding (Strict 1 Computer + 1 Mobile Phone per User Account - Applies to ALL users)
         if (deviceInfo && deviceInfo.deviceId) {
           const rawType = String(deviceInfo.deviceType || 'DESKTOP').toUpperCase();
           const devType = (rawType === 'MOBILE' || rawType === 'PHONE') ? 'MOBILE' : 'DESKTOP';
           const devId = String(deviceInfo.deviceId).trim();
           const devName = String(deviceInfo.deviceName || (devType === 'MOBILE' ? 'ទូរសព្ទដៃ' : 'កុំព្យូទ័រ')).trim();
           const nowStr = new Date().toISOString();
+          const isForceSwitch = !!(usernameOrData && usernameOrData.forceSwitchDevice);
 
-          // SuperAdmin is exempt so the root administrator is never locked out
-          const isSuperAdminAccount = (cleanInput === 'superadmin' || String(row[6]) === 'SuperAdmin');
-
-          if (!isSuperAdminAccount) {
+          if (!isForceSwitch) {
             if (devType === 'DESKTOP') {
               if (boundDevices.desktop && boundDevices.desktop.deviceId && boundDevices.desktop.deviceId !== devId) {
                 // Block 2nd computer attempt!

@@ -6517,15 +6517,34 @@
           AppState.currentUser = savedUser;
         }
 
-        // Re-assert device binding locally and sync to cloud in background (seamless page reload handling)
-        validateAndApplyDeviceBinding(AppState.currentUser, getCurrentDeviceInfo());
-        setTimeout(() => {
-          const devInfo = getCurrentDeviceInfo();
-          apiCall('loginUser', {
-            username: savedUser.username,
-            password: savedUser.password || 'admin123',
-            deviceInfo: devInfo
-          }).catch(() => {});
+        // Re-assert device binding locally and verify with cloud
+        const curDevInfo = getCurrentDeviceInfo();
+        const devCheck = validateAndApplyDeviceBinding(AppState.currentUser, curDevInfo);
+        if (!devCheck.success && devCheck.deviceBlocked) {
+          sessionStorage.removeItem('inventory_user');
+          localStorage.removeItem('inventory_user');
+          AppState.currentUser = null;
+          showDeviceBlockedAlert(devCheck, curDevInfo, savedUser.username, savedUser.password);
+          showLoginView();
+          return;
+        }
+
+        setTimeout(async () => {
+          try {
+            const devInfo = getCurrentDeviceInfo();
+            const cloudCheck = await apiCall('loginUser', {
+              username: savedUser.username,
+              password: savedUser.password || 'admin123',
+              deviceInfo: devInfo
+            });
+            if (cloudCheck && cloudCheck.deviceBlocked) {
+              sessionStorage.removeItem('inventory_user');
+              localStorage.removeItem('inventory_user');
+              AppState.currentUser = null;
+              showDeviceBlockedAlert(cloudCheck, devInfo, savedUser.username, savedUser.password);
+              showLoginView();
+            }
+          } catch (e) {}
         }, 150);
 
         // 1. Initial Landing Tab: Default to 'dashboard' so the beautiful Dashboard UI is always preserved
@@ -7085,7 +7104,7 @@
       };
     }
 
-    function validateAndApplyDeviceBinding(user, deviceInfo) {
+    function validateAndApplyDeviceBinding(user, deviceInfo, forceSwitch = false) {
       if (!user) return { success: false, message: 'User មិនត្រឹមត្រូវ' };
       if (!deviceInfo || !deviceInfo.deviceId) {
         deviceInfo = getCurrentDeviceInfo();
@@ -7101,9 +7120,7 @@
         user.boundDevices = { desktop: null, mobile: null };
       }
 
-      const isSuperAdminAccount = (user.username && user.username.toLowerCase() === 'superadmin') || user.role === 'SuperAdmin';
-
-      if (!isSuperAdminAccount) {
+      if (!forceSwitch) {
         if (devType === 'DESKTOP') {
           if (user.boundDevices.desktop && user.boundDevices.desktop.deviceId && user.boundDevices.desktop.deviceId !== devId) {
             return {
@@ -7135,7 +7152,7 @@
         user.boundDevices.desktop = {
           deviceId: devId,
           deviceName: devName,
-          boundAt: (user.boundDevices.desktop && user.boundDevices.desktop.boundAt) ? user.boundDevices.desktop.boundAt : nowStr,
+          boundAt: (user.boundDevices.desktop && user.boundDevices.desktop.boundAt && !forceSwitch) ? user.boundDevices.desktop.boundAt : nowStr,
           lastActive: nowStr
         };
         saveLocalUsersToStorage();
@@ -7143,7 +7160,7 @@
         user.boundDevices.mobile = {
           deviceId: devId,
           deviceName: devName,
-          boundAt: (user.boundDevices.mobile && user.boundDevices.mobile.boundAt) ? user.boundDevices.mobile.boundAt : nowStr,
+          boundAt: (user.boundDevices.mobile && user.boundDevices.mobile.boundAt && !forceSwitch) ? user.boundDevices.mobile.boundAt : nowStr,
           lastActive: nowStr
         };
         saveLocalUsersToStorage();
@@ -8355,7 +8372,7 @@
           return;
         } else if (cloudRes && cloudRes.deviceBlocked) {
           // Block 2nd computer or 2nd mobile attempt!
-          showDeviceBlockedAlert(cloudRes, deviceInfo);
+          showDeviceBlockedAlert(cloudRes, deviceInfo, username, password);
           return;
         } else if (cloudRes && !cloudRes.success) {
           Swal.fire('ចូលមិនបានទេ', cloudRes.message || 'ឈ្មោះ ឬពាក្យសម្ងាត់មិនត្រឹមត្រូវ', 'error');
@@ -8370,7 +8387,7 @@
           completeSuccessfulLogin(localAuthRes.user);
           return;
         } else if (localAuthRes && localAuthRes.deviceBlocked) {
-          showDeviceBlockedAlert(localAuthRes, deviceInfo);
+          showDeviceBlockedAlert(localAuthRes, deviceInfo, username, password);
           return;
         } else if (localAuthRes && !localAuthRes.success) {
           Swal.fire('ដំណឹងគណនី', localAuthRes.message || 'ឈ្មោះ ឬពាក្យសម្ងាត់មិនត្រឹមត្រូវ', 'info');
@@ -8384,7 +8401,7 @@
       }
     }
 
-    function showDeviceBlockedAlert(res, deviceInfo) {
+    function showDeviceBlockedAlert(res, deviceInfo, username = '', password = '') {
       const isDesktop = res.blockReason === 'DESKTOP_LIMIT_EXCEEDED';
       const deviceCategoryName = isDesktop ? 'កុំព្យូទ័រ (PC / Laptop)' : 'ទូរសព្ទដៃ (Smartphone)';
       const deviceIcon = isDesktop ? 'fa-desktop' : 'fa-mobile-screen';
@@ -8441,14 +8458,41 @@
             <div class="p-2.5 bg-blue-50/60 rounded-xl border border-blue-200 text-[11px] text-blue-800 flex items-start space-x-2">
               <i class="fa-solid fa-circle-info text-blue-600 text-sm mt-0.5 shrink-0"></i>
               <p class="leading-relaxed">
-                ប្រសិនបើលោកអ្នកចង់ប្តូរមកប្រើប្រាស់ឧបករណ៍នេះ សូមចុច <b>Log out (ចាកចេញ)</b> ពីឧបករណ៍ចាស់ជាមុនសិន។ ប្រសិនបើឧបករណ៍ចាស់ខូច/បាត់ ឬមិនអាចចូល Logout បានទេ សូមទាក់ទងទៅ <b>Admin</b> ឬ <b>SuperAdmin</b> ដើម្បីធ្វើការផ្តាច់ឧបករណ៍ចាស់ (Reset Device Binding)។
+                ដើម្បីប្តូរមកប្រើប្រាស់ឧបករណ៍នេះ សូមចុចប៊ូតុង <b>«ផ្តាច់ឧបករណ៍ចាស់ & ចូលលើឧបករណ៍នេះ»</b> ខាងក្រោម (ឧបករណ៍ចាស់នឹងត្រូវបាន Logout ដោយស្វ័យប្រវត្តិ)។
               </p>
             </div>
           </div>
         `,
-        confirmButtonColor: '#e11d48',
-        confirmButtonText: 'យល់ព្រម',
+        showCancelButton: !!(username && password),
+        cancelButtonText: '<i class="fa-solid fa-arrow-right-arrow-left mr-1"></i> ផ្តាច់ឧបករណ៍ចាស់ & ចូលលើឧបករណ៍នេះ',
+        cancelButtonColor: '#4f46e5',
+        confirmButtonColor: '#64748b',
+        confirmButtonText: 'បិទ',
         customClass: { popup: 'rounded-3xl shadow-2xl max-w-md' }
+      }).then(async (result) => {
+        if (result.dismiss === Swal.DismissReason.cancel && username && password) {
+          Swal.fire({
+            title: 'កំពុងប្តូរឧបករណ៍...',
+            text: 'សូមរង់ចាំបន្តិច ប្រព័ន្ធកំពុងផ្តាច់ឧបករណ៍ចាស់ និងភ្ជាប់ឧបករណ៍ថ្មីនេះ...',
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+          });
+          try {
+            const switchRes = await apiCall('loginUser', { username, password, deviceInfo, forceSwitchDevice: true });
+            if (switchRes && switchRes.success && switchRes.user) {
+              const existingIdx = LOCAL_DB.users.findIndex(u => u.username.toLowerCase() === switchRes.user.username.toLowerCase());
+              if (existingIdx !== -1) LOCAL_DB.users[existingIdx] = switchRes.user;
+              else LOCAL_DB.users.push(switchRes.user);
+              saveLocalUsersToStorage();
+              Swal.close();
+              completeSuccessfulLogin(switchRes.user);
+            } else {
+              Swal.fire('មិនអាចប្តូរបានទេ', (switchRes && switchRes.message) ? switchRes.message : 'មានបញ្ហាក្នុងការប្តូរឧបករណ៍', 'error');
+            }
+          } catch (e) {
+            Swal.fire('Error', e.toString(), 'error');
+          }
+        }
       });
     }
 
@@ -19000,6 +19044,45 @@
             }
             if (typeof renderSwitchUserList === 'function') {
               renderSwitchUserList();
+            }
+          }
+
+          // Real-time Concurrent Device Check:
+          // If another computer/phone took over or is bound, kick this device out immediately!
+          if (AppState.currentUser) {
+            const myU = uRes.users.find(x => 
+              (AppState.currentUser.userId && x.userId === AppState.currentUser.userId) ||
+              (AppState.currentUser.username && String(x.username).toLowerCase() === String(AppState.currentUser.username).toLowerCase())
+            );
+            if (myU && myU.boundDevices) {
+              const myDev = getCurrentDeviceInfo();
+              const rawType = String(myDev.deviceType || 'DESKTOP').toUpperCase();
+              const devType = (rawType === 'MOBILE' || rawType === 'PHONE') ? 'MOBILE' : 'DESKTOP';
+              const bound = (devType === 'DESKTOP') ? myU.boundDevices.desktop : myU.boundDevices.mobile;
+
+              if (bound && bound.deviceId && bound.deviceId !== myDev.deviceId) {
+                console.warn('[Security] Kicked out because account is active on another device:', bound);
+                sessionStorage.removeItem('inventory_user');
+                localStorage.removeItem('inventory_user');
+                AppState.currentUser = null;
+                Swal.fire({
+                  icon: 'warning',
+                  title: '<span class="text-rose-600 font-bold">ឧបករណ៍ត្រូវបានកាត់ផ្តាច់ (Session Terminated)</span>',
+                  html: `
+                    <div class="text-left text-xs p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 space-y-2 mt-2">
+                      <p class="font-bold">⚠️ គណនីរបស់អ្នកត្រូវបានចូលប្រើប្រាស់នៅលើឧបករណ៍ផ្សេងទៀត!</p>
+                      <p>គោលការណ៍សុវត្ថិភាពអនុញ្ញាតត្រឹមតែ <b>១ កុំព្យូទ័រ</b> និង <b>១ ទូរសព្ទដៃ</b> ប៉ុណ្ណោះ។ មិនអាចប្រើប្រាស់ ២ កុំព្យូទ័រ ឬ ២ ទូរសព្ទក្នុងពេលតែមួយបានទេ។</p>
+                      <p class="text-slate-600">ឧបករណ៍នេះត្រូវបានចាកចេញ (Logout) ដោយស្វ័យប្រវត្តិ។</p>
+                    </div>
+                  `,
+                  confirmButtonText: 'យល់ព្រម',
+                  confirmButtonColor: '#e11d48',
+                  customClass: { popup: 'rounded-3xl max-w-md' }
+                }).then(() => {
+                  window.location.reload();
+                });
+                return;
+              }
             }
           }
         }
