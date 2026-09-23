@@ -1378,7 +1378,7 @@ function loginUser(usernameOrData, password, extraDeviceInfo) {
           }
         }
 
-        // Validate Device Binding (Strict 1 Computer + 1 Mobile Phone per User Account)
+        // Record device information without any device blocking restrictions
         if (deviceInfo && deviceInfo.deviceId) {
           const rawType = String(deviceInfo.deviceType || 'DESKTOP').toUpperCase();
           const devType = (rawType === 'MOBILE' || rawType === 'PHONE') ? 'MOBILE' : 'DESKTOP';
@@ -1387,61 +1387,21 @@ function loginUser(usernameOrData, password, extraDeviceInfo) {
           const nowStr = new Date().toISOString();
 
           if (devType === 'DESKTOP') {
-            if (!boundDevices.desktop || !boundDevices.desktop.deviceId) {
-              // Auto-bind first computer
-              boundDevices.desktop = {
-                deviceId: devId,
-                deviceName: devName,
-                boundAt: nowStr,
-                lastActive: nowStr
-              };
-              sheet.getRange(i + 1, 16).setValue(JSON.stringify(boundDevices));
-            } else if (boundDevices.desktop.deviceId !== devId) {
-              // Block second computer attempt!
-              return {
-                success: false,
-                deviceBlocked: true,
-                blockReason: 'DESKTOP_LIMIT_EXCEEDED',
-                boundDeviceName: boundDevices.desktop.deviceName || 'កុំព្យូទ័រដែលបានភ្ជាប់រួច',
-                boundAt: boundDevices.desktop.boundAt,
-                attemptedDeviceName: devName,
-                message: 'គណនីនេះត្រូវបានភ្ជាប់ជាមួយកុំព្យូទ័រផ្សេងរួចហើយ! គោលការណ៍សុវត្ថិភាពអនុញ្ញាតត្រឹមតែ ១ កុំព្យូទ័រ និង ១ ទូរសព្ទដៃប៉ុណ្ណោះ។ លើសពីនេះមិនអាចចូលប្រើប្រាស់បានជាដាច់ខាត។ សូមចុច Log out (ចាកចេញ) ពីកុំព្យូទ័រចាស់ជាមុនសិន ឬទាក់ទង Admin/SuperAdmin ប្រសិនបើលោកអ្នកបានប្តូរកុំព្យូទ័រថ្មី។'
-              };
-            } else {
-              // Matched bound computer, refresh last active
-              boundDevices.desktop.lastActive = nowStr;
-              if (devName) boundDevices.desktop.deviceName = devName;
-              sheet.getRange(i + 1, 16).setValue(JSON.stringify(boundDevices));
-            }
+            boundDevices.desktop = {
+              deviceId: devId,
+              deviceName: devName,
+              boundAt: (boundDevices.desktop && boundDevices.desktop.boundAt) ? boundDevices.desktop.boundAt : nowStr,
+              lastActive: nowStr
+            };
           } else {
-            // MOBILE
-            if (!boundDevices.mobile || !boundDevices.mobile.deviceId) {
-              // Auto-bind first mobile phone
-              boundDevices.mobile = {
-                deviceId: devId,
-                deviceName: devName,
-                boundAt: nowStr,
-                lastActive: nowStr
-              };
-              sheet.getRange(i + 1, 16).setValue(JSON.stringify(boundDevices));
-            } else if (boundDevices.mobile.deviceId !== devId) {
-              // Block second mobile phone attempt!
-              return {
-                success: false,
-                deviceBlocked: true,
-                blockReason: 'MOBILE_LIMIT_EXCEEDED',
-                boundDeviceName: boundDevices.mobile.deviceName || 'ទូរសព្ទដៃដែលបានភ្ជាប់រួច',
-                boundAt: boundDevices.mobile.boundAt,
-                attemptedDeviceName: devName,
-                message: 'គណនីនេះត្រូវបានភ្ជាប់ជាមួយទូរសព្ទដៃផ្សេងរួចហើយ! គោលការណ៍សុវត្ថិភាពអនុញ្ញាតត្រឹមតែ ១ កុំព្យូទ័រ និង ១ ទូរសព្ទដៃប៉ុណ្ណោះ។ លើសពីនេះមិនអាចចូលប្រើប្រាស់បានជាដាច់ខាត។ សូមចុច Log out (ចាកចេញ) ពីទូរសព្ទដៃចាស់ជាមុនសិន ឬទាក់ទង Admin/SuperAdmin ប្រសិនបើលោកអ្នកបានប្តូរទូរសព្ទដៃថ្មី។'
-              };
-            } else {
-              // Matched bound mobile, refresh last active
-              boundDevices.mobile.lastActive = nowStr;
-              if (devName) boundDevices.mobile.deviceName = devName;
-              sheet.getRange(i + 1, 16).setValue(JSON.stringify(boundDevices));
-            }
+            boundDevices.mobile = {
+              deviceId: devId,
+              deviceName: devName,
+              boundAt: (boundDevices.mobile && boundDevices.mobile.boundAt) ? boundDevices.mobile.boundAt : nowStr,
+              lastActive: nowStr
+            };
           }
+          sheet.getRange(i + 1, 16).setValue(JSON.stringify(boundDevices));
         }
 
         const userObj = {

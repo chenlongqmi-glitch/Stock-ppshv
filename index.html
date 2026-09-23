@@ -7100,58 +7100,21 @@
       }
 
       if (devType === 'DESKTOP') {
-        if (!user.boundDevices.desktop || !user.boundDevices.desktop.deviceId) {
-          // Auto-bind 1st desktop!
-          user.boundDevices.desktop = {
-            deviceId: devId,
-            deviceName: devName,
-            boundAt: nowStr,
-            lastActive: nowStr
-          };
-          saveLocalUsersToStorage();
-        } else if (user.boundDevices.desktop.deviceId !== devId) {
-          // 2nd Desktop BLOCKED!
-          return {
-            success: false,
-            deviceBlocked: true,
-            blockReason: 'DESKTOP_LIMIT_EXCEEDED',
-            boundDeviceName: user.boundDevices.desktop.deviceName || 'កុំព្យូទ័រដែលបានភ្ជាប់រួច',
-            boundAt: user.boundDevices.desktop.boundAt,
-            attemptedDeviceName: devName,
-            message: 'គណនីនេះត្រូវបានភ្ជាប់ជាមួយកុំព្យូទ័រផ្សេងរួចហើយ! គោលការណ៍សុវត្ថិភាពអនុញ្ញាតត្រឹមតែ ១ កុំព្យូទ័រ និង ១ ទូរសព្ទដៃប៉ុណ្ណោះ។ លើសពីនេះមិនអាចចូលប្រើប្រាស់បានជាដាច់ខាត។ សូមចុច Log out (ចាកចេញ) ពីកុំព្យូទ័រចាស់ជាមុនសិន ឬទាក់ទង Admin/SuperAdmin ប្រសិនបើលោកអ្នកបានប្តូរកុំព្យូទ័រថ្មី។'
-          };
-        } else {
-          user.boundDevices.desktop.lastActive = nowStr;
-          if (devName) user.boundDevices.desktop.deviceName = devName;
-          saveLocalUsersToStorage();
-        }
+        user.boundDevices.desktop = {
+          deviceId: devId,
+          deviceName: devName,
+          boundAt: (user.boundDevices.desktop && user.boundDevices.desktop.boundAt) ? user.boundDevices.desktop.boundAt : nowStr,
+          lastActive: nowStr
+        };
+        saveLocalUsersToStorage();
       } else {
-        // MOBILE
-        if (!user.boundDevices.mobile || !user.boundDevices.mobile.deviceId) {
-          // Auto-bind 1st mobile!
-          user.boundDevices.mobile = {
-            deviceId: devId,
-            deviceName: devName,
-            boundAt: nowStr,
-            lastActive: nowStr
-          };
-          saveLocalUsersToStorage();
-        } else if (user.boundDevices.mobile.deviceId !== devId) {
-          // 2nd Mobile BLOCKED!
-          return {
-            success: false,
-            deviceBlocked: true,
-            blockReason: 'MOBILE_LIMIT_EXCEEDED',
-            boundDeviceName: user.boundDevices.mobile.deviceName || 'ទូរសព្ទដៃដែលបានភ្ជាប់រួច',
-            boundAt: user.boundDevices.mobile.boundAt,
-            attemptedDeviceName: devName,
-            message: 'គណនីនេះត្រូវបានភ្ជាប់ជាមួយទូរសព្ទដៃផ្សេងរួចហើយ! គោលការណ៍សុវត្ថិភាពអនុញ្ញាតត្រឹមតែ ១ កុំព្យូទ័រ និង ១ ទូរសព្ទដៃប៉ុណ្ណោះ។ លើសពីនេះមិនអាចចូលប្រើប្រាស់បានជាដាច់ខាត។ សូមចុច Log out (ចាកចេញ) ពីទូរសព្ទដៃចាស់ជាមុនសិន ឬទាក់ទង Admin/SuperAdmin ប្រសិនបើលោកអ្នកបានប្តូរទូរសព្ទដៃថ្មី។'
-          };
-        } else {
-          user.boundDevices.mobile.lastActive = nowStr;
-          if (devName) user.boundDevices.mobile.deviceName = devName;
-          saveLocalUsersToStorage();
-        }
+        user.boundDevices.mobile = {
+          deviceId: devId,
+          deviceName: devName,
+          boundAt: (user.boundDevices.mobile && user.boundDevices.mobile.boundAt) ? user.boundDevices.mobile.boundAt : nowStr,
+          lastActive: nowStr
+        };
+        saveLocalUsersToStorage();
       }
 
       return { success: true, user: user };
@@ -8369,8 +8332,8 @@
             saveLocalUsersToStorage();
             completeSuccessfulLogin(cloudRes.user);
             return;
-          } else if (cloudRes.deviceBlocked) {
-            showDeviceBlockedAlert(cloudRes, deviceInfo);
+          } else if (cloudRes.deviceBlocked && cloudRes.user) {
+            completeSuccessfulLogin(cloudRes.user);
             return;
           } else {
             Swal.fire('ចូលមិនបានទេ', cloudRes.message || 'ឈ្មោះ ឬពាក្យសម្ងាត់មិនត្រឹមត្រូវ', 'error');
@@ -8383,9 +8346,6 @@
         const localAuthRes = simulateLocalApi('loginUser', { username, password, deviceInfo });
         if (localAuthRes && localAuthRes.success && localAuthRes.user) {
           completeSuccessfulLogin(localAuthRes.user);
-          return;
-        } else if (localAuthRes && !localAuthRes.success && localAuthRes.deviceBlocked) {
-          showDeviceBlockedAlert(localAuthRes, deviceInfo);
           return;
         } else if (localAuthRes && !localAuthRes.success && localAuthRes.message && (localAuthRes.message.includes('Pending') || localAuthRes.message.includes('Rejected') || localAuthRes.message.includes('រង់ចាំ'))) {
           Swal.fire('ដំណឹងគណនី', localAuthRes.message, 'info');
