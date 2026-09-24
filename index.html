@@ -11857,26 +11857,10 @@
       if (!dropdown) {
         dropdown = document.createElement('div');
         dropdown.id = 'appQuickPickerDropdown';
-        dropdown.className = 'fixed bg-white/95 backdrop-blur-md border border-slate-200/95 rounded-2xl shadow-2xl z-[9999] p-1.5 max-h-64 overflow-y-auto font-sans transition-all duration-150';
+        dropdown.className = 'fixed bg-white/95 backdrop-blur-md border border-slate-200/95 rounded-2xl shadow-2xl z-[9999] p-1.5 max-h-64 overflow-y-auto font-sans transition-opacity duration-150';
         dropdown.style.fontFamily = "'Kantumruy Pro', 'Battambang', sans-serif";
         document.body.appendChild(dropdown);
       }
-
-      const rect = inputEl.getBoundingClientRect();
-      const dropdownWidth = Math.max(rect.width, 180);
-      let top = rect.bottom + 4;
-      let left = rect.left;
-
-      if (top + 240 > window.innerHeight) {
-        top = Math.max(10, rect.top - 245);
-      }
-      if (left + dropdownWidth > window.innerWidth) {
-        left = window.innerWidth - dropdownWidth - 10;
-      }
-
-      dropdown.style.width = `${dropdownWidth}px`;
-      dropdown.style.top = `${top}px`;
-      dropdown.style.left = `${left}px`;
 
       const q = (filterVal || inputEl.value || '').trim().toLowerCase();
       const filtered = cfg.options.filter(opt => {
@@ -11906,6 +11890,31 @@
       `;
 
       dropdown.classList.remove('hidden');
+
+      const rect = inputEl.getBoundingClientRect();
+      const dropdownWidth = Math.max(rect.width, 180);
+      dropdown.style.width = `${dropdownWidth}px`;
+
+      const dropdownHeight = dropdown.offsetHeight || 120;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+
+      let top = rect.bottom + 4;
+      if (spaceBelow < dropdownHeight + 8 && spaceAbove > spaceBelow) {
+        // Position directly above the input with snug 4px gap
+        top = Math.max(8, rect.top - dropdownHeight - 4);
+      } else {
+        // Position directly below the input with snug 4px gap
+        top = rect.bottom + 4;
+      }
+
+      let left = rect.left;
+      if (left + dropdownWidth > window.innerWidth - 10) {
+        left = Math.max(10, window.innerWidth - dropdownWidth - 10);
+      }
+
+      dropdown.style.top = `${top}px`;
+      dropdown.style.left = `${left}px`;
     }
 
     function selectQuickPickerOption(val) {
