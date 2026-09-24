@@ -3542,7 +3542,28 @@
                 </div>
               </div>
 
-              <!-- ជួរទី២: ខ្នាត (Size / Spec) & ពណ៌ (Color) -->
+              <!-- ជួរទី២: ប្រភេទទំនិញ (Product Category - Google Sheet) -->
+              <div id="modalCategoryContainer">
+                <label class="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center justify-between" title="ប្រភេទទំនិញ (Product Category)">
+                  <span><i class="fa-solid fa-layer-group text-blue-600 mr-1"></i> ប្រភេទទំនិញ (Category) <span class="text-rose-500 font-extrabold">*</span></span>
+                  <span class="text-[10px] text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
+                    <i class="fa-solid fa-list-check mr-1"></i>Google Sheet Category
+                  </span>
+                </label>
+                <div class="relative">
+                  <select id="modalCategory" required
+                    class="w-full h-11 pl-4 pr-10 bg-slate-50 border border-slate-300 rounded-xl text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition shadow-3xs cursor-pointer appearance-none">
+                    <option value="សម្ភារៈការិយាល័យ-办公用品">សម្ភារៈការិយាល័យ-办公用品</option>
+                    <option value="សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资">សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资</option>
+                    <option value="គ្រឿងបរិក្ខារអេឡិចត្រូនិច និងអគ្គិសនី-机电设备">គ្រឿងបរិក្ខារអេឡិចត្រូនិច និងអគ្គិសនី-机电设备</option>
+                  </select>
+                  <div class="absolute right-3.5 inset-y-0 flex items-center pointer-events-none text-slate-400">
+                    <i class="fa-solid fa-chevron-down text-xs"></i>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ជួរទី៣: ខ្នាត (Size / Spec) & ពណ៌ (Color) -->
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label class="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center justify-between">
@@ -3707,7 +3728,6 @@
                         <i class="fa-solid fa-chevron-down text-[10px]"></i>
                       </button>
                     </div>
-                    <input type="hidden" id="modalCategory" value="ទូទៅ">
                   </div>
 
                   <!-- 2. ឯកតាធំ / ជាដុំ (Bulk Unit) -->
@@ -11539,7 +11559,39 @@
       });
       select.innerHTML = html;
       if (currentVal) select.value = currentVal;
+      populateModalCategoryDropdown();
     }
+
+    function populateModalCategoryDropdown(selectedVal = '') {
+      const select = document.getElementById('modalCategory');
+      if (!select) return;
+      const currentVal = selectedVal || select.value;
+      let cats = (AppState.categories && AppState.categories.length) ? AppState.categories : null;
+      if (!cats || !cats.length) {
+        try {
+          const saved = localStorage.getItem('inventory_categories_db');
+          if (saved) cats = JSON.parse(saved);
+        } catch(e) {}
+      }
+      if (!cats || !cats.length) {
+        cats = ['សម្ភារៈការិយាល័យ-办公用品', 'សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资', 'គ្រឿងបរិក្ខារអេឡិចត្រូនិច និងអគ្គិសនី-机电设备'];
+      }
+
+      let html = '';
+      cats.forEach(cat => {
+        html += `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`;
+      });
+      if (currentVal && !cats.includes(currentVal) && currentVal !== 'ទូទៅ' && currentVal !== 'ALL') {
+        html += `<option value="${escapeHtml(currentVal)}">${escapeHtml(currentVal)}</option>`;
+      }
+      select.innerHTML = html;
+      if (currentVal && (cats.includes(currentVal) || select.querySelector(`option[value="${currentVal}"]`))) {
+        select.value = currentVal;
+      } else if (cats.length > 0) {
+        select.value = cats[0];
+      }
+    }
+    window.populateModalCategoryDropdown = populateModalCategoryDropdown;
 
     function formatDriveImageUrl(url) {
       if (!url || typeof url !== 'string') return '';
@@ -12670,6 +12722,7 @@
       if (document.getElementById('modalBarcode')) document.getElementById('modalBarcode').value = '';
       document.getElementById('modalNotes').value = '';
       setStockInUnitMode('RETAIL');
+      populateModalCategoryDropdown();
 
       const suggestionsEl = document.getElementById('modalNameSuggestions');
       if (suggestionsEl) suggestionsEl.classList.add('hidden');
@@ -12720,7 +12773,7 @@
       document.getElementById('modalName').value = item.name;
       document.getElementById('modalSize').value = item.size || '';
       document.getElementById('modalColor').value = item.color || '';
-      document.getElementById('modalCategory').value = item.category || 'ទូទៅ';
+      populateModalCategoryDropdown(item.category || '');
       document.getElementById('modalUnit').value = item.unit || 'ដុំ';
       document.getElementById('modalPackUnit').value = item.packUnit || '';
       document.getElementById('modalPackQty').value = item.packQty || 1;
