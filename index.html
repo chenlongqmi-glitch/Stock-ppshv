@@ -3628,7 +3628,7 @@
                     <span class="text-[9.5px] text-blue-600 font-bold bg-blue-50 px-1.5 py-0.2 rounded cursor-pointer shrink-0" onclick="openQuickPicker('modalZone')">រើស</span>
                   </label>
                   <div class="relative">
-                    <input type="text" id="modalZone" placeholder="ឧ. តំបន់ A (ភេសជ្ជៈ)"
+                    <input type="text" id="modalZone" placeholder="ឧ. តំបន់ A / តំបន់ B"
                       autocomplete="off"
                       onfocus="openQuickPicker('modalZone')"
                       oninput="openQuickPicker('modalZone', this.value)"
@@ -12466,12 +12466,14 @@
       modalZone: {
         title: 'រើសតំបន់ស្តុកទំនិញ (Zone)',
         icon: 'fa-solid fa-location-dot text-blue-500',
-        options: [
-          { text: 'តំបន់ A (ភេសជ្ជៈ & ត្រជាក់)' },
-          { text: 'តំបន់ B (គ្រឿងទេស & ស្ងួត)' },
-          { text: 'តំបន់ C (សម្ភារៈប្រើប្រាស់)' },
-          { text: 'តំបន់ D (ស្តុកកណ្តាល)' }
-        ]
+        get options() {
+          const defaultZones = ['តំបន់ A', 'តំបន់ B', 'តំបន់ C', 'តំបន់ D'];
+          const existingZones = Array.from(new Set(
+            (AppState.items || []).map(i => (i.zone || '').trim()).filter(Boolean)
+          ));
+          const allZones = Array.from(new Set([...defaultZones, ...existingZones]));
+          return allZones.map(z => ({ text: z }));
+        }
       }
     };
 
@@ -12492,8 +12494,12 @@
         document.body.appendChild(dropdown);
       }
 
+      const rawOptions = (typeof cfg.options === 'function')
+        ? cfg.options()
+        : (Array.isArray(cfg.options) ? cfg.options : []);
+
       const q = (filterVal || inputEl.value || '').trim().toLowerCase();
-      const filtered = cfg.options.filter(opt => {
+      const filtered = rawOptions.filter(opt => {
         if (!q) return true;
         return opt.text.toLowerCase().includes(q);
       });
