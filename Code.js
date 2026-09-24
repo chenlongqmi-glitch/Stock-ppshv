@@ -183,8 +183,7 @@ function doGet(e) {
 /**
  * ដំណើរការទទួល Request តាមរយៈ HTTP POST ពី Web App (GitHub Pages)
  */
-// [Unified doPost handler active at line 186]
-function _legacyDoPost(e) {
+function doPost(e) {
   try {
     let req = {};
     if (e && e.postData && e.postData.contents) {
@@ -197,7 +196,13 @@ function _legacyDoPost(e) {
       req = { action: e.parameter.action, payload: e.parameter };
     }
 
-    const result = handleApiRequest(req);
+    const action = req.action || (e && e.parameter && e.parameter.action);
+    let payload = (req.payload !== undefined) ? req.payload : req;
+    if (e && e.parameter && e.parameter.payload && (!payload || Object.keys(payload).length === 0)) {
+      try { payload = JSON.parse(e.parameter.payload); } catch (ex) {}
+    }
+
+    const result = handleApiRequest({ action: action, payload: payload });
     return ContentService.createTextOutput(JSON.stringify(result || { success: true }))
       .setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
@@ -777,35 +782,7 @@ function executeLocalApiAction(req) {
 
 
 
-/**
-
- * ទទួល API Request (JSON) តាមរយៈ HTTP POST ពីខាងក្រៅ ឬ Python Script
-
- */
-
-function doPost(e) {
-  try {
-    let req = {};
-    if (e && e.postData && e.postData.contents) {
-      req = JSON.parse(e.postData.contents);
-    } else if (e && e.parameter) {
-      req = e.parameter;
-    }
-
-    const action = req.action;
-    const payload = (req.payload !== undefined) ? req.payload : req;
-    const response = handleApiRequest({ action: action, payload: payload });
-
-    return ContentService.createTextOutput(JSON.stringify(response))
-      .setMimeType(ContentService.MimeType.JSON);
-
-  } catch (error) {
-    return ContentService.createTextOutput(JSON.stringify({
-      success: false,
-      message: 'Server Error: ' + error.toString()
-    })).setMimeType(ContentService.MimeType.JSON);
-  }
-}
+// [Unified doPost handler is implemented above at lines 183-210]
 
 // ==========================================
 // 2. DATABASE SETUP & INITIALIZER
@@ -846,12 +823,15 @@ function setupDatabase() {
     formatHeaderRow(itemsSheet, itemHeaders.length, '#1e293b');
   }
 
-  // ប្រសិនបើតារាងទំនិញនៅទទេ (មានត្រឹម Header ឬតិចជាងនេះ) សូមបញ្ចូលទំនិញគំរូភ្លាម
+  // ប្រសិនបើតារាងទំនិញនៅទទេ (មានត្រឹម Header ឬតិចជាងនេះ) សូមបញ្ចូលទំនិញគំរូពិតប្រាកដទាំង 7 មុខភ្លាម
   if (itemsSheet.getLastRow() <= 1) {
-    itemsSheet.appendRow(['SKU-7501', 'SKU-7501', 'ប៊ិច-圆珠笔', 'សម្ភារៈការិយាល័យ', 'ដើម', 0.50, 0.80, 1, 'គ្រប់ស្ថានីយទាំងអស់', 0, 'assets/SKU-7501.jpg', 'Active', new Date(), 'Pixcell', 'ខ្មៅ', 'ប្រអប់', 12, 'តំបន់ A', 'Z-01', 'ចំណាំដើម', 'Admin']);
-    itemsSheet.appendRow(['SKU-9144', 'SKU-9144', 'ទឹកលុប-涂改液', 'សម្ភារៈការិយាល័យ', 'ដើម', 0.50, 0.80, 1, 'គ្រប់ស្ថានីយទាំងអស់', 0, 'assets/SKU-9144.jpg', 'Active', new Date(), 'Pixcell', 'ស', 'ប្រអប់', 12, 'តំបន់ A (ទំនិញទូទៅ)', 'Z-01', 'ចំណាំសិន', 'Admin']);
-    itemsSheet.appendRow(['SKU-9050', 'SKU-9050', 'ប៊ិច-圆珠笔', 'សម្ភារៈការិយាល័យ', 'ដើម', 0.50, 0.80, 1, 'គ្រប់ស្ថានីយទាំងអស់', 0, 'assets/SKU-9050.jpg', 'Active', new Date(), 'Pixcell', 'ក្រហម', 'ប្រអប់', 12, 'តំបន់ A', 'Z-01', 'ចំណាំសិន', 'Admin']);
-    itemsSheet.appendRow(['SKU-9649', 'SKU-9649', 'ប៊ិច-圆珠笔', 'សម្ភារៈការិយាល័យ', 'ដើម', 0.50, 0.80, 1, 'គ្រប់ស្ថានីយទាំងអស់', 0, 'assets/SKU-9649.jpg', 'Active', new Date(), 'Pixcell', 'ខៀវ', 'ប្រអប់', 12, 'តំបន់ A', 'Z-01', 'ចំណាំសិន', 'Admin']);
+    itemsSheet.appendRow(['SKU-7501', 'SKU-7501', 'ប៊ិច-圆珠笔', 'សម្ភារៈការិយាល័យ', 'ដើម', 0, 0, 1, 'គ្រប់ស្ថានីយទាំងអស់', 0, 'https://lh3.googleusercontent.com/d/1CX6Nb7dj8PTSRnyfzgTMeQUooQGrRQ2E', 'Active', new Date(), 'Pixcell', 'ខ្មៅ', 'ប្រអប់', 12, 'តំបន់ A', 'Z-01', 'សាកល្បង', 'ចាន់ តារា']);
+    itemsSheet.appendRow(['SKU-9050', 'SKU-9050', 'ប៊ិច-圆珠笔', 'ទូទៅ', 'ដុំ', 0, 0, 1, 'គ្រប់ស្ថានីយទាំងអស់', 0, 'https://lh3.googleusercontent.com/d/1KpbzNdQc6eRTHCDQvIBruytYtHo6OCUx', 'Active', new Date(), 'Pixcell', 'ក្រហម', 'ប្រអប់', 12, 'តំបន់ A', 'Z-01', 'សាកល្បង', 'ចាន់ ឌី']);
+    itemsSheet.appendRow(['SKU-9144', 'SKU-9144', 'ទឹកលុប-涂改液', 'សម្ភារៈការិយាល័យ', 'ដើម', 0, 0, 1, 'គ្រប់ស្ថានីយទាំងអស់', 0, 'https://lh3.googleusercontent.com/d/1xfWG0wZcc9xnQBlnLa62hO1PXJO6Jznl', 'Active', new Date(), 'Pixcell', 'ស', 'ប្រអប់', 6, 'តំបន់ A', 'Z-01', 'សាកល្បង', 'និត វ៉ាន់ស៊ិញ']);
+    itemsSheet.appendRow(['SKU-9649', 'SKU-9649', 'ប៊ិច-圆珠笔', 'សម្ភារៈការិយាល័យ', 'ដើម', 0, 0, 1, 'គ្រប់ស្ថានីយទាំងអស់', 0, 'https://lh3.googleusercontent.com/d/1RE9PKj3VyPYaO8kOdodzt5U28lA8CGhV', 'Active', new Date(), 'Pixcell', 'ខៀវ', 'ប្រអប់', 12, 'តំបន់ A', 'Z-01', 'ចំណាំសិន', 'និត វ៉ាន់ស៊ិញ']);
+    itemsSheet.appendRow(['SKU-2089', 'SKU-2089', 'ក្រដាស់ជូតម៉ាត់-抽纸', 'សម្ភារៈការិយាល័យ', 'ដុំ', 0, 0, 1, 'គ្រប់ស្ថានីយទាំងអស់', 0, 'https://lh3.googleusercontent.com/d/18YTR9If4CbWoUhAOYBtMtZZfLRGj_qyg', 'Active', new Date(), 'LM', 'ស', 'យូ', 7, 'តំបន់ B', 'Z-01', 'សាកល្បង', '陈龙']);
+    itemsSheet.appendRow(['SKU-4608', 'SKU-4608', 'ក្រដាស់ជូតម៉ាត់-抽纸', 'សម្ភារៈការិយាល័យ', 'ដុំ', 0, 0, 1, 'គ្រប់ស្ថានីយទាំងអស់', 0, 'https://lh3.googleusercontent.com/d/18YTR9If4CbWoUhAOYBtMtZZfLRGj_qyg', 'Active', new Date(), 'xxl', 'ស', 'យូ', 7, 'តំបន់ B', 'Z-01', 'សាកល្បង', '陈龙']);
+    itemsSheet.appendRow(['SKU-1979', 'SKU-1979', 'ប៊ិច-圆珠笔', 'សម្ភារៈការិយាល័យ', 'ដើម', 0, 0, 1, 'គ្រប់ស្ថានីយទាំងអស់', 0, 'https://lh3.googleusercontent.com/d/1CX6Nb7dj8PTSRnyfzgTMeQUooQGrRQ2E', 'Active', new Date(), 'Pixcell1', 'ខ្មៅ', 'ប្រអប់', 12, 'តំបន់ A', 'Z-01', 'សាកល្បង', '陈龙']);
   }
 
   // 2. Sheet Transactions
@@ -972,13 +952,9 @@ function setupDatabase() {
 
     formatHeaderRow(catSheet, headers.length, '#334155');
 
-    catSheet.appendRow(['CAT-01', 'ភេសជ្ជៈ', 'ភេសជ្ជៈ ស្រាបៀរ ទឹកបរិសុទ្ធ']);
-
-    catSheet.appendRow(['CAT-02', 'គ្រឿងទេស', 'កាហ្វេ តែ ស្ករ ទឹកដោះគោ']);
-
-    catSheet.appendRow(['CAT-03', 'អាហារស្ងួត', 'មី នំកញ្ចប់ ត្រីខ']);
-
-    catSheet.appendRow(['CAT-04', 'សម្ភារៈប្រើប្រាស់', 'សម្ភារៈការិយាល័យ និងផ្ទះបាយ']);
+    catSheet.appendRow(['CAT-01', 'សម្ភារៈការិយាល័យ-办公用品', 'សម្ភារៈការិយាល័យ ឯកសារ ប៊ិច ក្រដាស']);
+    catSheet.appendRow(['CAT-02', 'សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资', 'សម្ភារៈប្រើប្រាស់ទូទៅ ប្រចាំថ្ងៃ']);
+    catSheet.appendRow(['CAT-03', 'គ្រឿងបរិក្ខារអេឡិចត្រូនិច និងអគ្គិសនី-机电设备', 'គ្រឿងបរិក្ខារ និងសម្ភារៈអគ្គិសនី']);
 
   }
 
@@ -4541,23 +4517,20 @@ function deleteItem(skuOrPayload, username) {
 
 
 function getCategoriesListInternal(ss) {
-
+  if (!ss) ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(SHEETS.CATEGORIES);
-
-  if (!sheet) return ['ភេសជ្ជៈ', 'គ្រឿងទេស', 'អាហារស្ងួត', 'សម្ភារៈប្រើប្រាស់'];
-
+  const defaultCats = [
+    'សម្ភារៈការិយាល័យ-办公用品',
+    'សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资',
+    'គ្រឿងបរិក្ខារអេឡិចត្រូនិច និងអគ្គិសនី-机电设备'
+  ];
+  if (!sheet) return defaultCats;
   const data = sheet.getDataRange().getValues();
-
   const list = [];
-
   for (let i = 1; i < data.length; i++) {
-
-    if (data[i][1]) list.push(data[i][1]);
-
+    if (data[i][1]) list.push(String(data[i][1]).trim());
   }
-
-  return list.length > 0 ? list : ['ភេសជ្ជៈ', 'គ្រឿងទេស', 'អាហារស្ងួត', 'សម្ភារៈប្រើប្រាស់'];
-
+  return list.length > 0 ? list : defaultCats;
 }
 
 
