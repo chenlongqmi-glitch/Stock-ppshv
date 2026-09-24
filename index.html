@@ -11040,16 +11040,11 @@
       tbody.innerHTML = filtered.map((item, idx) => {
         const curStock = Number(item.currentStock || 0);
         const pQty = Number(item.packQty || 1);
-        const pUnit = (item.packUnit || '').trim();
-        let dualStockHtml = '';
+        const pUnit = (item.packUnit || '').trim() || 'ដុំ';
+        const rUnit = (item.unit || '').trim() || 'រាយ';
 
-        if (pUnit && pQty > 1) {
-          const packs = Math.floor(curStock / pQty);
-          const loose = curStock % pQty;
-          dualStockHtml = `<span class="block text-[10.5px] font-bold text-indigo-800 mt-1 bg-indigo-50/90 px-2 py-0.5 rounded-md border border-indigo-200/70 shadow-3xs whitespace-nowrap">
-            ${packs} ${escapeHtml(pUnit)}${loose > 0 ? ` + ${loose} ${escapeHtml(item.unit || 'ដុំ')}` : ''}
-          </span>`;
-        }
+        const bulkStock = (pQty > 1) ? Math.floor(curStock / pQty) : curStock;
+        const looseRemainder = (pQty > 1) ? (curStock % pQty) : 0;
 
         return `
         <tr ondblclick="previewLargeImage('${escapeHtml(item.imageUrl)}', '${escapeHtml(item.name)}', '${item.sku}', '${item.barcode || '-'}', '${item.unit || 'ដុំ'}', ${item.currentStock || 0}, '${escapeHtml(getUserDisplayName(item.createdBy))}', '${escapeHtml(item.zone || '-')}')"
@@ -11111,20 +11106,31 @@
             </span>
           </td>
 
-          <!-- ជួរទី៧: ស្តុកបច្ចុប្បន្ន (Current Stock: រាយ & កេស) -->
+          <!-- ជួរទី៧: ស្តុកបច្ចុប្បន្ន (Current Stock: ដុំ & រាយ) -->
           <td class="px-4 py-2.5 text-center">
-            <span class="inline-block px-2.5 py-1 rounded-xl text-xs font-extrabold ${curStock === 0 ? 'bg-rose-100 text-rose-700' :
-          curStock <= (item.minStock || 0) ? 'bg-amber-100 text-amber-700' :
-            'bg-emerald-100 text-emerald-700'
-        }">
-              ${curStock} ${escapeHtml(item.unit || 'ដុំ')}
-            </span>
-            ${dualStockHtml}
-            ${curStock <= (item.minStock || 0) && curStock > 0 ? `
-              <span class="block text-[9.5px] font-extrabold text-amber-800 mt-1 bg-amber-50/90 px-1.5 py-0.5 rounded border border-amber-200/80 shadow-3xs whitespace-nowrap">
-                <i class="fa-solid fa-triangle-exclamation text-amber-600 mr-0.5"></i> ស្តុកទាប ${item.minStockPercent ? `(≤ ${item.minStockPercent}%)` : ''}
+            <div class="inline-flex flex-col items-center justify-center">
+              <!-- ចំនួនសរុបដុំ (On Top) -->
+              <span class="inline-block px-2.5 py-0.5 rounded-lg text-xs font-black shadow-3xs whitespace-nowrap ${
+                curStock === 0
+                  ? 'bg-rose-100 text-rose-700 border border-rose-300'
+                  : curStock <= (item.minStock || 0)
+                    ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                    : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+              }">
+                ${bulkStock} ${escapeHtml(pUnit)}${looseRemainder > 0 ? ` + ${looseRemainder} ${escapeHtml(rUnit)}` : ''}
               </span>
-            ` : ''}
+
+              <!-- ចំនួនសរុបរាយ (Directly Below) -->
+              <span class="inline-block text-[10.5px] font-bold text-slate-600 mt-1 bg-slate-100/90 px-2 py-0.5 rounded-md border border-slate-200 shadow-3xs whitespace-nowrap" title="ចំនួនសរុបរាយ">
+                ${curStock} ${escapeHtml(rUnit)}
+              </span>
+
+              ${curStock <= (item.minStock || 0) && curStock > 0 ? `
+                <span class="block text-[9.5px] font-extrabold text-amber-800 mt-1 bg-amber-50/90 px-1.5 py-0.5 rounded border border-amber-200/80 shadow-3xs whitespace-nowrap">
+                  <i class="fa-solid fa-triangle-exclamation text-amber-600 mr-0.5"></i> ស្តុកទាប ${item.minStockPercent ? `(≤ ${item.minStockPercent}%)` : ''}
+                </span>
+              ` : ''}
+            </div>
           </td>
 
           <!-- ជួរទី៨: អ្នកបញ្ចូល (Created By & Date) -->
