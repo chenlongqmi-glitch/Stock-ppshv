@@ -3845,21 +3845,23 @@
                 </div>
               </div>
 
-              <!-- ប្រភេទទំនិញ (Category) ដាក់នៅខាងលើ Notes & Created By -->
+              <!-- ប្រភេទទំនិញ (Category) ទុកឱ្យអ្នកប្រើប្រាស់ជាអ្នកបំពេញ -->
               <div id="modalCategoryContainer" class="pt-2.5 mt-2.5 border-t border-slate-200/80 shrink-0">
-                <label class="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center" title="ប្រភេទទំនិញ (Category)">
-                  <i class="fa-solid fa-layer-group text-blue-600 mr-1"></i> ប្រភេទទំនិញ (Category) <span class="text-rose-500 font-extrabold">*</span>
+                <label class="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center justify-between" title="ប្រភេទទំនិញ (Category)">
+                  <span><i class="fa-solid fa-layer-group text-blue-600 mr-1"></i> ប្រភេទទំនិញ (Category) <span class="text-rose-500 font-extrabold">*</span></span>
+                  <span class="text-[9.5px] text-blue-600 font-bold bg-blue-50 px-1.5 py-0.2 rounded cursor-pointer" onclick="openQuickPicker('modalCategory')">រើស</span>
                 </label>
                 <div class="relative">
-                  <select id="modalCategory" required
-                    class="w-full h-11 pl-4 pr-10 bg-white border border-slate-300 rounded-xl text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition shadow-3xs cursor-pointer appearance-none">
-                    <option value="សម្ភារៈការិយាល័យ-办公用品">សម្ភារៈការិយាល័យ-办公用品</option>
-                    <option value="សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资">សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资</option>
-                    <option value="គ្រឿងបរិក្ខារអេឡិចត្រូនិច និងអគ្គិសនី-机电设备">គ្រឿងបរិក្ខារអេឡិចត្រូនិច និងអគ្គិសនី-机电设备</option>
-                  </select>
-                  <div class="absolute right-3.5 inset-y-0 flex items-center pointer-events-none text-slate-400">
+                  <input type="text" id="modalCategory" required
+                    placeholder="បញ្ចូល ឬជ្រើសរើសប្រភេទទំនិញ..."
+                    autocomplete="off"
+                    onfocus="openQuickPicker('modalCategory')"
+                    oninput="openQuickPicker('modalCategory', this.value)"
+                    class="w-full h-11 pl-4 pr-10 bg-white border border-slate-300 rounded-xl text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 transition shadow-3xs">
+                  <button type="button" onclick="openQuickPicker('modalCategory')"
+                    class="absolute right-3.5 inset-y-0 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer" title="រើសប្រភេទទំនិញ">
                     <i class="fa-solid fa-chevron-down text-xs"></i>
-                  </div>
+                  </button>
                 </div>
               </div>
 
@@ -11554,6 +11556,10 @@
     function populateModalCategoryDropdown(selectedVal = '') {
       const select = document.getElementById('modalCategory');
       if (!select) return;
+      if (select.tagName === 'INPUT') {
+        if (selectedVal) select.value = selectedVal;
+        return;
+      }
       const currentVal = selectedVal || select.value;
       let cats = (AppState.categories && AppState.categories.length) ? AppState.categories : null;
       if (!cats || !cats.length) {
@@ -12380,6 +12386,20 @@
     }
 
     const QUICK_PICKER_CONFIG = {
+      modalCategory: {
+        title: 'រើសប្រភេទទំនិញ (Category)',
+        icon: 'fa-solid fa-layer-group text-blue-600',
+        get options() {
+          const sheetCats = (AppState.categories && AppState.categories.length)
+            ? AppState.categories
+            : ['សម្ភារៈការិយាល័យ-办公用品', 'សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资', 'គ្រឿងបរិក្ខារអេឡិចត្រូនិច និងអគ្គិសនី-机电设备'];
+          const existingCats = Array.from(new Set(
+            (AppState.items || []).map(i => (i.category || '').trim()).filter(Boolean)
+          ));
+          const allCats = Array.from(new Set([...sheetCats, ...existingCats]));
+          return allCats.map(c => ({ text: c }));
+        }
+      },
       modalColor: {
         title: 'រើសពណ៌ទំនិញ (Color)',
         icon: 'fa-solid fa-palette text-amber-500',
@@ -12617,7 +12637,7 @@
     }, true);
 
     function clearAllItemModalErrors() {
-      const fieldIds = ['modalName', 'modalSize', 'modalColor', 'modalZone', 'modalUnit', 'modalPackUnit', 'modalPackQty', 'modalNotes', 'imageUploadBox'];
+      const fieldIds = ['modalName', 'modalCategory', 'modalSize', 'modalColor', 'modalZone', 'modalUnit', 'modalPackUnit', 'modalPackQty', 'modalNotes', 'imageUploadBox'];
       fieldIds.forEach(id => {
         const el = document.getElementById(id);
         if (el) {
@@ -12666,6 +12686,13 @@
       const nameVal = (nameEl?.value || '').trim();
       if (!nameVal) {
         missing.push({ id: 'modalName', el: nameEl, label: 'ឈ្មោះទំនិញ (Item Name)', msg: 'សូមបញ្ចូលឈ្មោះទំនិញ' });
+      }
+
+      // ប្រភេទទំនិញ (Category)
+      const catEl = document.getElementById('modalCategory');
+      const catVal = (catEl?.value || '').trim();
+      if (!catVal) {
+        missing.push({ id: 'modalCategory', el: catEl, label: 'ប្រភេទទំនិញ (Category)', msg: 'សូមជ្រើសរើស ឬបញ្ចូលប្រភេទទំនិញ' });
       }
 
       // 2. កូដទំនិញ / ខ្នាត
@@ -12749,6 +12776,7 @@
       if (document.getElementById('modalStockInQty')) document.getElementById('modalStockInQty').value = 0;
       if (document.getElementById('modalBarcode')) document.getElementById('modalBarcode').value = '';
       document.getElementById('modalNotes').value = '';
+      if (document.getElementById('modalCategory')) document.getElementById('modalCategory').value = '';
       setStockInUnitMode('RETAIL');
       populateModalCategoryDropdown();
 
@@ -12801,7 +12829,7 @@
       document.getElementById('modalName').value = item.name;
       document.getElementById('modalSize').value = item.size || '';
       document.getElementById('modalColor').value = item.color || '';
-      populateModalCategoryDropdown(item.category || '');
+      if (document.getElementById('modalCategory')) document.getElementById('modalCategory').value = item.category || '';
       document.getElementById('modalUnit').value = item.unit || 'ដុំ';
       document.getElementById('modalPackUnit').value = item.packUnit || '';
       document.getElementById('modalPackQty').value = item.packQty || 1;
