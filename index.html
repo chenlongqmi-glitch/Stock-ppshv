@@ -3465,403 +3465,406 @@
       class="w-full max-w-5xl bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200 max-h-[92vh] flex flex-col">
       <!-- Modal Header with Rich Vibrant Gradient -->
       <div
-        class="px-6 py-4 bg-gradient-to-r from-blue-700 via-indigo-600 to-violet-700 text-white flex items-center justify-between shrink-0 shadow-md">
+        class="px-5 py-3.5 bg-gradient-to-r from-blue-700 via-indigo-600 to-violet-700 text-white flex items-center justify-between shrink-0 shadow-md">
         <div class="flex items-center space-x-3">
           <div
-            class="w-10 h-10 rounded-2xl bg-white/15 backdrop-blur-md border border-white/20 flex items-center justify-center text-white shadow-inner">
-            <i class="fa-solid fa-box-open text-base"></i>
+            class="w-9 h-9 rounded-xl bg-white/15 backdrop-blur-md border border-white/20 flex items-center justify-center text-white shadow-inner">
+            <i class="fa-solid fa-box-open text-sm"></i>
           </div>
           <div>
-            <h3 id="itemModalTitle" class="font-bold text-base tracking-wide drop-shadow-sm">បន្ថែមទំនិញថ្មី</h3>
+            <h3 id="itemModalTitle" class="font-bold text-sm sm:text-base tracking-wide drop-shadow-sm">បន្ថែមទំនិញថ្មី</h3>
             <p class="text-[11px] text-blue-100/80 font-medium">បំពេញព័ត៌មានទំនិញ និងកំណត់ទីតាំងស្តុក</p>
           </div>
         </div>
         <button onclick="closeItemModal()"
-          class="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition backdrop-blur-sm">
-          <i class="fa-solid fa-xmark text-lg"></i>
+          class="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition backdrop-blur-sm">
+          <i class="fa-solid fa-xmark text-base"></i>
         </button>
       </div>
 
       <form id="itemForm" novalidate onsubmit="handleSaveItem(event)"
-        class="p-6 overflow-y-auto custom-scrollbar flex flex-col flex-1">
+        class="flex flex-col flex-1 min-h-0 overflow-hidden">
         <input type="hidden" id="itemEditMode" value="ADD">
         <input type="hidden" id="modalCostPrice" value="0">
         <input type="hidden" id="modalSellingPrice" value="0">
 
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <!-- Scrollable Form Body (only scrolls if viewport is very short) -->
+        <div class="p-3.5 sm:p-5 overflow-y-auto custom-scrollbar flex-1 min-h-0">
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5 items-start">
 
-          <!-- ផ្នែកខាងឆ្វេង (LEFT COLUMN): ព័ត៌មានទំនិញ & ស្តុក & ប្រព័ន្ធឯកតាទ្វេ -->
-          <div class="lg:col-span-7 space-y-3.5">
-            <!-- ជួរទី១: ឈ្មោះទំនិញ (Item Name) -->
-            <div class="relative" id="modalNameContainer">
-              <label class="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center justify-between">
-                <span><i class="fa-solid fa-tag text-blue-600 mr-1"></i> ឈ្មោះទំនិញ (Item Name) *</span>
-                <span class="text-[10px] text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
-                  <i class="fa-solid fa-magnifying-glass mr-1"></i>គាំទ្រស្វែងរក Keyword (SKU, ឈ្មោះ, Barcode)
+            <!-- ផ្នែកខាងឆ្វេង (LEFT COLUMN): ព័ត៌មានទំនិញ & ស្តុក & ប្រព័ន្ធឯកតាទ្វេ -->
+            <div class="lg:col-span-7 space-y-2.5">
+              <!-- ជួរទី១: ឈ្មោះទំនិញ (Item Name) -->
+              <div class="relative" id="modalNameContainer">
+                <label class="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center justify-between">
+                  <span><i class="fa-solid fa-tag text-blue-600 mr-1"></i> ឈ្មោះទំនិញ (Item Name) *</span>
+                  <span class="text-[10px] text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
+                    <i class="fa-solid fa-magnifying-glass mr-1"></i>គាំទ្រស្វែងរក Keyword (SKU, ឈ្មោះ, Barcode)
+                  </span>
+                </label>
+                <div class="relative">
+                  <input type="text" id="modalName" required placeholder="ឧ. កាហ្វេ Nescafe 3in1 / Coca Cola 330ml"
+                    oninput="onModalNameInput(this.value)"
+                    onfocus="if(this.value) onModalNameInput(this.value)"
+                    autocomplete="off"
+                    class="w-full h-9.5 pl-3.5 pr-9 bg-slate-50 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 font-semibold text-slate-800 focus:bg-white transition">
+                  <button type="button" id="modalNameClearBtn" onclick="clearModalNameInput()"
+                    class="hidden absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 text-xs transition" title="សម្អាត">
+                    <i class="fa-solid fa-xmark"></i>
+                  </button>
+                </div>
+
+                <!-- Floating Suggestions Dropdown for Related Items (Kantumruy Pro Font) -->
+                <div id="modalNameSuggestions"
+                  class="hidden absolute left-0 right-0 top-full mt-1.5 bg-white border border-blue-200 rounded-2xl shadow-xl z-50 overflow-hidden max-h-72 overflow-y-auto">
+                </div>
+              </div>
+
+              <!-- ជួរទី២: ខ្នាត (Size / Spec) & ពណ៌ (Color) -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center justify-between">
+                    <span><i class="fa-solid fa-asterisk text-indigo-600 mr-1 text-[11px]"></i> ខ្នាត / ទំហំ (Size / Spec)</span>
+                    <span class="text-[9.5px] text-indigo-600 font-bold bg-indigo-50 px-1.5 py-0.2 rounded cursor-pointer" onclick="openQuickPicker('modalSize')">រើសខ្នាត</span>
+                  </label>
+                  <div class="relative">
+                    <input type="text" id="modalSize" placeholder="ឧ. 330ml / 500g / 1L / XL"
+                      autocomplete="off"
+                      onfocus="openQuickPicker('modalSize')"
+                      oninput="openQuickPicker('modalSize', this.value); checkItemDuplicate();"
+                      class="w-full h-9.5 pl-3.5 pr-8 bg-slate-50 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 font-semibold text-slate-800 focus:bg-white transition">
+                    <button type="button" onclick="openQuickPicker('modalSize')"
+                      class="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 text-xs" title="រើសខ្នាត">
+                      <i class="fa-solid fa-chevron-down text-[10px]"></i>
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center justify-between">
+                    <span><i class="fa-solid fa-palette text-amber-500 mr-1"></i> ពណ៌ (Color)</span>
+                    <span class="text-[9.5px] text-amber-700 font-bold bg-amber-50 px-1.5 py-0.2 rounded cursor-pointer" onclick="openQuickPicker('modalColor')">រើសពណ៌</span>
+                  </label>
+                  <div class="relative">
+                    <input type="text" id="modalColor" placeholder="ឧ. ខ្មៅ / ស / ក្រហម / ខៀវ"
+                      autocomplete="off"
+                      onfocus="openQuickPicker('modalColor')"
+                      oninput="openQuickPicker('modalColor', this.value); checkItemDuplicate();"
+                      class="w-full h-9.5 pl-3.5 pr-8 bg-slate-50 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-500 font-semibold text-slate-800 focus:bg-white transition">
+                    <button type="button" onclick="openQuickPicker('modalColor')"
+                      class="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 text-xs" title="រើសពណ៌">
+                      <i class="fa-solid fa-chevron-down text-[10px]"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Duplicate Item Warning Banner (Name + Size + Color) -->
+              <div id="modalDuplicateWarningBanner" class="hidden p-2.5 rounded-xl bg-rose-50 border-2 border-rose-300 text-rose-800 text-xs shadow-sm flex items-start space-x-2.5">
+                <div class="w-5 h-5 rounded-lg bg-rose-600 text-white flex items-center justify-center shrink-0 text-xs shadow-xs mt-0.5">
+                  <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center justify-between flex-wrap gap-1">
+                    <span class="font-extrabold text-rose-900 text-xs">ទំនិញនេះមានក្នុងបញ្ជីរួចហើយ (មិនអនុញ្ញាតឱ្យបញ្ចូលស្ទួន)!</span>
+                    <span id="duplicateWarningSku" class="font-mono font-bold text-[10px] bg-white px-2 py-0.5 rounded border border-rose-300 text-rose-700"></span>
+                  </div>
+                  <p id="duplicateWarningText" class="text-[11px] text-rose-700 mt-0.5 leading-snug"></p>
+                </div>
+              </div>
+
+              <!-- Hidden SKU and Barcode (managed automatically in background) -->
+              <input type="hidden" id="modalSku" value="">
+              <input type="hidden" id="modalBarcode" value="">
+
+              <!-- ជួរទី៣: តំបន់ស្តុកទំនិញ & ស្តុកបច្ចុប្បន្ន & កម្រិតរំលឹក Min: (%) -->
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 items-start">
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1 h-5 flex items-center justify-between" title="តំបន់ស្តុកទំនិញ (Zone / Area)">
+                    <span class="truncate"><i class="fa-solid fa-location-dot text-indigo-600 mr-1"></i> តំបន់ស្តុក (Zone)</span>
+                    <span class="text-[9.5px] text-blue-600 font-bold bg-blue-50 px-1.5 py-0.2 rounded cursor-pointer shrink-0" onclick="openQuickPicker('modalZone')">រើស</span>
+                  </label>
+                  <div class="relative">
+                    <input type="text" id="modalZone" placeholder="ឧ. តំបន់ A (ភេសជ្ជៈ)"
+                      autocomplete="off"
+                      onfocus="openQuickPicker('modalZone')"
+                      oninput="openQuickPicker('modalZone', this.value)"
+                      class="w-full h-9.5 pl-3 pr-8 bg-slate-50 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 font-medium focus:bg-white transition">
+                    <button type="button" onclick="openQuickPicker('modalZone')"
+                      class="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 text-xs" title="រើសតំបន់ស្តុក">
+                      <i class="fa-solid fa-chevron-down text-[10px]"></i>
+                    </button>
+                  </div>
+                  <input type="hidden" id="modalZoneNumber" value="">
+                </div>
+
+                <div id="modalCurrentStockContainer">
+                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1 h-5 flex items-center truncate" title="ស្តុកបច្ចុប្បន្ន (Current Stock)">
+                    <i class="fa-solid fa-cubes-stacked text-slate-500 mr-1"></i> ស្តុកបច្ចុប្បន្ន (Stock)
+                  </label>
+                  <div class="relative">
+                    <input type="number" id="modalCurrentStockDisplay" readonly value="0"
+                      class="w-full h-9.5 px-3 bg-slate-100 border border-slate-300 rounded-xl text-sm outline-none font-bold text-slate-700 cursor-not-allowed">
+                    <span id="modalCurrentStockUnitLabel"
+                      class="absolute right-3 top-2.5 text-xs text-slate-400 font-medium pointer-events-none">នៅសល់</span>
+                  </div>
+                  <!-- Hidden inputs for Stock In compatibility -->
+                  <input type="hidden" id="modalStockInQty" value="0">
+                  <input type="hidden" id="modalStockInUnitMode" value="RETAIL">
+                </div>
+
+                <!-- កំណត់ស្តុកសល់តិចបំផុត (Min Stock: % ភាគរយ) -->
+                <div id="modalMinStockContainer">
+                  <div class="flex items-center justify-between mb-1 h-5">
+                    <label class="block text-xs font-bold text-amber-800 uppercase truncate" title="កំណត់ស្តុកសល់តិចបំផុតជាភាគរយ %">
+                      <i class="fa-solid fa-bell text-amber-500 mr-1 animate-pulse"></i> កំណត់ស្តុកសល់តិចបំផុត *
+                    </label>
+                    <span id="modalMinStockUnitBadge" class="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded border border-amber-200 whitespace-nowrap flex-shrink-0" title="គិតជាភាគរយ %">
+                      % ភាគរយ
+                    </span>
+                  </div>
+                  <div class="relative">
+                    <input type="number" id="modalMinStockInput" inputmode="numeric" min="1" max="100" value="20" placeholder="20"
+                      oninput="onMinStockInputChanged()"
+                      class="w-full h-9.5 px-3.5 pr-10 bg-amber-50/40 border border-amber-300 rounded-xl text-sm font-bold text-amber-900 outline-none focus:ring-2 focus:ring-amber-500 font-mono">
+                    <span id="modalMinStockSymbol" class="absolute right-3.5 top-2 text-sm font-extrabold text-amber-600 pointer-events-none">%</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Preset percentage pills & Live Note -->
+              <div id="modalMinStockHelpBar" class="flex flex-wrap items-center justify-between gap-1 px-3 py-1 bg-amber-50/60 border border-amber-200/80 rounded-xl text-[11px] shadow-3xs">
+                <div class="flex items-center gap-1">
+                  <span class="text-[10px] font-bold text-amber-900 mr-1">រើសភាគរយ %៖</span>
+                  <button type="button" onclick="setMinStockPercent(5)" id="btnMinPct5" class="min-btn-preset px-2 py-0.5 text-[10px] font-bold rounded-lg bg-white text-amber-800 border border-amber-200 hover:bg-amber-100 transition shadow-3xs">5%</button>
+                  <button type="button" onclick="setMinStockPercent(10)" id="btnMinPct10" class="min-btn-preset px-2 py-0.5 text-[10px] font-bold rounded-lg bg-white text-amber-800 border border-amber-200 hover:bg-amber-100 transition shadow-3xs">10%</button>
+                  <button type="button" onclick="setMinStockPercent(15)" id="btnMinPct15" class="min-btn-preset px-2 py-0.5 text-[10px] font-bold rounded-lg bg-white text-amber-800 border border-amber-200 hover:bg-amber-100 transition shadow-3xs">15%</button>
+                  <button type="button" onclick="setMinStockPercent(20)" id="btnMinPct20" class="min-btn-preset px-2 py-0.5 text-[10px] font-extrabold rounded-lg bg-amber-500 text-white border border-amber-600 transition shadow-3xs">20%</button>
+                  <button type="button" onclick="setMinStockPercent(25)" id="btnMinPct25" class="min-btn-preset px-2 py-0.5 text-[10px] font-bold rounded-lg bg-white text-amber-800 border border-amber-200 hover:bg-amber-100 transition shadow-3xs">25%</button>
+                  <button type="button" onclick="setMinStockPercent(30)" id="btnMinPct30" class="min-btn-preset px-2 py-0.5 text-[10px] font-bold rounded-lg bg-white text-amber-800 border border-amber-200 hover:bg-amber-100 transition shadow-3xs">30%</button>
+                </div>
+                <span class="text-[10.5px] font-semibold text-amber-900 flex items-center">
+                  <i class="fa-solid fa-triangle-exclamation text-amber-600 mr-1"></i>
+                  <span id="modalMinStockHelpDesc">រំលឹកអ្នកគ្រប់គ្រងពេលស្តុក ≤ 20%</span>
                 </span>
-              </label>
-              <div class="relative">
-                <input type="text" id="modalName" required placeholder="ឧ. កាហ្វេ Nescafe 3in1 / Coca Cola 330ml"
-                  oninput="onModalNameInput(this.value)"
-                  onfocus="if(this.value) onModalNameInput(this.value)"
-                  autocomplete="off"
-                  class="w-full h-11 pl-3.5 pr-9 bg-slate-50 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500 font-semibold text-slate-800 focus:bg-white transition">
-                <button type="button" id="modalNameClearBtn" onclick="clearModalNameInput()"
-                  class="hidden absolute right-3 top-3.5 text-slate-400 hover:text-slate-600 text-xs transition" title="សម្អាត">
-                  <i class="fa-solid fa-xmark"></i>
+              </div>
+
+              <!-- ជួរទី៤: ប្រព័ន្ធគ្រប់គ្រងឯកតាទំនិញ (DUAL-UNIT SYSTEM: រាយ vs ដុំ/កេស) -->
+              <div class="p-3 rounded-2xl bg-gradient-to-br from-emerald-50/60 via-teal-50/30 to-blue-50/40 border-2 border-emerald-300/80 shadow-2xs space-y-2">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center space-x-2">
+                    <div class="w-5 h-5 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-[10px] shadow-xs">
+                      <i class="fa-solid fa-layer-group"></i>
+                    </div>
+                    <label class="block text-xs font-extrabold text-emerald-900 uppercase">
+                      ប្រព័ន្ធគ្រប់គ្រងឯកតាទំនិញ (Unit & Packaging) *
+                    </label>
+                  </div>
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-emerald-200 text-emerald-900 border border-emerald-300 shadow-3xs">
+                    <i class="fa-solid fa-arrows-split-up-and-left mr-1"></i>គាំទ្រ ដុំ & រាយ
+                  </span>
+                </div>
+                <p class="text-[10.5px] text-slate-500">កំណត់ឯកតារាយ និងឯកតាធំ (កេស/ប្រអប់) ព្រមទាំងចំនួនបំប្លែង ដើម្បីគណនាស្តុកស្វ័យប្រវត្តិ</p>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-0.5 items-start">
+                  <!-- 1. ឯកតារាយ (Base Unit) -->
+                  <div>
+                    <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1 h-5 flex items-center justify-between" title="១. ឯកតារាយ (Retail Unit) *">
+                      <span class="truncate">១. ឯកតារាយ (Retail) *</span>
+                      <span class="text-[9.5px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.2 rounded cursor-pointer shrink-0" onclick="openQuickPicker('modalUnit')">រើស</span>
+                    </label>
+                    <div class="relative">
+                      <input type="text" id="modalUnit" required
+                        placeholder="កំប៉ុង / ដប / កញ្ចប់ / ដុំ"
+                        autocomplete="off"
+                        onfocus="openQuickPicker('modalUnit')"
+                        oninput="updateUnitConversionPreview(); openQuickPicker('modalUnit', this.value)"
+                        class="w-full h-9 pl-3 pr-7 bg-white border border-emerald-300 rounded-xl text-xs font-bold text-emerald-800 outline-none focus:ring-2 focus:ring-emerald-500">
+                      <button type="button" onclick="openQuickPicker('modalUnit')"
+                        class="absolute right-2 top-2 text-emerald-600 hover:text-emerald-800 text-xs" title="រើសឯកតារាយ">
+                        <i class="fa-solid fa-chevron-down text-[9px]"></i>
+                      </button>
+                    </div>
+                    <input type="hidden" id="modalCategory" value="ទូទៅ">
+                  </div>
+
+                  <!-- 2. ឯកតាធំ / ជាដុំ (Bulk Unit) -->
+                  <div>
+                    <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1 h-5 flex items-center justify-between" title="២. ឯកតាធំ (Bulk Unit)">
+                      <span class="truncate">២. ឯកតាធំ (Bulk)</span>
+                      <span class="text-[9.5px] text-indigo-700 font-bold bg-indigo-50 px-1.5 py-0.2 rounded cursor-pointer shrink-0" onclick="openQuickPicker('modalPackUnit')">រើស</span>
+                    </label>
+                    <div class="relative">
+                      <input type="text" id="modalPackUnit"
+                        placeholder="ដុំ / កេស / ប្រអប់ / បាវ / យួរ"
+                        autocomplete="off"
+                        onfocus="openQuickPicker('modalPackUnit')"
+                        oninput="updateUnitConversionPreview(); openQuickPicker('modalPackUnit', this.value)"
+                        class="w-full h-9 pl-3 pr-7 bg-white border border-slate-300 rounded-xl text-xs font-bold text-indigo-800 outline-none focus:ring-2 focus:ring-indigo-500">
+                      <button type="button" onclick="openQuickPicker('modalPackUnit')"
+                        class="absolute right-2 top-2 text-slate-400 hover:text-slate-600 text-xs" title="រើសឯកតាធំ">
+                        <i class="fa-solid fa-chevron-down text-[9px]"></i>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- 3. ចំនួនក្នុង ១ ដុំ (Pack Qty / Conversion) -->
+                  <div>
+                    <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1 h-5 flex items-center truncate whitespace-nowrap" title="៣. ចំនួនក្នុង ១ ដុំ (Rate)">
+                      ៣. ចំនួនក្នុង ១ ដុំ (Rate)
+                    </label>
+                    <input type="number" id="modalPackQty" inputmode="numeric" min="1" value="1" placeholder="ឧ. 24"
+                      oninput="updateUnitConversionPreview();"
+                      class="w-full h-9 px-3 bg-white border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500">
+                  </div>
+                </div>
+
+                <!-- Live Conversion Formula Pill -->
+                <div id="modalUnitConversionPreview" class="px-3 py-1 bg-white/90 border border-emerald-200 rounded-xl text-[11px] font-semibold text-emerald-800 flex items-center justify-between shadow-3xs">
+                  <span class="flex items-center space-x-1.5">
+                    <i class="fa-solid fa-calculator text-emerald-600"></i>
+                    <span id="modalUnitConversionText">រូបមន្តបំប្លែង៖ 1 ដុំ = 24 កំប៉ុង</span>
+                  </span>
+                  <span class="text-[10px] text-slate-400 font-normal">គណនាស្វ័យប្រវត្តិក្នុងស្តុក</span>
+                </div>
+              </div>
+
+              <!-- ជួរទី៥: កំណត់សម្គាល់បន្ថែម (Notes) & អ្នកបញ្ចូលបញ្ជីមុខទំនិញ (Created By) -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    <i class="fa-solid fa-note-sticky text-amber-500 mr-1"></i> កំណត់សម្គាល់បន្ថែម (Notes)
+                  </label>
+                  <input type="text" id="modalNotes" placeholder="ឧ. លក្ខខណ្ឌរក្សាទុក, ប្រភពទំនិញ..."
+                    class="w-full h-9.5 px-3.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center justify-between">
+                    <span><i class="fa-solid fa-user-pen text-blue-600 mr-1"></i> អ្នកបញ្ចូលបញ្ជីមុខទំនិញ</span>
+                    <span class="text-[10px] text-emerald-600 font-bold"><i class="fa-solid fa-circle-check mr-0.5"></i>Auto</span>
+                  </label>
+                  <input type="text" id="modalCreatedBy" readonly
+                    class="w-full h-9.5 px-3.5 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none cursor-not-allowed">
+                </div>
+              </div>
+            </div>
+
+            <!-- ផ្នែកខាងស្តាំ (RIGHT COLUMN): រូបភាពទំនិញធំច្បាស់ល្អ -->
+            <div class="lg:col-span-5 flex flex-col space-y-2.5 bg-slate-50/80 p-3.5 sm:p-4 rounded-2xl border border-slate-200">
+              <div class="flex items-center justify-between flex-wrap gap-1.5">
+                <div class="flex items-center space-x-2">
+                  <label class="block text-xs font-bold text-rose-700 uppercase flex items-center">
+                    <i class="fa-solid fa-image mr-1 text-rose-600"></i>រូបភាពទំនិញ *
+                  </label>
+                  <!-- Google Drive Auto-Save Header Badge -->
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-xs">
+                    <i class="fa-brands fa-google-drive text-emerald-600 mr-1 text-xs"></i>Google Drive Auto-Save
+                  </span>
+                </div>
+                <button type="button" id="toggleImageUrlBtn" onclick="toggleImageUrlInput()"
+                  class="text-[11px] text-blue-600 hover:text-blue-700 font-medium hover:underline flex items-center">
+                  <i class="fa-solid fa-link mr-1"></i><span id="toggleImageUrlText">ឬបញ្ចូលតាម Link</span>
                 </button>
               </div>
 
-              <!-- Floating Suggestions Dropdown for Related Items (Kantumruy Pro Font) -->
-              <div id="modalNameSuggestions"
-                class="hidden absolute left-0 right-0 top-full mt-1.5 bg-white border border-blue-200 rounded-2xl shadow-xl z-50 overflow-hidden max-h-72 overflow-y-auto">
-              </div>
-            </div>
+              <!-- Hidden input storing the actual image data / URL for saving -->
+              <input type="hidden" id="modalImageUrl">
 
-            <!-- ជួរទី២: ខ្នាត (Size / Spec) & ពណ៌ (Color) -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center justify-between">
-                  <span><i class="fa-solid fa-ruler-combined text-indigo-600 mr-1"></i> ខ្នាត / ទំហំ (Size / Spec)</span>
-                  <span class="text-[9.5px] text-indigo-600 font-bold bg-indigo-50 px-1.5 py-0.2 rounded cursor-pointer" onclick="openQuickPicker('modalSize')">រើសខ្នាត</span>
-                </label>
-                <div class="relative">
-                  <input type="text" id="modalSize" placeholder="ឧ. 330ml / 500g / 1L / XL"
-                    autocomplete="off"
-                    onfocus="openQuickPicker('modalSize')"
-                    oninput="openQuickPicker('modalSize', this.value); checkItemDuplicate();"
-                    class="w-full h-11 pl-3.5 pr-8 bg-slate-50 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 font-semibold text-slate-800 focus:bg-white transition">
-                  <button type="button" onclick="openQuickPicker('modalSize')"
-                    class="absolute right-2.5 top-3.5 text-slate-400 hover:text-slate-600 text-xs" title="រើសខ្នាត">
-                    <i class="fa-solid fa-chevron-down text-[10px]"></i>
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center justify-between">
-                  <span><i class="fa-solid fa-palette text-amber-500 mr-1"></i> ពណ៌ (Color)</span>
-                  <span class="text-[9.5px] text-amber-700 font-bold bg-amber-50 px-1.5 py-0.2 rounded cursor-pointer" onclick="openQuickPicker('modalColor')">រើសពណ៌</span>
-                </label>
-                <div class="relative">
-                  <input type="text" id="modalColor" placeholder="ឧ. ខ្មៅ / ស / ក្រហម / ខៀវ"
-                    autocomplete="off"
-                    onfocus="openQuickPicker('modalColor')"
-                    oninput="openQuickPicker('modalColor', this.value); checkItemDuplicate();"
-                    class="w-full h-11 pl-3.5 pr-8 bg-slate-50 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-amber-500 font-semibold text-slate-800 focus:bg-white transition">
-                  <button type="button" onclick="openQuickPicker('modalColor')"
-                    class="absolute right-2.5 top-3.5 text-slate-400 hover:text-slate-600 text-xs" title="រើសពណ៌">
-                    <i class="fa-solid fa-chevron-down text-[10px]"></i>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <!-- Duplicate Item Warning Banner (Name + Size + Color) -->
-            <div id="modalDuplicateWarningBanner" class="hidden p-3 rounded-2xl bg-rose-50 border-2 border-rose-300 text-rose-800 text-xs shadow-sm flex items-start space-x-2.5">
-              <div class="w-6 h-6 rounded-lg bg-rose-600 text-white flex items-center justify-center shrink-0 text-xs shadow-xs mt-0.5">
-                <i class="fa-solid fa-triangle-exclamation"></i>
-              </div>
-              <div class="min-w-0 flex-1">
-                <div class="flex items-center justify-between flex-wrap gap-1">
-                  <span class="font-extrabold text-rose-900 text-xs">ទំនិញនេះមានក្នុងបញ្ជីរួចហើយ (មិនអនុញ្ញាតឱ្យបញ្ចូលស្ទួន)!</span>
-                  <span id="duplicateWarningSku" class="font-mono font-bold text-[10px] bg-white px-2 py-0.5 rounded border border-rose-300 text-rose-700"></span>
-                </div>
-                <p id="duplicateWarningText" class="text-[11px] text-rose-700 mt-1 leading-snug"></p>
-              </div>
-            </div>
-
-            <!-- Hidden SKU and Barcode (managed automatically in background) -->
-            <input type="hidden" id="modalSku" value="">
-            <input type="hidden" id="modalBarcode" value="">
-
-            <!-- ជួរទី៣: តំបន់ស្តុកទំនិញ & ស្តុកបច្ចុប្បន្ន & កម្រិតរំលឹក Min: (%) -->
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-start">
-              <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase mb-1 h-5 flex items-center justify-between" title="តំបន់ស្តុកទំនិញ (Zone / Area)">
-                  <span class="truncate"><i class="fa-solid fa-location-dot text-indigo-600 mr-1"></i> តំបន់ស្តុក (Zone)</span>
-                  <span class="text-[9.5px] text-blue-600 font-bold bg-blue-50 px-1.5 py-0.2 rounded cursor-pointer shrink-0" onclick="openQuickPicker('modalZone')">រើស</span>
-                </label>
-                <div class="relative">
-                  <input type="text" id="modalZone" placeholder="ឧ. តំបន់ A (ភេសជ្ជៈ)"
-                    autocomplete="off"
-                    onfocus="openQuickPicker('modalZone')"
-                    oninput="openQuickPicker('modalZone', this.value)"
-                    class="w-full h-11 pl-3 pr-8 bg-slate-50 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 font-medium focus:bg-white transition">
-                  <button type="button" onclick="openQuickPicker('modalZone')"
-                    class="absolute right-2.5 top-3.5 text-slate-400 hover:text-slate-600 text-xs" title="រើសតំបន់ស្តុក">
-                    <i class="fa-solid fa-chevron-down text-[10px]"></i>
-                  </button>
-                </div>
-                <input type="hidden" id="modalZoneNumber" value="">
-              </div>
-
-              <div id="modalCurrentStockContainer">
-                <label class="block text-xs font-bold text-slate-700 uppercase mb-1 h-5 flex items-center truncate" title="ស្តុកបច្ចុប្បន្ន (Current Stock)">
-                  <i class="fa-solid fa-cubes-stacked text-slate-500 mr-1"></i> ស្តុកបច្ចុប្បន្ន (Stock)
-                </label>
-                <div class="relative">
-                  <input type="number" id="modalCurrentStockDisplay" readonly value="0"
-                    class="w-full h-11 px-3 bg-slate-100 border border-slate-300 rounded-xl text-sm outline-none font-bold text-slate-700 cursor-not-allowed">
-                  <span id="modalCurrentStockUnitLabel"
-                    class="absolute right-3 top-3 text-xs text-slate-400 font-medium pointer-events-none">នៅសល់</span>
-                </div>
-                <!-- Hidden inputs for Stock In compatibility -->
-                <input type="hidden" id="modalStockInQty" value="0">
-                <input type="hidden" id="modalStockInUnitMode" value="RETAIL">
-              </div>
-
-              <!-- កំណត់ស្តុកសល់តិចបំផុត (Min Stock: % ភាគរយ) -->
-              <div id="modalMinStockContainer">
-                <div class="flex items-center justify-between mb-1 h-5">
-                  <label class="block text-xs font-bold text-amber-800 uppercase truncate" title="កំណត់ស្តុកសល់តិចបំផុតជាភាគរយ %">
-                    <i class="fa-solid fa-bell text-amber-500 mr-1 animate-pulse"></i> កំណត់ស្តុកសល់តិចបំផុត *
-                  </label>
-                  <span id="modalMinStockUnitBadge" class="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded border border-amber-200 whitespace-nowrap flex-shrink-0" title="គិតជាភាគរយ %">
-                    % ភាគរយ
-                  </span>
-                </div>
-                <div class="relative">
-                  <input type="number" id="modalMinStockInput" inputmode="numeric" min="1" max="100" value="20" placeholder="20"
-                    oninput="onMinStockInputChanged()"
-                    class="w-full h-11 px-3.5 pr-10 bg-amber-50/40 border border-amber-300 rounded-xl text-sm font-bold text-amber-900 outline-none focus:ring-2 focus:ring-amber-500 font-mono">
-                  <span id="modalMinStockSymbol" class="absolute right-3.5 top-2.5 text-sm font-extrabold text-amber-600 pointer-events-none">%</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Preset percentage pills & Live Note -->
-            <div id="modalMinStockHelpBar" class="flex flex-wrap items-center justify-between gap-1.5 px-3 py-1.5 bg-amber-50/60 border border-amber-200/80 rounded-xl text-[11px] shadow-3xs">
-              <div class="flex items-center gap-1">
-                <span class="text-[10.5px] font-bold text-amber-900 mr-1">រើសភាគរយ %៖</span>
-                <button type="button" onclick="setMinStockPercent(5)" id="btnMinPct5" class="min-btn-preset px-2 py-0.5 text-[10px] font-bold rounded-lg bg-white text-amber-800 border border-amber-200 hover:bg-amber-100 transition shadow-3xs">5%</button>
-                <button type="button" onclick="setMinStockPercent(10)" id="btnMinPct10" class="min-btn-preset px-2 py-0.5 text-[10px] font-bold rounded-lg bg-white text-amber-800 border border-amber-200 hover:bg-amber-100 transition shadow-3xs">10%</button>
-                <button type="button" onclick="setMinStockPercent(15)" id="btnMinPct15" class="min-btn-preset px-2 py-0.5 text-[10px] font-bold rounded-lg bg-white text-amber-800 border border-amber-200 hover:bg-amber-100 transition shadow-3xs">15%</button>
-                <button type="button" onclick="setMinStockPercent(20)" id="btnMinPct20" class="min-btn-preset px-2 py-0.5 text-[10px] font-extrabold rounded-lg bg-amber-500 text-white border border-amber-600 transition shadow-3xs">20%</button>
-                <button type="button" onclick="setMinStockPercent(25)" id="btnMinPct25" class="min-btn-preset px-2 py-0.5 text-[10px] font-bold rounded-lg bg-white text-amber-800 border border-amber-200 hover:bg-amber-100 transition shadow-3xs">25%</button>
-                <button type="button" onclick="setMinStockPercent(30)" id="btnMinPct30" class="min-btn-preset px-2 py-0.5 text-[10px] font-bold rounded-lg bg-white text-amber-800 border border-amber-200 hover:bg-amber-100 transition shadow-3xs">30%</button>
-              </div>
-              <span class="text-[11px] font-semibold text-amber-900 flex items-center">
-                <i class="fa-solid fa-triangle-exclamation text-amber-600 mr-1.5"></i>
-                <span id="modalMinStockHelpDesc">រំលឹកអ្នកគ្រប់គ្រងពេលស្តុក ≤ 20%</span>
-              </span>
-            </div>
-
-            <!-- ជួរទី៤: ប្រព័ន្ធគ្រប់គ្រងឯកតាទំនិញ (DUAL-UNIT SYSTEM: រាយ vs ដុំ/កេស) -->
-            <div class="p-3.5 rounded-2xl bg-gradient-to-br from-emerald-50/60 via-teal-50/30 to-blue-50/40 border-2 border-emerald-300/80 shadow-2xs space-y-2.5">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-2">
-                  <div class="w-6 h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-xs shadow-xs">
-                    <i class="fa-solid fa-layer-group"></i>
-                  </div>
-                  <label class="block text-xs font-extrabold text-emerald-900 uppercase">
-                    ប្រព័ន្ធគ្រប់គ្រងឯកតាទំនិញ (Unit & Packaging) *
-                  </label>
-                </div>
-                <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-emerald-200 text-emerald-900 border border-emerald-300 shadow-3xs">
-                  <i class="fa-solid fa-arrows-split-up-and-left mr-1"></i>គាំទ្រ ដុំ & រាយ
-                </span>
-              </div>
-              <p class="text-[11px] text-slate-500">កំណត់ឯកតារាយ និងឯកតាធំ (កេស/ប្រអប់) ព្រមទាំងចំនួនបំប្លែង ដើម្បីគណនាស្តុកស្វ័យប្រវត្តិ</p>
-
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 items-start">
-                <!-- 1. ឯកតារាយ (Base Unit) -->
-                <div>
-                  <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1 h-5 flex items-center justify-between" title="១. ឯកតារាយ (Retail Unit) *">
-                    <span class="truncate">១. ឯកតារាយ (Retail) *</span>
-                    <span class="text-[9.5px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.2 rounded cursor-pointer shrink-0" onclick="openQuickPicker('modalUnit')">រើស</span>
-                  </label>
-                  <div class="relative">
-                    <input type="text" id="modalUnit" required
-                      placeholder="កំប៉ុង / ដប / កញ្ចប់ / ដុំ"
-                      autocomplete="off"
-                      onfocus="openQuickPicker('modalUnit')"
-                      oninput="updateUnitConversionPreview(); openQuickPicker('modalUnit', this.value)"
-                      class="w-full h-10 pl-3 pr-7 bg-white border border-emerald-300 rounded-xl text-xs font-bold text-emerald-800 outline-none focus:ring-2 focus:ring-emerald-500">
-                    <button type="button" onclick="openQuickPicker('modalUnit')"
-                      class="absolute right-2 top-2.5 text-emerald-600 hover:text-emerald-800 text-xs" title="រើសឯកតារាយ">
-                      <i class="fa-solid fa-chevron-down text-[9px]"></i>
-                    </button>
-                  </div>
-                  <input type="hidden" id="modalCategory" value="ទូទៅ">
-                </div>
-
-                <!-- 2. ឯកតាធំ / ជាដុំ (Bulk Unit) -->
-                <div>
-                  <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1 h-5 flex items-center justify-between" title="២. ឯកតាធំ (Bulk Unit)">
-                    <span class="truncate">២. ឯកតាធំ (Bulk)</span>
-                    <span class="text-[9.5px] text-indigo-700 font-bold bg-indigo-50 px-1.5 py-0.2 rounded cursor-pointer shrink-0" onclick="openQuickPicker('modalPackUnit')">រើស</span>
-                  </label>
-                  <div class="relative">
-                    <input type="text" id="modalPackUnit"
-                      placeholder="ដុំ / កេស / ប្រអប់ / បាវ / យួរ"
-                      autocomplete="off"
-                      onfocus="openQuickPicker('modalPackUnit')"
-                      oninput="updateUnitConversionPreview(); openQuickPicker('modalPackUnit', this.value)"
-                      class="w-full h-10 pl-3 pr-7 bg-white border border-slate-300 rounded-xl text-xs font-bold text-indigo-800 outline-none focus:ring-2 focus:ring-indigo-500">
-                    <button type="button" onclick="openQuickPicker('modalPackUnit')"
-                      class="absolute right-2 top-2.5 text-slate-400 hover:text-slate-600 text-xs" title="រើសឯកតាធំ">
-                      <i class="fa-solid fa-chevron-down text-[9px]"></i>
-                    </button>
-                  </div>
-                </div>
-
-                <!-- 3. ចំនួនក្នុង ១ ដុំ (Pack Qty / Conversion) -->
-                <div>
-                  <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1 h-5 flex items-center truncate whitespace-nowrap" title="៣. ចំនួនក្នុង ១ ដុំ (Rate)">
-                    ៣. ចំនួនក្នុង ១ ដុំ (Rate)
-                  </label>
-                  <input type="number" id="modalPackQty" inputmode="numeric" min="1" value="1" placeholder="ឧ. 24"
-                    oninput="updateUnitConversionPreview();"
-                    class="w-full h-10 px-3 bg-white border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-              </div>
-
-              <!-- Live Conversion Formula Pill -->
-              <div id="modalUnitConversionPreview" class="px-3 py-1.5 bg-white/90 border border-emerald-200 rounded-xl text-[11px] font-semibold text-emerald-800 flex items-center justify-between shadow-3xs">
-                <span class="flex items-center space-x-1.5">
-                  <i class="fa-solid fa-calculator text-emerald-600"></i>
-                  <span id="modalUnitConversionText">រូបមន្តបំប្លែង៖ 1 ដុំ = 24 កំប៉ុង</span>
-                </span>
-                <span class="text-[10px] text-slate-400 font-normal">គណនាស្វ័យប្រវត្តិក្នុងស្តុក</span>
-              </div>
-            </div>
-
-            <!-- ជួរទី៥: កំណត់សម្គាល់បន្ថែម (Notes) & អ្នកបញ្ចូលបញ្ជីមុខទំនិញ (Created By) -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">
-                  <i class="fa-solid fa-note-sticky text-amber-500 mr-1"></i> កំណត់សម្គាល់បន្ថែម (Notes)
-                </label>
-                <input type="text" id="modalNotes" placeholder="ឧ. លក្ខខណ្ឌរក្សាទុក, ប្រភពទំនិញ..."
-                  class="w-full h-11 px-3.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-500">
-              </div>
-
-              <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center justify-between">
-                  <span><i class="fa-solid fa-user-pen text-blue-600 mr-1"></i> អ្នកបញ្ចូលបញ្ជីមុខទំនិញ</span>
-                  <span class="text-[10px] text-emerald-600 font-bold"><i class="fa-solid fa-circle-check mr-0.5"></i>Auto</span>
-                </label>
-                <input type="text" id="modalCreatedBy" readonly
-                  class="w-full h-11 px-3.5 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none cursor-not-allowed">
-              </div>
-            </div>
-          </div>
-
-          <!-- ផ្នែកខាងស្តាំ (RIGHT COLUMN): រូបភាពទំនិញធំច្បាស់ល្អ -->
-          <div class="lg:col-span-5 flex flex-col space-y-3 bg-slate-50/80 p-4 rounded-2xl border border-slate-200">
-            <div class="flex items-center justify-between flex-wrap gap-2">
-              <div class="flex items-center space-x-2">
-                <label class="block text-xs font-bold text-rose-700 uppercase flex items-center">
-                  <i class="fa-solid fa-image mr-1 text-rose-600"></i>រូបភាពទំនិញ *
-                </label>
-                <!-- Google Drive Auto-Save Header Badge -->
-                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-xs">
-                  <i class="fa-brands fa-google-drive text-emerald-600 mr-1 text-xs"></i>Google Drive Auto-Save
-                </span>
-              </div>
-              <button type="button" id="toggleImageUrlBtn" onclick="toggleImageUrlInput()"
-                class="text-[11px] text-blue-600 hover:text-blue-700 font-medium hover:underline flex items-center">
-                <i class="fa-solid fa-link mr-1"></i><span id="toggleImageUrlText">ឬបញ្ចូលតាម Link</span>
-              </button>
-            </div>
-
-            <!-- Hidden input storing the actual image data / URL for saving -->
-            <input type="hidden" id="modalImageUrl">
-
-            <!-- Dropzone & File Upload Box (Large) -->
-            <div id="imageUploadBox"
-              class="relative border-2 border-dashed border-slate-300 hover:border-blue-500 bg-white hover:bg-blue-50/30 rounded-2xl p-6 text-center cursor-pointer transition-all duration-200 group min-h-[260px] sm:min-h-[290px] flex flex-col items-center justify-center space-y-3"
-              onclick="document.getElementById('modalImageFileInput').click()"
-              ondragover="event.preventDefault(); this.classList.add('border-blue-500','bg-blue-50/50')"
-              ondragleave="this.classList.remove('border-blue-500','bg-blue-50/50')" ondrop="handleImageDrop(event)">
-
-              <input type="file" id="modalImageFileInput" accept="image/*" class="hidden"
-                onchange="handleImageFileSelect(event)">
-
-              <div
-                class="w-16 h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-3xl group-hover:scale-110 transition-transform shadow-inner border border-blue-100">
-                <i class="fa-solid fa-cloud-arrow-up"></i>
-              </div>
-              <div class="px-2 flex flex-col items-center">
-                <p class="text-xs sm:text-sm font-bold text-slate-700">ចុចទីនេះដើម្បីជ្រើសរើសរូបភាព (Upload)</p>
-                <p class="text-[11px] text-slate-400 mt-1">ឬអូសទម្លាក់រូបភាពមកទីនេះ (Drag & Drop)</p>
-                <!-- Prominent Green Google Drive Badge Inside Dropzone -->
-                <div class="mt-3 inline-flex items-center px-3.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold shadow-xs transition-colors">
-                  <i class="fa-brands fa-google-drive text-emerald-600 mr-2 text-sm"></i>
-                  <span>ស្វ័យប្រវត្តិកត់ត្រាទៅកាន់ Google Drive Folder</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Image Preview Card (Shown when image exists - Supports continuous Drag & Drop to replace!) -->
-            <div id="imagePreviewCard"
-              ondragover="event.preventDefault(); this.classList.add('ring-4','ring-blue-500','bg-blue-50/40')"
-              ondragleave="this.classList.remove('ring-4','ring-blue-500','bg-blue-50/40')"
-              ondrop="this.classList.remove('ring-4','ring-blue-500','bg-blue-50/40'); handleImageDrop(event)"
-              class="hidden flex flex-col space-y-2.5 bg-white p-3 rounded-2xl border-2 border-slate-200 hover:border-blue-400 transition-all shadow-sm group">
-              <div
-                class="relative w-full h-64 sm:h-72 bg-slate-900/5 rounded-xl overflow-hidden flex items-center justify-center border border-slate-100 cursor-pointer"
+              <!-- Dropzone & File Upload Box -->
+              <div id="imageUploadBox"
+                class="relative border-2 border-dashed border-slate-300 hover:border-blue-500 bg-white hover:bg-blue-50/30 rounded-2xl p-4 sm:p-5 text-center cursor-pointer transition-all duration-200 group min-h-[190px] sm:min-h-[220px] flex flex-col items-center justify-center space-y-2"
                 onclick="document.getElementById('modalImageFileInput').click()"
-                title="ចុច ឬអូសទម្លាក់រូបភាពថ្មីដើម្បីប្តូរ">
-                <img id="modalImagePreview" src="" alt="Preview" class="w-full h-full object-contain">
-              </div>
+                ondragover="event.preventDefault(); this.classList.add('border-blue-500','bg-blue-50/50')"
+                ondragleave="this.classList.remove('border-blue-500','bg-blue-50/50')" ondrop="handleImageDrop(event)">
 
-              <div class="flex items-center justify-between pt-1">
-                <div class="min-w-0 pr-2">
-                  <div class="flex items-center space-x-1.5">
-                    <p id="imagePreviewName" class="text-xs font-bold text-slate-800 truncate">រូបភាពទំនិញ</p>
-                    <div id="imageDriveBadgeContainer">
-                      <span class="inline-flex items-center px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-md text-[10px] font-bold shrink-0">
-                        <i class="fa-brands fa-google-drive text-emerald-600 mr-1"></i>Google Drive
-                      </span>
-                    </div>
+                <input type="file" id="modalImageFileInput" accept="image/*" class="hidden"
+                  onchange="handleImageFileSelect(event)">
+
+                <div
+                  class="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform shadow-inner border border-blue-100">
+                  <i class="fa-solid fa-cloud-arrow-up"></i>
+                </div>
+                <div class="px-2 flex flex-col items-center">
+                  <p class="text-xs sm:text-sm font-bold text-slate-700">ចុចទីនេះដើម្បីជ្រើសរើសរូបភាព (Upload)</p>
+                  <p class="text-[11px] text-slate-400 mt-0.5">ឬអូសទម្លាក់រូបភាពមកទីនេះ (Drag & Drop)</p>
+                  <!-- Prominent Green Google Drive Badge Inside Dropzone -->
+                  <div class="mt-2 inline-flex items-center px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-[11px] font-bold shadow-xs transition-colors">
+                    <i class="fa-brands fa-google-drive text-emerald-600 mr-1.5 text-xs"></i>
+                    <span>ស្វ័យប្រវត្តិកត់ត្រាទៅកាន់ Google Drive Folder</span>
                   </div>
-                  <p id="imagePreviewSize" class="text-[10px] text-emerald-600 font-semibold"><i
-                      class="fa-solid fa-circle-check mr-1"></i>រួចរាល់ (អាចអូសទម្លាក់រូបថ្មីបាន)</p>
-                </div>
-                <div class="flex items-center space-x-1.5 shrink-0">
-                  <button type="button" onclick="cropCurrentProductImage()"
-                    title="កាត់ត និង Zoom រូបភាព (Crop & Zoom)"
-                    class="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl transition text-xs font-semibold flex items-center space-x-1 shadow-xs">
-                    <i class="fa-solid fa-crop-simple text-blue-600"></i>
-                    <span>Crop/Zoom</span>
-                  </button>
-                  <button type="button" onclick="document.getElementById('modalImageFileInput').click()"
-                    title="ប្តូររូបភាព"
-                    class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition text-xs font-semibold flex items-center space-x-1">
-                    <i class="fa-solid fa-arrows-rotate mr-1"></i>
-                    <span>ប្តូរ</span>
-                  </button>
-                  <button type="button" onclick="removeImagePreview()" title="លុបរូបភាព"
-                    class="p-2 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition text-xs">
-                    <i class="fa-solid fa-trash-can"></i>
-                  </button>
                 </div>
               </div>
+
+              <!-- Image Preview Card (Shown when image exists - Supports continuous Drag & Drop to replace!) -->
+              <div id="imagePreviewCard"
+                ondragover="event.preventDefault(); this.classList.add('ring-4','ring-blue-500','bg-blue-50/40')"
+                ondragleave="this.classList.remove('ring-4','ring-blue-500','bg-blue-50/40')"
+                ondrop="this.classList.remove('ring-4','ring-blue-500','bg-blue-50/40'); handleImageDrop(event)"
+                class="hidden flex flex-col space-y-2 bg-white p-2.5 rounded-2xl border-2 border-slate-200 hover:border-blue-400 transition-all shadow-sm group">
+                <div
+                  class="relative w-full h-48 sm:h-52 bg-slate-900/5 rounded-xl overflow-hidden flex items-center justify-center border border-slate-100 cursor-pointer"
+                  onclick="document.getElementById('modalImageFileInput').click()"
+                  title="ចុច ឬអូសទម្លាក់រូបភាពថ្មីដើម្បីប្តូរ">
+                  <img id="modalImagePreview" src="" alt="Preview" class="w-full h-full object-contain">
+                </div>
+
+                <div class="flex items-center justify-between pt-1">
+                  <div class="min-w-0 pr-2">
+                    <div class="flex items-center space-x-1.5">
+                      <p id="imagePreviewName" class="text-xs font-bold text-slate-800 truncate">រូបភាពទំនិញ</p>
+                      <div id="imageDriveBadgeContainer">
+                        <span class="inline-flex items-center px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-md text-[10px] font-bold shrink-0">
+                          <i class="fa-brands fa-google-drive text-emerald-600 mr-1"></i>Google Drive
+                        </span>
+                      </div>
+                    </div>
+                    <p id="imagePreviewSize" class="text-[10px] text-emerald-600 font-semibold"><i
+                        class="fa-solid fa-circle-check mr-1"></i>រួចរាល់ (អាចអូសទម្លាក់រូបថ្មីបាន)</p>
+                  </div>
+                  <div class="flex items-center space-x-1.5 shrink-0">
+                    <button type="button" onclick="cropCurrentProductImage()"
+                      title="កាត់ត និង Zoom រូបភាព (Crop & Zoom)"
+                      class="px-2 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl transition text-xs font-semibold flex items-center space-x-1 shadow-xs">
+                      <i class="fa-solid fa-crop-simple text-blue-600"></i>
+                      <span>Crop</span>
+                    </button>
+                    <button type="button" onclick="document.getElementById('modalImageFileInput').click()"
+                      title="ប្តូររូបភាព"
+                      class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition text-xs font-semibold flex items-center space-x-1">
+                      <i class="fa-solid fa-arrows-rotate mr-1"></i>
+                      <span>ប្តូរ</span>
+                    </button>
+                    <button type="button" onclick="removeImagePreview()" title="លុបរូបភាព"
+                      class="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition text-xs">
+                      <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Optional URL input field -->
+              <div id="imageUrlContainer" class="hidden mt-1">
+                <input type="text" inputmode="url" id="modalImageUrlCustom" placeholder="https://example.com/image.jpg"
+                  oninput="handleCustomUrlInput(this.value)"
+                  class="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs outline-none focus:border-blue-500">
+              </div>
+
+              <!-- ទីតាំងឃ្លាំង (លុបចេញពី UI តាមតម្រូវការ) -->
+              <input type="hidden" id="modalLocation" value="គ្រប់ស្ថានីយទាំងអស់">
             </div>
 
-            <!-- Optional URL input field -->
-            <div id="imageUrlContainer" class="hidden mt-1">
-              <input type="text" inputmode="url" id="modalImageUrlCustom" placeholder="https://example.com/image.jpg"
-                oninput="handleCustomUrlInput(this.value)"
-                class="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs outline-none focus:border-blue-500">
-            </div>
-
-            <!-- ទីតាំងឃ្លាំង (លុបចេញពី UI តាមតម្រូវការ) -->
-            <input type="hidden" id="modalLocation" value="គ្រប់ស្ថានីយទាំងអស់">
           </div>
-
         </div>
 
-        <!-- Modal Footer Actions -->
-        <div class="mt-6 pt-4 border-t border-slate-100 flex items-center justify-end space-x-2.5 shrink-0">
+        <!-- Modal Footer Actions (Pinned at bottom of modal - No scrolling required!) -->
+        <div class="px-5 py-3 bg-slate-50 border-t border-slate-200/90 flex items-center justify-end space-x-2.5 shrink-0 z-10">
           <button type="button" onclick="closeItemModal()"
-            class="px-4 py-2.5 border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-50 transition cursor-pointer">
+            class="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-100 transition cursor-pointer">
             បោះបង់
           </button>
           <button type="submit" id="btnSaveItem" onclick="handleSaveItem(event)"
-            class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 transition flex items-center space-x-1.5 cursor-pointer">
+            class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 transition flex items-center space-x-1.5 cursor-pointer">
             <i class="fa-solid fa-check"></i>
             <span>រក្សាទុកទំនិញ</span>
           </button>
