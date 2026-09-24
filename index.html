@@ -1951,6 +1951,7 @@
                     <th class="px-3 py-3.5 bg-slate-100 sticky top-0 z-20 text-center w-12">ល.រ</th>
                     <th class="px-4 py-3.5 bg-slate-100 sticky top-0 z-20">ឈ្មោះទំនិញ (Name & Spec)</th>
                     <th class="px-4 py-3.5 bg-slate-100 sticky top-0 z-20 text-center">រូបភាព</th>
+                    <th class="px-4 py-3.5 bg-slate-100 sticky top-0 z-20 text-center">ពណ៌ & Min Stock</th>
                     <th class="px-4 py-3.5 bg-slate-100 sticky top-0 z-20 text-center">ឯកតា (Unit & Pack)</th>
                     <th class="px-4 py-3.5 bg-slate-100 sticky top-0 z-20">តំបន់ស្តុកទំនិញ</th>
                     <th class="px-4 py-3.5 bg-slate-100 sticky top-0 z-20 text-center">ស្តុកបច្ចុប្បន្ន (ដុំ & រាយ)</th>
@@ -1960,7 +1961,7 @@
                 </thead>
                 <tbody id="itemsTableBody" class="divide-y divide-slate-100 font-medium">
                   <tr>
-                    <td colspan="8" class="text-center py-10 text-slate-400">កំពុងផ្ទុកទិន្នន័យទំនិញ...</td>
+                    <td colspan="9" class="text-center py-10 text-slate-400">កំពុងផ្ទុកទិន្នន័យទំនិញ...</td>
                   </tr>
                 </tbody>
               </table>
@@ -11032,7 +11033,7 @@
       });
 
       if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-10 text-slate-400">រកមិនឃើញទិន្នន័យទំនិញដែលត្រូវគ្នាទេ</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-10 text-slate-400">រកមិនឃើញទិន្នន័យទំនិញដែលត្រូវគ្នាទេ</td></tr>';
         return;
       }
 
@@ -11057,23 +11058,13 @@
           <!-- ជួរទី១: លេខរៀង (No.) -->
           <td class="px-3 py-2.5 text-center font-bold text-slate-500 text-xs">${idx + 1}</td>
 
-          <!-- ជួរទី២: ឈ្មោះទំនិញ (Item Name + Size & Color) -->
+          <!-- ជួរទី២: ឈ្មោះទំនិញ (Item Name + Size) -->
           <td class="px-4 py-2.5">
             <span class="font-bold text-slate-800 block text-xs md:text-sm leading-snug group-hover:text-blue-600 transition">${escapeHtml(item.name)}</span>
+            ${item.size ? `
             <div class="flex flex-wrap items-center gap-1 mt-1">
-              ${item.size ? `<span class="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-200 shadow-3xs"><i class="fa-solid fa-ruler-combined mr-1 text-[9px]"></i>${escapeHtml(item.size)}</span>` : ''}
-              ${item.color ? `<span class="inline-flex items-center px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 text-[10px] font-bold border border-amber-200 shadow-3xs"><i class="fa-solid fa-palette mr-1 text-[9px]"></i>${escapeHtml(item.color)}</span>` : ''}
-              <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                (curStock <= (item.minStock || 0) && curStock > 0)
-                  ? 'bg-amber-100 text-amber-800 border border-amber-300 ring-1 ring-amber-300'
-                  : (curStock === 0)
-                    ? 'bg-rose-100 text-rose-800 border border-rose-300'
-                    : 'bg-slate-100 text-slate-500 border border-slate-200'
-              }">
-                <i class="fa-solid fa-bell text-[9px] ${curStock <= (item.minStock || 0) ? 'text-amber-600 animate-pulse' : 'text-slate-400'}"></i>
-                Min: ${item.minStock || 0} ${escapeHtml(item.unit || 'ដុំ')}${item.minStockPercent ? ` (${item.minStockPercent}%)` : ''}
-              </span>
-            </div>
+              <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-200 shadow-3xs"><i class="fa-solid fa-ruler-combined mr-1 text-[9px]"></i>${escapeHtml(item.size)}</span>
+            </div>` : ''}
             ${item.notes ? `<p class="text-[10px] text-slate-400 mt-0.5 truncate max-w-[200px]" title="${escapeHtml(item.notes)}"><i class="fa-solid fa-note-sticky mr-1 text-slate-300"></i>${escapeHtml(item.notes)}</p>` : ''}
           </td>
 
@@ -11088,7 +11079,24 @@
             </div>
           </td>
 
-          <!-- ជួរទី៤: ឯកតា (Unit & Pack Conversion) -->
+          <!-- ជួរទី៤: ពណ៌ & ស្តុកអប្បបរមា (Color & Min Stock) -->
+          <td class="px-3 py-2.5 text-center whitespace-nowrap">
+            <div class="inline-flex flex-wrap items-center justify-center gap-1.5">
+              ${item.color ? `<span class="inline-flex items-center px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 text-[10px] font-bold border border-amber-200 shadow-3xs whitespace-nowrap"><i class="fa-solid fa-palette mr-1 text-[9px]"></i>${escapeHtml(item.color)}</span>` : ''}
+              <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold whitespace-nowrap ${
+                (curStock <= (item.minStock || 0) && curStock > 0)
+                  ? 'bg-amber-100 text-amber-800 border border-amber-300 ring-1 ring-amber-300'
+                  : (curStock === 0)
+                    ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                    : 'bg-slate-100 text-slate-500 border border-slate-200'
+              }">
+                <i class="fa-solid fa-bell text-[9px] ${curStock <= (item.minStock || 0) ? 'text-amber-600 animate-pulse' : 'text-slate-400'}"></i>
+                Min: ${item.minStock || 0} ${escapeHtml(item.unit || 'ដុំ')}${item.minStockPercent ? ` (${item.minStockPercent}%)` : ''}
+              </span>
+            </div>
+          </td>
+
+          <!-- ជួរទី៥: ឯកតា (Unit & Pack Conversion) -->
           <td class="px-4 py-2.5 text-center">
             <span class="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 text-xs font-bold inline-block border border-emerald-200 shadow-3xs">
               ${escapeHtml(item.unit || 'ដុំ')}
@@ -11096,14 +11104,14 @@
             ${pUnit && pQty > 1 ? `<span class="block text-[10px] text-slate-500 font-medium mt-1">1 ${escapeHtml(pUnit)} = ${pQty} ${escapeHtml(item.unit || 'ដុំ')}</span>` : ''}
           </td>
 
-          <!-- ជួរទី៥: តំបន់ស្តុកទំនិញ (Zone) -->
+          <!-- ជួរទី៦: តំបន់ស្តុកទំនិញ (Zone) -->
           <td class="px-4 py-2.5">
             <span class="font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-lg text-xs inline-block">
               ${escapeHtml(item.zone || 'តំបន់ A')}
             </span>
           </td>
 
-          <!-- ជួរទី៦: ស្តុកបច្ចុប្បន្ន (Current Stock: រាយ & កេស) -->
+          <!-- ជួរទី៧: ស្តុកបច្ចុប្បន្ន (Current Stock: រាយ & កេស) -->
           <td class="px-4 py-2.5 text-center">
             <span class="inline-block px-2.5 py-1 rounded-xl text-xs font-extrabold ${curStock === 0 ? 'bg-rose-100 text-rose-700' :
           curStock <= (item.minStock || 0) ? 'bg-amber-100 text-amber-700' :
@@ -11119,7 +11127,7 @@
             ` : ''}
           </td>
 
-          <!-- ជួរទី៧: អ្នកបញ្ចូល (Created By & Date) -->
+          <!-- ជួរទី៨: អ្នកបញ្ចូល (Created By & Date) -->
           <td class="px-4 py-2.5 text-center">
             <span class="text-xs font-bold text-slate-800 block">${escapeHtml(getUserDisplayName(item.createdBy))}</span>
             <span class="text-[10px] text-slate-400 font-mono">${item.createdAt ? String(item.createdAt).slice(0, 10) : '-'}</span>
