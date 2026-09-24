@@ -6510,14 +6510,14 @@
             const incomingDevType = (incomingRawType === 'MOBILE' || incomingRawType === 'PHONE') ? 'MOBILE' : 'DESKTOP';
 
             if (myDevType === incomingDevType && myDev.deviceId !== d.deviceId) {
-              terminateSessionImmediately(`គណនីរបស់អ្នកត្រូវបានចូលប្រើនៅលើ${myDevType === 'DESKTOP' ? 'កុំព្យូទ័រ' : 'ទូរសព្ទដៃ'}ផ្សេងទៀត!`);
+              terminateSessionImmediately(`គណនីរបស់លោកអ្នកកំពុងចូលប្រើប្រាស់ នៅលើ${myDevType === 'DESKTOP' ? 'កុំព្យូទ័រ' : 'ទូរសព្ទដៃ'}ផ្សេងមួយទៀត។`);
             }
           }
         }
       };
     }
 
-    function terminateSessionImmediately(reasonMessage = 'គណនីរបស់អ្នកត្រូវបានចូលប្រើនៅលើឧបករណ៍ផ្សេងទៀត!', reasonTitle = 'ឧបករណ៍ត្រូវបានកាត់ផ្តាច់') {
+    function terminateSessionImmediately(reasonMessage = 'គណនីរបស់លោកអ្នកកំពុងចូលប្រើប្រាស់ នៅលើឧបករណ៍ផ្សេងមួយទៀត។', reasonTitle = 'ប្រព័ន្ធត្រូវបានកាត់ផ្ដាច់ ដោយសារគណនីរបស់លោកអ្នកកំពុងចូលប្រើប្រាស់ នៅលើឧបករណ៍ផ្សេងមួយទៀត ។') {
       if (typeof sessionDurationInterval !== 'undefined' && sessionDurationInterval) {
         clearInterval(sessionDurationInterval);
       }
@@ -6543,23 +6543,31 @@
 
       Swal.fire({
         icon: 'warning',
-        title: `<span class="text-rose-600 font-bold">${reasonTitle}</span>`,
+        title: `<div class="text-center px-1"><span class="text-rose-600 font-black text-lg leading-snug block">${reasonTitle}</span></div>`,
         html: `
           <div class="text-left text-xs p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-rose-800 space-y-2 mt-2">
-            <p class="font-bold flex items-center text-sm">
-              <i class="fa-solid fa-triangle-exclamation mr-2 text-rose-600"></i> ${reasonMessage}
+            <p class="font-bold flex items-start text-sm leading-relaxed text-rose-700">
+              <i class="fa-solid fa-triangle-exclamation mr-2 mt-0.5 text-rose-600 text-base shrink-0"></i>
+              <span>${reasonMessage}</span>
             </p>
-            <p class="leading-relaxed">
+            <p class="leading-relaxed text-slate-600">
               គោលការណ៍សុវត្ថិភាពអនុញ្ញាតត្រឹមតែ <b>១ កុំព្យូទ័រ</b> និង <b>១ ទូរសព្ទដៃ</b> ក្នុងពេលតែមួយ។
             </p>
-            <p class="text-slate-500 font-semibold text-[11px]">
-              ឧបករណ៍នេះត្រូវបានកាត់ផ្តាច់ និងចាកចេញភ្លាមៗដោយស្វ័យប្រវត្តិ។
+            <p class="text-slate-500 font-semibold text-[11px] pt-1 border-t border-rose-100">
+              ឧបករណ៍នេះត្រូវបានកាត់ផ្ដាច់ និងចាកចេញភ្លាមៗដោយស្វ័យប្រវត្តិ។
             </p>
           </div>
         `,
-        timer: 3500,
-        showConfirmButton: false,
-        customClass: { popup: 'rounded-3xl max-w-md shadow-2xl' }
+        showConfirmButton: true,
+        confirmButtonText: '<i class="fa-solid fa-circle-xmark mr-1.5"></i> បិទ',
+        confirmButtonColor: '#e11d48',
+        showCloseButton: true,
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        customClass: {
+          popup: 'rounded-3xl max-w-md shadow-2xl',
+          confirmButton: 'rounded-xl px-6 py-2.5 font-bold text-sm shadow-md'
+        }
       });
     }
 
@@ -6655,7 +6663,7 @@
         const curDevInfo = getCurrentDeviceInfo();
         const devCheck = validateAndApplyDeviceBinding(AppState.currentUser, curDevInfo);
         if (!devCheck.success && devCheck.deviceBlocked) {
-          terminateSessionImmediately('គណនីរបស់អ្នកត្រូវបានចូលប្រើនៅលើឧបករណ៍ផ្សេងទៀត!');
+          terminateSessionImmediately('គណនីរបស់លោកអ្នកកំពុងចូលប្រើប្រាស់ នៅលើឧបករណ៍ផ្សេងមួយទៀត។');
           return;
         }
 
@@ -6668,7 +6676,7 @@
               deviceInfo: devInfo
             });
             if (cloudCheck && cloudCheck.deviceBlocked) {
-              terminateSessionImmediately('គណនីរបស់អ្នកត្រូវបានចូលប្រើនៅលើឧបករណ៍ផ្សេងទៀត!');
+              terminateSessionImmediately('គណនីរបស់លោកអ្នកកំពុងចូលប្រើប្រាស់ នៅលើឧបករណ៍ផ្សេងមួយទៀត។');
             }
           } catch (e) {}
         }, 150);
@@ -19187,7 +19195,7 @@
 
               if (bound && bound.deviceId && bound.deviceId !== myDev.deviceId) {
                 console.warn('[Security] Kicked out because account is active on another device:', bound);
-                terminateSessionImmediately(`គណនីរបស់អ្នកត្រូវបានចូលប្រើនៅលើ${devType === 'DESKTOP' ? 'កុំព្យូទ័រ' : 'ទូរសព្ទដៃ'}ផ្សេងទៀត!`);
+                terminateSessionImmediately(`គណនីរបស់លោកអ្នកកំពុងចូលប្រើប្រាស់ នៅលើ${devType === 'DESKTOP' ? 'កុំព្យូទ័រ' : 'ទូរសព្ទដៃ'}ផ្សេងមួយទៀត។`);
                 return;
               }
             }
