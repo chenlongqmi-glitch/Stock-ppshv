@@ -279,7 +279,7 @@ def main():
     safe_print(' [v] Auto-Reload & Auto-Reconnect: Active')
     safe_print(' ----------------------------------------------------------------')
     safe_print(' Demo Accounts:')
-    safe_print('    • SuperAdmin:    superadmin / superadmin123 (Full System & Switch User)')
+    safe_print('    • SuperAdmin:    superadmin / 841453Bsm (Full System & Switch User)')
     safe_print('    • Admin:         admin      / admin123')
     safe_print('    • Stock Keeper:  wh01       / wh01pass')
     safe_print(' ----------------------------------------------------------------')

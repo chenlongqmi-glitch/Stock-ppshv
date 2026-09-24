@@ -1389,29 +1389,12 @@ function loginUser(usernameOrData, password, extraDeviceInfo) {
       const storedSalt = String(row[5] || '');
       const rawPassword = String(row[16] || '').trim();
 
-      const computedHash = hashPassword(pInput, storedSalt);
-      const isHashMatch = (storedHash && computedHash === storedHash);
+      const computedHash = storedSalt ? hashPassword(pInput, storedSalt) : '';
+      const isHashMatch = (storedHash && computedHash && computedHash === storedHash);
       const isPlainMatch = (storedHash && storedHash === pInput); // Plain text in Col 5
       const isRawMatch = (rawPassword && rawPassword === pInput); // Plain text in Col 17
 
-      const isSuperAdminUser = (cleanInput === 'superadmin' || lowerInput === 'chenlongqmi@gmail.com' || (phoneInput && (phoneInput === '066966606' || phoneInput === '66966606')) || String(row[6]) === 'SuperAdmin');
-      const isAdminUser = (cleanInput === 'admin' || lowerInput === 'ppshv2024@gmail.com' || (phoneInput && (phoneInput === '098880803' || phoneInput === '98880803')) || String(row[6]) === 'Admin');
-
-      const isMasterSuperAdmin = isSuperAdminUser && (pInput === 'superadmin123' || pInput === '841453Bsm' || pInput === 'admin' || pInput === 'superadmin');
-      const isMasterAdmin = isAdminUser && (pInput === 'admin123' || pInput === 'admin');
-      const isCommonFallback = (pInput === '123456' || pInput === 'admin');
-
-      if (isHashMatch || isPlainMatch || isRawMatch || isMasterSuperAdmin || isMasterAdmin || isCommonFallback) {
-        // Record plain password into Google Sheets Col 5 & Col 17 if not already matching
-        try {
-          if (pInput && String(row[4] || '') !== pInput) {
-            sheet.getRange(i + 1, 5).setValue(pInput);
-          }
-          if (pInput && String(row[16] || '') !== pInput) {
-            sheet.getRange(i + 1, 17).setValue(pInput);
-          }
-        } catch (savePwdErr) {}
-
+      if (isHashMatch || isPlainMatch || isRawMatch) {
         // Column 16 is BoundDevices JSON
         let boundDevices = { desktop: null, mobile: null };
         if (row[15]) {
@@ -1486,8 +1469,8 @@ function loginUser(usernameOrData, password, extraDeviceInfo) {
     }
   }
 
-  // Fallback auto-create for SuperAdmin
-  if (uInput === 'superadmin' && (pInput === 'superadmin123' || pInput === '841453Bsm' || pInput === 'admin')) {
+  // Fallback auto-create for SuperAdmin if missing
+  if (uInput === 'superadmin' && pInput === '841453Bsm') {
     const salt = generateSalt();
     const initialBound = JSON.stringify({ desktop: null, mobile: null });
     sheet.appendRow(['USR-SA', 'superadmin', '陈龙', 'chenlongqmi@gmail.com', '841453Bsm', salt, 'SuperAdmin', 'Active', new Date(), 'ALL', 'assets/superadmin_avatar.jpg', '066966606', '', '', '', initialBound, '841453Bsm']);
@@ -1498,7 +1481,7 @@ function loginUser(usernameOrData, password, extraDeviceInfo) {
   }
 
   // If no user found and typing admin / admin123, auto-create admin
-  if (uInput === 'admin' && (pInput === 'admin123' || pInput === 'admin')) {
+  if (uInput === 'admin' && pInput === 'admin123') {
     const salt = generateSalt();
     const initialBound = JSON.stringify({ desktop: null, mobile: null });
     sheet.appendRow(['USR-001', 'admin', '聂稳新', 'ppshv2024@gmail.com', 'admin123', salt, 'Admin', 'Active', new Date(), 'ALL', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', '098880803', '', '', '', initialBound, 'admin123']);

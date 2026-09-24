@@ -5519,6 +5519,7 @@
                 if (!p.email || p.email.includes('ppshv2024') || p.email.includes('inventory.local')) p.email = 'chenlongqmi@gmail.com';
                 if (!p.phone || p.phone === '012 345 678') p.phone = '066 966 606';
                 if (!p.avatar || p.avatar.includes('photo-1534528741775-53994a69daeb')) p.avatar = 'assets/superadmin_avatar.jpg';
+                if (p.password === 'superadmin123' || !p.password) p.password = '841453Bsm';
               }
               // Automatically upgrade Admin profile if holding stale default info
               if (p.userId === 'USR-00' || (p.username && p.username.toLowerCase() === 'admin')) {
@@ -7313,14 +7314,22 @@
 
         // 1. SuperAdmin Login (Supports username 'superadmin', email 'chenlongqmi@gmail.com', or phone '066 966 606')
         const isSuperAdminId = (cleanInput === 'superadmin' || lowerInput === 'chenlongqmi@gmail.com' || (phoneInput && (phoneInput === '066966606' || phoneInput === '66966606')));
-        if (isSuperAdminId && (password === 'superadmin123' || password === 'admin' || password === 'superadmin')) {
+        if (isSuperAdminId) {
           let saUser = LOCAL_DB.users.find(u => u.username.toLowerCase() === 'superadmin' || u.userId === 'USR-SA');
+          const saPassword = String((saUser && saUser.password) ? saUser.password : '841453Bsm').trim();
+          if (password !== saPassword) {
+            return {
+              success: false,
+              message: 'ពាក្យសម្ងាត់មិនត្រឹមត្រូវទេ! សូមពិនិត្យមើលពាក្យសម្ងាត់ម្តងទៀត។'
+            };
+          }
           if (!saUser) {
-            saUser = { userId: 'USR-SA', username: 'superadmin', password: 'superadmin123', fullName: '陈龙', email: 'chenlongqmi@gmail.com', phone: '066 966 606', role: 'SuperAdmin', warehouse: 'ALL', avatar: 'assets/superadmin_avatar.jpg', boundDevices: { desktop: null, mobile: null } };
+            saUser = { userId: 'USR-SA', username: 'superadmin', password: '841453Bsm', fullName: '陈龙', email: 'chenlongqmi@gmail.com', phone: '066 966 606', role: 'SuperAdmin', warehouse: 'ALL', avatar: 'assets/superadmin_avatar.jpg', boundDevices: { desktop: null, mobile: null } };
             LOCAL_DB.users.push(saUser);
             saveLocalUsersToStorage();
-          } else if (!saUser.password) {
-            saUser.password = 'superadmin123';
+          } else if (!saUser.password || saUser.password === 'superadmin123') {
+            saUser.password = '841453Bsm';
+            saveLocalUsersToStorage();
           }
           if (saUser.phone) saUser.phone = formatPhoneNumber(saUser.phone);
           const deviceCheck = validateAndApplyDeviceBinding(saUser, deviceInfo);
@@ -7333,14 +7342,22 @@
 
         // 2. Admin Login (Supports username 'admin', email 'ppshv2024@gmail.com', or phone '098 880 803')
         const isAdminId = (cleanInput === 'admin' || lowerInput === 'ppshv2024@gmail.com' || (phoneInput && (phoneInput === '098880803' || phoneInput === '98880803')));
-        if (isAdminId && (password === 'admin123' || password === 'admin')) {
+        if (isAdminId) {
           let adUser = LOCAL_DB.users.find(u => u.username.toLowerCase() === 'admin' || u.userId === 'USR-00');
+          const adPassword = String((adUser && adUser.password) ? adUser.password : 'admin123').trim();
+          if (password !== adPassword) {
+            return {
+              success: false,
+              message: 'ពាក្យសម្ងាត់មិនត្រឹមត្រូវទេ! សូមពិនិត្យមើលពាក្យសម្ងាត់ម្តងទៀត។'
+            };
+          }
           if (!adUser) {
             adUser = { userId: 'USR-00', username: 'admin', password: 'admin123', fullName: '聂稳新', email: 'ppshv2024@gmail.com', phone: '098 880 803', role: 'Admin', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', boundDevices: { desktop: null, mobile: null } };
             LOCAL_DB.users.push(adUser);
             saveLocalUsersToStorage();
           } else if (!adUser.password) {
             adUser.password = 'admin123';
+            saveLocalUsersToStorage();
           }
           if (adUser.phone) adUser.phone = formatPhoneNumber(adUser.phone);
           const deviceCheck = validateAndApplyDeviceBinding(adUser, deviceInfo);
@@ -7355,8 +7372,8 @@
         const matched = LOCAL_DB.users.find(usr => isUserMatch(usr));
         if (matched) {
           // Check password
-          const storedPwd = String(matched.password || (matched.role === 'Admin' ? 'admin123' : '123456')).trim();
-          if (password !== storedPwd && password !== 'admin' && password !== '123456') {
+          const storedPwd = String(matched.password || (matched.role === 'SuperAdmin' ? '841453Bsm' : (matched.role === 'Admin' ? 'admin123' : '123456'))).trim();
+          if (password !== storedPwd) {
             return {
               success: false,
               message: 'ពាក្យសម្ងាត់មិនត្រឹមត្រូវទេ! សូមពិនិត្យមើលពាក្យសម្ងាត់ម្តងទៀត។'
@@ -7592,7 +7609,7 @@
 
         const attachPassword = (userList) => userList.map(u => {
           const clone = { ...u };
-          const defPwd = u.password || (String(u.username).toLowerCase() === 'superadmin' ? 'superadmin123' : (String(u.username).toLowerCase() === 'admin' ? 'admin123' : (/^wh\d+$/i.test(u.username) ? u.username + 'pass' : '123456')));
+          const defPwd = u.password || (String(u.username).toLowerCase() === 'superadmin' ? '841453Bsm' : (String(u.username).toLowerCase() === 'admin' ? 'admin123' : (/^wh\d+$/i.test(u.username) ? u.username + 'pass' : '123456')));
           if (isPrivileged) {
             clone.password = defPwd;
           } else {
@@ -7642,7 +7659,7 @@
         const target = LOCAL_DB.users.find(x => (username && x.username.toLowerCase() === username) || (userId && x.userId === userId));
         if (target) {
           if (payload.newPassword) {
-            const currentStoredPass = target.password || (target.username === 'admin' ? 'admin123' : target.username === 'superadmin' ? 'superadmin123' : '123456');
+            const currentStoredPass = target.password || (target.username === 'admin' ? 'admin123' : target.username === 'superadmin' ? '841453Bsm' : '123456');
             if (payload.oldPassword !== currentStoredPass) {
               return { success: false, message: 'ពាក្យសម្ងាត់ចាស់មិនត្រឹមត្រូវទេ! ប្រសិនបើភ្លេចពាក្យសម្ងាត់ សូមចុច «ភ្លេចពាក្យសម្ងាត់?» ដើម្បីស្នើសុំលេខកូដ OTP' };
             }
@@ -10257,10 +10274,10 @@
                 <p class="font-black text-amber-900 flex items-center">
                   <span class="mr-1">👑⚡</span> SuperAdmin (អភិបាលកំពូល)
                 </p>
-                <p class="text-[11px] text-amber-800">User: <b class="font-mono">superadmin</b> | Pass: <b class="font-mono">superadmin123</b></p>
+                <p class="text-[11px] text-amber-800">User: <b class="font-mono">superadmin</b> | Pass: <b class="font-mono">841453Bsm</b></p>
                 <span class="text-[9px] text-amber-700 bg-amber-200/70 px-1.5 py-0.2 rounded font-semibold">សិទ្ធិពេញលេញ + Switch User</span>
               </div>
-              <button onclick="fillLoginCreds('superadmin', 'superadmin123')" class="px-2.5 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-lg font-bold text-[10px] shadow-sm hover:scale-105 transition">
+              <button onclick="fillLoginCreds('superadmin', '841453Bsm')" class="px-2.5 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-lg font-bold text-[10px] shadow-sm hover:scale-105 transition">
                 ជ្រើសរើស
               </button>
             </div>
@@ -15264,7 +15281,7 @@
 
         // 6. Password Block Builder
         const safeId = String(u.userId || u.username || idx).replace(/[^a-zA-Z0-9_-]/g, '_');
-        const userPwd = u.password || (String(u.username).toLowerCase() === 'superadmin' ? 'superadmin123' : (String(u.username).toLowerCase() === 'admin' ? 'admin123' : (/^wh\d+$/i.test(u.username) ? u.username + 'pass' : '123456')));
+        const userPwd = u.password || (String(u.username).toLowerCase() === 'superadmin' ? '841453Bsm' : (String(u.username).toLowerCase() === 'admin' ? 'admin123' : (/^wh\d+$/i.test(u.username) ? u.username + 'pass' : '123456')));
 
         const buildPwdBlock = (prefix) => {
           const id = prefix + safeId;
@@ -16621,7 +16638,7 @@
         fullName: (serverU && serverU.fullName && String(serverU.fullName).trim()) || (localU && localU.fullName) || (serverU?.username || localU?.username || '')
       };
 
-      const userPwd = u.password || (String(u.username).toLowerCase() === 'superadmin' ? 'superadmin123' : (String(u.username).toLowerCase() === 'admin' ? 'admin123' : (/^wh\d+$/i.test(u.username) ? u.username + 'pass' : '123456')));
+      const userPwd = u.password || (String(u.username).toLowerCase() === 'superadmin' ? '841453Bsm' : (String(u.username).toLowerCase() === 'admin' ? 'admin123' : (/^wh\d+$/i.test(u.username) ? u.username + 'pass' : '123456')));
 
       const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
       const isActorAdmin = !isActorSuperAdmin && (AppState.currentUser?.role === 'Admin' || String(AppState.currentUser?.username).toLowerCase() === 'admin');
