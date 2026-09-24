@@ -3813,7 +3813,7 @@ function getItemsList(userOrPayload, warehouseFilter, optSs) {
 
         packQty: Number(row[16] || 1),
 
-        zone: String(row[17] || 'តំបន់ A (ទំនិញទូទៅ)'),
+        zone: String(row[17] || 'តំបន់ A 01'),
 
         zoneNumber: String(row[18] || 'Z-01'),
 
@@ -4269,7 +4269,7 @@ function saveOrUpdateItem(itemDataOrPayload, username) {
 
     Number(itemData.packQty || 1),
 
-    itemData.zone || 'តំបន់ A (ទំនិញទូទៅ)',
+    itemData.zone || 'តំបន់ A 01',
 
     itemData.zoneNumber || 'Z-01',
 
