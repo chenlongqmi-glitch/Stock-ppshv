@@ -1879,6 +1879,14 @@
             </div>
 
             <div class="flex items-center space-x-2 w-full md:w-auto justify-end">
+              <!-- Excel Import Button -->
+              <button type="button" onclick="openExcelImportModal()" id="btnImportExcel"
+                title="នាំចូលទំនិញពីឯកសារ Excel (.xlsx, .xls, .csv)"
+                class="px-3.5 py-2 border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-xs transition-all active:scale-95 cursor-pointer">
+                <i class="fa-solid fa-file-excel text-emerald-600"></i>
+                <span>Import Excel</span>
+              </button>
+
               <!-- Unified Export Dropdown (Export CSV, Export PDF, Export CSV and PDF) -->
               <div class="relative inline-block text-left z-20" id="exportItemsDropdownWrapper">
                 <button type="button" onclick="toggleExportItemsDropdown(event)" id="exportItemsBtn"
@@ -3872,6 +3880,163 @@
           </button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- EXCEL IMPORT MODAL (Product Inventory) -->
+  <div id="excelImportModal" onclick="if(event.target === this) closeExcelImportModal()"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-3 sm:p-5 hidden">
+    <div class="w-full max-w-4xl bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200/80 flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-200">
+      <!-- Header -->
+      <div class="px-5 py-3.5 bg-gradient-to-r from-emerald-800 via-teal-800 to-emerald-900 text-white flex items-center justify-between shadow-md shrink-0">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-2xl bg-white/15 backdrop-blur-md border border-white/20 flex items-center justify-center text-emerald-200 shadow-inner">
+            <i class="fa-solid fa-file-excel text-xl text-emerald-300"></i>
+          </div>
+          <div>
+            <h3 class="font-extrabold text-base tracking-wide flex items-center space-x-2">
+              <span>នាំចូលទំនិញពី Excel</span>
+              <span class="text-[10px] font-black uppercase tracking-wider bg-emerald-500/30 text-emerald-200 px-2 py-0.5 rounded-full border border-emerald-400/30">XLSX / XLS / CSV</span>
+            </h3>
+            <p class="text-xs text-emerald-100/80">ផ្ទុកទិន្នន័យទំនិញចូលស្តុកជាដុំស្វ័យប្រវត្តិតាមរយៈតារាង Excel</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeExcelImportModal()"
+          class="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer" title="បិទ">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <!-- Body Container -->
+      <div class="p-4 sm:p-5 overflow-y-auto custom-scrollbar flex-1 flex flex-col space-y-4">
+        <!-- Top Helper Cards: Template Download + Instructions -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <!-- Download Template Card -->
+          <div class="p-3.5 bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl flex flex-col justify-between">
+            <div>
+              <div class="flex items-center space-x-2 text-emerald-800 font-bold text-xs">
+                <i class="fa-solid fa-download text-emerald-600"></i>
+                <span>១. ទាញយកគំរូតារាង Excel</span>
+              </div>
+              <p class="text-[11px] text-slate-600 mt-1 leading-relaxed">ប្រើប្រាស់ទម្រង់តារាងគំរូផ្លូវការដើម្បីធានាថាជួរឈរត្រូវតាមក្បួនខ្នាតប្រព័ន្ធ។</p>
+            </div>
+            <button type="button" onclick="downloadExcelImportTemplate()"
+              class="mt-2.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center space-x-1.5 shadow-sm transition active:scale-95 cursor-pointer">
+              <i class="fa-solid fa-file-arrow-down"></i>
+              <span>ទាញយកគំរូ (.xlsx)</span>
+            </button>
+          </div>
+
+          <!-- Column Structure Guidance -->
+          <div class="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl md:col-span-2 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center space-x-2 text-slate-800 font-bold text-xs">
+                <i class="fa-solid fa-list-check text-blue-600"></i>
+                <span>២. ជួរឈរដែលគាំទ្រ (Supported Columns)</span>
+              </div>
+              <div class="flex flex-wrap gap-1.5 mt-2">
+                <span class="px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-800 text-[10px] font-bold border border-emerald-200">ឈ្មោះទំនិញ *</span>
+                <span class="px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-800 text-[10px] font-bold border border-emerald-200">ឯកតារាយ *</span>
+                <span class="px-2 py-0.5 rounded-lg bg-slate-200 text-slate-700 text-[10px] font-bold">ខ្នាត/ទំហំ</span>
+                <span class="px-2 py-0.5 rounded-lg bg-slate-200 text-slate-700 text-[10px] font-bold">ពណ៌</span>
+                <span class="px-2 py-0.5 rounded-lg bg-slate-200 text-slate-700 text-[10px] font-bold">តំបន់ស្តុក</span>
+                <span class="px-2 py-0.5 rounded-lg bg-slate-200 text-slate-700 text-[10px] font-bold">ឯកតាធំ</span>
+                <span class="px-2 py-0.5 rounded-lg bg-slate-200 text-slate-700 text-[10px] font-bold">ចំនួនក្នុង១ដុំ</span>
+                <span class="px-2 py-0.5 rounded-lg bg-slate-200 text-slate-700 text-[10px] font-bold">ស្តុកដើម</span>
+                <span class="px-2 py-0.5 rounded-lg bg-slate-200 text-slate-700 text-[10px] font-bold">Min Stock %</span>
+                <span class="px-2 py-0.5 rounded-lg bg-slate-200 text-slate-700 text-[10px] font-bold">កំណត់សម្គាល់</span>
+              </div>
+            </div>
+            <p class="text-[10px] text-slate-500 mt-2">
+              <i class="fa-solid fa-circle-info text-blue-500 mr-1"></i>ប្រព័ន្ធស្គាល់ឈ្មោះជួរឈរជាភាសាខ្មែរ ឬអង់គ្លេសដោយស្វ័យប្រវត្តិ។
+            </p>
+          </div>
+        </div>
+
+        <!-- Dropzone Box -->
+        <div id="excelDropzone"
+          onclick="document.getElementById('excelFileInput').click()"
+          ondragover="event.preventDefault(); this.classList.add('border-emerald-500','bg-emerald-50/50')"
+          ondragleave="this.classList.remove('border-emerald-500','bg-emerald-50/50')"
+          ondrop="handleExcelFileDrop(event)"
+          class="border-2 border-dashed border-slate-300 hover:border-emerald-500 bg-slate-50/60 hover:bg-emerald-50/20 rounded-2xl p-6 text-center cursor-pointer transition flex flex-col items-center justify-center space-y-2 group">
+          <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" class="hidden" onchange="handleExcelFileInputChange(event)">
+          <div class="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-2xl group-hover:scale-110 transition shadow-inner">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+          </div>
+          <div>
+            <p class="text-sm font-bold text-slate-700" id="excelDropzoneTitle">ចុចទីនេះដើម្បីជ្រើសរើសឯកសារ Excel ឬអូសទម្លាក់ចូល (Drag & Drop)</p>
+            <p class="text-xs text-slate-400 mt-0.5">គាំទ្រប្រភេទ file .xlsx, .xls, .csv (ទំហំអតិបរមា 15MB)</p>
+          </div>
+          <div id="excelFileSelectedInfo" class="hidden mt-2 inline-flex items-center space-x-2 px-3 py-1 bg-white border border-emerald-300 rounded-xl text-xs font-bold text-emerald-800 shadow-xs">
+            <i class="fa-solid fa-file-excel text-emerald-600"></i>
+            <span id="excelFileName">filename.xlsx</span>
+            <span id="excelFileSize" class="text-slate-400 font-normal">(0 KB)</span>
+          </div>
+        </div>
+
+        <!-- Preview Section (hidden until parsed) -->
+        <div id="excelPreviewSection" class="hidden flex flex-col space-y-3">
+          <!-- Summary Bar -->
+          <div class="flex flex-wrap items-center justify-between gap-2 p-3 bg-slate-100 border border-slate-200 rounded-2xl text-xs">
+            <div class="flex items-center space-x-2">
+              <span class="font-bold text-slate-700">លទ្ធផលពិនិត្យ៖</span>
+              <span id="badgeTotalRows" class="px-2.5 py-0.5 rounded-lg bg-blue-100 text-blue-800 font-extrabold">សរុប 0 មុខ</span>
+              <span id="badgeValidRows" class="px-2.5 py-0.5 rounded-lg bg-emerald-100 text-emerald-800 font-extrabold">ត្រឹមត្រូវ 0 មុខ</span>
+              <span id="badgeDuplicateRows" class="px-2.5 py-0.5 rounded-lg bg-amber-100 text-amber-800 font-extrabold">មានស្រាប់ 0 មុខ</span>
+            </div>
+            <div class="flex items-center space-x-3">
+              <label class="inline-flex items-center space-x-1.5 cursor-pointer text-slate-700 font-semibold text-xs">
+                <input type="checkbox" id="chkUpdateExistingItems" checked class="rounded text-emerald-600 focus:ring-emerald-500">
+                <span>Update បើមានស្រាប់</span>
+              </label>
+              <label class="inline-flex items-center space-x-1.5 cursor-pointer text-slate-700 font-semibold text-xs">
+                <input type="checkbox" id="chkAutoSyncGoogleSheet" checked class="rounded text-emerald-600 focus:ring-emerald-500">
+                <span>Sync ទៅ Google Sheet</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Preview Table -->
+          <div class="border border-slate-200 rounded-2xl overflow-hidden max-h-72 overflow-y-auto custom-scrollbar">
+            <table class="w-full text-left text-xs text-slate-600 border-collapse">
+              <thead class="bg-slate-100 text-slate-700 font-bold sticky top-0 z-10 border-b border-slate-200">
+                <tr>
+                  <th class="px-3 py-2">ល.រ</th>
+                  <th class="px-3 py-2">ស្ថានភាព</th>
+                  <th class="px-3 py-2">ឈ្មោះទំនិញ</th>
+                  <th class="px-3 py-2">ខ្នាត/ពណ៌</th>
+                  <th class="px-3 py-2">តំបន់ស្តុក</th>
+                  <th class="px-3 py-2">ឯកតារាយ</th>
+                  <th class="px-3 py-2">ឯកតាធំ & បំប្លែង</th>
+                  <th class="px-3 py-2 text-center">ស្តុក</th>
+                </tr>
+              </thead>
+              <tbody id="excelPreviewTableBody" class="divide-y divide-slate-100">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer Actions -->
+      <div class="px-5 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0 z-10">
+        <div class="text-xs text-slate-500" id="excelImportStatusText">
+          សូមជ្រើសរើស File Excel ដើម្បីចាប់ផ្តើម
+        </div>
+        <div class="flex items-center space-x-2.5">
+          <button type="button" onclick="closeExcelImportModal()"
+            class="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-100 transition cursor-pointer">
+            បោះបង់
+          </button>
+          <button type="button" id="btnConfirmExcelImport" onclick="executeExcelImport()" disabled
+            class="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-500/20 transition flex items-center space-x-1.5 cursor-pointer">
+            <i class="fa-solid fa-file-import"></i>
+            <span id="btnConfirmExcelImportText">នាំចូលទំនិញ</span>
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -14308,6 +14473,481 @@
 
     function exportItemsToCSV() {
       exportItemsToExcel();
+    }
+
+    // =========================================================================
+    // EXCEL IMPORT ENGINE (Product Inventory)
+    // =========================================================================
+    let parsedExcelItemsCache = [];
+
+    function openExcelImportModal() {
+      parsedExcelItemsCache = [];
+      const fileInput = document.getElementById('excelFileInput');
+      if (fileInput) fileInput.value = '';
+      
+      const fileInfo = document.getElementById('excelFileSelectedInfo');
+      if (fileInfo) fileInfo.classList.add('hidden');
+
+      const previewSec = document.getElementById('excelPreviewSection');
+      if (previewSec) previewSec.classList.add('hidden');
+
+      const statusText = document.getElementById('excelImportStatusText');
+      if (statusText) statusText.innerText = 'សូមជ្រើសរើស File Excel ដើម្បីចាប់ផ្តើម';
+
+      const btnConfirm = document.getElementById('btnConfirmExcelImport');
+      if (btnConfirm) btnConfirm.disabled = true;
+
+      const dropTitle = document.getElementById('excelDropzoneTitle');
+      if (dropTitle) dropTitle.innerText = 'ចុចទីនេះដើម្បីជ្រើសរើសឯកសារ Excel ឬអូសទម្លាក់ចូល (Drag & Drop)';
+
+      const modal = document.getElementById('excelImportModal');
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    function closeExcelImportModal() {
+      const modal = document.getElementById('excelImportModal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function downloadExcelImportTemplate() {
+      if (typeof XLSX === 'undefined') {
+        Swal.fire('កំហុស', 'បណ្ណាល័យ Excel មិនទាន់ដំណើរការ សូមព្យាយាមម្ដងទៀត', 'error');
+        return;
+      }
+
+      const headers = [
+        'ឈ្មោះទំនិញ (Item Name) *',
+        'ខ្នាត/ទំហំ (Size)',
+        'ពណ៌ (Color)',
+        'តំបន់ស្តុក (Zone)',
+        '១. ឯកតារាយ (Retail Unit) *',
+        '២. ឯកតាធំ (Bulk Unit)',
+        '៣. ចំនួនក្នុង១ដុំ (Pack Rate)',
+        'ស្តុកដើម (Initial Stock)',
+        'Min Stock (%)',
+        'កំណត់សម្គាល់ (Notes)',
+        'រូបភាព Link (Image URL)'
+      ];
+
+      const sampleData = [
+        [
+          'កាហ្វេ Nescafe 3in1',
+          '330ml',
+          'ក្រហម',
+          'តំបន់ A (ភេសជ្ជៈ)',
+          'កំប៉ុង',
+          'កេស',
+          24,
+          120,
+          20,
+          'រក្សាទុកកន្លែងត្រជាក់',
+          'https://images.unsplash.com/photo-1546868871-7041f2a55e12?w=150'
+        ],
+        [
+          'ក្រដាសជូតមាត់',
+          'XL',
+          'ស',
+          'តំបន់ B (សម្ភារ)',
+          'កញ្ចប់',
+          'ប្រអប់',
+          12,
+          60,
+          15,
+          'ផលិតផលនាំចូល',
+          ''
+        ],
+        [
+          'ប៊ិចសរសេរ',
+          '0.5mm',
+          'ខៀវ',
+          'តំបន់ C (ការិយាល័យ)',
+          'ដើម',
+          'ប្រអប់',
+          50,
+          200,
+          10,
+          'សម្ភារការិយាល័យទូទៅ',
+          ''
+        ]
+      ];
+
+      const wsData = [headers, ...sampleData];
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+      ws['!cols'] = [
+        { wch: 30 }, // ឈ្មោះទំនិញ
+        { wch: 16 }, // ខ្នាត/ទំហំ
+        { wch: 14 }, // ពណ៌
+        { wch: 22 }, // តំបន់ស្តុក
+        { wch: 24 }, // ឯកតារាយ
+        { wch: 22 }, // ឯកតាធំ
+        { wch: 26 }, // ចំនួនក្នុង១ដុំ
+        { wch: 22 }, // ស្តុកដើម
+        { wch: 16 }, // Min Stock %
+        { wch: 28 }, // កំណត់សម្គាល់
+        { wch: 30 }  // រូបភាព Link
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'គំរូនាំចូលទំនិញ');
+      XLSX.writeFile(wb, 'គំរូនាំចូលទំនិញ_Product_Inventory_Template.xlsx');
+
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: '<b>ទាញយកគំរូ Excel ជោគជ័យ!</b>',
+        text: 'សូមបំពេញទិន្នន័យតាមគំរូ ហើយ Upload ចូលប្រព័ន្ធ',
+        showConfirmButton: false,
+        timer: 3500
+      });
+    }
+
+    function handleExcelFileDrop(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const dropzone = document.getElementById('excelDropzone');
+      if (dropzone) dropzone.classList.remove('border-emerald-500', 'bg-emerald-50/50');
+
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        processExcelFile(e.dataTransfer.files[0]);
+      }
+    }
+
+    function handleExcelFileInputChange(e) {
+      if (e.target && e.target.files && e.target.files.length > 0) {
+        processExcelFile(e.target.files[0]);
+      }
+    }
+
+    function processExcelFile(file) {
+      if (!file) return;
+      const validExts = ['.xlsx', '.xls', '.csv'];
+      const fileName = file.name.toLowerCase();
+      const isValid = validExts.some(ext => fileName.endsWith(ext));
+
+      if (!isValid) {
+        Swal.fire('ឯកសារមិនត្រឹមត្រូវ', 'សូមជ្រើសរើសឯកសារ Excel ប្រភេទ .xlsx, .xls ឬ .csv', 'warning');
+        return;
+      }
+
+      if (typeof XLSX === 'undefined') {
+        Swal.fire('កំហុស', 'បណ្ណាល័យ SheetJS មិនទាន់ដំណើរការ សូមព្យាយាមម្ដងទៀត', 'error');
+        return;
+      }
+
+      const fileInfo = document.getElementById('excelFileSelectedInfo');
+      const nameEl = document.getElementById('excelFileName');
+      const sizeEl = document.getElementById('excelFileSize');
+      if (fileInfo && nameEl && sizeEl) {
+        nameEl.innerText = file.name;
+        sizeEl.innerText = `(${(file.size / 1024).toFixed(1)} KB)`;
+        fileInfo.classList.remove('hidden');
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        try {
+          const data = new Uint8Array(evt.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          if (!workbook || !workbook.SheetNames || workbook.SheetNames.length === 0) {
+            throw new Error('មិនអាចអានទិន្នន័យក្នុង File Excel នេះបានឡើយ');
+          }
+
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const rawRows = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+
+          if (!rawRows || rawRows.length === 0) {
+            Swal.fire('ឯកសារទទេ', 'មិនមានជួរទិន្នន័យទំនិញក្នុងតារាង Excel នេះទេ', 'info');
+            return;
+          }
+
+          parseAndDisplayExcelData(rawRows);
+        } catch (err) {
+          console.error('[Excel Import Error]', err);
+          Swal.fire('បរាជ័យក្នុងការអាន Excel', err.message || 'សូមពិនិត្យមើលទ្រង់ទ្រាយ File ឡើងវិញ', 'error');
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function parseAndDisplayExcelData(rawRows) {
+      parsedExcelItemsCache = [];
+      const existingItems = AppState.items || LOCAL_DB.items || [];
+
+      function norm(str) {
+        return String(str || '').toLowerCase().replace(/[\s\-_()\/\\*\.]/g, '');
+      }
+
+      let validCount = 0;
+      let dupCount = 0;
+
+      rawRows.forEach((row, idx) => {
+        // Find matching values for each field across various header variations
+        let name = '', size = '', color = '', zone = '', unit = '', packUnit = '', packQty = 1, stock = 0, minPct = 20, notes = '', imageUrl = '';
+
+        for (const [key, val] of Object.entries(row)) {
+          const nKey = norm(key);
+          const sVal = String(val !== undefined && val !== null ? val : '').trim();
+
+          if (nKey.includes('ឈ្មោះ') || nKey.includes('itemname') || nKey.includes('productname') || nKey === 'name' || nKey === 'item') {
+            if (!name) name = sVal;
+          } else if (nKey.includes('ខ្នាត') || nKey.includes('ទំហំ') || nKey === 'size' || nKey === 'spec') {
+            if (!size) size = sVal;
+          } else if (nKey.includes('ពណ៌') || nKey === 'color' || nKey === 'colour') {
+            if (!color) color = sVal;
+          } else if (nKey.includes('តំបន់') || nKey === 'zone' || nKey === 'area' || nKey === 'location') {
+            if (!zone) zone = sVal;
+          } else if (nKey.includes('ឯកតារាយ') || nKey === 'retailunit' || nKey === 'baseunit' || (nKey.includes('ឯកតា') && !nKey.includes('ធំ'))) {
+            if (!unit) unit = sVal;
+          } else if (nKey.includes('ឯកតាធំ') || nKey.includes('ដុំ') || nKey === 'bulkunit' || nKey === 'packunit' || nKey === 'pack') {
+            if (!packUnit) packUnit = sVal;
+          } else if (nKey.includes('ចំនួនក្នុង') || nKey.includes('rate') || nKey.includes('packqty') || nKey.includes('conversion')) {
+            const num = Number(sVal);
+            if (!isNaN(num) && num >= 1) packQty = num;
+          } else if (nKey.includes('ស្តុក') || nKey.includes('stock') || nKey === 'qty' || nKey === 'quantity') {
+            const num = Number(sVal);
+            if (!isNaN(num) && num >= 0) stock = num;
+          } else if (nKey.includes('min') || nKey.includes('ភាគរយ') || nKey.includes('percent')) {
+            const num = Number(sVal);
+            if (!isNaN(num) && num >= 1 && num <= 100) minPct = num;
+          } else if (nKey.includes('សម្គាល់') || nKey.includes('note') || nKey.includes('remark')) {
+            if (!notes) notes = sVal;
+          } else if (nKey.includes('រូប') || nKey.includes('image') || nKey.includes('pic') || nKey.includes('photo')) {
+            if (!imageUrl) imageUrl = sVal;
+          }
+        }
+
+        // Clean values
+        name = name.trim();
+        size = size.trim();
+        color = color.trim();
+        zone = zone.trim() || 'តំបន់ A';
+        unit = unit.trim() || 'ដុំ';
+        packUnit = packUnit.trim();
+
+        const hasValidName = name.length > 0;
+        const dupKey = (name + '|' + size + '|' + color).toLowerCase();
+        const existingMatch = existingItems.find(i => (String(i.name || '').trim() + '|' + String(i.size || '').trim() + '|' + String(i.color || '').trim()).toLowerCase() === dupKey);
+        const isDuplicate = !!existingMatch;
+
+        if (hasValidName) {
+          validCount++;
+          if (isDuplicate) dupCount++;
+        }
+
+        parsedExcelItemsCache.push({
+          rowIdx: idx + 1,
+          name: name,
+          size: size,
+          color: color,
+          zone: zone,
+          unit: unit,
+          packUnit: packUnit,
+          packQty: packQty,
+          stock: stock,
+          minStockPercent: minPct,
+          notes: notes,
+          imageUrl: imageUrl,
+          isValid: hasValidName,
+          isDuplicate: isDuplicate,
+          existingItem: existingMatch
+        });
+      });
+
+      // Update Badges
+      const totalBadge = document.getElementById('badgeTotalRows');
+      const validBadge = document.getElementById('badgeValidRows');
+      const dupBadge = document.getElementById('badgeDuplicateRows');
+      if (totalBadge) totalBadge.innerText = `សរុប ${parsedExcelItemsCache.length} មុខ`;
+      if (validBadge) validBadge.innerText = `ត្រឹមត្រូវ ${validCount} មុខ`;
+      if (dupBadge) dupBadge.innerText = `មានស្រាប់ ${dupCount} មុខ`;
+
+      // Render Preview Table
+      const tbody = document.getElementById('excelPreviewTableBody');
+      if (tbody) {
+        tbody.innerHTML = parsedExcelItemsCache.map((item) => {
+          let statusBadge = '';
+          if (!item.isValid) {
+            statusBadge = '<span class="px-2 py-0.5 rounded-lg bg-rose-100 text-rose-700 font-extrabold text-[10px] whitespace-nowrap">ខ្វះឈ្មោះទំនិញ</span>';
+          } else if (item.isDuplicate) {
+            statusBadge = '<span class="px-2 py-0.5 rounded-lg bg-amber-100 text-amber-800 font-extrabold text-[10px] whitespace-nowrap">មានស្រាប់ (Update)</span>';
+          } else {
+            statusBadge = '<span class="px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-800 font-extrabold text-[10px] whitespace-nowrap">ទំនិញថ្មី</span>';
+          }
+
+          const specBadge = [item.size, item.color].filter(Boolean).join(' / ') || '<span class="text-slate-300">-</span>';
+          const bulkInfo = item.packUnit ? `${item.packUnit} (1=${item.packQty})` : '<span class="text-slate-300">-</span>';
+
+          return `
+            <tr class="hover:bg-slate-50 transition ${!item.isValid ? 'bg-rose-50/40' : ''}">
+              <td class="px-3 py-2 font-mono text-slate-500">${item.rowIdx}</td>
+              <td class="px-3 py-2">${statusBadge}</td>
+              <td class="px-3 py-2 font-bold text-slate-800">${escapeHtml(item.name || '(ទទេ)')}</td>
+              <td class="px-3 py-2 text-slate-600">${escapeHtml(specBadge)}</td>
+              <td class="px-3 py-2"><span class="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 font-semibold text-[10px]">${escapeHtml(item.zone)}</span></td>
+              <td class="px-3 py-2 font-semibold text-emerald-700">${escapeHtml(item.unit)}</td>
+              <td class="px-3 py-2 text-slate-600 font-medium">${bulkInfo}</td>
+              <td class="px-3 py-2 text-center font-bold text-slate-800">${item.stock}</td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      const previewSec = document.getElementById('excelPreviewSection');
+      if (previewSec) previewSec.classList.remove('hidden');
+
+      const btnConfirm = document.getElementById('btnConfirmExcelImport');
+      const btnText = document.getElementById('btnConfirmExcelImportText');
+      const statusText = document.getElementById('excelImportStatusText');
+
+      if (validCount > 0) {
+        if (btnConfirm) btnConfirm.disabled = false;
+        if (btnText) btnText.innerText = `នាំចូលទំនិញ (${validCount} មុខ)`;
+        if (statusText) statusText.innerHTML = `<span class="text-emerald-700 font-bold"><i class="fa-solid fa-circle-check mr-1"></i>ត្រៀមរួចរាល់សម្រាប់នាំចូលទំនិញចំនួន ${validCount} មុខ</span>`;
+      } else {
+        if (btnConfirm) btnConfirm.disabled = true;
+        if (btnText) btnText.innerText = 'នាំចូលទំនិញ';
+        if (statusText) statusText.innerHTML = '<span class="text-rose-600 font-bold"><i class="fa-solid fa-triangle-exclamation mr-1"></i>មិនមានទិន្នន័យត្រឹមត្រូវសម្រាប់នាំចូលឡើយ</span>';
+      }
+    }
+
+    async function executeExcelImport() {
+      if (!parsedExcelItemsCache || parsedExcelItemsCache.length === 0) return;
+
+      const shouldUpdate = document.getElementById('chkUpdateExistingItems')?.checked ?? true;
+      const shouldSync = document.getElementById('chkAutoSyncGoogleSheet')?.checked ?? true;
+
+      const validItems = parsedExcelItemsCache.filter(i => i.isValid);
+      if (validItems.length === 0) {
+        Swal.fire('គ្មានទិន្នន័យ', 'មិនមានទំនិញត្រឹមត្រូវសម្រាប់នាំចូលឡើយ', 'warning');
+        return;
+      }
+
+      const btn = document.getElementById('btnConfirmExcelImport');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>កំពុងនាំចូល...</span>';
+      }
+
+      loadLocalItemsFromStorage();
+      if (!LOCAL_DB.items) LOCAL_DB.items = [];
+
+      let newCount = 0;
+      let updatedCount = 0;
+      let skippedCount = 0;
+
+      const currentUserName = AppState.currentUser?.fullName || getUserDisplayName(AppState.currentUser?.username) || 'Excel Import';
+      const nowIso = new Date().toISOString();
+
+      validItems.forEach(item => {
+        if (item.isDuplicate) {
+          if (shouldUpdate && item.existingItem) {
+            const idx = LOCAL_DB.items.findIndex(i => i.sku === item.existingItem.sku);
+            if (idx >= 0) {
+              const prev = LOCAL_DB.items[idx];
+              LOCAL_DB.items[idx] = {
+                ...prev,
+                zone: item.zone || prev.zone,
+                unit: item.unit || prev.unit,
+                packUnit: item.packUnit || prev.packUnit,
+                packQty: item.packQty > 1 ? item.packQty : (prev.packQty || 1),
+                currentStock: item.stock > 0 ? item.stock : prev.currentStock,
+                minStockPercent: item.minStockPercent || prev.minStockPercent || 20,
+                minStock: Math.max(1, Math.round((item.stock > 0 ? item.stock : prev.currentStock) * ((item.minStockPercent || 20) / 100))),
+                notes: item.notes ? (prev.notes ? prev.notes + ' | ' + item.notes : item.notes) : prev.notes,
+                imageUrl: item.imageUrl || prev.imageUrl
+              };
+              updatedCount++;
+            }
+          } else {
+            skippedCount++;
+          }
+        } else {
+          // New Item
+          let randSku = 'SKU-' + Math.floor(1000 + Math.random() * 9000);
+          while (LOCAL_DB.items.some(i => i.sku === randSku)) {
+            randSku = 'SKU-' + Math.floor(1000 + Math.random() * 9000);
+          }
+
+          const barcodeNum = '885' + String(Math.floor(100000000000 + Math.random() * 900000000000)).slice(3);
+          const refBase = item.stock > 0 ? item.stock : (item.packQty > 1 ? item.packQty : 50);
+          const minStockUnits = Math.max(1, Math.round(refBase * (item.minStockPercent / 100)));
+
+          // Default pleasant placeholder if no image provided in Excel
+          const finalImage = item.imageUrl || 'assets/SKU-7501.jpg';
+
+          const newItem = {
+            sku: randSku,
+            barcode: barcodeNum,
+            name: item.name,
+            size: item.size,
+            color: item.color,
+            category: 'ទូទៅ',
+            unit: item.unit,
+            packUnit: item.packUnit,
+            packQty: item.packQty,
+            zone: item.zone,
+            zoneNumber: '',
+            costPrice: 0,
+            sellingPrice: 0,
+            minStock: minStockUnits,
+            minStockPercent: item.minStockPercent,
+            currentStock: item.stock,
+            location: 'គ្រប់ស្ថានីយទាំងអស់',
+            notes: item.notes,
+            createdBy: currentUserName,
+            createdAt: nowIso,
+            imageUrl: finalImage
+          };
+
+          LOCAL_DB.items.unshift(newItem);
+          newCount++;
+        }
+      });
+
+      // Save locally
+      saveLocalItemsToStorage();
+      AppState.items = [...LOCAL_DB.items];
+      renderItemsTable();
+      if (typeof populateCategoryFilter === 'function') populateCategoryFilter();
+      if (typeof populateItemSelectDropdowns === 'function') populateItemSelectDropdowns();
+
+      if (typeof broadcastInventoryMutation === 'function') {
+        broadcastInventoryMutation('ITEM_IMPORT', { count: newCount + updatedCount, items: AppState.items });
+      }
+
+      closeExcelImportModal();
+
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-file-import"></i><span>នាំចូលទំនិញ</span>';
+      }
+
+      // Success Modal
+      Swal.fire({
+        icon: 'success',
+        title: 'នាំចូលទំនិញជោគជ័យ!',
+        html: `
+          <div class="text-left text-xs bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2 mt-2 font-sans">
+            <p class="font-bold text-slate-800 text-sm">លទ្ធផលនៃការនាំចូល Excel៖</p>
+            <div class="space-y-1.5 pt-1 border-t border-slate-200">
+              <p class="text-emerald-700 font-bold flex items-center"><i class="fa-solid fa-circle-plus mr-2 text-emerald-600"></i>ទំនិញថ្មីបន្ថែម៖ <b>${newCount} មុខ</b></p>
+              <p class="text-blue-700 font-bold flex items-center"><i class="fa-solid fa-pen-to-square mr-2 text-blue-600"></i>ទំនិញមានស្រាប់កែប្រែ៖ <b>${updatedCount} មុខ</b></p>
+              ${skippedCount > 0 ? `<p class="text-slate-500 font-medium flex items-center"><i class="fa-solid fa-forward mr-2"></i>រំលងមិនកែប្រែ៖ <b>${skippedCount} មុខ</b></p>` : ''}
+            </div>
+            <p class="text-slate-600 text-[11px] pt-1 border-t border-slate-200">ទិន្នន័យត្រូវបានបញ្ចូលទៅក្នុងតារាងទំនិញភ្លាមៗ។</p>
+          </div>
+        `,
+        confirmButtonText: 'យល់ព្រម',
+        confirmButtonColor: '#059669'
+      });
+
+      // Background Sync to Google Sheets
+      if (shouldSync) {
+        syncAllItemsToCloud(true);
+      }
     }
 
     function exportItemsToPDF() {
