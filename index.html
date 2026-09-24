@@ -6523,7 +6523,111 @@
       };
     }
 
+    // Instant cross-tab/cross-window takeover signal listener via localStorage (0ms latency)
+    window.addEventListener('storage', (event) => {
+      if (event.key === 'inventory_device_login_broadcast' && event.newValue) {
+        try {
+          const d = JSON.parse(event.newValue);
+          if (!AppState.currentUser) return;
+          const isSameUser = (AppState.currentUser.userId && d.userId === AppState.currentUser.userId) ||
+                             (AppState.currentUser.username && String(AppState.currentUser.username).toLowerCase() === String(d.username).toLowerCase());
+          if (isSameUser) {
+            const myDev = (typeof getCurrentDeviceInfo === 'function') ? getCurrentDeviceInfo() : null;
+            if (!myDev) return;
+            const myRawType = String(myDev.deviceType || 'DESKTOP').toUpperCase();
+            const myDevType = (myRawType === 'MOBILE' || myRawType === 'PHONE') ? 'MOBILE' : 'DESKTOP';
+            const incomingRawType = String(d.deviceType || 'DESKTOP').toUpperCase();
+            const incomingDevType = (incomingRawType === 'MOBILE' || incomingRawType === 'PHONE') ? 'MOBILE' : 'DESKTOP';
+
+            if (myDevType === incomingDevType && myDev.deviceId !== d.deviceId) {
+              terminateSessionImmediately(`គណនីរបស់លោកអ្នកកំពុងចូលប្រើប្រាស់ នៅលើ${myDevType === 'DESKTOP' ? 'កុំព្យូទ័រ' : 'ទូរសព្ទដៃ'}ផ្សេងមួយទៀត។`);
+            }
+          }
+        } catch (e) {}
+      }
+    });
+
+    let activeDeviceHeartbeatTimer = null;
+    let isDeviceHeartbeatChecking = false;
+    let lastDeviceHeartbeatCheckTime = 0;
+
+    async function checkActiveDeviceSessionImmediate(force = false) {
+      if (!AppState.currentUser || isDeviceHeartbeatChecking) return;
+      const now = Date.now();
+      if (!force && now - lastDeviceHeartbeatCheckTime < 1500) return;
+      lastDeviceHeartbeatCheckTime = now;
+
+      const myDev = (typeof getCurrentDeviceInfo === 'function') ? getCurrentDeviceInfo() : null;
+      if (!myDev || !myDev.deviceId) return;
+
+      isDeviceHeartbeatChecking = true;
+      try {
+        const gasUrl = AppState.gasApiUrl || localStorage.getItem('inventory_gas_api_url');
+        if (!gasUrl || !gasUrl.startsWith('https://script.google.com/')) {
+          isDeviceHeartbeatChecking = false;
+          return;
+        }
+
+        const controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+        const timeoutId = controller ? setTimeout(() => controller.abort(), 3500) : null;
+
+        const res = await fetch(gasUrl, {
+          method: 'POST',
+          mode: 'cors',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: 'checkDeviceSession',
+            payload: {
+              username: AppState.currentUser.username,
+              userId: AppState.currentUser.userId,
+              deviceId: myDev.deviceId,
+              deviceType: myDev.deviceType
+            }
+          }),
+          signal: controller ? controller.signal : undefined
+        }).then(r => r.json()).catch(() => null);
+
+        if (timeoutId) clearTimeout(timeoutId);
+
+        if (res && res.success && res.kicked) {
+          console.warn('[Security] Kicked out immediately by cloud checkDeviceSession:', res);
+          terminateSessionImmediately(res.message || 'គណនីរបស់លោកអ្នកកំពុងចូលប្រើប្រាស់ នៅលើឧបករណ៍ផ្សេងមួយទៀត។');
+        }
+      } catch (e) {
+      } finally {
+        isDeviceHeartbeatChecking = false;
+      }
+    }
+
+    function initActiveDeviceHeartbeatEngine() {
+      if (activeDeviceHeartbeatTimer) clearInterval(activeDeviceHeartbeatTimer);
+      // Run every 2 seconds for ultra-responsive instant detection
+      activeDeviceHeartbeatTimer = setInterval(() => {
+        if (!AppState.currentUser) return;
+        checkActiveDeviceSessionImmediate();
+      }, 2000);
+
+      // Check on any user interaction (click / keydown)
+      window.addEventListener('click', () => {
+        if (AppState.currentUser) checkActiveDeviceSessionImmediate();
+      }, { passive: true });
+
+      window.addEventListener('focus', () => {
+        if (AppState.currentUser) checkActiveDeviceSessionImmediate(true);
+      });
+
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && AppState.currentUser) {
+          checkActiveDeviceSessionImmediate(true);
+        }
+      });
+    }
+
     function terminateSessionImmediately(reasonMessage = 'គណនីរបស់លោកអ្នកកំពុងចូលប្រើប្រាស់ នៅលើឧបករណ៍ផ្សេងមួយទៀត។', reasonTitle = 'ប្រព័ន្ធត្រូវបានកាត់ផ្ដាច់ ដោយសារគណនីរបស់លោកអ្នកកំពុងចូលប្រើប្រាស់ នៅលើឧបករណ៍ផ្សេងមួយទៀត !') {
+      if (activeDeviceHeartbeatTimer) {
+        clearInterval(activeDeviceHeartbeatTimer);
+        activeDeviceHeartbeatTimer = null;
+      }
       if (typeof sessionDurationInterval !== 'undefined' && sessionDurationInterval) {
         clearInterval(sessionDurationInterval);
       }
@@ -6671,6 +6775,10 @@
         if (!devCheck.success && devCheck.deviceBlocked) {
           terminateSessionImmediately('គណនីរបស់លោកអ្នកកំពុងចូលប្រើប្រាស់ នៅលើឧបករណ៍ផ្សេងមួយទៀត។');
           return;
+        }
+
+        if (typeof initActiveDeviceHeartbeatEngine === 'function') {
+          initActiveDeviceHeartbeatEngine();
         }
 
         setTimeout(async () => {
@@ -8401,16 +8509,24 @@
 
       // Broadcast session takeover immediately across tabs/windows
       try {
+        const curDev = (typeof getCurrentDeviceInfo === 'function') ? getCurrentDeviceInfo() : { deviceType: 'DESKTOP', deviceId: '' };
         if (typeof deviceSessionChannel !== 'undefined' && deviceSessionChannel) {
           deviceSessionChannel.postMessage({
             type: 'DEVICE_SESSION_TAKEOVER',
             userId: user.userId,
             username: user.username,
-            deviceType: getCurrentDeviceInfo().deviceType,
-            deviceId: getCurrentDeviceInfo().deviceId,
+            deviceType: curDev.deviceType,
+            deviceId: curDev.deviceId,
             timestamp: Date.now()
           });
         }
+        localStorage.setItem('inventory_device_login_broadcast', JSON.stringify({
+          userId: user.userId,
+          username: user.username,
+          deviceType: curDev.deviceType,
+          deviceId: curDev.deviceId,
+          timestamp: Date.now()
+        }));
       } catch (e) {}
 
       // 1. Instant Screen Transition (< 10ms)
@@ -9820,6 +9936,9 @@
       }
 
       initAutoRefreshEngine();
+      if (typeof initActiveDeviceHeartbeatEngine === 'function') {
+        initActiveDeviceHeartbeatEngine();
+      }
       if (typeof checkCurrentUserLiveRoleSync === 'function') {
         setTimeout(checkCurrentUserLiveRoleSync, 600);
       }
@@ -19318,11 +19437,14 @@
       if (autoFetchInterval) clearInterval(autoFetchInterval);
       if (autoRoleSyncInterval) clearInterval(autoRoleSyncInterval);
 
-      // Ultra-responsive real-time role & device session check (active tab only, 2.5s interval)
+      // Ultra-responsive real-time role & device session check (active tab only, 2s interval)
       autoRoleSyncInterval = setInterval(() => {
         if (!AppState.currentUser || document.hidden) return;
+        if (typeof checkActiveDeviceSessionImmediate === 'function') {
+          checkActiveDeviceSessionImmediate();
+        }
         checkCurrentUserLiveRoleSync();
-      }, 2500);
+      }, 2000);
 
       // Ultra-responsive silent background data fetch (active tab only, 5s interval for instant cross-device updates)
       autoFetchInterval = setInterval(() => {
@@ -19333,12 +19455,18 @@
       // Auto-revalidate instantly when user returns to the app tab or focuses window
       document.addEventListener('visibilitychange', () => {
         if (!document.hidden && AppState.currentUser) {
+          if (typeof checkActiveDeviceSessionImmediate === 'function') {
+            checkActiveDeviceSessionImmediate(true);
+          }
           checkCurrentUserLiveRoleSync();
           silentAutoRefresh();
         }
       });
       window.addEventListener('focus', () => {
         if (AppState.currentUser) {
+          if (typeof checkActiveDeviceSessionImmediate === 'function') {
+            checkActiveDeviceSessionImmediate(true);
+          }
           checkCurrentUserLiveRoleSync();
         }
       });

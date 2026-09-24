@@ -582,6 +582,14 @@ function executeLocalApiAction(req) {
 
         return logoutUser(payload);
 
+      case 'checkDeviceSession':
+
+      case 'verifyDeviceSession':
+
+      case 'checkSession':
+
+        return checkDeviceSession(payload);
+
       case 'resetUserDeviceBinding':
 
       case 'resetDeviceBinding':
@@ -1444,6 +1452,15 @@ function loginUser(usernameOrData, password, extraDeviceInfo) {
             };
           }
           sheet.getRange(i + 1, 16).setValue(JSON.stringify(boundDevices));
+          try {
+            const cache = CacheService.getScriptCache();
+            if (cache) {
+              const uLower = String(row[1] || '').trim().toLowerCase();
+              const uId = String(row[0] || '').trim().toUpperCase();
+              if (uLower) cache.put('active_dev_' + uLower + '_' + devType, devId, 21600);
+              if (uId) cache.put('active_dev_' + uId + '_' + devType, devId, 21600);
+            }
+          } catch (errCache) {}
         }
 
         const userObj = {
@@ -2516,7 +2533,86 @@ function resetUserDeviceBinding(payload, actor) {
 
 }
 
+function checkDeviceSession(payload) {
+  if (!payload) return { success: false, message: 'Missing payload' };
+  const targetUserId = String(payload.userId || '').trim().toUpperCase();
+  const targetUsername = String(payload.username || '').trim().toLowerCase();
+  const deviceInfo = payload.deviceInfo || null;
+  const rawType = String(payload.deviceType || (deviceInfo ? deviceInfo.deviceType : 'DESKTOP')).toUpperCase();
+  const devType = (rawType === 'MOBILE' || rawType === 'PHONE') ? 'MOBILE' : 'DESKTOP';
+  const myDevId = String(payload.deviceId || (deviceInfo ? deviceInfo.deviceId : '')).trim();
 
+  if (!targetUserId && !targetUsername) {
+    return { success: false, message: 'Missing user identifier' };
+  }
+
+  // 1. Ultra-fast CacheService check (< 10ms in-memory RAM lookup)
+  try {
+    const cache = CacheService.getScriptCache();
+    if (cache) {
+      const cachedDevId = (targetUsername ? cache.get('active_dev_' + targetUsername + '_' + devType) : null) ||
+                          (targetUserId ? cache.get('active_dev_' + targetUserId + '_' + devType) : null);
+      if (cachedDevId && myDevId && cachedDevId !== myDevId) {
+        return {
+          success: true,
+          active: false,
+          kicked: true,
+          reason: 'CACHE_DEVICE_TAKEOVER',
+          activeDeviceId: cachedDevId,
+          message: `គណនីរបស់លោកអ្នកកំពុងចូលប្រើប្រាស់ នៅលើ${devType === 'DESKTOP' ? 'កុំព្យូទ័រ' : 'ទូរសព្ទដៃ'}ផ្សេងមួយទៀត។`
+        };
+      }
+    }
+  } catch (e) {}
+
+  // 2. Direct single user lookup in spreadsheet
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ensureUsersInitialized(ss);
+    const data = sheet.getDataRange().getValues();
+
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const uId = String(row[0] || '').trim().toUpperCase();
+      const uName = String(row[1] || '').trim().toLowerCase();
+
+      if ((targetUserId && uId === targetUserId) || (targetUsername && uName === targetUsername)) {
+        let bound = null;
+        if (row[15]) {
+          try {
+            const parsed = JSON.parse(row[15]);
+            bound = (devType === 'DESKTOP') ? parsed.desktop : parsed.mobile;
+          } catch (err) {}
+        }
+
+        if (bound && bound.deviceId && myDevId && bound.deviceId !== myDevId) {
+          try {
+            const cache = CacheService.getScriptCache();
+            if (cache) {
+              if (uName) cache.put('active_dev_' + uName + '_' + devType, bound.deviceId, 21600);
+              if (uId) cache.put('active_dev_' + uId + '_' + devType, bound.deviceId, 21600);
+            }
+          } catch (err) {}
+
+          return {
+            success: true,
+            active: false,
+            kicked: true,
+            reason: 'DEVICE_TAKEOVER',
+            boundDevice: bound,
+            message: `គណនីរបស់លោកអ្នកកំពុងចូលប្រើប្រាស់ នៅលើ${devType === 'DESKTOP' ? 'កុំព្យូទ័រ' : 'ទូរសព្ទដៃ'}ផ្សេងមួយទៀត។`
+          };
+        }
+
+        return { success: true, active: true, kicked: false };
+      }
+    }
+  } catch (err) {
+    return { success: true, active: true, kicked: false, error: err.message };
+  }
+
+  return { success: true, active: true, kicked: false };
+}
 
 function logoutUser(payload) {
 
