@@ -1026,7 +1026,7 @@
                   <i class="fa-solid fa-id-badge text-sm text-blue-500/80"></i>
                 </span>
                 <input type="text" id="loginUsername" required value="" placeholder="ឈ្មោះគណនី, អ៊ីមែល ឬ លេខទូរស័ព្ទ" autocomplete="username"
-                  lang="en" inputmode="text" autocapitalize="none" autocorrect="off" spellcheck="false"
+                  lang="en" inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false"
                   oninput="cleanKhmerFromField(this)" onkeyup="cleanKhmerFromField(this)" onfocus="cleanKhmerFromField(this)"
                   class="w-full pl-10 pr-3.5 py-3 sm:py-3.5 bg-slate-50 border border-slate-300 rounded-xl sm:rounded-2xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none font-semibold text-slate-800 shadow-2xs">
               </div>
@@ -6384,7 +6384,15 @@
 
     function cleanKhmerFromField(inputEl) {
       if (!inputEl) return;
-      const val = inputEl.value;
+      let val = inputEl.value;
+      if (!val) return;
+
+      // Normalize full-width ASCII variants (e.g. full-width ＠ \uFF20 -> @, ． \uFF0E -> .)
+      if (/[\uFF01-\uFF5E]/.test(val)) {
+        val = val.replace(/[\uFF01-\uFF5E]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0));
+        inputEl.value = val;
+      }
+
       if (/[\u1780-\u17FF]/.test(val)) {
         const start = inputEl.selectionStart;
         const converted = convertKhmerStringToEn(val);
@@ -6452,8 +6460,23 @@
           return;
         }
 
+        // On mobile / touch virtual keyboards or during IME composition, DO NOT intercept keydown!
+        // Virtual keyboards send unpredictable scancodes (e.g. Digit2 for @ without shiftKey)
+        if (e.isComposing || e.keyCode === 229) return;
+        const isMobileOrTouch = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                                ('ontouchstart' in window && !window.matchMedia('(pointer: fine)').matches);
+        if (isMobileOrTouch) return;
+
+        // If the key is already any valid standard printable ASCII character (letters, numbers, symbols like @, ., _, -, etc.), allow it directly!
+        if (e.key && /^[\x20-\x7E]$/.test(e.key)) {
+          return;
+        }
+
         const code = e.code || '';
         const isKhmer = /[\u1780-\u17FF]/.test(e.key);
+
+        // Only convert if the active character is actually a Khmer Unicode character
+        if (!isKhmer) return;
 
         // Letters KeyA - KeyZ
         if (code.startsWith('Key')) {
@@ -6462,35 +6485,29 @@
           const isUpper = Boolean(e.shiftKey ^ caps);
           const enChar = isUpper ? letter.toUpperCase() : letter.toLowerCase();
 
-          if (isKhmer || e.key !== enChar) {
-            e.preventDefault();
-            insertTextIntoField(inputEl, enChar);
-          }
+          e.preventDefault();
+          insertTextIntoField(inputEl, enChar);
           return;
         }
 
         // Digits Digit0 - Digit9
         if (code.startsWith('Digit')) {
-          if (isKhmer || !/^[0-9]$/.test(e.key)) {
-            e.preventDefault();
-            const charToInsert = e.shiftKey ? (SHIFT_SYMBOLS_MAP[code] || code.slice(5)) : code.slice(5);
-            insertTextIntoField(inputEl, charToInsert);
-          }
+          e.preventDefault();
+          const charToInsert = e.shiftKey ? (SHIFT_SYMBOLS_MAP[code] || code.slice(5)) : code.slice(5);
+          insertTextIntoField(inputEl, charToInsert);
           return;
         }
 
         // Punctuation / symbols when Khmer layout is active
-        if (isKhmer) {
-          const charToInsert = e.shiftKey ? SHIFT_SYMBOLS_MAP[code] : UNSHIFT_SYMBOLS_MAP[code];
-          if (charToInsert) {
-            e.preventDefault();
-            insertTextIntoField(inputEl, charToInsert);
-            return;
-          }
+        const charToInsert = e.shiftKey ? SHIFT_SYMBOLS_MAP[code] : UNSHIFT_SYMBOLS_MAP[code];
+        if (charToInsert) {
+          e.preventDefault();
+          insertTextIntoField(inputEl, charToInsert);
+          return;
         }
 
         // Numpad digits
-        if (code.startsWith('Numpad') && isKhmer) {
+        if (code.startsWith('Numpad')) {
           const num = code.replace('Numpad', '');
           if (/^[0-9]$/.test(num)) {
             e.preventDefault();
