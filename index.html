@@ -5065,6 +5065,15 @@
               </p>
             </div>
           </div>
+
+          <!-- Change Password Text Link (Click to open password change modal) -->
+          <div class="pt-1 flex items-center justify-between border-t border-slate-100">
+            <button type="button" onclick="openProfileChangePasswordModal()"
+              class="text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center space-x-1.5 transition py-1 focus:outline-none">
+              <i class="fa-solid fa-key text-amber-500 text-xs"></i>
+              <span>ប្តូរពាក្យសម្ងាត់</span>
+            </button>
+          </div>
         </div>
 
 
@@ -17449,33 +17458,150 @@
       validateProfileForm(true);
     }
 
-    function toggleProfilePasswordFields() {
-      const container = document.getElementById('profilePasswordContainer');
-      const label = document.getElementById('pwdToggleLabel');
-      const icon = document.getElementById('pwdToggleIcon');
-      if (!container) return;
-      const isHidden = container.classList.contains('hidden');
-      if (isHidden) {
-        container.classList.remove('hidden');
-        if (label) label.innerText = 'លាក់';
-        if (icon) icon.className = 'fa-solid fa-chevron-up text-[10px]';
-        ['profileOldPassword', 'profileNewPassword', 'profileConfirmPassword'].forEach(id => {
-          const el = document.getElementById(id);
-          if (el) setupAutoEnglishInput(el);
+    async function openProfileChangePasswordModal() {
+      const u = AppState.currentUser;
+      if (!u) return;
+
+      const { value: formValues } = await Swal.fire({
+        title: '<div class="flex items-center justify-center space-x-2"><i class="fa-solid fa-key text-amber-500"></i><span>ប្តូរពាក្យសម្ងាត់ថ្មី</span></div>',
+        html: `
+          <div class="text-left text-xs space-y-3 pt-1">
+            <p class="text-slate-500 text-[11px] leading-relaxed">
+              បញ្ចូលពាក្យសម្ងាត់បច្ចុប្បន្នរបស់អ្នក រួចកំណត់ពាក្យសម្ងាត់ថ្មី (យ៉ាងតិច ៤ ខ្ទង់)។
+            </p>
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label class="block font-bold text-slate-700">ពាក្យសម្ងាត់ចាស់ (Current Password) *</label>
+                <button type="button" onclick="Swal.close(); startProfileForgotOtp();" class="text-[11px] text-blue-600 hover:text-blue-800 font-bold hover:underline inline-flex items-center space-x-1">
+                  <i class="fa-solid fa-circle-question text-[10px]"></i>
+                  <span>ភ្លេចពាក្យសម្ងាត់?</span>
+                </button>
+              </div>
+              <div class="relative">
+                <input type="password" id="swalOldPassword" placeholder="បញ្ចូលពាក្យសម្ងាត់ចាស់បច្ចុប្បន្ន"
+                  lang="en" inputmode="text" autocapitalize="none" autocorrect="off" spellcheck="false" data-auto-en="true"
+                  class="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 font-semibold">
+                <button type="button" onclick="togglePasswordVisibility('swalOldPassword', this)" title="បង្ហាញ/លាក់ពាក្យសម្ងាត់"
+                  class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none">
+                  <i class="fa-solid fa-eye text-xs"></i>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">ពាក្យសម្ងាត់ថ្មី (New Password) *</label>
+              <div class="relative">
+                <input type="password" id="swalNewPassword" placeholder="ពាក្យសម្ងាត់ថ្មី (យ៉ាងតិច ៤ ខ្ទង់)" minlength="4"
+                  lang="en" inputmode="text" autocapitalize="none" autocorrect="off" spellcheck="false" data-auto-en="true"
+                  class="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 font-semibold">
+                <button type="button" onclick="togglePasswordVisibility('swalNewPassword', this)" title="បង្ហាញ/លាក់ពាក្យសម្ងាត់"
+                  class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none">
+                  <i class="fa-solid fa-eye text-xs"></i>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">បញ្ជាក់ពាក្យសម្ងាត់ថ្មី (Confirm Password) *</label>
+              <div class="relative">
+                <input type="password" id="swalConfirmPassword" placeholder="វាយពាក្យសម្ងាត់ថ្មីម្តងទៀត" minlength="4"
+                  lang="en" inputmode="text" autocapitalize="none" autocorrect="off" spellcheck="false" data-auto-en="true"
+                  class="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 font-semibold">
+                <button type="button" onclick="togglePasswordVisibility('swalConfirmPassword', this)" title="បង្ហាញ/លាក់ពាក្យសម្ងាត់"
+                  class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none">
+                  <i class="fa-solid fa-eye text-xs"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: '<i class="fa-solid fa-check mr-1.5"></i> រក្សាទុកពាក្យសម្ងាត់ថ្មី',
+        cancelButtonText: 'បោះបង់',
+        confirmButtonColor: '#2563eb',
+        focusConfirm: false,
+        didOpen: () => {
+          ['swalOldPassword', 'swalNewPassword', 'swalConfirmPassword'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) setupAutoEnglishInput(el);
+          });
+          const op = document.getElementById('swalOldPassword');
+          if (op) op.focus();
+        },
+        preConfirm: () => {
+          const oldPass = document.getElementById('swalOldPassword')?.value || '';
+          const newPass = document.getElementById('swalNewPassword')?.value || '';
+          const confirmPass = document.getElementById('swalConfirmPassword')?.value || '';
+
+          if (!oldPass) {
+            Swal.showValidationMessage('សូមបញ្ចូលពាក្យសម្ងាត់ចាស់បច្ចុប្បន្នរបស់អ្នក!');
+            return false;
+          }
+          if (!newPass || newPass.length < 4) {
+            Swal.showValidationMessage('ពាក្យសម្ងាត់ថ្មីត្រូវមានយ៉ាងតិច ៤ ខ្ទង់!');
+            return false;
+          }
+          if (newPass !== confirmPass) {
+            Swal.showValidationMessage('ពាក្យសម្ងាត់ទាំងពីរមិនត្រូវគ្នាទេ!');
+            return false;
+          }
+          if (newPass === oldPass) {
+            Swal.showValidationMessage('ពាក្យសម្ងាត់ថ្មីត្រូវតែខុសពីពាក្យសម្ងាត់ចាស់!');
+            return false;
+          }
+          return { oldPass, newPass, confirmPass };
+        }
+      });
+
+      if (!formValues) return;
+
+      // Loading indicator
+      Swal.fire({
+        title: 'កំពុងផ្លាស់ប្តូរពាក្យសម្ងាត់...',
+        html: '<p class="text-xs text-slate-500">សូមរង់ចាំមួយភ្លែត</p>',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
+
+      try {
+        const res = await apiCall('updateUserProfile', {
+          userId: u.userId,
+          username: u.username,
+          oldPassword: formValues.oldPass,
+          newPassword: formValues.newPass
         });
-      } else {
-        container.classList.add('hidden');
-        if (label) label.innerText = 'បង្ហាញ';
-        if (icon) icon.className = 'fa-solid fa-chevron-down text-[10px]';
-        // Clear password inputs when collapsed
-        const op = document.getElementById('profileOldPassword');
-        const np = document.getElementById('profileNewPassword');
-        const cp = document.getElementById('profileConfirmPassword');
-        if (op) op.value = '';
-        if (np) np.value = '';
-        if (cp) cp.value = '';
+
+        if (res && res.success) {
+          u.password = formValues.newPass;
+          sessionStorage.setItem('inventory_user', JSON.stringify(u));
+          if (localStorage.getItem('inventory_user')) {
+            localStorage.setItem('inventory_user', JSON.stringify(u));
+          }
+
+          Swal.fire({
+            icon: 'success',
+            title: 'ជោគជ័យ 🎉',
+            text: 'បានផ្លាស់ប្តូរពាក្យសម្ងាត់ថ្មីដោយជោគជ័យ!',
+            confirmButtonText: 'យល់ព្រម',
+            confirmButtonColor: '#16a34a'
+          });
+        } else {
+          Swal.fire({
+            icon: 'error',
+            title: 'បរាជ័យ',
+            text: res?.message || 'ពាក្យសម្ងាត់ចាស់មិនត្រឹមត្រូវទេ!',
+            footer: '<button type="button" onclick="Swal.close(); startProfileForgotOtp();" class="text-blue-600 font-bold hover:underline"><i class="fa-solid fa-key mr-1"></i> ភ្លេចពាក្យសម្ងាត់? ស្នើសុំលេខកូដ OTP តាមអ៊ីមែល</button>',
+            confirmButtonText: 'សាកល្បងម្តងទៀត',
+            confirmButtonColor: '#2563eb'
+          }).then((r) => {
+            if (r.isConfirmed) {
+              openProfileChangePasswordModal();
+            }
+          });
+        }
+      } catch (err) {
+        Swal.fire('Error', err.toString(), 'error');
       }
-      validateProfileForm(true);
     }
 
     function validateProfileForm(showErrors = true) {
