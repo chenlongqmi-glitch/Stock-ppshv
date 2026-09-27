@@ -10422,6 +10422,19 @@
         addUserBtnTop.classList.toggle('hidden', !isSuperAdmin && !isAdmin && !isStationManager);
       }
 
+      // Control Search & Role Filter Bar visibility (សម្រាប់តែ SuperAdmin និង Admin ប៉ុណ្ណោះ)
+      const userSearchFilterBar = document.getElementById('userSearchFilterBar');
+      if (userSearchFilterBar) {
+        const canUseSearchFilter = isSuperAdmin || isAdmin;
+        userSearchFilterBar.classList.toggle('hidden', !canUseSearchFilter);
+        if (!canUseSearchFilter) {
+          const uSearch = document.getElementById('userSearchInput');
+          if (uSearch) uSearch.value = '';
+          const uRole = document.getElementById('userRoleFilter');
+          if (uRole) uRole.value = 'ALL';
+        }
+      }
+
       initAutoRefreshEngine();
       if (typeof initActiveDeviceHeartbeatEngine === 'function') {
         initActiveDeviceHeartbeatEngine();
@@ -11145,6 +11158,17 @@
       if (tabName === 'users') {
         const uInp = document.getElementById('userSearchInput');
         if (uInp) uInp.value = '';
+        const searchFilterBar = document.getElementById('userSearchFilterBar');
+        if (searchFilterBar) {
+          const u = AppState.currentUser;
+          const isSA = (u && (u.role === 'SuperAdmin' || String(u.username).toLowerCase() === 'superadmin'));
+          const isAdm = !isSA && (u && (u.role === 'Admin' || String(u.username).toLowerCase() === 'admin'));
+          searchFilterBar.classList.toggle('hidden', !isSA && !isAdm);
+          if (!isSA && !isAdm) {
+            const uRole = document.getElementById('userRoleFilter');
+            if (uRole) uRole.value = 'ALL';
+          }
+        }
       }
       purgeAutofillFromSearchInputs();
       setTimeout(purgeAutofillFromSearchInputs, 50);
@@ -16301,6 +16325,18 @@
           const addUserBtn = document.getElementById('addUserTopBtn');
           if (addUserBtn) {
             addUserBtn.classList.toggle('hidden', !isActorSuperAdmin && !isActorAdmin && !isActorStationManager);
+          }
+
+          // Control Search & Role Filter Bar visibility (សម្រាប់តែ SuperAdmin និង Admin ប៉ុណ្ណោះ)
+          const searchFilterBar = document.getElementById('userSearchFilterBar');
+          if (searchFilterBar) {
+            searchFilterBar.classList.toggle('hidden', !isPrivilegedViewer);
+            if (!isPrivilegedViewer) {
+              const uSearch = document.getElementById('userSearchInput');
+              if (uSearch) uSearch.value = '';
+              const uRole = document.getElementById('userRoleFilter');
+              if (uRole) uRole.value = 'ALL';
+            }
           }
 
           // If Station Manager, customize page titles / subheaders and role filter for tabUsers
