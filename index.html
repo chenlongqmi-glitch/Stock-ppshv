@@ -2952,7 +2952,7 @@
                 <p class="text-xs text-slate-500 mt-0.5">គ្រប់គ្រងគណនីបុគ្គលិកតាមឃ្លាំងនិមួយៗ និងសិទ្ធិចូលប្រើប្រាស់</p>
               </div>
               <button onclick="openAddUserModal()" id="addUserTopBtn"
-                class="w-full sm:w-auto px-4 py-2.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 shadow-md shadow-blue-500/20 active:scale-95 transition">
+                class="hidden w-full sm:w-auto px-4 py-2.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 shadow-md shadow-blue-500/20 active:scale-95 transition">
                 <i class="fa-solid fa-user-plus"></i>
                 <span>បន្ថែមបុគ្គលិកថ្មី</span>
               </button>
@@ -10381,6 +10381,12 @@
         if (transferFrom) transferFrom.value = assignedWh;
       }
 
+      // Control "+ បន្ថែមបុគ្គលិកថ្មី" button visibility (មានសម្រាប់តែ Admin និង SuperAdmin តែប៉ុណ្ណោះ)
+      const addUserBtnTop = document.getElementById('addUserTopBtn');
+      if (addUserBtnTop) {
+        addUserBtnTop.classList.toggle('hidden', !isSuperAdmin && !isAdmin);
+      }
+
       initAutoRefreshEngine();
       if (typeof initActiveDeviceHeartbeatEngine === 'function') {
         initActiveDeviceHeartbeatEngine();
@@ -16232,10 +16238,10 @@
             checkPendingDeletionsForSuperAdmin(true);
           }
 
-          // Control "+ បន្ថែមបុគ្គលិកថ្មី" button visibility (Admin, SuperAdmin, and StationManager)
+          // Control "+ បន្ថែមបុគ្គលិកថ្មី" button visibility (មានសម្រាប់តែ Admin និង SuperAdmin តែប៉ុណ្ណោះ)
           const addUserBtn = document.getElementById('addUserTopBtn');
           if (addUserBtn) {
-            addUserBtn.classList.toggle('hidden', !isActorSuperAdmin && !isActorAdmin && !isActorStationManager);
+            addUserBtn.classList.toggle('hidden', !isActorSuperAdmin && !isActorAdmin);
           }
 
           // If Station Manager, customize page titles / subheaders and role filter for tabUsers
@@ -17058,6 +17064,14 @@
     window.clearAddUserFieldError = clearAddUserFieldError;
 
     function openAddUserModal() {
+      const actor = AppState.currentUser;
+      const isActorSuperAdmin = (actor?.role === 'SuperAdmin') || (String(actor?.username).toLowerCase() === 'superadmin');
+      const isActorAdmin = !isActorSuperAdmin && (actor?.role === 'Admin' || String(actor?.username).toLowerCase() === 'admin');
+      if (!isActorSuperAdmin && !isActorAdmin) {
+        Swal.fire('គ្មានសិទ្ធិ', 'មុខងារបន្ថែមបុគ្គលិកថ្មី មានសម្រាប់តែ Admin និង SuperAdmin តែប៉ុណ្ណោះ!', 'warning');
+        return;
+      }
+
       const form = document.getElementById('addUserForm');
       if (form) form.reset();
       document.getElementById('addAvatarPreview').src = 'https://api.dicebear.com/7.x/bottts/svg?seed=new' + Math.floor(Math.random() * 100);
