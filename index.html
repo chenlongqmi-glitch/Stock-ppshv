@@ -8084,50 +8084,13 @@
       }
 
       if (action === 'updateUserProfile' || action === 'updateProfile') {
-        loadLocalUsersFromStorage();
         const username = String(payload.username || '').toLowerCase();
         const userId = String(payload.userId || '');
-        const cleanU = (s) => String(s || '').trim().toLowerCase().replace(/^@/, '');
-        const targetUsername = cleanU(username || (AppState.currentUser && AppState.currentUser.username));
-        const targetUserId = String(userId || (AppState.currentUser && AppState.currentUser.userId) || '').trim().toUpperCase();
-
-        let target = LOCAL_DB.users.find(x => {
-          const xU = cleanU(x.username);
-          const xId = String(x.userId || '').trim().toUpperCase();
-          const xMail = String(x.email || '').trim().toLowerCase();
-          return (targetUserId && xId === targetUserId) ||
-                 (targetUsername && (xU === targetUsername || xMail === targetUsername)) ||
-                 (AppState.currentUser && (
-                   (AppState.currentUser.userId && xId === String(AppState.currentUser.userId).trim().toUpperCase()) ||
-                   (AppState.currentUser.username && xU === cleanU(AppState.currentUser.username))
-                 ));
-        });
-
-        // Resilient: If not found in LOCAL_DB.users, hydrate from AppState.currentUser or payload
-        if (!target) {
-          if (AppState.currentUser) {
-            target = { ...AppState.currentUser };
-            LOCAL_DB.users.push(target);
-          } else {
-            target = {
-              userId: targetUserId || ('USR-' + Date.now().toString().slice(-4)),
-              username: targetUsername || 'user',
-              fullName: payload.fullName || 'User',
-              email: payload.email || '',
-              phone: payload.phone || '',
-              avatar: payload.avatar || '',
-              role: 'Staff',
-              warehouse: 'ALL',
-              status: 'Active'
-            };
-            LOCAL_DB.users.push(target);
-          }
-        }
-
+        const target = LOCAL_DB.users.find(x => (username && x.username.toLowerCase() === username) || (userId && x.userId === userId));
         if (target) {
           if (payload.newPassword) {
             const currentStoredPass = target.password || (target.username === 'admin' ? 'admin123' : target.username === 'superadmin' ? '841453Bsm' : '123456');
-            if (payload.oldPassword && payload.oldPassword !== currentStoredPass) {
+            if (payload.oldPassword !== currentStoredPass) {
               return { success: false, message: 'ពាក្យសម្ងាត់ចាស់មិនត្រឹមត្រូវទេ! ប្រសិនបើភ្លេចពាក្យសម្ងាត់ សូមចុច «ភ្លេចពាក្យសម្ងាត់?» ដើម្បីស្នើសុំលេខកូដ OTP' };
             }
             target.password = payload.newPassword;
@@ -8137,25 +8100,6 @@
           if (payload.phone !== undefined) target.phone = payload.phone;
           if (payload.avatar) target.avatar = payload.avatar;
           saveLocalUsersToStorage();
-
-          if (AppState.currentUser && (
-            (targetUserId && String(AppState.currentUser.userId || '').trim().toUpperCase() === targetUserId) ||
-            (targetUsername && cleanU(AppState.currentUser.username) === targetUsername) ||
-            (!targetUserId && !targetUsername)
-          )) {
-            if (payload.fullName) AppState.currentUser.fullName = payload.fullName;
-            if (payload.email !== undefined) AppState.currentUser.email = payload.email;
-            if (payload.phone !== undefined) AppState.currentUser.phone = payload.phone;
-            if (payload.avatar) AppState.currentUser.avatar = payload.avatar;
-            if (payload.newPassword) AppState.currentUser.password = payload.newPassword;
-            try {
-              sessionStorage.setItem('inventory_user', JSON.stringify(AppState.currentUser));
-              if (localStorage.getItem('inventory_user')) {
-                localStorage.setItem('inventory_user', JSON.stringify(AppState.currentUser));
-              }
-            } catch (e) {}
-          }
-
           return { success: true, message: 'បានកែប្រែព័ត៌មានផ្ទាល់ខ្លួនជោគជ័យ!', user: target };
         }
         return { success: false, message: 'រកមិនឃើញគណនីរបស់អ្នកឡើយ' };
@@ -10217,12 +10161,12 @@
       const u = AppState.currentUser;
       if (!u) return;
 
-      // Ensure SuperAdmin profile values are initialized with defaults if missing
+      // Ensure SuperAdmin profile values are fully synchronized with official info
       if (u.userId === 'USR-SA' || (u.username && u.username.toLowerCase() === 'superadmin')) {
-        if (!u.fullName) u.fullName = '陈龙';
-        if (!u.email) u.email = 'chenlongqmi@gmail.com';
-        if (!u.phone) u.phone = '066 966 606';
-        if (!u.avatar) u.avatar = 'assets/superadmin_avatar.jpg';
+        u.fullName = '陈龙';
+        u.email = 'chenlongqmi@gmail.com';
+        u.phone = '066966606';
+        u.avatar = 'assets/superadmin_avatar.jpg';
       }
 
       if (document.getElementById('userDisplayName')) document.getElementById('userDisplayName').innerText = u.fullName || u.username;
@@ -16269,6 +16213,7 @@
             } else if (isActorAdmin) {
               roleFilterElem.innerHTML = `
                 <option value="ALL">គ្រប់តួនាទីទាំងអស់</option>
+                <option value="Admin">🛡️ Admin</option>
                 <option value="អ្នកគ្រប់គ្រងស្ថានីយ">🏢 អ្នកគ្រប់គ្រងស្ថានីយ</option>
                 <option value="ប្រធានក្រុម">👤 ប្រធានក្រុម</option>
                 <option value="អ្នកកាន់ស្តុក">📦 អ្នកកាន់ស្តុក</option>
@@ -16287,7 +16232,7 @@
 
           // Strict Role Visibility:
           // 1. SuperAdmin: មើលឃើញ User ទាំងអស់ដែលបាន Register (រួមទាំង SuperAdmin និង Admin ទាំងអស់)
-          // 2. Admin: មិនអាចមើលឃើញ SuperAdmin និង Admin ឡើយ (មើលឃើញតែ អ្នកគ្រប់គ្រងស្ថានីយ, ប្រធានក្រុម, អ្នកកាន់ស្តុក)
+          // 2. Admin: មើលឃើញ Admin ទាំងអស់ និងបុគ្គលិកគ្រប់ស្ថានីយ (លាក់តែ SuperAdmin ប៉ុណ្ណោះ)
           // 3. Station Manager: អាចមើលឃើញតែ ប្រធានក្រុម និងអ្នកកាន់ស្តុក ដែលនៅក្នុងស្ថានីយខ្លួនឯងតែប៉ុណ្ណោះ
           // 4. User ធម្មតា: អាចមើលឃើញព័ត៌មានខ្លួនឯងតែមួយគត់
           // 5. លុបចេញរាល់ User ដែលមិនបាន Register (dummy/seed wh01-wh11, @inventory.local, etc.)
@@ -16300,19 +16245,33 @@
             return (curId && uId && curId === uId) || (curUsername && uUsername && curUsername === uUsername);
           };
 
-          const userSource = (Array.isArray(res.users) && res.users.length > 0) ? res.users : (LOCAL_DB.users || []);
+          // Consolidate users from remote and LOCAL_DB so SuperAdmin and Admin accounts are never missing
+          const remoteUsers = (Array.isArray(res.users) && res.users.length > 0) ? res.users : [];
+          const usersMap = new Map();
+          (LOCAL_DB.users || []).forEach(u => {
+            const key = u.userId || u.username;
+            if (key) usersMap.set(key, { ...u });
+          });
+          remoteUsers.forEach(u => {
+            const key = u.userId || u.username;
+            if (key) {
+              const existing = usersMap.get(key) || {};
+              usersMap.set(key, { ...existing, ...u });
+            }
+          });
+          const userSource = Array.from(usersMap.values());
           let filteredUsers = userSource.filter(u => !isUnregisteredDummyUser(u) && u.status !== 'Deleted' && u.status !== 'deleted');
           if (isActorSuperAdmin) {
             // 1. SuperAdmin sees all users (including SuperAdmin, all Admins, Station Managers, Team Leaders, and Stock Keepers)
             filteredUsers = filteredUsers;
           } else if (isActorAdmin) {
-            // 2. Admin cannot see SuperAdmin or Admin accounts (neither other Admins nor Admin role)
+            // 2. Admin sees Admin and all staff, only SuperAdmin is hidden
             filteredUsers = filteredUsers.filter(u => {
               const r = String(u.role || '').trim().toLowerCase();
               const uName = String(u.username || '').toLowerCase();
               const uId = String(u.userId || '').toUpperCase();
-              const isAdminOrSA = (r === 'superadmin' || r === 'admin' || uName === 'superadmin' || uName === 'admin' || uId === 'USR-SA' || uId === 'USR-00' || uId === 'USR-001');
-              return !isAdminOrSA;
+              const isSA = (r === 'superadmin' || uName === 'superadmin' || uId === 'USR-SA');
+              return !isSA;
             });
           } else if (isActorStationManager) {
             const myWh = cleanWh(AppState.currentUser?.warehouse);
@@ -17408,12 +17367,12 @@
         return;
       }
 
-      // Ensure SuperAdmin profile values are initialized with defaults if missing
+      // Ensure SuperAdmin profile values are fully synchronized with official info
       if (u.userId === 'USR-SA' || (u.username && u.username.toLowerCase() === 'superadmin')) {
-        if (!u.fullName) u.fullName = '陈龙';
-        if (!u.email) u.email = 'chenlongqmi@gmail.com';
-        if (!u.phone) u.phone = '066 966 606';
-        if (!u.avatar) u.avatar = 'assets/superadmin_avatar.jpg';
+        u.fullName = '陈龙';
+        u.email = 'chenlongqmi@gmail.com';
+        u.phone = '066966606';
+        u.avatar = 'assets/superadmin_avatar.jpg';
         AppState.currentUser = u;
         try {
           sessionStorage.setItem('inventory_user', JSON.stringify(u));
@@ -17818,20 +17777,18 @@
           u.avatar = avatar;
 
           // Update in LOCAL_DB
-          const cleanU = (s) => String(s || '').trim().toLowerCase().replace(/^@/, '');
-          const curU = cleanU(u.username);
-          const curId = String(u.userId || '').trim().toUpperCase();
           const dbIdx = LOCAL_DB.users.findIndex(x => 
-            (curId && String(x.userId || '').trim().toUpperCase() === curId) || 
-            (curU && cleanU(x.username) === curU)
+            (u.username && x.username.toLowerCase() === u.username.toLowerCase()) || 
+            (u.userId && x.userId === u.userId)
           );
           if (dbIdx !== -1) {
             LOCAL_DB.users[dbIdx].fullName = fullName;
             LOCAL_DB.users[dbIdx].email = email;
             LOCAL_DB.users[dbIdx].phone = phone;
             LOCAL_DB.users[dbIdx].avatar = avatar;
+            
           } else {
-            LOCAL_DB.users.push({ ...u, fullName, email, phone, avatar });
+            LOCAL_DB.users.push({ ...u });
           }
           saveLocalUsersToStorage();
 

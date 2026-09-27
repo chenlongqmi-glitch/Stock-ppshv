@@ -2327,8 +2327,8 @@ function getUsersList(userOrPayload) {
       const r = String(u.role || '').trim().toLowerCase();
       const uName = String(u.username || '').toLowerCase();
       const uId = String(u.userId || '').toUpperCase();
-      const isAdminOrSA = (r === 'superadmin' || r === 'admin' || uName === 'superadmin' || uName === 'admin' || uId === 'USR-SA' || uId === 'USR-00' || uId === 'USR-001');
-      return !isAdminOrSA;
+      const isSA = (r === 'superadmin' || uName === 'superadmin' || uId === 'USR-SA');
+      return !isSA;
     }) };
 
   } else if (isStationManager) {
@@ -3571,19 +3571,15 @@ function updateUserProfile(payload) {
 
 
 
-  const cleanU = function(s) { return String(s || '').trim().toLowerCase().replace(/^@/, ''); };
-  const targetUsername = cleanU(username);
-  const targetUserId = String(userId || '').trim().toUpperCase();
-
   for (let i = 1; i < data.length; i++) {
-    const rowUserId = String(data[i][0] || '').trim().toUpperCase();
-    const rowUsername = cleanU(data[i][1]);
-    const rowEmail = String(data[i][3] || '').trim().toLowerCase();
 
-    const isMatch = (targetUserId && rowUserId === targetUserId) ||
-                    (targetUsername && (rowUsername === targetUsername || rowEmail === targetUsername));
+    const rowUserId = String(data[i][0] || '');
 
-    if (isMatch) {
+    const rowUsername = String(data[i][1] || '').toLowerCase();
+
+
+
+    if ((userId && rowUserId === userId) || (username && rowUsername === username)) {
 
       if (fullName) sheet.getRange(i + 1, 3).setValue(fullName);
 
