@@ -16477,10 +16477,28 @@
 
         let roleSelectorHtml = '';
 
-        // 2. Status Badge
+        // 2. Status Badge & Stacked Switch Button (ប៊ូតុង Switch នៅក្រោម Active ទំហំស្មើគ្នា)
         let statusBadgeHtml = '';
         if (u.status === 'Active') {
-          statusBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-emerald-100 text-emerald-700 border border-emerald-300 inline-flex items-center"><i class="fa-solid fa-circle-check mr-1 text-emerald-600"></i>Active</span>`;
+          const canSwitchUser = (isActorSuperAdmin && !isSelf && !isUserSuperAdmin);
+          const switchBtnHtml = canSwitchUser ? `
+            <button type="button" onclick="impersonateUser('${u.userId || u.username}')"
+              class="w-[78px] h-[28px] bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 text-white rounded-xl text-[10.5px] font-bold shadow-2xs transition hover:scale-105 active:scale-95 inline-flex items-center justify-center space-x-1 cursor-pointer"
+              title="Switch User ចូលដំណើរការជា User នេះ">
+              <i class="fa-solid fa-repeat text-[10px]"></i>
+              <span>Switch</span>
+            </button>
+          ` : '';
+
+          statusBadgeHtml = `
+            <div class="flex flex-col items-center justify-center gap-1.5">
+              <span class="w-[78px] h-[28px] rounded-xl font-bold text-[10.5px] bg-emerald-100 text-emerald-700 border border-emerald-300 inline-flex items-center justify-center space-x-1 shadow-2xs">
+                <i class="fa-solid fa-circle-check text-[10px] text-emerald-600"></i>
+                <span>Active</span>
+              </span>
+              ${switchBtnHtml}
+            </div>
+          `;
         } else if (u.status === 'Pending_Deletion') {
           statusBadgeHtml = `
             <div class="flex flex-col items-center">
@@ -16639,65 +16657,72 @@
             actionsHtml = `<span class="text-xs text-indigo-600 font-semibold italic">រង់ចាំ SuperAdmin អនុម័ត</span>`;
           }
         } else if (isActorSuperAdmin) {
-          actionsHtml = `<div class="inline-flex flex-wrap items-center gap-1.5">`;
-          if (!isSelf) {
-            actionsHtml += `
-              <button onclick="impersonateUser('${u.userId || u.username}')" class="px-2.5 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 text-white rounded-xl text-xs font-bold shadow-xs transition hover:scale-105 active:scale-95 flex items-center space-x-1" title="Switch User ចូលដំណើរការជា User នេះ">
-                <i class="fa-solid fa-repeat text-[10px]"></i>
-                <span>Switch</span>
-              </button>
-            `;
-          }
-          actionsHtml += `
-            <button onclick="${isSelf ? 'openProfileModal()' : `openEditUserModal('${u.userId}')`}" class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center space-x-1 border border-slate-200 transition hover:scale-105 active:scale-95">
+          const editBtn = `
+            <button type="button" onclick="${isSelf ? 'openProfileModal()' : `openEditUserModal('${u.userId}')`}"
+              class="w-[78px] h-[28px] bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[10.5px] font-bold inline-flex items-center justify-center space-x-1 border border-slate-200 shadow-2xs transition hover:scale-105 active:scale-95 cursor-pointer"
+              title="${isSelf ? 'កែប្រែព័ត៌មានផ្ទាល់ខ្លួន' : 'កែប្រែព័ត៌មានអ្នកប្រើប្រាស់'}">
               <i class="fa-solid fa-pen-to-square text-[10px]"></i>
               <span>កែប្រែ</span>
             </button>
-`;
-          if (!isSelf) {
-            actionsHtml += `
-              <button onclick="handleDeleteUser('${u.userId || ''}', '${u.username || ''}')" class="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 rounded-xl text-xs font-bold shadow-xs transition hover:scale-105 active:scale-95 inline-flex items-center space-x-1" title="លុបគណនីនេះ">
-                <i class="fa-solid fa-trash-can text-[10px]"></i>
-                <span>លុប</span>
-              </button>
-            `;
-          }
-          if (resetBtnHtml) actionsHtml += resetBtnHtml;
-          actionsHtml += `</div>`;
+          `;
+          const deleteBtn = (!isSelf) ? `
+            <button type="button" onclick="handleDeleteUser('${u.userId || ''}', '${u.username || ''}')"
+              class="w-[78px] h-[28px] bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 rounded-xl text-[10.5px] font-bold shadow-2xs transition hover:scale-105 active:scale-95 inline-flex items-center justify-center space-x-1 cursor-pointer"
+              title="លុបគណនីនេះ">
+              <i class="fa-solid fa-trash-can text-[10px]"></i>
+              <span>លុប</span>
+            </button>
+          ` : '';
+
+          actionsHtml = `
+            <div class="flex flex-col items-center justify-center gap-1.5">
+              ${editBtn}
+              ${deleteBtn}
+            </div>
+          `;
         } else if (isActorAdmin) {
-          actionsHtml = `<div class="inline-flex flex-wrap items-center gap-1.5">`;
-          actionsHtml += `
-            <button onclick="${isSelf ? 'openProfileModal()' : `openEditUserModal('${u.userId}')`}" class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center space-x-1 border border-slate-200 transition hover:scale-105 active:scale-95">
+          const editBtn = `
+            <button type="button" onclick="${isSelf ? 'openProfileModal()' : `openEditUserModal('${u.userId}')`}"
+              class="w-[78px] h-[28px] bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[10.5px] font-bold inline-flex items-center justify-center space-x-1 border border-slate-200 shadow-2xs transition hover:scale-105 active:scale-95 cursor-pointer"
+              title="${isSelf ? 'កែប្រែព័ត៌មានផ្ទាល់ខ្លួន' : 'កែប្រែព័ត៌មានអ្នកប្រើប្រាស់'}">
               <i class="fa-solid fa-pen-to-square text-[10px]"></i>
               <span>កែប្រែ</span>
             </button>
-`;
-          if (!isSelf && !isUserSuperAdmin) {
-            actionsHtml += `
-              <button onclick="handleDeleteUser('${u.userId || ''}', '${u.username || ''}')" class="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 rounded-xl text-xs font-bold shadow-xs transition hover:scale-105 active:scale-95 inline-flex items-center space-x-1" title="លុបគណនីនេះ">
-                <i class="fa-solid fa-trash-can text-[10px]"></i>
-                <span>លុប</span>
-              </button>
-            `;
-          }
-          if (resetBtnHtml) actionsHtml += resetBtnHtml;
-          actionsHtml += `</div>`;
+          `;
+          const deleteBtn = (!isSelf && !isUserSuperAdmin) ? `
+            <button type="button" onclick="handleDeleteUser('${u.userId || ''}', '${u.username || ''}')"
+              class="w-[78px] h-[28px] bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 rounded-xl text-[10.5px] font-bold shadow-2xs transition hover:scale-105 active:scale-95 inline-flex items-center justify-center space-x-1 cursor-pointer"
+              title="លុបគណនីនេះ">
+              <i class="fa-solid fa-trash-can text-[10px]"></i>
+              <span>លុប</span>
+            </button>
+          ` : '';
+
+          actionsHtml = `
+            <div class="flex flex-col items-center justify-center gap-1.5">
+              ${editBtn}
+              ${deleteBtn}
+            </div>
+          `;
         } else if (isActorStationManager) {
-          actionsHtml = `<div class="inline-flex flex-wrap items-center gap-1.5">`;
-          actionsHtml += `
-            <button onclick="${isSelf ? 'openProfileModal()' : `openEditUserModal('${u.userId}')`}" class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center space-x-1 border border-slate-200 transition hover:scale-105 active:scale-95">
-              <i class="fa-solid fa-pen-to-square text-[10px]"></i>
-              <span>កែប្រែ</span>
-            </button>
-`;
-          if (resetBtnHtml) actionsHtml += resetBtnHtml;
-          actionsHtml += `</div>`;
+          actionsHtml = `
+            <div class="flex flex-col items-center justify-center gap-1.5">
+              <button type="button" onclick="${isSelf ? 'openProfileModal()' : `openEditUserModal('${u.userId}')`}"
+                class="w-[78px] h-[28px] bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[10.5px] font-bold inline-flex items-center justify-center space-x-1 border border-slate-200 shadow-2xs transition hover:scale-105 active:scale-95 cursor-pointer">
+                <i class="fa-solid fa-pen-to-square text-[10px]"></i>
+                <span>កែប្រែ</span>
+              </button>
+            </div>
+          `;
         } else {
           actionsHtml = `
-            <button onclick="openProfileModal()" class="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-bold transition inline-flex items-center space-x-1">
-              <i class="fa-solid fa-user-pen"></i>
-              <span>កែ Profile ខ្ញុំ</span>
-            </button>
+            <div class="flex flex-col items-center justify-center gap-1.5">
+              <button type="button" onclick="openProfileModal()"
+                class="w-[78px] h-[28px] bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-[10.5px] font-bold transition inline-flex items-center justify-center space-x-1">
+                <i class="fa-solid fa-user-pen text-[10px]"></i>
+                <span>កែ Profile</span>
+              </button>
+            </div>
           `;
         }
 
@@ -16763,7 +16788,7 @@
             </td>
             <td class="px-3 py-3 text-center whitespace-nowrap">${deviceBadgesHtml}</td>
             <td class="px-4 py-3 text-center whitespace-nowrap">${statusBadgeHtml}</td>
-            <td class="px-4 py-3 text-center space-x-1 whitespace-nowrap">${actionsHtml}</td>
+            <td class="px-4 py-3 text-center whitespace-nowrap">${actionsHtml}</td>
           </tr>
         `;
 
