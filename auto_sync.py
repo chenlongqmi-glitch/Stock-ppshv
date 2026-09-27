@@ -120,7 +120,24 @@ def run_clasp_push():
             shell=True
         )
         if res.returncode == 0:
-            print("  [✓] បាន Sync ទៅកាន់ Google Apps Script ជោគជ័យ! (Cloud Updated)")
+            print("  [✓] បាន Sync ទៅកាន់ Google Apps Script ជោគជ័យ!")
+            # Auto deploy to Web App
+            deploy_id = "AKfycbxqw7NPsE8pWqeYPAwTqxFakzFD5lTzGR1N5mlL-n2oZMp4FeDpGENFnEAjf6gSddk"
+            print("  [*] កំពុង Deploy ទៅកាន់ Web App (clasp deploy)...")
+            res_dep = subprocess.run(
+                [clasp_cmd, "deploy", "-i", deploy_id, "-d", "Auto-deployed update"],
+                cwd=PROJECT_DIR,
+                capture_output=True,
+                text=True,
+                encoding='utf-8',
+                errors='replace',
+                shell=True
+            )
+            if res_dep.returncode == 0:
+                print("  [✓] បាន Deploy ទៅកាន់ Web App ជោគជ័យ ១០០% (Live Web App Updated)!")
+            else:
+                dep_err = res_dep.stderr.strip() or res_dep.stdout.strip()
+                print(f"  [!] Clasp Deploy Warning: {dep_err}")
             return True
         else:
             err_msg = res.stderr.strip() or res.stdout.strip()
