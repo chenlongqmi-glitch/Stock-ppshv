@@ -2355,15 +2355,28 @@ function getUsersList(userOrPayload) {
 
 
 
+  const cleanUname = (s) => String(s || '').replace(/[​-‍﻿]/g, '').replace(/^@+/, '').trim().toLowerCase();
+  const actorUname = actor ? cleanUname(actor.username) : '';
+  const actorId = actor ? String(actor.userId || actor.id || '').trim().toLowerCase() : '';
+  const actorEmail = actor ? String(actor.email || '').trim().toLowerCase() : '';
+  const isSelf = (u) => {
+    if (!actor) return false;
+    const uId = String(u.userId || u.id || '').trim().toLowerCase();
+    if (actorId && uId && actorId === uId) return true;
+    const uUname = cleanUname(u.username);
+    if (actorUname && uUname && actorUname === uUname) return true;
+    const uEmail = String(u.email || '').trim().toLowerCase();
+    if (actorEmail && uEmail && actorEmail === uEmail && !actorEmail.endsWith('@inventory.local')) return true;
+    return false;
+  };
+
   if (isSuperAdmin) {
-    const isSelf = (u) => (actor && actor.userId && u.userId === actor.userId) || (actor && actor.username && String(u.username).toLowerCase() === String(actor.username).toLowerCase());
     return { success: true, users: users.filter(u => !isSelf(u)) };
   } else if (isAdmin) {
     return { success: true, users: users.filter(u => {
-      const isSelf = (actor && actor.userId && u.userId === actor.userId) || (actor && actor.username && String(u.username).toLowerCase() === String(actor.username).toLowerCase());
-      if (isSelf) return false; // Hide own account from users list
+      if (isSelf(u)) return false; // Hide own account from users list
       const r = String(u.role || '').trim().toLowerCase();
-      const uName = String(u.username || '').toLowerCase();
+      const uName = cleanUname(u.username);
       const uId = String(u.userId || '').toUpperCase();
       const isSA = (r === 'superadmin' || uName === 'superadmin' || uId === 'USR-SA');
       if (isSA) return false;
@@ -2374,11 +2387,12 @@ function getUsersList(userOrPayload) {
 
   } else if (isStationManager) {
 
-    const myWh = String(actor.warehouse || '').trim().toLowerCase();
+    const myWh = String(actor.warehouse || '').replace(/^[📍🏢\s]+/, '').trim().toLowerCase();
 
     const filtered = users.filter(u => {
+      if (isSelf(u)) return false; // Hide own account from users list
 
-      const uWh = String(u.warehouse || '').trim().toLowerCase();
+      const uWh = String(u.warehouse || '').replace(/^[📍🏢\s]+/, '').trim().toLowerCase();
 
       const isSameWh = myWh && uWh && (uWh === myWh || uWh.includes(myWh) || myWh.includes(uWh));
 
@@ -2388,9 +2402,7 @@ function getUsersList(userOrPayload) {
 
       const isStockKeeper = r.includes('អ្នកកាន់ស្តុក') || r.includes('stock keeper') || r.includes('stockkeeper') || r.includes('staff') || r === '' || !u.role;
 
-      const isSelf = (actor.userId && u.userId === actor.userId) || (actor.username && String(u.username).toLowerCase() === String(actor.username).toLowerCase());
-
-      return isSelf || (isSameWh && (isTeamLeader || isStockKeeper));
+      return isSameWh && (isTeamLeader || isStockKeeper);
 
     });
 
@@ -2398,15 +2410,7 @@ function getUsersList(userOrPayload) {
 
   } else if (actor && (actor.userId || actor.username)) {
 
-    const selfList = users.filter(u =>
-
-      (actor.userId && u.userId === actor.userId) ||
-
-      (actor.username && String(u.username).toLowerCase() === String(actor.username).toLowerCase())
-
-    );
-
-    return { success: true, users: selfList };
+    return { success: true, users: [] };
 
   }
 

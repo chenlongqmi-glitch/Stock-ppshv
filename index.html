@@ -5530,6 +5530,37 @@
       return false;
     }
 
+    // Universally check if target user object matches current logged-in session user
+    function isSelfUser(u, actor = AppState.currentUser) {
+      if (!u || !actor) return false;
+      
+      const curId = String(actor.userId || actor.id || '').trim().toLowerCase();
+      const uId = String(u.userId || u.id || '').trim().toLowerCase();
+      if (curId && uId && curId === uId) return true;
+
+      const cleanUname = (s) => String(s || '').replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/^@+/, '').trim().toLowerCase();
+      const curUsername = cleanUname(actor.username);
+      const uUsername = cleanUname(u.username);
+      if (curUsername && uUsername && curUsername === uUsername) return true;
+
+      const curEmail = String(actor.email || '').trim().toLowerCase();
+      const uEmail = String(u.email || '').trim().toLowerCase();
+      if (curEmail && uEmail && curEmail === uEmail && !curEmail.endsWith('@inventory.local')) return true;
+
+      const curName = String(actor.fullName || actor.name || '').trim().toLowerCase();
+      const uName = String(u.fullName || u.name || '').trim().toLowerCase();
+      if (curName && uName && curName === uName && curName.length > 2) {
+        return true;
+      }
+
+      const cleanPhone = (p) => String(p || '').replace(/\D/g, '');
+      const curPhone = cleanPhone(actor.phone);
+      const uPhone = cleanPhone(u.phone);
+      if (curPhone && uPhone && curPhone.length >= 7 && curPhone === uPhone) return true;
+
+      return false;
+    }
+
     // --- LOCAL DATABASE (Keeps ONLY Google Sheet accounts, no fake local accounts) ---
     const LOCAL_DB = {
       users: [
@@ -8069,9 +8100,7 @@
           return clone;
         });
 
-        const curUname = String(actor?.username || '').toLowerCase();
-        const curId = String(actor?.userId || '').toUpperCase();
-        const isSelf = (u) => (curId && u.userId && String(u.userId).toUpperCase() === curId) || (curUname && u.username && String(u.username).toLowerCase() === curUname);
+        const isSelf = (u) => isSelfUser(u, actor);
 
         if (isSuperAdmin) {
           // 1. SuperAdmin sees all users except self (មិនចាំបាច់បង្ហាញ account របស់ខ្លួនឯងក្នុងតារាងទេ)
@@ -8081,7 +8110,8 @@
           const filtered = registeredUsers.filter(u => {
             if (isSelf(u)) return false;
             const r = String(u.role || '').trim().toLowerCase();
-            const uName = String(u.username || '').toLowerCase();
+            const cleanU = (s) => String(s || '').replace(/^[\u200B-\u200D\uFEFF]/g, '').replace(/^@+/, '').trim().toLowerCase();
+            const uName = cleanU(u.username);
             const uId = String(u.userId || '').toUpperCase();
             const isSA = (r === 'superadmin' || uName === 'superadmin' || uId === 'USR-SA');
             if (isSA) return false;
@@ -8090,27 +8120,22 @@
             return true;
           });
           return { success: true, users: attachPassword(filtered) };
-        } else if (actor && (actor.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || actor.role === 'អ្នកគ្រប់គ្រង' || String(actor.role).toLowerCase() === 'station manager')) {
-          // 3. Station Manager: អាចមើលឃើញ ប្រធានក្រុម និងអ្នកកាន់ស្តុក ក្នុងស្ថានីយខ្លួនឯង
+        } else if (actor && (String(actor.role || '').includes('អ្នកគ្រប់គ្រង') || String(actor.role).toLowerCase().includes('station manager'))) {
+          // 3. Station Manager: អាចមើលឃើញតែ ប្រធានក្រុម និងអ្នកកាន់ស្តុក ក្នុងស្ថានីយខ្លួនឯង (មិនបង្ហាញ account ខ្លួនឯងឡើយ)
           const cleanWh = (str) => String(str || '').replace(/^[📍🏢\s]+/, '').trim().toLowerCase();
           const myWh = cleanWh(actor.warehouse);
           const filtered = registeredUsers.filter(u => {
+            if (isSelf(u)) return false;
             const uWh = cleanWh(u.warehouse);
             const isSameWh = myWh && uWh && (uWh === myWh || uWh.includes(myWh) || myWh.includes(uWh));
             const r = String(u.role || '').trim().toLowerCase();
             const isTeamLeader = r.includes('ប្រធានក្រុម') || r.includes('ប្រធាន') || r.includes('team leader') || r.includes('teamleader');
             const isStockKeeper = r.includes('អ្នកកាន់ស្តុក') || r.includes('stock keeper') || r.includes('stockkeeper') || r.includes('staff') || r === '' || !u.role;
-            const isSelf = (actor.userId && u.userId === actor.userId) || (actor.username && String(u.username).toLowerCase() === String(actor.username).toLowerCase());
-            return isSelf || (isSameWh && (isTeamLeader || isStockKeeper));
+            return isSameWh && (isTeamLeader || isStockKeeper);
           });
           return { success: true, users: attachPassword(filtered) };
         } else {
-          // 4. User ធម្មតា អាចមើលឃើញព័ត៌មានខ្លួនឯងតែមួយគត់
-          const selfList = registeredUsers.filter(u =>
-            (actor?.userId && u.userId === actor.userId) ||
-            (actor?.username && String(u.username).toLowerCase() === String(actor.username).toLowerCase())
-          );
-          return { success: true, users: attachPassword(selfList.length > 0 ? selfList : (actor ? [actor] : [])) };
+          return { success: true, users: [] };
         }
       }
 
@@ -16177,7 +16202,11 @@
           const tbody = document.getElementById('usersTableBody');
           const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
           const isActorAdmin = !isActorSuperAdmin && (AppState.currentUser?.role === 'Admin' || String(AppState.currentUser?.username).toLowerCase() === 'admin');
-          const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (AppState.currentUser?.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || AppState.currentUser?.role === 'អ្នកគ្រប់គ្រង');
+          const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (
+            String(AppState.currentUser?.role || '').includes('អ្នកគ្រប់គ្រង') ||
+            String(AppState.currentUser?.role || '').toLowerCase().includes('station manager') ||
+            String(AppState.currentUser?.role || '').toLowerCase().includes('stationmanager')
+          );
           const isPrivilegedViewer = isActorSuperAdmin || isActorAdmin;
 
           // Update Pending Users Badge on Sidebar (counts all pending in Step 1, Step 2, or Deletion)
@@ -16268,16 +16297,19 @@
 
           // User source strictly from Google Sheet response (no local dummy accounts!)
           const userSource = (Array.isArray(res.users) && res.users.length > 0) ? res.users : (LOCAL_DB.users || []);
-          let filteredUsers = userSource.filter(u => !isUnregisteredDummyUser(u) && u.status !== 'Deleted' && u.status !== 'deleted');
+          
+          // CRITICAL: Universally exclude the currently logged in user's account from the Users & Roles table
+          let filteredUsers = userSource.filter(u => !isUnregisteredDummyUser(u) && u.status !== 'Deleted' && u.status !== 'deleted' && !isSelfUser(u));
+
           if (isActorSuperAdmin) {
-            // 1. SuperAdmin sees all users except self (មិនចាំបាច់បង្ហាញ account របស់ខ្លួនឯងក្នុងតារាងទេ)
-            filteredUsers = filteredUsers.filter(u => !isSelfUser(u));
+            // 1. SuperAdmin sees all users except self
+            filteredUsers = filteredUsers;
           } else if (isActorAdmin) {
-            // 2. Admin cannot see SuperAdmin, other Admins, or self (មិនចាំបាច់បង្ហាញ account របស់ខ្លួនឯងក្នុងតារាងទេ)
+            // 2. Admin cannot see SuperAdmin, other Admins, or self
             filteredUsers = filteredUsers.filter(u => {
-              if (isSelfUser(u)) return false;
               const r = String(u.role || '').trim().toLowerCase();
-              const uName = String(u.username || '').toLowerCase();
+              const cleanU = (s) => String(s || '').replace(/^[\u200B-\u200D\uFEFF]/g, '').replace(/^@+/, '').trim().toLowerCase();
+              const uName = cleanU(u.username);
               const uId = String(u.userId || '').toUpperCase();
               const isSA = (r === 'superadmin' || uName === 'superadmin' || uId === 'USR-SA');
               if (isSA) return false;
@@ -16297,10 +16329,10 @@
               const isTeamLeader = r.includes('ប្រធានក្រុម') || r.includes('ប្រធាន') || r.includes('team leader') || r.includes('teamleader');
               const isStockKeeper = r.includes('អ្នកកាន់ស្តុក') || r.includes('stock keeper') || r.includes('stockkeeper') || r.includes('staff') || r === '' || !u.role;
               const isForbidden = r.includes('superadmin') || r.includes('admin') || r.includes('អ្នកគ្រប់គ្រងស្ថានីយ') || r.includes('អ្នកគ្រប់គ្រង') || r.includes('station manager');
-              return (isTeamLeader || isStockKeeper) && !isForbidden && !isSelfUser(u);
+              return (isTeamLeader || isStockKeeper) && !isForbidden;
             });
           } else {
-            filteredUsers = filteredUsers.filter(u => isSelfUser(u));
+            filteredUsers = [];
           }
 
           const userSearchInp = document.getElementById('userSearchInput');
@@ -16322,7 +16354,7 @@
         search = '';
       }
       const roleFilter = document.getElementById('userRoleFilter')?.value || 'ALL';
-      const all = window._allRenderableUsers || [];
+      const all = (window._allRenderableUsers || []).filter(u => !isSelfUser(u));
 
       const filtered = all.filter(u => {
         if (search) {
@@ -16360,16 +16392,16 @@
       const actor = AppState.currentUser;
       const isActorSuperAdmin = (actor?.role === 'SuperAdmin') || (String(actor?.username).toLowerCase() === 'superadmin');
       const isActorAdmin = !isActorSuperAdmin && (actor?.role === 'Admin' || String(actor?.username).toLowerCase() === 'admin');
-      const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (actor?.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || actor?.role === 'អ្នកគ្រប់គ្រង');
+      const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (
+        String(actor?.role || '').includes('អ្នកគ្រប់គ្រង') ||
+        String(actor?.role || '').toLowerCase().includes('station manager') ||
+        String(actor?.role || '').toLowerCase().includes('stationmanager')
+      );
       const isPrivilegedViewer = isActorSuperAdmin || isActorAdmin;
 
       // មិនចាំបាច់បង្ហាញ account របស់ខ្លួនឯងក្នុងតារាងគ្រប់គ្រងខាងក្រោមឡើយ (Always hide own account from table)
       if (Array.isArray(usersList)) {
-        usersList = usersList.filter(u => {
-          const isSelf = (actor?.userId && u.userId && actor.userId === u.userId) || 
-                         (actor?.username && u.username && String(actor.username).toLowerCase() === String(u.username).toLowerCase());
-          return !isSelf;
-        });
+        usersList = usersList.filter(u => !isSelfUser(u, actor));
       }
 
       // Double-enforce Admin visibility boundaries (Admin មិនអាចឃើញ SuperAdmin ហើយ Admin និង Admin មិនអាចឃើញគ្នាទេ)
