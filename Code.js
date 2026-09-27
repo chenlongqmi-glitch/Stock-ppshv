@@ -2073,7 +2073,8 @@ function registerUser(userData) {
     role = 'ប្រធានក្រុម';
   }
 
-  const status = userData.status || 'Pending_Admin'; // Step 1: Pending Admin in-app LiveChat approval
+  const isDirectAdminCreate = Boolean(userData.status === 'Active' || userData.isDirectCreate === true || userData.adminUser);
+  const status = isDirectAdminCreate ? 'Active' : (userData.status || 'Pending_Admin');
 
   const warehouse = userData.warehouse || 'ឃ្លាំងទី ០១ - ភ្នំពេញ (សែនសុខ)';
 
@@ -2112,7 +2113,43 @@ function registerUser(userData) {
     userData.password || '' // Col 17: Password (plain text)
   ]);
 
+  if (isDirectAdminCreate) {
+    const createdBy = userData.adminUser || 'Admin';
+    logActivity(createdBy, 'Admin', 'CREATE_USER', `Admin created new user: @${userData.username} (${role}) for ${warehouse}, status: Active`);
 
+    // Alert SuperAdmin via Telegram (Direct Active creation, no approval needed!)
+    try {
+      const regAlert = `✨ <b>[គណនីថ្មីត្រូវបានបង្កើតដោយ Admin]</b>\n` +
+        `👤 <b>ឈ្មោះពេញ:</b> ${userData.fullName || userData.username}\n` +
+        `🆔 <b>Username:</b> <code>${userData.username}</code>\n` +
+        `🔑 <b>ពាក្យសម្ងាត់:</b> <code>${userData.password || '-'}</code>\n` +
+        `📱 <b>លេខទូរស័ព្ទ:</b> ${phone || '-'}\n` +
+        `📧 <b>អ៊ីមែល:</b> ${userData.email || '-'}\n` +
+        `💼 <b>តួនាទី:</b> ${role}\n` +
+        `🏢 <b>ស្ថានីយ/ឃ្លាំង:</b> ${warehouse}\n` +
+        `👮 <b>បង្កើតដោយ Admin:</b> ${createdBy}\n` +
+        `🕒 <b>កាលបរិច្ឆេទ:</b> ${Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd HH:mm:ss')}\n` +
+        `🚦 <b>ស្ថានភាព:</b> ✅ <b>Active (អាចប្រើប្រាស់បានភ្លាមៗ មិនបាច់ Approve ទេ)</b>`;
+
+      sendTelegramAlert(regAlert);
+    } catch (tgErr) {
+      if (typeof Logger !== 'undefined') Logger.log('Telegram direct create alert error: ' + tgErr.toString());
+    }
+
+    return {
+      success: true,
+      message: 'បានបង្កើតគណនីថ្មីជោគជ័យ និងអាចប្រើប្រាស់បានភ្លាមៗ!',
+      userId: userId,
+      user: {
+        userId: userId,
+        username: userData.username,
+        fullName: userData.fullName || userData.username,
+        role: role,
+        warehouse: warehouse,
+        status: 'Active'
+      }
+    };
+  }
 
   logActivity(userData.username, role, 'REGISTER_REQUEST', `New user registration request with warehouse: ${warehouse}, status: ${status}`);
 
@@ -2774,8 +2811,34 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
 
 
 
-      // Forward to SuperAdmin Telegram ONLY when Admin approves Step 1 (st === 'Pending_SuperAdmin')
+      // Send alert to SuperAdmin when Admin approves user to Active
+      const existingStatus = String(data[i][7] || '');
+      if (st === 'Active' && (existingStatus === 'Pending' || existingStatus === 'Pending_Admin' || existingStatus === 'Pending_SuperAdmin')) {
+        try {
+          const targetUName = String(data[i][1]);
+          const targetFName = fullName || String(data[i][2]) || targetUName;
+          const targetRole = r || String(data[i][6]) || 'Stock Keeper';
+          const targetWh = wh || String(data[i][9]) || '-';
+          const targetPhone = phone || String(data[i][11] || '-');
+          const targetEmail = email || String(data[i][3] || '-');
+          const approvedBy = admin || 'Admin';
 
+          const alertMsg = `🎉 <b>[ដំណឹង Admin អនុម័តគណនីថ្មី]</b>\n` +
+            `👤 <b>ឈ្មោះពេញ:</b> ${targetFName}\n` +
+            `🆔 <b>Username:</b> <code>@${targetUName}</code>\n` +
+            `📱 <b>លេខទូរស័ព្ទ:</b> ${targetPhone}\n` +
+            `📧 <b>អ៊ីមែល:</b> ${targetEmail}\n` +
+            `💼 <b>តួនាទី:</b> ${targetRole}\n` +
+            `🏢 <b>ស្ថានីយ/ឃ្លាំង:</b> ${targetWh}\n` +
+            `👮 <b>អនុម័តដោយ Admin:</b> ${approvedBy}\n` +
+            `🕒 <b>កាលបរិច្ឆេទ:</b> ${Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd HH:mm:ss')}\n` +
+            `🚦 <b>ស្ថានភាព:</b> ✅ <b>Active (អាចចូលប្រើប្រាស់បានហើយ)</b>`;
+
+          sendTelegramAlert(alertMsg);
+        } catch (e) {}
+      }
+
+      // Forward to SuperAdmin Telegram if st === 'Pending_SuperAdmin' (legacy backward compatibility)
       if (st === 'Pending_SuperAdmin') {
 
         try {
