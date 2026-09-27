@@ -2962,9 +2962,11 @@
             <div class="mt-3.5 pt-3.5 border-t border-slate-100 flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
               <div class="relative flex-1">
                 <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
-                <input type="search" id="userSearchInput" name="user_search_prevent_autofill"
-                  autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other"
-                  oninput="filterUsersList()" onfocus="if (this.value.toLowerCase().includes('superadmin') || this.value.toLowerCase().includes('admin')) this.value = '';"
+                <input type="text" id="userSearchInput" name="search_users_query_box"
+                  autocomplete="off" readonly onfocus="this.removeAttribute('readonly'); if (this.value.includes('@') || this.value.toLowerCase().includes('admin')) { this.value = ''; filterUsersList(); }"
+                  onblur="this.setAttribute('readonly', 'readonly');"
+                  autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other"
+                  oninput="filterUsersList()"
                   placeholder="ស្វែងរកឈ្មោះ, Username, ឬលេខទូរស័ព្ទ..."
                   class="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none">
               </div>
@@ -11077,10 +11079,17 @@
       ];
       searchIds.forEach(id => {
         const el = document.getElementById(id);
-        if (el) {
+        if (el && document.activeElement !== el) {
           const val = String(el.value || '').trim().toLowerCase();
-          if (val === 'superadmin' || val === 'super admin' || val === 'admin') {
+          const curEmail = String(AppState?.currentUser?.email || '').trim().toLowerCase();
+          const curUname = String(AppState?.currentUser?.username || '').replace(/^@+/, '').trim().toLowerCase();
+          const isEmailAutofill = val.includes('@') || (curEmail && val === curEmail);
+          const isUserAutofill = (curUname && val === curUname) || val === 'superadmin' || val === 'super admin' || val === 'admin';
+          if (isEmailAutofill || isUserAutofill) {
             el.value = '';
+            if (id === 'userSearchInput' && typeof filterUsersList === 'function') {
+              filterUsersList();
+            }
           }
         }
       });
@@ -11100,9 +11109,14 @@
     });
 
     function navigateTab(tabName) {
+      if (tabName === 'users') {
+        const uInp = document.getElementById('userSearchInput');
+        if (uInp) uInp.value = '';
+      }
       purgeAutofillFromSearchInputs();
       setTimeout(purgeAutofillFromSearchInputs, 50);
       setTimeout(purgeAutofillFromSearchInputs, 250);
+      setTimeout(purgeAutofillFromSearchInputs, 600);
 
       // Remove temporary pre-render style once JavaScript navigation takes control
       const preStyle = document.getElementById('preRenderTabStyle');
@@ -16343,6 +16357,8 @@
           if (userSearchInp) {
             userSearchInp.value = '';
           }
+          purgeAutofillFromSearchInputs();
+          [50, 150, 300, 700].forEach(d => setTimeout(purgeAutofillFromSearchInputs, d));
 
           window._allRenderableUsers = filteredUsers;
           renderUsersList(filteredUsers);
@@ -16353,7 +16369,16 @@
     function filterUsersList() {
       const searchEl = document.getElementById('userSearchInput');
       let search = (searchEl?.value || '').toLowerCase().trim();
-      if ((search === 'superadmin' || search === 'super admin' || search === 'admin') && document.activeElement !== searchEl) {
+      const curEmail = String(AppState?.currentUser?.email || '').trim().toLowerCase();
+      const curUname = String(AppState?.currentUser?.username || '').replace(/^@+/, '').trim().toLowerCase();
+
+      // Completely block any autofilled email or username when user is not actively typing
+      if (document.activeElement !== searchEl && (
+        search.includes('@') ||
+        (curEmail && search === curEmail) ||
+        (curUname && search === curUname) ||
+        search === 'superadmin' || search === 'super admin' || search === 'admin'
+      )) {
         if (searchEl) searchEl.value = '';
         search = '';
       }
