@@ -1242,6 +1242,9 @@ function ensureUsersInitialized(ss) {
         if (curValQ !== plainPwd) {
           sheet.getRange(i + 1, 17).setValue(plainPwd);
         }
+        if (uName === 'sreylala' && (!data[i][3] || String(data[i][3]).trim() === '')) {
+          sheet.getRange(i + 1, 4).setValue('sreyLaLa@gmail.com');
+        }
       }
     } catch (syncErr) {}
   }
@@ -2820,8 +2823,8 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
 
         return { success: true, message: `បានលុបអ្នកប្រើប្រាស់ ${deletedUName} ចេញពីប្រព័ន្ធជោគជ័យ` };
       }
-      if (fullName) sheet.getRange(i + 1, 3).setValue(fullName);
-      if (email !== undefined) sheet.getRange(i + 1, 4).setValue(email);
+      if (fullName && String(fullName).trim() !== '') sheet.getRange(i + 1, 3).setValue(String(fullName).trim());
+      if (email && String(email).trim() !== '') sheet.getRange(i + 1, 4).setValue(String(email).trim());
       if (st) sheet.getRange(i + 1, 8).setValue(st);
       if (r) sheet.getRange(i + 1, 7).setValue(r);
       if (wh) sheet.getRange(i + 1, 10).setValue(wh);
@@ -2830,7 +2833,7 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
           if (av.length <= 49000) sheet.getRange(i + 1, 11).setValue(av);
         } catch (e) {}
       }
-      if (phone !== undefined) sheet.getRange(i + 1, 12).setValue(phone);
+      if (phone && String(phone).trim() !== '') sheet.getRange(i + 1, 12).setValue(String(phone).trim());
       if (st === 'Pending_Deletion') {
         if (deleteReason) sheet.getRange(i + 1, 13).setValue(deleteReason);
         if (deleteRequestedBy) sheet.getRange(i + 1, 14).setValue(String(deleteRequestedBy));
@@ -3695,9 +3698,9 @@ function updateUserProfile(payload) {
         sheet.getRange(i + 1, 2).setValue(newUsername);
       }
 
-      if (fullName) sheet.getRange(i + 1, 3).setValue(fullName);
+      if (fullName && String(fullName).trim() !== '') sheet.getRange(i + 1, 3).setValue(String(fullName).trim());
 
-      if (email !== undefined) sheet.getRange(i + 1, 4).setValue(email);
+      if (email && String(email).trim() !== '') sheet.getRange(i + 1, 4).setValue(String(email).trim());
 
       if (avatar) {
 
@@ -3709,7 +3712,7 @@ function updateUserProfile(payload) {
 
       }
 
-      if (phone !== undefined) sheet.getRange(i + 1, 12).setValue(phone);
+      if (phone && String(phone).trim() !== '') sheet.getRange(i + 1, 12).setValue(String(phone).trim());
 
 
 

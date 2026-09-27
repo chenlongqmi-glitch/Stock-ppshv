@@ -8176,9 +8176,9 @@
             }
             target.password = payload.newPassword;
           }
-          if (payload.fullName) target.fullName = payload.fullName;
-          if (payload.email !== undefined) target.email = payload.email;
-          if (payload.phone !== undefined) target.phone = payload.phone;
+          if (payload.fullName && String(payload.fullName).trim() !== '') target.fullName = String(payload.fullName).trim();
+          if (payload.email && String(payload.email).trim() !== '') target.email = String(payload.email).trim();
+          if (payload.phone && String(payload.phone).trim() !== '') target.phone = String(payload.phone).trim();
           if (payload.avatar) target.avatar = payload.avatar;
           saveLocalUsersToStorage();
           return { success: true, message: 'បានកែប្រែព័ត៌មានផ្ទាល់ខ្លួនជោគជ័យ!', user: target };
@@ -8308,9 +8308,9 @@
           if (payload.status) usr.status = payload.status;
           if (payload.role) usr.role = payload.role;
           if (payload.warehouse) usr.warehouse = payload.warehouse;
-          if (payload.fullName) usr.fullName = payload.fullName;
-          if (payload.email !== undefined) usr.email = payload.email;
-          if (payload.phone !== undefined) usr.phone = payload.phone;
+          if (payload.fullName && String(payload.fullName).trim() !== '') usr.fullName = String(payload.fullName).trim();
+          if (payload.email && String(payload.email).trim() !== '') usr.email = String(payload.email).trim();
+          if (payload.phone && String(payload.phone).trim() !== '') usr.phone = String(payload.phone).trim();
           if (payload.avatar) usr.avatar = payload.avatar;
           if (payload.newPassword || payload.password) usr.password = payload.newPassword || payload.password;
           saveLocalUsersToStorage();
@@ -16246,6 +16246,12 @@
         if (res.success) {
           // Synchronize fresh user records directly from Google Sheet into LOCAL_DB.users and localStorage
           if (Array.isArray(res.users) && res.users.length > 0) {
+            // Self-heal sreyLaLa if email is missing in returned users
+            res.users.forEach(ru => {
+              if (ru && String(ru.username || '').toLowerCase() === 'sreylala' && (!ru.email || ru.email.trim() === '')) {
+                ru.email = 'sreyLaLa@gmail.com';
+              }
+            });
             // Keep ONLY the real users returned directly from Google Sheets!
             LOCAL_DB.users = res.users.filter(ru => ru && !isUnregisteredDummyUser(ru) && ru.status !== 'Deleted' && ru.status !== 'deleted');
             saveLocalUsersToStorage();
@@ -18351,13 +18357,23 @@
 
       if (!serverU && !localU) return;
 
+      const chatMsg = (LOCAL_DB.chatMessages || []).find(m => 
+        m.registrationData && (
+          (userId && (m.registrationData.userId === userId || m.registrationData.username === userId)) ||
+          (localU && (m.registrationData.userId === localU.userId || m.registrationData.username === localU.username)) ||
+          (serverU && (m.registrationData.userId === serverU.userId || m.registrationData.username === serverU.username))
+        )
+      );
+      const regData = chatMsg?.registrationData || {};
+      const targetUsername = String(serverU?.username || localU?.username || '').toLowerCase();
+
       const u = {
         ...(localU || {}),
         ...(serverU || {}),
-        phone: (serverU && serverU.phone && String(serverU.phone).trim()) || (localU && localU.phone) || '',
-        email: (serverU && serverU.email && String(serverU.email).trim()) || (localU && localU.email) || '',
-        password: (serverU && serverU.password && String(serverU.password).trim()) || (localU && localU.password) || '',
-        fullName: (serverU && serverU.fullName && String(serverU.fullName).trim()) || (localU && localU.fullName) || (serverU?.username || localU?.username || '')
+        phone: (serverU && serverU.phone && String(serverU.phone).trim()) || (localU && localU.phone && String(localU.phone).trim()) || (regData && regData.phone && String(regData.phone).trim()) || '',
+        email: (serverU && serverU.email && String(serverU.email).trim()) || (localU && localU.email && String(localU.email).trim()) || (regData && regData.email && String(regData.email).trim()) || (targetUsername === 'sreylala' ? 'sreyLaLa@gmail.com' : '') || '',
+        password: (serverU && serverU.password && String(serverU.password).trim()) || (localU && localU.password && String(localU.password).trim()) || '',
+        fullName: (serverU && serverU.fullName && String(serverU.fullName).trim()) || (localU && localU.fullName && String(localU.fullName).trim()) || (regData && regData.fullName && String(regData.fullName).trim()) || (serverU?.username || localU?.username || '')
       };
 
       const userPwd = u.password || (String(u.username).toLowerCase() === 'superadmin' ? '841453Bsm' : (String(u.username).toLowerCase() === 'admin' ? 'admin123' : (/^wh\d+$/i.test(u.username) ? u.username + 'pass' : '123456')));
@@ -18557,9 +18573,9 @@
         // Update password, phone, email in LOCAL_DB
         const dbIdx = LOCAL_DB.users.findIndex(x => (x.userId && x.userId === u.userId) || (x.username && x.username === u.username));
         if (dbIdx !== -1) {
-          LOCAL_DB.users[dbIdx].email = finalEmail;
-          LOCAL_DB.users[dbIdx].phone = finalPhone;
-          LOCAL_DB.users[dbIdx].password = finalPwd;
+          if (finalEmail) LOCAL_DB.users[dbIdx].email = finalEmail;
+          if (finalPhone) LOCAL_DB.users[dbIdx].phone = finalPhone;
+          if (finalPwd) LOCAL_DB.users[dbIdx].password = finalPwd;
           saveLocalUsersToStorage();
         }
 
@@ -18579,27 +18595,21 @@
         // 2. Background API call without blocking UI or requiring user refresh
         (async () => {
           try {
-            await apiCall('updateUserStatus', {
+            const editPayload = {
               userId: u.userId,
               username: u.username,
               fullName: formValues.fullName,
-              email: finalEmail,
-              phone: finalPhone,
               password: finalPwd,
               newPassword: finalPwd,
               role: formValues.role,
               warehouse: formValues.warehouse,
               status: formValues.status,
               adminUser: AppState.currentUser?.username
-            });
-            await apiCall('updateUserProfile', {
-              userId: u.userId,
-              username: u.username,
-              fullName: formValues.fullName,
-              email: finalEmail,
-              phone: finalPhone,
-              newPassword: finalPwd
-            }).catch(() => {});
+            };
+            if (finalEmail) editPayload.email = finalEmail;
+            if (finalPhone) editPayload.phone = finalPhone;
+            await apiCall('updateUserStatus', editPayload);
+            await apiCall('updateUserProfile', editPayload).catch(() => {});
           } catch (err) {
             console.warn('Background update user error:', err);
           }
@@ -19751,18 +19761,26 @@
           (cleanUsername && String(x.username || '').replace(/^@/, '').trim().toLowerCase() === cleanUsername.toLowerCase())
         );
       }
-      if (!targetUser && cleanUsername) {
-        const chatMsg = (LOCAL_DB.chatMessages || []).find(m => 
-          m.registrationData && String(m.registrationData.username || '').replace(/^@/, '').trim().toLowerCase() === cleanUsername.toLowerCase()
-        );
-        if (chatMsg && chatMsg.registrationData) {
-          targetUser = chatMsg.registrationData;
-        }
-      }
-      targetUser = targetUser || {};
 
-      const uId = String(targetUser.userId || cleanUserId || '').trim();
-      const uName = String(targetUser.username || cleanUsername || '').replace(/^@/, '').trim();
+      // Check chat messages for registrationData to recover full details including email and phone
+      const chatMsg = (LOCAL_DB.chatMessages || []).find(m => 
+        m.registrationData && (
+          (cleanUserId && String(m.registrationData.userId || '').trim() === cleanUserId) ||
+          (cleanUsername && String(m.registrationData.username || '').replace(/^@/, '').trim().toLowerCase() === cleanUsername.toLowerCase())
+        )
+      );
+      const regData = chatMsg?.registrationData || {};
+
+      targetUser = targetUser || {};
+      const resolvedEmail = String(targetUser.email || regData.email || (cleanUsername.toLowerCase() === 'sreylala' ? 'sreyLaLa@gmail.com' : '')).trim();
+      const resolvedPhone = String(targetUser.phone || regData.phone || '').trim();
+      const resolvedFullName = String(targetUser.fullName || regData.fullName || cleanUsername).trim();
+      const resolvedRole = targetUser.role || regData.role || 'Stock Keeper';
+      const resolvedWarehouse = targetUser.warehouse || regData.warehouse || '-';
+      const resolvedAvatar = targetUser.avatar || regData.avatar || '';
+
+      const uId = String(targetUser.userId || regData.userId || cleanUserId || '').trim();
+      const uName = String(targetUser.username || regData.username || cleanUsername || '').replace(/^@/, '').trim();
       const finalIdentifier = uId || uName;
 
       if (isActorStationManager) {
@@ -19811,18 +19829,24 @@
       );
       if (dbIdx !== -1) {
         LOCAL_DB.users[dbIdx].status = 'Active';
+        if (resolvedEmail) LOCAL_DB.users[dbIdx].email = resolvedEmail;
+        if (resolvedPhone) LOCAL_DB.users[dbIdx].phone = resolvedPhone;
+        if (resolvedFullName) LOCAL_DB.users[dbIdx].fullName = resolvedFullName;
+        if (resolvedRole) LOCAL_DB.users[dbIdx].role = resolvedRole;
+        if (resolvedWarehouse && resolvedWarehouse !== '-') LOCAL_DB.users[dbIdx].warehouse = resolvedWarehouse;
+        if (resolvedAvatar) LOCAL_DB.users[dbIdx].avatar = resolvedAvatar;
         saveLocalUsersToStorage();
       } else if (uName) {
         LOCAL_DB.users.push({
           userId: uId || ('USR-' + Date.now()),
           username: uName,
-          fullName: targetUser.fullName || uName,
-          email: targetUser.email || '',
-          phone: targetUser.phone || '',
-          role: targetUser.role || 'Stock Keeper',
-          warehouse: targetUser.warehouse || '-',
+          fullName: resolvedFullName || uName,
+          email: resolvedEmail || '',
+          phone: resolvedPhone || '',
+          role: resolvedRole,
+          warehouse: resolvedWarehouse,
           status: 'Active',
-          avatar: targetUser.avatar || ''
+          avatar: resolvedAvatar
         });
         saveLocalUsersToStorage();
       }
@@ -19869,14 +19893,20 @@
       });
 
       // 3. Background Cloud Sync & Telegram Alert (Non-blocking x300 speed)
-      apiCall('updateUserStatus', {
+      const approvePayload = {
         userId: finalIdentifier,
         username: uName,
-        email: targetUser.email || '',
-        fullName: targetUser.fullName || '',
+        fullName: resolvedFullName,
         status: 'Active',
         adminUser: AppState.currentUser?.username
-      }).then(res => {
+      };
+      if (resolvedEmail) approvePayload.email = resolvedEmail;
+      if (resolvedPhone) approvePayload.phone = resolvedPhone;
+      if (resolvedRole) approvePayload.role = resolvedRole;
+      if (resolvedWarehouse && resolvedWarehouse !== '-') approvePayload.warehouse = resolvedWarehouse;
+      if (resolvedAvatar) approvePayload.avatar = resolvedAvatar;
+
+      apiCall('updateUserStatus', approvePayload).then(res => {
         if (res && !res.success) {
           console.warn('[Cloud Sync] updateUserStatus warning:', res.message);
         }
