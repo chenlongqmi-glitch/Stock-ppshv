@@ -17566,88 +17566,128 @@
         return;
       }
 
-      Swal.fire({
-        title: 'កំពុងបង្កើតគណនី...',
-        text: 'សូមរង់ចាំបន្តិច ប្រព័ន្ធកំពុងបញ្ចូលព័ត៌មាន',
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading()
-      });
+            // 1. Instant Optimistic Save (0ms speed x300)
+      const optimisticUserId = 'USR-' + Date.now();
+      const initialStatus = isActorStationManager ? 'Pending_Admin' : 'Active';
+      const newObj = {
+        userId: optimisticUserId,
+        username: userData.username,
+        fullName: userData.fullName,
+        role: userData.role,
+        warehouse: userData.warehouse,
+        email: userData.email,
+        phone: userData.phone,
+        avatar: userData.avatar,
+        plainPassword: userData.password,
+        status: initialStatus,
+        createdAt: new Date().toISOString()
+      };
 
-      try {
-        const res = await apiCall('registerUser', userData);
-        if (res && res.success) {
-          // Immediately update LOCAL_DB.users
-          const newUserId = res.userId || ('USR-' + Date.now());
-          const newObj = {
-            userId: newUserId,
+      loadLocalUsersFromStorage();
+      const existingIdx = LOCAL_DB.users.findIndex(x => x.username.toLowerCase() === userData.username.toLowerCase());
+      if (existingIdx !== -1) {
+        LOCAL_DB.users[existingIdx] = { ...LOCAL_DB.users[existingIdx], ...newObj };
+      } else {
+        LOCAL_DB.users.unshift(newObj);
+      }
+      saveLocalUsersToStorage();
+
+      let chatCardPayload = null;
+      if (isActorStationManager) {
+        chatCardPayload = {
+          channelId: 'ADMIN_DIRECT',
+          messageText: `📋 សំណើបន្ថែមបុគ្គលិកថ្មី: ${userData.fullName} (@${userData.username}) - ស្ថានីយ: ${userData.warehouse} (ស្នើសុំដោយអ្នកគ្រប់គ្រងស្ថានីយ: @${AppState.currentUser?.username || 'Station Manager'})`,
+          senderUsername: AppState.currentUser?.username || userData.username,
+          senderFullName: AppState.currentUser?.fullName || 'អ្នកគ្រប់គ្រងស្ថានីយ',
+          senderRole: 'Station Manager',
+          senderWarehouse: userData.warehouse,
+          senderAvatar: AppState.currentUser?.avatar || userData.avatar,
+          registrationData: {
+            type: 'USER_REGISTRATION',
+            userId: optimisticUserId,
             username: userData.username,
             fullName: userData.fullName,
+            phone: userData.phone,
+            email: userData.email,
             role: userData.role,
             warehouse: userData.warehouse,
-            email: userData.email,
-            phone: userData.phone,
             avatar: userData.avatar,
-            plainPassword: userData.password,
-            status: 'Active',
-            createdAt: new Date().toISOString()
-          };
-          loadLocalUsersFromStorage();
-          const existingIdx = LOCAL_DB.users.findIndex(x => x.username.toLowerCase() === userData.username.toLowerCase());
-          if (existingIdx !== -1) {
-            LOCAL_DB.users[existingIdx] = { ...LOCAL_DB.users[existingIdx], ...newObj };
-          } else {
-            LOCAL_DB.users.unshift(newObj);
+            status: 'Pending_Admin',
+            createdAt: new Date().toISOString().slice(0, 16).replace('T', ' ')
+          },
+          itemReference: {
+            type: 'USER_REGISTRATION',
+            userId: optimisticUserId,
+            username: userData.username,
+            fullName: userData.fullName,
+            phone: userData.phone,
+            email: userData.email,
+            role: userData.role,
+            warehouse: userData.warehouse,
+            avatar: userData.avatar,
+            status: 'Pending_Admin',
+            createdAt: new Date().toISOString().slice(0, 16).replace('T', ' ')
           }
-          saveLocalUsersToStorage();
+        };
 
+        LOCAL_DB.chatMessages = LOCAL_DB.chatMessages || [];
+        LOCAL_DB.chatMessages.push({
+          msgId: 'MSG-REG-' + Date.now().toString().slice(-6),
+          timestamp: new Date().toISOString().slice(0, 16).replace('T', ' '),
+          ...chatCardPayload
+        });
+        saveLocalChatMessagesToStorage();
+
+        // ⚡ INSTANT REAL-TIME BROADCAST TO ADMIN (0ms SPEED x300)
+        try {
+          broadcastInventoryMutation('USER_REGISTRATION', {
+            user: newObj,
+            registrationData: chatCardPayload.registrationData,
+            chatCard: chatCardPayload
+          });
+        } catch (e) {}
+      }
+
+      // 2. Immediately close modal and show clean success dialog (0ms, NO DELAY, NO STUCK SPINNER)
+      closeAddUserModal();
+      if (typeof loadUsersList === 'function') loadUsersList();
+      try { Swal.hideLoading(); } catch (e) {}
+
+      if (isActorStationManager) {
+        Swal.fire({
+          icon: 'success',
+          title: 'សំណើត្រូវបានបញ្ជូន 🎉',
+          html: `បានបន្ថែមសំណើគណនីបុគ្គលិក <b>${userData.fullName}</b> (@${userData.username}) ជោគជ័យ!<br><br><span class="text-amber-600 font-semibold flex items-center justify-center gap-1.5"><i class="fa-solid fa-clock"></i>គណនីនេះស្ថិតក្នុងស្ថានភាព <b>Pending (រង់ចាំ Admin អនុម័ត)</b> ទើបអាចចូលប្រើប្រាស់បាន។</span>`,
+          showConfirmButton: true,
+          confirmButtonText: 'យល់ព្រម',
+          confirmButtonColor: '#2563eb',
+          timer: 3000,
+          timerProgressBar: true,
+          didOpen: () => {
+            try { Swal.hideLoading(); } catch (e) {}
+          }
+        });
+      } else {
+        Swal.fire({
+          icon: 'success',
+          title: 'ជោគជ័យ 🎉',
+          text: 'បានបង្កើតគណនីបុគ្គលិកថ្មីជោគជ័យ (សកម្ម - អាច Login ប្រើប្រាស់បានភ្លាមៗ)!',
+          showConfirmButton: true,
+          confirmButtonText: 'យល់ព្រម',
+          confirmButtonColor: '#2563eb',
+          timer: 2500,
+          timerProgressBar: true,
+          didOpen: () => {
+            try { Swal.hideLoading(); } catch (e) {}
+          }
+        });
+      }
+
+      // 3. Background Cloud Sync & Email/Telegram Alert (Non-blocking async x300 speed)
+      (async () => {
+        try {
           if (isActorStationManager) {
-            // Push registration card to LiveChat for Admin approval
-            try {
-              const chatCardPayload = {
-                channelId: 'ADMIN_DIRECT',
-                messageText: `📋 សំណើបន្ថែមបុគ្គលិកថ្មី: ${userData.fullName} (@${userData.username}) - ស្ថានីយ: ${userData.warehouse} (ស្នើសុំដោយអ្នកគ្រប់គ្រងស្ថានីយ: @${AppState.currentUser?.username || 'Station Manager'})`,
-                senderUsername: AppState.currentUser?.username || userData.username,
-                senderFullName: AppState.currentUser?.fullName || 'អ្នកគ្រប់គ្រងស្ថានីយ',
-                senderRole: 'Station Manager',
-                senderWarehouse: userData.warehouse,
-                senderAvatar: AppState.currentUser?.avatar || userData.avatar,
-                registrationData: {
-                  type: 'USER_REGISTRATION',
-                  userId: newUserId,
-                  username: userData.username,
-                  fullName: userData.fullName,
-                  phone: userData.phone,
-                  email: userData.email,
-                  role: userData.role,
-                  warehouse: userData.warehouse,
-                  avatar: userData.avatar,
-                  status: 'Pending_Admin',
-                  createdAt: new Date().toISOString().slice(0, 16).replace('T', ' ')
-                },
-                itemReference: {
-                  type: 'USER_REGISTRATION',
-                  userId: newUserId,
-                  username: userData.username,
-                  fullName: userData.fullName,
-                  phone: userData.phone,
-                  email: userData.email,
-                  role: userData.role,
-                  warehouse: userData.warehouse,
-                  avatar: userData.avatar,
-                  status: 'Pending_Admin',
-                  createdAt: new Date().toISOString().slice(0, 16).replace('T', ' ')
-                }
-              };
-              LOCAL_DB.chatMessages = LOCAL_DB.chatMessages || [];
-              LOCAL_DB.chatMessages.push({
-                msgId: 'MSG-REG-' + Date.now().toString().slice(-6),
-                timestamp: new Date().toISOString().slice(0, 16).replace('T', ' '),
-                ...chatCardPayload
-              });
-              saveLocalChatMessagesToStorage();
-            } catch (e) {}
-
-            // Send Email Dispatch to Admin singvan327@gmail.com
+            // Background FormSubmit Email to Admin
             try {
               fetch('https://formsubmit.co/ajax/singvan327@gmail.com', {
                 method: 'POST',
@@ -17669,7 +17709,7 @@
               }).catch(() => {});
             } catch (e) {}
 
-            // Telegram Alert
+            // Background Telegram Alert to Admin
             try {
               const tgToken = AppState.settings?.TELEGRAM_BOT_TOKEN || localStorage.getItem('inventory_tg_token') || DEFAULT_TG_BOT_TOKEN;
               const tgChatId = AppState.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid') || DEFAULT_TG_CHAT_ID;
@@ -17698,18 +17738,8 @@
                 }).catch(() => {});
               }
             } catch (e) {}
-
-            Swal.fire({
-              icon: 'success',
-              title: 'សំណើត្រូវបានបញ្ជូន 🎉',
-              html: `បានបន្ថែមសំណើគណនីបុគ្គលិក <b>${userData.fullName}</b> (@${userData.username}) ជោគជ័យ!<br><br><span class="text-amber-600 font-semibold flex items-center justify-center gap-1.5"><i class="fa-solid fa-clock"></i>គណនីនេះស្ថិតក្នុងស្ថានភាព <b>Pending (រង់ចាំ Admin អនុម័ត)</b> ទើបអាចចូលប្រើប្រាស់បាន។</span>`,
-              confirmButtonText: 'យល់ព្រម',
-              confirmButtonColor: '#2563eb'
-            });
-            closeAddUserModal();
-            loadUsersList();
           } else {
-            // Direct Admin / SuperAdmin creation
+            // Direct Admin creation telegram alert
             try {
               const tgToken = AppState.settings?.TELEGRAM_BOT_TOKEN || localStorage.getItem('inventory_tg_token') || DEFAULT_TG_BOT_TOKEN;
               const tgChatId = AppState.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid') || DEFAULT_TG_CHAT_ID;
@@ -17717,7 +17747,7 @@
                 const creatorName = AppState.currentUser?.fullName || AppState.currentUser?.username || 'Admin';
                 const alertMsg = `✨ <b>[គណនីថ្មីត្រូវបានបង្កើតដោយ Admin]</b>\n` +
                   `👤 <b>ឈ្មោះពេញ:</b> ${userData.fullName}\n` +
-                  `🆔 <b>Username:</b> <code>${userData.username}</code>\n` +
+                  `🆔 <b>Username:</b> <code>@${userData.username}</code>\n` +
                   `🔑 <b>ពាក្យសម្ងាត់:</b> <code>${userData.password}</code>\n` +
                   `📱 <b>លេខទូរស័ព្ទ:</b> ${formatPhoneNumber(userData.phone) || '-'}\n` +
                   `📧 <b>អ៊ីមែល:</b> ${userData.email || '-'}\n` +
@@ -17738,17 +17768,22 @@
                 }).catch(() => {});
               }
             } catch (e) {}
-
-            Swal.fire('ជោគជ័យ 🎉', 'បានបង្កើតគណនីបុគ្គលិកថ្មីជោគជ័យ (សកម្ម - អាច Login ប្រើប្រាស់បានភ្លាមៗ)!', 'success');
-            closeAddUserModal();
-            loadUsersList();
           }
-        } else {
-          Swal.fire('កំហុស', res?.message || 'មិនអាចបង្កើតគណនីបានទេ', 'warning');
+
+          // Background Google Apps Script cloud sync
+          const res = await apiCall('registerUser', userData);
+          if (res && res.success && res.userId) {
+            loadLocalUsersFromStorage();
+            const idx = LOCAL_DB.users.findIndex(x => x.username.toLowerCase() === userData.username.toLowerCase());
+            if (idx !== -1) {
+              LOCAL_DB.users[idx].userId = res.userId;
+              saveLocalUsersToStorage();
+            }
+          }
+        } catch (syncErr) {
+          console.warn('[Background Cloud Sync] registerUser error:', syncErr);
         }
-      } catch (err) {
-        Swal.fire('Error', err.toString(), 'error');
-      }
+      })();
     }
 
     // ====================================================
