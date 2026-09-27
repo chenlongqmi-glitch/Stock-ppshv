@@ -17657,26 +17657,32 @@
         Swal.fire({
           icon: 'success',
           title: 'សំណើត្រូវបានបញ្ជូន 🎉',
-          html: `បានបន្ថែមសំណើគណនីបុគ្គលិក <b>${userData.fullName}</b> (@${userData.username}) ជោគជ័យ!<br><br><span class="text-amber-600 font-semibold flex items-center justify-center gap-1.5"><i class="fa-solid fa-clock"></i>គណនីនេះស្ថិតក្នុងស្ថានភាព <b>Pending (រង់ចាំ Admin អនុម័ត)</b> ទើបអាចចូលប្រើប្រាស់បាន។</span>`,
+          html: `បានបន្ថែមសំណើគណនីបុគ្គលិក <b>${escapeHtml(userData.fullName)}</b> (@${escapeHtml(userData.username)}) ជោគជ័យ!<br><br><span class="text-amber-600 font-semibold flex items-center justify-center gap-1.5"><i class="fa-solid fa-clock"></i>គណនីនេះស្ថិតក្នុងស្ថានភាព <b>Pending (រង់ចាំ Admin អនុម័ត)</b> ទើបអាចចូលប្រើប្រាស់បាន។</span>`,
           showConfirmButton: true,
           confirmButtonText: 'យល់ព្រម',
           confirmButtonColor: '#2563eb',
-          timer: 3000,
+          timer: 1800,
           timerProgressBar: true,
+          allowOutsideClick: true,
           didOpen: () => {
             try { Swal.hideLoading(); } catch (e) {}
           }
         });
       } else {
+        try {
+          broadcastInventoryMutation('NEW_USER_CREATED', { user: newObj });
+        } catch (e) {}
+
         Swal.fire({
           icon: 'success',
           title: 'ជោគជ័យ 🎉',
-          text: 'បានបង្កើតគណនីបុគ្គលិកថ្មីជោគជ័យ (សកម្ម - អាច Login ប្រើប្រាស់បានភ្លាមៗ)!',
+          html: `បានបង្កើតគណនីបុគ្គលិកថ្មី <b>${escapeHtml(userData.fullName)}</b> ជោគជ័យ!<br><span class="text-xs text-slate-500 mt-1 block">គណនីសកម្ម (Active) អាច Login ចូលប្រើប្រាស់បានភ្លាមៗ</span>`,
           showConfirmButton: true,
           confirmButtonText: 'យល់ព្រម',
           confirmButtonColor: '#2563eb',
-          timer: 2500,
+          timer: 1500,
           timerProgressBar: true,
+          allowOutsideClick: true,
           didOpen: () => {
             try { Swal.hideLoading(); } catch (e) {}
           }
