@@ -490,7 +490,8 @@ function setAppScriptCache(key, obj, ttlSeconds) {
 
 function invalidateAppCache() {
   try {
-    CacheService.getScriptCache().removeAll([
+    var c = CacheService.getScriptCache();
+    c.removeAll([
       'BOOTSTRAP_ALL',
       'BOOTSTRAP_V1',
       'ITEMS_ALL',
@@ -501,6 +502,7 @@ function invalidateAppCache() {
       'WAREHOUSES_DETAILED',
       'REQS_ALL',
       'REQS_V1',
+      'USERS_ALL',
       'SETTINGS_CACHE'
     ]);
   } catch (e) {}
@@ -532,6 +534,19 @@ function executeLocalApiAction(req) {
     const action = req.action;
 
     const payload = req.payload || {};
+
+    const MUTATIONS = {
+      'recordStockIn': true, 'recordStockOut': true, 'adjustStock': true, 'recordStockTransfer': true,
+      'saveOrUpdateItem': true, 'saveItem': true, 'createProduct': true, 'updateProduct': true, 'deleteItem': true,
+      'registerUser': true, 'register': true, 'approveUser': true, 'rejectUser': true,
+      'updateUserStatus': true, 'deleteUser': true, 'requestUserDeletion': true, 'approveUserDeletion': true, 'rejectUserDeletion': true,
+      'updateUserProfile': true, 'updateProfile': true, 'resetPasswordWithOtp': true,
+      'createProductRequest': true, 'updateProductRequestStatus': true, 'saveSystemSettings': true, 'saveSettings': true,
+      'addWarehouse': true, 'deleteWarehouse': true
+    };
+    if (MUTATIONS[action]) {
+      invalidateAppCache();
+    }
 
 
 
@@ -3830,7 +3845,7 @@ function getBootstrapData(payload) {
     } catch (e) {}
   }
 
-  setAppScriptCache(cacheKey, result, 300);
+  setAppScriptCache(cacheKey, result, 3);
   return result;
 }
 
@@ -3958,7 +3973,7 @@ function getItemsList(userOrPayload, warehouseFilter, optSs) {
 
 
   const itemsResult = { success: true, items: items, categories: categories, warehouses: warehouses, activeWarehouseFilter: targetWarehouse };
-  setAppScriptCache(cacheKey, itemsResult, 300);
+  setAppScriptCache(cacheKey, itemsResult, 3);
   return itemsResult;
 
 }
@@ -5911,7 +5926,7 @@ function getProductRequests(userOrPayload, warehouseFilter, optSs) {
 
 
   const reqResult = { success: true, requests: requests };
-  setAppScriptCache(cacheKey, reqResult, 300);
+  setAppScriptCache(cacheKey, reqResult, 3);
   return reqResult;
 
 }
@@ -6218,7 +6233,7 @@ function getDashboardStats(userOrPayload, warehouseFilter, optSs) {
     movementTrend,
     activeWarehouseFilter: targetWarehouse
   };
-  setAppScriptCache(cacheKey, dashResult, 300);
+  setAppScriptCache(cacheKey, dashResult, 3);
   return dashResult;
 
 }

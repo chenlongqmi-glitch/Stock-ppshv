@@ -7472,8 +7472,8 @@
       const cached = API_CACHE.get(cacheKey);
       const now = Date.now();
 
-      // High-speed real-time LiveChat and User Registration TTL (1s for live chat instead of 25s)
-      const effectiveTTL = (action === 'getChatMessages' || action === 'getUsersList' || action === 'getUsers') ? 1000 : CACHE_TTL_MS;
+      // High-speed real-time Background Auto-Sync TTL (1s for all real-time sync queries instead of 25s)
+      const effectiveTTL = (action === 'getChatMessages' || action === 'getUsersList' || action === 'getUsers' || action === 'getBootstrapData' || action === 'getProductRequests' || action === 'getItemsList' || action === 'getDashboardStats') ? 1000 : CACHE_TTL_MS;
 
       if (cached && (now - cached.timestamp < effectiveTTL)) {
         return cached.data;
@@ -21230,6 +21230,7 @@
     } catch (e) {}
 
     function broadcastInventoryMutation(type, data = {}) {
+      try { API_CACHE.clear(); } catch(e) {}
       const payload = {
         type: type,
         timestamp: Date.now(),
@@ -21404,8 +21405,8 @@
       if (!AppState.currentUser || isSilentRefreshing || document.hidden) return;
       isSilentRefreshing = true;
       try {
-        // High-speed single-call bootstrap data refresh in background
-        await applyBootstrapDataSync();
+        // High-speed single-call bootstrap data refresh in background (force fresh live sync)
+        await applyBootstrapDataSync(true);
 
         // Check if user is actively typing in a form or input to avoid disrupting focus
         const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
