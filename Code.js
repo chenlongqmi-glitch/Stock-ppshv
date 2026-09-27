@@ -2371,16 +2371,15 @@ function getUsersList(userOrPayload) {
     return { success: true, users: users.filter(u => !isSelf(u)) };
   } else if (isAdmin) {
     return { success: true, users: users.filter(u => {
-      if (isSelf(u)) return false; // Hide own account from users list
       const r = String(u.role || '').trim().toLowerCase();
       const uName = cleanUname(u.username);
       const uId = String(u.userId || '').toUpperCase();
       const isSA = (r === 'superadmin' || uName === 'superadmin' || uId === 'USR-SA');
-      if (isSA) return false;
+      if (isSA) return false; // Admin cannot see SuperAdmin
       const isPending = (u.status === 'Pending' || u.status === 'Pending_Admin' || u.status === 'Pending_SuperAdmin');
       if (!isPending) {
-        const isOtherAdmin = (r === 'admin' || uName === 'admin' || uName === 'singvan327@gmail.com');
-        if (isOtherAdmin) return false;
+        const isOtherAdmin = (r === 'admin' || uName === 'admin' || uName === 'singvan327@gmail.com') && !isSelf(u);
+        if (isOtherAdmin) return false; // Admin sees own Admin account with (ខ្ញុំ) badge, but not other Admins
       }
       return true;
     }) };

@@ -5743,7 +5743,7 @@
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed) && parsed.length > 0) {
             // Filter out all unregistered dummy demo users and local dummy accounts
-            const validUsers = parsed.filter(p => !isUnregisteredDummyUser(p) && p.username !== 'sdfsdf' && p.userId !== 'USR-01' && p.userId !== 'USR-02' && p.userId !== 'USR-03' && p.userId !== 'USR-00');
+            const validUsers = parsed.filter(p => !isUnregisteredDummyUser(p) && p.username !== 'sdfsdf' && p.userId !== 'USR-01' && p.userId !== 'USR-02' && p.userId !== 'USR-03' && p.userId !== 'USR-00' && p.username !== 'bengkaka');
             validUsers.forEach(p => {
               // Automatically upgrade SuperAdmin profile if holding stale default info
               if (p.userId === 'USR-SA' || (p.username && p.username.toLowerCase() === 'superadmin')) {
@@ -7387,7 +7387,13 @@
         if (!payload.user && payload.user !== null) {
           if (action === 'getUsersList' || action === 'getUsers') {
             if (isPrivileged) {
-              payload.user = AppState.currentUser;
+              payload.user = {
+                userId: AppState.currentUser?.userId,
+                username: AppState.currentUser?.username,
+                role: AppState.currentUser?.role,
+                email: AppState.currentUser?.email,
+                warehouse: AppState.currentUser?.warehouse
+              };
             }
           } else {
             payload.user = AppState.currentUser;
@@ -7501,7 +7507,7 @@
             ]);
 
             const payloadStr = JSON.stringify(payload || {});
-            const shouldUseGet = READ_ACTIONS.has(action) || (payloadStr.length < 1500);
+            const shouldUseGet = READ_ACTIONS.has(action) && (payloadStr.length < 1000);
 
             let resp;
             if (shouldUseGet) {
@@ -8110,19 +8116,18 @@
         const isSelf = (u) => isSelfUser(u, actor);
 
         if (isSuperAdmin) {
-          // 1. SuperAdmin sees all users except self (មិនចាំបាច់បង្ហាញ account របស់ខ្លួនឯងក្នុងតារាងទេ)
+          // 1. SuperAdmin sees all users except self
           return { success: true, users: attachPassword(registeredUsers.filter(u => !isSelf(u))) };
         } else if (isAdmin) {
-          // 2. Admin cannot see SuperAdmin, other Admins, or self (មិនចាំបាច់បង្ហាញ account របស់ខ្លួនឯងក្នុងតារាងទេ)
+          // 2. Admin sees own Admin account with (ខ្ញុំ) badge, but cannot see SuperAdmin or other Admins
           const filtered = registeredUsers.filter(u => {
-            if (isSelf(u)) return false;
             const r = String(u.role || '').trim().toLowerCase();
             const cleanU = (s) => String(s || '').replace(/^[\u200B-\u200D\uFEFF]/g, '').replace(/^@+/, '').trim().toLowerCase();
             const uName = cleanU(u.username);
             const uId = String(u.userId || '').toUpperCase();
             const isSA = (r === 'superadmin' || uName === 'superadmin' || uId === 'USR-SA');
             if (isSA) return false;
-            const isOtherAdmin = (r === 'admin' || uName === 'admin');
+            const isOtherAdmin = (r === 'admin' || uName === 'admin') && !isSelf(u);
             if (isOtherAdmin) return false;
             return true;
           });
@@ -16235,6 +16240,8 @@
     // Users Management & Warehouse Assignment
     async function loadUsersList() {
       try {
+        // Clean out ghost records from local memory
+        LOCAL_DB.users = (LOCAL_DB.users || []).filter(u => u && u.username !== 'bengkaka' && !isUnregisteredDummyUser(u));
         const res = await apiCall('getUsersList');
         if (res.success) {
           // Synchronize fresh user records directly from Google Sheet into LOCAL_DB.users and localStorage
@@ -16347,14 +16354,14 @@
           // User source strictly from Google Sheet response (no local dummy accounts!)
           const userSource = (Array.isArray(res.users) && res.users.length > 0) ? res.users : (LOCAL_DB.users || []);
           
-          // CRITICAL: Universally exclude the currently logged in user's account from the Users & Roles table
-          let filteredUsers = userSource.filter(u => !isUnregisteredDummyUser(u) && u.status !== 'Deleted' && u.status !== 'deleted' && !isSelfUser(u));
+          // Purge any deleted, dummy, or ghost users
+          let filteredUsers = userSource.filter(u => !isUnregisteredDummyUser(u) && u.status !== 'Deleted' && u.status !== 'deleted' && u.username !== 'bengkaka');
 
           if (isActorSuperAdmin) {
             // 1. SuperAdmin sees all users except self
-            filteredUsers = filteredUsers;
+            filteredUsers = filteredUsers.filter(u => !isSelfUser(u));
           } else if (isActorAdmin) {
-            // 2. Admin cannot see SuperAdmin, other Admins, or self
+            // 2. Admin sees own Admin account with (ខ្ញុំ) badge, but cannot see SuperAdmin or other Admins
             filteredUsers = filteredUsers.filter(u => {
               const r = String(u.role || '').trim().toLowerCase();
               const cleanU = (s) => String(s || '').replace(/^[\u200B-\u200D\uFEFF]/g, '').replace(/^@+/, '').trim().toLowerCase();
@@ -16362,7 +16369,7 @@
               const uId = String(u.userId || '').toUpperCase();
               const isSA = (r === 'superadmin' || uName === 'superadmin' || uId === 'USR-SA');
               if (isSA) return false;
-              const isOtherAdmin = (r === 'admin' || uName === 'admin');
+              const isOtherAdmin = (r === 'admin' || uName === 'admin') && !isSelfUser(u);
               if (isOtherAdmin) return false;
               return true;
             });
