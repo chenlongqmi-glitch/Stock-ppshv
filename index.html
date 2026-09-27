@@ -1643,6 +1643,15 @@
             </div>
           </div>
 
+          <!-- Live Background Auto-Sync Indicator (គ្រប់វិនាទី) -->
+          <div id="liveSyncStatusIndicator" class="hidden sm:inline-flex items-center px-2.5 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[10.5px] font-bold shadow-2xs shrink-0 select-none" title="Auto Syn data in background គ្រប់វិនាទី សម្រាប់អ្នកប្រើប្រាស់ទាំងអស់">
+            <span class="relative flex h-2 w-2 mr-1.5">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span class="hidden md:inline">Sync: </span><span>1s Live</span>
+          </div>
+
           <button onclick="refreshCurrentTab()" title="ទាញយក និង Refresh ទិន្នន័យថ្មីក្នុង Background ដោយមិនចាំបាច់ Reload ទំព័រ"
             class="hidden xs:flex p-1.5 sm:px-3 sm:py-1.5 rounded-xl border border-blue-200 bg-blue-50 hover:bg-blue-100/80 text-blue-700 transition-all items-center space-x-1.5 shadow-sm hover:scale-105 active:scale-95 shrink-0">
             <i class="fa-solid fa-rotate text-xs sm:text-sm text-blue-600" id="refreshIcon"></i>
@@ -21267,6 +21276,39 @@
           if (typeof loadReportTransactions === 'function') loadReportTransactions();
         }
       }
+
+      if (msg.type === 'USER_DELETION_REQUEST' || msg.type === 'USER_DELETION_APPROVED' || msg.type === 'USER_DELETION_REJECTED' || msg.type === 'USER_UPDATED' || msg.type === 'USER_APPROVED' || msg.type === 'ROLE_CHANGED') {
+        loadLocalUsersFromStorage();
+        if (msg.userList && Array.isArray(msg.userList)) {
+          LOCAL_DB.users = [...msg.userList];
+          saveLocalUsersToStorage();
+        } else if (msg.targetUserId) {
+          if (msg.type === 'USER_DELETION_APPROVED') {
+            LOCAL_DB.users = (LOCAL_DB.users || []).filter(u => u.userId !== msg.targetUserId && u.username !== msg.targetUserId);
+          } else if (msg.type === 'USER_DELETION_REQUEST') {
+            const u = (LOCAL_DB.users || []).find(x => x.userId === msg.targetUserId || x.username === msg.targetUserId);
+            if (u) {
+              u.status = 'Pending_Deletion';
+              u.deleteReason = msg.reason || '';
+              u.deleteRequestedBy = msg.requestedBy || '';
+            }
+          }
+          saveLocalUsersToStorage();
+        }
+
+        if (AppState.currentTab === 'users' && typeof filterUsersList === 'function') {
+          filterUsersList();
+        }
+        const actor = AppState.currentUser;
+        const isSuperAdmin = (actor?.role === 'SuperAdmin' || String(actor?.username).toLowerCase() === 'superadmin');
+        if (isSuperAdmin && typeof checkPendingDeletionsForSuperAdmin === 'function') {
+          checkPendingDeletionsForSuperAdmin(false);
+        }
+      }
+
+      if (msg.type === 'DATA_MUTATED' || msg.type === 'REFRESH_ALL') {
+        applyBootstrapDataSync();
+      }
     }
 
     if (inventorySyncChannel) {
@@ -21284,27 +21326,27 @@
     });
 
     // ==========================================
-    // AUTOMATIC BACKGROUND DATA FETCH & REAL-TIME ENGINE
+    // AUTOMATIC BACKGROUND DATA FETCH & REAL-TIME ENGINE (1-SECOND TICKER - គ្រប់វិនាទី)
     // ==========================================
     let autoFetchInterval = null;
-
+    let autoRoleSyncInterval = null;
     let isSilentRefreshing = false;
 
     function initAutoRefreshEngine() {
       if (autoFetchInterval) clearInterval(autoFetchInterval);
       if (autoRoleSyncInterval) clearInterval(autoRoleSyncInterval);
 
-      // Real-time background role sync (every 3 seconds in background)
+      // Real-time background role sync (Every 1 second - គ្រប់វិនាទី)
       autoRoleSyncInterval = setInterval(() => {
         if (!AppState.currentUser || document.hidden) return;
         applyLocalRoleSyncIfChanged();
-      }, 3000);
+      }, 1000);
 
-      // Auto Syn data in background real-time (every 3.5s for all users when active)
+      // Auto Syn data in background real-time (Every 1 second - គ្រប់វិនាទី សម្រាប់អ្នកប្រើប្រាស់ទាំងអស់)
       autoFetchInterval = setInterval(() => {
         if (!AppState.currentUser || document.hidden) return;
         silentAutoRefresh();
-      }, 3500);
+      }, 1000);
 
       // Auto-revalidate instantly when user returns to the app tab or focuses window
       document.addEventListener('visibilitychange', () => {
@@ -21316,6 +21358,7 @@
       window.addEventListener('focus', () => {
         if (AppState.currentUser) {
           applyLocalRoleSyncIfChanged();
+          silentAutoRefresh();
         }
       });
     }
@@ -21324,15 +21367,22 @@
       if (!AppState.currentUser || isSilentRefreshing || document.hidden) return;
       isSilentRefreshing = true;
       try {
-        // High-speed single-call bootstrap data refresh
+        // High-speed single-call bootstrap data refresh in background
         await applyBootstrapDataSync();
 
-        if (AppState.currentTab === 'reports') await loadReportTransactions();
-        if (AppState.currentTab === 'stockin') await loadStockInHistory();
-        if (AppState.currentTab === 'stockout') await loadStockOutHistory();
-        if (AppState.currentTab === 'items' && typeof renderItemsTable === 'function') renderItemsTable();
-        if (AppState.currentTab === 'users' && typeof loadUsersList === 'function') loadUsersList();
-        if (AppState.currentTab === 'dashboard' && typeof loadDashboard === 'function') loadDashboard();
+        // Check if user is actively typing in a form or input to avoid disrupting focus
+        const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+        const isEditingInForm = (activeTag === 'input' || activeTag === 'textarea') && 
+          document.activeElement.closest('.modal, [id$="Modal"], form');
+
+        if (!isEditingInForm) {
+          if (AppState.currentTab === 'reports') await loadReportTransactions();
+          if (AppState.currentTab === 'stockin') await loadStockInHistory();
+          if (AppState.currentTab === 'stockout') await loadStockOutHistory();
+          if (AppState.currentTab === 'items' && typeof renderItemsTable === 'function') renderItemsTable();
+          if (AppState.currentTab === 'users' && typeof filterUsersList === 'function') filterUsersList();
+          if (AppState.currentTab === 'dashboard' && typeof loadDashboard === 'function') loadDashboard();
+        }
 
         const actor = AppState.currentUser;
         const isSuperAdmin = (actor?.role === 'SuperAdmin' || String(actor?.username).toLowerCase() === 'superadmin');
