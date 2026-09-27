@@ -21432,6 +21432,11 @@
         const willOpen = drawer.classList.contains('hidden');
         if (willOpen) {
           closeSettingsDropdown();
+          if (typeof checkPendingRegistrationsForAdmin === 'function') {
+            checkPendingRegistrationsForAdmin(true);
+          } else if (typeof renderNotificationDrawer === 'function') {
+            renderNotificationDrawer();
+          }
         }
         drawer.classList.toggle('hidden');
       }
@@ -21440,7 +21445,8 @@
     function renderNotificationDrawer() {
       const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
       const filteredList = notificationsList.filter(n => {
-        if (n.type === 'USER_REGISTRATION' && isActorSuperAdmin) return false;
+        // Both Admin and SuperAdmin can see pending registrations and stock alerts
+        if (n.type === 'USER_DELETION_REQUEST' && !isActorSuperAdmin) return false;
         return true;
       });
 
@@ -21460,7 +21466,7 @@
       listEl.innerHTML = filteredList.map(n => {
         let clickHandler = '';
         if (n.type === 'USER_REGISTRATION') {
-          clickHandler = 'onclick="navigateTab(\'chat\'); switchChatChannel(\'ADMIN_DIRECT\', \'🛡️ Admin (聂稳新)\', \'ជជែកផ្ទាល់ជាមួយ Admin (@admin)\', \'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150\'); toggleNotificationDropdown();"';
+          clickHandler = `onclick="if (typeof openPendingRegistrationsModal === 'function') { openPendingRegistrationsModal('${escapeHtml(n.targetUserId || '')}'); } else { navigateTab('chat'); switchChatChannel('ADMIN_DIRECT', '🛡️ Admin Support', 'ជជែកផ្ទាល់ជាមួយ Admin', ''); } toggleNotificationDropdown();"`;
         } else if (n.type === 'USER_DELETION_REQUEST') {
           clickHandler = `onclick="navigateTab('users'); if (typeof openSuperAdminDeletionReviewModal === 'function') openSuperAdminDeletionReviewModal('${n.targetUserId || ''}', '${n.targetUsername || ''}'); toggleNotificationDropdown();"`;
         }
@@ -21470,22 +21476,25 @@
           (n.type === 'USER_DELETION_REJECTED') ? 'bg-slate-500' :
           (n.type === 'STOCK_OUT') ? 'bg-amber-500' :
           (n.type === 'STOCK_IN') ? 'bg-emerald-500' :
-          (n.type === 'USER_REGISTRATION') ? 'bg-rose-500 animate-pulse' : 'bg-blue-500';
+          (n.type === 'USER_REGISTRATION') ? 'bg-amber-500 animate-pulse' : 'bg-blue-500';
+
+        const actionText = (n.type === 'USER_REGISTRATION') ? 'ចុចពិនិត្យ & អនុម័ត ❯' :
+          (n.type === 'USER_DELETION_REQUEST') ? 'ចុចត្រួតពិនិត្យ ❯' : '';
 
         return `
           <div ${clickHandler}
-            class="p-2.5 rounded-xl border border-slate-100 bg-slate-50/80 hover:bg-white transition-all cursor-pointer">
+            class="p-2.5 rounded-xl border border-slate-100 bg-slate-50/80 hover:bg-white hover:border-blue-200 transition-all cursor-pointer">
             <div class="flex items-center justify-between">
               <span class="font-bold text-slate-800 text-xs flex items-center">
                 <span class="w-2 h-2 rounded-full ${dotColor} mr-1.5 flex-shrink-0"></span>
-                <span class="truncate">${n.title}</span>
+                <span class="truncate">${escapeHtml(n.title)}</span>
               </span>
-              <span class="text-[10px] font-mono text-slate-400 flex-shrink-0 ml-1">${n.time}</span>
+              <span class="text-[10px] font-mono text-slate-400 flex-shrink-0 ml-1">${escapeHtml(n.time)}</span>
             </div>
-            <p class="text-slate-600 text-[11px] mt-0.5 line-clamp-2">${n.message}</p>
+            <p class="text-slate-600 text-[11px] mt-0.5 line-clamp-2">${escapeHtml(n.message)}</p>
             <div class="flex items-center justify-between text-[10px] text-slate-400 mt-1 pt-1 border-t border-slate-100">
-              <span>📍 ${n.warehouse}</span>
-              <span>👤 ${n.user}</span>
+              <span>📍 ${escapeHtml(n.warehouse)}</span>
+              ${actionText ? `<span class="font-bold text-blue-600 hover:underline">${actionText}</span>` : `<span>👤 ${escapeHtml(n.user || '')}</span>`}
             </div>
           </div>
         `;
@@ -21497,52 +21506,76 @@
       renderNotificationDrawer();
     }
 
+    let _globalAudioCtx = null;
+    function getGlobalAudioContext() {
+      try {
+        if (!_globalAudioCtx) {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (AudioContextClass) _globalAudioCtx = new AudioContextClass();
+        }
+        if (_globalAudioCtx && _globalAudioCtx.state === 'suspended') {
+          _globalAudioCtx.resume().catch(() => {});
+        }
+        return _globalAudioCtx;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    // Auto-unlock audio playback on first user touch/click/press anywhere
+    ['click', 'touchstart', 'keydown'].forEach(evt => {
+      window.addEventListener(evt, () => {
+        getGlobalAudioContext();
+      }, { once: false, passive: true });
+    });
+
     function playNotificationSound() {
       try {
-        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContextClass) return;
-        const audioCtx = new AudioContextClass();
+        const audioCtx = getGlobalAudioContext();
+        if (!audioCtx) return;
         if (audioCtx.state === 'suspended') {
-          audioCtx.resume();
+          audioCtx.resume().catch(() => {});
         }
         const now = audioCtx.currentTime;
 
-        // Tone 1: E5 (659.25Hz) - gentle warning start
+        // Tone 1: E5 (659.25Hz) - gentle chime start
         const osc1 = audioCtx.createOscillator();
         const gain1 = audioCtx.createGain();
         osc1.type = 'sine';
         osc1.frequency.setValueAtTime(659.25, now);
-        gain1.gain.setValueAtTime(0.35, now);
-        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+        gain1.gain.setValueAtTime(0.45, now);
+        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
         osc1.connect(gain1);
         gain1.connect(audioCtx.destination);
         osc1.start(now);
-        osc1.stop(now + 0.3);
+        osc1.stop(now + 0.28);
 
-        // Tone 2: A5 (880Hz) - clear chime
+        // Tone 2: A5 (880Hz) - clear musical chime
         const osc2 = audioCtx.createOscillator();
         const gain2 = audioCtx.createGain();
         osc2.type = 'sine';
-        osc2.frequency.setValueAtTime(880, now + 0.14);
-        gain2.gain.setValueAtTime(0.4, now + 0.14);
-        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+        osc2.frequency.setValueAtTime(880, now + 0.12);
+        gain2.gain.setValueAtTime(0.5, now + 0.12);
+        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
         osc2.connect(gain2);
         gain2.connect(audioCtx.destination);
-        osc2.start(now + 0.14);
-        osc2.stop(now + 0.6);
+        osc2.start(now + 0.12);
+        osc2.stop(now + 0.55);
 
-        // Tone 3: C#6 (1108.7Hz) - resonant bell ring
+        // Tone 3: C#6 (1108.73Hz) - resonant bell ring
         const osc3 = audioCtx.createOscillator();
         const gain3 = audioCtx.createGain();
         osc3.type = 'sine';
-        osc3.frequency.setValueAtTime(1108.73, now + 0.28);
-        gain3.gain.setValueAtTime(0.42, now + 0.28);
+        osc3.frequency.setValueAtTime(1108.73, now + 0.24);
+        gain3.gain.setValueAtTime(0.55, now + 0.24);
         gain3.gain.exponentialRampToValueAtTime(0.001, now + 0.85);
         osc3.connect(gain3);
         gain3.connect(audioCtx.destination);
-        osc3.start(now + 0.28);
+        osc3.start(now + 0.24);
         osc3.stop(now + 0.85);
-      } catch (e) { }
+      } catch (e) {
+        console.warn('Audio chime error:', e);
+      }
     }
 
     // ==========================================
@@ -23604,12 +23637,57 @@
         }
       }
 
-      // 2. Update Navbar Bell Badge
-      const notifBadge = document.getElementById('notifBadge');
-      if (notifBadge && pendingUsers.length > 0) {
-        notifBadge.innerText = (notificationsList?.length || 0) + pendingUsers.length;
-        notifBadge.classList.remove('hidden');
+      // 2. Synchronize pending registration notifications into notificationsList
+      // Remove stale entries that are no longer pending
+      for (let i = notificationsList.length - 1; i >= 0; i--) {
+        const notif = notificationsList[i];
+        if (notif.type === 'USER_REGISTRATION') {
+          const isStillPending = pendingUsers.some(u => {
+            const uId = String(u.userId || '').trim().toLowerCase();
+            const uName = String(u.username || '').trim().toLowerCase();
+            const nId = String(notif.targetUserId || '').trim().toLowerCase();
+            const nName = String(notif.targetUsername || notif.user || '').trim().toLowerCase();
+            return (uId && nId && uId === nId) || (uName && nName && uName === nName);
+          });
+          if (!isStillPending) {
+            notificationsList.splice(i, 1);
+          }
+        }
       }
+
+      // Add/update active pending registrations
+      pendingUsers.forEach(u => {
+        const uId = String(u.userId || '').trim();
+        const uName = String(u.username || '').trim();
+        const timeStr = u.createdAt ? new Date(u.createdAt).toLocaleTimeString('km-KH', { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString('km-KH', { hour: '2-digit', minute: '2-digit' });
+        const notifItem = {
+          id: 'NOTIF-REG-' + (u.userId || u.username),
+          type: 'USER_REGISTRATION',
+          title: `👤 សំណើសុំចុះឈ្មោះបុគ្គលិកថ្មី: ${u.fullName || u.username}`,
+          message: `តួនាទី៖ ${u.role || 'បុគ្គលិក'} | ស្ថានីយ៖ ${u.warehouse || '-'}${u.phone ? ' | លេខទូរស័ព្ទ៖ ' + u.phone : ''}`,
+          warehouse: u.warehouse || 'ឃ្លាំងទូទៅ',
+          user: u.username,
+          targetUserId: u.userId,
+          targetUsername: u.username,
+          time: timeStr
+        };
+
+        const existingIdx = notificationsList.findIndex(n => {
+          if (n.type !== 'USER_REGISTRATION') return false;
+          const nId = String(n.targetUserId || '').trim().toLowerCase();
+          const nName = String(n.targetUsername || n.user || '').trim().toLowerCase();
+          return (uId && nId && uId.toLowerCase() === nId) || (uName && nName && uName.toLowerCase() === nName) || (n.id === notifItem.id);
+        });
+
+        if (existingIdx !== -1) {
+          notificationsList[existingIdx] = notifItem;
+        } else {
+          notificationsList.unshift(notifItem);
+        }
+      });
+
+      // Update Notification Drawer & Bell Badge
+      renderNotificationDrawer();
 
       // 3. Update Pending Users Badge & Settings Menu Badge
       const pendingBadge = document.getElementById('pendingUsersBadge');
@@ -23627,6 +23705,20 @@
       } else {
         if (pendingBadge) pendingBadge.classList.add('hidden');
         if (topSettingsBadge) topSettingsBadge.classList.add('hidden');
+      }
+
+      // 4. Audio Chime Alert if there are active pending registrations
+      if (!silent && pendingUsers.length > 0) {
+        const currentSig = pendingUsers.map(u => `${u.userId || u.username}:${u.status}`).sort().join('|');
+        const lastSeenSig = sessionStorage.getItem('last_seen_registration_signature') || '';
+        const dismissedUntil = parseInt(sessionStorage.getItem('reg_alert_dismissed_until') || '0', 10);
+        const now = Date.now();
+
+        if (currentSig !== lastSeenSig || now > dismissedUntil) {
+          sessionStorage.setItem('last_seen_registration_signature', currentSig);
+          sessionStorage.setItem('reg_alert_dismissed_until', String(now + 60000));
+          playNotificationSound();
+        }
       }
 
       // 4. If Chat Tab is currently open, refresh messages immediately
