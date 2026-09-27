@@ -1264,13 +1264,9 @@
               <i class="fa-solid fa-bell text-amber-600"></i>
               <span>ការបញ្ជាក់ពី Admin (Admin Confirmation)</span>
             </div>
-            <p class="text-[11px] text-amber-700">សូមទាក់ទង Admin របស់អ្នកដើម្បីទទួលលេខកូដ OTP បញ្ជាក់
-              ឬប្រើកូដគំរូខាងក្រោម៖</p>
-            <div id="demoOtpBadge"
-              class="mt-1 font-mono font-bold bg-amber-200 text-amber-900 px-2 py-1 rounded-lg text-center cursor-pointer hover:bg-amber-300 transition-colors"
-              onclick="quickFillOtp()">
-              💡 Admin OTP: <span id="demoOtpCode" class="text-base tracking-widest text-blue-700">------</span>
-              (ចុចបំពេញភ្លាម)
+            <p class="text-[11px] text-slate-500">សូមទាក់ទង Admin របស់អ្នកដើម្បីទទួលលេខកូដ OTP ៦ ខ្ទង់ដើម្បីផ្ទៀងផ្ទាត់។</p>
+            <div id="demoOtpBadge" class="hidden">
+              <span id="demoOtpCode" class="hidden">------</span>
             </div>
           </div>
 
@@ -18432,9 +18428,16 @@
                   💡 <b>ចំណាំ៖</b> ប្រសិនបើមិនទាន់ឃើញក្នុង Inbox សូមពិនិត្យក្នុង <b>Spam / Junk</b> ឬចុច "Activate Form" ក្នុងអ៊ីមែលពី FormSubmit ម្តងដំបូង។
                 </p>
               </div>
+              <!-- Anti-autofill decoys -->
+              <input type="text" name="fake_user_autofill_block" style="display:none!important;" tabindex="-1" autocomplete="username">
+              <input type="password" name="fake_pass_autofill_block" style="display:none!important;" tabindex="-1" autocomplete="current-password">
+
               <div>
                 <label class="block font-bold text-slate-700 mb-1">បញ្ចូលលេខកូដ OTP (៦ ខ្ទង់ពី Gmail) *</label>
-                <input type="text" id="swalProfileOtp" maxlength="6" placeholder="បញ្ចូលលេខកូដ ៦ ខ្ទង់ពី Gmail" value=""
+                <input type="text" id="swalProfileOtp" name="manual_otp_token_code" maxlength="6" placeholder="បញ្ចូលលេខកូដ ៦ ខ្ទង់ពី Gmail" value=""
+                  autocomplete="one-time-code" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="numeric" pattern="[0-9]*"
+                  data-lpignore="true" data-form-type="other"
+                  oninput="this.value = this.value.replace(/[^0-9]/g, '');"
                   class="w-full text-center text-lg font-mono tracking-widest p-2.5 bg-slate-50 border ${prevErrorMsg ? 'border-rose-400 bg-rose-50/30 ring-2 ring-rose-200' : 'border-slate-300'} rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold">
                 <div class="mt-1.5 flex items-center justify-between text-[11px]">
                   <span class="text-slate-400">សុពលភាព ១០ នាទី</span>
@@ -18448,7 +18451,7 @@
                 <label class="block font-bold text-slate-700 mb-1">ពាក្យសម្ងាត់ថ្មី (យ៉ាងតិច ៤ ខ្ទង់) *</label>
                 <div class="relative">
                   <input type="password" id="swalProfileNewPass" placeholder="••••••••" minlength="4" value="${enteredPass || ''}"
-                    lang="en" inputmode="text" autocapitalize="none" autocorrect="off" spellcheck="false" data-auto-en="true"
+                    autocomplete="new-password" lang="en" inputmode="text" autocapitalize="none" autocorrect="off" spellcheck="false" data-auto-en="true"
                     oninput="cleanKhmerFromField(this)" onkeyup="cleanKhmerFromField(this)" onfocus="cleanKhmerFromField(this)"
                     class="w-full pl-3 pr-9 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 font-semibold">
                   <button type="button" onclick="togglePasswordVisibility('swalProfileNewPass', this)" title="បង្ហាញ/លាក់ពាក្យសម្ងាត់"
@@ -18461,7 +18464,7 @@
                 <label class="block font-bold text-slate-700 mb-1">បញ្ជាក់ពាក្យសម្ងាត់ថ្មី *</label>
                 <div class="relative">
                   <input type="password" id="swalProfileConfirmPass" placeholder="••••••••" minlength="4" value="${enteredConfirmPass || ''}"
-                    lang="en" inputmode="text" autocapitalize="none" autocorrect="off" spellcheck="false" data-auto-en="true"
+                    autocomplete="new-password" lang="en" inputmode="text" autocapitalize="none" autocorrect="off" spellcheck="false" data-auto-en="true"
                     oninput="cleanKhmerFromField(this)" onkeyup="cleanKhmerFromField(this)" onfocus="cleanKhmerFromField(this)"
                     class="w-full pl-3 pr-9 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 font-semibold">
                   <button type="button" onclick="togglePasswordVisibility('swalProfileConfirmPass', this)" title="បង្ហាញ/លាក់ពាក្យសម្ងាត់"
@@ -18480,7 +18483,23 @@
           allowEscapeKey: false,
           didOpen: () => {
             const otpField = document.getElementById('swalProfileOtp');
-            if (otpField) otpField.focus();
+            if (otpField) {
+              otpField.value = '';
+              setTimeout(() => { if (otpField && otpField.value.length < 6) otpField.value = ''; }, 30);
+              setTimeout(() => { if (otpField && otpField.value.length < 6) otpField.value = ''; }, 120);
+              setTimeout(() => { if (otpField && otpField.value.length < 6) otpField.value = ''; }, 350);
+              otpField.focus();
+            }
+            const p1 = document.getElementById('swalProfileNewPass');
+            const p2 = document.getElementById('swalProfileConfirmPass');
+            if (p1 && !enteredPass) {
+              p1.value = '';
+              setTimeout(() => { if (p1 && !enteredPass) p1.value = ''; }, 120);
+            }
+            if (p2 && !enteredConfirmPass) {
+              p2.value = '';
+              setTimeout(() => { if (p2 && !enteredConfirmPass) p2.value = ''; }, 120);
+            }
           },
           preConfirm: () => {
             const otp = document.getElementById('swalProfileOtp')?.value.trim();
