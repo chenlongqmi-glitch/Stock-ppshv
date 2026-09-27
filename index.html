@@ -7379,7 +7379,10 @@
 
     async function apiCall(action, payload = {}) {
       if (AppState.currentUser) {
-        const isPrivileged = (AppState.currentUser?.role === 'SuperAdmin') || (AppState.currentUser?.role === 'Admin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin') || (String(AppState.currentUser?.username).toLowerCase() === 'admin');
+        const _uName = String(AppState.currentUser?.username || '').toLowerCase();
+        const _uEmail = String(AppState.currentUser?.email || '').toLowerCase();
+        const _uRole = String(AppState.currentUser?.role || '').toLowerCase();
+        const isPrivileged = _uRole.includes('admin') || _uRole === 'superadmin' || _uName === 'admin' || _uName === 'superadmin' || _uName === 'singvan327@gmail.com' || _uEmail === 'singvan327@gmail.com';
         if (!payload.user && payload.user !== null) {
           if (action === 'getUsersList' || action === 'getUsers') {
             if (isPrivileged) {
@@ -9922,7 +9925,7 @@
 
         // 2. Real-Time Email Dispatch to Admin so Admin is notified to check the app
         try {
-          const adminEmails = ['ppshv2024@gmail.com', 'chenlongqmi@gmail.com'];
+          const adminEmails = ['singvan327@gmail.com'];
           for (const admEmail of adminEmails) {
             fetch(`https://formsubmit.co/ajax/${encodeURIComponent(admEmail)}`, {
               method: 'POST',
@@ -9937,7 +9940,7 @@
                 'អ៊ីមែល (Email)': userData.email || '-',
                 'ស្ថានីយ/ឃ្លាំង (Warehouse)': userData.warehouse || '-',
                 'តួនាទី (Role)': userData.role || 'Stock Keeper',
-                'ស្ថានភាព (Status)': 'Pending (រង់ចាំ Admin / SuperAdmin ពិនិត្យអនុម័ត)',
+                'ស្ថានភាព (Status)': 'Pending (រង់ចាំ Admin singvan327@gmail.com ពិនិត្យអនុម័ត)',
                 'ពេលវេលា (Timestamp)': new Date().toLocaleString('en-GB')
               })
             }).catch(() => {});
@@ -16409,8 +16412,11 @@
           const isSA = (r === 'superadmin' || uName === 'superadmin' || uId === 'USR-SA');
           if (isSA) return false;
           const isSelf = (actor?.userId && u.userId && actor.userId === u.userId) || (actor?.username && u.username && String(actor.username).toLowerCase() === String(u.username).toLowerCase());
-          const isOtherAdmin = (r === 'admin' || uName === 'admin');
-          if (isOtherAdmin && !isSelf) return false;
+          const isPending = (u.status === 'Pending' || u.status === 'Pending_Admin' || u.status === 'Pending_SuperAdmin');
+          if (!isPending) {
+            const isOtherAdmin = (r === 'admin' || uName === 'admin' || uName === 'singvan327@gmail.com');
+            if (isOtherAdmin && !isSelf) return false;
+          }
           return true;
         });
       }
@@ -22342,8 +22348,8 @@
         const msgText = String(m.messageText || '');
         const isRegMessage = Boolean(regData) || msgText.includes('សំណើសុំចុះឈ្មោះ') || String(m.msgId || '').includes('REG');
 
-        // Exclude registration requests if not in ADMIN_DIRECT channel
-        if (currentChatChannel !== 'ADMIN_DIRECT' && isRegMessage) {
+        // Show registration requests in both ALL_WAREHOUSES and ADMIN_DIRECT
+        if (currentChatChannel !== 'ADMIN_DIRECT' && currentChatChannel !== 'ALL_WAREHOUSES' && isRegMessage) {
           return '';
         }
 
@@ -23124,7 +23130,7 @@
 
       const actorRole = String(actor.role || '').toLowerCase();
       const actorName = String(actor.username || '').toLowerCase();
-      const isActorAdmin = isSuperAdmin || actorRole.includes('admin') || actorName === 'admin';
+      const isActorAdmin = isSuperAdmin || actorRole.includes('admin') || actorName === 'admin' || actorName === 'singvan327@gmail.com' || String(actor.email || '').toLowerCase() === 'singvan327@gmail.com';
       if (!isActorAdmin) {
         const chatBadge = document.getElementById('chatBadge');
         if (chatBadge) chatBadge.classList.add('hidden');

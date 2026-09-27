@@ -2214,11 +2214,9 @@ function registerUser(userData) {
     // Note: User self-registration requests are not sent to SuperAdmin's Telegram for approval.
     // Admin reviews and approves in Web App / LiveChat. After Admin approves, an alert is sent to SuperAdmin.
 
-    // Internal Admin Email Notification via MailApp
+    // Internal Admin Email Notification via MailApp to singvan327@gmail.com
     try {
-      const ss = SpreadsheetApp.getActiveSpreadsheet();
-      const settings = getSettingsMap(ss);
-      const adminEmail = (settings && settings['ALERT_EMAIL']) ? settings['ALERT_EMAIL'] : 'ppshv2024@gmail.com, chenlongqmi@gmail.com';
+      const adminEmail = 'singvan327@gmail.com';
       MailApp.sendEmail({
         to: adminEmail,
         subject: `[PPSHV Stock] សំណើសុំចុះឈ្មោះគណនីថ្មី: ${userData.fullName || userData.username} (${warehouse})`,
@@ -2283,7 +2281,16 @@ function getUsersList(userOrPayload) {
 
 
   const isSuperAdmin = actor && (actor.role === 'SuperAdmin' || String(actor.username).toLowerCase() === 'superadmin');
-  const isAdmin = !isSuperAdmin && actor && (actor.role === 'Admin' || String(actor.username).toLowerCase() === 'admin');
+  const actorNameLower = actor ? String(actor.username || '').toLowerCase() : '';
+  const actorEmailLower = actor ? String(actor.email || '').toLowerCase() : '';
+  const actorRoleLower = actor ? String(actor.role || '').toLowerCase() : '';
+  const isAdmin = !isSuperAdmin && actor && (
+    actorRoleLower === 'admin' ||
+    actorRoleLower.includes('admin') ||
+    actorNameLower === 'admin' ||
+    actorNameLower === 'singvan327@gmail.com' ||
+    actorEmailLower === 'singvan327@gmail.com'
+  );
   const isStationManager = !isSuperAdmin && !isAdmin && actor && (actor.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || actor.role === 'អ្នកគ្រប់គ្រង' || String(actor.role).toLowerCase() === 'station manager');
   const isPrivileged = !!(isSuperAdmin || isAdmin);
 
@@ -2370,8 +2377,11 @@ function getUsersList(userOrPayload) {
       const uId = String(u.userId || '').toUpperCase();
       const isSA = (r === 'superadmin' || uName === 'superadmin' || uId === 'USR-SA');
       if (isSA) return false;
-      const isOtherAdmin = (r === 'admin' || uName === 'admin');
-      if (isOtherAdmin) return false;
+      const isPending = (u.status === 'Pending' || u.status === 'Pending_Admin' || u.status === 'Pending_SuperAdmin');
+      if (!isPending) {
+        const isOtherAdmin = (r === 'admin' || uName === 'admin' || uName === 'singvan327@gmail.com');
+        if (isOtherAdmin) return false;
+      }
       return true;
     }) };
 
