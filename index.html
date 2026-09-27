@@ -20066,13 +20066,14 @@
         }
       });
 
-      // 3. Background Cloud Sync & Telegram Alert (Non-blocking x300 speed)
+      // 3. Background Cloud Sync & Telegram Alert (Single notification handled reliably by backend Code.js)
+      const approverDisplay = approverName ? `${approverName} (${approverRole})` : (AppState.currentUser?.fullName || AppState.currentUser?.username || 'Admin');
       const approvePayload = {
         userId: finalIdentifier,
         username: uName,
         fullName: resolvedFullName,
         status: 'Active',
-        adminUser: AppState.currentUser?.username
+        adminUser: approverDisplay
       };
       if (resolvedEmail) approvePayload.email = resolvedEmail;
       if (resolvedPhone) approvePayload.phone = resolvedPhone;
@@ -20087,33 +20088,6 @@
       }).catch(err => {
         console.warn('[Cloud Sync] updateUserStatus network error:', err);
       });
-
-      const tgToken = AppState.settings?.TELEGRAM_BOT_TOKEN || localStorage.getItem('inventory_tg_token') || DEFAULT_TG_BOT_TOKEN;
-      const tgChatId = AppState.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid') || DEFAULT_TG_CHAT_ID;
-      if (tgToken && tgChatId) {
-        try {
-          const alertMsg = `🎉 <b>[ដំណឹង Admin បានអនុម័តគណនីថ្មី]</b>\n` +
-            `👤 <b>ឈ្មោះពេញ:</b> ${targetUser.fullName || uName}\n` +
-            `🆔 <b>Username:</b> <code>@${uName}</code>\n` +
-            `📞 <b>លេខទូរស័ព្ទ:</b> ${formatPhoneNumber(targetUser.phone) || '-'}\n` +
-            `📧 <b>អ៊ីមែល:</b> ${targetUser.email || '-'}\n` +
-            `🏢 <b>សាខា/ឃ្លាំង:</b> ${targetUser.warehouse || '-'}\n` +
-            `🛡️ <b>តួនាទី:</b> ${targetUser.role || 'Stock Keeper'}\n` +
-            `👑 <b>អនុម័តដោយ Admin:</b> ${approverName} (${approverRole})\n` +
-            `⏰ <b>កាលបរិច្ឆេទ:</b> ${new Date().toLocaleString('en-GB')}\n` +
-            `✅ <b>ស្ថានភាព:</b> 🟢 <b>Active (អាចចូលប្រើប្រាស់បាន)</b>`;
-
-          fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              chat_id: tgChatId,
-              text: alertMsg,
-              parse_mode: 'HTML'
-            })
-          }).catch(() => {});
-        } catch (e) {}
-      }
     }
 
     async function resendToTelegramSuperAdmin(userId, username) {

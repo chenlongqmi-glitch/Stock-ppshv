@@ -2871,16 +2871,16 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
           const targetEmail = email || String(data[i][3] || '-');
           const approvedBy = admin || 'Admin';
 
-          const alertMsg = `🎉 <b>[ដំណឹង Admin អនុម័តគណនីថ្មី]</b>\n` +
+          const alertMsg = `🎉 <b>[ដំណឹង Admin បានអនុម័តគណនីថ្មី]</b>\n` +
             `👤 <b>ឈ្មោះពេញ:</b> ${targetFName}\n` +
             `🆔 <b>Username:</b> <code>@${targetUName}</code>\n` +
-            `📱 <b>លេខទូរស័ព្ទ:</b> ${targetPhone}\n` +
+            `📞 <b>លេខទូរស័ព្ទ:</b> ${targetPhone}\n` +
             `📧 <b>អ៊ីមែល:</b> ${targetEmail}\n` +
-            `💼 <b>តួនាទី:</b> ${targetRole}\n` +
-            `🏢 <b>ស្ថានីយ/ឃ្លាំង:</b> ${targetWh}\n` +
-            `👮 <b>អនុម័តដោយ Admin:</b> ${approvedBy}\n` +
-            `🕒 <b>កាលបរិច្ឆេទ:</b> ${Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd HH:mm:ss')}\n` +
-            `🚦 <b>ស្ថានភាព:</b> ✅ <b>Active (អាចចូលប្រើប្រាស់បានហើយ)</b>`;
+            `🏢 <b>សាខា/ឃ្លាំង:</b> ${targetWh}\n` +
+            `🛡️ <b>តួនាទី:</b> ${targetRole}\n` +
+            `👑 <b>អនុម័តដោយ Admin:</b> ${approvedBy}\n` +
+            `⏰ <b>កាលបរិច្ឆេទ:</b> ${Utilities.formatDate(new Date(), 'GMT+7', 'dd/MM/yyyy, HH:mm:ss')}\n` +
+            `✅ <b>ស្ថានភាព:</b> 🟢 <b>Active (អាចចូលប្រើប្រាស់បាន)</b>`;
 
           sendTelegramAlert(alertMsg);
         } catch (e) {}
