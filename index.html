@@ -16533,20 +16533,10 @@
           </span>
         `;
 
-        const resetBtnInCol = canResetDevice ? `
-          <button type="button" onclick="openResetUserDeviceModal('${u.userId || u.username}', '${escapeHtml(u.fullName || u.username)}')"
-            class="px-2 py-0.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg text-[10px] font-semibold inline-flex items-center space-x-1 transition hover:scale-105 active:scale-95 shadow-2xs mt-0.5"
-            title="ផ្តាច់ឧបករណ៍កុំព្យូទ័រ/ទូរសព្ទដៃ (Reset Device Binding)">
-            <i class="fa-solid fa-link-slash text-[9px]"></i>
-            <span>ផ្តាច់ឧបករណ៍</span>
-          </button>
-        ` : '';
-
         const deviceBadgesHtml = `
           <div class="flex flex-col items-center justify-center gap-1 text-xs">
             ${pcBadge}
             ${phoneBadge}
-            ${resetBtnInCol}
           </div>
         `;
 
@@ -16941,54 +16931,84 @@
       const pcInfo = bound.desktop ? `${bound.desktop.deviceName || 'កុំព្យូទ័រ'} (ភ្ជាប់: ${new Date(bound.desktop.boundAt).toLocaleDateString('km-KH')})` : 'មិនទាន់មានភ្ជាប់';
       const mobInfo = bound.mobile ? `${bound.mobile.deviceName || 'ទូរសព្ទដៃ'} (ភ្ជាប់: ${new Date(bound.mobile.boundAt).toLocaleDateString('km-KH')})` : 'មិនទាន់មានភ្ជាប់';
 
-      const { value: selectedOption } = await Swal.fire({
-        title: `<div class="text-base font-bold text-slate-800 flex items-center justify-center space-x-2">
-                  <i class="fa-solid fa-link-slash text-amber-500"></i>
-                  <span>ផ្តាច់ឧបករណ៍៖ ${escapeHtml(fullName || target.username)}</span>
-                </div>`,
-        html: `
-          <div class="text-left text-xs space-y-3 p-2 text-slate-700">
-            <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1.5">
-              <p><b>💻 កុំព្យូទ័រដែលបានភ្ជាប់៖</b> <span class="text-blue-700 font-semibold">${pcInfo}</span></p>
-              <p><b>📱 ទូរសព្ទដៃដែលបានភ្ជាប់៖</b> <span class="text-emerald-700 font-semibold">${mobInfo}</span></p>
-            </div>
-            <p class="font-bold text-slate-700">សូមជ្រើសរើសឧបករណ៍ដែលចង់ផ្តាច់ (Reset):</p>
-            <div class="space-y-2">
-              <label class="flex items-center space-x-2.5 p-2 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer">
-                <input type="radio" name="resetDeviceType" value="DESKTOP" ${(defaultType === 'DESKTOP' || (!defaultType && bound.desktop)) ? 'checked' : ''} ${bound.desktop ? '' : 'disabled'}>
-                <span class="font-semibold ${bound.desktop ? 'text-slate-800' : 'text-slate-400'}">💻 ផ្តាច់តែកុំព្យូទ័រ (Reset Desktop)</span>
-              </label>
-              <label class="flex items-center space-x-2.5 p-2 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer">
-                <input type="radio" name="resetDeviceType" value="MOBILE" ${(defaultType === 'MOBILE' || (!bound.desktop && bound.mobile)) ? 'checked' : ''} ${bound.mobile ? '' : 'disabled'}>
-                <span class="font-semibold ${bound.mobile ? 'text-slate-800' : 'text-slate-400'}">📱 ផ្តាច់តែទូរសព្ទដៃ (Reset Mobile)</span>
-              </label>
-              <label class="flex items-center space-x-2.5 p-2 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer">
-                <input type="radio" name="resetDeviceType" value="ALL" ${(defaultType === 'ALL') ? 'checked' : ''} ${(!bound.desktop && !bound.mobile) ? 'disabled' : ''}>
-                <span class="font-semibold text-rose-600">🔄 ផ្តាច់ឧបករណ៍ទាំងពីរ (Reset Both Devices)</span>
-              </label>
-            </div>
-            <p class="text-[11px] text-slate-400 italic">
-              * បន្ទាប់ពីផ្តាច់រួច User នឹងអាច Login លើឧបករណ៍ថ្មីបានជាស្វ័យប្រវត្តិ។
-            </p>
-          </div>
-        `,
-        focusConfirm: false,
-        showCancelButton: true,
-        confirmButtonColor: '#f59e0b',
-        cancelButtonColor: '#64748b',
-        confirmButtonText: '<i class="fa-solid fa-check mr-1"></i> ផ្តាច់ឧបករណ៍',
-        cancelButtonText: 'បោះបង់',
-        preConfirm: () => {
-          const checked = document.querySelector('input[name="resetDeviceType"]:checked');
-          if (!checked) {
-            Swal.showValidationMessage('សូមជ្រើសរើសប្រភេទឧបករណ៍ដែលចង់ផ្តាច់');
-            return false;
-          }
-          return checked.value;
-        }
-      });
+      let selectedOption = defaultType;
 
-      if (!selectedOption) return;
+      if (defaultType === 'DESKTOP' || defaultType === 'MOBILE') {
+        const devName = defaultType === 'DESKTOP' ? 'កុំព្យូទ័រ (PC)' : 'ទូរសព្ទដៃ (Phone)';
+        const devIcon = defaultType === 'DESKTOP' ? 'fa-desktop' : 'fa-mobile-screen';
+        const boundInfo = defaultType === 'DESKTOP' ? pcInfo : mobInfo;
+        const confirmResult = await Swal.fire({
+          title: `<div class="text-base font-bold text-slate-800 flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-link-slash text-amber-500"></i>
+                    <span>ផ្តាច់${devName}?</span>
+                  </div>`,
+          html: `
+            <div class="text-left text-xs space-y-2.5 p-3 bg-amber-50/80 border border-amber-200 rounded-xl">
+              <p class="text-slate-800">តើលោកអ្នកពិតជាចង់ផ្តាច់ <b>${devName}</b> របស់ <b>${escapeHtml(fullName || target.username)}</b> មែនទេ?</p>
+              <p class="text-slate-600">ឧបករណ៍បច្ចុប្បន្ន៖ <b class="text-blue-700">${boundInfo}</b></p>
+              <p class="text-[11px] text-slate-500 italic pt-1 border-t border-amber-200/60">
+                * បន្ទាប់ពីផ្តាច់រួច អ្នកប្រើប្រាស់នឹងអាច Login លើឧបករណ៍ថ្មីបានជាស្វ័យប្រវត្តិ។
+              </p>
+            </div>
+          `,
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonColor: '#f59e0b',
+          cancelButtonColor: '#64748b',
+          confirmButtonText: `<i class="fa-solid fa-link-slash mr-1"></i> បាទ/ចាស ផ្តាច់${devName}`,
+          cancelButtonText: 'បោះបង់'
+        });
+        if (!confirmResult.isConfirmed) return;
+      } else {
+        const { value: chosenOption } = await Swal.fire({
+          title: `<div class="text-base font-bold text-slate-800 flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-link-slash text-amber-500"></i>
+                    <span>ផ្តាច់ឧបករណ៍៖ ${escapeHtml(fullName || target.username)}</span>
+                  </div>`,
+          html: `
+            <div class="text-left text-xs space-y-3 p-2 text-slate-700">
+              <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1.5">
+                <p><b>💻 កុំព្យូទ័រដែលបានភ្ជាប់៖</b> <span class="text-blue-700 font-semibold">${pcInfo}</span></p>
+                <p><b>📱 ទូរសព្ទដៃដែលបានភ្ជាប់៖</b> <span class="text-emerald-700 font-semibold">${mobInfo}</span></p>
+              </div>
+              <p class="font-bold text-slate-700">សូមជ្រើសរើសឧបករណ៍ដែលចង់ផ្តាច់ (Reset):</p>
+              <div class="space-y-2">
+                <label class="flex items-center space-x-2.5 p-2 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer">
+                  <input type="radio" name="resetDeviceType" value="DESKTOP" ${bound.desktop ? 'checked' : 'disabled'}>
+                  <span class="font-semibold ${bound.desktop ? 'text-slate-800' : 'text-slate-400'}">💻 ផ្តាច់តែកុំព្យូទ័រ (Reset Desktop)</span>
+                </label>
+                <label class="flex items-center space-x-2.5 p-2 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer">
+                  <input type="radio" name="resetDeviceType" value="MOBILE" ${(!bound.desktop && bound.mobile) ? 'checked' : ''} ${bound.mobile ? '' : 'disabled'}>
+                  <span class="font-semibold ${bound.mobile ? 'text-slate-800' : 'text-slate-400'}">📱 ផ្តាច់តែទូរសព្ទដៃ (Reset Mobile)</span>
+                </label>
+                <label class="flex items-center space-x-2.5 p-2 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer">
+                  <input type="radio" name="resetDeviceType" value="ALL" ${(!bound.desktop && !bound.mobile) ? 'disabled' : ''}>
+                  <span class="font-semibold text-rose-600">🔄 ផ្តាច់ឧបករណ៍ទាំងពីរ (Reset Both Devices)</span>
+                </label>
+              </div>
+              <p class="text-[11px] text-slate-400 italic">
+                * បន្ទាប់ពីផ្តាច់រួច User នឹងអាច Login លើឧបករណ៍ថ្មីបានជាស្វ័យប្រវត្តិ។
+              </p>
+            </div>
+          `,
+          focusConfirm: false,
+          showCancelButton: true,
+          confirmButtonColor: '#f59e0b',
+          cancelButtonColor: '#64748b',
+          confirmButtonText: '<i class="fa-solid fa-check mr-1"></i> ផ្តាច់ឧបករណ៍',
+          cancelButtonText: 'បោះបង់',
+          preConfirm: () => {
+            const checked = document.querySelector('input[name="resetDeviceType"]:checked');
+            if (!checked) {
+              Swal.showValidationMessage('សូមជ្រើសរើសប្រភេទឧបករណ៍ដែលចង់ផ្តាច់');
+              return false;
+            }
+            return checked.value;
+          }
+        });
+        if (!chosenOption) return;
+        selectedOption = chosenOption;
+      }
 
       Swal.fire({
         title: 'កំពុងផ្តាច់ឧបករណ៍...',
