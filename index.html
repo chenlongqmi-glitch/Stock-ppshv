@@ -17548,7 +17548,7 @@
         isDirectCreate: !isActorStationManager,
         isStationManagerCreate: isActorStationManager,
         creatorRole: isActorStationManager ? 'Station Manager' : (isActorSuperAdmin ? 'SuperAdmin' : 'Admin'),
-        adminUser: AppState.currentUser?.username || 'Admin'
+        adminUser: AppState.currentUser?.fullName || AppState.currentUser?.username || 'Admin'
       };
 
       if (isActorStationManager) {
@@ -17745,35 +17745,7 @@
               }
             } catch (e) {}
           } else {
-            // Direct Admin creation telegram alert
-            try {
-              const tgToken = AppState.settings?.TELEGRAM_BOT_TOKEN || localStorage.getItem('inventory_tg_token') || DEFAULT_TG_BOT_TOKEN;
-              const tgChatId = AppState.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid') || DEFAULT_TG_CHAT_ID;
-              if (tgToken && tgChatId) {
-                const creatorName = AppState.currentUser?.fullName || AppState.currentUser?.username || 'Admin';
-                const alertMsg = `✨ <b>[គណនីថ្មីត្រូវបានបង្កើតដោយ Admin]</b>\n` +
-                  `👤 <b>ឈ្មោះពេញ:</b> ${userData.fullName}\n` +
-                  `🆔 <b>Username:</b> <code>@${userData.username}</code>\n` +
-                  `🔑 <b>ពាក្យសម្ងាត់:</b> <code>${userData.password}</code>\n` +
-                  `📱 <b>លេខទូរស័ព្ទ:</b> ${formatPhoneNumber(userData.phone) || '-'}\n` +
-                  `📧 <b>អ៊ីមែល:</b> ${userData.email || '-'}\n` +
-                  `💼 <b>តួនាទី:</b> ${userData.role}\n` +
-                  `🏢 <b>ស្ថានីយ/ឃ្លាំង:</b> ${userData.warehouse}\n` +
-                  `👮 <b>បង្កើតដោយ Admin:</b> ${creatorName}\n` +
-                  `🕒 <b>កាលបរិច្ឆេទ:</b> ${new Date().toLocaleString('en-GB')}\n` +
-                  `🚦 <b>ស្ថានភាព:</b> ✅ <b>Active (អាចប្រើប្រាស់បានភ្លាមៗ មិនបាច់ Approve ទេ)</b>`;
-
-                fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    chat_id: tgChatId,
-                    text: alertMsg,
-                    parse_mode: 'HTML'
-                  })
-                }).catch(() => {});
-              }
-            } catch (e) {}
+            // Direct Admin creation alert to SuperAdmin is handled reliably by backend registerUser (Code.js)
           }
 
           // Background Google Apps Script cloud sync

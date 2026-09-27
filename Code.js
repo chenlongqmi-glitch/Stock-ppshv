@@ -2132,7 +2132,7 @@ function registerUser(userData) {
         `💼 <b>តួនាទី:</b> ${role}\n` +
         `🏢 <b>ស្ថានីយ/ឃ្លាំង:</b> ${warehouse}\n` +
         `👮 <b>បង្កើតដោយ Admin:</b> ${createdBy}\n` +
-        `🕒 <b>កាលបរិច្ឆេទ:</b> ${Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd HH:mm:ss')}\n` +
+        `🕒 <b>កាលបរិច្ឆេទ:</b> ${Utilities.formatDate(new Date(), 'GMT+7', 'dd/MM/yyyy, HH:mm:ss')}\n` +
         `🚦 <b>ស្ថានភាព:</b> ✅ <b>Active (អាចប្រើប្រាស់បានភ្លាមៗ មិនបាច់ Approve ទេ)</b>`;
 
       sendTelegramAlert(regAlert);
