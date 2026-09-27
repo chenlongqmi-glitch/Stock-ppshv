@@ -488,6 +488,37 @@ function setAppScriptCache(key, obj, ttlSeconds) {
   } catch (e) {}
 }
 
+function setGlobalDataVersion() {
+  try {
+    var v = String(Date.now());
+    CacheService.getScriptCache().put('GLOBAL_DATA_VERSION', v, 21600);
+    PropertiesService.getScriptProperties().setProperty('GLOBAL_DATA_VERSION', v);
+    return v;
+  } catch(e) {
+    return String(Date.now());
+  }
+}
+
+function checkDataVersion(payload) {
+  var clientVersion = payload && payload.version ? String(payload.version) : '';
+  var serverVersion = CacheService.getScriptCache().get('GLOBAL_DATA_VERSION');
+  if (!serverVersion) {
+    try {
+      serverVersion = PropertiesService.getScriptProperties().getProperty('GLOBAL_DATA_VERSION');
+    } catch(e) {}
+    if (!serverVersion) {
+      serverVersion = setGlobalDataVersion();
+    }
+  }
+
+  var hasUpdates = (clientVersion !== '' && clientVersion !== serverVersion);
+  return {
+    success: true,
+    hasUpdates: hasUpdates,
+    serverVersion: serverVersion
+  };
+}
+
 function invalidateAppCache() {
   try {
     var c = CacheService.getScriptCache();
@@ -546,6 +577,7 @@ function executeLocalApiAction(req) {
     };
     if (MUTATIONS[action]) {
       invalidateAppCache();
+      setGlobalDataVersion();
     }
 
 
@@ -606,7 +638,11 @@ function executeLocalApiAction(req) {
 
         return getDashboardStats(payload.user, payload.warehouseFilter);
 
-            case 'getBootstrapData':
+            case 'checkDataVersion':
+      case 'getSyncHeartbeat':
+        return checkDataVersion(payload);
+
+      case 'getBootstrapData':
       case 'getInitialAppData':
         return getBootstrapData(payload);
 
@@ -3824,8 +3860,17 @@ function getBootstrapData(payload) {
   var requestsRes = getProductRequests(payload, whFilter, ss);
   var dashRes = getDashboardStats(payload, whFilter, ss);
 
+  var serverVersion = CacheService.getScriptCache().get('GLOBAL_DATA_VERSION');
+  if (!serverVersion) {
+    try {
+      serverVersion = PropertiesService.getScriptProperties().getProperty('GLOBAL_DATA_VERSION');
+    } catch(e) {}
+    if (!serverVersion) serverVersion = setGlobalDataVersion();
+  }
+
   var result = {
     success: true,
+    dataVersion: serverVersion,
     items: itemsRes.items || [],
     categories: itemsRes.categories || [],
     warehouses: warehouses,

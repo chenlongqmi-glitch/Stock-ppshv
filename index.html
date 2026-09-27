@@ -7468,6 +7468,18 @@
       }
 
       // 2. SWR (STALE-WHILE-REVALIDATE) READ CACHE FOR INSTANT < 1MS RESPONSES
+      if (action === 'checkDataVersion' || action === 'getSyncHeartbeat') {
+        if (typeof google !== 'undefined' && google.script && google.script.run) {
+          return new Promise((resolve) => {
+            google.script.run
+              .withSuccessHandler((res) => resolve(res || { success: true, hasUpdates: false }))
+              .withFailureHandler(() => resolve({ success: true, hasUpdates: false }))
+              .handleApiRequest({ action: action, payload: payload });
+          });
+        }
+        return simulateLocalApi(action, payload);
+      }
+
       const cacheKey = `${action}_${JSON.stringify(payload)}`;
       const cached = API_CACHE.get(cacheKey);
       const now = Date.now();
@@ -10972,6 +10984,10 @@
         });
 
         if (res && res.success) {
+          if (res.dataVersion) {
+            AppState.clientDataVersion = String(res.dataVersion);
+            try { localStorage.setItem('ppshv_client_data_version', AppState.clientDataVersion); } catch(e) {}
+          }
           // A. Warehouses & Categories
           if (Array.isArray(res.warehouses) && res.warehouses.length > 0) {
             const names = res.warehouses.map(w => typeof w === 'object' ? (w.name || w.location || w.id) : w).filter(Boolean);
@@ -21345,6 +21361,8 @@
       }
 
       if (msg.type === 'DATA_MUTATED' || msg.type === 'REFRESH_ALL') {
+        AppState.clientDataVersion = '';
+        silentAutoRefresh();
         applyBootstrapDataSync();
       }
     }
@@ -21405,35 +21423,58 @@
       if (!AppState.currentUser || isSilentRefreshing || document.hidden) return;
       isSilentRefreshing = true;
       try {
-        // High-speed single-call bootstrap data refresh in background (force fresh live sync)
-        await applyBootstrapDataSync(true);
-
-        // Check if user is actively typing in a form or input to avoid disrupting focus
-        const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
-        const isEditingInForm = (activeTag === 'input' || activeTag === 'textarea') && 
-          document.activeElement.closest('.modal, [id$="Modal"], form');
-
-        if (!isEditingInForm) {
-          if (AppState.currentTab === 'reports') await loadReportTransactions();
-          if (AppState.currentTab === 'stockin') await loadStockInHistory();
-          if (AppState.currentTab === 'stockout') await loadStockOutHistory();
-          if (AppState.currentTab === 'items' && typeof renderItemsTable === 'function') renderItemsTable();
-          if (AppState.currentTab === 'users' && typeof filterUsersList === 'function') filterUsersList();
-          if (AppState.currentTab === 'dashboard' && typeof loadDashboard === 'function') loadDashboard();
+        // 1. Lightweight Check: Only run data sync when there is an actual data update!
+        let hasNewUpdates = false;
+        if (!AppState.clientDataVersion) {
+          hasNewUpdates = true;
+        } else {
+          const heartbeat = await apiCall('checkDataVersion', {
+            version: AppState.clientDataVersion
+          });
+          if (heartbeat && heartbeat.hasUpdates) {
+            hasNewUpdates = true;
+            AppState.clientDataVersion = heartbeat.serverVersion || '';
+          }
         }
 
-        const actor = AppState.currentUser;
-        const isSuperAdmin = (actor?.role === 'SuperAdmin' || String(actor?.username).toLowerCase() === 'superadmin');
-        if (isSuperAdmin) {
-          if (typeof checkPendingDeletionsForSuperAdmin === 'function') {
-            checkPendingDeletionsForSuperAdmin(false);
+        // 2. Only execute background sync when data was actually updated!
+        if (hasNewUpdates) {
+          await applyBootstrapDataSync(true);
+
+          // Check if user is actively typing in a form or input to avoid disrupting focus
+          const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+          const isEditingInForm = (activeTag === 'input' || activeTag === 'textarea') && 
+            document.activeElement.closest('.modal, [id$="Modal"], form');
+
+          if (!isEditingInForm) {
+            if (AppState.currentTab === 'reports') await loadReportTransactions();
+            if (AppState.currentTab === 'stockin') await loadStockInHistory();
+            if (AppState.currentTab === 'stockout') await loadStockOutHistory();
+            if (AppState.currentTab === 'items' && typeof renderItemsTable === 'function') renderItemsTable();
+            if (AppState.currentTab === 'users' && typeof filterUsersList === 'function') filterUsersList();
+            if (AppState.currentTab === 'dashboard' && typeof loadDashboard === 'function') loadDashboard();
           }
-        } else {
-          if (typeof checkPendingRegistrationsForAdmin === 'function') {
-            checkPendingRegistrationsForAdmin(true);
+
+          const actor = AppState.currentUser;
+          const isSuperAdmin = (actor?.role === 'SuperAdmin' || String(actor?.username).toLowerCase() === 'superadmin');
+          if (isSuperAdmin) {
+            if (typeof checkPendingDeletionsForSuperAdmin === 'function') {
+              checkPendingDeletionsForSuperAdmin(false);
+            }
+          } else {
+            if (typeof checkPendingRegistrationsForAdmin === 'function') {
+              checkPendingRegistrationsForAdmin(true);
+            }
+            if (typeof checkDeletionRepliesForAdmin === 'function') {
+              checkDeletionRepliesForAdmin(false);
+            }
           }
-          if (typeof checkDeletionRepliesForAdmin === 'function') {
-            checkDeletionRepliesForAdmin(false);
+
+          // Subtle pulse on sync indicator when data was updated
+          const badge = document.getElementById('liveSyncStatusIndicator');
+          if (badge) {
+            badge.classList.add('ring-2', 'ring-emerald-400');
+            setTimeout(() => badge.classList.remove('ring-2', 'ring-emerald-400'), 1000);
           }
         }
       } catch (e) {
