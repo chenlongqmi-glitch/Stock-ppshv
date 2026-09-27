@@ -2319,19 +2319,19 @@ function getUsersList(userOrPayload) {
 
 
   if (isSuperAdmin) {
-
-    return { success: true, users: users };
-
+    const isSelf = (u) => (actor && actor.userId && u.userId === actor.userId) || (actor && actor.username && String(u.username).toLowerCase() === String(actor.username).toLowerCase());
+    return { success: true, users: users.filter(u => !isSelf(u)) };
   } else if (isAdmin) {
     return { success: true, users: users.filter(u => {
+      const isSelf = (actor && actor.userId && u.userId === actor.userId) || (actor && actor.username && String(u.username).toLowerCase() === String(actor.username).toLowerCase());
+      if (isSelf) return false; // Hide own account from users list
       const r = String(u.role || '').trim().toLowerCase();
       const uName = String(u.username || '').toLowerCase();
       const uId = String(u.userId || '').toUpperCase();
       const isSA = (r === 'superadmin' || uName === 'superadmin' || uId === 'USR-SA');
       if (isSA) return false;
-      const isSelf = (actor && actor.userId && u.userId === actor.userId) || (actor && actor.username && String(u.username).toLowerCase() === String(actor.username).toLowerCase());
       const isOtherAdmin = (r === 'admin' || uName === 'admin');
-      if (isOtherAdmin && !isSelf) return false;
+      if (isOtherAdmin) return false;
       return true;
     }) };
 

@@ -8044,22 +8044,24 @@
           return clone;
         });
 
+        const curUname = String(actor?.username || '').toLowerCase();
+        const curId = String(actor?.userId || '').toUpperCase();
+        const isSelf = (u) => (curId && u.userId && String(u.userId).toUpperCase() === curId) || (curUname && u.username && String(u.username).toLowerCase() === curUname);
+
         if (isSuperAdmin) {
-          // 1. SuperAdmin មើលឃើញ User ទាំងអស់ដែលបាន Register
-          return { success: true, users: attachPassword(registeredUsers) };
+          // 1. SuperAdmin sees all users except self (មិនចាំបាច់បង្ហាញ account របស់ខ្លួនឯងក្នុងតារាងទេ)
+          return { success: true, users: attachPassword(registeredUsers.filter(u => !isSelf(u))) };
         } else if (isAdmin) {
-          // 2. Admin មិនអាចមើលឃើញ SuperAdmin ហើយ Admin និង Admin ក៏មិនអាចមើលឃើញគ្នាដែរ (ឃើញតែខ្លួនឯង និងបុគ្គលិកក្រោមបង្គាប់)
-          const curUname = String(actor?.username || '').toLowerCase();
-          const curId = String(actor?.userId || '').toUpperCase();
+          // 2. Admin cannot see SuperAdmin, other Admins, or self (មិនចាំបាច់បង្ហាញ account របស់ខ្លួនឯងក្នុងតារាងទេ)
           const filtered = registeredUsers.filter(u => {
+            if (isSelf(u)) return false;
             const r = String(u.role || '').trim().toLowerCase();
             const uName = String(u.username || '').toLowerCase();
             const uId = String(u.userId || '').toUpperCase();
             const isSA = (r === 'superadmin' || uName === 'superadmin' || uId === 'USR-SA');
             if (isSA) return false;
-            const isSelf = (curId && uId && curId === uId) || (curUname && uName && curUname === uName);
             const isOtherAdmin = (r === 'admin' || uName === 'admin');
-            if (isOtherAdmin && !isSelf) return false;
+            if (isOtherAdmin) return false;
             return true;
           });
           return { success: true, users: attachPassword(filtered) };
@@ -16221,18 +16223,19 @@
           const userSource = (Array.isArray(res.users) && res.users.length > 0) ? res.users : (LOCAL_DB.users || []);
           let filteredUsers = userSource.filter(u => !isUnregisteredDummyUser(u) && u.status !== 'Deleted' && u.status !== 'deleted');
           if (isActorSuperAdmin) {
-            // 1. SuperAdmin sees all users (including SuperAdmin, all Admins, Station Managers, Team Leaders, and Stock Keepers)
-            filteredUsers = filteredUsers;
+            // 1. SuperAdmin sees all users except self (មិនចាំបាច់បង្ហាញ account របស់ខ្លួនឯងក្នុងតារាងទេ)
+            filteredUsers = filteredUsers.filter(u => !isSelfUser(u));
           } else if (isActorAdmin) {
-            // 2. Admin មិនអាចមើលឃើញ SuperAdmin ហើយ Admin និង Admin ក៏មិនអាចមើលឃើញគ្នាដែរ (ឃើញតែគណនីខ្លួនឯង និងបុគ្គលិកក្រោមបង្គាប់)
+            // 2. Admin cannot see SuperAdmin, other Admins, or self (មិនចាំបាច់បង្ហាញ account របស់ខ្លួនឯងក្នុងតារាងទេ)
             filteredUsers = filteredUsers.filter(u => {
+              if (isSelfUser(u)) return false;
               const r = String(u.role || '').trim().toLowerCase();
               const uName = String(u.username || '').toLowerCase();
               const uId = String(u.userId || '').toUpperCase();
               const isSA = (r === 'superadmin' || uName === 'superadmin' || uId === 'USR-SA');
               if (isSA) return false;
               const isOtherAdmin = (r === 'admin' || uName === 'admin');
-              if (isOtherAdmin && !isSelfUser(u)) return false;
+              if (isOtherAdmin) return false;
               return true;
             });
           } else if (isActorStationManager) {
@@ -16312,6 +16315,15 @@
       const isActorAdmin = !isActorSuperAdmin && (actor?.role === 'Admin' || String(actor?.username).toLowerCase() === 'admin');
       const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (actor?.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || actor?.role === 'អ្នកគ្រប់គ្រង');
       const isPrivilegedViewer = isActorSuperAdmin || isActorAdmin;
+
+      // មិនចាំបាច់បង្ហាញ account របស់ខ្លួនឯងក្នុងតារាងគ្រប់គ្រងខាងក្រោមឡើយ (Always hide own account from table)
+      if (Array.isArray(usersList)) {
+        usersList = usersList.filter(u => {
+          const isSelf = (actor?.userId && u.userId && actor.userId === u.userId) || 
+                         (actor?.username && u.username && String(actor.username).toLowerCase() === String(u.username).toLowerCase());
+          return !isSelf;
+        });
+      }
 
       // Double-enforce Admin visibility boundaries (Admin មិនអាចឃើញ SuperAdmin ហើយ Admin និង Admin មិនអាចឃើញគ្នាទេ)
       if (isActorAdmin && Array.isArray(usersList)) {
