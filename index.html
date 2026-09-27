@@ -2960,9 +2960,6 @@
 
             <!-- Search & Role Filter Bar -->
             <div class="mt-3.5 pt-3.5 border-t border-slate-100 flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-              <!-- Decoy inputs to absorb browser password autofill -->
-              <input type="text" style="display:none!important;" aria-hidden="true" autocomplete="username" tabindex="-1">
-              <input type="password" style="display:none!important;" aria-hidden="true" autocomplete="current-password" tabindex="-1">
               <div class="relative flex-1">
                 <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
                 <input type="search" id="userSearchInput" name="user_search_prevent_autofill"
@@ -8051,12 +8048,20 @@
           // 1. SuperAdmin មើលឃើញ User ទាំងអស់ដែលបាន Register
           return { success: true, users: attachPassword(registeredUsers) };
         } else if (isAdmin) {
-          // 2. Admin មើលឃើញ User ទាំងអស់ តែមិនអាចឃើញ SuperAdmin
-          const filtered = registeredUsers.filter(u =>
-            u.role !== 'SuperAdmin' &&
-            String(u.username).toLowerCase() !== 'superadmin' &&
-            String(u.userId).toUpperCase() !== 'USR-SA'
-          );
+          // 2. Admin មិនអាចមើលឃើញ SuperAdmin ហើយ Admin និង Admin ក៏មិនអាចមើលឃើញគ្នាដែរ (ឃើញតែខ្លួនឯង និងបុគ្គលិកក្រោមបង្គាប់)
+          const curUname = String(actor?.username || '').toLowerCase();
+          const curId = String(actor?.userId || '').toUpperCase();
+          const filtered = registeredUsers.filter(u => {
+            const r = String(u.role || '').trim().toLowerCase();
+            const uName = String(u.username || '').toLowerCase();
+            const uId = String(u.userId || '').toUpperCase();
+            const isSA = (r === 'superadmin' || uName === 'superadmin' || uId === 'USR-SA');
+            if (isSA) return false;
+            const isSelf = (curId && uId && curId === uId) || (curUname && uName && curUname === uName);
+            const isOtherAdmin = (r === 'admin' || uName === 'admin');
+            if (isOtherAdmin && !isSelf) return false;
+            return true;
+          });
           return { success: true, users: attachPassword(filtered) };
         } else if (actor && (actor.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || actor.role === 'អ្នកគ្រប់គ្រង' || String(actor.role).toLowerCase() === 'station manager')) {
           // 3. Station Manager: អាចមើលឃើញ ប្រធានក្រុម និងអ្នកកាន់ស្តុក ក្នុងស្ថានីយខ្លួនឯង
@@ -10714,9 +10719,17 @@
     function ensurePasswordToggleOnElement(input) {
       if (!input) return;
       if (input.type !== 'password' && input.getAttribute('data-pass-managed') !== 'true') return;
+      // Skip hidden, decoy, or detached inputs (prevents eye icon from appearing on search bars or selects)
+      if (input.style.display === 'none' || input.getAttribute('aria-hidden') === 'true' || input.tabIndex === -1 || (input.offsetWidth === 0 && input.offsetHeight === 0)) {
+        return;
+      }
       input.setAttribute('data-pass-managed', 'true');
       const parent = input.parentElement;
       if (!parent) return;
+      // Skip if parent contains other interactive controls like select (e.g. userRoleFilter) or multiple inputs
+      if (parent.querySelector('select') || parent.querySelectorAll('input:not([type="hidden"])').length > 1) {
+        return;
+      }
       if (parent.querySelector('button[data-toggle-pass="true"]') || parent.querySelector('button[onclick*="togglePasswordVisibility"]')) {
         return;
       }
@@ -16211,13 +16224,16 @@
             // 1. SuperAdmin sees all users (including SuperAdmin, all Admins, Station Managers, Team Leaders, and Stock Keepers)
             filteredUsers = filteredUsers;
           } else if (isActorAdmin) {
-            // 2. Admin sees Admin and all staff, only SuperAdmin is hidden
+            // 2. Admin មិនអាចមើលឃើញ SuperAdmin ហើយ Admin និង Admin ក៏មិនអាចមើលឃើញគ្នាដែរ (ឃើញតែគណនីខ្លួនឯង និងបុគ្គលិកក្រោមបង្គាប់)
             filteredUsers = filteredUsers.filter(u => {
               const r = String(u.role || '').trim().toLowerCase();
               const uName = String(u.username || '').toLowerCase();
               const uId = String(u.userId || '').toUpperCase();
               const isSA = (r === 'superadmin' || uName === 'superadmin' || uId === 'USR-SA');
-              return !isSA;
+              if (isSA) return false;
+              const isOtherAdmin = (r === 'admin' || uName === 'admin');
+              if (isOtherAdmin && !isSelfUser(u)) return false;
+              return true;
             });
           } else if (isActorStationManager) {
             const myWh = cleanWh(AppState.currentUser?.warehouse);
@@ -16297,6 +16313,21 @@
       const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (actor?.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || actor?.role === 'អ្នកគ្រប់គ្រង');
       const isPrivilegedViewer = isActorSuperAdmin || isActorAdmin;
 
+      // Double-enforce Admin visibility boundaries (Admin មិនអាចឃើញ SuperAdmin ហើយ Admin និង Admin មិនអាចឃើញគ្នាទេ)
+      if (isActorAdmin && Array.isArray(usersList)) {
+        usersList = usersList.filter(u => {
+          const r = String(u.role || '').trim().toLowerCase();
+          const uName = String(u.username || '').toLowerCase();
+          const uId = String(u.userId || '').toUpperCase();
+          const isSA = (r === 'superadmin' || uName === 'superadmin' || uId === 'USR-SA');
+          if (isSA) return false;
+          const isSelf = (actor?.userId && u.userId && actor.userId === u.userId) || (actor?.username && u.username && String(actor.username).toLowerCase() === String(u.username).toLowerCase());
+          const isOtherAdmin = (r === 'admin' || uName === 'admin');
+          if (isOtherAdmin && !isSelf) return false;
+          return true;
+        });
+      }
+
       // Double-enforce Station Manager visibility boundaries
       if (isActorStationManager && Array.isArray(usersList)) {
         const cleanWh = (str) => String(str || '').replace(/^[📍🏢\s]+/, '').trim().toLowerCase();
@@ -16351,43 +16382,7 @@
           roleBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-blue-100 text-blue-700 border border-blue-200">📦 ${u.role || 'Stock Keeper'}</span>`;
         }
 
-        const canChangeRole = !isSelf && (
-          isActorSuperAdmin ||
-          (isActorAdmin && !isUserSuperAdmin && !isUserAdmin) ||
-          (isActorStationManager && (u.role === 'ប្រធានក្រុម' || u.role === 'អ្នកកាន់ស្តុក' || !u.role))
-        );
-
         let roleSelectorHtml = '';
-        if (canChangeRole) {
-          let opts = '';
-          if (isActorSuperAdmin) {
-            opts += `
-              <option value="SuperAdmin" ${u.role === 'SuperAdmin' ? 'selected' : ''}>👑 SuperAdmin</option>
-              <option value="Admin" ${u.role === 'Admin' ? 'selected' : ''}>🛡️ Admin</option>
-              <option value="អ្នកគ្រប់គ្រងស្ថានីយ" ${(u.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || u.role === 'អ្នកគ្រប់គ្រង') ? 'selected' : ''}>🏢 អ្នកគ្រប់គ្រងស្ថានីយ</option>
-              <option value="ប្រធានក្រុម" ${(u.role === 'ប្រធានក្រុម' || u.role === 'ប្រធាន' || u.role === 'Team Leader') ? 'selected' : ''}>👤 ប្រធានក្រុម</option>
-              <option value="អ្នកកាន់ស្តុក" ${(u.role === 'អ្នកកាន់ស្តុក' || u.role === 'Stock Keeper' || !u.role) ? 'selected' : ''}>📦 អ្នកកាន់ស្តុក</option>
-            `;
-          } else if (isActorAdmin) {
-            opts += `
-              <option value="អ្នកគ្រប់គ្រងស្ថានីយ" ${(u.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || u.role === 'អ្នកគ្រប់គ្រង') ? 'selected' : ''}>🏢 អ្នកគ្រប់គ្រងស្ថានីយ</option>
-              <option value="ប្រធានក្រុម" ${(u.role === 'ប្រធានក្រុម' || u.role === 'ប្រធាន' || u.role === 'Team Leader') ? 'selected' : ''}>👤 ប្រធានក្រុម</option>
-              <option value="អ្នកកាន់ស្តុក" ${(u.role === 'អ្នកកាន់ស្តុក' || u.role === 'Stock Keeper' || !u.role) ? 'selected' : ''}>📦 អ្នកកាន់ស្តុក</option>
-            `;
-          } else if (isActorStationManager) {
-            opts += `
-              <option value="ប្រធានក្រុម" ${(u.role === 'ប្រធានក្រុម' || u.role === 'ប្រធាន' || u.role === 'Team Leader') ? 'selected' : ''}>👤 ប្រធានក្រុម</option>
-              <option value="អ្នកកាន់ស្តុក" ${(u.role === 'អ្នកកាន់ស្តុក' || u.role === 'Stock Keeper' || !u.role) ? 'selected' : ''}>📦 អ្នកកាន់ស្តុក</option>
-            `;
-          }
-          roleSelectorHtml = `
-            <select onchange="handleDirectUserRoleChange('${u.userId || u.username}', this.value)"
-              class="text-[10.5px] font-bold py-0.5 px-1.5 bg-slate-50 hover:bg-white border border-slate-200 hover:border-indigo-400 rounded-lg shadow-2xs outline-none cursor-pointer text-slate-700 transition"
-              title="ប្តូរតួនាទីភ្លាមៗ">
-              ${opts}
-            </select>
-          `;
-        }
 
         // 2. Status Badge
         let statusBadgeHtml = '';
@@ -16415,37 +16410,62 @@
           statusBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-slate-100 text-slate-700">${u.status || 'Inactive'}</span>`;
         }
 
-        // 3. Bound Devices
+        // 3. Bound Devices & Integrated Disconnect Feature (បញ្ចូលជាមួយរូបភាពទី១)
         const bound = u.boundDevices || { desktop: null, mobile: null };
         const pcBound = !!(bound.desktop && bound.desktop.deviceId);
         const phoneBound = !!(bound.mobile && bound.mobile.deviceId);
+        const canResetDevice = (isActorSuperAdmin || isActorAdmin || isActorStationManager) && (pcBound || phoneBound);
 
-        const deviceBadgesHtml = `
-          <div class="inline-flex flex-wrap items-center gap-1.5 text-xs">
-            <span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[10.5px] ${pcBound ? 'font-bold bg-blue-50 text-blue-700 border border-blue-200' : 'bg-slate-100 text-slate-400'}" title="${pcBound ? `កុំព្យូទ័រ: ${escapeHtml(bound.desktop.deviceName || 'PC')}` : 'កុំព្យូទ័រ: ទំនេរ'}">
-              <i class="fa-solid fa-desktop mr-1 text-[10px] ${pcBound ? 'text-blue-600' : 'text-slate-300'}"></i>
+        const pcBadge = `
+          <span class="inline-flex items-center justify-between px-2 py-0.5 rounded-lg text-[10.5px] min-w-[95px] ${pcBound ? 'font-bold bg-blue-50 text-blue-700 border border-blue-200' : 'bg-slate-100 text-slate-400'}" title="${pcBound ? `កុំព្យូទ័រ: ${escapeHtml(bound.desktop.deviceName || 'PC')}` : 'កុំព្យូទ័រ: ទំនេរ'}">
+            <span class="inline-flex items-center">
+              <i class="fa-solid fa-desktop mr-1.5 text-[10px] ${pcBound ? 'text-blue-600' : 'text-slate-300'}"></i>
               <span>${pcBound ? 'PC: ភ្ជាប់រួច' : 'PC: ទំនេរ'}</span>
             </span>
-            <span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[10.5px] ${phoneBound ? 'font-bold bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-400'}" title="${phoneBound ? `ទូរសព្ទដៃ: ${escapeHtml(bound.mobile.deviceName || 'Mobile')}` : 'ទូរសព្ទដៃ: ទំនេរ'}">
-              <i class="fa-solid fa-mobile-screen mr-1 text-[10px] ${phoneBound ? 'text-emerald-600' : 'text-slate-300'}"></i>
+            ${(pcBound && canResetDevice) ? `
+              <button type="button" onclick="event.stopPropagation(); openResetUserDeviceModal('${u.userId || u.username}', '${escapeHtml(u.fullName || u.username)}', 'DESKTOP')"
+                class="ml-1.5 p-0.5 text-blue-400 hover:text-rose-600 hover:bg-rose-50 rounded transition" title="ផ្តាច់កុំព្យូទ័រ (Reset Desktop)">
+                <i class="fa-solid fa-xmark text-[11px]"></i>
+              </button>
+            ` : ''}
+          </span>
+        `;
+
+        const phoneBadge = `
+          <span class="inline-flex items-center justify-between px-2 py-0.5 rounded-lg text-[10.5px] min-w-[95px] ${phoneBound ? 'font-bold bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-400'}" title="${phoneBound ? `ទូរសព្ទដៃ: ${escapeHtml(bound.mobile.deviceName || 'Mobile')}` : 'ទូរសព្ទដៃ: ទំនេរ'}">
+            <span class="inline-flex items-center">
+              <i class="fa-solid fa-mobile-screen mr-1.5 text-[10px] ${phoneBound ? 'text-emerald-600' : 'text-slate-300'}"></i>
               <span>${phoneBound ? 'Phone: ភ្ជាប់រួច' : 'Phone: ទំនេរ'}</span>
             </span>
+            ${(phoneBound && canResetDevice) ? `
+              <button type="button" onclick="event.stopPropagation(); openResetUserDeviceModal('${u.userId || u.username}', '${escapeHtml(u.fullName || u.username)}', 'MOBILE')"
+                class="ml-1.5 p-0.5 text-emerald-400 hover:text-rose-600 hover:bg-rose-50 rounded transition" title="ផ្តាច់ទូរសព្ទដៃ (Reset Mobile)">
+                <i class="fa-solid fa-xmark text-[11px]"></i>
+              </button>
+            ` : ''}
+          </span>
+        `;
+
+        const resetBtnInCol = canResetDevice ? `
+          <button type="button" onclick="openResetUserDeviceModal('${u.userId || u.username}', '${escapeHtml(u.fullName || u.username)}')"
+            class="px-2 py-0.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg text-[10px] font-semibold inline-flex items-center space-x-1 transition hover:scale-105 active:scale-95 shadow-2xs mt-0.5"
+            title="ផ្តាច់ឧបករណ៍កុំព្យូទ័រ/ទូរសព្ទដៃ (Reset Device Binding)">
+            <i class="fa-solid fa-link-slash text-[9px]"></i>
+            <span>ផ្តាច់ឧបករណ៍</span>
+          </button>
+        ` : '';
+
+        const deviceBadgesHtml = `
+          <div class="flex flex-col items-center justify-center gap-1 text-xs">
+            ${pcBadge}
+            ${phoneBadge}
+            ${resetBtnInCol}
           </div>
         `;
 
-        // 4. Reset Device Button
+        // 4. Reset Device Button (already integrated in devices column)
         let resetBtnHtml = '';
-        if ((isActorSuperAdmin || isActorAdmin || isActorStationManager) && (pcBound || phoneBound)) {
-          resetBtnHtml = `
-            <button onclick="openResetUserDeviceModal('${u.userId || u.username}', '${escapeHtml(u.fullName || u.username)}')" 
-              class="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-xl text-xs font-semibold flex items-center space-x-1 transition hover:scale-105 active:scale-95 shadow-2xs" 
-              title="ផ្តាច់ឧបករណ៍កុំព្យូទ័រ/ទូរសព្ទដៃ (Reset Device Binding)">
-              <i class="fa-solid fa-link-slash text-[10px]"></i>
-              <span>ផ្តាច់ឧបករណ៍</span>
-            </button>
-          `;
-        }
-
+        
         // 5. Actions
         let actionsHtml = '';
         if (u.status === 'Pending_Deletion') {
@@ -16660,7 +16680,6 @@
               <div class="flex flex-col space-y-1">
                 <div class="flex items-center space-x-1.5 flex-wrap gap-1">
                   ${roleBadgeHtml}
-                  ${roleSelectorHtml}
                 </div>
                 ${u.phone ? `<div class="text-[11px] text-slate-600 font-mono flex items-center"><i class="fa-solid fa-phone text-[9px] mr-1.5 text-slate-400"></i>${escapeHtml(u.phone)}</div>` : '<div class="text-[10px] text-slate-300 italic">គ្មានលេខទូរស័ព្ទ</div>'}
               </div>
@@ -16691,7 +16710,6 @@
                   </div>
                   <div class="flex items-center gap-1.5 mt-1 flex-wrap">
                     ${roleBadgeHtml}
-                    ${roleSelectorHtml}
                     ${u.email ? `<span class="text-[10.5px] text-slate-400 truncate max-w-[150px]">${escapeHtml(u.email)}</span>` : ''}
                   </div>
                 </div>
@@ -16816,7 +16834,7 @@
     window.copyUserPassword = copyUserPassword;
     window.copyUserPasswordToClipboardDirect = copyUserPasswordToClipboardDirect;
 
-    async function openResetUserDeviceModal(userIdOrUsername, fullName) {
+    async function openResetUserDeviceModal(userIdOrUsername, fullName, defaultType = null) {
       loadLocalUsersFromStorage();
       const target = LOCAL_DB.users.find(u => u.userId === userIdOrUsername || u.username.toLowerCase() === String(userIdOrUsername).toLowerCase());
       if (!target) {
@@ -16859,15 +16877,15 @@
             <p class="font-bold text-slate-700">សូមជ្រើសរើសឧបករណ៍ដែលចង់ផ្តាច់ (Reset):</p>
             <div class="space-y-2">
               <label class="flex items-center space-x-2.5 p-2 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer">
-                <input type="radio" name="resetDeviceType" value="DESKTOP" ${bound.desktop ? 'checked' : 'disabled'}>
+                <input type="radio" name="resetDeviceType" value="DESKTOP" ${(defaultType === 'DESKTOP' || (!defaultType && bound.desktop)) ? 'checked' : ''} ${bound.desktop ? '' : 'disabled'}>
                 <span class="font-semibold ${bound.desktop ? 'text-slate-800' : 'text-slate-400'}">💻 ផ្តាច់តែកុំព្យូទ័រ (Reset Desktop)</span>
               </label>
               <label class="flex items-center space-x-2.5 p-2 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer">
-                <input type="radio" name="resetDeviceType" value="MOBILE" ${!bound.desktop && bound.mobile ? 'checked' : ''} ${bound.mobile ? '' : 'disabled'}>
+                <input type="radio" name="resetDeviceType" value="MOBILE" ${(defaultType === 'MOBILE' || (!bound.desktop && bound.mobile)) ? 'checked' : ''} ${bound.mobile ? '' : 'disabled'}>
                 <span class="font-semibold ${bound.mobile ? 'text-slate-800' : 'text-slate-400'}">📱 ផ្តាច់តែទូរសព្ទដៃ (Reset Mobile)</span>
               </label>
               <label class="flex items-center space-x-2.5 p-2 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer">
-                <input type="radio" name="resetDeviceType" value="ALL" ${bound.desktop && bound.mobile ? '' : ''}>
+                <input type="radio" name="resetDeviceType" value="ALL" ${(defaultType === 'ALL') ? 'checked' : ''} ${(!bound.desktop && !bound.mobile) ? 'disabled' : ''}>
                 <span class="font-semibold text-rose-600">🔄 ផ្តាច់ឧបករណ៍ទាំងពីរ (Reset Both Devices)</span>
               </label>
             </div>
@@ -21503,8 +21521,22 @@
       const container = document.getElementById('onlineUsersListContainer');
       if (!container) return;
 
-      const onlineUsers = getOnlineUsersList();
+      let onlineUsers = getOnlineUsersList();
       const myUsername = String(AppState.currentUser?.username || '').toLowerCase();
+      const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (myUsername === 'superadmin');
+      const isActorAdmin = !isActorSuperAdmin && (AppState.currentUser?.role === 'Admin' || myUsername === 'admin');
+
+      if (isActorAdmin) {
+        onlineUsers = onlineUsers.filter(u => {
+          const r = String(u.role || '').toLowerCase();
+          const uname = String(u.username || '').toLowerCase();
+          const isSA = (r === 'superadmin' || uname === 'superadmin');
+          if (isSA) return false;
+          const isOtherAdmin = (r === 'admin' || uname === 'admin') && uname !== myUsername;
+          if (isOtherAdmin) return false;
+          return true;
+        });
+      }
 
       if (!onlineUsers || onlineUsers.length === 0) {
         container.innerHTML = `
@@ -22059,11 +22091,14 @@
       const allUsers = (AppState.users && AppState.users.length ? AppState.users : (LOCAL_DB.users || []))
         .filter(u => u && !isUnregisteredDummyUser(u) && u.status !== 'Deleted' && u.status !== 'deleted');
 
-      // Filter to station users / direct staff (exclude SuperAdmin since SuperAdmin is already in management contacts)
+      // Filter to station users / direct staff (exclude SuperAdmin & other Admins if viewer is Admin)
+      const isMyUserAdmin = (myUser.role === 'Admin' || myUsername === 'admin');
       const stationStaff = allUsers.filter(u => {
         const role = String(u.role || '');
         const uname = String(u.username || '').toLowerCase();
-        return role !== 'SuperAdmin' && uname !== 'superadmin';
+        if (role === 'SuperAdmin' || uname === 'superadmin') return false;
+        if (isMyUserAdmin && (role === 'Admin' || uname === 'admin') && uname !== myUsername) return false;
+        return true;
       });
 
       if (!stationStaff.length) {

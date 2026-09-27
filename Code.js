@@ -2328,7 +2328,11 @@ function getUsersList(userOrPayload) {
       const uName = String(u.username || '').toLowerCase();
       const uId = String(u.userId || '').toUpperCase();
       const isSA = (r === 'superadmin' || uName === 'superadmin' || uId === 'USR-SA');
-      return !isSA;
+      if (isSA) return false;
+      const isSelf = (actor && actor.userId && u.userId === actor.userId) || (actor && actor.username && String(u.username).toLowerCase() === String(actor.username).toLowerCase());
+      const isOtherAdmin = (r === 'admin' || uName === 'admin');
+      if (isOtherAdmin && !isSelf) return false;
+      return true;
     }) };
 
   } else if (isStationManager) {
