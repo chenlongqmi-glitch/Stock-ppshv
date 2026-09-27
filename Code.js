@@ -2211,18 +2211,8 @@ function registerUser(userData) {
       ]
     };
 
-    const regAlert = `📋 <b>[សំណើសុំចុះឈ្មោះគណនីថ្មី]</b>\n` +
-      `👤 <b>ឈ្មោះពេញ:</b> ${userData.fullName || userData.username}\n` +
-      `🆔 <b>Username:</b> <code>${userData.username}</code>\n` +
-      `📱 <b>លេខទូរស័ព្ទ:</b> ${phone || '-'}\n` +
-      `📧 <b>អ៊ីមែល:</b> ${userData.email || '-'}\n` +
-      `💼 <b>តួនាទី:</b> ${role}\n` +
-      `🏢 <b>ស្ថានីយ/ឃ្លាំង:</b> ${warehouse}\n` +
-      `🕒 <b>កាលបរិច្ឆេទ:</b> ${Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd HH:mm:ss')}\n` +
-      `🚦 <b>ស្ថានភាព:</b> ⏳ រង់ចាំ Admin / SuperAdmin អនុម័ត (Pending Approval)\n\n` +
-      `👉 <b>សូម Admin / SuperAdmin ចុចប៊ូតុងខាងក្រោមដើម្បី អនុម័ត (Approve) ឬ បដិសេធ (Reject)៖</b>`;
-
-    sendTelegramAlert(regAlert, replyMarkup);
+    // Note: User self-registration requests are not sent to SuperAdmin's Telegram for approval.
+    // Admin reviews and approves in Web App / LiveChat. After Admin approves, an alert is sent to SuperAdmin.
 
     // Internal Admin Email Notification via MailApp
     try {
@@ -2262,7 +2252,7 @@ function registerUser(userData) {
 
     success: true,
 
-    message: 'សំណើសុំចុះឈ្មោះត្រូវបានបញ្ជូនទៅ Telegram Admin រួចរាល់! សូមរង់ចាំ Admin ពិនិត្យ និងចុច Approve។',
+    message: 'សំណើសុំចុះឈ្មោះត្រូវបានបញ្ជូនរួចរាល់! សូមរង់ចាំ Admin ពិនិត្យ និងចុច Approve ក្នុងប្រព័ន្ធ។',
 
     user: { userId, username: userData.username, fullName: userData.fullName || userData.username, role, warehouse, avatar, phone, status }
 
@@ -2950,22 +2940,6 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
           Logger.log('Telegram forward error: ' + tgErr.toString());
 
         }
-
-      } else if (st === 'Active') {
-
-        try {
-
-          const targetUName = String(data[i][1]);
-
-          sendTelegramAlert(`🎉 <b>[ការអនុម័តគណនីជោគជ័យ]</b>\n` +
-
-            `👤 <b>គណនី:</b> <code>${targetUName}</code> (${fullName || data[i][2] || targetUName})\n` +
-
-            `✅ ស្ថានភាព៖ <b>បានអនុម័ត (Active)</b> រួចរាល់! អ្នកប្រើប្រាស់អាច Login ចូលប្រព័ន្ធបានហើយ។`
-
-          );
-
-        } catch (e) {}
 
       }
 

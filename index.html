@@ -9917,50 +9917,8 @@
       try {
         const res = await apiCall('registerUser', { ...userData, status: 'Pending_Admin' });
 
-        // 1. Instant Real-time Telegram Alert to Admin & SuperAdmin
-        try {
-          const tgToken = AppState.settings?.TELEGRAM_BOT_TOKEN || localStorage.getItem('inventory_tg_token') || DEFAULT_TG_BOT_TOKEN;
-          const tgChatId = AppState.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid') || DEFAULT_TG_CHAT_ID;
-          const gasUrl = AppState.gasApiUrl || localStorage.getItem('inventory_gas_api_url') || 'https://script.google.com/macros/s/AKfycbxqw7NPsE8pWqeYPAwTqxFakzFD5lTzGR1N5mlL-n2oZMp4FeDpGENFnEAjf6gSddk/exec';
-          const newUid = res?.user?.userId || ('USR-' + Date.now().toString().slice(-4));
-          const approveUrl = `${gasUrl}?action=approveUserTelegram&userId=${encodeURIComponent(newUid)}&u=${encodeURIComponent(userData.username)}`;
-          const rejectUrl = `${gasUrl}?action=rejectUserTelegram&userId=${encodeURIComponent(newUid)}&u=${encodeURIComponent(userData.username)}`;
-          const webAppUsersUrl = `${window.location.origin}${window.location.pathname}#users`;
-
-          if (tgToken && tgChatId) {
-            const tgMsg = `📋 <b>[សំណើសុំចុះឈ្មោះគណនីថ្មី]</b>\n` +
-              `👤 <b>ឈ្មោះពេញ:</b> ${userData.fullName || userData.username}\n` +
-              `🆔 <b>Username:</b> <code>${userData.username}</code>\n` +
-              `📱 <b>លេខទូរស័ព្ទ:</b> ${formatPhoneNumber(userData.phone) || '-'}\n` +
-              `📧 <b>អ៊ីមែល:</b> ${userData.email || '-'}\n` +
-              `💼 <b>តួនាទី:</b> ${userData.role || 'Stock Keeper'}\n` +
-              `🏢 <b>ស្ថានីយ/ឃ្លាំង:</b> ${userData.warehouse || '-'}\n` +
-              `🕒 <b>កាលបរិច្ឆេទ:</b> ${new Date().toLocaleString('en-GB')}\n` +
-              `🚦 <b>ស្ថានភាព:</b> ⏳ រង់ចាំ Admin / SuperAdmin អនុម័ត (Pending Approval)\n\n` +
-              `👉 <b>សូមចុចប៊ូតុងខាងក្រោមដើម្បី អនុម័ត (Approve) ឬ បដិសេធ (Reject)៖</b>`;
-
-            fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                chat_id: tgChatId,
-                text: tgMsg,
-                parse_mode: 'HTML',
-                reply_markup: {
-                  inline_keyboard: [
-                    [
-                      { text: "✅ អនុម័ត (Approve)", url: approveUrl },
-                      { text: "❌ បដិសេធ (Reject)", url: rejectUrl }
-                    ],
-                    [
-                      { text: "👥 ពិនិត្យក្នុងប្រព័ន្ធ (Web App)", url: webAppUsersUrl }
-                    ]
-                  ]
-                }
-              })
-            }).catch(() => {});
-          }
-        } catch (tgErr) {}
+        // Note: User self-registration requests are reviewed & approved by Admin in Web App / LiveChat.
+        // No approval request is sent to SuperAdmin's Telegram. Once Admin approves, an alert is sent to SuperAdmin.
 
         // 2. Real-Time Email Dispatch to Admin so Admin is notified to check the app
         try {
