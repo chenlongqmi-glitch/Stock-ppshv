@@ -10204,10 +10204,12 @@
       // 1. Update SuperAdmin exclusive controls
       updateSuperAdminExclusiveUI();
 
-      const u = AppState.currentUser;
-      const isSuperAdmin = (u && (u.role === 'SuperAdmin' || String(u.username).toLowerCase() === 'superadmin'));
-      const isAdmin = !isSuperAdmin && (u && (u.role === 'Admin' || String(u.username).toLowerCase() === 'admin'));
-      const isStationManager = !isSuperAdmin && !isAdmin && (u && (u.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || u.role === 'អ្នកគ្រប់គ្រង' || String(u.role).toLowerCase() === 'station manager'));
+      const u = AppState.currentUser || {};
+      const uRoleLower = String(u.role || '').trim().toLowerCase();
+      const uNameLower = String(u.username || '').trim().toLowerCase();
+      const isSuperAdmin = (uRoleLower === 'superadmin' || uNameLower === 'superadmin' || u.userId === 'USR-SA');
+      const isAdmin = !isSuperAdmin && (uRoleLower === 'admin' || uRoleLower.includes('admin') || uNameLower === 'admin' || (String(u.role || '').includes('គ្រប់គ្រង') && !String(u.role || '').includes('ស្ថានីយ')));
+      const isStationManager = !isSuperAdmin && !isAdmin && (String(u.role || '').includes('អ្នកគ្រប់គ្រងស្ថានីយ') || String(u.role || '').includes('ស្ថានីយ') || uRoleLower.includes('station manager'));
 
       // Stock Keeper (អ្នកកាន់ស្តុក) and Team Leader (ប្រធានក្រុម) or regular staff CANNOT access Manage Users
       const canAccessUsers = isSuperAdmin || isAdmin || isStationManager;
@@ -16218,12 +16220,16 @@
           }
 
           const tbody = document.getElementById('usersTableBody');
-          const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
-          const isActorAdmin = !isActorSuperAdmin && (AppState.currentUser?.role === 'Admin' || String(AppState.currentUser?.username).toLowerCase() === 'admin');
+          const actorLul = AppState.currentUser || {};
+          const actorLulRoleLower = String(actorLul.role || '').trim().toLowerCase();
+          const actorLulNameLower = String(actorLul.username || '').trim().toLowerCase();
+          const isActorSuperAdmin = (actorLulRoleLower === 'superadmin' || actorLulNameLower === 'superadmin' || actorLul.userId === 'USR-SA');
+          const isActorAdmin = !isActorSuperAdmin && (actorLulRoleLower === 'admin' || actorLulRoleLower.includes('admin') || actorLulNameLower === 'admin' || (String(actorLul.role || '').includes('គ្រប់គ្រង') && !String(actorLul.role || '').includes('ស្ថានីយ')));
           const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (
-            String(AppState.currentUser?.role || '').includes('អ្នកគ្រប់គ្រង') ||
-            String(AppState.currentUser?.role || '').toLowerCase().includes('station manager') ||
-            String(AppState.currentUser?.role || '').toLowerCase().includes('stationmanager')
+            String(actorLul.role || '').includes('អ្នកគ្រប់គ្រងស្ថានីយ') ||
+            String(actorLul.role || '').includes('ស្ថានីយ') ||
+            actorLulRoleLower.includes('station manager') ||
+            actorLulRoleLower.includes('stationmanager')
           );
           const isPrivilegedViewer = isActorSuperAdmin || isActorAdmin;
 
@@ -16418,13 +16424,16 @@
       const mobileCards = document.getElementById('usersMobileCardsList');
       if (!tbody && !mobileCards) return;
 
-      const actor = AppState.currentUser;
-      const isActorSuperAdmin = (actor?.role === 'SuperAdmin') || (String(actor?.username).toLowerCase() === 'superadmin');
-      const isActorAdmin = !isActorSuperAdmin && (actor?.role === 'Admin' || String(actor?.username).toLowerCase() === 'admin');
+      const actor = AppState.currentUser || {};
+      const actorRulRoleLower = String(actor.role || '').trim().toLowerCase();
+      const actorRulNameLower = String(actor.username || '').trim().toLowerCase();
+      const isActorSuperAdmin = (actorRulRoleLower === 'superadmin' || actorRulNameLower === 'superadmin' || actor.userId === 'USR-SA');
+      const isActorAdmin = !isActorSuperAdmin && (actorRulRoleLower === 'admin' || actorRulRoleLower.includes('admin') || actorRulNameLower === 'admin' || (String(actor.role || '').includes('គ្រប់គ្រង') && !String(actor.role || '').includes('ស្ថានីយ')));
       const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (
-        String(actor?.role || '').includes('អ្នកគ្រប់គ្រង') ||
-        String(actor?.role || '').toLowerCase().includes('station manager') ||
-        String(actor?.role || '').toLowerCase().includes('stationmanager')
+        String(actor.role || '').includes('អ្នកគ្រប់គ្រងស្ថានីយ') ||
+        String(actor.role || '').includes('ស្ថានីយ') ||
+        actorRulRoleLower.includes('station manager') ||
+        actorRulRoleLower.includes('stationmanager')
       );
       const isPrivilegedViewer = isActorSuperAdmin || isActorAdmin;
 
@@ -17080,18 +17089,42 @@
     window.clearAddUserFieldError = clearAddUserFieldError;
 
     function openAddUserModal() {
-      const actor = AppState.currentUser;
-      const isActorSuperAdmin = (actor?.role === 'SuperAdmin') || (String(actor?.username).toLowerCase() === 'superadmin');
-      const isActorAdmin = !isActorSuperAdmin && (actor?.role === 'Admin' || String(actor?.username).toLowerCase() === 'admin');
+      const actor = AppState.currentUser || {};
+      const actorRole = String(actor?.role || '').trim();
+      const actorRoleLower = actorRole.toLowerCase();
+      const actorNameLower = String(actor?.username || '').trim().toLowerCase();
+
+      const isActorSuperAdmin = (actorRoleLower === 'superadmin' || actorNameLower === 'superadmin' || actor?.userId === 'USR-SA');
+      const isActorAdmin = !isActorSuperAdmin && (
+        actorRoleLower === 'admin' ||
+        actorRoleLower.includes('admin') ||
+        actorNameLower === 'admin' ||
+        (actorRole.includes('គ្រប់គ្រង') && !actorRole.includes('ស្ថានីយ'))
+      );
+      const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (
+        actorRole.includes('អ្នកគ្រប់គ្រងស្ថានីយ') ||
+        actorRole.includes('ស្ថានីយ') ||
+        actorRoleLower.includes('station manager') ||
+        actorRoleLower.includes('stationmanager')
+      );
+
       if (!isActorSuperAdmin && !isActorAdmin) {
-        Swal.fire('គ្មានសិទ្ធិ', 'មុខងារបន្ថែមបុគ្គលិកថ្មី មានសម្រាប់តែ Admin និង SuperAdmin តែប៉ុណ្ណោះ!', 'warning');
+        Swal.fire({
+          icon: 'warning',
+          title: 'គ្មានសិទ្ធិ',
+          text: 'មុខងារបន្ថែមបុគ្គលិកថ្មី មានសម្រាប់តែ Admin និង SuperAdmin តែប៉ុណ្ណោះ!',
+          confirmButtonText: 'យល់ព្រម',
+          confirmButtonColor: '#2563eb'
+        });
         return;
       }
 
       const form = document.getElementById('addUserForm');
       if (form) form.reset();
-      document.getElementById('addAvatarPreview').src = 'https://api.dicebear.com/7.x/bottts/svg?seed=new' + Math.floor(Math.random() * 100);
-      document.getElementById('addAvatarData').value = '';
+      const avatarPreview = document.getElementById('addAvatarPreview');
+      if (avatarPreview) avatarPreview.src = 'https://api.dicebear.com/7.x/bottts/svg?seed=new' + Math.floor(Math.random() * 100);
+      const avatarData = document.getElementById('addAvatarData');
+      if (avatarData) avatarData.value = '';
 
       // Clear password and confirm password inputs explicitly and block browser autofill
       const pwdInput = document.getElementById('addPassword');
@@ -17129,7 +17162,6 @@
       const avatarError = document.getElementById('addAvatarError');
       if (avatarError) avatarError.classList.add('hidden');
 
-// Reusing isActorSuperAdmin, isActorAdmin, isActorStationManager from function scope
       const addRoleSelect = document.getElementById('addRole');
       if (addRoleSelect) {
         if (isActorSuperAdmin) {
@@ -17140,14 +17172,9 @@
             <option value="ប្រធានក្រុម">👤 ប្រធានក្រុម (Team Leader)</option>
             <option value="អ្នកកាន់ស្តុក" selected>📦 អ្នកកាន់ស្តុក (Stock Keeper)</option>
           `;
-        } else if (isActorAdmin) {
+        } else {
           addRoleSelect.innerHTML = `
             <option value="អ្នកគ្រប់គ្រងស្ថានីយ">🏢 អ្នកគ្រប់គ្រងស្ថានីយ (Station Manager)</option>
-            <option value="ប្រធានក្រុម">👤 ប្រធានក្រុម (Team Leader)</option>
-            <option value="អ្នកកាន់ស្តុក" selected>📦 អ្នកកាន់ស្តុក (Stock Keeper)</option>
-          `;
-        } else if (isActorStationManager) {
-          addRoleSelect.innerHTML = `
             <option value="ប្រធានក្រុម">👤 ប្រធានក្រុម (Team Leader)</option>
             <option value="អ្នកកាន់ស្តុក" selected>📦 អ្នកកាន់ស្តុក (Stock Keeper)</option>
           `;
@@ -17157,21 +17184,16 @@
       const addWhSelect = document.getElementById('addWarehouse');
       if (addWhSelect) {
         const stations = getWarehouseNamesList();
-        if (isActorStationManager) {
-          const myWh = AppState.currentUser?.warehouse || stations[0];
-          addWhSelect.innerHTML = `<option value="${escapeHtml(myWh)}" selected>📍 ${escapeHtml(myWh)}</option>`;
-          addWhSelect.disabled = true;
-        } else {
-          addWhSelect.disabled = false;
-          addWhSelect.innerHTML = `
-            ${stations.map(w => `<option value="${escapeHtml(w)}">📍 ${escapeHtml(w)}</option>`).join('')}
-            <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់ (Admin Only)</option>
-          `;
-          addWhSelect.value = stations[0];
-        }
+        addWhSelect.disabled = false;
+        addWhSelect.innerHTML = `
+          ${stations.map(w => `<option value="${escapeHtml(w)}">📍 ${escapeHtml(w)}</option>`).join('')}
+          <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់ (Admin Only)</option>
+        `;
+        addWhSelect.value = stations[0] || '1-K3 ស្ថានីយ (ភ្នំពេញ)';
       }
 
-      document.getElementById('addUserModal').classList.remove('hidden');
+      const modalEl = document.getElementById('addUserModal');
+      if (modalEl) modalEl.classList.remove('hidden');
     }
 
     function closeAddUserModal() {
@@ -17346,9 +17368,24 @@
         return;
       }
 
-      const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
-      const isActorAdmin = !isActorSuperAdmin && (AppState.currentUser?.role === 'Admin' || String(AppState.currentUser?.username).toLowerCase() === 'admin');
-      const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (AppState.currentUser?.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || AppState.currentUser?.role === 'អ្នកគ្រប់គ្រង');
+      const actor = AppState.currentUser || {};
+      const actorRole = String(actor?.role || '').trim();
+      const actorRoleLower = actorRole.toLowerCase();
+      const actorNameLower = String(actor?.username || '').trim().toLowerCase();
+
+      const isActorSuperAdmin = (actorRoleLower === 'superadmin' || actorNameLower === 'superadmin' || actor?.userId === 'USR-SA');
+      const isActorAdmin = !isActorSuperAdmin && (
+        actorRoleLower === 'admin' ||
+        actorRoleLower.includes('admin') ||
+        actorNameLower === 'admin' ||
+        (actorRole.includes('គ្រប់គ្រង') && !actorRole.includes('ស្ថានីយ'))
+      );
+      const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (
+        actorRole.includes('អ្នកគ្រប់គ្រងស្ថានីយ') ||
+        actorRole.includes('ស្ថានីយ') ||
+        actorRoleLower.includes('station manager') ||
+        actorRoleLower.includes('stationmanager')
+      );
 
       const userData = {
         fullName: fullName,
@@ -18245,9 +18282,24 @@
 
       const userPwd = u.password || (String(u.username).toLowerCase() === 'superadmin' ? '841453Bsm' : (String(u.username).toLowerCase() === 'admin' ? 'admin123' : (/^wh\d+$/i.test(u.username) ? u.username + 'pass' : '123456')));
 
-      const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
-      const isActorAdmin = !isActorSuperAdmin && (AppState.currentUser?.role === 'Admin' || String(AppState.currentUser?.username).toLowerCase() === 'admin');
-      const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (AppState.currentUser?.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || AppState.currentUser?.role === 'អ្នកគ្រប់គ្រង');
+      const actor = AppState.currentUser || {};
+      const actorRole = String(actor?.role || '').trim();
+      const actorRoleLower = actorRole.toLowerCase();
+      const actorNameLower = String(actor?.username || '').trim().toLowerCase();
+
+      const isActorSuperAdmin = (actorRoleLower === 'superadmin' || actorNameLower === 'superadmin' || actor?.userId === 'USR-SA');
+      const isActorAdmin = !isActorSuperAdmin && (
+        actorRoleLower === 'admin' ||
+        actorRoleLower.includes('admin') ||
+        actorNameLower === 'admin' ||
+        (actorRole.includes('គ្រប់គ្រង') && !actorRole.includes('ស្ថានីយ'))
+      );
+      const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (
+        actorRole.includes('អ្នកគ្រប់គ្រងស្ថានីយ') ||
+        actorRole.includes('ស្ថានីយ') ||
+        actorRoleLower.includes('station manager') ||
+        actorRoleLower.includes('stationmanager')
+      );
 
       // Protect SuperAdmin and Admin from unauthorized editing
       const isTargetSA = (u.role === 'SuperAdmin' || u.userId === 'USR-SA' || String(u.username).toLowerCase() === 'superadmin');
@@ -18478,9 +18530,24 @@
     async function toggleUserStatus(userId, newStatus) {
       const resUsers = await apiCall('getUsersList');
       const targetUser = (resUsers && resUsers.users ? resUsers.users : LOCAL_DB.users).find(x => x.userId === userId);
-      const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
-      const isActorAdmin = !isActorSuperAdmin && (AppState.currentUser?.role === 'Admin' || String(AppState.currentUser?.username).toLowerCase() === 'admin');
-      const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (AppState.currentUser?.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || AppState.currentUser?.role === 'អ្នកគ្រប់គ្រង');
+      const actor = AppState.currentUser || {};
+      const actorRole = String(actor?.role || '').trim();
+      const actorRoleLower = actorRole.toLowerCase();
+      const actorNameLower = String(actor?.username || '').trim().toLowerCase();
+
+      const isActorSuperAdmin = (actorRoleLower === 'superadmin' || actorNameLower === 'superadmin' || actor?.userId === 'USR-SA');
+      const isActorAdmin = !isActorSuperAdmin && (
+        actorRoleLower === 'admin' ||
+        actorRoleLower.includes('admin') ||
+        actorNameLower === 'admin' ||
+        (actorRole.includes('គ្រប់គ្រង') && !actorRole.includes('ស្ថានីយ'))
+      );
+      const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (
+        actorRole.includes('អ្នកគ្រប់គ្រងស្ថានីយ') ||
+        actorRole.includes('ស្ថានីយ') ||
+        actorRoleLower.includes('station manager') ||
+        actorRoleLower.includes('stationmanager')
+      );
 
       if (targetUser && targetUser.role === 'SuperAdmin' && !isActorSuperAdmin) {
         Swal.fire('គ្មានសិទ្ធិ', 'មានតែ SuperAdmin ប៉ុណ្ណោះដែលអាចបិទ/បើកដំណើរការគណនី SuperAdmin បាន!', 'warning');
@@ -19571,9 +19638,24 @@
     }
 
     async function approveUserDirectly(userId, username) {
-      const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
-      const isActorAdmin = !isActorSuperAdmin && (AppState.currentUser?.role === 'Admin' || String(AppState.currentUser?.username).toLowerCase() === 'admin');
-      const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (AppState.currentUser?.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || AppState.currentUser?.role === 'អ្នកគ្រប់គ្រង');
+      const actor = AppState.currentUser || {};
+      const actorRole = String(actor?.role || '').trim();
+      const actorRoleLower = actorRole.toLowerCase();
+      const actorNameLower = String(actor?.username || '').trim().toLowerCase();
+
+      const isActorSuperAdmin = (actorRoleLower === 'superadmin' || actorNameLower === 'superadmin' || actor?.userId === 'USR-SA');
+      const isActorAdmin = !isActorSuperAdmin && (
+        actorRoleLower === 'admin' ||
+        actorRoleLower.includes('admin') ||
+        actorNameLower === 'admin' ||
+        (actorRole.includes('គ្រប់គ្រង') && !actorRole.includes('ស្ថានីយ'))
+      );
+      const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (
+        actorRole.includes('អ្នកគ្រប់គ្រងស្ថានីយ') ||
+        actorRole.includes('ស្ថានីយ') ||
+        actorRoleLower.includes('station manager') ||
+        actorRoleLower.includes('stationmanager')
+      );
       const targetUser = (LOCAL_DB.users || []).find(x => (userId && x.userId === userId) || (username && x.username === username)) || {};
       const uId = targetUser.userId || userId;
       const uName = targetUser.username || username;
