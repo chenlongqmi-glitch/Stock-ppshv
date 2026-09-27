@@ -3553,6 +3553,8 @@ function updateUserProfile(payload) {
 
   const username = String(payload.username || '').toLowerCase();
 
+  const newUsername = String(payload.newUsername || '').toLowerCase().trim();
+
   const userId = String(payload.userId || '');
 
   const fullName = String(payload.fullName || '').trim();
@@ -3573,6 +3575,17 @@ function updateUserProfile(payload) {
 
   const data = sheet.getDataRange().getValues();
 
+  // If newUsername is provided and different from current username, check for duplicate username in sheet
+  if (newUsername && newUsername !== username) {
+    for (let r = 1; r < data.length; r++) {
+      const rId = String(data[r][0] || '').trim();
+      const rUser = String(data[r][1] || '').trim().toLowerCase();
+      if (rUser === newUsername && (!userId || rId !== userId)) {
+        return { success: false, message: 'ឈ្មោះគណនី (Username) «' + newUsername + '» មានអ្នកប្រើរួចហើយ!' };
+      }
+    }
+  }
+
 
 
   for (let i = 1; i < data.length; i++) {
@@ -3584,6 +3597,10 @@ function updateUserProfile(payload) {
 
 
     if ((userId && rowUserId === userId) || (username && rowUsername === username)) {
+
+      if (newUsername && newUsername !== rowUsername) {
+        sheet.getRange(i + 1, 2).setValue(newUsername);
+      }
 
       if (fullName) sheet.getRange(i + 1, 3).setValue(fullName);
 
@@ -3640,7 +3657,8 @@ function updateUserProfile(payload) {
 
 
 
-      logActivity(username || rowUsername, String(data[i][6] || 'User'), 'UPDATE_PROFILE', `Updated own profile: fullName=${fullName}, avatarUpdated=${!!avatar}, passwordUpdated=${!!newPassword}`);
+      const activeUser = newUsername || username || rowUsername;
+      logActivity(activeUser, String(data[i][6] || 'User'), 'UPDATE_PROFILE', `Updated own profile: username=${activeUser}, fullName=${fullName}, avatarUpdated=${!!avatar}, passwordUpdated=${!!newPassword}`);
 
       return { success: true, message: 'បានកែប្រែព័ត៌មានផ្ទាល់ខ្លួនជោគជ័យ' };
 
