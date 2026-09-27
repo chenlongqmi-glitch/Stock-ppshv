@@ -5498,13 +5498,12 @@
       const uid = String(u.userId || '').trim().toUpperCase();
       const fullName = String(u.fullName || '').trim();
 
-      // Explicitly allow actual users from Image 1, Image 2 & SuperAdmin
-      const realUsernames = ['superadmin', 'admin', 'sdfsdf', 'singvan327@gmail.com', 'chandy'];
+      // Explicitly allow actual users from Google Sheets & SuperAdmin
+      const realUsernames = ['superadmin', 'admin', 'chandara', 'singvan327@gmail.com', 'chandy'];
       if (realUsernames.includes(uname)) return false;
 
-      // Check for seeded demo warehouse accounts
-      if (/^wh\d+$/i.test(uname)) return true;
-      if (email.endsWith('@inventory.local')) return true;
+      // Filter out dummy/mock accounts created in local
+      if (uname === 'sdfsdf' || uname.startsWith('wh') || email.endsWith('@inventory.local')) return true;
       if (/^USR-\d{2}$/.test(uid) && !realUsernames.includes(uname)) return true; // USR-01, USR-02, ...
       if (uid === 'USR-PENDING-01' || uname === 'chan sovannak') return true;
       if (fullName.startsWith('បុគ្គលិក ') && fullName.includes('ស្ថានីយ') && /^wh\d+$/i.test(uname)) return true;
@@ -5512,14 +5511,14 @@
       return false;
     }
 
-    // --- MOCK DATABASE FOR LOCAL SERVER SIMULATION ---
+    // --- LOCAL DATABASE (Keeps ONLY Google Sheet accounts, no fake local accounts) ---
     const LOCAL_DB = {
       users: [
         { userId: 'USR-SA', username: 'superadmin', fullName: '陈龙', email: 'chenlongqmi@gmail.com', phone: '066 966 606', role: 'SuperAdmin', status: 'Active', warehouse: 'ALL', avatar: 'assets/superadmin_avatar.jpg', isRegistered: true },
-        { userId: 'USR-00', username: 'admin', fullName: '聂稳新', email: 'ppshv2024@gmail.com', phone: '098 880 803', role: 'Admin', status: 'Active', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', isRegistered: true },
-        { userId: 'USR-01', username: 'sdfsdf', fullName: 'ចាន់ តារា', email: '', phone: '098 666 154', role: 'អ្នកកាន់ស្តុក', status: 'Active', warehouse: '1-K3 ស្ថានីយ (ភ្នំពេញ)', avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150', isRegistered: true },
-        { userId: 'USR-02', username: 'singvan327@gmail.com', fullName: 'ឌិត រ៉ាន់ស៊ីញ', email: 'singvan327@gmail.com', phone: '088 663 3966', role: 'អ្នកគ្រប់គ្រងស្ថានីយ', status: 'Active', warehouse: '1-K3 ស្ថានីយ (ភ្នំពេញ)', avatar: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150', isRegistered: true },
-        { userId: 'USR-03', username: 'chandy', fullName: 'ចាន់ ឌី', email: '', phone: '095 645 854', role: 'ប្រធានក្រុម', status: 'Active', warehouse: '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)', avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150', isRegistered: true }
+        { userId: 'USR-001', username: 'admin', fullName: '聂稳新', email: 'ppshv21qw024@gmail.com', phone: '098 987 653', role: 'Admin', status: 'Active', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', isRegistered: true },
+        { userId: 'USR-20260919123637', username: 'chandara', fullName: 'ចាន់ ដារា', email: '', phone: '098 666 154', role: 'អ្នកកាន់ស្តុក', status: 'Active', warehouse: '1-K3 ស្ថានីយ (ភ្នំពេញ)', avatar: '', isRegistered: true },
+        { userId: 'USR-20260921160928', username: 'singvan327@gmail.com', fullName: 'និត វ៉ាន់ស៊ិញ', email: 'singvan327@gmail.com', phone: '088 663 3966', role: 'Admin', status: 'Active', warehouse: 'ALL', avatar: '', isRegistered: true },
+        { userId: 'USR-20260921215746', username: 'chandy', fullName: 'ចាន់ ឌី', email: '', phone: '095 645 854', role: 'ប្រធានក្រុម', status: 'Active', warehouse: '1-K3 ស្ថានីយ (ភ្នំពេញ)', avatar: '', isRegistered: true }
       ],
       items: [
         {
@@ -5693,8 +5692,8 @@
         if (saved) {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            // Filter out all unregistered dummy demo users (wh01-wh11, @inventory.local, USR-PENDING-01)
-            const validUsers = parsed.filter(p => !isUnregisteredDummyUser(p));
+            // Filter out all unregistered dummy demo users and local dummy accounts
+            const validUsers = parsed.filter(p => !isUnregisteredDummyUser(p) && p.username !== 'sdfsdf' && p.userId !== 'USR-01' && p.userId !== 'USR-02' && p.userId !== 'USR-03' && p.userId !== 'USR-00');
             validUsers.forEach(p => {
               // Automatically upgrade SuperAdmin profile if holding stale default info
               if (p.userId === 'USR-SA' || (p.username && p.username.toLowerCase() === 'superadmin')) {
@@ -16106,50 +16105,10 @@
       try {
         const res = await apiCall('getUsersList');
         if (res.success) {
-          // Synchronize fresh user records into LOCAL_DB.users and localStorage
-          if (Array.isArray(res.users)) {
-            const deletedUserIds = new Set(
-              res.users
-                .filter(ru => ru.status === 'Deleted' || ru.status === 'deleted')
-                .map(ru => ru.userId || ru.username)
-            );
-            LOCAL_DB.users = (LOCAL_DB.users || []).filter(lu => 
-              lu.status !== 'Deleted' && 
-              lu.status !== 'deleted' && 
-              !deletedUserIds.has(lu.userId) && 
-              !deletedUserIds.has(lu.username)
-            );
-
-            res.users.forEach(ru => {
-              if (ru.status === 'Deleted' || ru.status === 'deleted') return;
-              const normRuName = String(ru.username || '').replace(/[\u200B-\u200D\uFEFF]/g, '').toLowerCase();
-              const idx = LOCAL_DB.users.findIndex(lu => {
-                if (ru.userId && lu.userId === ru.userId) return true;
-                const normLuName = String(lu.username || '').replace(/[\u200B-\u200D\uFEFF]/g, '').toLowerCase();
-                return normRuName && normLuName && normLuName === normRuName;
-              });
-              if (idx !== -1) {
-                const existing = LOCAL_DB.users[idx];
-                const merged = {
-                  ...existing,
-                  ...ru,
-                  phone: (ru.phone && String(ru.phone).trim()) ? ru.phone : (existing.phone || ''),
-                  email: (ru.email && String(ru.email).trim()) ? ru.email : (existing.email || ''),
-                  fullName: (ru.fullName && String(ru.fullName).trim()) ? ru.fullName : (existing.fullName || ru.username),
-                  password: (ru.password && String(ru.password).trim()) ? ru.password : (existing.password || ''),
-                  avatar: ru.avatar || existing.avatar || ''
-                };
-                LOCAL_DB.users[idx] = merged;
-                // Also propagate back to ru so filteredUsers gets the merged complete data!
-                ru.phone = merged.phone;
-                ru.email = merged.email;
-                ru.fullName = merged.fullName;
-                ru.password = merged.password;
-                ru.avatar = merged.avatar;
-              } else {
-                LOCAL_DB.users.push(ru);
-              }
-            });
+          // Synchronize fresh user records directly from Google Sheet into LOCAL_DB.users and localStorage
+          if (Array.isArray(res.users) && res.users.length > 0) {
+            // Keep ONLY the real users returned directly from Google Sheets!
+            LOCAL_DB.users = res.users.filter(ru => ru && !isUnregisteredDummyUser(ru) && ru.status !== 'Deleted' && ru.status !== 'deleted');
             saveLocalUsersToStorage();
           }
 
@@ -16245,21 +16204,8 @@
             return (curId && uId && curId === uId) || (curUsername && uUsername && curUsername === uUsername);
           };
 
-          // Consolidate users from remote and LOCAL_DB so SuperAdmin and Admin accounts are never missing
-          const remoteUsers = (Array.isArray(res.users) && res.users.length > 0) ? res.users : [];
-          const usersMap = new Map();
-          (LOCAL_DB.users || []).forEach(u => {
-            const key = u.userId || u.username;
-            if (key) usersMap.set(key, { ...u });
-          });
-          remoteUsers.forEach(u => {
-            const key = u.userId || u.username;
-            if (key) {
-              const existing = usersMap.get(key) || {};
-              usersMap.set(key, { ...existing, ...u });
-            }
-          });
-          const userSource = Array.from(usersMap.values());
+          // User source strictly from Google Sheet response (no local dummy accounts!)
+          const userSource = (Array.isArray(res.users) && res.users.length > 0) ? res.users : (LOCAL_DB.users || []);
           let filteredUsers = userSource.filter(u => !isUnregisteredDummyUser(u) && u.status !== 'Deleted' && u.status !== 'deleted');
           if (isActorSuperAdmin) {
             // 1. SuperAdmin sees all users (including SuperAdmin, all Admins, Station Managers, Team Leaders, and Stock Keepers)
