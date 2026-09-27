@@ -7369,6 +7369,7 @@
     const CACHE_TTL_MS = 25000; // 25s fresh TTL for read queries
 
     const TURBO_MUTATION_ACTIONS = new Set([
+      'registerUser', 'register',
       'recordStockIn', 'recordStockOut', 'recordStockTransfer', 'adjustStock',
       'saveOrUpdateItem', 'saveItem', 'createProduct', 'updateProduct', 'deleteItem',
       'updateUserProfile', 'updateProfile', 'addWarehouse', 'deleteWarehouse',
@@ -7460,7 +7461,10 @@
       const cached = API_CACHE.get(cacheKey);
       const now = Date.now();
 
-      if (cached && (now - cached.timestamp < CACHE_TTL_MS)) {
+      // High-speed real-time LiveChat and User Registration TTL (1s for live chat instead of 25s)
+      const effectiveTTL = (action === 'getChatMessages' || action === 'getUsersList' || action === 'getUsers') ? 1000 : CACHE_TTL_MS;
+
+      if (cached && (now - cached.timestamp < effectiveTTL)) {
         return cached.data;
       }
 
@@ -10028,6 +10032,28 @@
               createdAt: new Date().toISOString().slice(0, 16).replace('T', ' ')
             }
           };
+          // 1. Ultra-fast local append in 0ms
+          if (Array.isArray(LOCAL_DB.chatMessages)) {
+            const alreadyInLocal = LOCAL_DB.chatMessages.some(m => 
+              (m.registrationData && m.registrationData.username === chatCardPayload.senderUsername) ||
+              (m.messageText && m.messageText.includes(chatCardPayload.senderUsername))
+            );
+            if (!alreadyInLocal) {
+              LOCAL_DB.chatMessages.push(chatCardPayload);
+              saveLocalChatMessagesToStorage();
+            }
+          }
+
+          // 2. High-speed multi-channel broadcast across all tabs and windows (0ms instant)
+          if (typeof broadcastInventoryMutation === 'function') {
+            broadcastInventoryMutation('NEW_REGISTRATION', {
+              registrationData: chatCardPayload.registrationData,
+              chatCard: chatCardPayload
+            });
+          }
+
+          // 3. Clear cache and sync chat message to cloud
+          API_CACHE.clear();
           apiCall('sendChatMessage', { data: chatCardPayload }).catch(() => {});
         } catch (cPushErr) {}
 
@@ -20785,6 +20811,50 @@
         return;
       }
 
+      if (msg.type === 'NEW_REGISTRATION' || msg.type === 'USER_REGISTRATION') {
+        const regUser = msg.registrationData || msg.user;
+        const chatCard = msg.chatCard;
+        if (regUser) {
+          loadLocalUsersFromStorage();
+          const existingIdx = (LOCAL_DB.users || []).findIndex(u => 
+            (regUser.userId && u.userId === regUser.userId) || 
+            (regUser.username && u.username && u.username.toLowerCase() === String(regUser.username).toLowerCase())
+          );
+          if (existingIdx !== -1) {
+            LOCAL_DB.users[existingIdx] = { ...LOCAL_DB.users[existingIdx], ...regUser, status: 'Pending_Admin' };
+          } else {
+            LOCAL_DB.users.unshift({ ...regUser, status: 'Pending_Admin' });
+          }
+          saveLocalUsersToStorage();
+        }
+
+        if (chatCard) {
+          loadLocalChatMessagesFromStorage();
+          const alreadyExists = (LOCAL_DB.chatMessages || []).some(m => 
+            (m.registrationData && m.registrationData.username === chatCard.senderUsername) ||
+            (m.messageText && m.messageText.includes(chatCard.senderUsername))
+          );
+          if (!alreadyExists) {
+            LOCAL_DB.chatMessages.push(chatCard);
+            saveLocalChatMessagesToStorage();
+          }
+        }
+
+        // Notify Admin instantly (0ms)
+        if (typeof checkPendingRegistrationsForAdmin === 'function') {
+          checkPendingRegistrationsForAdmin(false);
+        }
+        if (typeof playChatIncomingSound === 'function') {
+          playChatIncomingSound();
+        }
+        if (AppState.currentTab === 'chat') {
+          if (typeof renderChatMessages === 'function') renderChatMessages();
+          if (typeof loadChatMessages === 'function') loadChatMessages(true);
+        } else if (AppState.currentTab === 'users') {
+          if (typeof loadUsersList === 'function') loadUsersList();
+        }
+      }
+
       if (msg.type === 'ITEM_SAVED' || msg.type === 'ITEM_DELETED' || msg.type === 'STOCK_IN' || msg.type === 'STOCK_OUT') {
         loadLocalItemsFromStorage();
         if (Array.isArray(msg.items) && msg.items.length > 0) {
@@ -22830,10 +22900,19 @@
       liveChatSyncTimer = setInterval(() => {
         updateUserHeartbeat();
         updateChatOnlineIndicators();
-        if (AppState.currentTab === 'chat' && AppState.currentUser) {
-          loadChatMessages(true);
+        if (AppState.currentUser) {
+          // Ultra-fast Real-Time Live Registration & Approval Detection (every 1.2s instead of 35s)
+          const actorRole = String(AppState.currentUser?.role || '').toLowerCase();
+          const actorName = String(AppState.currentUser?.username || '').toLowerCase();
+          const isActorAdmin = actorRole.includes('admin') || actorRole === 'superadmin' || actorName === 'admin' || actorName === 'singvan327@gmail.com';
+          if (isActorAdmin && typeof checkPendingRegistrationsForAdmin === 'function') {
+            checkPendingRegistrationsForAdmin(true);
+          }
+          if (AppState.currentTab === 'chat') {
+            loadChatMessages(true);
+          }
         }
-      }, 3500);
+      }, 1200);
     }
 
     function playChatIncomingSound() {
