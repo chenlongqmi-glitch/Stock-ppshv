@@ -8208,7 +8208,7 @@
       }
 
       if (action === 'updateUserStatus') {
-        const usr = LOCAL_DB.users.find(x => x.userId === payload.userId);
+        const usr = LOCAL_DB.users.find(x => x.userId === payload.userId || (payload.username && x.username === payload.username));
         if (usr) {
           const actor = AppState.currentUser;
           const isActorSuperAdmin = (actor && (actor.role === 'SuperAdmin' || String(actor.username).toLowerCase() === 'superadmin'));
@@ -8219,6 +8219,15 @@
           }
           if (payload.role === 'SuperAdmin' && !isActorSuperAdmin) {
             return { success: false, message: 'មានតែ SuperAdmin ប៉ុណ្ណោះដែលអាចកំណត់សិទ្ធិជា SuperAdmin បាន!' };
+          }
+
+          if (payload.status === 'Deleted' || payload.status === 'deleted') {
+            const idx = LOCAL_DB.users.findIndex(x => x.userId === usr.userId || x.username === usr.username);
+            if (idx !== -1) {
+              LOCAL_DB.users.splice(idx, 1);
+              saveLocalUsersToStorage();
+            }
+            return { success: true, message: 'បានលុបអ្នកប្រើប្រាស់ជោគជ័យ!' };
           }
 
           if (payload.status) usr.status = payload.status;
@@ -18484,7 +18493,7 @@
       const uId = targetUser?.userId || userId;
       const uName = targetUser?.username || username;
 
-      // Protect SuperAdmin and Admin
+      // Protect SuperAdmin
       if ((targetRole === 'SuperAdmin' || targetUser?.userId === 'USR-SA' || String(targetUser?.username).toLowerCase() === 'superadmin') && !isActorSuperAdmin) {
         Swal.fire({
           icon: 'error',
@@ -18493,198 +18502,16 @@
         });
         return;
       }
-      if ((targetRole === 'Admin' || targetUser?.userId === 'USR-00' || targetUser?.userId === 'USR-001' || String(targetUser?.username).toLowerCase() === 'admin') && !isActorSuperAdmin) {
-        Swal.fire({
-          icon: 'error',
-          title: 'គ្មានសិទ្ធិ',
-          text: 'អ្នកគ្មានសិទ្ធិលុបគណនី Admin ឡើយ!'
-        });
-        return;
-      }
 
-      // =========================================================================
-      // 1. ADMIN DELETION FLOW: Requires Reason -> Sends to SuperAdmin for Approval
-      // =========================================================================
-      if (isActorAdmin && !isActorSuperAdmin) {
-        const { value: reason, isConfirmed } = await Swal.fire({
-          title: 'សំណើសុំលុបគណនីអ្នកប្រើប្រាស់',
-          html: `
-            <div class="text-left text-xs space-y-2.5 p-3.5 bg-slate-50 rounded-2xl border border-slate-200 mt-2">
-              <div class="flex items-center space-x-2.5 bg-white p-2.5 rounded-xl border border-slate-200">
-                <div class="w-10 h-10 rounded-full overflow-hidden bg-slate-100 flex-shrink-0 border border-slate-200">
-                  <img src="${targetUser?.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + uName}" class="w-full h-full object-cover">
-                </div>
-                <div>
-                  <p class="font-bold text-slate-800 text-xs">${targetDisplayName}</p>
-                  <p class="text-[10px] text-slate-400 font-mono">@${uName} (${targetRole} | ឃ្លាំង: ${targetWh})</p>
-                </div>
-              </div>
-              <div class="p-2.5 bg-amber-50 rounded-xl border border-amber-200 text-amber-800 text-xs leading-relaxed">
-                <p class="font-bold flex items-center mb-1">
-                  <i class="fa-solid fa-circle-info mr-1.5 text-amber-600"></i>
-                  នីតិវិធីលុបគណនី (Admin ➔ SuperAdmin)៖
-                </p>
-                <p class="text-[11px]">ក្នុងនាមជា Admin លោកអ្នកត្រូវសរសេរបញ្ជាក់ពីមូលហេតុនៃការលុប។ ប្រព័ន្ធនឹងបញ្ជូនទិន្នន័យនេះទៅកាន់ <b>SuperAdmin</b> ដើម្បីត្រួតពិនិត្យ និង <b>Approve</b> មុនពេលគណនីនេះត្រូវបានលុបចេញពីប្រព័ន្ធជាស្ថាពរ។</p>
-              </div>
-              <div>
-                <label class="block text-xs font-bold text-slate-700 mb-1">
-                  <i class="fa-solid fa-pen mr-1 text-blue-600"></i>មូលហេតុនៃការលុបគណនី <span class="text-rose-500">*</span>
-                </label>
-                <textarea id="swalDeleteUserReason" rows="3" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition" placeholder="សូមសរសេរបញ្ជាក់ពីមូលហេតុនៃការលុប (ឧ. បុគ្គលិកឈប់ធ្វើការ, គណនីស្ទួន...)..."></textarea>
-              </div>
-            </div>
-          `,
-          icon: 'warning',
-          showCancelButton: true,
-          confirmButtonColor: '#e11d48',
-          cancelButtonColor: '#64748b',
-          confirmButtonText: '<i class="fa-solid fa-paper-plane mr-1"></i> បញ្ជូនសំណើទៅ SuperAdmin',
-          cancelButtonText: 'បោះបង់',
-          reverseButtons: true,
-          preConfirm: () => {
-            const inputReason = document.getElementById('swalDeleteUserReason')?.value?.trim();
-            if (!inputReason || inputReason.length < 5) {
-              Swal.showValidationMessage('សូមសរសេរបញ្ជាក់ពីមូលហេតុនៃការលុបគណនីឱ្យបានច្បាស់លាស់ (យ៉ាងតិច ៥ តួអក្សរ)!');
-              return false;
-            }
-            return inputReason;
-          }
-        });
+      const actorRole = isActorSuperAdmin ? 'SuperAdmin' : 'Admin';
+      const actorName = actor?.fullName || actor?.username || actorRole;
 
-        if (!isConfirmed || !reason) return;
-
-        Swal.fire({
-          title: 'កំពុងបញ្ជូនសំណើ...',
-          text: 'សូមរង់ចាំមួយភ្លែត',
-          allowOutsideClick: false,
-          didOpen: () => Swal.showLoading()
-        });
-        try {
-          let res = await apiCall('updateUserStatus', {
-            userId: uId,
-            username: uName,
-            status: 'Pending_Deletion',
-            reason: reason,
-            deleteReason: reason,
-            deleteRequestedBy: actor?.fullName || actor?.username || 'Admin',
-            deleteRequestedAt: new Date().toISOString(),
-            adminUser: actor?.username || 'Admin'
-          });
-
-          if (!res || (!res.success && res.message && (res.message.includes('Unknown action') || res.message.includes('not found')))) {
-            res = await apiCall('requestUserDeletion', {
-              userId: uId,
-              username: uName,
-              reason: reason,
-              deleteReason: reason,
-              adminUser: actor?.fullName || actor?.username || 'Admin'
-            });
-          }
-
-          if (res && res.success) {
-            // Update LOCAL_DB
-            const dbIdx = LOCAL_DB.users.findIndex(u => (uId && u.userId === uId) || (uName && u.username === uName));
-            if (dbIdx !== -1) {
-              LOCAL_DB.users[dbIdx].status = 'Pending_Deletion';
-              LOCAL_DB.users[dbIdx].deleteReason = reason;
-              LOCAL_DB.users[dbIdx].deleteRequestedBy = actor?.fullName || actor?.username || 'Admin';
-              LOCAL_DB.users[dbIdx].deleteRequestedAt = new Date().toISOString();
-              saveLocalUsersToStorage();
-            }
-
-            // Add in-app notification for SuperAdmin
-            if (typeof addNotification === 'function') {
-              addNotification(
-                'USER_DELETION_REQUEST',
-                `⚠️ សំណើសុំលុបគណនី: ${targetDisplayName}`,
-                `Admin ${actor?.fullName || actor?.username || 'Admin'} បានស្នើសុំលុបគណនីនេះ។ មូលហេតុ៖ "${reason}"`,
-                targetWh,
-                uName,
-                uId,
-                uName
-              );
-            }
-
-            // Send Telegram alert to SuperAdmin Bot
-            const tgToken = AppState.settings?.TELEGRAM_BOT_TOKEN || localStorage.getItem('inventory_tg_token') || DEFAULT_TG_BOT_TOKEN;
-            const tgChatId = AppState.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid') || DEFAULT_TG_CHAT_ID;
-            const gasUrl = AppState.gasApiUrl || localStorage.getItem('inventory_gas_api_url') || 'https://script.google.com/macros/s/AKfycbxqw7NPsE8pWqeYPAwTqxFakzFD5lTzGR1N5mlL-n2oZMp4FeDpGENFnEAjf6gSddk/exec';
-            const reviewUrl = `${gasUrl}?action=reviewUserDeletionTelegram&userId=${encodeURIComponent(uId)}&u=${encodeURIComponent(uName)}`;
-            const webAppUsersUrl = `${window.location.origin}${window.location.pathname}#users`;
-
-            if (tgToken && tgChatId) {
-              try {
-                const tgMsg = `⚠️ <b>[សំណើសុំលុបគណនីអ្នកប្រើប្រាស់ - Pending Deletion]</b>\n` +
-                  `👤 <b>ឈ្មោះបុគ្គលិក:</b> ${targetDisplayName}\n` +
-                  `🆔 <b>Username:</b> <code>${uName}</code>\n` +
-                  `💼 <b>តួនាទី:</b> ${targetRole}\n` +
-                  `🏢 <b>ឃ្លាំង/ស្ថានីយ:</b> ${targetWh}\n` +
-                  `📝 <b>មូលហេតុនៃការលុប (Admin):</b> <i>"${reason}"</i>\n` +
-                  `👮 <b>ស្នើសុំដោយ Admin:</b> ${actor?.fullName || actor?.username || 'Admin'}\n` +
-                  `🕒 <b>កាលបរិច្ឆេទ:</b> ${new Date().toLocaleString('km-KH')}\n\n` +
-                  `👉 <b>សូម SuperAdmin ពិនិត្យ ផ្ទៀងផ្ទាត់ និងសរសេរមូលហេតុ Approve/Reject ក្នុងកម្មវិធី៖</b>`;
-
-                fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    chat_id: tgChatId,
-                    text: tgMsg,
-                    parse_mode: 'HTML',
-                    reply_markup: {
-                      inline_keyboard: [
-                        [
-                          { text: "💻 បើកកម្មវិធី Web App ដើម្បីពិនិត្យ & សម្រេច", url: webAppUsersUrl }
-                        ],
-                        [
-                          { text: "👑 ផ្ទៀងផ្ទាត់តាម Browser (Web View)", url: reviewUrl }
-                        ]
-                      ]
-                    }
-                  })
-                }).catch(() => {});
-              } catch(e) {}
-            }
-
-            if (typeof checkPendingDeletionsForSuperAdmin === 'function') {
-              checkPendingDeletionsForSuperAdmin(false);
-            }
-
-            await loadUsersList();
-
-            Swal.fire({
-              icon: 'success',
-              title: 'បានបញ្ជូនសំណើជោគជ័យ!',
-              html: `
-                <div class="text-left text-xs space-y-2 p-3 bg-slate-50 border border-slate-200 rounded-xl">
-                  <p class="font-bold text-slate-800">✅ បានបញ្ជូនសំណើសុំលុបគណនី <b>${targetDisplayName}</b> ទៅកាន់ SuperAdmin រួចរាល់!</p>
-                  <p class="text-slate-600 leading-relaxed">
-                    📝 <b>មូលហេតុ៖</b> ${escapeHtml(reason)}<br>
-                    ⏳ គណនីនេះត្រូវបានដាក់ក្នុងស្ថានភាព <b>Pending Deletion</b>។ នៅពេល SuperAdmin ពិនិត្យ និងចុច <b>Approve</b> គណនីនេះនឹងត្រូវលុបចេញពីប្រព័ន្ធជាស្ថាពរ។
-                  </p>
-                </div>
-              `,
-              confirmButtonColor: '#2563eb'
-            });
-            return;
-          } else {
-            Swal.fire('បរាជ័យ', res?.message || 'មិនអាចបញ្ជូនសំណើសុំលុបគណនីបានទេ', 'error');
-            return;
-          }
-        } catch(err) {
-          Swal.fire('កំហុស', 'មានបញ្ហាក្នុងការតភ្ជាប់ សូមព្យាយាមម្តងទៀត', 'error');
-          return;
-        }
-      }
-
-      // =========================================================================
-      // 2. SUPERADMIN DIRECT DELETION FLOW
-      // =========================================================================
+      // Confirmation dialog: Admin & SuperAdmin delete immediately
       const result = await Swal.fire({
         title: 'តើលោកអ្នកពិតជាចង់លុបគណនីនេះ?',
         html: `
           <div class="text-left text-xs space-y-2.5 p-3.5 bg-slate-50 rounded-2xl border border-slate-200 mt-2">
-            <p class="text-slate-600">អ្នកកំពុងលុបគណនីអ្នកប្រើប្រាស់ចេញពីប្រព័ន្ធ៖</p>
+            <p class="text-slate-600">អ្នកកំពុងលុបគណនីអ្នកប្រើប្រាស់ចេញពីប្រព័ន្ធភ្លាមៗ៖</p>
             <div class="flex items-center space-x-2.5 bg-white p-2.5 rounded-xl border border-slate-200">
               <div class="w-10 h-10 rounded-full overflow-hidden bg-slate-100 flex-shrink-0 border border-slate-200">
                 <img src="${targetUser?.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + uName}" class="w-full h-full object-cover">
@@ -18694,24 +18521,12 @@
                 <p class="text-[10px] text-slate-400 font-mono">@${uName} (${targetRole} | ឃ្លាំង: ${targetWh})</p>
               </div>
             </div>
-            ${targetUser?.deleteReason ? `
-              <div class="p-2.5 bg-amber-50 rounded-xl border border-amber-200 text-amber-800 text-xs">
-                <p class="font-bold"><i class="fa-solid fa-comment-dots mr-1 text-amber-600"></i>មូលហេតុលុបដែលបានស្នើសុំដោយ ${targetUser?.deleteRequestedBy || 'Admin'}៖</p>
-                <p class="italic text-[11px] mt-0.5">${escapeHtml(targetUser.deleteReason)}</p>
-              </div>
-            ` : ''}
-            <div>
-              <label class="block text-xs font-bold text-slate-700 mb-1">
-                <i class="fa-solid fa-pen mr-1 text-slate-500"></i>មូលហេតុនៃការលុប (ស្រេចចិត្ត)៖
-              </label>
-              <textarea id="swalSuperAdminDeleteReason" rows="2" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition" placeholder="សរសេរបញ្ជាក់មូលហេតុ (ប្រសិនបើមាន)..."></textarea>
-            </div>
-            <div class="p-2.5 bg-rose-50 rounded-xl border border-rose-200 text-rose-700 text-xs">
-              <p class="font-bold flex items-center mb-1">
-                <i class="fa-solid fa-triangle-exclamation mr-1.5 text-rose-500"></i>
-                ការព្រមានសំខាន់ (SuperAdmin Rights)៖
+            <div class="p-2.5 bg-rose-50 rounded-xl border border-rose-200 text-rose-700 text-xs leading-relaxed">
+              <p class="font-bold flex items-center mb-0.5">
+                <i class="fa-solid fa-triangle-exclamation mr-1.5 text-rose-600"></i>
+                ការព្រមាន៖
               </p>
-              <p class="text-[11px] leading-relaxed">ទិន្នន័យគណនីនេះនឹងត្រូវលុបចេញពីប្រព័ន្ធទាំងស្រុង ហើយមិនអាចត្រឡប់វិញបានឡើយ!</p>
+              <p class="text-[11px]">គណនីនេះនឹងត្រូវលុបចេញពីប្រព័ន្ធភ្លាមៗ ហើយប្រព័ន្ធនឹងផ្ញើសារ alert ជូនដំណឹងទៅកាន់ <b>SuperAdmin</b> តាម Telegram។ សកម្មភាពនេះមិនអាចត្រឡប់ក្រោយបានទេ!</p>
             </div>
           </div>
         `,
@@ -18719,83 +18534,95 @@
         showCancelButton: true,
         confirmButtonColor: '#e11d48',
         cancelButtonColor: '#64748b',
-        confirmButtonText: '<i class="fa-solid fa-trash-can mr-1"></i> យល់ព្រមលុបជាស្ថាពរ',
+        confirmButtonText: '<i class="fa-solid fa-trash-can mr-1"></i> បាទ/ចាស លុបចេញភ្លាមៗ',
         cancelButtonText: 'បោះបង់',
-        reverseButtons: true,
-        preConfirm: () => {
-          return document.getElementById('swalSuperAdminDeleteReason')?.value?.trim() || 'លុបផ្ទាល់ដោយ SuperAdmin';
-        }
+        reverseButtons: true
       });
 
       if (!result.isConfirmed) return;
-      const superAdminReason = result.value || 'លុបផ្ទាល់ដោយ SuperAdmin';
 
       Swal.fire({
         title: 'កំពុងលុបគណនី...',
-        text: 'សូមរង់ចាំមួយភ្លែត',
+        html: '<span class="text-xs text-slate-500">កំពុងដំណើរការលុប និងផ្ញើ alert ទៅកាន់ Telegram...</span>',
         allowOutsideClick: false,
-        didOpen: () => {
-          Swal.showLoading();
-        }
+        didOpen: () => Swal.showLoading()
       });
 
       try {
-        // 1. Primary delete: Call updateUserStatus (status: 'Deleted') which is 100% supported by deployed backend
         let res = await apiCall('updateUserStatus', {
           userId: uId,
           username: uName,
           status: 'Deleted',
           role: targetRole,
           warehouse: targetWh,
-          adminUser: actor?.username || 'superadmin',
-          reason: superAdminReason,
-          deleteReason: superAdminReason
+          adminUser: actor?.username || 'Admin'
         });
 
-        // 2. Also attempt deleteUser if backend supports permanent row purge
-        if (!res || (!res.success && res.message && (res.message.includes('Unknown action') || res.message.includes('not found')))) {
+        if (!res || !res.success) {
           res = await apiCall('deleteUser', {
             userId: uId,
             username: uName,
-            adminUser: actor?.username || 'superadmin',
-            reason: superAdminReason
+            adminUser: actor?.username || 'Admin'
           });
         }
 
         if (res && res.success) {
-          // Remove from local memory database
-          const normUName = String(uName || '').replace(/[\u200B-\u200D\uFEFF]/g, '').toLowerCase();
-          LOCAL_DB.users = (LOCAL_DB.users || []).filter(u => {
-            if (uId && u.userId === uId) return false;
-            const curUName = String(u.username || '').replace(/[\u200B-\u200D\uFEFF]/g, '').toLowerCase();
-            if (normUName && curUName === normUName) return false;
+          // Remove from LOCAL_DB
+          const dbIdx = LOCAL_DB.users.findIndex(u => (uId && u.userId === uId) || (uName && u.username === uName));
+          if (dbIdx !== -1) {
+            LOCAL_DB.users.splice(dbIdx, 1);
+            saveLocalUsersToStorage();
+          }
+
+          // Remove any pending registration card from chat messages
+          LOCAL_DB.chatMessages = (LOCAL_DB.chatMessages || []).filter(m => {
+            if (m.registrationData && (m.registrationData.userId === uId || m.registrationData.username === uName)) {
+              return false;
+            }
             return true;
           });
-          saveLocalUsersToStorage();
+          saveLocalChatMessagesToStorage();
 
-          // Reload table smoothly
+          // Send Telegram alert to SuperAdmin
+          const tgToken = AppState.settings?.TELEGRAM_BOT_TOKEN || localStorage.getItem('inventory_tg_token') || DEFAULT_TG_BOT_TOKEN;
+          const tgChatId = AppState.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid') || DEFAULT_TG_CHAT_ID;
+
+          if (tgToken && tgChatId) {
+            try {
+              const tgMsg = `🗑️ <b>[ដំណឹងលុបគណនីអ្នកប្រើប្រាស់]</b>\n` +
+                `👤 <b>ឈ្មោះបុគ្គលិក:</b> ${targetDisplayName}\n` +
+                `🆔 <b>Username:</b> <code>@${uName}</code>\n` +
+                `💼 <b>តួនាទី:</b> ${targetRole}\n` +
+                `🏢 <b>ឃ្លាំង/ស្ថានីយ:</b> ${targetWh}\n` +
+                `👮 <b>លុបដោយ:</b> ${actorName} (${actorRole})\n` +
+                `🕒 <b>កាលបរិច្ឆេទ:</b> ${new Date().toLocaleString('en-GB')}\n` +
+                `🚦 <b>ស្ថានភាព:</b> ❌ <b>បានលុបចេញពីប្រព័ន្ធភ្លាមៗ</b>`;
+
+              fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  chat_id: tgChatId,
+                  text: tgMsg,
+                  parse_mode: 'HTML'
+                })
+              }).catch(() => {});
+            } catch(e) {}
+          }
+
           await loadUsersList();
 
           Swal.fire({
             icon: 'success',
-            title: 'ជោគជ័យ!',
-            text: res.message || 'បានលុបអ្នកប្រើប្រាស់ចេញពីប្រព័ន្ធរួចរាល់',
-            timer: 2200,
-            showConfirmButton: false
+            title: 'បានលុបជោគជ័យ!',
+            html: `គណនី <b>${targetDisplayName}</b> (@${uName}) ត្រូវបានលុបចេញពីប្រព័ន្ធរួចរាល់ និងបាន alert ដំណឹងទៅ Telegram របស់ SuperAdmin!`,
+            confirmButtonColor: '#2563eb'
           });
         } else {
-          Swal.fire({
-            icon: 'error',
-            title: 'បរាជ័យ',
-            text: res?.message || 'មិនអាចលុបអ្នកប្រើប្រាស់បានទេ'
-          });
+          Swal.fire('បរាជ័យ', res?.message || 'មិនអាចលុបគណនីបានទេ', 'error');
         }
-      } catch (err) {
-        Swal.fire({
-          icon: 'error',
-          title: 'កំហុសប្រព័ន្ធ',
-          text: 'មានបញ្ហាក្នុងការតភ្ជាប់ សូមព្យាយាមម្តងទៀត'
-        });
+      } catch(err) {
+        Swal.fire('កំហុស', 'មានបញ្ហាក្នុងការតភ្ជាប់ សូមព្យាយាមម្តងទៀត: ' + err.toString(), 'error');
       }
     }
 

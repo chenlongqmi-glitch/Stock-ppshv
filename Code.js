@@ -2775,8 +2775,26 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
       }
       if (st === 'Deleted' || st === 'deleted' || st === 'delete') {
         const deletedUName = String(data[i][1]);
+        const deletedFName = String(data[i][2] || deletedUName);
+        const deletedRole = String(data[i][6] || 'User');
+        const deletedWh = String(data[i][9] || '-');
         sheet.deleteRow(i + 1);
         logActivity(admin || 'Admin', admin === 'superadmin' ? 'SuperAdmin' : 'Admin', 'DELETE_USER', `Deleted User ${uId} (@${deletedUName})`);
+
+        // Send alert to SuperAdmin via Telegram
+        try {
+          const alertMsg = `🗑️ <b>[ដំណឹងលុបគណនីអ្នកប្រើប្រាស់]</b>\n` +
+            `👤 <b>ឈ្មោះបុគ្គលិក:</b> ${deletedFName}\n` +
+            `🆔 <b>Username:</b> <code>@${deletedUName}</code>\n` +
+            `💼 <b>តួនាទី:</b> ${deletedRole}\n` +
+            `🏢 <b>ឃ្លាំង/ស្ថានីយ:</b> ${deletedWh}\n` +
+            `👮 <b>លុបដោយ:</b> ${admin || 'Admin'}\n` +
+            `🕒 <b>កាលបរិច្ឆេទ:</b> ${Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd HH:mm:ss')}\n` +
+            `🚦 <b>ស្ថានភាព:</b> ❌ <b>បានលុបចេញពីប្រព័ន្ធភ្លាមៗ</b>`;
+
+          sendTelegramAlert(alertMsg);
+        } catch (e) {}
+
         return { success: true, message: `បានលុបអ្នកប្រើប្រាស់ ${deletedUName} ចេញពីប្រព័ន្ធជោគជ័យ` };
       }
       if (fullName) sheet.getRange(i + 1, 3).setValue(fullName);
@@ -3049,29 +3067,31 @@ function deleteUser(userIdOrPayload, adminUser, deleteReason) {
 
 
 
-      // If actor is Admin (not SuperAdmin), route to requestUserDeletion
-
-      if (!isActorSuperAdmin) {
-
-        if (!reason) {
-
-          return { success: false, message: 'សូមបញ្ជាក់ពីមូលហេតុនៃការលុបគណនី!' };
-
-        }
-
-        return requestUserDeletion({ userId: uId, reason: reason, adminUser: adminUsername });
-
-      }
+      // Admin and SuperAdmin delete directly and alert SuperAdmin
 
 
 
       const deletedFullName = data[i][2] || rowUsername;
+      const deletedRole = String(data[i][6] || 'User');
+      const deletedWh = String(data[i][9] || '-');
 
       sheet.deleteRow(i + 1);
 
       logActivity('USERS', adminUsername || 'Admin', 'DELETE_USER', `លុបអ្នកប្រើប្រាស់: ${deletedFullName} (@${rowUsername})`);
 
+      // Alert SuperAdmin via Telegram
+      try {
+        const delAlert = `🗑️ <b>[ដំណឹងលុបគណនីអ្នកប្រើប្រាស់]</b>\n` +
+          `👤 <b>ឈ្មោះបុគ្គលិក:</b> ${deletedFullName}\n` +
+          `🆔 <b>Username:</b> <code>@${rowUsername}</code>\n` +
+          `💼 <b>តួនាទី:</b> ${deletedRole}\n` +
+          `🏢 <b>ឃ្លាំង/ស្ថានីយ:</b> ${deletedWh}\n` +
+          `👮 <b>លុបដោយ:</b> ${adminUsername || 'Admin'} (${isActorSuperAdmin ? 'SuperAdmin' : 'Admin'})\n` +
+          `🕒 <b>កាលបរិច្ឆេទ:</b> ${Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd HH:mm:ss')}\n` +
+          `🚦 <b>ស្ថានភាព:</b> ❌ <b>បានលុបចេញពីប្រព័ន្ធភ្លាមៗ</b>`;
 
+        sendTelegramAlert(delAlert);
+      } catch (tgErr) {}
 
       return {
 
