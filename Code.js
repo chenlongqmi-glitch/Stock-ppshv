@@ -2076,7 +2076,8 @@ function registerUser(userData) {
     role = 'ប្រធានក្រុម';
   }
 
-  const isDirectAdminCreate = Boolean(userData.status === 'Active' || userData.isDirectCreate === true || userData.adminUser);
+  const isStationManagerCreate = Boolean(userData.isStationManagerCreate || userData.creatorRole === 'Station Manager' || userData.creatorRole === 'អ្នកគ្រប់គ្រងស្ថានីយ');
+  const isDirectAdminCreate = !isStationManagerCreate && Boolean(userData.status === 'Active' || userData.isDirectCreate === true || (userData.adminUser && !String(userData.status || '').startsWith('Pending')));
   const status = isDirectAdminCreate ? 'Active' : (userData.status || 'Pending_Admin');
 
   const warehouse = userData.warehouse || 'ឃ្លាំងទី ០១ - ភ្នំពេញ (សែនសុខ)';
@@ -2162,7 +2163,10 @@ function registerUser(userData) {
     const chatSheet = ensureChatSheetInitialized(ssChat);
     const cMsgId = 'MSG-REG-' + Utilities.formatDate(new Date(), 'GMT+7', 'yyMMddHHmmss');
     const cTimestamp = Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd HH:mm:ss');
-    const regText = `📋 [សំណើសុំចុះឈ្មោះគណនីថ្មី]\n👤 ឈ្មោះ: ${userData.fullName || userData.username} (@${userData.username})\n📱 ទូរស័ព្ទ: ${phone || '-'}\n🏢 ស្ថានីយ: ${warehouse}\n💼 តួនាទី: ${role}\n🚦 ស្ថានភាព: ⏳ រង់ចាំ Admin អនុម័តបឋមក្នុង LiveChat`;
+    const regCreatorText = isStationManagerCreate ? ('\n🏢 ស្នើសុំដោយ: ' + (userData.adminUser || 'អ្នកគ្រប់គ្រងស្ថានីយ')) : '';
+    const regText = isStationManagerCreate ?
+      ('📋 [សំណើបន្ថែមបុគ្គលិកថ្មី]\n👤 ឈ្មោះ: ' + (userData.fullName || userData.username) + ' (@' + userData.username + ')\n📱 ទូរស័ព្ទ: ' + (phone || '-') + '\n🏢 ស្ថានីយ: ' + warehouse + '\n💼 តួនាទី: ' + role + regCreatorText + '\n🚦 ស្ថានភាព: ⏳ រង់ចាំ Admin អនុម័តបឋមក្នុង LiveChat') :
+      ('📋 [សំណើសុំចុះឈ្មោះគណនីថ្មី]\n👤 ឈ្មោះ: ' + (userData.fullName || userData.username) + ' (@' + userData.username + ')\n📱 ទូរស័ព្ទ: ' + (phone || '-') + '\n🏢 ស្ថានីយ: ' + warehouse + '\n💼 តួនាទី: ' + role + '\n🚦 ស្ថានភាព: ⏳ រង់ចាំ Admin អនុម័តបឋមក្នុង LiveChat');
     const regPayloadObj = {
       type: 'USER_REGISTRATION',
       userId: userId,

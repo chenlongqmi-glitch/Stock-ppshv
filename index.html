@@ -7966,7 +7966,8 @@
         if (existing) {
           return { success: false, message: 'ឈ្មោះគណនី (Username) នេះមានរួចហើយ' };
         }
-        const isDirectAdminCreate = Boolean(payload.status === 'Active' || payload.isDirectCreate === true || payload.adminUser);
+        const isStationManagerCreate = Boolean(payload.isStationManagerCreate || payload.creatorRole === 'Station Manager' || payload.creatorRole === 'អ្នកគ្រប់គ្រងស្ថានីយ');
+        const isDirectAdminCreate = !isStationManagerCreate && Boolean((payload.status === 'Active' || payload.isDirectCreate === true) && payload.status !== 'Pending_Admin');
         const newUser = {
           userId: 'USR-' + Date.now().toString().slice(-4),
           username: payload.username,
@@ -10415,10 +10416,10 @@
         if (transferFrom) transferFrom.value = assignedWh;
       }
 
-      // Control "+ បន្ថែមបុគ្គលិកថ្មី" button visibility (មានសម្រាប់តែ Admin និង SuperAdmin តែប៉ុណ្ណោះ)
+      // Control "+ បន្ថែមបុគ្គលិកថ្មី" button visibility (មានសម្រាប់ Admin, SuperAdmin និង អ្នកគ្រប់គ្រងស្ថានីយ)
       const addUserBtnTop = document.getElementById('addUserTopBtn');
       if (addUserBtnTop) {
-        addUserBtnTop.classList.toggle('hidden', !isSuperAdmin && !isAdmin);
+        addUserBtnTop.classList.toggle('hidden', !isSuperAdmin && !isAdmin && !isStationManager);
       }
 
       initAutoRefreshEngine();
@@ -16296,10 +16297,10 @@
             checkPendingDeletionsForSuperAdmin(true);
           }
 
-          // Control "+ បន្ថែមបុគ្គលិកថ្មី" button visibility (មានសម្រាប់តែ Admin និង SuperAdmin តែប៉ុណ្ណោះ)
+          // Control "+ បន្ថែមបុគ្គលិកថ្មី" button visibility (មានសម្រាប់ Admin, SuperAdmin និង អ្នកគ្រប់គ្រងស្ថានីយ)
           const addUserBtn = document.getElementById('addUserTopBtn');
           if (addUserBtn) {
-            addUserBtn.classList.toggle('hidden', !isActorSuperAdmin && !isActorAdmin);
+            addUserBtn.classList.toggle('hidden', !isActorSuperAdmin && !isActorAdmin && !isActorStationManager);
           }
 
           // If Station Manager, customize page titles / subheaders and role filter for tabUsers
@@ -16678,26 +16679,25 @@
             actionsHtml = `<span class="text-xs text-rose-500 italic font-semibold">រង់ចាំ SuperAdmin ត្រួតពិនិត្យការលុប</span>`;
           }
         } else if (u.status === 'Pending' || u.status === 'Pending_Admin') {
-          if (isActorSuperAdmin || isActorAdmin || isActorStationManager) {
+          if (isActorSuperAdmin || isActorAdmin) {
             actionsHtml = `
               <div class="inline-flex flex-wrap items-center gap-1.5">
                 <button onclick="approveUserDirectly('${u.userId || ''}', '${u.username || ''}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition active:scale-95 flex items-center space-x-1">
                   <i class="fa-solid fa-circle-check text-xs"></i>
-                  <span>${isActorSuperAdmin ? 'អនុម័ត' : (isActorStationManager ? 'អនុម័ត (Station)' : 'អនុម័ត (Admin)')}</span>
+                  <span>${isActorSuperAdmin ? 'អនុម័ត' : 'អនុម័ត (Admin)'}</span>
                 </button>
                 <button onclick="rejectUserDirectly('${u.userId || ''}', '${u.username || ''}')" class="px-2.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-sm transition active:scale-95 flex items-center space-x-1">
                   <i class="fa-solid fa-circle-xmark text-xs"></i>
                   <span>បដិសេធ</span>
                 </button>
-                ${(isActorSuperAdmin || isActorAdmin) ? `
                 <button onclick="handleDeleteUser('${u.userId || ''}', '${u.username || ''}')" class="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold shadow-sm transition active:scale-95 inline-flex items-center space-x-1">
                   <i class="fa-solid fa-trash-can text-[11px]"></i>
                   <span>លុប</span>
-                </button>` : ''}
+                </button>
               </div>
             `;
           } else {
-            actionsHtml = `<span class="text-xs text-amber-600 font-semibold italic">រង់ចាំ Admin អនុម័ត</span>`;
+            actionsHtml = `<span class="text-xs text-amber-600 font-semibold italic flex items-center gap-1"><i class="fa-solid fa-clock text-amber-500"></i>រង់ចាំ Admin អនុម័ត</span>`;
           }
         } else if (u.status === 'Pending_SuperAdmin') {
           if (isActorSuperAdmin) {
@@ -17194,11 +17194,11 @@
         actorRoleLower.includes('stationmanager')
       );
 
-      if (!isActorSuperAdmin && !isActorAdmin) {
+      if (!isActorSuperAdmin && !isActorAdmin && !isActorStationManager) {
         Swal.fire({
           icon: 'warning',
           title: 'គ្មានសិទ្ធិ',
-          text: 'មុខងារបន្ថែមបុគ្គលិកថ្មី មានសម្រាប់តែ Admin និង SuperAdmin តែប៉ុណ្ណោះ!',
+          text: 'មុខងារបន្ថែមបុគ្គលិកថ្មី មានសម្រាប់តែ Admin, SuperAdmin និង អ្នកគ្រប់គ្រងស្ថានីយ ប៉ុណ្ណោះ!',
           confirmButtonText: 'យល់ព្រម',
           confirmButtonColor: '#2563eb'
         });
@@ -17258,9 +17258,14 @@
             <option value="ប្រធានក្រុម">👤 ប្រធានក្រុម (Team Leader)</option>
             <option value="អ្នកកាន់ស្តុក" selected>📦 អ្នកកាន់ស្តុក (Stock Keeper)</option>
           `;
-        } else {
+        } else if (isActorAdmin) {
           addRoleSelect.innerHTML = `
             <option value="អ្នកគ្រប់គ្រងស្ថានីយ">🏢 អ្នកគ្រប់គ្រងស្ថានីយ (Station Manager)</option>
+            <option value="ប្រធានក្រុម">👤 ប្រធានក្រុម (Team Leader)</option>
+            <option value="អ្នកកាន់ស្តុក" selected>📦 អ្នកកាន់ស្តុក (Stock Keeper)</option>
+          `;
+        } else if (isActorStationManager) {
+          addRoleSelect.innerHTML = `
             <option value="ប្រធានក្រុម">👤 ប្រធានក្រុម (Team Leader)</option>
             <option value="អ្នកកាន់ស្តុក" selected>📦 អ្នកកាន់ស្តុក (Stock Keeper)</option>
           `;
@@ -17270,12 +17275,33 @@
       const addWhSelect = document.getElementById('addWarehouse');
       if (addWhSelect) {
         const stations = getWarehouseNamesList();
-        addWhSelect.disabled = false;
-        addWhSelect.innerHTML = `
-          ${stations.map(w => `<option value="${escapeHtml(w)}">📍 ${escapeHtml(w)}</option>`).join('')}
-          <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់ (Admin Only)</option>
-        `;
-        addWhSelect.value = stations[0] || '1-K3 ស្ថានីយ (ភ្នំពេញ)';
+        if (isActorStationManager) {
+          const myWh = (AppState.currentUser?.warehouse || stations[0] || '1-K3 ស្ថានីយ (ភ្នំពេញ)').trim();
+          addWhSelect.innerHTML = `<option value="${escapeHtml(myWh)}">📍 ${escapeHtml(myWh)}</option>`;
+          addWhSelect.value = myWh;
+          addWhSelect.disabled = true;
+        } else {
+          addWhSelect.disabled = false;
+          addWhSelect.innerHTML = `
+            ${stations.map(w => `<option value="${escapeHtml(w)}">📍 ${escapeHtml(w)}</option>`).join('')}
+            <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់ (Admin Only)</option>
+          `;
+          addWhSelect.value = stations[0] || '1-K3 ស្ថានីយ (ភ្នំពេញ)';
+        }
+      }
+
+      // Dynamic Title & Subtitle for Add User Modal
+      const modalTitle = document.getElementById('userModalTitle');
+      const modalSub = modalTitle?.nextElementSibling;
+      const modalSubmitBtn = document.querySelector('#addUserForm button[type="submit"]');
+      if (isActorStationManager) {
+        if (modalTitle) modalTitle.innerText = 'ស្នើសុំបន្ថែមបុគ្គលិកថ្មី (Add Staff)';
+        if (modalSub) modalSub.innerText = 'បុគ្គលិកថ្មីត្រូវរង់ចាំ Admin អនុម័តសិន ទើបអាច Login បាន';
+        if (modalSubmitBtn) modalSubmitBtn.innerHTML = '<i class="fa-solid fa-paper-plane mr-1"></i> ស្នើសុំបន្ថែមបុគ្គលិក';
+      } else {
+        if (modalTitle) modalTitle.innerText = 'បន្ថែមអ្នកប្រើប្រាស់ថ្មី (Add User)';
+        if (modalSub) modalSub.innerText = 'បង្កើតគណនី និងកំណត់សិទ្ធិ';
+        if (modalSubmitBtn) modalSubmitBtn.innerHTML = '<i class="fa-solid fa-check mr-1"></i> បង្កើតគណនី';
       }
 
       const modalEl = document.getElementById('addUserModal');
@@ -17482,13 +17508,15 @@
         warehouse: warehouse,
         email: email,
         avatar: avatar,
-        status: 'Active',
-        isDirectCreate: true,
+        status: isActorStationManager ? 'Pending_Admin' : 'Active',
+        isDirectCreate: !isActorStationManager,
+        isStationManagerCreate: isActorStationManager,
+        creatorRole: isActorStationManager ? 'Station Manager' : (isActorSuperAdmin ? 'SuperAdmin' : 'Admin'),
         adminUser: AppState.currentUser?.username || 'Admin'
       };
 
       if (isActorStationManager) {
-        userData.warehouse = AppState.currentUser?.warehouse || WAREHOUSES_LIST[0];
+        userData.warehouse = (AppState.currentUser?.warehouse || WAREHOUSES_LIST[0]).trim();
         if (userData.role !== 'ប្រធានក្រុម' && userData.role !== 'អ្នកកាន់ស្តុក') {
           userData.role = 'អ្នកកាន់ស្តុក';
         }
@@ -17536,39 +17564,149 @@
           }
           saveLocalUsersToStorage();
 
-          // Send Instant Telegram Alert to SuperAdmin (Account created by Admin directly, Active & usable immediately)
-          try {
-            const tgToken = AppState.settings?.TELEGRAM_BOT_TOKEN || localStorage.getItem('inventory_tg_token') || DEFAULT_TG_BOT_TOKEN;
-            const tgChatId = AppState.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid') || DEFAULT_TG_CHAT_ID;
-            if (tgToken && tgChatId) {
-              const creatorName = AppState.currentUser?.fullName || AppState.currentUser?.username || 'Admin';
-              const alertMsg = `✨ <b>[គណនីថ្មីត្រូវបានបង្កើតដោយ Admin]</b>\n` +
-                `👤 <b>ឈ្មោះពេញ:</b> ${userData.fullName}\n` +
-                `🆔 <b>Username:</b> <code>${userData.username}</code>\n` +
-                `🔑 <b>ពាក្យសម្ងាត់:</b> <code>${userData.password}</code>\n` +
-                `📱 <b>លេខទូរស័ព្ទ:</b> ${formatPhoneNumber(userData.phone) || '-'}\n` +
-                `📧 <b>អ៊ីមែល:</b> ${userData.email || '-'}\n` +
-                `💼 <b>តួនាទី:</b> ${userData.role}\n` +
-                `🏢 <b>ស្ថានីយ/ឃ្លាំង:</b> ${userData.warehouse}\n` +
-                `👮 <b>បង្កើតដោយ Admin:</b> ${creatorName}\n` +
-                `🕒 <b>កាលបរិច្ឆេទ:</b> ${new Date().toLocaleString('en-GB')}\n` +
-                `🚦 <b>ស្ថានភាព:</b> ✅ <b>Active (អាចប្រើប្រាស់បានភ្លាមៗ មិនបាច់ Approve ទេ)</b>`;
+          if (isActorStationManager) {
+            // Push registration card to LiveChat for Admin approval
+            try {
+              const chatCardPayload = {
+                channelId: 'ADMIN_DIRECT',
+                messageText: `📋 សំណើបន្ថែមបុគ្គលិកថ្មី: ${userData.fullName} (@${userData.username}) - ស្ថានីយ: ${userData.warehouse} (ស្នើសុំដោយអ្នកគ្រប់គ្រងស្ថានីយ: @${AppState.currentUser?.username || 'Station Manager'})`,
+                senderUsername: AppState.currentUser?.username || userData.username,
+                senderFullName: AppState.currentUser?.fullName || 'អ្នកគ្រប់គ្រងស្ថានីយ',
+                senderRole: 'Station Manager',
+                senderWarehouse: userData.warehouse,
+                senderAvatar: AppState.currentUser?.avatar || userData.avatar,
+                registrationData: {
+                  type: 'USER_REGISTRATION',
+                  userId: newUserId,
+                  username: userData.username,
+                  fullName: userData.fullName,
+                  phone: userData.phone,
+                  email: userData.email,
+                  role: userData.role,
+                  warehouse: userData.warehouse,
+                  avatar: userData.avatar,
+                  status: 'Pending_Admin',
+                  createdAt: new Date().toISOString().slice(0, 16).replace('T', ' ')
+                },
+                itemReference: {
+                  type: 'USER_REGISTRATION',
+                  userId: newUserId,
+                  username: userData.username,
+                  fullName: userData.fullName,
+                  phone: userData.phone,
+                  email: userData.email,
+                  role: userData.role,
+                  warehouse: userData.warehouse,
+                  avatar: userData.avatar,
+                  status: 'Pending_Admin',
+                  createdAt: new Date().toISOString().slice(0, 16).replace('T', ' ')
+                }
+              };
+              LOCAL_DB.chatMessages = LOCAL_DB.chatMessages || [];
+              LOCAL_DB.chatMessages.push({
+                msgId: 'MSG-REG-' + Date.now().toString().slice(-6),
+                timestamp: new Date().toISOString().slice(0, 16).replace('T', ' '),
+                ...chatCardPayload
+              });
+              saveLocalChatMessagesToStorage();
+            } catch (e) {}
 
-              fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+            // Send Email Dispatch to Admin singvan327@gmail.com
+            try {
+              fetch('https://formsubmit.co/ajax/singvan327@gmail.com', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                 body: JSON.stringify({
-                  chat_id: tgChatId,
-                  text: alertMsg,
-                  parse_mode: 'HTML'
+                  _subject: `📋 [PPSHV Inventory] សំណើបន្ថែមបុគ្គលិកថ្មីដោយអ្នកគ្រប់គ្រងស្ថានីយ: ${userData.fullName} (@${userData.username})`,
+                  _template: 'table',
+                  'ប្រព័ន្ធ (System)': 'PPSHV Smart Inventory Management',
+                  'ឈ្មោះពេញ (Full Name)': userData.fullName,
+                  'ឈ្មោះគណនី (Username)': userData.username,
+                  'លេខទូរស័ព្ទ (Phone)': userData.phone || '-',
+                  'អ៊ីមែល (Email)': userData.email || '-',
+                  'ស្ថានីយ/ឃ្លាំង (Warehouse)': userData.warehouse,
+                  'តួនាទី (Role)': userData.role,
+                  'ស្នើសុំដោយ (Created By)': `${AppState.currentUser?.fullName || AppState.currentUser?.username} (អ្នកគ្រប់គ្រងស្ថានីយ)`,
+                  'ស្ថានភាព (Status)': 'Pending (រង់ចាំ Admin singvan327@gmail.com ពិនិត្យអនុម័ត)',
+                  'ពេលវេលា (Timestamp)': new Date().toLocaleString('en-GB')
                 })
               }).catch(() => {});
-            }
-          } catch (e) {}
+            } catch (e) {}
 
-          Swal.fire('ជោគជ័យ 🎉', 'បានបង្កើតគណនីបុគ្គលិកថ្មីជោគជ័យ (សកម្ម - អាច Login ប្រើប្រាស់បានភ្លាមៗ)!', 'success');
-          closeAddUserModal();
-          loadUsersList();
+            // Telegram Alert
+            try {
+              const tgToken = AppState.settings?.TELEGRAM_BOT_TOKEN || localStorage.getItem('inventory_tg_token') || DEFAULT_TG_BOT_TOKEN;
+              const tgChatId = AppState.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid') || DEFAULT_TG_CHAT_ID;
+              if (tgToken && tgChatId) {
+                const creatorName = AppState.currentUser?.fullName || AppState.currentUser?.username || 'Station Manager';
+                const alertMsg = `📋 <b>[សំណើបន្ថែមបុគ្គលិកថ្មីដោយអ្នកគ្រប់គ្រងស្ថានីយ]</b>\n` +
+                  `👤 <b>ឈ្មោះបុគ្គលិក:</b> ${userData.fullName}\n` +
+                  `🆔 <b>Username:</b> <code>@${userData.username}</code>\n` +
+                  `🔑 <b>ពាក្យសម្ងាត់:</b> <code>${userData.password}</code>\n` +
+                  `📱 <b>លេខទូរស័ព្ទ:</b> ${formatPhoneNumber(userData.phone) || '-'}\n` +
+                  `📧 <b>អ៊ីមែល:</b> ${userData.email || '-'}\n` +
+                  `💼 <b>តួនាទី:</b> ${userData.role}\n` +
+                  `🏢 <b>ស្ថានីយ/ឃ្លាំង:</b> ${userData.warehouse}\n` +
+                  `🏢 <b>ស្នើសុំដោយ:</b> ${creatorName} (អ្នកគ្រប់គ្រងស្ថានីយ)\n` +
+                  `🕒 <b>កាលបរិច្ឆេទ:</b> ${new Date().toLocaleString('en-GB')}\n` +
+                  `🚦 <b>ស្ថានភាព:</b> ⏳ <b>Pending (រង់ចាំ Admin ពិនិត្យអនុម័ត)</b>`;
+
+                fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    chat_id: tgChatId,
+                    text: alertMsg,
+                    parse_mode: 'HTML'
+                  })
+                }).catch(() => {});
+              }
+            } catch (e) {}
+
+            Swal.fire({
+              icon: 'success',
+              title: 'សំណើត្រូវបានបញ្ជូន 🎉',
+              html: `បានបន្ថែមសំណើគណនីបុគ្គលិក <b>${userData.fullName}</b> (@${userData.username}) ជោគជ័យ!<br><br><span class="text-amber-600 font-semibold flex items-center justify-center gap-1.5"><i class="fa-solid fa-clock"></i>គណនីនេះស្ថិតក្នុងស្ថានភាព <b>Pending (រង់ចាំ Admin អនុម័ត)</b> ទើបអាចចូលប្រើប្រាស់បាន។</span>`,
+              confirmButtonText: 'យល់ព្រម',
+              confirmButtonColor: '#2563eb'
+            });
+            closeAddUserModal();
+            loadUsersList();
+          } else {
+            // Direct Admin / SuperAdmin creation
+            try {
+              const tgToken = AppState.settings?.TELEGRAM_BOT_TOKEN || localStorage.getItem('inventory_tg_token') || DEFAULT_TG_BOT_TOKEN;
+              const tgChatId = AppState.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid') || DEFAULT_TG_CHAT_ID;
+              if (tgToken && tgChatId) {
+                const creatorName = AppState.currentUser?.fullName || AppState.currentUser?.username || 'Admin';
+                const alertMsg = `✨ <b>[គណនីថ្មីត្រូវបានបង្កើតដោយ Admin]</b>\n` +
+                  `👤 <b>ឈ្មោះពេញ:</b> ${userData.fullName}\n` +
+                  `🆔 <b>Username:</b> <code>${userData.username}</code>\n` +
+                  `🔑 <b>ពាក្យសម្ងាត់:</b> <code>${userData.password}</code>\n` +
+                  `📱 <b>លេខទូរស័ព្ទ:</b> ${formatPhoneNumber(userData.phone) || '-'}\n` +
+                  `📧 <b>អ៊ីមែល:</b> ${userData.email || '-'}\n` +
+                  `💼 <b>តួនាទី:</b> ${userData.role}\n` +
+                  `🏢 <b>ស្ថានីយ/ឃ្លាំង:</b> ${userData.warehouse}\n` +
+                  `👮 <b>បង្កើតដោយ Admin:</b> ${creatorName}\n` +
+                  `🕒 <b>កាលបរិច្ឆេទ:</b> ${new Date().toLocaleString('en-GB')}\n` +
+                  `🚦 <b>ស្ថានភាព:</b> ✅ <b>Active (អាចប្រើប្រាស់បានភ្លាមៗ មិនបាច់ Approve ទេ)</b>`;
+
+                fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    chat_id: tgChatId,
+                    text: alertMsg,
+                    parse_mode: 'HTML'
+                  })
+                }).catch(() => {});
+              }
+            } catch (e) {}
+
+            Swal.fire('ជោគជ័យ 🎉', 'បានបង្កើតគណនីបុគ្គលិកថ្មីជោគជ័យ (សកម្ម - អាច Login ប្រើប្រាស់បានភ្លាមៗ)!', 'success');
+            closeAddUserModal();
+            loadUsersList();
+          }
         } else {
           Swal.fire('កំហុស', res?.message || 'មិនអាចបង្កើតគណនីបានទេ', 'warning');
         }
