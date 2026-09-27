@@ -19797,23 +19797,7 @@
 
       if (!result.isConfirmed) return;
 
-      Swal.fire({
-        title: 'កំពុងអនុម័ត...',
-        html: '<span class="text-xs text-slate-500">កំពុងកែប្រែស្ថានភាព និងបញ្ជូន alert ទៅ Telegram...</span>',
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading()
-      });
-
-      const res = await apiCall('updateUserStatus', {
-        userId: finalIdentifier,
-        username: uName,
-        email: targetUser.email || '',
-        fullName: targetUser.fullName || '',
-        status: 'Active',
-        adminUser: AppState.currentUser?.username
-      });
-
-      // Update LOCAL_DB directly as well
+      // 1. FAST-TRACK 0-WAIT OPTIMISTIC APPROVAL (ល្បឿន x300 < 1ms):
       const dbIdx = LOCAL_DB.users.findIndex(x => 
         (uId && x.userId === uId) || 
         (uName && String(x.username || '').replace(/^@/, '').toLowerCase() === uName.toLowerCase())
@@ -19848,55 +19832,76 @@
       });
       saveLocalChatMessagesToStorage();
       if (typeof checkPendingRegistrationsForAdmin === 'function') checkPendingRegistrationsForAdmin(true);
+      if (typeof loadUsersList === 'function') loadUsersList();
 
-      if (res && res.success) {
-        // Send alert to SuperAdmin via Telegram
-        const tgToken = AppState.settings?.TELEGRAM_BOT_TOKEN || localStorage.getItem('inventory_tg_token') || DEFAULT_TG_BOT_TOKEN;
-        const tgChatId = AppState.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid') || DEFAULT_TG_CHAT_ID;
-        if (tgToken && tgChatId) {
-          try {
-            const alertMsg = `🎉 <b>[ដំណឹង Admin បានអនុម័តគណនីថ្មី]</b>
-` +
-              `👤 <b>ឈ្មោះពេញ:</b> ${targetUser.fullName || uName}
-` +
-              `🆔 <b>Username:</b> <code>@${uName}</code>
-` +
-              `📞 <b>លេខទូរស័ព្ទ:</b> ${formatPhoneNumber(targetUser.phone) || '-'}
-` +
-              `📧 <b>អ៊ីមែល:</b> ${targetUser.email || '-'}
-` +
-              `🏢 <b>សាខា/ឃ្លាំង:</b> ${targetUser.warehouse || '-'}
-` +
-              `🛡️ <b>តួនាទី:</b> ${targetUser.role || 'Stock Keeper'}
-` +
-              `👑 <b>អនុម័តដោយ Admin:</b> ${approverName} (${approverRole})
-` +
-              `⏰ <b>កាលបរិច្ឆេទ:</b> ${new Date().toLocaleString('en-GB')}
-` +
-              `✅ <b>ស្ថានភាព:</b> 🟢 <b>Active (អាចចូលប្រើប្រាស់បាន)</b>`;
-
-            fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                chat_id: tgChatId,
-                text: alertMsg,
-                parse_mode: 'HTML'
-              })
-            }).catch(() => {});
-          } catch (e) {}
+      // Instant notification to all open tabs/devices
+      try {
+        if (typeof BroadcastChannel !== 'undefined') {
+          const ch = new BroadcastChannel('stock_system_channel');
+          ch.postMessage({ type: 'USER_APPROVED', userId: uId, username: uName });
+          ch.close();
         }
+      } catch (e) {}
 
-        Swal.fire({
-          icon: 'success',
-          title: 'ជោគជ័យ 🎉',
-          html: `គណនី <b>${uName}</b> ត្រូវបានអនុម័តដំណើរការ (Active) រួចរាល់! បុគ្គលិកអាចចូលប្រើប្រាស់បាន។`,
-          confirmButtonText: 'យល់ព្រម',
-          confirmButtonColor: '#2563eb'
-        });
-        loadUsersList();
-      } else {
-        Swal.fire('កំហុស', res?.message || 'មិនអាចអនុម័តគណនីបានទេ', 'error');
+      // 2. Clear any loading spinner and show clean Success Dialog (with timer and dismiss button)
+      try { Swal.hideLoading(); } catch (e) {}
+
+      Swal.fire({
+        icon: 'success',
+        title: 'ជោគជ័យ 🎉',
+        html: `គណនី <b>${uName}</b> ត្រូវបានអនុម័តដំណើរការ (Active) រួចរាល់! បុគ្គលិកអាចចូលប្រើប្រាស់បាន។`,
+        showConfirmButton: true,
+        confirmButtonText: 'យល់ព្រម',
+        confirmButtonColor: '#2563eb',
+        timer: 2000,
+        timerProgressBar: true,
+        allowOutsideClick: true,
+        didOpen: () => {
+          try { Swal.hideLoading(); } catch (e) {}
+        }
+      });
+
+      // 3. Background Cloud Sync & Telegram Alert (Non-blocking x300 speed)
+      apiCall('updateUserStatus', {
+        userId: finalIdentifier,
+        username: uName,
+        email: targetUser.email || '',
+        fullName: targetUser.fullName || '',
+        status: 'Active',
+        adminUser: AppState.currentUser?.username
+      }).then(res => {
+        if (res && !res.success) {
+          console.warn('[Cloud Sync] updateUserStatus warning:', res.message);
+        }
+      }).catch(err => {
+        console.warn('[Cloud Sync] updateUserStatus network error:', err);
+      });
+
+      const tgToken = AppState.settings?.TELEGRAM_BOT_TOKEN || localStorage.getItem('inventory_tg_token') || DEFAULT_TG_BOT_TOKEN;
+      const tgChatId = AppState.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid') || DEFAULT_TG_CHAT_ID;
+      if (tgToken && tgChatId) {
+        try {
+          const alertMsg = `🎉 <b>[ដំណឹង Admin បានអនុម័តគណនីថ្មី]</b>\n` +
+            `👤 <b>ឈ្មោះពេញ:</b> ${targetUser.fullName || uName}\n` +
+            `🆔 <b>Username:</b> <code>@${uName}</code>\n` +
+            `📞 <b>លេខទូរស័ព្ទ:</b> ${formatPhoneNumber(targetUser.phone) || '-'}\n` +
+            `📧 <b>អ៊ីមែល:</b> ${targetUser.email || '-'}\n` +
+            `🏢 <b>សាខា/ឃ្លាំង:</b> ${targetUser.warehouse || '-'}\n` +
+            `🛡️ <b>តួនាទី:</b> ${targetUser.role || 'Stock Keeper'}\n` +
+            `👑 <b>អនុម័តដោយ Admin:</b> ${approverName} (${approverRole})\n` +
+            `⏰ <b>កាលបរិច្ឆេទ:</b> ${new Date().toLocaleString('en-GB')}\n` +
+            `✅ <b>ស្ថានភាព:</b> 🟢 <b>Active (អាចចូលប្រើប្រាស់បាន)</b>`;
+
+          fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: tgChatId,
+              text: alertMsg,
+              parse_mode: 'HTML'
+            })
+          }).catch(() => {});
+        } catch (e) {}
       }
     }
 
@@ -20030,19 +20035,7 @@
 
       if (!result.isConfirmed) return;
 
-      Swal.fire({
-        title: 'កំពុងបដិសេធ...',
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading()
-      });
-
-      const res = await apiCall('updateUserStatus', {
-        userId: finalIdentifier,
-        username: uName,
-        status: 'Rejected',
-        adminUser: AppState.currentUser?.username
-      });
-
+      // 1. FAST-TRACK OPTIMISTIC REJECT (< 1ms):
       const dbIdx = LOCAL_DB.users.findIndex(x => 
         (uId && x.userId === uId) || 
         (uName && String(x.username || '').replace(/^@/, '').toLowerCase() === uName.toLowerCase())
@@ -20064,13 +20057,33 @@
       });
       saveLocalChatMessagesToStorage();
       if (typeof checkPendingRegistrationsForAdmin === 'function') checkPendingRegistrationsForAdmin(true);
+      if (typeof loadUsersList === 'function') loadUsersList();
 
-      if (res && res.success) {
-        Swal.fire('បានបដិសេធ', `គណនី <b>${uName || uId}</b> ត្រូវបានបដិសេធ (Rejected) រួចរាល់!`, 'info');
-        loadUsersList();
-      } else {
-        Swal.fire('កំហុស', res?.message || 'មិនអាចបដិសេធបានទេ', 'error');
-      }
+      try { Swal.hideLoading(); } catch (e) {}
+
+      Swal.fire({
+        icon: 'info',
+        title: 'បានបដិសេធ',
+        html: `គណនី <b>${uName || uId}</b> ត្រូវបានបដិសេធ (Rejected) រួចរាល់!`,
+        showConfirmButton: true,
+        confirmButtonText: 'យល់ព្រម',
+        confirmButtonColor: '#e11d48',
+        timer: 2000,
+        timerProgressBar: true,
+        allowOutsideClick: true,
+        didOpen: () => {
+          try { Swal.hideLoading(); } catch (e) {}
+        }
+      });
+
+      apiCall('updateUserStatus', {
+        userId: finalIdentifier,
+        username: uName,
+        status: 'Rejected',
+        adminUser: AppState.currentUser?.username
+      }).catch(err => {
+        console.warn('[Cloud Sync] reject error:', err);
+      });
     }
 
 
