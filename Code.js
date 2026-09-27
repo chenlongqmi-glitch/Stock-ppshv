@@ -2727,6 +2727,8 @@ function logoutUser(payload) {
 
 function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, avatar) {
   let uId = userIdOrPayload;
+  let targetUsername = '';
+  let targetEmail = '';
   let st = status;
   let r = role;
   let wh = warehouse;
@@ -2740,7 +2742,9 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
   let deleteRequestedAt = '';
 
   if (userIdOrPayload && typeof userIdOrPayload === 'object') {
-    uId = userIdOrPayload.userId || userIdOrPayload.username || userIdOrPayload.id;
+    uId = (userIdOrPayload.userId && String(userIdOrPayload.userId).trim()) ? userIdOrPayload.userId : (userIdOrPayload.username || userIdOrPayload.id || '');
+    targetUsername = userIdOrPayload.username || '';
+    targetEmail = userIdOrPayload.email || '';
     st = userIdOrPayload.status;
     r = userIdOrPayload.role;
     wh = userIdOrPayload.warehouse;
@@ -2754,12 +2758,28 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
     deleteRequestedAt = userIdOrPayload.deleteRequestedAt || '';
   }
 
+  const rawId = String(uId || '').trim();
+  const rawUser = String(targetUsername || '').trim();
+  const rawEmail = String(email || targetEmail || '').trim().toLowerCase();
+
+  const cleanId = rawId.toLowerCase();
+  const cleanUsername = (rawUser || rawId).replace(/^@/, '').trim().toLowerCase();
+
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ensureUsersInitialized(ss);
   const data = sheet.getDataRange().getValues();
 
   for (let i = 1; i < data.length; i++) {
-    if (data[i][0] === uId || String(data[i][1]).toLowerCase() === String(uId).toLowerCase()) {
+    const rowId = String(data[i][0] || '').trim();
+    const rowIdLower = rowId.toLowerCase();
+    const rowUser = String(data[i][1] || '').trim().replace(/^@/, '').toLowerCase();
+    const rowEmail = String(data[i][3] || '').trim().toLowerCase();
+
+    const isMatch = (rowId && (rowId === rawId || rowIdLower === cleanId)) ||
+                    (rowUser && (rowUser === cleanUsername || rowUser === cleanId)) ||
+                    (rawEmail && rowEmail && rowEmail === rawEmail);
+
+    if (isMatch) {
       const existingRole = String(data[i][6] || '');
       // Protect SuperAdmin: only SuperAdmin can modify SuperAdmin or grant SuperAdmin
       if (existingRole === 'SuperAdmin' && admin !== 'superadmin') {
@@ -3033,7 +3053,10 @@ function deleteUser(userIdOrPayload, adminUser, deleteReason) {
 
 
 
-    if (rowUserId === String(uId) || rowUsername.toLowerCase() === String(uId).toLowerCase()) {
+    const cleanTarget = String(uId || '').replace(/^@/, '').trim().toLowerCase();
+    const isDeleteMatch = (rowUserId && (rowUserId === String(uId).trim() || rowUserId.toLowerCase() === cleanTarget)) ||
+                          (rowUsername && (rowUsername.toLowerCase() === cleanTarget || rowUsername.replace(/^@/, '').toLowerCase() === cleanTarget));
+    if (isDeleteMatch) {
 
       // Prevent deleting self
 

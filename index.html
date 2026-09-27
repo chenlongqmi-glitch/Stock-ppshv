@@ -19665,19 +19665,44 @@
         actorRoleLower.includes('station manager') ||
         actorRoleLower.includes('stationmanager')
       );
-      const targetUser = (LOCAL_DB.users || []).find(x => (userId && x.userId === userId) || (username && x.username === username)) || {};
-      const uId = targetUser.userId || userId;
-      const uName = targetUser.username || username;
+
+      const cleanUsername = String(username || '').replace(/^@/, '').trim();
+      const cleanUserId = String(userId || '').trim();
+
+      // Robust lookup across LOCAL_DB, AppState, and Chat Messages
+      let targetUser = (LOCAL_DB.users || []).find(x => 
+        (cleanUserId && String(x.userId || '').trim() === cleanUserId) ||
+        (cleanUsername && String(x.username || '').replace(/^@/, '').trim().toLowerCase() === cleanUsername.toLowerCase())
+      );
+      if (!targetUser) {
+        targetUser = (AppState.users || []).find(x => 
+          (cleanUserId && String(x.userId || '').trim() === cleanUserId) ||
+          (cleanUsername && String(x.username || '').replace(/^@/, '').trim().toLowerCase() === cleanUsername.toLowerCase())
+        );
+      }
+      if (!targetUser && cleanUsername) {
+        const chatMsg = (LOCAL_DB.chatMessages || []).find(m => 
+          m.registrationData && String(m.registrationData.username || '').replace(/^@/, '').trim().toLowerCase() === cleanUsername.toLowerCase()
+        );
+        if (chatMsg && chatMsg.registrationData) {
+          targetUser = chatMsg.registrationData;
+        }
+      }
+      targetUser = targetUser || {};
+
+      const uId = String(targetUser.userId || cleanUserId || '').trim();
+      const uName = String(targetUser.username || cleanUsername || '').replace(/^@/, '').trim();
+      const finalIdentifier = uId || uName;
 
       if (isActorStationManager) {
         const myWh = String(AppState.currentUser?.warehouse || '').trim().toLowerCase();
         const uWh = String(targetUser.warehouse || '').trim().toLowerCase();
         const r = String(targetUser.role || '').trim().toLowerCase();
         const isTL = (r === 'ប្រធានក្រុម' || r === 'ប្រធាន' || r === 'team leader' || r === 'teamleader' || r === 'manager');
-        const isSK = (r === 'អ្នកកាន់ស្តុក' || r === 'stock keeper' || r === 'stockkeeper' || r === 'staff' || r === '' || !targetUser.role);
-        const isForbidden = (r === 'superadmin' || r === 'admin' || r === 'អ្នកគ្រប់គ្រងស្ថានីយ' || r === 'អ្នកគ្រប់គ្រង' || r === 'station manager');
+        const isSK = (r === 'បុគ្គលិកស្តុក' || r === 'stock keeper' || r === 'stockkeeper' || r === 'staff' || r === '' || !targetUser.role);
+        const isForbidden = (r === 'superadmin' || r === 'admin' || r === 'អ្នកគ្រប់គ្រងទូទៅ' || r === 'ប្រធានផ្នែក' || r === 'station manager');
         if (uWh !== myWh || (!isTL && !isSK) || isForbidden) {
-          Swal.fire('គ្មានសិទ្ធិ', 'អ្នកគ្រប់គ្រងស្ថានីយអាចអនុម័តបានតែប្រធានក្រុម និងអ្នកកាន់ស្តុកក្នុងស្ថានីយរបស់ខ្លួនប៉ុណ្ណោះ!', 'warning');
+          Swal.fire('គ្មានសិទ្ធិ', 'លោកអ្នកអាចអនុម័តបានតែបុគ្គលិកស្តុក ឬ ប្រធានក្រុមក្នុងស្ថានីយរបស់លោកអ្នកប៉ុណ្ណោះ!', 'warning');
           return;
         }
       }
@@ -19689,12 +19714,12 @@
         title: 'អនុម័តគណនី?',
         html: `
           <div class="text-left text-xs space-y-2.5 p-3.5 bg-emerald-50/80 border border-emerald-200 rounded-xl">
-            <p class="text-emerald-950 font-bold text-sm">✅ អនុម័តគណនី៖ <b>${targetUser.fullName || uName}</b> (@${uName})</p>
+            <p class="text-emerald-950 font-bold text-sm">👤 បុគ្គលិក៖ <b>${targetUser.fullName || uName}</b> (@${uName})</p>
             <p class="text-slate-600 leading-relaxed">
-              តើលោកអ្នកពិតជាចង់អនុម័តគណនីនេះឲ្យដំណើរការ (<b>Active</b>) ដែរឬទេ?<br><br>
+              គណនីនេះនឹងត្រូវបើកដំណើរការជាផ្លូវការ (<b>Active</b>) ភ្លាមៗ<br><br>
               <span class="text-emerald-800 font-semibold flex items-start space-x-1.5">
                 <i class="fa-solid fa-circle-check mt-0.5 text-emerald-600"></i>
-                <span>បន្ទាប់ពីអនុម័តរួច អ្នកប្រើប្រាស់នឹងអាច <b>Login ចូលប្រើប្រាស់បានភ្លាមៗ</b> ហើយប្រព័ន្ធនឹងផ្ញើដំណឹង alert ទៅកាន់ <b>Telegram របស់ SuperAdmin</b> ឲ្យបានដឹង។</span>
+                <span>ក្រោយពេលអនុម័ត បុគ្គលិកអាច <b>Login ចូលប្រើប្រាស់បានភ្លាមៗ</b> ហើយប្រព័ន្ធនឹងផ្ញើ alert ដំណឹងទៅ <b>Telegram របស់ SuperAdmin</b> ដោយស្វ័យប្រវត្តិ។</span>
               </span>
             </p>
           </div>
@@ -19710,31 +19735,55 @@
 
       Swal.fire({
         title: 'កំពុងអនុម័ត...',
-        html: '<span class="text-xs text-slate-500">កំពុងដំណើរការ និងផ្ញើដំណឹង alert ទៅ Telegram...</span>',
+        html: '<span class="text-xs text-slate-500">កំពុងកែប្រែស្ថានភាព និងបញ្ជូន alert ទៅ Telegram...</span>',
         allowOutsideClick: false,
         didOpen: () => Swal.showLoading()
       });
 
       const res = await apiCall('updateUserStatus', {
-        userId: uId,
+        userId: finalIdentifier,
+        username: uName,
+        email: targetUser.email || '',
+        fullName: targetUser.fullName || '',
         status: 'Active',
         adminUser: AppState.currentUser?.username
       });
 
       // Update LOCAL_DB directly as well
-      const dbIdx = LOCAL_DB.users.findIndex(x => x.userId === uId || x.username === uName);
+      const dbIdx = LOCAL_DB.users.findIndex(x => 
+        (uId && x.userId === uId) || 
+        (uName && String(x.username || '').replace(/^@/, '').toLowerCase() === uName.toLowerCase())
+      );
       if (dbIdx !== -1) {
         LOCAL_DB.users[dbIdx].status = 'Active';
         saveLocalUsersToStorage();
-        // Update in chat messages
-        (LOCAL_DB.chatMessages || []).forEach(m => {
-          if (m.registrationData && (m.registrationData.userId === uId || m.registrationData.username === uName)) {
+      } else if (uName) {
+        LOCAL_DB.users.push({
+          userId: uId || ('USR-' + Date.now()),
+          username: uName,
+          fullName: targetUser.fullName || uName,
+          email: targetUser.email || '',
+          phone: targetUser.phone || '',
+          role: targetUser.role || 'Stock Keeper',
+          warehouse: targetUser.warehouse || '-',
+          status: 'Active',
+          avatar: targetUser.avatar || ''
+        });
+        saveLocalUsersToStorage();
+      }
+
+      // Update in chat messages
+      (LOCAL_DB.chatMessages || []).forEach(m => {
+        if (m.registrationData) {
+          const mUser = String(m.registrationData.username || '').replace(/^@/, '').toLowerCase();
+          const mId = String(m.registrationData.userId || '');
+          if ((uId && mId === uId) || (uName && mUser === uName.toLowerCase())) {
             m.registrationData.status = 'Active';
           }
-        });
-        saveLocalChatMessagesToStorage();
-        if (typeof checkPendingRegistrationsForAdmin === 'function') checkPendingRegistrationsForAdmin(true);
-      }
+        }
+      });
+      saveLocalChatMessagesToStorage();
+      if (typeof checkPendingRegistrationsForAdmin === 'function') checkPendingRegistrationsForAdmin(true);
 
       if (res && res.success) {
         // Send alert to SuperAdmin via Telegram
@@ -19742,16 +19791,25 @@
         const tgChatId = AppState.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid') || DEFAULT_TG_CHAT_ID;
         if (tgToken && tgChatId) {
           try {
-            const alertMsg = `🎉 <b>[ដំណឹង Admin អនុម័តគណនីថ្មី]</b>\n` +
-              `👤 <b>ឈ្មោះពេញ:</b> ${targetUser.fullName || uName}\n` +
-              `🆔 <b>Username:</b> <code>@${uName}</code>\n` +
-              `📱 <b>លេខទូរស័ព្ទ:</b> ${formatPhoneNumber(targetUser.phone) || '-'}\n` +
-              `📧 <b>អ៊ីមែល:</b> ${targetUser.email || '-'}\n` +
-              `🏢 <b>ស្ថានីយ/ឃ្លាំង:</b> ${targetUser.warehouse || '-'}\n` +
-              `💼 <b>តួនាទី:</b> ${targetUser.role || 'Stock Keeper'}\n` +
-              `👮 <b>អនុម័តដោយ Admin:</b> ${approverName} (${approverRole})\n` +
-              `🕒 <b>កាលបរិច្ឆេទ:</b> ${new Date().toLocaleString('en-GB')}\n` +
-              `🚦 <b>ស្ថានភាព:</b> ✅ <b>Active (អាចចូលប្រើប្រាស់បានហើយ)</b>`;
+            const alertMsg = `🎉 <b>[ដំណឹង Admin បានអនុម័តគណនីថ្មី]</b>
+` +
+              `👤 <b>ឈ្មោះពេញ:</b> ${targetUser.fullName || uName}
+` +
+              `🆔 <b>Username:</b> <code>@${uName}</code>
+` +
+              `📞 <b>លេខទូរស័ព្ទ:</b> ${formatPhoneNumber(targetUser.phone) || '-'}
+` +
+              `📧 <b>អ៊ីមែល:</b> ${targetUser.email || '-'}
+` +
+              `🏢 <b>សាខា/ឃ្លាំង:</b> ${targetUser.warehouse || '-'}
+` +
+              `🛡️ <b>តួនាទី:</b> ${targetUser.role || 'Stock Keeper'}
+` +
+              `👑 <b>អនុម័តដោយ Admin:</b> ${approverName} (${approverRole})
+` +
+              `⏰ <b>កាលបរិច្ឆេទ:</b> ${new Date().toLocaleString('en-GB')}
+` +
+              `✅ <b>ស្ថានភាព:</b> 🟢 <b>Active (អាចចូលប្រើប្រាស់បាន)</b>`;
 
             fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
               method: 'POST',
@@ -19768,7 +19826,7 @@
         Swal.fire({
           icon: 'success',
           title: 'ជោគជ័យ 🎉',
-          html: `គណនី <b>${uName}</b> ត្រូវបានអនុម័តឲ្យដំណើរការ (Active) រួចរាល់! អាចចូលប្រើប្រាស់បានភ្លាមៗ។`,
+          html: `គណនី <b>${uName}</b> ត្រូវបានអនុម័តដំណើរការ (Active) រួចរាល់! បុគ្គលិកអាចចូលប្រើប្រាស់បាន។`,
           confirmButtonText: 'យល់ព្រម',
           confirmButtonColor: '#2563eb'
         });
@@ -19851,28 +19909,51 @@
       const isActorAdmin = !isActorSuperAdmin && (actor?.role === 'Admin' || String(actor?.username).toLowerCase() === 'admin');
       const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (actor?.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || actor?.role === 'អ្នកគ្រប់គ្រង');
 
+      const cleanUsername = String(username || '').replace(/^@/, '').trim();
+      const cleanUserId = String(userId || '').trim();
+
+      let target = (LOCAL_DB.users || []).find(u => 
+        (cleanUserId && String(u.userId || '').trim() === cleanUserId) || 
+        (cleanUsername && String(u.username || '').replace(/^@/, '').trim().toLowerCase() === cleanUsername.toLowerCase())
+      );
+      if (!target) {
+        target = (AppState.users || []).find(u => 
+          (cleanUserId && String(u.userId || '').trim() === cleanUserId) || 
+          (cleanUsername && String(u.username || '').replace(/^@/, '').trim().toLowerCase() === cleanUsername.toLowerCase())
+        );
+      }
+      if (!target && cleanUsername) {
+        const chatMsg = (LOCAL_DB.chatMessages || []).find(m => 
+          m.registrationData && String(m.registrationData.username || '').replace(/^@/, '').trim().toLowerCase() === cleanUsername.toLowerCase()
+        );
+        if (chatMsg && chatMsg.registrationData) {
+          target = chatMsg.registrationData;
+        }
+      }
+      target = target || {};
+
+      const uId = String(target.userId || cleanUserId || '').trim();
+      const uName = String(target.username || cleanUsername || '').replace(/^@/, '').trim();
+      const finalIdentifier = uId || uName;
+
       if (isActorStationManager) {
-        loadLocalUsersFromStorage();
-        const target = (LOCAL_DB.users || []).find(u => (userId && u.userId === userId) || (username && u.username === username));
-        if (target) {
-          const myWh = String(actor?.warehouse || '').trim().toLowerCase();
-          const uWh = String(target?.warehouse || '').trim().toLowerCase();
-          const r = String(target?.role || '').trim().toLowerCase();
-          const isTL = (r === 'ប្រធានក្រុម' || r === 'ប្រធាន' || r === 'team leader' || r === 'teamleader' || r === 'manager');
-          const isSK = (r === 'អ្នកកាន់ស្តុក' || r === 'stock keeper' || r === 'stockkeeper' || r === 'staff' || r === '' || !target?.role);
-          const isForbidden = (r === 'superadmin' || r === 'admin' || r === 'អ្នកគ្រប់គ្រងស្ថានីយ' || r === 'អ្នកគ្រប់គ្រង' || r === 'station manager');
-          if (uWh !== myWh || (!isTL && !isSK) || isForbidden) {
-            Swal.fire('គ្មានសិទ្ធិ', 'អ្នកគ្រប់គ្រងស្ថានីយអាចបដិសេធបានតែប្រធានក្រុម និងអ្នកកាន់ស្តុកក្នុងស្ថានីយរបស់ខ្លួនប៉ុណ្ណោះ!', 'warning');
-            return;
-          }
+        const myWh = String(actor?.warehouse || '').trim().toLowerCase();
+        const uWh = String(target?.warehouse || '').trim().toLowerCase();
+        const r = String(target?.role || '').trim().toLowerCase();
+        const isTL = (r === 'ប្រធានក្រុម' || r === 'ប្រធាន' || r === 'team leader' || r === 'teamleader' || r === 'manager');
+        const isSK = (r === 'បុគ្គលិកស្តុក' || r === 'stock keeper' || r === 'stockkeeper' || r === 'staff' || r === '' || !target?.role);
+        const isForbidden = (r === 'superadmin' || r === 'admin' || r === 'អ្នកគ្រប់គ្រងទូទៅ' || r === 'ប្រធានផ្នែក' || r === 'station manager');
+        if (uWh !== myWh || (!isTL && !isSK) || isForbidden) {
+          Swal.fire('គ្មានសិទ្ធិ', 'លោកអ្នកអាចបដិសេធបានតែបុគ្គលិកស្តុក ឬ ប្រធានក្រុមក្នុងស្ថានីយរបស់លោកអ្នកប៉ុណ្ណោះ!', 'warning');
+          return;
         }
       }
 
       const result = await Swal.fire({
-        title: 'បដិសេធគណនី (Reject)?',
+        title: 'បដិសេធ (Reject)?',
         html: `
           <div class="text-left text-xs space-y-2 p-3 bg-rose-50/80 border border-rose-200 rounded-xl">
-            <p class="text-rose-950 font-bold text-sm">❌ បដិសេធគណនី៖ <b>${username || userId}</b></p>
+            <p class="text-rose-950 font-bold text-sm">👤 បុគ្គលិក៖ <b>${uName || uId}</b></p>
             <p class="text-slate-600">គណនីនេះនឹងត្រូវកំណត់ជា <b>Rejected</b> ហើយមិនអាច Login ចូលប្រើប្រាស់បានឡើយ។</p>
           </div>
         `,
@@ -19892,32 +19973,42 @@
       });
 
       const res = await apiCall('updateUserStatus', {
-        userId,
+        userId: finalIdentifier,
+        username: uName,
         status: 'Rejected',
         adminUser: AppState.currentUser?.username
       });
 
-      const dbIdx = LOCAL_DB.users.findIndex(x => x.userId === userId || x.username === username);
+      const dbIdx = LOCAL_DB.users.findIndex(x => 
+        (uId && x.userId === uId) || 
+        (uName && String(x.username || '').replace(/^@/, '').toLowerCase() === uName.toLowerCase())
+      );
       if (dbIdx !== -1) {
         LOCAL_DB.users[dbIdx].status = 'Rejected';
         saveLocalUsersToStorage();
-        // Update in chat messages
-        (LOCAL_DB.chatMessages || []).forEach(m => {
-          if (m.registrationData && (m.registrationData.userId === userId || m.registrationData.username === username)) {
-            m.registrationData.status = 'Rejected';
-          }
-        });
-        saveLocalChatMessagesToStorage();
-        if (typeof checkPendingRegistrationsForAdmin === 'function') checkPendingRegistrationsForAdmin(true);
       }
 
+      // Update in chat messages
+      (LOCAL_DB.chatMessages || []).forEach(m => {
+        if (m.registrationData) {
+          const mUser = String(m.registrationData.username || '').replace(/^@/, '').toLowerCase();
+          const mId = String(m.registrationData.userId || '');
+          if ((uId && mId === uId) || (uName && mUser === uName.toLowerCase())) {
+            m.registrationData.status = 'Rejected';
+          }
+        }
+      });
+      saveLocalChatMessagesToStorage();
+      if (typeof checkPendingRegistrationsForAdmin === 'function') checkPendingRegistrationsForAdmin(true);
+
       if (res && res.success) {
-        Swal.fire('បានបដិសេធ', `គណនី <b>${username || userId}</b> ត្រូវបានបដិសេធ (Rejected) រួចរាល់!`, 'info');
+        Swal.fire('បានបដិសេធ', `គណនី <b>${uName || uId}</b> ត្រូវបានបដិសេធ (Rejected) រួចរាល់!`, 'info');
         loadUsersList();
       } else {
-        Swal.fire('កំហុស', res?.message || 'មិនអាចបដិសេធគណនីបានទេ', 'error');
+        Swal.fire('កំហុស', res?.message || 'មិនអាចបដិសេធបានទេ', 'error');
       }
     }
+
 
     // ==========================================
     // WAREHOUSE MANAGEMENT & SYNC LOGIC
@@ -22413,6 +22504,7 @@
             (u.username && extractedUsername && u.username.toLowerCase() === extractedUsername.toLowerCase())
           );
 
+          const finalUserId = matchedUser?.userId || regData?.userId || '';
           const finalUsername = matchedUser?.username || extractedUsername;
           const finalFullName = matchedUser?.fullName || extractedFullName;
           const finalPhone = matchedUser?.phone || regData?.phone || '';
@@ -22445,12 +22537,12 @@
             if (isActorAdmin) {
               actionButtons = `
                 <div class="mt-3 pt-3 border-t border-amber-200/80 flex items-center justify-end space-x-2">
-                  <button type="button" onclick="rejectUserDirectly('', '${escapeHtml(finalUsername)}')"
+                  <button type="button" onclick="rejectUserDirectly('${escapeHtml(finalUserId)}', '${escapeHtml(finalUsername)}')"
                     class="px-3.5 py-1.5 bg-white hover:bg-rose-50 text-rose-600 hover:text-rose-700 rounded-xl text-xs font-bold border border-rose-300 transition flex items-center space-x-1">
                     <i class="fa-solid fa-xmark"></i>
                     <span>បដិសេធ</span>
                   </button>
-                  <button type="button" onclick="approveUserDirectly('', '${escapeHtml(finalUsername)}')"
+                  <button type="button" onclick="approveUserDirectly('${escapeHtml(finalUserId)}', '${escapeHtml(finalUsername)}')"
                     class="px-4 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-500/20 transition flex items-center space-x-1.5">
                     <i class="fa-solid fa-circle-check"></i>
                     <span>អនុម័ត (Approve)</span>
