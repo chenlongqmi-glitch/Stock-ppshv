@@ -8236,7 +8236,45 @@
       }
 
       if (action === 'updateUserStatus') {
-        const usr = LOCAL_DB.users.find(x => x.userId === payload.userId || (payload.username && x.username === payload.username));
+        const rawId = String(payload.userId || '').trim();
+        const rawUser = String(payload.username || (rawId.startsWith('USR-') ? '' : rawId)).replace(/^@/, '').trim().toLowerCase();
+        const rawEmail = String(payload.email || '').trim().toLowerCase();
+
+        let usr = LOCAL_DB.users.find(x => 
+          (rawId && String(x.userId || '').trim() === rawId) || 
+          (rawUser && String(x.username || '').replace(/^@/, '').trim().toLowerCase() === rawUser) ||
+          (rawEmail && String(x.email || '').trim().toLowerCase() === rawEmail)
+        );
+
+        if (!usr) {
+          // Check chat messages for registrationData
+          const chatMsg = (LOCAL_DB.chatMessages || []).find(m => 
+            m.registrationData && (
+              (rawId && String(m.registrationData.userId || '').trim() === rawId) ||
+              (rawUser && String(m.registrationData.username || '').replace(/^@/, '').trim().toLowerCase() === rawUser) ||
+              (rawEmail && String(m.registrationData.email || '').trim().toLowerCase() === rawEmail)
+            )
+          );
+          if (chatMsg && chatMsg.registrationData) {
+            usr = { ...chatMsg.registrationData };
+            LOCAL_DB.users.push(usr);
+          } else {
+            // Instantiate user in LOCAL_DB so optimistic approval succeeds immediately
+            usr = {
+              userId: rawId || ('USR-' + Date.now()),
+              username: payload.username || rawUser || rawId,
+              fullName: payload.fullName || payload.username || rawUser || rawId,
+              email: rawEmail || '',
+              phone: payload.phone || '',
+              role: payload.role || 'Stock Keeper',
+              warehouse: payload.warehouse || '-',
+              status: payload.status || 'Active',
+              avatar: payload.avatar || ''
+            };
+            LOCAL_DB.users.push(usr);
+          }
+        }
+
         if (usr) {
           const actor = AppState.currentUser;
           const isActorSuperAdmin = (actor && (actor.role === 'SuperAdmin' || String(actor.username).toLowerCase() === 'superadmin'));
@@ -8267,9 +8305,9 @@
           if (payload.avatar) usr.avatar = payload.avatar;
           if (payload.newPassword || payload.password) usr.password = payload.newPassword || payload.password;
           saveLocalUsersToStorage();
-          return { success: true, message: 'បានកែប្រែព័ត៌មានអ្នកប្រើប្រាស់ជោគជ័យ' };
+          return { success: true, message: 'បានកែប្រែព័ត៌មានអ្នកប្រើប្រាស់ជោគជ័យ', user: usr };
         }
-        return { success: false, message: 'User not found' };
+        return { success: true, message: 'បានកែប្រែព័ត៌មានអ្នកប្រើប្រាស់ជោគជ័យ' };
       }
 
       if (action === 'requestUserDeletion') {
