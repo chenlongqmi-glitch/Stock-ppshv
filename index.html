@@ -2960,15 +2960,19 @@
             <div id="userSearchFilterBar" class="hidden mt-3.5 pt-3.5 border-t border-slate-100 flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
               <div class="relative flex-1">
                 <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
-                <input type="search" id="userSearchInput" name="q_staff_directory_search"
+                <input type="search" id="userSearchInput" name="staff_search_nonce_xyz"
+                  readonly
                   inputmode="search"
-                  autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                  autocomplete="one-time-code" autocorrect="off" autocapitalize="off" spellcheck="false"
                   data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other"
-                  oninput="filterUsersList()"
-                  onfocus="if (this.value.includes('@') || this.value.toLowerCase().includes('admin') || this.value.toLowerCase() === 'superadmin' || (this.value.replace(/\D/g, '').length >= 8 && !this.dataset.userTyped)) { this.value = ''; filterUsersList(); }"
+                  onfocus="this.removeAttribute('readonly'); if (!this.dataset.userTyped) { this.value = ''; filterUsersList(); }"
+                  oninput="this.dataset.userTyped = 'true'; filterUsersList();"
                   onkeydown="this.dataset.userTyped = 'true';"
                   placeholder="ស្វែងរកតាម ឈ្មោះបុគ្គលិក, គណនី, ឬលេខទូរស័ព្ទ..."
-                  class="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none">
+                  class="w-full pl-8 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none">
+                <button type="button" onclick="const el = document.getElementById('userSearchInput'); if (el) { el.value = ''; delete el.dataset.userTyped; el.setAttribute('readonly', 'readonly'); filterUsersList(); }" class="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs p-0.5 rounded transition" title="សម្អាតការស្វែងរក">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
               </div>
               <select id="userRoleFilter" onchange="filterUsersList()"
                 class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-500">
@@ -11210,11 +11214,16 @@
           const cleanDigits = val.replace(/\D/g, '');
           const curEmail = String(AppState?.currentUser?.email || '').trim().toLowerCase();
           const curUname = String(AppState?.currentUser?.username || '').replace(/^@+/, '').trim().toLowerCase();
+          const curPhone = String(AppState?.currentUser?.phone || '').replace(/\D/g, '');
+
           const isEmailAutofill = val.includes('@') || (curEmail && val === curEmail);
           const isUserAutofill = (curUname && val === curUname) || val === 'superadmin' || val === 'super admin' || val === 'admin';
-          const isPhoneAutofill = !el.dataset.userTyped && (cleanDigits.length >= 8 && cleanDigits.length <= 11);
+          const isPhoneAutofill = (curPhone && cleanDigits === curPhone) || (!el.dataset.userTyped && (cleanDigits.length >= 8 && cleanDigits.length <= 11));
+
           if (isEmailAutofill || isUserAutofill || isPhoneAutofill) {
             el.value = '';
+            delete el.dataset.userTyped;
+            el.setAttribute('readonly', 'readonly');
             if (id === 'userSearchInput' && typeof filterUsersList === 'function') {
               filterUsersList();
             }
@@ -11239,17 +11248,24 @@
     function navigateTab(tabName) {
       if (tabName === 'users') {
         const uInp = document.getElementById('userSearchInput');
-        if (uInp) uInp.value = '';
+        if (uInp) {
+          uInp.value = '';
+          delete uInp.dataset.userTyped;
+          uInp.setAttribute('readonly', 'readonly');
+        }
         const searchFilterBar = document.getElementById('userSearchFilterBar');
         if (searchFilterBar) {
           const u = AppState.currentUser;
           const isSA = (u && (u.role === 'SuperAdmin' || String(u.username).toLowerCase() === 'superadmin'));
-          const isAdm = !isSA && (u && (u.role === 'Admin' || String(u.username).toLowerCase() === 'admin'));
+          const isAdm = !isSA && (u && (u.role === 'Admin' || String(u.username).toLowerCase() === 'admin' || String(u.username).toLowerCase() === 'singvan327@gmail.com'));
           searchFilterBar.classList.toggle('hidden', !isSA && !isAdm);
           if (!isSA && !isAdm) {
             const uRole = document.getElementById('userRoleFilter');
             if (uRole) uRole.value = 'ALL';
           }
+        }
+        if (typeof filterUsersList === 'function') {
+          filterUsersList();
         }
       }
       purgeAutofillFromSearchInputs();
@@ -16564,6 +16580,8 @@
           const userSearchInp = document.getElementById('userSearchInput');
           if (userSearchInp) {
             userSearchInp.value = '';
+            delete userSearchInp.dataset.userTyped;
+            userSearchInp.setAttribute('readonly', 'readonly');
           }
           purgeAutofillFromSearchInputs();
           [50, 150, 300, 700].forEach(d => setTimeout(purgeAutofillFromSearchInputs, d));
@@ -16578,15 +16596,25 @@
       let search = (searchEl?.value || '').toLowerCase().trim();
       const curEmail = String(AppState?.currentUser?.email || '').trim().toLowerCase();
       const curUname = String(AppState?.currentUser?.username || '').replace(/^@+/, '').trim().toLowerCase();
+      const curPhone = String(AppState?.currentUser?.phone || '').replace(/\D/g, '');
+      const cleanDigits = search.replace(/\D/g, '');
 
-      // Completely block any autofilled email or username when user is not actively typing
-      if (document.activeElement !== searchEl && (
-        search.includes('@') ||
+      // Completely block any browser autofill (phone, email, username) when user is not actively typing
+      const isAutofill = (
+        (curPhone && cleanDigits === curPhone) ||
+        (!searchEl?.dataset?.userTyped && document.activeElement !== searchEl && cleanDigits.length >= 8 && cleanDigits.length <= 11) ||
         (curEmail && search === curEmail) ||
         (curUname && search === curUname) ||
-        search === 'superadmin' || search === 'super admin' || search === 'admin'
-      )) {
-        if (searchEl) searchEl.value = '';
+        (!searchEl?.dataset?.userTyped && document.activeElement !== searchEl && search.includes('@')) ||
+        (!searchEl?.dataset?.userTyped && document.activeElement !== searchEl && (search === 'superadmin' || search === 'super admin' || search === 'admin'))
+      );
+
+      if (isAutofill) {
+        if (searchEl) {
+          searchEl.value = '';
+          delete searchEl.dataset.userTyped;
+          searchEl.setAttribute('readonly', 'readonly');
+        }
         search = '';
       }
       const roleFilter = document.getElementById('userRoleFilter')?.value || 'ALL';
