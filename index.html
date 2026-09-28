@@ -2022,6 +2022,7 @@
               <input type="hidden" id="stockInQty" value="0">
               <input type="hidden" id="stockInItemCode" value="">
               <input type="hidden" id="stockInLocation" value="中心库房 (ឃ្លាំងស្តុកនៅបុងសឹង)">
+              <input type="hidden" id="stockInReceiver" value="">
 
               <div class="flex flex-col lg:flex-row gap-3.5 items-stretch pt-1">
                 <!-- ផ្នែកខាងឆ្វេង: ប្រអប់រូបភាពទំនិញ (TALL PRODUCT IMAGE CARD) -->
@@ -2044,9 +2045,9 @@
                                 <!-- ផ្នែកខាងស្តាំ: ប្រអប់ទិន្នន័យ ៣ ជួរ (STANDARDIZED EQUAL 5-COLUMN GRID) -->
                 <div id="stockInFieldsContainer" class="flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 items-end w-full">
                   
-                  <!-- ROW 1 -->
+                  <!-- ROW 1 (5 cols total: Sku spans 2 cols) -->
                   <!-- 1. ឈ្មោះទំនិញ (KEYWORD/BARCODE) * -->
-                  <div id="stockInField_sku" data-field-id="sku" class="col-span-1">
+                  <div id="stockInField_sku" data-field-id="sku" class="col-span-1 sm:col-span-2 lg:col-span-2">
                     <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center truncate" title="ឈ្មោះទំនិញ (KEYWORD/BARCODE)">
                       <i class="fa-solid fa-magnifying-glass text-blue-600 mr-1.5 shrink-0"></i>
                       <span class="truncate">ឈ្មោះទំនិញ (KEYWORD) *</span>
@@ -2106,6 +2107,7 @@
                     </div>
                   </div>
 
+                  <!-- ROW 2 (5 cols total: docNo + qtyRetail + qtyBulk + oldStock + newTotal) -->
                   <!-- 5. លេខឯកសារ * -->
                   <div id="stockInField_docNo" data-field-id="docNo" class="col-span-1">
                     <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center justify-between" title="លេខឯកសារ">
@@ -2119,7 +2121,6 @@
                       class="w-full h-11 px-3.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-mono font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition shadow-2xs">
                   </div>
 
-                  <!-- ROW 2 -->
                   <!-- 6. ចំនួនចូលស្តុក * រាយ -->
                   <div id="stockInField_qtyRetail" data-field-id="qtyRetail" class="col-span-1">
                     <label class="block text-xs font-bold text-emerald-800 uppercase mb-1.5 flex items-center truncate" title="ចំនួនចូលស្តុក រាយ">
@@ -2164,15 +2165,6 @@
                     </div>
                   </div>
 
-                  <!-- 10. អ្នកទទួលទំនិញ * (Row 2 Col 5) -->
-                  <div id="stockInField_receiver" data-field-id="receiver" class="col-span-1">
-                    <label class="block text-xs font-bold text-indigo-900 uppercase mb-1.5 flex items-center truncate" title="អ្នកទទួលទំនិញ">
-                      <i class="fa-solid fa-user-check text-indigo-500 mr-1.5 shrink-0"></i>
-                      <span class="truncate">អ្នកទទួលទំនិញ *</span>
-                    </label>
-                    <input type="text" id="stockInReceiver" required placeholder="ឈ្មោះអ្នកទទួល"
-                      class="w-full h-11 px-3 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition shadow-2xs">
-                  </div>
 
                   <!-- ROW 3 -->
                   <!-- 11. កំណត់សម្គាល់បន្ថែម (Span 3 cols on lg) -->
@@ -2295,11 +2287,12 @@
           <div class="glass-card p-4 sm:p-5 lg:p-6 rounded-2xl sm:rounded-3xl shadow-xs border border-slate-200/80 bg-white">
 
             <form id="stockOutForm" onsubmit="handleStockOutSubmit(event)" class="space-y-3">
-              <!-- Hidden Old Stock Store -->
+              <!-- Hidden Old Stock Store & Issuer -->
               <input type="hidden" id="stockOutOldStockValue" value="0">
+              <input type="hidden" id="stockOutIssuer" value="">
 
-              <!-- ROW 1: ព័ត៌មានឯកសារ & គោលដៅ (4 Columns) -->
-              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
+              <!-- ROW 1: ព័ត៌មានឯកសារ & គោលដៅ (3 Columns) -->
+              <div class="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-3 gap-3 items-end">
                 <!-- 1. Doc No -->
                 <div>
                   <label class="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center justify-between">
@@ -2332,16 +2325,7 @@
                   </select>
                 </div>
 
-                <!-- 3. Issuer -->
-                <div>
-                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1 truncate">
-                    <i class="fa-solid fa-user-check text-indigo-500 mr-1.5"></i> អ្នកបើកចេញ *
-                  </label>
-                  <input type="text" id="stockOutIssuer" required placeholder="ឈ្មោះអ្នកបើកចេញ"
-                    class="w-full h-11 px-3.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-amber-500 focus:bg-white outline-none transition">
-                </div>
-
-                <!-- 4. Reason -->
+                <!-- 3. Reason -->
                 <div>
                   <label class="block text-xs font-bold text-slate-700 uppercase mb-1 truncate">
                     <i class="fa-solid fa-clipboard-question text-slate-500 mr-1.5"></i> មូលហេតុនៃការដក
@@ -13784,7 +13768,7 @@
       const unitPrice = 0;
       const supplier = '';
       const location = document.getElementById('stockInLocation')?.value || AppState.currentUser?.warehouse || '中心库房 (ឃ្លាំងស្តុកនៅបុងសឹង)';
-      const receiver = document.getElementById('stockInReceiver')?.value.trim() || (AppState.currentUser?.fullName || AppState.currentUser?.username || 'Admin');
+      const receiver = AppState.currentUser?.fullName || AppState.currentUser?.username || document.getElementById('stockInReceiver')?.value.trim() || 'Admin';
       const notes = document.getElementById('stockInNotes')?.value.trim() || '';
 
       if (!sku) {
@@ -13951,9 +13935,9 @@
         generateStockOutDocNo();
       }
       const issuerEl = document.getElementById('stockOutIssuer');
-      if (issuerEl && !issuerEl.value) {
+      if (issuerEl) {
         const u = AppState.currentUser;
-        issuerEl.value = u ? (u.fullName || u.username) : '';
+        issuerEl.value = u ? (u.fullName || u.username) : 'Admin';
       }
       updateStockOutImagePreview(null);
     }
@@ -14155,7 +14139,7 @@
       const remainingStock = oldStock - qty;
       const unitPrice = Number(document.getElementById('stockOutUnitPrice')?.value || 0);
       const toLocation = document.getElementById('stockOutToLocation')?.value;
-      const issuer = document.getElementById('stockOutIssuer')?.value.trim() || '';
+      const issuer = AppState.currentUser?.fullName || AppState.currentUser?.username || document.getElementById('stockOutIssuer')?.value.trim() || 'Admin';
       const reason = document.getElementById('stockOutReason')?.value || 'ដកប្រើប្រាស់';
       const notes = document.getElementById('stockOutNotes')?.value.trim() || '';
 
