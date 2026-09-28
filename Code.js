@@ -2874,6 +2874,10 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
         const deletedRole = String(data[i][6] || 'User');
         const deletedWh = String(data[i][9] || '-');
         sheet.deleteRow(i + 1);
+        try {
+          invalidateAppCache();
+          setGlobalDataVersion();
+        } catch (cErr) {}
         logActivity(admin || 'Admin', admin === 'superadmin' ? 'SuperAdmin' : 'Admin', 'DELETE_USER', `Deleted User ${uId} (@${deletedUName})`);
 
         // Send alert to SuperAdmin via Telegram
@@ -3044,7 +3048,10 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
 
       }
 
-
+      try {
+        invalidateAppCache();
+        setGlobalDataVersion();
+      } catch (cErr) {}
 
       return { success: true, message: 'បានកែប្រែព័ត៌មានអ្នកប្រើប្រាស់ជោគជ័យ' };
 
@@ -3158,6 +3165,11 @@ function deleteUser(userIdOrPayload, adminUser, deleteReason) {
       const deletedWh = String(data[i][9] || '-');
 
       sheet.deleteRow(i + 1);
+
+      try {
+        invalidateAppCache();
+        setGlobalDataVersion();
+      } catch (cErr) {}
 
       logActivity('USERS', adminUsername || 'Admin', 'DELETE_USER', `លុបអ្នកប្រើប្រាស់: ${deletedFullName} (@${rowUsername})`);
 
@@ -3860,13 +3872,16 @@ function getBootstrapData(payload) {
     if (!serverVersion) serverVersion = setGlobalDataVersion();
   }
 
-  var cacheKey = 'BOOTSTRAP_' + serverVersion + '_' + (whFilter && whFilter !== 'ALL' ? whFilter : 'ALL');
-  var cached = getAppScriptCache(cacheKey);
-
   var uRole = String(user && user.role || '').toLowerCase();
   var uName = String(user && user.username || '').toLowerCase();
   var uEmail = String(user && user.email || '').toLowerCase();
-  var isPrivileged = uRole.includes('admin') || uRole === 'superadmin' || uName === 'admin' || uName === 'superadmin' || uName === 'singvan327@gmail.com' || uEmail === 'singvan327@gmail.com';
+  var isSuperAdmin = uRole === 'superadmin' || uName === 'superadmin';
+  var isAdmin = !isSuperAdmin && (uRole.includes('admin') || uName === 'admin' || uName === 'singvan327@gmail.com' || uEmail === 'singvan327@gmail.com');
+  var isPrivileged = isSuperAdmin || isAdmin;
+  var rolePrefix = isSuperAdmin ? 'SA_' : (isAdmin ? 'ADM_' : 'USR_');
+
+  var cacheKey = 'BOOTSTRAP_' + rolePrefix + serverVersion + '_' + (whFilter && whFilter !== 'ALL' ? whFilter : 'ALL');
+  var cached = getAppScriptCache(cacheKey);
 
   if (cached && cached.success && Array.isArray(cached.items)) {
     if (isPrivileged && (!cached.users || cached.users.length === 0)) {
