@@ -2009,7 +2009,7 @@
 
               <button onclick="syncAllItemsToCloud()" id="btnSyncItemsToSheet"
                 title="ធ្វើសមកាលកម្មទំនិញទាំងអស់ទៅ Google Sheets"
-                class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 shadow-md shadow-emerald-500/20 transition-all active:scale-95">
+                class="hidden px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 shadow-md shadow-emerald-500/20 transition-all active:scale-95">
                 <i class="fa-solid fa-cloud-arrow-up"></i>
                 <span>Sync ទៅ Google Sheet</span>
               </button>
@@ -10308,6 +10308,12 @@
       if (superAdminSheetCard) {
         superAdminSheetCard.classList.toggle('hidden', !isSuper);
       }
+
+      // 5. Products Tab: Sync All Items to Google Sheet Button (Only for SuperAdmin, hidden for Admin)
+      const btnSyncItemsToSheet = document.getElementById('btnSyncItemsToSheet');
+      if (btnSyncItemsToSheet) {
+        btnSyncItemsToSheet.classList.toggle('hidden', !isSuper);
+      }
     }
 
     /* Strictly update visibility of Settings dropdown menu and SuperAdmin tools based on user roles */
@@ -11723,6 +11729,12 @@
 
     // Items Management
     async function syncAllItemsToCloud(silent = false) {
+      if (!isStrictSuperAdmin()) {
+        if (!silent) {
+          Swal.fire('ការអនុញ្ញាតមិនគ្រប់គ្រាន់', 'មុខងារនេះអនុញ្ញាតសម្រាប់តែ SuperAdmin ប៉ុណ្ណោះ', 'warning');
+        }
+        return;
+      }
       try {
         const items = (AppState.items && AppState.items.length > 0) ? AppState.items : (LOCAL_DB.items || []);
         if (!items || items.length === 0) {
