@@ -20184,15 +20184,22 @@
         if (Swal.isVisible()) return;
 
         const currentSig = pendingDeletions.map(u => `${u.userId || u.username}:${u.deleteReason || ''}`).sort().join('|');
-        const lastSeenSig = sessionStorage.getItem('last_seen_deletion_signature') || '';
-        const dismissedUntil = parseInt(sessionStorage.getItem('deletion_alert_dismissed_until') || '0', 10);
         const now = Date.now();
 
-        // If new deletion request or reason changed, alert immediately!
-        // If identical signature, only alert if dismissedUntil snooze has expired
-        const isNewOrChanged = (currentSig !== lastSeenSig);
-        if (!isNewOrChanged && now < dismissedUntil) {
-          return;
+        if (isSuperAdmin) {
+          // STRICT FIX: If SuperAdmin has already closed/acknowledged this exact pending deletion request, NEVER pop up again!
+          const ackedSig = localStorage.getItem('superadmin_acked_deletion_sig') || '';
+          if (currentSig === ackedSig) {
+            return;
+          }
+        } else {
+          // For Admin: don't repeatedly interrupt if snoozed
+          const lastSeenSig = localStorage.getItem('last_seen_deletion_signature') || '';
+          const dismissedUntil = parseInt(localStorage.getItem('deletion_alert_dismissed_until') || '0', 10);
+          const isNewOrChanged = (currentSig !== lastSeenSig);
+          if (!isNewOrChanged && now < dismissedUntil) {
+            return;
+          }
         }
 
         // Play Warning Audio Alert chime
@@ -20310,7 +20317,11 @@
           cancelButtonText: isSuperAdmin ? 'យល់ព្រម (បិទ)' : 'ទុកពិនិត្យពេលក្រោយ',
           allowOutsideClick: false
         }).then(res => {
-          sessionStorage.setItem('last_seen_deletion_signature', currentSig);
+          localStorage.setItem('last_seen_deletion_signature', currentSig);
+          if (isSuperAdmin) {
+            // Once SuperAdmin clicks either "មើលព័ត៌មានលម្អិត" OR "យល់ព្រម (បិទ)", mark as permanently acknowledged for this request!
+            localStorage.setItem('superadmin_acked_deletion_sig', currentSig);
+          }
           if (res.isConfirmed) {
             if (isSuperAdmin) {
               viewUserDeleteReason(p.userId, p.username);
@@ -20321,8 +20332,8 @@
               }
             }
           } else {
-            // Dismissed for 90 seconds, will remind again if still unhandled or on next login
-            sessionStorage.setItem('deletion_alert_dismissed_until', String(Date.now() + 90000));
+            // Dismissed: Snooze for Admin (2 hours) so it doesn't repeatedly spam while they are doing work
+            localStorage.setItem('deletion_alert_dismissed_until', String(Date.now() + 7200000));
           }
         });
       }
@@ -20378,6 +20389,12 @@
         confirmButtonText: isActorSuperAdmin ? '<i class="fa-solid fa-check mr-1"></i> យល់ព្រម (បិទ)' : '<i class="fa-solid fa-user-shield mr-1"></i> ផ្ទៀងផ្ទាត់ & សម្រេច',
         cancelButtonText: 'បោះបង់'
       }).then(r => {
+        if (isActorSuperAdmin) {
+          const currentSig = (LOCAL_DB.users || []).filter(u => u.status === 'Pending_Deletion').map(u => `${u.userId || u.username}:${u.deleteReason || ''}`).sort().join('|');
+          if (currentSig) {
+            localStorage.setItem('superadmin_acked_deletion_sig', currentSig);
+          }
+        }
         if (r.isConfirmed && isActorAdmin) {
           openSuperAdminDeletionReviewModal(u.userId, u.username);
         }
