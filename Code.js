@@ -302,6 +302,11 @@ function handleTelegramUserApproval(userId, username, targetStatus) {
 
     sheet.getRange(foundRow, 8).setValue(targetStatus);
 
+    try {
+      invalidateAppCache();
+      setGlobalDataVersion();
+    } catch (cErr) {}
+
     logActivity('ADMIN_TELEGRAM', 'Admin', targetStatus === 'Active' ? 'APPROVE_USER' : 'REJECT_USER', `${targetStatus} user ${username} via Telegram`);
 
 
@@ -579,8 +584,9 @@ function executeLocalApiAction(req) {
       'registerUser': true, 'register': true, 'verifyOtpAndRegister': true, 'approveUser': true, 'rejectUser': true,
       'updateUserStatus': true, 'deleteUser': true, 'requestUserDeletion': true, 'approveUserDeletion': true, 'rejectUserDeletion': true,
       'updateUserProfile': true, 'updateProfile': true, 'resetPasswordWithOtp': true,
-      'createProductRequest': true, 'updateProductRequestStatus': true, 'saveSystemSettings': true, 'saveSettings': true,
-      'addWarehouse': true, 'deleteWarehouse': true
+      'createProductRequest': true, 'updateProductRequestStatus': true, 'deleteProductRequest': true,
+      'saveSystemSettings': true, 'saveSettings': true, 'addWarehouse': true, 'deleteWarehouse': true,
+      'resetUserDevice': true, 'disconnectDevice': true, 'resetDevice': true, 'sendChatMessage': true
     };
     if (MUTATIONS[action]) {
       invalidateAppCache();
@@ -2332,6 +2338,24 @@ function registerUser(userData) {
 
 
 
+function normalizeWarehouseNameGAS(wh) {
+  if (!wh) return '';
+  var s = String(wh).replace(/^[📍🏢\s]+/, '').trim().toLowerCase();
+  s = s.replace(/ស្អាទ័យ/g, 'ស្ថានីយ');
+  return s;
+}
+
+function isSameWarehouseGAS(wh1, wh2) {
+  var n1 = normalizeWarehouseNameGAS(wh1);
+  var n2 = normalizeWarehouseNameGAS(wh2);
+  if (!n1 || !n2) return false;
+  if (n1 === n2 || n1.indexOf(n2) !== -1 || n2.indexOf(n1) !== -1) return true;
+  var m1 = n1.match(/^(\d+-[a-z0-9]+|\d+)/);
+  var m2 = n2.match(/^(\d+-[a-z0-9]+|\d+)/);
+  if (m1 && m2 && m1[1] === m2[1]) return true;
+  return false;
+}
+
 function getUsersList(userOrPayload) {
 
   let actor = userOrPayload;
@@ -2458,14 +2482,14 @@ function getUsersList(userOrPayload) {
 
   } else if (isStationManager) {
 
-    const myWh = String(actor.warehouse || '').replace(/^[📍🏢\s]+/, '').trim().toLowerCase();
+    const myWh = normalizeWarehouseNameGAS(actor.warehouse);
 
     const filtered = users.filter(u => {
       if (isSelf(u)) return false; // Hide own account from users list
 
-      const uWh = String(u.warehouse || '').replace(/^[📍🏢\s]+/, '').trim().toLowerCase();
+      const uWh = normalizeWarehouseNameGAS(u.warehouse);
 
-      const isSameWh = myWh && uWh && (uWh === myWh || uWh.includes(myWh) || myWh.includes(uWh));
+      const isSameWh = isSameWarehouseGAS(myWh, uWh);
 
       const r = String(u.role || '').trim().toLowerCase();
 
@@ -3243,17 +3267,23 @@ function requestUserDeletion(payload) {
 
 
 
+  const cleanTargetUId = String(uId || '').replace(/^@/, '').trim().toLowerCase();
+  const cleanTargetUName = String(payload.username || '').replace(/^@/, '').trim().toLowerCase();
+
   for (let i = 1; i < data.length; i++) {
 
-    const rowUserId = String(data[i][0] || '');
+    const rowUserId = String(data[i][0] || '').trim();
+    const rowUserIdLower = rowUserId.toLowerCase();
+    const rowUsername = String(data[i][1] || '').trim().replace(/^@/, '').toLowerCase();
 
-    const rowUsername = String(data[i][1] || '');
+    const isMatch = (rowUserId && (rowUserId === String(uId).trim() || rowUserIdLower === cleanTargetUId)) ||
+                    (rowUsername && (rowUsername === cleanTargetUId || rowUsername === cleanTargetUName));
 
-    if (rowUserId === String(uId) || rowUsername.toLowerCase() === String(uId).toLowerCase()) {
+    if (isMatch) {
 
       foundRow = i + 1;
 
-      targetDisplayName = data[i][2] || rowUsername;
+      targetDisplayName = data[i][2] || data[i][1] || rowUsername;
 
       targetRole = data[i][6] || 'User';
 
@@ -3280,6 +3310,11 @@ function requestUserDeletion(payload) {
   sheet.getRange(foundRow, 13).setValue(reason);
   sheet.getRange(foundRow, 14).setValue(String(adminUser));
   sheet.getRange(foundRow, 15).setValue(new Date().toISOString());
+
+  try {
+    invalidateAppCache();
+    setGlobalDataVersion();
+  } catch (cErr) {}
 
   logActivity('USERS', String(adminUser), 'REQUEST_DELETE_USER', `ស្នើសុំលុបអ្នកប្រើប្រាស់: ${targetDisplayName} (${uId}) - មូលហេតុ: ${reason}`);
 
@@ -3324,15 +3359,28 @@ function approveUserDeletion(payload) {
   const sheet = ensureUsersInitialized(ss);
   const data = sheet.getDataRange().getValues();
 
+  const cleanTargetUId = String(uId || '').replace(/^@/, '').trim().toLowerCase();
+  const cleanTargetUName = String(payload.username || '').replace(/^@/, '').trim().toLowerCase();
+
   for (let i = 1; i < data.length; i++) {
-    const rowUserId = String(data[i][0] || '');
-    const rowUsername = String(data[i][1] || '');
-    if (rowUserId === String(uId) || rowUsername.toLowerCase() === String(uId).toLowerCase()) {
-      const targetDisplayName = data[i][2] || rowUsername;
+    const rowUserId = String(data[i][0] || '').trim();
+    const rowUserIdLower = rowUserId.toLowerCase();
+    const rowUsername = String(data[i][1] || '').trim().replace(/^@/, '').toLowerCase();
+
+    const isMatch = (rowUserId && (rowUserId === String(uId).trim() || rowUserIdLower === cleanTargetUId)) ||
+                    (rowUsername && (rowUsername === cleanTargetUId || rowUsername === cleanTargetUName));
+
+    if (isMatch) {
+      const targetDisplayName = data[i][2] || data[i][1] || rowUsername;
       const adminDeleteReason = String(data[i][12] || '');
       const reqBy = String(data[i][13] || 'Admin');
 
       sheet.deleteRow(i + 1);
+
+      try {
+        invalidateAppCache();
+        setGlobalDataVersion();
+      } catch (cErr) {}
 
       const logMsg = `អនុម័តលុបអ្នកប្រើប្រាស់: ${targetDisplayName} (@${rowUsername}) | មូលហេតុ Admin: ${adminDeleteReason || '-'} | មូលហេតុ SuperAdmin: ${superAdminReason || '-'}`;
       logActivity('USERS', String(adminUser), 'APPROVE_DELETE_USER', logMsg);
@@ -3416,11 +3464,19 @@ function rejectUserDeletion(payload) {
   const sheet = ensureUsersInitialized(ss);
   const data = sheet.getDataRange().getValues();
 
+  const cleanTargetUId = String(uId || '').replace(/^@/, '').trim().toLowerCase();
+  const cleanTargetUName = String(payload.username || '').replace(/^@/, '').trim().toLowerCase();
+
   for (let i = 1; i < data.length; i++) {
-    const rowUserId = String(data[i][0] || '');
-    const rowUsername = String(data[i][1] || '');
-    if (rowUserId === String(uId) || rowUsername.toLowerCase() === String(uId).toLowerCase()) {
-      const targetDisplayName = data[i][2] || rowUsername;
+    const rowUserId = String(data[i][0] || '').trim();
+    const rowUserIdLower = rowUserId.toLowerCase();
+    const rowUsername = String(data[i][1] || '').trim().replace(/^@/, '').toLowerCase();
+
+    const isMatch = (rowUserId && (rowUserId === String(uId).trim() || rowUserIdLower === cleanTargetUId)) ||
+                    (rowUsername && (rowUsername === cleanTargetUId || rowUsername === cleanTargetUName));
+
+    if (isMatch) {
+      const targetDisplayName = data[i][2] || data[i][1] || rowUsername;
       const adminDeleteReason = String(data[i][12] || '');
       const reqBy = String(data[i][13] || 'Admin');
 
@@ -3428,6 +3484,11 @@ function rejectUserDeletion(payload) {
       sheet.getRange(i + 1, 13).setValue('');
       sheet.getRange(i + 1, 14).setValue('');
       sheet.getRange(i + 1, 15).setValue('');
+
+      try {
+        invalidateAppCache();
+        setGlobalDataVersion();
+      } catch (cErr) {}
 
       const logMsg = `បដិសេធការលុបគណនី: ${targetDisplayName} (@${rowUsername}) | មូលហេតុបដិសេធ SuperAdmin: ${superAdminReason || '-'}`;
       logActivity('USERS', String(adminUser), 'REJECT_DELETE_USER', logMsg);
@@ -3652,6 +3713,10 @@ function handleTelegramUserDeletionApproval(userId, username, actionType, e) {
     // Process Confirmed Decision (Approve or Reject)
     if (submittedDecision === 'Approve') {
       sheet.deleteRow(foundRow);
+      try {
+        invalidateAppCache();
+        setGlobalDataVersion();
+      } catch (cErr) {}
       logActivity('SUPERADMIN_WEB', 'SuperAdmin', 'APPROVE_DELETE_USER', `អនុម័តលុបអ្នកប្រើប្រាស់: ${userFullName} (@${username}) | មូលហេតុ Admin: ${delReason} | មូលហេតុ SuperAdmin: ${superAdminReason}`);
       
       try {
@@ -3687,6 +3752,10 @@ function handleTelegramUserDeletionApproval(userId, username, actionType, e) {
       sheet.getRange(foundRow, 13).setValue('');
       sheet.getRange(foundRow, 14).setValue('');
       sheet.getRange(foundRow, 15).setValue('');
+      try {
+        invalidateAppCache();
+        setGlobalDataVersion();
+      } catch (cErr) {}
       logActivity('SUPERADMIN_WEB', 'SuperAdmin', 'REJECT_DELETE_USER', `បដិសេធការលុបគណនី: ${userFullName} (@${username}) | មូលហេតុ SuperAdmin: ${superAdminReason}`);
       
       try {
@@ -3877,8 +3946,14 @@ function getBootstrapData(payload) {
   var uEmail = String(user && user.email || '').toLowerCase();
   var isSuperAdmin = uRole === 'superadmin' || uName === 'superadmin';
   var isAdmin = !isSuperAdmin && (uRole.includes('admin') || uName === 'admin' || uName === 'singvan327@gmail.com' || uEmail === 'singvan327@gmail.com');
-  var isPrivileged = isSuperAdmin || isAdmin;
-  var rolePrefix = isSuperAdmin ? 'SA_' : (isAdmin ? 'ADM_' : 'USR_');
+  var isStationManager = !isSuperAdmin && !isAdmin && (
+    uRole.includes('អ្នកគ្រប់គ្រងស្ថានីយ') ||
+    uRole.includes('អ្នកគ្រប់គ្រង') ||
+    uRole.includes('station manager') ||
+    uRole.includes('stationmanager')
+  );
+  var isPrivileged = isSuperAdmin || isAdmin || isStationManager;
+  var rolePrefix = isSuperAdmin ? 'SA_' : (isAdmin ? 'ADM_' : (isStationManager ? 'MGR_' + normalizeWarehouseNameGAS(user && user.warehouse) + '_' : 'USR_'));
 
   var cacheKey = 'BOOTSTRAP_' + rolePrefix + serverVersion + '_' + (whFilter && whFilter !== 'ALL' ? whFilter : 'ALL');
   var cached = getAppScriptCache(cacheKey);

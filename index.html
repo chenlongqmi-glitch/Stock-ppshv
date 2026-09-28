@@ -5709,6 +5709,24 @@
       }
     }
 
+    function normalizeWarehouseName(wh) {
+      if (!wh) return '';
+      let s = String(wh).replace(/^[📍🏢\s]+/, '').trim().toLowerCase();
+      s = s.replace(/ស្អាទ័យ/g, 'ស្ថានីយ');
+      return s;
+    }
+
+    function isSameWarehouse(wh1, wh2) {
+      const n1 = normalizeWarehouseName(wh1);
+      const n2 = normalizeWarehouseName(wh2);
+      if (!n1 || !n2) return false;
+      if (n1 === n2 || n1.includes(n2) || n2.includes(n1)) return true;
+      const m1 = n1.match(/^(\d+-[a-z0-9]+|\d+)/);
+      const m2 = n2.match(/^(\d+-[a-z0-9]+|\d+)/);
+      if (m1 && m2 && m1[1] === m2[1]) return true;
+      return false;
+    }
+
     function saveLocalUsersToStorage() {
       try {
         localStorage.setItem('inventory_users_db', JSON.stringify(LOCAL_DB.users));
@@ -5742,8 +5760,16 @@
         if (saved) {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            // Filter out all unregistered dummy demo users and local dummy accounts
-            const validUsers = parsed.filter(p => !isUnregisteredDummyUser(p) && p.username !== 'sdfsdf' && p.userId !== 'USR-01' && p.userId !== 'USR-02' && p.userId !== 'USR-03' && p.userId !== 'USR-00' && p.username !== 'bengkaka');
+            // Filter out all unregistered dummy demo users, local dummy accounts, and deleted users
+            const validUsers = parsed.filter(p => {
+              if (!p) return false;
+              if (isUnregisteredDummyUser(p)) return false;
+              if (p.username === 'sdfsdf' || p.userId === 'USR-01' || p.userId === 'USR-02' || p.userId === 'USR-03' || p.userId === 'USR-00' || p.username === 'bengkaka') return false;
+              if (p.status === 'Deleted' || p.status === 'deleted') return false;
+              const un = String(p.username || '').replace(/^@+/, '').trim().toLowerCase();
+              if (un === 'sopher' && (p.status === 'Pending_Deletion' || p.status === 'Deleted')) return false;
+              return true;
+            });
             validUsers.forEach(p => {
               // Automatically upgrade SuperAdmin profile if holding stale default info
               if (p.userId === 'USR-SA' || (p.username && p.username.toLowerCase() === 'superadmin')) {
@@ -5772,8 +5798,14 @@
             });
           }
         }
-        // Purge any dummy demo users from LOCAL_DB.users and re-save
-        LOCAL_DB.users = LOCAL_DB.users.filter(u => !isUnregisteredDummyUser(u));
+        // Purge any dummy demo users, deleted users, and sopher if pending/deleted from LOCAL_DB.users and re-save
+        LOCAL_DB.users = LOCAL_DB.users.filter(u => {
+          if (!u || isUnregisteredDummyUser(u)) return false;
+          if (u.status === 'Deleted' || u.status === 'deleted') return false;
+          const un = String(u.username || '').replace(/^@+/, '').trim().toLowerCase();
+          if (un === 'sopher' && (u.status === 'Pending_Deletion' || u.status === 'Deleted')) return false;
+          return true;
+        });
         saveLocalUsersToStorage();
       } catch (e) {
         console.warn('Could not load users from localStorage', e);
@@ -8148,12 +8180,9 @@
           return { success: true, users: attachPassword(filtered) };
         } else if (actor && (String(actor.role || '').includes('អ្នកគ្រប់គ្រង') || String(actor.role).toLowerCase().includes('station manager'))) {
           // 3. Station Manager: អាចមើលឃើញតែ ប្រធានក្រុម និងអ្នកកាន់ស្តុក ក្នុងស្ថានីយខ្លួនឯង (មិនបង្ហាញ account ខ្លួនឯងឡើយ)
-          const cleanWh = (str) => String(str || '').replace(/^[📍🏢\s]+/, '').trim().toLowerCase();
-          const myWh = cleanWh(actor.warehouse);
           const filtered = registeredUsers.filter(u => {
             if (isSelf(u)) return false;
-            const uWh = cleanWh(u.warehouse);
-            const isSameWh = myWh && uWh && (uWh === myWh || uWh.includes(myWh) || myWh.includes(uWh));
+            const isSameWh = isSameWarehouse(actor.warehouse, u.warehouse);
             const r = String(u.role || '').trim().toLowerCase();
             const isTeamLeader = r.includes('ប្រធានក្រុម') || r.includes('ប្រធាន') || r.includes('team leader') || r.includes('teamleader');
             const isStockKeeper = r.includes('អ្នកកាន់ស្តុក') || r.includes('stock keeper') || r.includes('stockkeeper') || r.includes('staff') || r === '' || !u.role;
@@ -8401,8 +8430,9 @@
           const targetUser = LOCAL_DB.users[targetIdx];
           const actor = AppState.currentUser;
           const isActorSuperAdmin = (actor?.role === 'SuperAdmin') || (String(actor?.username).toLowerCase() === 'superadmin') || (payload.adminUser && String(payload.adminUser).toLowerCase() === 'superadmin');
-          if (!isActorSuperAdmin) {
-            return { success: false, message: 'មានតែ SuperAdmin ប៉ុណ្ណោះដែលអាចអនុម័តការលុបគណនីបាន!' };
+          const isActorAdmin = isActorSuperAdmin || (actor?.role === 'Admin') || (String(actor?.username).toLowerCase() === 'admin');
+          if (!isActorSuperAdmin && !isActorAdmin) {
+            return { success: false, message: 'មានតែ Admin និង SuperAdmin ប៉ុណ្ណោះដែលអាចអនុម័តការលុបគណនីបាន!' };
           }
           const deletedName = targetUser.fullName || targetUser.username;
           const superAdminReason = payload.superAdminReason || payload.reason || '';
@@ -11090,14 +11120,36 @@
             }
           }
 
-          // E. Users (if admin)
+          // E. Users (if admin or station manager)
           if (Array.isArray(res.users)) {
-            const cleanUsers = res.users.filter(ru => ru && !isUnregisteredDummyUser(ru) && ru.status !== 'Deleted' && ru.status !== 'deleted');
-            AppState.users = cleanUsers;
-            LOCAL_DB.users = cleanUsers;
+            const cleanUsers = res.users.filter(ru => {
+              if (!ru || isUnregisteredDummyUser(ru) || ru.status === 'Deleted' || ru.status === 'deleted') return false;
+              const un = String(ru.username || '').replace(/^@+/, '').trim().toLowerCase();
+              if (un === 'sopher' && (ru.status === 'Pending_Deletion' || ru.status === 'Deleted')) return false;
+              return true;
+            });
+            const actor = AppState.currentUser;
+            const actorRoleLower = String(actor?.role || '').toLowerCase();
+            const isActorSuperAdmin = (actorRoleLower === 'superadmin' || String(actor?.username || '').toLowerCase() === 'superadmin');
+            const isActorAdmin = isActorSuperAdmin || actorRoleLower.includes('admin') || String(actor?.username || '').toLowerCase() === 'admin' || String(actor?.username || '').toLowerCase() === 'singvan327@gmail.com';
+            const isActorStationManager = !isActorAdmin && (actorRoleLower.includes('អ្នកគ្រប់គ្រងស្ថានីយ') || actorRoleLower.includes('អ្នកគ្រប់គ្រង') || actorRoleLower.includes('station manager'));
+
+            if (isActorAdmin) {
+              AppState.users = cleanUsers;
+              LOCAL_DB.users = cleanUsers;
+            } else if (isActorStationManager) {
+              const myWh = actor?.warehouse;
+              // Remove any user belonging to this station that is not in cleanUsers, then merge cleanUsers
+              const otherWhUsers = (LOCAL_DB.users || []).filter(u => !isSameWarehouse(myWh, u.warehouse) && u.status !== 'Deleted' && String(u.username || '').replace(/^@+/, '').toLowerCase() !== 'sopher');
+              LOCAL_DB.users = [...otherWhUsers, ...cleanUsers];
+              AppState.users = [...LOCAL_DB.users];
+            } else {
+              AppState.users = cleanUsers;
+              LOCAL_DB.users = cleanUsers;
+            }
             saveLocalUsersToStorage();
             if (typeof updateRenderableUsersFromDb === 'function') {
-              updateRenderableUsersFromDb(cleanUsers);
+              updateRenderableUsersFromDb(LOCAL_DB.users);
             }
             if (AppState.currentTab === 'users' && typeof filterUsersList === 'function') {
               filterUsersList();
@@ -16334,10 +16386,9 @@
           return true;
         });
       } else if (isActorStationManager) {
-        const myWh = cleanWh(AppState.currentUser?.warehouse);
+        const myWh = AppState.currentUser?.warehouse;
         filteredUsers = filteredUsers.filter(u => {
-          const uWh = cleanWh(u.warehouse);
-          const isSameWh = myWh && uWh && (uWh === myWh || uWh.includes(myWh) || myWh.includes(uWh));
+          const isSameWh = isSameWarehouse(myWh, u.warehouse);
           if (!isSameWh) return false;
           const r = String(u.role || '').trim().toLowerCase();
           const isTeamLeader = r.includes('ប្រធានក្រុម') || r.includes('ប្រធាន') || r.includes('team leader') || r.includes('teamleader');
@@ -16356,20 +16407,46 @@
     // Users Management & Warehouse Assignment
     async function loadUsersList() {
       try {
-        // Clean out ghost records from local memory
-        LOCAL_DB.users = (LOCAL_DB.users || []).filter(u => u && u.username !== 'bengkaka' && !isUnregisteredDummyUser(u));
-        const res = await apiCall('getUsersList');
-        if (res.success) {
+        // Clean out ghost records and deleted users from local memory
+        LOCAL_DB.users = (LOCAL_DB.users || []).filter(u => {
+          if (!u || u.username === 'bengkaka' || isUnregisteredDummyUser(u)) return false;
+          if (u.status === 'Deleted' || u.status === 'deleted') return false;
+          const un = String(u.username || '').replace(/^@+/, '').trim().toLowerCase();
+          if (un === 'sopher' && (u.status === 'Pending_Deletion' || u.status === 'Deleted')) return false;
+          return true;
+        });
+        const res = await apiCall('getUsersList', { user: AppState.currentUser });
+        if (res && res.success) {
           // Synchronize fresh user records directly from Google Sheet into LOCAL_DB.users and localStorage
-          if (Array.isArray(res.users) && res.users.length > 0) {
+          if (Array.isArray(res.users)) {
             // Self-heal sreyLaLa if email is missing in returned users
             res.users.forEach(ru => {
               if (ru && String(ru.username || '').toLowerCase() === 'sreylala' && (!ru.email || ru.email.trim() === '')) {
                 ru.email = 'sreyLaLa@gmail.com';
               }
             });
-            // Keep ONLY the real users returned directly from Google Sheets!
-            LOCAL_DB.users = res.users.filter(ru => ru && !isUnregisteredDummyUser(ru) && ru.status !== 'Deleted' && ru.status !== 'deleted');
+            const cleanReturned = res.users.filter(ru => {
+              if (!ru || isUnregisteredDummyUser(ru) || ru.status === 'Deleted' || ru.status === 'deleted') return false;
+              const un = String(ru.username || '').replace(/^@+/, '').trim().toLowerCase();
+              if (un === 'sopher' && (ru.status === 'Pending_Deletion' || ru.status === 'Deleted')) return false;
+              return true;
+            });
+
+            const actor = AppState.currentUser;
+            const actorRoleLower = String(actor?.role || '').toLowerCase();
+            const isActorSuperAdmin = (actorRoleLower === 'superadmin' || String(actor?.username || '').toLowerCase() === 'superadmin');
+            const isActorAdmin = isActorSuperAdmin || actorRoleLower.includes('admin') || String(actor?.username || '').toLowerCase() === 'admin' || String(actor?.username || '').toLowerCase() === 'singvan327@gmail.com';
+            const isActorStationManager = !isActorAdmin && (actorRoleLower.includes('អ្នកគ្រប់គ្រងស្ថានីយ') || actorRoleLower.includes('អ្នកគ្រប់គ្រង') || actorRoleLower.includes('station manager'));
+
+            if (isActorAdmin) {
+              LOCAL_DB.users = cleanReturned;
+            } else if (isActorStationManager) {
+              const myWh = actor?.warehouse;
+              const otherWhUsers = (LOCAL_DB.users || []).filter(u => !isSameWarehouse(myWh, u.warehouse) && u.status !== 'Deleted');
+              LOCAL_DB.users = [...otherWhUsers, ...cleanReturned];
+            } else {
+              LOCAL_DB.users = cleanReturned;
+            }
             saveLocalUsersToStorage();
           }
 
@@ -16486,7 +16563,7 @@
           };
 
           // User source strictly from Google Sheet response (no local dummy accounts!)
-          const userSource = (Array.isArray(res.users) && res.users.length > 0) ? res.users : (LOCAL_DB.users || []);
+          const userSource = (Array.isArray(res.users)) ? LOCAL_DB.users : (LOCAL_DB.users || []);
           
           let filteredUsers = updateRenderableUsersFromDb(userSource);
 
@@ -16592,11 +16669,8 @@
 
       // Double-enforce Station Manager visibility boundaries
       if (isActorStationManager && Array.isArray(usersList)) {
-        const cleanWh = (str) => String(str || '').replace(/^[📍🏢\s]+/, '').trim().toLowerCase();
-        const myWh = cleanWh(actor?.warehouse);
         usersList = usersList.filter(u => {
-          const uWh = cleanWh(u.warehouse);
-          const isSameWh = myWh && uWh && (uWh === myWh || uWh.includes(myWh) || myWh.includes(uWh));
+          const isSameWh = isSameWarehouse(actor?.warehouse, u.warehouse);
           if (!isSameWh) return false;
           const r = String(u.role || '').trim().toLowerCase();
           const isTeamLeader = r.includes('ប្រធានក្រុម') || r.includes('ប្រធាន') || r.includes('team leader') || r.includes('teamleader');
@@ -19512,6 +19586,18 @@
           });
           saveLocalUsersToStorage();
 
+          // Broadcast deletion mutation immediately across all tabs/windows
+          broadcastInventoryMutation('USER_DELETED', {
+            userId: uId,
+            username: uName,
+            userList: LOCAL_DB.users
+          });
+          broadcastInventoryMutation('USER_DELETION_APPROVED', {
+            userId: uId,
+            username: uName,
+            userList: LOCAL_DB.users
+          });
+
           const notifIdx = notificationsList.findIndex(n => n.type === 'USER_DELETION_REQUEST' && (n.targetUserId === uId || n.targetUsername === uName));
           if (notifIdx !== -1) {
             notificationsList.splice(notifIdx, 1);
@@ -21385,14 +21471,22 @@
           LOCAL_DB.users = [...msg.userList];
           saveLocalUsersToStorage();
         } else if (msg.userId || msg.username || msg.targetUserId) {
-          const delId = msg.userId || msg.targetUserId;
-          const delUname = msg.username;
+          const delId = String(msg.userId || msg.targetUserId || '').trim().toLowerCase();
+          const delUname = String(msg.username || '').replace(/^@+/, '').trim().toLowerCase();
           if (msg.type === 'USER_DELETED' || msg.type === 'USER_DELETION_APPROVED') {
-            LOCAL_DB.users = (LOCAL_DB.users || []).filter(u => 
-              (!delId || u.userId !== delId) && (!delUname || u.username !== delUname)
-            );
+            LOCAL_DB.users = (LOCAL_DB.users || []).filter(u => {
+              const uId = String(u.userId || '').trim().toLowerCase();
+              const uName = String(u.username || '').replace(/^@+/, '').trim().toLowerCase();
+              if (delId && uId === delId) return false;
+              if (delUname && uName === delUname) return false;
+              return true;
+            });
           } else if (msg.type === 'USER_DELETION_REQUEST') {
-            const u = (LOCAL_DB.users || []).find(x => (delId && x.userId === delId) || (delUname && x.username === delUname));
+            const u = (LOCAL_DB.users || []).find(x => {
+              const uId = String(x.userId || '').trim().toLowerCase();
+              const uName = String(x.username || '').replace(/^@+/, '').trim().toLowerCase();
+              return (delId && uId === delId) || (delUname && uName === delUname);
+            });
             if (u) {
               u.status = 'Pending_Deletion';
               u.deleteReason = msg.reason || '';
