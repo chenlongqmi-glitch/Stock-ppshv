@@ -5596,7 +5596,7 @@
           name: 'ប៊ិច-圆珠笔',
           size: 'Pixcell',
           color: 'ខ្មៅ',
-          category: 'សម្ភារៈការិយាល័យ',
+          category: 'សម្ភារៈការិយាល័យ-办公用品',
           unit: 'ដើម',
           packUnit: 'ប្រអប់',
           packQty: 12,
@@ -5620,7 +5620,7 @@
           name: 'ទឹកលុប-涂改液',
           size: 'Pixcell',
           color: 'ស',
-          category: 'សម្ភារៈការិយាល័យ',
+          category: 'សម្ភារៈការិយាល័យ-办公用品',
           unit: 'ដើម',
           packUnit: 'ប្រអប់',
           packQty: 12,
@@ -5644,7 +5644,7 @@
           name: 'ប៊ិច-圆珠笔',
           size: 'Pixcell',
           color: 'ក្រហម',
-          category: 'សម្ភារៈការិយាល័យ',
+          category: 'សម្ភារៈការិយាល័យ-办公用品',
           unit: 'ដើម',
           packUnit: 'ប្រអប់',
           packQty: 12,
@@ -5668,7 +5668,7 @@
           name: 'ប៊ិច-圆珠笔',
           size: 'Pixcell',
           color: 'ខៀវ',
-          category: 'សម្ភារៈការិយាល័យ',
+          category: 'សម្ភារៈការិយាល័យ-办公用品',
           unit: 'ដើម',
           packUnit: 'ប្រអប់',
           packQty: 12,
@@ -5891,7 +5891,7 @@
             name: 'ប៊ិច-圆珠笔',
             size: 'Pixcell',
             color: 'ខ្មៅ',
-            category: 'សម្ភារៈការិយាល័យ',
+            category: 'សម្ភារៈការិយាល័យ-办公用品',
             unit: 'ដើម',
             packUnit: 'ប្រអប់',
             packQty: 12,
@@ -5915,7 +5915,7 @@
             name: 'ប៊ិច-圆珠笔',
             size: 'Pixcell',
             color: 'ក្រហម',
-            category: 'ទូទៅ',
+            category: 'សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资',
             unit: 'ដុំ',
             packUnit: 'ប្រអប់',
             packQty: 12,
@@ -5939,7 +5939,7 @@
             name: 'ទឹកលុប-涂改液',
             size: 'Pixcell',
             color: 'ស',
-            category: 'សម្ភារៈការិយាល័យ',
+            category: 'សម្ភារៈការិយាល័យ-办公用品',
             unit: 'ដើម',
             packUnit: 'ប្រអប់',
             packQty: 6,
@@ -5963,7 +5963,7 @@
             name: 'ប៊ិច-圆珠笔',
             size: 'Pixcell',
             color: 'ខៀវ',
-            category: 'សម្ភារៈការិយាល័យ',
+            category: 'សម្ភារៈការិយាល័យ-办公用品',
             unit: 'ដើម',
             packUnit: 'ប្រអប់',
             packQty: 12,
@@ -5987,7 +5987,7 @@
             name: 'ក្រដាស់ជូតម៉ាត់-抽纸',
             size: 'LM',
             color: 'ស',
-            category: 'សម្ភារៈការិយាល័យ',
+            category: 'សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资',
             unit: 'ដុំ',
             packUnit: 'យូ',
             packQty: 7,
@@ -6011,7 +6011,7 @@
             name: 'ក្រដាស់ជូតម៉ាត់-抽纸',
             size: 'xxl',
             color: 'ស',
-            category: 'សម្ភារៈការិយាល័យ',
+            category: 'សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资',
             unit: 'ដុំ',
             packUnit: 'យូ',
             packQty: 7,
@@ -6035,7 +6035,7 @@
             name: 'ប៊ិច-圆珠笔',
             size: 'Pixcell1',
             color: 'ខ្មៅ',
-            category: 'សម្ភារៈការិយាល័យ',
+            category: 'សម្ភារៈការិយាល័យ-办公用品',
             unit: 'ដើម',
             packUnit: 'ប្រអប់',
             packQty: 12,
@@ -6063,6 +6063,9 @@
             cleanedItems[exIdx] = {
               ...authItem,
               ...cleanedItems[exIdx],
+              category: (cleanedItems[exIdx].category === 'សម្ភារៈការិយាល័យ' || cleanedItems[exIdx].category === 'សម្ភារៈការិយាល័យ-办公用品')
+                ? 'សម្ភារៈការិយាល័យ-办公用品'
+                : ((cleanedItems[exIdx].category === 'ទូទៅ' || cleanedItems[exIdx].category === 'សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资') ? 'សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资' : (cleanedItems[exIdx].category || authItem.category)),
               size: cleanedItems[exIdx].size || authItem.size,
               color: cleanedItems[exIdx].color || authItem.color,
               packUnit: cleanedItems[exIdx].packUnit || authItem.packUnit,
@@ -6075,6 +6078,30 @@
             };
           }
         });
+
+        // Normalize all items to eliminate standalone unstandardized categories
+        cleanedItems.forEach(item => {
+          if (item.category === 'សម្ភារៈការិយាល័យ') {
+            item.category = 'សម្ភារៈការិយាល័យ-办公用品';
+          } else if (item.category === 'ទូទៅ' || item.category === 'សម្ភារៈប្រើប្រាស់') {
+            item.category = 'សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资';
+          }
+        });
+
+        // Clean obsolete categories from local storage cache
+        try {
+          const savedCats = localStorage.getItem('inventory_categories_db');
+          if (savedCats) {
+            let catsArr = JSON.parse(savedCats);
+            if (Array.isArray(catsArr)) {
+              catsArr = catsArr.filter(c => c !== 'សម្ភារៈការិយាល័យ' && c !== 'ទូទៅ' && c !== 'General');
+              localStorage.setItem('inventory_categories_db', JSON.stringify(catsArr));
+              if (AppState.categories && AppState.categories.length) {
+                AppState.categories = AppState.categories.filter(c => c !== 'សម្ភារៈការិយាល័យ' && c !== 'ទូទៅ' && c !== 'General');
+              }
+            }
+          }
+        } catch (e) {}
 
         LOCAL_DB.items = cleanedItems;
         saveLocalItemsToStorage();
@@ -8645,7 +8672,7 @@
           } catch (e) {}
         }
         if (!activeCats || !activeCats.length) {
-          activeCats = ['សម្ភារៈការិយាល័យ-办公用品', 'សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资', 'គ្រឿងបរិក្ខារអេឡិចត្រូនិច និងអគ្គិសនី-机电设备'];
+          activeCats = ['សម្ភារៈការិយាល័យ-办公用品', 'សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资', 'គ្រឿងបន្លាស់អេឡិចត្រូនិក និងអគ្គិសនី-机电设备'];
         }
 
         return {
@@ -8685,7 +8712,7 @@
           } catch (e) {}
         }
         if (!activeCats || !activeCats.length) {
-          activeCats = ['សម្ភារៈការិយាល័យ-办公用品', 'សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资', 'គ្រឿងបរិក្ខារអេឡិចត្រូនិច និងអគ្គិសនី-机电设备'];
+          activeCats = ['សម្ភារៈការិយាល័យ-办公用品', 'សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资', 'គ្រឿងបន្លាស់អេឡិចត្រូនិក និងអគ្គិសនី-机电设备'];
         }
         return {
           success: true,
@@ -11912,14 +11939,15 @@
         } catch(e) {}
       }
       if (!cats || !cats.length) {
-        cats = ['សម្ភារៈការិយាល័យ-办公用品', 'សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资', 'គ្រឿងបរិក្ខារអេឡិចត្រូនិច និងអគ្គិសនី-机电设备'];
+        cats = ['សម្ភារៈការិយាល័យ-办公用品', 'សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资', 'គ្រឿងបន្លាស់អេឡិចត្រូនិក និងអគ្គិសនី-机电设备'];
       }
+      cats = cats.filter(c => c !== 'សម្ភារៈការិយាល័យ' && c !== 'ទូទៅ' && c !== 'General');
 
       let html = '';
       cats.forEach(cat => {
         html += `<option value="${escapeHtml(cat)}">${escapeHtml(cat)}</option>`;
       });
-      if (currentVal && !cats.includes(currentVal) && currentVal !== 'ទូទៅ' && currentVal !== 'ALL') {
+      if (currentVal && !cats.includes(currentVal) && currentVal !== 'ទូទៅ' && currentVal !== 'សម្ភារៈការិយាល័យ' && currentVal !== 'ALL') {
         html += `<option value="${escapeHtml(currentVal)}">${escapeHtml(currentVal)}</option>`;
       }
       select.innerHTML = html;
@@ -12746,11 +12774,18 @@
         get options() {
           const sheetCats = (AppState.categories && AppState.categories.length)
             ? AppState.categories
-            : ['សម្ភារៈការិយាល័យ-办公用品', 'សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资', 'គ្រឿងបរិក្ខារអេឡិចត្រូនិច និងអគ្គិសនី-机电设备'];
+            : ['សម្ភារៈការិយាល័យ-办公用品', 'សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资', 'គ្រឿងបន្លាស់អេឡិចត្រូនិក និងអគ្គិសនី-机电设备'];
+          const forbidden = ['សម្ភារៈការិយាល័យ', 'ទូទៅ', 'General', 'general'];
           const existingCats = Array.from(new Set(
-            (AppState.items || []).map(i => (i.category || '').trim()).filter(Boolean)
+            (AppState.items || []).map(i => {
+              const c = (i.category || '').trim();
+              if (c === 'សម្ភារៈការិយាល័យ') return 'សម្ភារៈការិយាល័យ-办公用品';
+              if (c === 'ទូទៅ' || c === 'សម្ភារៈប្រើប្រាស់') return 'សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资';
+              return c;
+            }).filter(c => c && !forbidden.includes(c))
           ));
-          const allCats = Array.from(new Set([...sheetCats, ...existingCats]));
+          const allCats = Array.from(new Set([...sheetCats, ...existingCats]))
+            .filter(c => !forbidden.includes(c));
           return allCats.map(c => ({ text: c }));
         }
       },
@@ -15447,7 +15482,7 @@
           'កេស',
           24,
           'https://images.unsplash.com/photo-1546868871-7041f2a55e12?w=150',
-          'ភេសជ្ជៈ',
+          'សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资',
           '-'
         ],
         [
@@ -15460,7 +15495,7 @@
           'ប្រអប់',
           12,
           'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=150',
-          'សម្ភារៈប្រើប្រាស់',
+          'សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资',
           '-'
         ],
         [
@@ -15473,7 +15508,7 @@
           'ប្រអប់',
           50,
           'https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?w=150',
-          'សម្ភារៈការិយាល័យ',
+          'សម្ភារៈការិយាល័យ-办公用品',
           '-'
         ]
       ];
@@ -15630,7 +15665,12 @@
         name = name.trim();
         size = size.trim();
         color = color.trim();
-        category = category.trim() || 'ទូទៅ';
+        category = category.trim();
+        if (!category || category === 'ទូទៅ' || category === 'សម្ភារៈប្រើប្រាស់') {
+          category = 'សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资';
+        } else if (category === 'សម្ភារៈការិយាល័យ') {
+          category = 'សម្ភារៈការិយាល័យ-办公用品';
+        }
         unit = unit.trim() || 'ដុំ';
         packUnit = packUnit.trim();
         notes = notes.trim() || '-';
@@ -15757,7 +15797,7 @@
               const prev = LOCAL_DB.items[idx];
               LOCAL_DB.items[idx] = {
                 ...prev,
-                category: item.category || prev.category || 'ទូទៅ',
+                category: item.category || prev.category || 'សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资',
                 unit: item.unit || prev.unit,
                 packUnit: item.packUnit || prev.packUnit,
                 packQty: item.packQty > 1 ? item.packQty : (prev.packQty || 1),
@@ -15792,7 +15832,7 @@
             name: item.name,
             size: item.size,
             color: item.color,
-            category: item.category || 'ទូទៅ',
+            category: item.category || 'សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资',
             unit: item.unit,
             packUnit: item.packUnit,
             packQty: item.packQty,
