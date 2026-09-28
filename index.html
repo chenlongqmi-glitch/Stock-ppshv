@@ -3669,31 +3669,14 @@
                 </div>
               </div>
 
-              <!-- Hidden SKU and Barcode (managed automatically in background) -->
+              <!-- Hidden Zone, SKU and Barcode (managed automatically in background) -->
               <input type="hidden" id="modalSku" value="">
               <input type="hidden" id="modalBarcode" value="">
+              <input type="hidden" id="modalZone" value="-">
+              <input type="hidden" id="modalZoneNumber" value="-">
 
-              <!-- ជួរទី៣: តំបន់ស្តុកទំនិញ & ស្តុកបច្ចុប្បន្ន & កម្រិតរំលឹក Min: (%) -->
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 items-start">
-                <div>
-                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1 h-5 flex items-center justify-between" title="តំបន់ស្តុកទំនិញ (Zone / Area)">
-                    <span class="truncate"><i class="fa-solid fa-location-dot text-indigo-600 mr-1"></i> តំបន់ស្តុក (Zone) <span class="text-rose-500 font-extrabold">*</span></span>
-                    <span class="text-[9.5px] text-blue-600 font-bold bg-blue-50 px-1.5 py-0.2 rounded cursor-pointer shrink-0" onclick="openQuickPicker('modalZone')">រើស</span>
-                  </label>
-                  <div class="relative">
-                    <input type="text" id="modalZone" placeholder="ឧ. តំបន់ A 01 / តំបន់ B 02"
-                      autocomplete="off"
-                      onfocus="openQuickPicker('modalZone')"
-                      oninput="openQuickPicker('modalZone', this.value)"
-                      class="w-full h-11 pl-3.5 pr-8 bg-slate-50 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 font-medium focus:bg-white transition shadow-3xs">
-                    <button type="button" onclick="openQuickPicker('modalZone')"
-                      class="absolute right-2.5 top-3.5 text-slate-400 hover:text-slate-600 text-xs" title="រើសតំបន់ស្តុក">
-                      <i class="fa-solid fa-chevron-down text-[10px]"></i>
-                    </button>
-                  </div>
-                  <input type="hidden" id="modalZoneNumber" value="">
-                </div>
-
+              <!-- ជួរទី៣: ស្តុកបច្ចុប្បន្ន & កម្រិតរំលឹក Min: (%) -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 items-start">
                 <div id="modalCurrentStockContainer">
                   <label class="block text-xs font-bold text-slate-700 uppercase mb-1 h-5 flex items-center truncate" title="ស្តុកបច្ចុប្បន្ន (Current Stock)">
                     <i class="fa-solid fa-cubes-stacked text-slate-500 mr-1"></i> ស្តុកបច្ចុប្បន្ន (Stock)
@@ -3944,8 +3927,8 @@
                   <label class="block text-xs font-bold text-slate-700 uppercase mb-1">
                     <i class="fa-solid fa-note-sticky text-amber-500 mr-1"></i> កំណត់សម្គាល់បន្ថែម (Notes) <span class="text-rose-500 font-extrabold">*</span>
                   </label>
-                  <input type="text" id="modalNotes" placeholder="ឧ. លក្ខខណ្ឌរក្សាទុក, ប្រភពទំនិញ..."
-                    class="w-full h-11 px-3.5 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 shadow-3xs">
+                  <input type="text" id="modalNotes" value="-" placeholder="-"
+                    class="w-full h-11 px-3.5 bg-white border border-slate-300 rounded-xl text-xs font-medium text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 shadow-3xs font-mono">
                 </div>
 
                 <div>
@@ -12892,7 +12875,7 @@
     }, true);
 
     function clearAllItemModalErrors() {
-      const fieldIds = ['modalName', 'modalCategory', 'modalSize', 'modalColor', 'modalZone', 'modalUnit', 'modalPackUnit', 'modalPackQty', 'modalNotes', 'imageUploadBox'];
+      const fieldIds = ['modalName', 'modalCategory', 'modalSize', 'modalColor', 'modalUnit', 'modalPackUnit', 'modalPackQty', 'modalNotes', 'imageUploadBox'];
       fieldIds.forEach(id => {
         const el = document.getElementById(id);
         if (el) {
@@ -12964,39 +12947,31 @@
         missing.push({ id: 'modalColor', el: colorEl, label: 'ពណ៌ (Color)', msg: 'សូមជ្រើសរើស ឬបញ្ចូលពណ៌' });
       }
 
-      // 4. តំបន់ស្តុក
-      const zoneEl = document.getElementById('modalZone');
-      const zoneVal = (zoneEl?.value || '').trim();
-      if (!zoneVal) {
-        missing.push({ id: 'modalZone', el: zoneEl, label: 'តំបន់ស្តុក (Zone)', msg: 'សូមជ្រើសរើស ឬបញ្ចូលតំបន់ស្តុក' });
-      }
-
-      // 5. ឯកតារាយ
+      // 4. ឯកតារាយ
       const unitEl = document.getElementById('modalUnit');
       const unitVal = (unitEl?.value || '').trim();
       if (!unitVal) {
         missing.push({ id: 'modalUnit', el: unitEl, label: '១. ឯកតារាយ (Retail Unit)', msg: 'សូមជ្រើសរើស ឬបញ្ចូលឯកតារាយ' });
       }
 
-      // 6. ឯកតាធំ
+      // 5. ឯកតាធំ
       const packUnitEl = document.getElementById('modalPackUnit');
       const packUnitVal = (packUnitEl?.value || '').trim();
       if (!packUnitVal) {
         missing.push({ id: 'modalPackUnit', el: packUnitEl, label: '២. ឯកតាធំ (Bulk Unit)', msg: 'សូមជ្រើសរើស ឬបញ្ចូលឯកតាធំ (កេស/ប្រអប់/ដុំ)' });
       }
 
-      // 7. ចំនួនក្នុង ១ ដុំ (Rate)
+      // 6. ចំនួនក្នុង ១ ដុំ (Rate)
       const packQtyEl = document.getElementById('modalPackQty');
       const packQtyVal = Number(packQtyEl?.value || 0);
       if (!packQtyVal || packQtyVal < 1) {
         missing.push({ id: 'modalPackQty', el: packQtyEl, label: '៣. ចំនួនក្នុង ១ ដុំ (Rate)', msg: 'សូមបំពេញចំនួនក្នុង ១ ដុំ (យ៉ាងហោចណាស់ 1 ឡើងទៅ)' });
       }
 
-      // 8. កំណត់សម្គាល់បន្ថែម
+      // 7. កំណត់សម្គាល់បន្ថែម (Default '-')
       const notesEl = document.getElementById('modalNotes');
-      const notesVal = (notesEl?.value || '').trim();
-      if (!notesVal) {
-        missing.push({ id: 'modalNotes', el: notesEl, label: 'កំណត់សម្គាល់បន្ថែម (Notes)', msg: 'សូមបញ្ចូលកំណត់សម្គាល់បន្ថែម' });
+      if (notesEl && !notesEl.value.trim()) {
+        notesEl.value = '-';
       }
 
       // 9. រូបភាពទំនិញ
@@ -13025,12 +13000,12 @@
       document.getElementById('modalUnit').value = '';
       document.getElementById('modalPackUnit').value = '';
       document.getElementById('modalPackQty').value = '';
-      document.getElementById('modalZone').value = '';
-      if (document.getElementById('modalZoneNumber')) document.getElementById('modalZoneNumber').value = '';
+      if (document.getElementById('modalZone')) document.getElementById('modalZone').value = '-';
+      if (document.getElementById('modalZoneNumber')) document.getElementById('modalZoneNumber').value = '-';
       if (document.getElementById('modalCurrentStockDisplay')) document.getElementById('modalCurrentStockDisplay').value = 0;
       if (document.getElementById('modalStockInQty')) document.getElementById('modalStockInQty').value = 0;
       if (document.getElementById('modalBarcode')) document.getElementById('modalBarcode').value = '';
-      document.getElementById('modalNotes').value = '';
+      if (document.getElementById('modalNotes')) document.getElementById('modalNotes').value = '-';
       if (document.getElementById('modalCategory')) document.getElementById('modalCategory').value = '';
       setStockInUnitMode('RETAIL');
       populateModalCategoryDropdown();
@@ -13088,11 +13063,11 @@
       document.getElementById('modalUnit').value = item.unit || 'ដុំ';
       document.getElementById('modalPackUnit').value = item.packUnit || '';
       document.getElementById('modalPackQty').value = item.packQty || 1;
-      document.getElementById('modalZone').value = item.zone || '';
-      if (document.getElementById('modalZoneNumber')) document.getElementById('modalZoneNumber').value = item.zoneNumber || '';
+      if (document.getElementById('modalZone')) document.getElementById('modalZone').value = item.zone || '-';
+      if (document.getElementById('modalZoneNumber')) document.getElementById('modalZoneNumber').value = item.zoneNumber || '-';
       if (document.getElementById('modalCurrentStockDisplay')) document.getElementById('modalCurrentStockDisplay').value = item.currentStock || 0;
       if (document.getElementById('modalStockInQty')) document.getElementById('modalStockInQty').value = 0;
-      document.getElementById('modalNotes').value = item.notes || '';
+      if (document.getElementById('modalNotes')) document.getElementById('modalNotes').value = item.notes || '-';
 
       const createdByEl = document.getElementById('modalCreatedBy');
       if (createdByEl) {
@@ -13255,15 +13230,15 @@
           unit: unitVal,
           packUnit: (document.getElementById('modalPackUnit')?.value || '').trim(),
           packQty: packQty,
-          zone: document.getElementById('modalZone')?.value.trim() || 'តំបន់ A 01',
-          zoneNumber: (document.getElementById('modalZoneNumber')?.value || '').trim(),
+          zone: (document.getElementById('modalZone')?.value || '-').trim() || '-',
+          zoneNumber: (document.getElementById('modalZoneNumber')?.value || '-').trim() || '-',
           costPrice: Number(document.getElementById('modalCostPrice')?.value || 0),
           sellingPrice: Number(document.getElementById('modalSellingPrice')?.value || 0),
           minStock: minStockUnits,
           minStockPercent: minPct,
           currentStock: finalStock,
           location: finalLocation,
-          notes: (document.getElementById('modalNotes')?.value || '').trim(),
+          notes: (document.getElementById('modalNotes')?.value || '-').trim() || '-',
           createdBy: creatorName,
           createdAt: existingItem?.createdAt || new Date().toISOString(),
           imageUrl: imageVal

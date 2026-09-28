@@ -4562,11 +4562,11 @@ function saveOrUpdateItem(itemDataOrPayload, username) {
 
     Number(itemData.packQty || 1),
 
-    itemData.zone || 'តំបន់ A 01',
+    itemData.zone || '-',
 
-    itemData.zoneNumber || 'Z-01',
+    itemData.zoneNumber || '-',
 
-    itemData.notes || '',
+    itemData.notes || '-',
 
     itemData.createdBy || user || 'Admin'
 
@@ -4691,9 +4691,9 @@ function syncAllItems(itemsListOrPayload, username) {
         item.color || '',
         item.packUnit || '',
         Number(item.packQty || 1),
-        item.zone || 'តំបន់ A',
-        item.zoneNumber || 'Z-01',
-        item.notes || '',
+        item.zone || '-',
+        item.zoneNumber || '-',
+        item.notes || '-',
         item.createdBy || user || 'Admin'
       ];
 
