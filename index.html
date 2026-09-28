@@ -11880,7 +11880,8 @@
           return;
         }
       }
-      img.src = 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=150';
+      img.onerror = null;
+      img.src = 'assets/logo_icon.png';
     }
 
     function renderItemsTable() {
@@ -13516,23 +13517,29 @@
     }
 
     function selectProductItem(sku, mode) {
-      const item = AppState.items.find(i => i.sku === sku);
-      if (!item) return;
-
-      if (mode === 'stockIn') {
-        const skuInput = document.getElementById('stockInSku');
-        const codeInput = document.getElementById('stockInItemCode');
-        if (skuInput) skuInput.value = item.name || item.sku;
-        if (codeInput) codeInput.value = item.sku;
-        onStockInItemChange();
-      } else if (mode === 'stockOut') {
-        const skuInput = document.getElementById('stockOutSku');
-        const codeInput = document.getElementById('stockOutItemCode');
-        if (skuInput) skuInput.value = item.name || item.sku;
-        if (codeInput) codeInput.value = item.sku;
-        onStockOutItemChange();
-      }
       hideCustomProductDropdown();
+      try {
+        const item = AppState.items.find(i => i.sku === sku);
+        if (!item) return;
+
+        if (mode === 'stockIn') {
+          const skuInput = document.getElementById('stockInSku');
+          const codeInput = document.getElementById('stockInItemCode');
+          if (skuInput) skuInput.value = item.name || item.sku;
+          if (codeInput) codeInput.value = item.sku;
+          onStockInItemChange();
+        } else if (mode === 'stockOut') {
+          const skuInput = document.getElementById('stockOutSku');
+          const codeInput = document.getElementById('stockOutItemCode');
+          if (skuInput) skuInput.value = item.name || item.sku;
+          if (codeInput) codeInput.value = item.sku;
+          onStockOutItemChange();
+        }
+      } catch (err) {
+        console.error('Error selecting product:', err);
+      } finally {
+        hideCustomProductDropdown();
+      }
     }
 
     function handleCustomProductSearch(inputEl, mode = 'stockIn') {
@@ -13545,6 +13552,22 @@
         customProductDropdownEl.className = 'fixed bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-2xl shadow-2xl z-[99999] overflow-hidden flex flex-col transition-all duration-100';
         customProductDropdownEl.style.fontFamily = "'Kantumruy Pro', 'Battambang', 'Siemreap', sans-serif";
         document.body.appendChild(customProductDropdownEl);
+
+        const onSelectRow = (e) => {
+          const row = e.target.closest('.product-search-row');
+          if (row) {
+            e.preventDefault();
+            e.stopPropagation();
+            const sku = row.dataset.sku;
+            const targetMode = row.dataset.mode || customProductActiveMode;
+            if (sku) {
+              selectProductItem(sku, targetMode);
+            }
+          }
+        };
+
+        customProductDropdownEl.addEventListener('mousedown', onSelectRow);
+        customProductDropdownEl.addEventListener('click', onSelectRow);
 
         document.addEventListener('click', (e) => {
           if (!customProductDropdownEl || customProductDropdownEl.classList.contains('hidden')) return;
@@ -13617,6 +13640,8 @@
         html += `
           <div class="p-2.5 hover:bg-emerald-50/80 cursor-pointer transition flex items-center gap-2.5 group product-search-row"
                data-index="${idx}"
+               data-sku="${escapeHtml(item.sku)}"
+               data-mode="${mode}"
                onclick="selectProductItem('${escapeHtml(item.sku)}', '${mode}')">
             <div class="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 shrink-0 overflow-hidden flex items-center justify-center shadow-2xs">
               <img src="${imgUrl || 'assets/logo_icon.png'}"
@@ -13771,6 +13796,7 @@
       const finalUrl = formatDriveImageUrl(rawUrl);
 
       if (item && finalUrl) {
+        imgEl.dataset.hasTriedThumbnail = '';
         imgEl.onerror = function() {
           handleProductImgError(this);
         };
@@ -13881,11 +13907,15 @@
         if (item.location) {
           const locSelect = document.getElementById('stockInLocation');
           if (locSelect) {
-            for (let opt of locSelect.options) {
-              if (opt.value === item.location) {
-                locSelect.value = item.location;
-                break;
+            if (locSelect.options) {
+              for (let opt of locSelect.options) {
+                if (opt.value === item.location) {
+                  locSelect.value = item.location;
+                  break;
+                }
               }
+            } else {
+              locSelect.value = item.location;
             }
           }
         }
@@ -14191,6 +14221,7 @@
       const finalUrl = formatDriveImageUrl(rawUrl);
 
       if (item && finalUrl) {
+        imgEl.dataset.hasTriedThumbnail = '';
         imgEl.onerror = function() {
           handleProductImgError(this);
         };
