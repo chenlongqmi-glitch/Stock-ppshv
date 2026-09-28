@@ -2960,12 +2960,14 @@
             <div id="userSearchFilterBar" class="hidden mt-3.5 pt-3.5 border-t border-slate-100 flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
               <div class="relative flex-1">
                 <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
-                <input type="text" id="userSearchInput" name="search_users_query_box"
-                  autocomplete="off" readonly onfocus="this.removeAttribute('readonly'); if (this.value.includes('@') || this.value.toLowerCase().includes('admin')) { this.value = ''; filterUsersList(); }"
-                  onblur="this.setAttribute('readonly', 'readonly');"
-                  autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other"
+                <input type="search" id="userSearchInput" name="q_staff_directory_search"
+                  inputmode="search"
+                  autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                  data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other"
                   oninput="filterUsersList()"
-                  placeholder="ស្វែងរកឈ្មោះ, Username, ឬលេខទូរស័ព្ទ..."
+                  onfocus="if (this.value.includes('@') || this.value.toLowerCase().includes('admin') || this.value.toLowerCase() === 'superadmin' || (this.value.replace(/\D/g, '').length >= 8 && !this.dataset.userTyped)) { this.value = ''; filterUsersList(); }"
+                  onkeydown="this.dataset.userTyped = 'true';"
+                  placeholder="ស្វែងរកតាម ឈ្មោះបុគ្គលិក, គណនី, ឬលេខទូរស័ព្ទ..."
                   class="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none">
               </div>
               <select id="userRoleFilter" onchange="filterUsersList()"
@@ -11147,11 +11149,13 @@
         const el = document.getElementById(id);
         if (el && document.activeElement !== el) {
           const val = String(el.value || '').trim().toLowerCase();
+          const cleanDigits = val.replace(/\D/g, '');
           const curEmail = String(AppState?.currentUser?.email || '').trim().toLowerCase();
           const curUname = String(AppState?.currentUser?.username || '').replace(/^@+/, '').trim().toLowerCase();
           const isEmailAutofill = val.includes('@') || (curEmail && val === curEmail);
           const isUserAutofill = (curUname && val === curUname) || val === 'superadmin' || val === 'super admin' || val === 'admin';
-          if (isEmailAutofill || isUserAutofill) {
+          const isPhoneAutofill = !el.dataset.userTyped && (cleanDigits.length >= 8 && cleanDigits.length <= 11);
+          if (isEmailAutofill || isUserAutofill || isPhoneAutofill) {
             el.value = '';
             if (id === 'userSearchInput' && typeof filterUsersList === 'function') {
               filterUsersList();
