@@ -863,12 +863,30 @@
        }
      }
 
-    /* Stock In Movable & Resizable Form Fields */
+    /* Stock In Movable & Resizable Form Fields (2D Free Resize) */
     .stockin-field-wrapper {
       position: relative;
       flex: 0 0 auto;
       box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
       transition: box-shadow 0.15s ease, border-color 0.15s ease;
+    }
+    .stockin-field-wrapper > label {
+      flex: 0 0 auto;
+    }
+    .stockin-field-wrapper > input,
+    .stockin-field-wrapper > .relative,
+    .stockin-field-wrapper > #stockInImgCard,
+    .stockin-field-wrapper > div:not(.stockin-resize-handle):not(.stockin-resize-handle-y):not(.stockin-resize-corner):not(.relative),
+    .stockin-field-wrapper > button {
+      flex: 1 1 auto;
+      min-height: 44px;
+    }
+    .stockin-field-wrapper > .relative > input {
+      height: 100% !important;
+      min-height: 44px;
     }
     .stockin-field-wrapper.is-dragging {
       opacity: 0.45;
@@ -894,11 +912,40 @@
     .stockin-drag-handle:active {
       cursor: grabbing;
     }
+
+    /* Product Image Card Dynamic Styling */
+    #stockInImgCard {
+      position: relative;
+      transition: border-color 0.15s, background-color 0.15s, box-shadow 0.15s;
+    }
+    #stockInImgCard .stockin-zoom-icon {
+      position: absolute;
+      right: 7px;
+      bottom: 7px;
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(4px);
+      border-radius: 6px;
+      padding: 3px 6px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      z-index: 10;
+      transition: all 0.15s ease;
+    }
+    #stockInImgCard:hover .stockin-zoom-icon {
+      background: #ffffff;
+      color: #059669;
+      box-shadow: 0 2px 6px rgba(5, 150, 105, 0.25);
+    }
+    .stockin-field-wrapper.is-tall #stockInImgPlaceholderBox .stockin-img-tall-icon,
+    .stockin-field-wrapper.is-tall #stockInImgPlaceholderBox .stockin-img-tall-hint {
+      display: block !important;
+    }
+
+    /* Right resize handle (Width / វែងខ្លី) */
     .stockin-resize-handle {
       position: absolute;
       top: 0;
       right: -5px;
-      bottom: 0;
+      bottom: 12px;
       width: 10px;
       cursor: col-resize;
       z-index: 20;
@@ -921,8 +968,71 @@
       width: 4px !important;
       box-shadow: 0 0 8px rgba(5, 150, 105, 0.6);
     }
+
+    /* Bottom resize handle (Height / ខ្ពស់ទាប) */
+    .stockin-resize-handle-y {
+      position: absolute;
+      bottom: -5px;
+      left: 10px;
+      right: 14px;
+      height: 10px;
+      cursor: row-resize;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      touch-action: none;
+    }
+    .stockin-resize-handle-y > div {
+      height: 3px;
+      width: 24px;
+      background-color: #cbd5e1;
+      border-radius: 9999px;
+      transition: all 0.15s;
+    }
+    .stockin-resize-handle-y:hover > div,
+    .stockin-field-wrapper.is-resizing .stockin-resize-handle-y > div {
+      background-color: #059669 !important;
+      width: 32px !important;
+      height: 4px !important;
+      box-shadow: 0 0 8px rgba(5, 150, 105, 0.6);
+    }
+
+    /* Corner resize handle (Width & Height freely / វែងខ្លី ខ្ពស់ទាប ដោយសេរី) */
+    .stockin-resize-corner {
+      position: absolute;
+      bottom: -4px;
+      right: -4px;
+      width: 16px;
+      height: 16px;
+      cursor: nwse-resize;
+      z-index: 25;
+      display: flex;
+      align-items: flex-end;
+      justify-content: flex-end;
+      padding: 1px;
+      touch-action: none;
+      opacity: 0.6;
+      transition: opacity 0.15s, transform 0.15s;
+    }
+    .stockin-resize-corner svg {
+      color: #94a3b8;
+      transition: color 0.15s;
+    }
+    .stockin-resize-corner:hover,
+    .stockin-field-wrapper.is-resizing .stockin-resize-corner {
+      opacity: 1;
+      transform: scale(1.15);
+    }
+    .stockin-resize-corner:hover svg,
+    .stockin-field-wrapper.is-resizing .stockin-resize-corner svg {
+      color: #059669 !important;
+      filter: drop-shadow(0 0 4px rgba(5, 150, 105, 0.6));
+    }
+
     .stockin-field-wrapper.is-resizing {
       user-select: none;
+      transition: none !important;
     }
     #stockinResizeBadge {
       position: fixed;
@@ -932,18 +1042,23 @@
       color: #fff;
       font-size: 11px;
       font-weight: 700;
-      padding: 3px 8px;
-      border-radius: 6px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
-      transform: translate(-50%, -120%);
+      padding: 4px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+      transform: translate(-50%, -130%);
       display: none;
+      white-space: nowrap;
     }
     @media (max-width: 639px) {
       .stockin-field-wrapper {
         width: 100% !important;
         min-width: 100% !important;
+        height: auto !important;
       }
-      .stockin-resize-handle {
+      .stockin-resize-handle,
+      .stockin-resize-handle-y,
+      .stockin-resize-corner {
         display: none !important;
       }
     }
@@ -2118,14 +2233,14 @@
                 <!-- Toolbar for movable and resizable info -->
                 <div class="flex items-center justify-between pb-0.5 text-xs text-slate-500 font-khmer">
                   <span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-lg border border-emerald-200/70">
-                    <i class="fa-solid fa-arrows-up-down-left-right text-[10px]"></i> អាច Move &amp; ទាញវែងខ្លីបានគ្រប់ប្រអប់តាមចិត្ត
+                    <i class="fa-solid fa-up-right-and-down-left-from-center text-[10px]"></i> អាច Move &amp; ទាញវែង ខ្លី ខ្ពស់ ទាបបានដោយសេរី
                   </span>
                   <button type="button" onclick="resetStockInCustomLayout()" class="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-600 hover:text-emerald-700 bg-slate-100 hover:bg-emerald-50 px-2.5 py-0.5 rounded-lg border border-slate-200 transition shadow-2xs">
                     <i class="fa-solid fa-rotate-left text-[10px]"></i> កំណត់ទំហំដើម
                   </button>
                 </div>
 
-                <div id="stockInFieldsContainer" class="flex flex-wrap gap-2.5 items-end w-full">
+                <div id="stockInFieldsContainer" class="flex flex-wrap gap-2.5 items-start w-full">
                   
                   <!-- 1. ប្រអប់លេខឯកសារ (DOC NO) -->
                   <div id="stockInField_docNo" data-field-id="docNo" data-default-width="calc(20% - 8px)" style="width: calc(20% - 8px); min-width: 140px;" class="stockin-field-wrapper">
@@ -2140,8 +2255,10 @@
                       <button type="button" onclick="generateStockInDocNo()" class="text-xs text-blue-600 hover:underline font-semibold lowercase shrink-0 ml-1">auto</button>
                     </label>
                     <input type="text" id="stockInDocNo" required placeholder="DOC-IN-..."
-                      class="w-full h-11 px-3.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-mono font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition shadow-2xs">
+                      class="w-full flex-1 min-h-[44px] h-11 px-3.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-mono font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition shadow-2xs">
                     <div class="stockin-resize-handle" title="ចុចទាញដើម្បីប្តូរប្រវែងវែងខ្លី (Drag to resize width)"><div></div></div>
+                    <div class="stockin-resize-handle-y" title="ចុចទាញដើម្បីប្តូរកម្ពស់ ខ្ពស់ទាប (Drag to resize height)"><div></div></div>
+                    <div class="stockin-resize-corner" title="ចុចទាញប្តូរទំហំ វែង ខ្លី ខ្ពស់ ទាប ដោយសេរី (Drag to resize freely)"><svg viewBox="0 0 10 10" class="w-2.5 h-2.5"><line x1="8" y1="2" x2="2" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="8" y1="5" x2="5" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="8" y1="8" x2="8" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
                   </div>
 
                   <!-- 2. ឈ្មោះទំនិញ (KEYWORD/BARCODE) * -->
@@ -2155,7 +2272,7 @@
                         <span class="truncate">ឈ្មោះទំនិញ (KEYWORD) *</span>
                       </span>
                     </label>
-                    <div class="relative">
+                    <div class="relative w-full flex-1 min-h-[44px]">
                       <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-slate-400 text-xs"></i>
                       <input type="text" id="stockInSku" required
                         placeholder="វាយឈ្មោះទំនិញ ឬ SKU / Bar..."
@@ -2164,13 +2281,15 @@
                         onchange="onStockInItemChange()"
                         onkeydown="handleProductSearchKeydown(event, 'stockIn')"
                         autocomplete="off"
-                        class="w-full h-11 pl-9 pr-8 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition shadow-2xs">
+                        class="w-full h-full min-h-[44px] pl-9 pr-8 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition shadow-2xs">
                       <button type="button" onclick="clearStockInProductSelection()"
                         class="absolute right-2.5 top-3 text-slate-400 hover:text-slate-600 p-1 text-xs" title="សម្អាត">
                         <i class="fa-solid fa-xmark"></i>
                       </button>
                     </div>
                     <div class="stockin-resize-handle" title="ចុចទាញដើម្បីប្តូរប្រវែងវែងខ្លី (Drag to resize width)"><div></div></div>
+                    <div class="stockin-resize-handle-y" title="ចុចទាញដើម្បីប្តូរកម្ពស់ ខ្ពស់ទាប (Drag to resize height)"><div></div></div>
+                    <div class="stockin-resize-corner" title="ចុចទាញប្តូរទំហំ វែង ខ្លី ខ្ពស់ ទាប ដោយសេរី (Drag to resize freely)"><svg viewBox="0 0 10 10" class="w-2.5 h-2.5"><line x1="8" y1="2" x2="2" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="8" y1="5" x2="5" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="8" y1="8" x2="8" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
                   </div>
 
                   <!-- 3. ខ្នាត (SIZE) -->
@@ -2185,8 +2304,10 @@
                       </span>
                     </label>
                     <input type="text" id="stockInSize" placeholder="ខ្នាត..."
-                      class="w-full h-11 px-3 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition shadow-2xs">
+                      class="w-full flex-1 min-h-[44px] h-11 px-3 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition shadow-2xs">
                     <div class="stockin-resize-handle" title="ចុចទាញដើម្បីប្តូរប្រវែងវែងខ្លី (Drag to resize width)"><div></div></div>
+                    <div class="stockin-resize-handle-y" title="ចុចទាញដើម្បីប្តូរកម្ពស់ ខ្ពស់ទាប (Drag to resize height)"><div></div></div>
+                    <div class="stockin-resize-corner" title="ចុចទាញប្តូរទំហំ វែង ខ្លី ខ្ពស់ ទាប ដោយសេរី (Drag to resize freely)"><svg viewBox="0 0 10 10" class="w-2.5 h-2.5"><line x1="8" y1="2" x2="2" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="8" y1="5" x2="5" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="8" y1="8" x2="8" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
                   </div>
 
                   <!-- 4. ពណ៌ (COLOR) -->
@@ -2201,8 +2322,10 @@
                       </span>
                     </label>
                     <input type="text" id="stockInColor" placeholder="ពណ៌..."
-                      class="w-full h-11 px-3 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition shadow-2xs">
+                      class="w-full flex-1 min-h-[44px] h-11 px-3 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition shadow-2xs">
                     <div class="stockin-resize-handle" title="ចុចទាញដើម្បីប្តូរប្រវែងវែងខ្លី (Drag to resize width)"><div></div></div>
+                    <div class="stockin-resize-handle-y" title="ចុចទាញដើម្បីប្តូរកម្ពស់ ខ្ពស់ទាប (Drag to resize height)"><div></div></div>
+                    <div class="stockin-resize-corner" title="ចុចទាញប្តូរទំហំ វែង ខ្លី ខ្ពស់ ទាប ដោយសេរី (Drag to resize freely)"><svg viewBox="0 0 10 10" class="w-2.5 h-2.5"><line x1="8" y1="2" x2="2" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="8" y1="5" x2="5" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="8" y1="8" x2="8" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
                   </div>
 
                   <!-- 5. តំបន់ស្តុក (ZONE) - MODERN KEYWORD-SEARCHABLE PICKER -->
@@ -2216,7 +2339,7 @@
                         <span class="truncate">តំបន់ស្តុក (ZONE)</span>
                       </span>
                     </label>
-                    <div class="relative">
+                    <div class="relative w-full flex-1 min-h-[44px]">
                       <i class="fa-solid fa-location-dot absolute left-3.5 top-3.5 text-rose-500 text-xs pointer-events-none"></i>
                       <input type="text" id="stockInZone"
                         placeholder="រើស ឬវាយ Zone (A01-J10)..."
@@ -2225,7 +2348,7 @@
                         onclick="openStockInZoneDropdown()"
                         oninput="handleStockInZoneInput(this.value)"
                         onkeydown="handleStockInZoneKeydown(event)"
-                        class="w-full h-11 pl-9 pr-14 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition shadow-2xs">
+                        class="w-full h-full min-h-[44px] pl-9 pr-14 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition shadow-2xs">
                       
                       <!-- Actions inside input (Clear + Chevron Dropdown Toggle) -->
                       <div class="absolute right-1.5 top-1.5 flex items-center gap-0.5">
@@ -2240,6 +2363,8 @@
                       </div>
                     </div>
                     <div class="stockin-resize-handle" title="ចុចទាញដើម្បីប្តូរប្រវែងវែងខ្លី (Drag to resize width)"><div></div></div>
+                    <div class="stockin-resize-handle-y" title="ចុចទាញដើម្បីប្តូរកម្ពស់ ខ្ពស់ទាប (Drag to resize height)"><div></div></div>
+                    <div class="stockin-resize-corner" title="ចុចទាញប្តូរទំហំ វែង ខ្លី ខ្ពស់ ទាប ដោយសេរី (Drag to resize freely)"><svg viewBox="0 0 10 10" class="w-2.5 h-2.5"><line x1="8" y1="2" x2="2" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="8" y1="5" x2="5" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="8" y1="8" x2="8" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
                   </div>
 
                   <!-- 6. ប្រអប់រូបភាពទំនិញ (PRODUCT IMAGE) -->
@@ -2254,18 +2379,28 @@
                       </span>
                     </label>
                     <div id="stockInImgCard"
-                      class="w-full h-11 border-2 border-slate-300 rounded-xl bg-slate-50 flex items-center justify-between px-3 relative overflow-hidden group cursor-pointer shadow-2xs hover:border-emerald-500 hover:bg-white transition"
+                      class="w-full flex-1 min-h-[44px] border-2 border-slate-300 rounded-xl bg-slate-50 flex items-center justify-center p-1.5 relative overflow-hidden group cursor-pointer shadow-2xs hover:border-emerald-500 hover:bg-white transition"
                       onclick="previewStockInCurrentItemImage()"
                       title="ចុចដើម្បីមើលរូបភាពធំ (Click to preview)">
-                      <div id="stockInImgPlaceholderBox" class="flex items-center space-x-2 select-none truncate">
+                      <div id="stockInImgPlaceholderBox" class="flex flex-col items-center justify-center space-y-1 select-none truncate w-full h-full text-center">
+                        <i class="fa-regular fa-image text-slate-300 text-2xl stockin-img-tall-icon hidden"></i>
                         <span class="text-xs sm:text-sm font-extrabold text-slate-700 font-khmer truncate">រូបភាពទំនិញ</span>
+                        <span class="text-[10px] text-slate-400 font-khmer stockin-img-tall-hint hidden">ចុចមើលរូបភាពធំ</span>
                       </div>
-                      <img id="stockInItemImg" src="" alt="" class="h-8 w-auto max-w-[90px] object-contain hidden rounded-lg transition group-hover:scale-110">
-                      <div class="text-slate-400 group-hover:text-emerald-600 p-1">
+                      <img id="stockInItemImg" src="" alt="" class="max-h-full max-w-full object-contain hidden rounded-lg transition duration-200 group-hover:scale-105 pointer-events-none drop-shadow-xs">
+                      <div class="stockin-zoom-icon text-slate-400 group-hover:text-emerald-600 p-1">
                         <i class="fa-solid fa-magnifying-glass-plus text-xs"></i>
                       </div>
                     </div>
                     <div class="stockin-resize-handle" title="ចុចទាញដើម្បីប្តូរប្រវែងវែងខ្លី (Drag to resize width)"><div></div></div>
+                    <div class="stockin-resize-handle-y" title="ចុចទាញដើម្បីប្តូរកម្ពស់ ខ្ពស់ទាប (Drag to resize height)"><div></div></div>
+                    <div class="stockin-resize-corner" title="ចុចទាញប្តូរទំហំ វែង ខ្លី ខ្ពស់ ទាប ដោយសេរី (Drag to resize freely)">
+                      <svg viewBox="0 0 10 10" class="w-2.5 h-2.5">
+                        <line x1="8" y1="2" x2="2" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        <line x1="8" y1="5" x2="5" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        <line x1="8" y1="8" x2="8" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                      </svg>
+                    </div>
                   </div>
 
                   <!-- 7. ចំនួនចូលស្តុក * រាយ -->
@@ -2282,8 +2417,10 @@
                     </label>
                     <input type="number" id="stockInQtyRetail" inputmode="decimal" min="0" step="any" placeholder="0" value="0"
                       oninput="calculateStockInCalculations()"
-                      class="w-full h-11 text-center bg-emerald-50/50 border-2 border-emerald-400 rounded-xl px-2 text-base font-black text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition shadow-2xs">
+                      class="w-full flex-1 min-h-[44px] h-11 text-center bg-emerald-50/50 border-2 border-emerald-400 rounded-xl px-2 text-base font-black text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition shadow-2xs">
                     <div class="stockin-resize-handle" title="ចុចទាញដើម្បីប្តូរប្រវែងវែងខ្លី (Drag to resize width)"><div></div></div>
+                    <div class="stockin-resize-handle-y" title="ចុចទាញដើម្បីប្តូរកម្ពស់ ខ្ពស់ទាប (Drag to resize height)"><div></div></div>
+                    <div class="stockin-resize-corner" title="ចុចទាញប្តូរទំហំ វែង ខ្លី ខ្ពស់ ទាប ដោយសេរី (Drag to resize freely)"><svg viewBox="0 0 10 10" class="w-2.5 h-2.5"><line x1="8" y1="2" x2="2" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="8" y1="5" x2="5" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="8" y1="8" x2="8" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
                   </div>
 
                   <!-- 8. ចំនួនចូលស្តុក * ដុំ -->
@@ -2300,8 +2437,10 @@
                     </label>
                     <input type="number" id="stockInQtyBulk" inputmode="decimal" min="0" step="any" placeholder="0" value="0"
                       oninput="calculateStockInCalculations()"
-                      class="w-full h-11 text-center bg-emerald-50/50 border-2 border-emerald-400 rounded-xl px-2 text-base font-black text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition shadow-2xs">
+                      class="w-full flex-1 min-h-[44px] h-11 text-center bg-emerald-50/50 border-2 border-emerald-400 rounded-xl px-2 text-base font-black text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition shadow-2xs">
                     <div class="stockin-resize-handle" title="ចុចទាញដើម្បីប្តូរប្រវែងវែងខ្លី (Drag to resize width)"><div></div></div>
+                    <div class="stockin-resize-handle-y" title="ចុចទាញដើម្បីប្តូរកម្ពស់ ខ្ពស់ទាប (Drag to resize height)"><div></div></div>
+                    <div class="stockin-resize-corner" title="ចុចទាញប្តូរទំហំ វែង ខ្លី ខ្ពស់ ទាប ដោយសេរី (Drag to resize freely)"><svg viewBox="0 0 10 10" class="w-2.5 h-2.5"><line x1="8" y1="2" x2="2" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="8" y1="5" x2="5" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="8" y1="8" x2="8" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
                   </div>
 
                   <!-- 9. សរុបស្តុកចាស់ -->
@@ -2314,10 +2453,12 @@
                         <span class="truncate" id="stockInOldStockLabelText">សរុបស្តុកចាស់</span>
                       </span>
                     </label>
-                    <div class="w-full h-11 px-2.5 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center shadow-2xs">
+                    <div class="w-full flex-1 min-h-[44px] h-11 px-2.5 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center shadow-2xs">
                       <span class="text-xs sm:text-sm font-black text-slate-800 truncate" id="stockInOldStockDisplay">0 ដុំ + 0 រាយ</span>
                     </div>
                     <div class="stockin-resize-handle" title="ចុចទាញដើម្បីប្តូរប្រវែងវែងខ្លី (Drag to resize width)"><div></div></div>
+                    <div class="stockin-resize-handle-y" title="ចុចទាញដើម្បីប្តូរកម្ពស់ ខ្ពស់ទាប (Drag to resize height)"><div></div></div>
+                    <div class="stockin-resize-corner" title="ចុចទាញប្តូរទំហំ វែង ខ្លី ខ្ពស់ ទាប ដោយសេរី (Drag to resize freely)"><svg viewBox="0 0 10 10" class="w-2.5 h-2.5"><line x1="8" y1="2" x2="2" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="8" y1="5" x2="5" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="8" y1="8" x2="8" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
                   </div>
 
                   <!-- 10. សរុបស្តុកថ្មី -->
@@ -2330,10 +2471,12 @@
                         <span class="truncate" id="stockInNewTotalLabelText">សរុបស្តុកថ្មី</span>
                       </span>
                     </label>
-                    <div class="w-full h-11 px-2.5 rounded-xl bg-[#0d7a57] text-white flex items-center justify-center shadow-xs">
+                    <div class="w-full flex-1 min-h-[44px] h-11 px-2.5 rounded-xl bg-[#0d7a57] text-white flex items-center justify-center shadow-xs">
                       <span class="text-xs sm:text-sm font-black text-white truncate" id="stockInNewTotalDisplay">0 ដុំ + 0 រាយ</span>
                     </div>
                     <div class="stockin-resize-handle" title="ចុចទាញដើម្បីប្តូរប្រវែងវែងខ្លី (Drag to resize width)"><div></div></div>
+                    <div class="stockin-resize-handle-y" title="ចុចទាញដើម្បីប្តូរកម្ពស់ ខ្ពស់ទាប (Drag to resize height)"><div></div></div>
+                    <div class="stockin-resize-corner" title="ចុចទាញប្តូរទំហំ វែង ខ្លី ខ្ពស់ ទាប ដោយសេរី (Drag to resize freely)"><svg viewBox="0 0 10 10" class="w-2.5 h-2.5"><line x1="8" y1="2" x2="2" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="8" y1="5" x2="5" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="8" y1="8" x2="8" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
                   </div>
 
                   <!-- 11. កំណត់សម្គាល់បន្ថែម -->
@@ -2348,8 +2491,10 @@
                       </span>
                     </label>
                     <input type="text" id="stockInNotes" placeholder="លេខវិក្កយបត្រ, ស្ថានភាព..."
-                      class="w-full h-11 px-3.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition shadow-2xs">
+                      class="w-full flex-1 min-h-[44px] h-11 px-3.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition shadow-2xs">
                     <div class="stockin-resize-handle" title="ចុចទាញដើម្បីប្តូរប្រវែងវែងខ្លី (Drag to resize width)"><div></div></div>
+                    <div class="stockin-resize-handle-y" title="ចុចទាញដើម្បីប្តូរកម្ពស់ ខ្ពស់ទាប (Drag to resize height)"><div></div></div>
+                    <div class="stockin-resize-corner" title="ចុចទាញប្តូរទំហំ វែង ខ្លី ខ្ពស់ ទាប ដោយសេរី (Drag to resize freely)"><svg viewBox="0 0 10 10" class="w-2.5 h-2.5"><line x1="8" y1="2" x2="2" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="8" y1="5" x2="5" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="8" y1="8" x2="8" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
                   </div>
 
                   <!-- 12. សកម្មភាព (Clear) -->
@@ -2364,11 +2509,13 @@
                       </span>
                     </label>
                     <button type="button" onclick="document.getElementById('stockInForm').reset(); document.getElementById('stockInQtyRetail').value=0; document.getElementById('stockInQtyBulk').value=0; document.getElementById('stockInOldStockValue').value=0; document.getElementById('stockInOldStockDisplay').innerText='0 ដុំ + 0 រាយ'; document.getElementById('stockInNewTotalDisplay').innerText='0 ដុំ + 0 រាយ'; generateStockInDocNo(); initStockInForm(); onStockInItemChange();"
-                      class="w-full h-11 px-3 rounded-xl bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-1.5 shadow-xs hover:scale-[1.01] active:scale-[0.99]">
+                      class="w-full flex-1 min-h-[44px] h-11 px-3 rounded-xl bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-1.5 shadow-xs hover:scale-[1.01] active:scale-[0.99]">
                       <i class="fa-solid fa-rotate-left text-xs text-white"></i>
                       <span class="text-white font-khmer">សម្អាត</span>
                     </button>
                     <div class="stockin-resize-handle" title="ចុចទាញដើម្បីប្តូរប្រវែងវែងខ្លី (Drag to resize width)"><div></div></div>
+                    <div class="stockin-resize-handle-y" title="ចុចទាញដើម្បីប្តូរកម្ពស់ ខ្ពស់ទាប (Drag to resize height)"><div></div></div>
+                    <div class="stockin-resize-corner" title="ចុចទាញប្តូរទំហំ វែង ខ្លី ខ្ពស់ ទាប ដោយសេរី (Drag to resize freely)"><svg viewBox="0 0 10 10" class="w-2.5 h-2.5"><line x1="8" y1="2" x2="2" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="8" y1="5" x2="5" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="8" y1="8" x2="8" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
                   </div>
 
                   <!-- 13. បញ្ជាក់ / រក្សាទុក (Submit) -->
@@ -2383,11 +2530,13 @@
                       </span>
                     </label>
                     <button type="submit" id="btnSubmitStockIn"
-                      class="w-full h-11 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-1.5 shadow-sm hover:scale-[1.01] active:scale-[0.99]">
+                      class="w-full flex-1 min-h-[44px] h-11 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-1.5 shadow-sm hover:scale-[1.01] active:scale-[0.99]">
                       <i class="fa-solid fa-check text-xs text-white"></i>
                       <span class="text-white font-khmer">រក្សាទុក</span>
                     </button>
                     <div class="stockin-resize-handle" title="ចុចទាញដើម្បីប្តូរប្រវែងវែងខ្លី (Drag to resize width)"><div></div></div>
+                    <div class="stockin-resize-handle-y" title="ចុចទាញដើម្បីប្តូរកម្ពស់ ខ្ពស់ទាប (Drag to resize height)"><div></div></div>
+                    <div class="stockin-resize-corner" title="ចុចទាញប្តូរទំហំ វែង ខ្លី ខ្ពស់ ទាប ដោយសេរី (Drag to resize freely)"><svg viewBox="0 0 10 10" class="w-2.5 h-2.5"><line x1="8" y1="2" x2="2" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="8" y1="5" x2="5" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><line x1="8" y1="8" x2="8" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
                   </div>
 
                 </div>
@@ -11384,6 +11533,9 @@
       setTimeout(purgeAutofillFromSearchInputs, 100);
       setTimeout(purgeAutofillFromSearchInputs, 300);
       setTimeout(purgeAutofillFromSearchInputs, 800);
+      if (typeof initStockInLayoutCustomizer === 'function') {
+        initStockInLayoutCustomizer();
+      }
     });
 
     function navigateTab(tabName) {
@@ -14608,9 +14760,9 @@
     }
 
     // ==========================================
-    // Stock In Form Drag-and-Drop & Resizable Layout Engine
+    // Stock In Form Drag-and-Drop & Resizable Layout Engine (2D Free Resize)
     // ==========================================
-    const STOCKIN_LAYOUT_STORAGE_KEY = 'stockin_custom_layout_v7';
+    const STOCKIN_LAYOUT_STORAGE_KEY = 'stockin_custom_layout_v8';
     let isStockInCustomizerInitialized = false;
 
     function initStockInLayoutCustomizer() {
@@ -14756,73 +14908,156 @@
           saveStockInCustomLayout();
         });
 
-        // Resize implementation
-        const resizeHandle = wrapper.querySelector('.stockin-resize-handle');
-        if (resizeHandle && !resizeHandle._boundResize) {
-          resizeHandle._boundResize = true;
+        // 2D Free Resize implementation (Width X, Height Y, Corner XY)
+        let handleX = wrapper.querySelector('.stockin-resize-handle-x') || wrapper.querySelector('.stockin-resize-handle');
+        if (!handleX) {
+          handleX = document.createElement('div');
+          handleX.className = 'stockin-resize-handle stockin-resize-handle-x';
+          handleX.title = 'ចុចទាញដើម្បីប្តូរប្រវែងវែងខ្លី (Drag to resize width)';
+          handleX.innerHTML = '<div></div>';
+          wrapper.appendChild(handleX);
+        } else {
+          handleX.classList.add('stockin-resize-handle-x');
+        }
 
-          const startResize = (clientX, clientY) => {
-            const startX = clientX;
-            const startWidth = wrapper.getBoundingClientRect().width;
-            const containerWidth = container.getBoundingClientRect().width;
-            const minW = Number(wrapper.getAttribute('data-min-width') || 110);
+        let handleY = wrapper.querySelector('.stockin-resize-handle-y');
+        if (!handleY) {
+          handleY = document.createElement('div');
+          handleY.className = 'stockin-resize-handle-y';
+          handleY.title = 'ចុចទាញដើម្បីប្តូរកម្ពស់ ខ្ពស់ទាប (Drag to resize height)';
+          handleY.innerHTML = '<div></div>';
+          wrapper.appendChild(handleY);
+        }
 
-            wrapper.classList.add('is-resizing');
-            document.body.style.cursor = 'col-resize';
-            document.body.style.userSelect = 'none';
+        let handleCorner = wrapper.querySelector('.stockin-resize-corner');
+        if (!handleCorner) {
+          handleCorner = document.createElement('div');
+          handleCorner.className = 'stockin-resize-corner';
+          handleCorner.title = 'ចុចទាញប្តូរទំហំ វែង ខ្លី ខ្ពស់ ទាប ដោយសេរី (Drag to resize width & height freely)';
+          handleCorner.innerHTML = `
+            <svg viewBox="0 0 10 10" class="w-2.5 h-2.5 pointer-events-none">
+              <line x1="8" y1="2" x2="2" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <line x1="8" y1="5" x2="5" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <line x1="8" y1="8" x2="8" y2="8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          `;
+          wrapper.appendChild(handleCorner);
+        }
 
-            resizeBadge.style.display = 'block';
-            resizeBadge.style.left = `${clientX}px`;
-            resizeBadge.style.top = `${clientY}px`;
-            resizeBadge.innerText = `${Math.round(startWidth)}px`;
+        const startResize = (clientX, clientY, mode) => {
+          const startX = clientX;
+          const startY = clientY;
+          const rect = wrapper.getBoundingClientRect();
+          const startWidth = rect.width;
+          const startHeight = rect.height;
+          const containerWidth = container.getBoundingClientRect().width;
+          const minW = Number(wrapper.getAttribute('data-min-width') || 110);
+          const minH = 50; // Minimum height for field
+          const maxH = 500;
 
-            const onMove = (moveEvt) => {
-              const currentX = moveEvt.clientX !== undefined ? moveEvt.clientX : (moveEvt.touches && moveEvt.touches[0] ? moveEvt.touches[0].clientX : startX);
-              const currentY = moveEvt.clientY !== undefined ? moveEvt.clientY : (moveEvt.touches && moveEvt.touches[0] ? moveEvt.touches[0].clientY : startY);
+          wrapper.classList.add('is-resizing');
+          if (mode === 'x') document.body.style.cursor = 'col-resize';
+          else if (mode === 'y') document.body.style.cursor = 'row-resize';
+          else document.body.style.cursor = 'nwse-resize';
+          document.body.style.userSelect = 'none';
+
+          resizeBadge.style.display = 'block';
+          resizeBadge.style.left = `${clientX}px`;
+          resizeBadge.style.top = `${clientY}px`;
+          resizeBadge.innerText = `${Math.round(startWidth)}px ✕ ${Math.round(startHeight)}px`;
+
+          const onMove = (moveEvt) => {
+            const currentX = moveEvt.clientX !== undefined ? moveEvt.clientX : (moveEvt.touches && moveEvt.touches[0] ? moveEvt.touches[0].clientX : startX);
+            const currentY = moveEvt.clientY !== undefined ? moveEvt.clientY : (moveEvt.touches && moveEvt.touches[0] ? moveEvt.touches[0].clientY : startY);
+            let badgeText = '';
+
+            // Handle Width (X / វែងខ្លី)
+            if (mode === 'x' || mode === 'xy') {
               const deltaX = currentX - startX;
               let newW = Math.max(minW, Math.min(containerWidth, startWidth + deltaX));
-              
-              // Calculate percentage width for fluid responsiveness
               const percent = Math.round((newW / containerWidth) * 100);
               wrapper.style.width = `calc(${percent}% - 8px)`;
+              badgeText += `${percent}% (${Math.round(newW)}px)`;
+            }
 
-              resizeBadge.style.left = `${currentX}px`;
-              resizeBadge.style.top = `${currentY}px`;
-              resizeBadge.innerText = `${percent}% (${Math.round(newW)}px)`;
-            };
+            // Handle Height (Y / ខ្ពស់ទាប)
+            if (mode === 'y' || mode === 'xy') {
+              const deltaY = currentY - startY;
+              let newH = Math.max(minH, Math.min(maxH, startHeight + deltaY));
+              wrapper.style.height = `${Math.round(newH)}px`;
+              if (newH > 75) {
+                wrapper.classList.add('is-tall');
+              } else {
+                wrapper.classList.remove('is-tall');
+              }
+              if (badgeText) badgeText += ' ✕ ';
+              badgeText += `H: ${Math.round(newH)}px`;
+            }
 
-            const onEnd = () => {
-              wrapper.classList.remove('is-resizing');
-              document.body.style.cursor = '';
-              document.body.style.userSelect = '';
-              resizeBadge.style.display = 'none';
-
-              window.removeEventListener('mousemove', onMove);
-              window.removeEventListener('mouseup', onEnd);
-              window.removeEventListener('touchmove', onMove);
-              window.removeEventListener('touchend', onEnd);
-
-              saveStockInCustomLayout();
-            };
-
-            window.addEventListener('mousemove', onMove, { passive: false });
-            window.addEventListener('mouseup', onEnd);
-            window.addEventListener('touchmove', onMove, { passive: false });
-            window.addEventListener('touchend', onEnd);
+            resizeBadge.style.left = `${currentX}px`;
+            resizeBadge.style.top = `${currentY}px`;
+            resizeBadge.innerText = badgeText;
           };
 
-          resizeHandle.addEventListener('mousedown', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            startResize(e.clientX, e.clientY);
-          });
+          const onEnd = () => {
+            wrapper.classList.remove('is-resizing');
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+            resizeBadge.style.display = 'none';
 
-          resizeHandle.addEventListener('touchstart', (e) => {
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', onEnd);
+            window.removeEventListener('touchmove', onMove);
+            window.removeEventListener('touchend', onEnd);
+
+            saveStockInCustomLayout();
+          };
+
+          window.addEventListener('mousemove', onMove, { passive: false });
+          window.addEventListener('mouseup', onEnd);
+          window.addEventListener('touchmove', onMove, { passive: false });
+          window.addEventListener('touchend', onEnd);
+        };
+
+        if (handleX && !handleX._boundResize) {
+          handleX._boundResize = true;
+          handleX.addEventListener('mousedown', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            if (e.touches && e.touches[0]) {
-              startResize(e.touches[0].clientX, e.touches[0].clientY);
-            }
+            startResize(e.clientX, e.clientY, 'x');
+          });
+          handleX.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.touches && e.touches[0]) startResize(e.touches[0].clientX, e.touches[0].clientY, 'x');
+          }, { passive: false });
+        }
+
+        if (handleY && !handleY._boundResize) {
+          handleY._boundResize = true;
+          handleY.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            startResize(e.clientX, e.clientY, 'y');
+          });
+          handleY.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.touches && e.touches[0]) startResize(e.touches[0].clientX, e.touches[0].clientY, 'y');
+          }, { passive: false });
+        }
+
+        if (handleCorner && !handleCorner._boundResize) {
+          handleCorner._boundResize = true;
+          handleCorner.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            startResize(e.clientX, e.clientY, 'xy');
+          });
+          handleCorner.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.touches && e.touches[0]) startResize(e.touches[0].clientX, e.touches[0].clientY, 'xy');
           }, { passive: false });
         }
       });
@@ -14835,6 +15070,7 @@
       const wrappers = Array.from(container.querySelectorAll('.stockin-field-wrapper'));
       const order = [];
       const widths = {};
+      const heights = {};
 
       wrappers.forEach(w => {
         const fieldId = w.getAttribute('data-field-id');
@@ -14843,10 +15079,13 @@
           if (w.style.width) {
             widths[fieldId] = w.style.width;
           }
+          if (w.style.height) {
+            heights[fieldId] = w.style.height;
+          }
         }
       });
 
-      const layoutData = { order, widths };
+      const layoutData = { order, widths, heights };
       localStorage.setItem(STOCKIN_LAYOUT_STORAGE_KEY, JSON.stringify(layoutData));
     }
 
@@ -14855,7 +15094,10 @@
       if (!container) return;
 
       try {
-        const raw = localStorage.getItem(STOCKIN_LAYOUT_STORAGE_KEY);
+        let raw = localStorage.getItem(STOCKIN_LAYOUT_STORAGE_KEY);
+        if (!raw) {
+          raw = localStorage.getItem('stockin_custom_layout_v7');
+        }
         if (!raw) return;
         const layoutData = JSON.parse(raw);
         if (!layoutData) return;
@@ -14879,6 +15121,20 @@
             }
           });
         }
+
+        // Apply heights
+        if (layoutData.heights && typeof layoutData.heights === 'object') {
+          Object.entries(layoutData.heights).forEach(([fieldId, heightVal]) => {
+            const el = container.querySelector(`[data-field-id="${fieldId}"]`);
+            if (el && heightVal) {
+              el.style.height = heightVal;
+              const hNum = parseInt(heightVal, 10);
+              if (hNum > 75) {
+                el.classList.add('is-tall');
+              }
+            }
+          });
+        }
       } catch (err) {
         console.warn('Error applying custom stockin layout:', err);
       }
@@ -14889,6 +15145,7 @@
       if (!container) return;
 
       localStorage.removeItem(STOCKIN_LAYOUT_STORAGE_KEY);
+      localStorage.removeItem('stockin_custom_layout_v7');
 
       const defaultOrder = [
         'docNo', 'sku', 'size', 'color', 'zone',
@@ -14906,6 +15163,8 @@
           } else {
             el.style.width = '';
           }
+          el.style.height = '';
+          el.classList.remove('is-tall');
         }
       });
 
