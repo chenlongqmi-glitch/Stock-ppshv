@@ -19965,6 +19965,36 @@
       }
     }
 
+    function dismissSuperAdminDeletionAlert() {
+      const allUsers = LOCAL_DB.users || [];
+      const pendingDeletions = allUsers.filter(u => u.status === 'Pending_Deletion');
+      const currentSig = pendingDeletions.map(u => `${u.userId || u.username}:${u.deleteReason || ''}`).sort().join('|');
+      localStorage.setItem('superadmin_acked_deletion_sig', currentSig || 'ALL_ACKED');
+
+      // Purge/clean any pending deletion alert from notifications drawer for SuperAdmin
+      if (Array.isArray(notificationsList)) {
+        for (let i = notificationsList.length - 1; i >= 0; i--) {
+          if (notificationsList[i].type === 'USER_DELETION_REQUEST') {
+            notificationsList.splice(i, 1);
+          }
+        }
+        if (typeof saveNotificationsToStorage === 'function') saveNotificationsToStorage();
+        if (typeof renderNotificationDrawer === 'function') renderNotificationDrawer();
+      }
+
+      // Clear banners from UI
+      const dAlert = document.getElementById('dashSuperAdminPendingDeletionsAlert');
+      if (dAlert) dAlert.innerHTML = '';
+      const uBanner = document.getElementById('usersTabPendingDeletionsBanner');
+      if (uBanner) uBanner.innerHTML = '';
+
+      // Clear badges for SuperAdmin
+      const pendingBadge = document.getElementById('pendingUsersBadge');
+      if (pendingBadge) pendingBadge.classList.add('hidden');
+      const topSettingsBadge = document.getElementById('topSettingsBadge');
+      if (topSettingsBadge) topSettingsBadge.classList.add('hidden');
+    }
+
     function renderDashboardPendingDeletionsAlert(pendingDeletions) {
       const container = document.getElementById('dashSuperAdminPendingDeletionsAlert');
       if (!container) return;
@@ -19975,6 +20005,16 @@
       if ((!isSuperAdmin && !isActorAdmin) || !pendingDeletions || pendingDeletions.length === 0) {
         container.innerHTML = '';
         return;
+      }
+
+      // STRICT PRIVACY / CLEANLINESS: If SuperAdmin already viewed/closed, DO NOT show banner!
+      if (isSuperAdmin) {
+        const ackedSig = localStorage.getItem('superadmin_acked_deletion_sig') || '';
+        const currentSig = pendingDeletions.map(u => `${u.userId || u.username}:${u.deleteReason || ''}`).sort().join('|');
+        if (currentSig && currentSig === ackedSig) {
+          container.innerHTML = '';
+          return;
+        }
       }
 
       const alertTitle = isSuperAdmin
@@ -19999,10 +20039,18 @@
                 <p class="text-xs text-rose-700 mt-0.5">${alertSubtitle}</p>
               </div>
             </div>
-            <button onclick="navigateTab('users');" class="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-sm flex items-center gap-1.5 transition hover:scale-105 active:scale-95 flex-shrink-0">
-              <i class="fa-solid fa-users"></i>
-              <span>គ្រប់គ្រងក្នុងបញ្ជី User</span>
-            </button>
+            <div class="flex items-center gap-2 flex-shrink-0">
+              ${isSuperAdmin ? `
+                <button onclick="dismissSuperAdminDeletionAlert()" class="px-3 py-1.5 bg-slate-100 hover:bg-rose-100 text-slate-600 hover:text-rose-700 text-xs font-bold rounded-xl shadow-xs transition hover:scale-105 active:scale-95 flex items-center gap-1.5">
+                  <i class="fa-solid fa-xmark"></i>
+                  <span>បិទដំណឹង</span>
+                </button>
+              ` : ''}
+              <button onclick="navigateTab('users');" class="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-sm flex items-center gap-1.5 transition hover:scale-105 active:scale-95">
+                <i class="fa-solid fa-users"></i>
+                <span>គ្រប់គ្រងក្នុងបញ្ជី User</span>
+              </button>
+            </div>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -20058,6 +20106,16 @@
         return;
       }
 
+      // STRICT PRIVACY / CLEANLINESS: If SuperAdmin already viewed/closed, DO NOT show banner!
+      if (isSuperAdmin) {
+        const ackedSig = localStorage.getItem('superadmin_acked_deletion_sig') || '';
+        const currentSig = pendingDeletions.map(u => `${u.userId || u.username}:${u.deleteReason || ''}`).sort().join('|');
+        if (currentSig && currentSig === ackedSig) {
+          banner.innerHTML = '';
+          return;
+        }
+      }
+
       banner.innerHTML = `
         <div class="p-4 rounded-2xl bg-gradient-to-r from-rose-50 via-white to-rose-50/80 border-2 border-rose-300 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div class="flex items-center space-x-3">
@@ -20081,10 +20139,16 @@
           </div>
           ${pendingDeletions.length > 0 ? (
             isSuperAdmin
-              ? `<button onclick="viewUserDeleteReason('${pendingDeletions[0].userId || ''}', '${pendingDeletions[0].username || ''}')" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition hover:scale-105 active:scale-95 flex items-center gap-1.5 flex-shrink-0">
-                  <i class="fa-solid fa-eye"></i>
-                  <span>មើលព័ត៌មានលម្អិត</span>
-                </button>`
+              ? `<div class="flex items-center gap-2 flex-shrink-0">
+                  <button onclick="viewUserDeleteReason('${pendingDeletions[0].userId || ''}', '${pendingDeletions[0].username || ''}')" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition hover:scale-105 active:scale-95 flex items-center gap-1.5">
+                    <i class="fa-solid fa-eye"></i>
+                    <span>មើលព័ត៌មានលម្អិត</span>
+                  </button>
+                  <button onclick="dismissSuperAdminDeletionAlert()" class="px-3 py-1.5 bg-white hover:bg-rose-50 text-slate-500 hover:text-rose-700 border border-slate-200 rounded-xl text-xs font-bold shadow-xs transition hover:scale-105 active:scale-95 flex items-center gap-1" title="បិទដំណឹងនេះ">
+                    <i class="fa-solid fa-xmark"></i>
+                    <span>បិទដំណឹង</span>
+                  </button>
+                </div>`
               : `<button onclick="openSuperAdminDeletionReviewModal('${pendingDeletions[0].userId || ''}', '${pendingDeletions[0].username || ''}')" class="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-xs transition hover:scale-105 active:scale-95 flex items-center gap-1.5 flex-shrink-0">
                   <i class="fa-solid fa-magnifying-glass-check"></i>
                   <span>ផ្ទៀងផ្ទាត់សំណើដំបូង</span>
@@ -20104,10 +20168,35 @@
       loadLocalUsersFromStorage();
       const allUsers = LOCAL_DB.users || [];
       const pendingDeletions = allUsers.filter(u => u.status === 'Pending_Deletion');
+      const currentSig = pendingDeletions.map(u => `${u.userId || u.username}:${u.deleteReason || ''}`).sort().join('|');
 
-      // 1. Pending users badge & Settings menu badge
       const pendingBadge = document.getElementById('pendingUsersBadge');
       const topSettingsBadge = document.getElementById('topSettingsBadge');
+      const dAlert = document.getElementById('dashSuperAdminPendingDeletionsAlert');
+      const uBanner = document.getElementById('usersTabPendingDeletionsBanner');
+
+      if (pendingDeletions.length === 0) {
+        if (pendingBadge) pendingBadge.classList.add('hidden');
+        if (topSettingsBadge) topSettingsBadge.classList.add('hidden');
+        if (dAlert) dAlert.innerHTML = '';
+        if (uBanner) uBanner.innerHTML = '';
+        return;
+      }
+
+      // If SuperAdmin has viewed/acknowledged this exact request:
+      if (isSuperAdmin) {
+        const ackedSig = localStorage.getItem('superadmin_acked_deletion_sig') || '';
+        if (currentSig && currentSig === ackedSig) {
+          // Completely hide all badges and banners!
+          if (pendingBadge) pendingBadge.classList.add('hidden');
+          if (topSettingsBadge) topSettingsBadge.classList.add('hidden');
+          if (dAlert) dAlert.innerHTML = '';
+          if (uBanner) uBanner.innerHTML = '';
+          return;
+        }
+      }
+
+      // 1. Pending users badge & Settings menu badge
       if (pendingDeletions.length > 0) {
         if (pendingBadge) {
           pendingBadge.textContent = `⚠️ ${pendingDeletions.length}`;
@@ -20352,6 +20441,10 @@
       const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
       const isActorAdmin = !isActorSuperAdmin && (AppState.currentUser?.role === 'Admin' || String(AppState.currentUser?.username).toLowerCase() === 'admin' || String(AppState.currentUser?.username).toLowerCase() === 'singvan327@gmail.com');
 
+      if (isActorSuperAdmin) {
+        dismissSuperAdminDeletionAlert();
+      }
+
       Swal.fire({
         title: isActorSuperAdmin ? '🔔 ព័ត៌មានលម្អិតសំណើសុំលុបគណនី' : 'ព័ត៌មានសំណើសុំលុបគណនី',
         html: `
@@ -20390,10 +20483,7 @@
         cancelButtonText: 'បោះបង់'
       }).then(r => {
         if (isActorSuperAdmin) {
-          const currentSig = (LOCAL_DB.users || []).filter(u => u.status === 'Pending_Deletion').map(u => `${u.userId || u.username}:${u.deleteReason || ''}`).sort().join('|');
-          if (currentSig) {
-            localStorage.setItem('superadmin_acked_deletion_sig', currentSig);
-          }
+          dismissSuperAdminDeletionAlert();
         }
         if (r.isConfirmed && isActorAdmin) {
           openSuperAdminDeletionReviewModal(u.userId, u.username);
@@ -22053,8 +22143,15 @@
 
     function renderNotificationDrawer() {
       const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
+      const ackedSig = localStorage.getItem('superadmin_acked_deletion_sig') || '';
+      const pendingDeletions = (LOCAL_DB.users || []).filter(u => u.status === 'Pending_Deletion');
+      const currentSig = pendingDeletions.map(u => `${u.userId || u.username}:${u.deleteReason || ''}`).sort().join('|');
+
       const filteredList = notificationsList.filter(n => {
-        // Both Admin and SuperAdmin can see pending registrations and stock alerts
+        // If SuperAdmin has viewed/acknowledged, do not show deletion request in drawer!
+        if (isActorSuperAdmin && n.type === 'USER_DELETION_REQUEST') {
+          if (currentSig && currentSig === ackedSig) return false;
+        }
         if (n.type === 'USER_DELETION_REQUEST' && !isActorSuperAdmin) return false;
         return true;
       });
@@ -22077,7 +22174,11 @@
         if (n.type === 'USER_REGISTRATION') {
           clickHandler = `onclick="if (typeof openPendingRegistrationsModal === 'function') { openPendingRegistrationsModal('${escapeHtml(n.targetUserId || '')}'); } else { navigateTab('chat'); switchChatChannel('ADMIN_DIRECT', '🛡️ Admin Support', 'ជជែកផ្ទាល់ជាមួយ Admin', ''); } toggleNotificationDropdown();"`;
         } else if (n.type === 'USER_DELETION_REQUEST') {
-          clickHandler = `onclick="navigateTab('users'); if (typeof openSuperAdminDeletionReviewModal === 'function') openSuperAdminDeletionReviewModal('${n.targetUserId || ''}', '${n.targetUsername || ''}'); toggleNotificationDropdown();"`;
+          if (isActorSuperAdmin) {
+            clickHandler = `onclick="viewUserDeleteReason('${n.targetUserId || ''}', '${n.targetUsername || ''}'); toggleNotificationDropdown();"`;
+          } else {
+            clickHandler = `onclick="navigateTab('users'); if (typeof openSuperAdminDeletionReviewModal === 'function') openSuperAdminDeletionReviewModal('${n.targetUserId || ''}', '${n.targetUsername || ''}'); toggleNotificationDropdown();"`;
+          }
         }
 
         const dotColor = (n.type === 'USER_DELETION_REQUEST') ? 'bg-rose-600 animate-ping' :
@@ -22088,7 +22189,7 @@
           (n.type === 'USER_REGISTRATION') ? 'bg-amber-500 animate-pulse' : 'bg-blue-500';
 
         const actionText = (n.type === 'USER_REGISTRATION') ? 'ចុចពិនិត្យ & អនុម័ត ❯' :
-          (n.type === 'USER_DELETION_REQUEST') ? 'ចុចត្រួតពិនិត្យ ❯' : '';
+          (n.type === 'USER_DELETION_REQUEST') ? (isActorSuperAdmin ? 'ចុចមើលព័ត៌មានលម្អិត ❯' : 'ចុចត្រួតពិនិត្យ ❯') : '';
 
         return `
           <div ${clickHandler}
