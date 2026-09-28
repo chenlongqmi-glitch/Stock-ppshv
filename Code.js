@@ -6967,13 +6967,19 @@ function logActivity(user, role, action, details) {
         const now = new Date();
         const timestampStr = Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd HH:mm:ss');
 
-        const channelId = chatData.channelId || 'ALL_WAREHOUSES';
+        let channelId = chatData.channelId || 'ALL_WAREHOUSES';
+        const msgText = String(chatData.messageText || '').trim();
+        const hasReg = Boolean(chatData.registrationData) || msgText.includes('សំណើសុំចុះឈ្មោះ') || msgText.includes('ADMIN NOTIFICATION');
+        const hasDel = msgText.includes('សំណើសុំលុប') || msgText.includes('ការឆ្លើយតបសំណើសុំលុប');
+        if (hasReg || hasDel) {
+          channelId = 'ADMIN_DIRECT';
+        }
         const senderUsername = chatData.senderUsername || (user ? user.username : 'Staff');
         const senderFullName = chatData.senderFullName || (user ? (user.fullName || user.username) : senderUsername);
         const senderRole = chatData.senderRole || (user ? user.role : 'Stock Keeper');
         const senderWarehouse = chatData.senderWarehouse || (user ? user.warehouse : 'ឃ្លាំងទូទៅ');
         const senderAvatar = chatData.senderAvatar || (user ? user.avatar : '') || '';
-        const messageText = String(chatData.messageText || '').trim();
+        const messageText = msgText;
 
         let itemReference = '';
         if (chatData.itemReference) {
@@ -7132,6 +7138,16 @@ function logActivity(user, role, action, details) {
 
           // Direct chat channels are identified by channelId or composite e.g. "WH01_WH02" or "WH01_ADMIN"
           if (rowChannel === targetChannel || targetChannel === 'ALL') {
+            // Strict Privacy: Never expose registration cards, deletion notices, or admin notifications in ALL_WAREHOUSES (បន្ទប់រួម)
+            if (targetChannel === 'ALL_WAREHOUSES') {
+              const rText = String(row[8] || '');
+              const rRef = String(row[9] || '');
+              const rId = String(row[0] || '');
+              if (rText.includes('សំណើសុំចុះឈ្មោះ') || rText.includes('ADMIN NOTIFICATION') || rText.includes('សំណើសុំលុប') || rText.includes('ការឆ្លើយតបសំណើសុំលុប') || rRef.includes('USER_REGISTRATION') || rRef.includes('USER_DELETION') || rId.includes('REG') || rId.includes('DEL')) {
+                continue;
+              }
+            }
+
             let itemRef = null;
             if (row[9]) {
               try { itemRef = JSON.parse(row[9]); } catch (err) { itemRef = row[9]; }

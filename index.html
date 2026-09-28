@@ -5687,6 +5687,24 @@
             LOCAL_DB.chatMessages = parsed;
           }
         }
+        // Strict Privacy: Never keep registration or deletion cards in ALL_WAREHOUSES (បន្ទប់រួម)
+        if (Array.isArray(LOCAL_DB.chatMessages)) {
+          let dirty = false;
+          LOCAL_DB.chatMessages.forEach(m => {
+            if (m.channelId === 'ALL_WAREHOUSES') {
+              const txt = String(m.messageText || '');
+              const isReg = Boolean(m.registrationData) || txt.includes('សំណើសុំចុះឈ្មោះ') || txt.includes('ADMIN NOTIFICATION') || String(m.msgId || '').includes('REG');
+              const isDel = String(m.msgId || '').includes('MSG-DEL') || txt.includes('សំណើសុំលុប') || txt.includes('ការឆ្លើយតបសំណើសុំលុប') || (m.itemReference && (m.itemReference.type === 'USER_DELETION_RESULT' || m.itemReference.type === 'USER_REGISTRATION'));
+              if (isReg || isDel) {
+                m.channelId = 'ADMIN_DIRECT';
+                dirty = true;
+              }
+            }
+          });
+          if (dirty) {
+            saveLocalChatMessagesToStorage();
+          }
+        }
       } catch (e) {
         console.warn('Could not load chat messages from localStorage', e);
       }
@@ -8017,7 +8035,7 @@
         const regMsg = {
           msgId: 'MSG-REG-' + Date.now().toString().slice(-6),
           timestamp: new Date().toISOString().slice(0, 16).replace('T', ' '),
-          channelId: 'ALL_WAREHOUSES',
+          channelId: 'ADMIN_DIRECT',
           senderUsername: newUser.username,
           senderFullName: newUser.fullName,
           senderRole: newUser.role,
@@ -8381,7 +8399,7 @@
               LOCAL_DB.chatMessages.push({
                 msgId: 'MSG-DEL-' + Date.now(),
                 timestamp: new Date().toLocaleString('km-KH'),
-                channelId: 'ALL_WAREHOUSES',
+                channelId: 'ADMIN_DIRECT',
                 senderUsername: actor?.username || 'Admin',
                 senderFullName: actor?.fullName || actor?.username || 'Admin',
                 senderRole: 'Admin',
@@ -8445,7 +8463,7 @@
             LOCAL_DB.chatMessages.push({
               msgId: 'MSG-DEL-' + Date.now(),
               timestamp: new Date().toISOString().slice(0, 16).replace('T', ' '),
-              channelId: 'ALL_WAREHOUSES',
+              channelId: 'ADMIN_DIRECT',
               senderUsername: 'superadmin',
               senderFullName: 'Super Admin',
               senderRole: 'SuperAdmin',
@@ -8501,7 +8519,7 @@
             LOCAL_DB.chatMessages.push({
               msgId: 'MSG-DEL-' + Date.now(),
               timestamp: new Date().toISOString().slice(0, 16).replace('T', ' '),
-              channelId: 'ALL_WAREHOUSES',
+              channelId: 'ADMIN_DIRECT',
               senderUsername: 'superadmin',
               senderFullName: 'Super Admin',
               senderRole: 'SuperAdmin',
@@ -19650,7 +19668,7 @@
             LOCAL_DB.chatMessages.push({
               msgId: 'MSG-DEL-' + Date.now(),
               timestamp: new Date().toISOString().slice(0, 16).replace('T', ' '),
-              channelId: 'ALL_WAREHOUSES',
+              channelId: 'ADMIN_DIRECT',
               senderUsername: 'superadmin',
               senderFullName: 'Super Admin',
               senderRole: 'SuperAdmin',
@@ -19663,7 +19681,7 @@
           }
           apiCall('sendChatMessage', {
             data: {
-              channelId: 'ALL_WAREHOUSES',
+              channelId: 'ADMIN_DIRECT',
               text: liveChatReplyText,
               itemReference: resolution
             }
@@ -19800,7 +19818,7 @@
             LOCAL_DB.chatMessages.push({
               msgId: 'MSG-DEL-' + Date.now(),
               timestamp: new Date().toISOString().slice(0, 16).replace('T', ' '),
-              channelId: 'ALL_WAREHOUSES',
+              channelId: 'ADMIN_DIRECT',
               senderUsername: 'superadmin',
               senderFullName: 'Super Admin',
               senderRole: 'SuperAdmin',
@@ -19813,7 +19831,7 @@
           }
           apiCall('sendChatMessage', {
             data: {
-              channelId: 'ALL_WAREHOUSES',
+              channelId: 'ADMIN_DIRECT',
               text: liveChatReplyText,
               itemReference: resolution
             }
@@ -23332,7 +23350,17 @@
 
         const res = await apiCall('getChatMessages', { channelId: currentChatChannel });
         if (res && res.success) {
-          const msgs = res.messages || [];
+          let msgs = res.messages || [];
+
+          // SANITIZE & PURGE ADMIN NOTIFICATIONS FROM PUBLIC ROOM (ALL_WAREHOUSES / បន្ទប់រួម)
+          if (currentChatChannel === 'ALL_WAREHOUSES') {
+            msgs = msgs.filter(m => {
+              const txt = String(m.messageText || '');
+              const isReg = Boolean(m.registrationData) || txt.includes('សំណើសុំចុះឈ្មោះ') || txt.includes('ADMIN NOTIFICATION') || String(m.msgId || '').includes('REG');
+              const isDel = String(m.msgId || '').includes('MSG-DEL') || txt.includes('សំណើសុំលុប') || txt.includes('ការឆ្លើយតបសំណើសុំលុប') || (m.itemReference && (m.itemReference.type === 'USER_DELETION_RESULT' || m.itemReference.type === 'USER_REGISTRATION'));
+              return !isReg && !isDel;
+            });
+          }
 
           // If current channel is ADMIN_DIRECT, ensure pending registrations are included for Admin
           if (currentChatChannel === 'ADMIN_DIRECT') {
@@ -23422,6 +23450,16 @@
       const container = document.getElementById('chatMessagesContainer');
       if (!container) return;
 
+      // STRICT PRIVACY: Completely purge registration cards, deletion notices, and admin notifications from ALL_WAREHOUSES (បន្ទប់រួម)
+      if (currentChatChannel === 'ALL_WAREHOUSES') {
+        messages = (messages || []).filter(m => {
+          const txt = String(m.messageText || '');
+          const isReg = Boolean(m.registrationData) || txt.includes('សំណើសុំចុះឈ្មោះ') || txt.includes('ADMIN NOTIFICATION') || String(m.msgId || '').includes('REG');
+          const isDel = String(m.msgId || '').includes('MSG-DEL') || txt.includes('សំណើសុំលុប') || txt.includes('ការឆ្លើយតបសំណើសុំលុប') || (m.itemReference && (m.itemReference.type === 'USER_DELETION_RESULT' || m.itemReference.type === 'USER_REGISTRATION'));
+          return !isReg && !isDel;
+        });
+      }
+
       if (!messages || messages.length === 0) {
         container.innerHTML = `
           <div class="h-full flex flex-col items-center justify-center py-16 text-center space-y-2">
@@ -23455,10 +23493,10 @@
         }
 
         const msgText = String(m.messageText || '');
-        const isRegMessage = Boolean(regData) || msgText.includes('សំណើសុំចុះឈ្មោះ') || String(m.msgId || '').includes('REG');
+        const isRegMessage = Boolean(regData) || msgText.includes('សំណើសុំចុះឈ្មោះ') || msgText.includes('ADMIN NOTIFICATION') || String(m.msgId || '').includes('REG');
 
-        // Show registration requests in both ALL_WAREHOUSES and ADMIN_DIRECT
-        if (currentChatChannel !== 'ADMIN_DIRECT' && currentChatChannel !== 'ALL_WAREHOUSES' && isRegMessage) {
+        // STRICT PRIVACY: Registration requests MUST NEVER be shown in ALL_WAREHOUSES or standard public channels!
+        if (currentChatChannel !== 'ADMIN_DIRECT' && isRegMessage) {
           return '';
         }
 
