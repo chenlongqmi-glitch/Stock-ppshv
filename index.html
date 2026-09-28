@@ -9087,13 +9087,14 @@
         showConfirmButton: false
       }).then(() => {
         // Trigger proactive alerts safely AFTER welcome toast closes
-        if (isSuperAdmin) {
+        if (isSuperAdmin || isAdmin) {
           setTimeout(() => {
             if (typeof checkPendingDeletionsForSuperAdmin === 'function') {
               checkPendingDeletionsForSuperAdmin(false);
             }
           }, 300);
-        } else if (isAdmin) {
+        }
+        if (isAdmin) {
           setTimeout(() => {
             if (typeof checkPendingRegistrationsForAdmin === 'function') {
               checkPendingRegistrationsForAdmin(false);
@@ -11143,7 +11144,7 @@
           const isSuperAdmin = (actor?.role === 'SuperAdmin' || String(actor?.username).toLowerCase() === 'superadmin');
           const isActorAdmin = isSuperAdmin || String(actor?.role || '').toLowerCase().includes('admin') || String(actor?.username || '').toLowerCase() === 'admin' || String(actor?.username || '').toLowerCase() === 'singvan327@gmail.com';
 
-          if (isSuperAdmin && typeof checkPendingDeletionsForSuperAdmin === 'function') {
+          if ((isSuperAdmin || isActorAdmin) && typeof checkPendingDeletionsForSuperAdmin === 'function') {
             checkPendingDeletionsForSuperAdmin(false);
           }
           if (isActorAdmin && typeof checkPendingRegistrationsForAdmin === 'function') {
@@ -16460,7 +16461,7 @@
             if (topSettingsBadge) topSettingsBadge.classList.add('hidden');
           }
 
-          if (isActorSuperAdmin && typeof checkPendingDeletionsForSuperAdmin === 'function') {
+          if ((isActorSuperAdmin || isActorAdmin) && typeof checkPendingDeletionsForSuperAdmin === 'function') {
             checkPendingDeletionsForSuperAdmin(true);
           }
 
@@ -19160,6 +19161,24 @@
         });
         saveLocalChatMessagesToStorage();
 
+        // Trigger in-app notification & real-time broadcast for Admin
+        if (typeof addNotification === 'function') {
+          addNotification('USER_DELETION_REQUEST', `⚠️ សំណើសុំលុបគណនី: ${targetDisplayName}`, `${requestedBy} បានស្នើសុំលុបគណនីនេះ។ មូលហេតុ៖ "${deleteReason}"`, targetWh || myWh || 'ឃ្លាំងទូទៅ', uName, uId, uName);
+        }
+        if (typeof broadcastInventoryMutation === 'function') {
+          broadcastInventoryMutation('USER_DELETION_REQUEST', {
+            userId: uId,
+            username: uName,
+            targetUserId: uId,
+            targetUsername: uName,
+            targetDisplayName: targetDisplayName,
+            reason: deleteReason,
+            requestedBy: requestedBy,
+            warehouse: targetWh || myWh,
+            userList: LOCAL_DB.users
+          });
+        }
+
         loadUsersList();
 
         Swal.fire({
@@ -19914,7 +19933,8 @@
 
       const actor = AppState.currentUser;
       const isSuperAdmin = (actor?.role === 'SuperAdmin' || String(actor?.username).toLowerCase() === 'superadmin');
-      if (!isSuperAdmin || !pendingDeletions || pendingDeletions.length === 0) {
+      const isActorAdmin = isSuperAdmin || String(actor?.role || '').toLowerCase().includes('admin') || String(actor?.username || '').toLowerCase() === 'admin' || String(actor?.username || '').toLowerCase() === 'singvan327@gmail.com';
+      if ((!isSuperAdmin && !isActorAdmin) || !pendingDeletions || pendingDeletions.length === 0) {
         container.innerHTML = '';
         return;
       }
@@ -19928,10 +19948,10 @@
               </div>
               <div>
                 <h4 class="font-extrabold text-sm text-rose-950 flex items-center gap-2">
-                  <span>សំណើសុំលុបគណនីកំពុងរង់ចាំ SuperAdmin ត្រួតពិនិត្យ និងអនុម័ត</span>
+                  <span>សំណើសុំលុបគណនីកំពុងរង់ចាំ Admin / SuperAdmin ត្រួតពិនិត្យ និងអនុម័ត</span>
                   <span class="px-2 py-0.5 text-[10px] font-black rounded-full bg-rose-600 text-white shadow-xs">${pendingDeletions.length} សំណើ</span>
                 </h4>
-                <p class="text-xs text-rose-700 mt-0.5">Admin បានស្នើសុំលុបបុគ្គលិកខាងក្រោម។ សូម SuperAdmin ផ្ទៀងផ្ទាត់ និងសរសេរបញ្ជាក់មូលហេតុមុននឹងសម្រេច Approve ឬ Reject។</p>
+                <p class="text-xs text-rose-700 mt-0.5">មានការស្នើសុំលុបបុគ្គលិកខាងក្រោម។ សូម Admin / SuperAdmin ផ្ទៀងផ្ទាត់ និងសរសេរបញ្ជាក់មូលហេតុមុននឹងសម្រេច Approve ឬ Reject។</p>
               </div>
             </div>
             <button onclick="navigateTab('users');" class="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-sm flex items-center gap-1.5 transition hover:scale-105 active:scale-95 flex-shrink-0">
@@ -19963,7 +19983,7 @@
                 </div>
                 <div class="pt-3 mt-2 border-t border-slate-100 flex gap-1.5">
                   <button onclick="openSuperAdminDeletionReviewModal('${u.userId || ''}', '${u.username || ''}')" class="flex-1 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shadow-xs transition hover:scale-102 flex items-center justify-center gap-1.5">
-                    <i class="fa-solid fa-crown text-[10px]"></i>
+                    <i class="fa-solid fa-shield-halved text-[10px]"></i>
                     <span>ផ្ទៀងផ្ទាត់ & សម្រេច</span>
                   </button>
                 </div>
@@ -19980,7 +20000,8 @@
 
       const actor = AppState.currentUser;
       const isSuperAdmin = (actor?.role === 'SuperAdmin' || String(actor?.username).toLowerCase() === 'superadmin');
-      if (!isSuperAdmin || !pendingDeletions || pendingDeletions.length === 0) {
+      const isActorAdmin = isSuperAdmin || String(actor?.role || '').toLowerCase().includes('admin') || String(actor?.username || '').toLowerCase() === 'admin' || String(actor?.username || '').toLowerCase() === 'singvan327@gmail.com';
+      if ((!isSuperAdmin && !isActorAdmin) || !pendingDeletions || pendingDeletions.length === 0) {
         banner.innerHTML = '';
         return;
       }
@@ -19993,7 +20014,7 @@
             </div>
             <div>
               <h5 class="font-extrabold text-xs md:text-sm text-rose-950 flex items-center gap-2">
-                <span>⚠️ មានសំណើសុំលុបអ្នកប្រើប្រាស់ចំនួន <span class="text-rose-600 font-black">${pendingDeletions.length}</span> រង់ចាំការផ្ទៀងផ្ទាត់ពី SuperAdmin</span>
+                <span>⚠️ មានសំណើសុំលុបអ្នកប្រើប្រាស់ចំនួន <span class="text-rose-600 font-black">${pendingDeletions.length}</span> រង់ចាំការផ្ទៀងផ្ទាត់ពី Admin / SuperAdmin</span>
               </h5>
               <p class="text-[11px] text-rose-700 mt-0.5">សូមចុចប៊ូតុង «អនុម័តលុប» ឬ «បដិសេធ» លើជួរគណនីនីមួយៗ ដើម្បីសរសេរបញ្ជាក់ពីមូលហេតុ និងសម្រេចការលុប។</p>
             </div>
@@ -20027,7 +20048,7 @@
           pendingBadge.textContent = `⚠️ ${pendingDeletions.length}`;
           pendingBadge.classList.remove('hidden');
           pendingBadge.className = "px-1.5 py-0.2 text-[9px] font-extrabold rounded-full bg-rose-600 text-white shadow-xs animate-pulse";
-          pendingBadge.title = `មាន ${pendingDeletions.length} សំណើសុំលុបគណនីរង់ចាំ SuperAdmin ពិនិត្យ`;
+          pendingBadge.title = `មាន ${pendingDeletions.length} សំណើសុំលុបគណនីរង់ចាំ Admin / SuperAdmin ពិនិត្យ`;
         }
         if (topSettingsBadge) {
           topSettingsBadge.textContent = pendingDeletions.length;
@@ -20066,7 +20087,7 @@
           id: 'NOTIF-DEL-' + (u.userId || u.username),
           type: 'USER_DELETION_REQUEST',
           title: `⚠️ សំណើសុំលុបគណនី: ${u.fullName || u.username}`,
-          message: `Admin ${u.deleteRequestedBy || 'Admin'} បានស្នើសុំលុបគណនីនេះ។ មូលហេតុ៖ "${u.deleteReason || 'គ្មានការបញ្ជាក់'}"`,
+          message: `${u.deleteRequestedBy || 'Admin'} បានស្នើសុំលុបគណនីនេះ។ មូលហេតុ៖ "${u.deleteReason || 'គ្មានការបញ្ជាក់'}"`,
           warehouse: u.warehouse || 'ឃ្លាំងទូទៅ',
           user: u.username,
           targetUserId: u.userId,
@@ -20133,8 +20154,8 @@
               <div>
                 <h3 class="text-lg font-black text-slate-900 tracking-tight">សំណើសុំលុបគណនីបុគ្គលិក</h3>
                 <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-rose-100 text-rose-700 border border-rose-200 mt-1">
-                  <i class="fa-solid fa-crown text-amber-500"></i>
-                  <span>រង់ចាំ Super Admin ពិនិត្យ & សម្រេច (${pendingDeletions.length})</span>
+                  <i class="fa-solid fa-shield-halved text-amber-500"></i>
+                  <span>រង់ចាំ Admin / SuperAdmin ពិនិត្យ & សម្រេច (${pendingDeletions.length})</span>
                 </div>
               </div>
             </div>
@@ -20145,7 +20166,7 @@
               <div class="p-3 bg-gradient-to-r from-purple-50 to-rose-50 border border-purple-200 rounded-2xl flex items-center justify-between shadow-2xs">
                 <div class="flex items-center gap-2">
                   <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></span>
-                  <span class="text-slate-600 font-semibold">ស្នើសុំដោយ Admin៖</span>
+                  <span class="text-slate-600 font-semibold">ស្នើសុំដោយ៖</span>
                   <span class="font-black text-purple-800 bg-white px-2.5 py-1 rounded-xl border border-purple-200 shadow-2xs">
                     <i class="fa-solid fa-user-shield text-purple-600 mr-1"></i>${escapeHtml(p.deleteRequestedBy || 'Admin')}
                   </span>
@@ -20178,7 +20199,7 @@
                 <div class="p-3 bg-rose-50/80 rounded-xl border border-rose-200">
                   <div class="flex items-center gap-1.5 text-rose-950 font-extrabold text-xs mb-1.5">
                     <i class="fa-solid fa-comment-dots text-rose-600"></i>
-                    <span>មូលហេតុដែល Admin បានបញ្ជាក់៖</span>
+                    <span>មូលហេតុនៃការស្នើសុំលុប៖</span>
                   </div>
                   <div class="p-2.5 bg-white rounded-lg border border-rose-200 text-slate-800 text-xs font-medium italic leading-relaxed shadow-2xs">
                     "${escapeHtml(p.deleteReason || 'គ្មានការបញ្ជាក់មូលហេតុ')}"
@@ -20188,12 +20209,12 @@
 
               ${pendingDeletions.length > 1 ? `
                 <div class="p-2 bg-amber-50 rounded-xl border border-amber-200 text-center text-xs text-amber-900 font-bold">
-                  ⚠️ មានសំណើសុំលុបគណនីសរុបចំនួន <b>${pendingDeletions.length}</b> នាក់ កំពុងរង់ចាំការសម្រេចពី Super Admin
+                  ⚠️ មានសំណើសុំលុបគណនីសរុបចំនួន <b>${pendingDeletions.length}</b> នាក់ កំពុងរង់ចាំការសម្រេចពី Admin / SuperAdmin
                 </div>
               ` : ''}
 
               <p class="text-[11px] text-slate-500 text-center font-medium">
-                សូម Super Admin ពិនិត្យ ផ្ទៀងផ្ទាត់ និងសរសេរមូលហេតុបញ្ជាក់មុននឹងសម្រេច <b>Approve</b> ឬ <b>Reject</b>។
+                សូម Admin / SuperAdmin ពិនិត្យ ផ្ទៀងផ្ទាត់ និងសរសេរមូលហេតុបញ្ជាក់មុននឹងសម្រេច <b>Approve</b> ឬ <b>Reject</b>។
               </p>
             </div>
           `,
@@ -20229,6 +20250,8 @@
         return;
       }
       const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
+      const isActorAdmin = !isActorSuperAdmin && (AppState.currentUser?.role === 'Admin' || String(AppState.currentUser?.username).toLowerCase() === 'admin' || String(AppState.currentUser?.username).toLowerCase() === 'singvan327@gmail.com');
+      const canReview = isActorSuperAdmin || isActorAdmin;
 
       Swal.fire({
         title: 'ព័ត៌មានសំណើសុំលុបគណនី',
@@ -20244,7 +20267,7 @@
               </div>
             </div>
             <div class="p-3 bg-rose-50/80 rounded-xl border border-rose-200 space-y-1.5 text-slate-700 text-xs">
-              <div><span class="font-bold text-slate-600">👤 ស្នើសុំដោយ Admin៖</span> <span class="font-semibold text-purple-700">${u.deleteRequestedBy || 'Admin'}</span></div>
+              <div><span class="font-bold text-slate-600">👤 ស្នើសុំដោយ៖</span> <span class="font-semibold text-purple-700">${u.deleteRequestedBy || 'Admin'}</span></div>
               <div><span class="font-bold text-slate-600">🕒 កាលបរិច្ឆេទស្នើ៖</span> <span>${u.deleteRequestedAt ? new Date(u.deleteRequestedAt).toLocaleString('km-KH') : '-'}</span></div>
               <div class="pt-1.5 border-t border-rose-200">
                 <span class="font-bold text-rose-800 block mb-1">📝 មូលហេតុនៃការស្នើសុំលុប៖</span>
@@ -20256,11 +20279,11 @@
           </div>
         `,
         showCancelButton: true,
-        confirmButtonColor: isActorSuperAdmin ? '#e11d48' : '#2563eb',
-        confirmButtonText: isActorSuperAdmin ? '<i class="fa-solid fa-crown mr-1"></i> ផ្ទៀងផ្ទាត់ & សម្រេច' : 'បិទ',
+        confirmButtonColor: canReview ? '#e11d48' : '#2563eb',
+        confirmButtonText: canReview ? '<i class="fa-solid fa-user-shield mr-1"></i> ផ្ទៀងផ្ទាត់ & សម្រេច' : 'បិទ',
         cancelButtonText: 'បោះបង់'
       }).then(r => {
-        if (r.isConfirmed && isActorSuperAdmin) {
+        if (r.isConfirmed && canReview) {
           openSuperAdminDeletionReviewModal(u.userId, u.username);
         }
       });
@@ -21466,6 +21489,10 @@
               u.status = 'Pending_Deletion';
               u.deleteReason = msg.reason || '';
               u.deleteRequestedBy = msg.requestedBy || '';
+              u.deleteRequestedAt = new Date().toISOString();
+            }
+            if (typeof addNotification === 'function') {
+              addNotification('USER_DELETION_REQUEST', `⚠️ សំណើសុំលុបគណនី: ${msg.targetDisplayName || msg.username || delId}`, `${msg.requestedBy || 'អ្នកគ្រប់គ្រងស្ថានីយ'} បានស្នើសុំលុបគណនីនេះ។ មូលហេតុ៖ "${msg.reason || 'គ្មានការបញ្ជាក់'}"`, msg.warehouse || 'ឃ្លាំងទូទៅ', msg.username, delId, delUname);
             }
           }
           saveLocalUsersToStorage();
@@ -21479,7 +21506,8 @@
         }
         const actor = AppState.currentUser;
         const isSuperAdmin = (actor?.role === 'SuperAdmin' || String(actor?.username).toLowerCase() === 'superadmin');
-        if (isSuperAdmin && typeof checkPendingDeletionsForSuperAdmin === 'function') {
+        const isActorAdmin = isSuperAdmin || String(actor?.role || '').toLowerCase().includes('admin') || String(actor?.username || '').toLowerCase() === 'admin' || String(actor?.username || '').toLowerCase() === 'singvan327@gmail.com';
+        if ((isSuperAdmin || isActorAdmin) && typeof checkPendingDeletionsForSuperAdmin === 'function') {
           checkPendingDeletionsForSuperAdmin(false);
         }
       }
@@ -21643,13 +21671,16 @@
       notificationsList.unshift(notifObj);
       renderNotificationDrawer();
 
-      // Strict RBAC: USER_DELETION_REQUEST alert is EXCLUSIVELY for SuperAdmin!
-      // Admin requested the deletion and must NEVER receive this alert, sound, or drawer item.
+      // USER_DELETION_REQUEST alert for SuperAdmin and Admin
       if (type === 'USER_DELETION_REQUEST') {
-        const isSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin' || String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
-        if (!isSuperAdmin) {
-          return; // Stop immediately, Admin must NOT receive this alert or chime!
+        const actorRole = String(AppState.currentUser?.role || '').toLowerCase();
+        const actorName = String(AppState.currentUser?.username || '').toLowerCase();
+        const isSuperAdmin = (actorRole === 'superadmin' || actorName === 'superadmin' || AppState.currentUser?.userId === 'USR-SA');
+        const isActorAdmin = isSuperAdmin || actorRole.includes('admin') || actorName === 'admin' || actorName === 'singvan327@gmail.com';
+        if (!isSuperAdmin && !isActorAdmin) {
+          return; // Non-admin users do not receive this deletion alert
         }
+        playNotificationSound();
         if (typeof checkPendingDeletionsForSuperAdmin === 'function') {
           checkPendingDeletionsForSuperAdmin(false);
         }

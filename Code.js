@@ -2935,6 +2935,44 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
         if (deleteReason) sheet.getRange(i + 1, 13).setValue(deleteReason);
         if (deleteRequestedBy) sheet.getRange(i + 1, 14).setValue(String(deleteRequestedBy));
         sheet.getRange(i + 1, 15).setValue(deleteRequestedAt || new Date().toISOString());
+
+        try {
+          const targetUName = String(data[i][1] || rawUser || rawId);
+          const targetFName = fullName || String(data[i][2]) || targetUName;
+          const targetRole = r || String(data[i][6]) || 'Stock Keeper';
+          const targetWh = wh || String(data[i][9]) || '-';
+
+          let webAppUrl = 'https://script.google.com/macros/s/AKfycbxqw7NPsE8pWqeYPAwTqxFakzFD5lTzGR1N5mlL-n2oZMp4FeDpGENFnEAjf6gSddk/exec';
+          try {
+            const liveUrl = ScriptApp.getService().getUrl();
+            if (liveUrl && liveUrl.startsWith('https://script.google.com/')) {
+              webAppUrl = liveUrl;
+            }
+          } catch (uErr) {}
+
+          const reviewUrl = `${webAppUrl}?action=reviewUserDeletionTelegram&userId=${encodeURIComponent(uId)}&u=${encodeURIComponent(targetUName)}`;
+
+          sendTelegramAlert(
+            `⚠️ <b>[សំណើសុំលុបគណនីអ្នកប្រើប្រាស់ - Pending Deletion]</b>\n` +
+            `👤 <b>ឈ្មោះបុគ្គលិក:</b> ${targetFName}\n` +
+            `🆔 <b>Username:</b> <code>@${targetUName}</code>\n` +
+            `💼 <b>តួនាទី:</b> ${targetRole}\n` +
+            `🏢 <b>ឃ្លាំង/ស្ថានីយ:</b> ${targetWh}\n` +
+            `📝 <b>មូលហេតុនៃការលុប:</b> <i>"${deleteReason || 'គ្មានការបញ្ជាក់'}"</i>\n` +
+            `👮 <b>ស្នើសុំដោយ:</b> ${deleteRequestedBy || admin || 'អ្នកគ្រប់គ្រងស្ថានីយ'}\n` +
+            `🕒 <b>កាលបរិច្ឆេទ:</b> ${Utilities.formatDate(new Date(), 'GMT+7', 'dd/MM/yyyy, HH:mm:ss')}\n\n` +
+            `👉 <b>សូម Admin / SuperAdmin ពិនិត្យ ផ្ទៀងផ្ទាត់ និងសម្រេច Approve/Reject៖</b>`,
+            {
+              inline_keyboard: [
+                [
+                  { text: "🛡️ ផ្ទៀងផ្ទាត់ & សម្រេច (Approve / Reject)", url: reviewUrl }
+                ]
+              ]
+            }
+          );
+        } catch (tgErr) {
+          Logger.log('Telegram Alert Pending_Deletion error: ' + tgErr.toString());
+        }
       } else if (st === 'Active' || st === 'Inactive') {
         sheet.getRange(i + 1, 13).setValue('');
         sheet.getRange(i + 1, 14).setValue('');
@@ -3332,11 +3370,11 @@ function requestUserDeletion(payload) {
       `📝 <b>មូលហេតុនៃការលុប (Admin):</b> <i>"${reason}"</i>\n` +
       `👮 <b>ស្នើសុំដោយ Admin:</b> ${adminUser}\n` +
       `🕒 <b>កាលបរិច្ឆេទ:</b> ${new Date().toLocaleString('km-KH')}\n\n` +
-      `👉 <b>សូម SuperAdmin ពិនិត្យ ផ្ទៀងផ្ទាត់ និងសរសេរមូលហេតុ Approve/Reject៖</b>`,
+      `👉 <b>សូម Admin / SuperAdmin ពិនិត្យ ផ្ទៀងផ្ទាត់ និងសរសេរមូលហេតុ Approve/Reject៖</b>`,
       {
         inline_keyboard: [
           [
-            { text: "👑 ផ្ទៀងផ្ទាត់ & សម្រេច (Approve / Reject)", url: reviewUrl }
+            { text: "🛡️ ផ្ទៀងផ្ទាត់ & សម្រេច (Approve / Reject)", url: reviewUrl }
           ]
         ]
       }
