@@ -2961,11 +2961,12 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
             `📝 <b>មូលហេតុនៃការលុប:</b> <i>"${deleteReason || 'គ្មានការបញ្ជាក់'}"</i>\n` +
             `👮 <b>ស្នើសុំដោយ:</b> ${deleteRequestedBy || admin || 'អ្នកគ្រប់គ្រងស្ថានីយ'}\n` +
             `🕒 <b>កាលបរិច្ឆេទ:</b> ${Utilities.formatDate(new Date(), 'GMT+7', 'dd/MM/yyyy, HH:mm:ss')}\n\n` +
-            `👉 <b>សូម Admin / SuperAdmin ពិនិត្យ ផ្ទៀងផ្ទាត់ និងសម្រេច Approve/Reject៖</b>`,
+            `👉 <b>ជូនដំណឹង SuperAdmin និង Admin (Admin ជាអ្នកពិនិត្យ និងសម្រេចការលុប)</b>`,
             {
               inline_keyboard: [
                 [
-                  { text: "🛡️ ផ្ទៀងផ្ទាត់ & សម្រេច (Approve / Reject)", url: reviewUrl }
+                  { text: "🛡️ ផ្ទៀងផ្ទាត់ & សម្រេច (សម្រាប់ Admin)", url: reviewUrl },
+                  { text: "👁️ មើលក្នុង Web App", url: webAppUrl }
                 ]
               ]
             }

@@ -16789,7 +16789,21 @@
         // 5. Actions
         let actionsHtml = '';
         if (u.status === 'Pending_Deletion') {
-          if (isActorSuperAdmin || isActorAdmin) {
+          if (isActorSuperAdmin) {
+            // SuperAdmin: Only receives alert and views full details, no approval required!
+            actionsHtml = `
+              <div class="inline-flex items-center space-x-1.5">
+                <span class="text-[10px] text-blue-700 font-semibold bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 inline-flex items-center" title="ព័ត៌មានជូន SuperAdmin (Admin ជាអ្នកអនុម័ត)">
+                  <i class="fa-solid fa-bell mr-1 text-blue-500"></i>ដំណឹង (Admin ជាអ្នកអនុម័ត)
+                </span>
+                <button onclick="viewUserDeleteReason('${u.userId || u.username}')" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition hover:scale-105 active:scale-95 flex items-center space-x-1" title="មើលព័ត៌មានលម្អិត">
+                  <i class="fa-solid fa-eye text-xs"></i>
+                  <span>មើលព័ត៌មានលម្អិត</span>
+                </button>
+              </div>
+            `;
+          } else if (isActorAdmin) {
+            // Admin: Reviews and decides (Approve / Reject)
             actionsHtml = `
               <div class="inline-flex flex-wrap items-center gap-1.5">
                 <button onclick="handleApproveUserDeletion('${u.userId || ''}', '${u.username || ''}')" class="px-3 py-1.5 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 text-white rounded-xl text-xs font-bold shadow-xs transition hover:scale-105 active:scale-95 flex items-center space-x-1" title="ចុចអនុម័តការលុប">
@@ -19400,8 +19414,14 @@
       const actor = AppState.currentUser;
       const isActorSuperAdmin = (actor?.role === 'SuperAdmin') || (String(actor?.username).toLowerCase() === 'superadmin');
       const isActorAdmin = !isActorSuperAdmin && (actor?.role === 'Admin' || String(actor?.username).toLowerCase() === 'admin');
-      if (!isActorSuperAdmin && !isActorAdmin) {
-        Swal.fire('គ្មានសិទ្ធិ', 'មានតែ Admin និង SuperAdmin ប៉ុណ្ណោះដែលអាចផ្ទៀងផ្ទាត់ និងសម្រេចការលុបគណនីបាន!', 'warning');
+
+      // SuperAdmin only receives alert and views details, no approve required!
+      if (isActorSuperAdmin) {
+        return viewUserDeleteReason(userId || username);
+      }
+
+      if (!isActorAdmin) {
+        Swal.fire('គ្មានសិទ្ធិ', 'មានតែ Admin ប៉ុណ្ណោះដែលអាចផ្ទៀងផ្ទាត់ និងសម្រេចការលុបគណនីបាន!', 'warning');
         return;
       }
 
@@ -19439,7 +19459,7 @@
       const targetRole = targetUser.role || 'User';
       const targetWh = targetUser.warehouse || '-';
       const targetPhone = targetUser.phone || 'មិនមាន';
-      const reqBy = targetUser.deleteRequestedBy || 'Admin';
+      const reqBy = targetUser.deleteRequestedBy || 'Station Manager';
       const reqAt = targetUser.deleteRequestedAt ? new Date(targetUser.deleteRequestedAt).toLocaleString('km-KH') : '-';
       const adminReason = targetUser.deleteReason || 'គ្មានការបញ្ជាក់មូលហេតុ';
 
@@ -19463,18 +19483,18 @@
             </div>
           </div>
 
-          <!-- Admin Request Details Box -->
+          <!-- Request Details Box -->
           <div class="p-3.5 bg-amber-50/70 rounded-2xl border border-amber-200 text-slate-700 space-y-1.5 shadow-xs">
             <div class="flex items-center justify-between text-[11px]">
               <span class="font-bold text-amber-900 flex items-center">
                 <i class="fa-solid fa-user-shield text-amber-600 mr-1.5"></i>
-                ស្នើសុំដោយ Admin៖ <span class="font-extrabold text-purple-700 ml-1">${escapeHtml(reqBy)}</span>
+                ស្នើសុំដោយ៖ <span class="font-extrabold text-purple-700 ml-1">${escapeHtml(reqBy)}</span>
               </span>
               <span class="text-slate-400 text-[10px] font-mono">${reqAt}</span>
             </div>
             <div class="pt-2 border-t border-amber-200/80">
               <span class="font-bold text-amber-900 text-xs block mb-1">
-                <i class="fa-solid fa-comment-dots text-amber-600 mr-1"></i>មូលហេតុស្នើសុំលុបរបស់ Admin៖
+                <i class="fa-solid fa-comment-dots text-amber-600 mr-1"></i>មូលហេតុស្នើសុំលុប៖
               </span>
               <div class="p-2.5 bg-white/90 rounded-xl border border-amber-200 text-slate-800 text-xs italic font-medium leading-relaxed">
                 "${escapeHtml(adminReason)}"
@@ -19482,25 +19502,25 @@
             </div>
           </div>
 
-          <!-- SuperAdmin Verification & Reason Input -->
+          <!-- Admin Verification & Reason Input -->
           <div class="p-3.5 bg-rose-50/50 rounded-2xl border-2 border-rose-200 space-y-2">
             <div class="flex items-center justify-between">
               <label class="block text-xs font-bold text-rose-950 flex items-center">
-                <i class="fa-solid fa-crown text-amber-500 mr-1.5"></i>
-                មូលហេតុ / មតិបញ្ជាក់របស់ SuperAdmin <span class="text-rose-600 ml-1 font-black">*</span>
+                <i class="fa-solid fa-user-shield text-blue-600 mr-1.5"></i>
+                មូលហេតុ / មតិបញ្ជាក់របស់ Admin <span class="text-rose-600 ml-1 font-black">*</span>
               </label>
               <span class="text-[10px] text-rose-500 font-semibold">(ចាំបាច់ត្រូវសរសេរ)</span>
             </div>
             <p class="text-[11px] text-slate-600 leading-relaxed">
               សូមសរសេរបញ្ជាក់ពីការផ្ទៀងផ្ទាត់ និងមូលហេតុមុននឹងសម្រេចចុច <b>Approve</b> ឬ <b>Reject</b>៖
             </p>
-            <textarea id="superAdminDecisionRemarks" rows="3" class="w-full px-3 py-2.5 text-xs bg-white border border-rose-300 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition shadow-inner font-sans" placeholder="សូមសរសេរបញ្ជាក់ពីមូលហេតុនៃការសម្រេចចិត្ត (ឧ. បានផ្ទៀងផ្ទាត់បញ្ជីស្តុក និងគណនីរួចរាល់ យល់ព្រមលុប... ឬ បដិសេធដោយសារបុគ្គលិកនៅកាន់កាប់ស្តុក...)..."></textarea>
+            <textarea id="superAdminDecisionRemarks" rows="3" class="w-full px-3 py-2.5 text-xs bg-white border border-rose-300 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none transition shadow-inner font-sans" placeholder="សូមសរសេរបញ្ជាក់ពីមូលហេតុនៃការសម្រេចចិត្ត..."></textarea>
           </div>
         </div>
       `;
 
       const result = await Swal.fire({
-        title: '<div class="flex items-center justify-center gap-2 text-base font-extrabold text-slate-900"><i class="fa-solid fa-crown text-amber-500"></i> <span>ផ្ទៀងផ្ទាត់ និងសម្រេចការលុបគណនី</span></div>',
+        title: '<div class="flex items-center justify-center gap-2 text-base font-extrabold text-slate-900"><i class="fa-solid fa-user-shield text-blue-600"></i> <span>ផ្ទៀងផ្ទាត់ និងសម្រេចការលុបគណនី</span></div>',
         html: htmlContent,
         width: 520,
         showCancelButton: true,
@@ -19515,7 +19535,7 @@
         preConfirm: () => {
           const reason = document.getElementById('superAdminDecisionRemarks')?.value?.trim();
           if (!reason) {
-            Swal.showValidationMessage('សូមសរសេរបញ្ជាក់ពីមូលហេតុ ឬមតិយោបល់របស់ SuperAdmin មុននឹងអនុម័តលុប!');
+            Swal.showValidationMessage('សូមសរសេរបញ្ជាក់ពីមូលហេតុ ឬមតិយោបល់របស់ Admin មុននឹងអនុម័តលុប!');
             return false;
           }
           return { decision: 'Approve', reason: reason };
@@ -19523,7 +19543,7 @@
         preDeny: () => {
           const reason = document.getElementById('superAdminDecisionRemarks')?.value?.trim();
           if (!reason) {
-            Swal.showValidationMessage('សូមសរសេរបញ្ជាក់ពីមូលហេតុ ឬមតិយោបល់របស់ SuperAdmin មុននឹងបដិសេធ!');
+            Swal.showValidationMessage('សូមសរសេរបញ្ជាក់ពីមូលហេតុ ឬមតិយោបល់របស់ Admin មុននឹងបដិសេធ!');
             return false;
           }
           return { decision: 'Reject', reason: reason };
@@ -19939,6 +19959,13 @@
         return;
       }
 
+      const alertTitle = isSuperAdmin
+        ? `<span>🔔 សំណើសុំលុបគណនីបុគ្គលិក (ព័ត៌មានជូន SuperAdmin)</span>`
+        : `<span>⚠️ សំណើសុំលុបគណនីកំពុងរង់ចាំ Admin ត្រួតពិនិត្យ និងអនុម័ត</span>`;
+      const alertSubtitle = isSuperAdmin
+        ? `មានការស្នើសុំលុបបុគ្គលិកខាងក្រោម។ ព័ត៌មាននេះជូនដំណឹងដល់ SuperAdmin ដើម្បីដឹងឮព័ត៌មានលម្អិត (ការអនុម័តធ្វើឡើងដោយ Admin)។`
+        : `មានការស្នើសុំលុបបុគ្គលិកខាងក្រោម។ សូម Admin ផ្ទៀងផ្ទាត់ និងសរសេរបញ្ជាក់មូលហេតុមុននឹងសម្រេច Approve ឬ Reject។`;
+
       container.innerHTML = `
         <div class="glass-card p-4 md:p-5 rounded-2xl shadow-sm border-2 border-rose-300 bg-gradient-to-r from-rose-50/90 via-white to-amber-50/70 space-y-3.5">
           <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-rose-100">
@@ -19948,10 +19975,10 @@
               </div>
               <div>
                 <h4 class="font-extrabold text-sm text-rose-950 flex items-center gap-2">
-                  <span>សំណើសុំលុបគណនីកំពុងរង់ចាំ Admin / SuperAdmin ត្រួតពិនិត្យ និងអនុម័ត</span>
+                  ${alertTitle}
                   <span class="px-2 py-0.5 text-[10px] font-black rounded-full bg-rose-600 text-white shadow-xs">${pendingDeletions.length} សំណើ</span>
                 </h4>
-                <p class="text-xs text-rose-700 mt-0.5">មានការស្នើសុំលុបបុគ្គលិកខាងក្រោម។ សូម Admin / SuperAdmin ផ្ទៀងផ្ទាត់ និងសរសេរបញ្ជាក់មូលហេតុមុននឹងសម្រេច Approve ឬ Reject។</p>
+                <p class="text-xs text-rose-700 mt-0.5">${alertSubtitle}</p>
               </div>
             </div>
             <button onclick="navigateTab('users');" class="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-sm flex items-center gap-1.5 transition hover:scale-105 active:scale-95 flex-shrink-0">
@@ -19982,10 +20009,17 @@
                   </div>
                 </div>
                 <div class="pt-3 mt-2 border-t border-slate-100 flex gap-1.5">
-                  <button onclick="openSuperAdminDeletionReviewModal('${u.userId || ''}', '${u.username || ''}')" class="flex-1 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shadow-xs transition hover:scale-102 flex items-center justify-center gap-1.5">
-                    <i class="fa-solid fa-shield-halved text-[10px]"></i>
-                    <span>ផ្ទៀងផ្ទាត់ & សម្រេច</span>
-                  </button>
+                  ${isSuperAdmin ? `
+                    <button onclick="viewUserDeleteReason('${u.userId || ''}', '${u.username || ''}')" class="flex-1 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs transition hover:scale-102 flex items-center justify-center gap-1.5">
+                      <i class="fa-solid fa-eye text-[10px]"></i>
+                      <span>មើលព័ត៌មានលម្អិត</span>
+                    </button>
+                  ` : `
+                    <button onclick="openSuperAdminDeletionReviewModal('${u.userId || ''}', '${u.username || ''}')" class="flex-1 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shadow-xs transition hover:scale-102 flex items-center justify-center gap-1.5">
+                      <i class="fa-solid fa-shield-halved text-[10px]"></i>
+                      <span>ផ្ទៀងផ្ទាត់ & សម្រេច</span>
+                    </button>
+                  `}
                 </div>
               </div>
             `).join('')}
@@ -20014,17 +20048,30 @@
             </div>
             <div>
               <h5 class="font-extrabold text-xs md:text-sm text-rose-950 flex items-center gap-2">
-                <span>⚠️ មានសំណើសុំលុបអ្នកប្រើប្រាស់ចំនួន <span class="text-rose-600 font-black">${pendingDeletions.length}</span> រង់ចាំការផ្ទៀងផ្ទាត់ពី Admin / SuperAdmin</span>
+                ${isSuperAdmin
+                  ? `<span>🔔 មានសំណើសុំលុបអ្នកប្រើប្រាស់ចំនួន <span class="text-rose-600 font-black">${pendingDeletions.length}</span> (ព័ត៌មានជូនដំណឹង SuperAdmin)</span>`
+                  : `<span>⚠️ មានសំណើសុំលុបអ្នកប្រើប្រាស់ចំនួន <span class="text-rose-600 font-black">${pendingDeletions.length}</span> រង់ចាំការផ្ទៀងផ្ទាត់ពី Admin</span>`
+                }
               </h5>
-              <p class="text-[11px] text-rose-700 mt-0.5">សូមចុចប៊ូតុង «អនុម័តលុប» ឬ «បដិសេធ» លើជួរគណនីនីមួយៗ ដើម្បីសរសេរបញ្ជាក់ពីមូលហេតុ និងសម្រេចការលុប។</p>
+              <p class="text-[11px] text-rose-700 mt-0.5">
+                ${isSuperAdmin
+                  ? `លោកអ្នកអាចចុច «មើលព័ត៌មានលម្អិត» ដើម្បីពិនិត្យមើលព័ត៌មានបុគ្គលិក និងមូលហេតុ (ការអនុម័តលុបត្រូវបានចាត់ចែងដោយ Admin)។`
+                  : `សូមចុចប៊ូតុង «អនុម័តលុប» ឬ «បដិសេធ» លើជួរគណនីនីមួយៗ ដើម្បីសរសេរបញ្ជាក់ពីមូលហេតុ និងសម្រេចការលុប។`
+                }
+              </p>
             </div>
           </div>
-          ${pendingDeletions.length > 0 ? `
-            <button onclick="openSuperAdminDeletionReviewModal('${pendingDeletions[0].userId || ''}', '${pendingDeletions[0].username || ''}')" class="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-xs transition hover:scale-105 active:scale-95 flex items-center gap-1.5 flex-shrink-0">
-              <i class="fa-solid fa-magnifying-glass-check"></i>
-              <span>ផ្ទៀងផ្ទាត់សំណើដំបូង</span>
-            </button>
-          ` : ''}
+          ${pendingDeletions.length > 0 ? (
+            isSuperAdmin
+              ? `<button onclick="viewUserDeleteReason('${pendingDeletions[0].userId || ''}', '${pendingDeletions[0].username || ''}')" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition hover:scale-105 active:scale-95 flex items-center gap-1.5 flex-shrink-0">
+                  <i class="fa-solid fa-eye"></i>
+                  <span>មើលព័ត៌មានលម្អិត</span>
+                </button>`
+              : `<button onclick="openSuperAdminDeletionReviewModal('${pendingDeletions[0].userId || ''}', '${pendingDeletions[0].username || ''}')" class="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-xs transition hover:scale-105 active:scale-95 flex items-center gap-1.5 flex-shrink-0">
+                  <i class="fa-solid fa-magnifying-glass-check"></i>
+                  <span>ផ្ទៀងផ្ទាត់សំណើដំបូង</span>
+                </button>`
+          ) : ''}
         </div>
       `;
     }
@@ -20146,7 +20193,22 @@
             confirmButton: 'rounded-xl font-black px-5 py-3 shadow-lg shadow-rose-600/30 text-sm hover:scale-[1.02] active:scale-95 transition',
             cancelButton: 'rounded-xl font-bold px-4 py-3 text-xs text-slate-600 hover:bg-slate-100 transition'
           },
-          title: `
+        const modalTitleHtml = isSuperAdmin
+          ? `
+            <div class="flex flex-col items-center justify-center gap-2 text-center pt-2">
+              <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-500 via-indigo-600 to-purple-500 text-white flex items-center justify-center shadow-lg shadow-indigo-500/30 text-3xl animate-bounce">
+                <i class="fa-solid fa-bell"></i>
+              </div>
+              <div>
+                <h3 class="text-lg font-black text-slate-900 tracking-tight">ដំណឹងសំណើសុំលុបគណនីបុគ្គលិក</h3>
+                <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-blue-100 text-blue-800 border border-blue-200 mt-1">
+                  <i class="fa-solid fa-circle-info text-blue-600"></i>
+                  <span>ដំណឹងជូន SuperAdmin (${pendingDeletions.length} សំណើ - Admin ជាអ្នកអនុម័ត)</span>
+                </div>
+              </div>
+            </div>
+          `
+          : `
             <div class="flex flex-col items-center justify-center gap-2 text-center pt-2">
               <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-rose-500 via-rose-600 to-amber-500 text-white flex items-center justify-center shadow-lg shadow-rose-500/30 text-3xl animate-bounce">
                 <i class="fa-solid fa-bell"></i>
@@ -20155,11 +20217,22 @@
                 <h3 class="text-lg font-black text-slate-900 tracking-tight">សំណើសុំលុបគណនីបុគ្គលិក</h3>
                 <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-rose-100 text-rose-700 border border-rose-200 mt-1">
                   <i class="fa-solid fa-shield-halved text-amber-500"></i>
-                  <span>រង់ចាំ Admin / SuperAdmin ពិនិត្យ & សម្រេច (${pendingDeletions.length})</span>
+                  <span>រង់ចាំ Admin ពិនិត្យ & សម្រេច (${pendingDeletions.length})</span>
                 </div>
               </div>
             </div>
-          `,
+          `;
+
+        Swal.fire({
+          position: 'center',
+          customClass: {
+            popup: 'rounded-3xl shadow-2xl border-2 border-rose-400 p-5 max-w-lg',
+            title: 'p-0 mb-1',
+            htmlContainer: 'p-0 text-left',
+            confirmButton: 'rounded-xl font-black px-5 py-3 shadow-lg shadow-rose-600/30 text-sm hover:scale-[1.02] active:scale-95 transition',
+            cancelButton: 'rounded-xl font-bold px-4 py-3 text-xs text-slate-600 hover:bg-slate-100 transition'
+          },
+          title: modalTitleHtml,
           html: `
             <div class="text-left text-xs space-y-3 mt-3">
               <!-- Admin Request Header Card -->
@@ -20209,27 +20282,34 @@
 
               ${pendingDeletions.length > 1 ? `
                 <div class="p-2 bg-amber-50 rounded-xl border border-amber-200 text-center text-xs text-amber-900 font-bold">
-                  ⚠️ មានសំណើសុំលុបគណនីសរុបចំនួន <b>${pendingDeletions.length}</b> នាក់ កំពុងរង់ចាំការសម្រេចពី Admin / SuperAdmin
+                  ⚠️ មានសំណើសុំលុបគណនីសរុបចំនួន <b>${pendingDeletions.length}</b> នាក់
                 </div>
               ` : ''}
 
               <p class="text-[11px] text-slate-500 text-center font-medium">
-                សូម Admin / SuperAdmin ពិនិត្យ ផ្ទៀងផ្ទាត់ និងសរសេរមូលហេតុបញ្ជាក់មុននឹងសម្រេច <b>Approve</b> ឬ <b>Reject</b>។
+                ${isSuperAdmin
+                  ? `ព័ត៌មាននេះជូនដំណឹងដល់ SuperAdmin ដើម្បីដឹងឮព័ត៌មានលម្អិត (ការពិនិត្យ & អនុម័តធ្វើឡើងដោយ Admin)។`
+                  : `សូម Admin ពិនិត្យ ផ្ទៀងផ្ទាត់ និងសរសេរមូលហេតុបញ្ជាក់មុននឹងសម្រេច <b>Approve</b> ឬ <b>Reject</b>។`
+                }
               </p>
             </div>
           `,
           showCancelButton: true,
-          confirmButtonColor: '#e11d48',
+          confirmButtonColor: isSuperAdmin ? '#2563eb' : '#e11d48',
           cancelButtonColor: '#64748b',
-          confirmButtonText: '<i class="fa-solid fa-crown mr-1.5"></i> ពិនិត្យ & សម្រេចភ្លាមៗ',
-          cancelButtonText: 'ទុកពិនិត្យពេលក្រោយ',
+          confirmButtonText: isSuperAdmin ? '<i class="fa-solid fa-eye mr-1.5"></i> មើលព័ត៌មានលម្អិត' : '<i class="fa-solid fa-user-shield mr-1.5"></i> ពិនិត្យ & សម្រេចភ្លាមៗ',
+          cancelButtonText: isSuperAdmin ? 'យល់ព្រម (បិទ)' : 'ទុកពិនិត្យពេលក្រោយ',
           allowOutsideClick: false
         }).then(res => {
           sessionStorage.setItem('last_seen_deletion_signature', currentSig);
           if (res.isConfirmed) {
-            navigateTab('users');
-            if (p) {
-              openSuperAdminDeletionReviewModal(p.userId, p.username);
+            if (isSuperAdmin) {
+              viewUserDeleteReason(p.userId, p.username);
+            } else {
+              navigateTab('users');
+              if (p) {
+                openSuperAdminDeletionReviewModal(p.userId, p.username);
+              }
             }
           } else {
             // Dismissed for 90 seconds, will remind again if still unhandled or on next login
@@ -20251,10 +20331,9 @@
       }
       const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
       const isActorAdmin = !isActorSuperAdmin && (AppState.currentUser?.role === 'Admin' || String(AppState.currentUser?.username).toLowerCase() === 'admin' || String(AppState.currentUser?.username).toLowerCase() === 'singvan327@gmail.com');
-      const canReview = isActorSuperAdmin || isActorAdmin;
 
       Swal.fire({
-        title: 'ព័ត៌មានសំណើសុំលុបគណនី',
+        title: isActorSuperAdmin ? '🔔 ព័ត៌មានលម្អិតសំណើសុំលុបគណនី' : 'ព័ត៌មានសំណើសុំលុបគណនី',
         html: `
           <div class="text-left text-xs space-y-2.5 p-3.5 bg-slate-50 rounded-2xl border border-slate-200 mt-2">
             <div class="flex items-center space-x-2.5 bg-white p-2.5 rounded-xl border border-slate-200">
@@ -20276,14 +20355,21 @@
                 </p>
               </div>
             </div>
+            ${isActorSuperAdmin ? `
+              <div class="p-2.5 bg-blue-50/80 border border-blue-200 rounded-xl text-blue-900 text-[11px] leading-relaxed">
+                <i class="fa-solid fa-circle-info text-blue-600 mr-1"></i>
+                <b>ចំណាំជូន SuperAdmin៖</b> ការពិនិត្យ និងសម្រេចអនុម័តការលុបគណនីនេះ គឺជាភារកិច្ចរបស់ Admin។ SuperAdmin គ្រាន់តែដឹងឮព័ត៌មាននេះទៅបានហើយ។
+              </div>
+            ` : ''}
           </div>
         `,
-        showCancelButton: true,
-        confirmButtonColor: canReview ? '#e11d48' : '#2563eb',
-        confirmButtonText: canReview ? '<i class="fa-solid fa-user-shield mr-1"></i> ផ្ទៀងផ្ទាត់ & សម្រេច' : 'បិទ',
+        showCancelButton: isActorAdmin,
+        confirmButtonColor: '#2563eb',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: isActorSuperAdmin ? '<i class="fa-solid fa-check mr-1"></i> យល់ព្រម (បិទ)' : '<i class="fa-solid fa-user-shield mr-1"></i> ផ្ទៀងផ្ទាត់ & សម្រេច',
         cancelButtonText: 'បោះបង់'
       }).then(r => {
-        if (r.isConfirmed && canReview) {
+        if (r.isConfirmed && isActorAdmin) {
           openSuperAdminDeletionReviewModal(u.userId, u.username);
         }
       });
