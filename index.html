@@ -863,6 +863,91 @@
        }
      }
 
+    /* Stock In Movable & Resizable Form Fields */
+    .stockin-field-wrapper {
+      position: relative;
+      flex: 0 0 auto;
+      box-sizing: border-box;
+      transition: box-shadow 0.15s ease, border-color 0.15s ease;
+    }
+    .stockin-field-wrapper.is-dragging {
+      opacity: 0.45;
+      transform: scale(0.98);
+      outline: 2px dashed #10b981 !important;
+      border-radius: 0.75rem;
+    }
+    .stockin-field-wrapper.drop-target-left {
+      box-shadow: -4px 0 0 0 #10b981, 0 0 12px rgba(16, 185, 129, 0.25) !important;
+    }
+    .stockin-field-wrapper.drop-target-right {
+      box-shadow: 4px 0 0 0 #10b981, 0 0 12px rgba(16, 185, 129, 0.25) !important;
+    }
+    .stockin-drag-handle {
+      cursor: grab;
+      user-select: none;
+      opacity: 0.6;
+      transition: opacity 0.15s;
+    }
+    .stockin-drag-handle:hover {
+      opacity: 1;
+    }
+    .stockin-drag-handle:active {
+      cursor: grabbing;
+    }
+    .stockin-resize-handle {
+      position: absolute;
+      top: 0;
+      right: -5px;
+      bottom: 0;
+      width: 10px;
+      cursor: col-resize;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      touch-action: none;
+    }
+    .stockin-resize-handle > div {
+      width: 3px;
+      height: 20px;
+      background-color: #cbd5e1;
+      border-radius: 9999px;
+      transition: all 0.15s;
+    }
+    .stockin-resize-handle:hover > div,
+    .stockin-field-wrapper.is-resizing .stockin-resize-handle > div {
+      background-color: #059669 !important;
+      height: 28px !important;
+      width: 4px !important;
+      box-shadow: 0 0 8px rgba(5, 150, 105, 0.6);
+    }
+    .stockin-field-wrapper.is-resizing {
+      user-select: none;
+    }
+    #stockinResizeBadge {
+      position: fixed;
+      z-index: 99999;
+      pointer-events: none;
+      background: #064e3b;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+      transform: translate(-50%, -120%);
+      display: none;
+    }
+    @media (max-width: 639px) {
+      .stockin-field-wrapper {
+        width: 100% !important;
+        min-width: 100% !important;
+      }
+      .stockin-resize-handle {
+        display: none !important;
+      }
+    }
+
   </style>
 </head>
 
@@ -2063,267 +2148,341 @@
                   </div>
                 </div>
 
-                <!-- ផ្នែកខាងស្តាំ: ប្រអប់ទិន្នន័យ ៣ ជួរ (STANDARDIZED EQUAL 4-COLUMN GRID) -->
-                <div id="stockInFieldsContainer" class="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end w-full">
-                  
-                  <!-- ROW 1 (4 cols: Sku, Size, Color, Zone) -->
-                  <!-- 1. ឈ្មោះទំនិញ (KEYWORD/BARCODE) * -->
-                  <div id="stockInField_sku" data-field-id="sku" class="col-span-1">
-                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center truncate" title="ឈ្មោះទំនិញ (KEYWORD/BARCODE)">
-                      <i class="fa-solid fa-magnifying-glass text-blue-600 mr-1.5 shrink-0"></i>
-                      <span class="truncate">ឈ្មោះទំនិញ (KEYWORD) *</span>
-                    </label>
-                    <div class="relative">
-                      <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-slate-400 text-xs"></i>
-                      <input type="text" id="stockInSku" required
-                        placeholder="វាយឈ្មោះទំនិញ ឬ SKU / Bar..."
-                        oninput="handleCustomProductSearch(this, 'stockIn')"
-                        onfocus="handleCustomProductSearch(this, 'stockIn')"
-                        onchange="onStockInItemChange()"
-                        onkeydown="handleProductSearchKeydown(event, 'stockIn')"
-                        autocomplete="off"
-                        class="w-full h-11 pl-9 pr-8 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition shadow-2xs">
-                      <button type="button" onclick="clearStockInProductSelection()"
-                        class="absolute right-2.5 top-3 text-slate-400 hover:text-slate-600 p-1 text-xs" title="សម្អាត">
-                        <i class="fa-solid fa-xmark"></i>
+                <!-- ផ្នែកខាងស្តាំ: ប្រអប់ទិន្នន័យ (MOVABLE & RESIZABLE) -->
+                <div class="flex-1 flex flex-col gap-2">
+                  <div class="flex items-center justify-between pb-0.5 text-xs text-slate-500 font-khmer">
+                    <span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-lg border border-emerald-200/70">
+                      <i class="fa-solid fa-arrows-up-down-left-right text-[10px]"></i> អាច Move &amp; ទាញវែងខ្លីបានតាមចិត្ត
+                    </span>
+                    <button type="button" onclick="resetStockInCustomLayout()" class="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-600 hover:text-emerald-700 bg-slate-100 hover:bg-emerald-50 px-2.5 py-0.5 rounded-lg border border-slate-200 transition shadow-2xs">
+                      <i class="fa-solid fa-rotate-left text-[10px]"></i> កំណត់ទំហំដើម
+                    </button>
+                  </div>
+
+                  <div id="stockInFieldsContainer" class="flex flex-wrap gap-2.5 items-end w-full">
+                    
+                    <!-- 1. ឈ្មោះទំនិញ (KEYWORD/BARCODE) * -->
+                    <div id="stockInField_sku" data-field-id="sku" data-default-width="calc(25% - 8px)" style="width: calc(25% - 8px); min-width: 160px;" class="stockin-field-wrapper">
+                      <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center justify-between truncate" title="ឈ្មោះទំនិញ (KEYWORD/BARCODE)">
+                        <span class="flex items-center truncate">
+                          <span class="stockin-drag-handle mr-1.5 text-slate-400 hover:text-emerald-600" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to reorder)">
+                            <i class="fa-solid fa-grip-vertical text-xs"></i>
+                          </span>
+                          <i class="fa-solid fa-magnifying-glass text-blue-600 mr-1.5 shrink-0"></i>
+                          <span class="truncate">ឈ្មោះទំនិញ (KEYWORD) *</span>
+                        </span>
+                      </label>
+                      <div class="relative">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-slate-400 text-xs"></i>
+                        <input type="text" id="stockInSku" required
+                          placeholder="វាយឈ្មោះទំនិញ ឬ SKU / Bar..."
+                          oninput="handleCustomProductSearch(this, 'stockIn')"
+                          onfocus="handleCustomProductSearch(this, 'stockIn')"
+                          onchange="onStockInItemChange()"
+                          onkeydown="handleProductSearchKeydown(event, 'stockIn')"
+                          autocomplete="off"
+                          class="w-full h-11 pl-9 pr-8 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition shadow-2xs">
+                        <button type="button" onclick="clearStockInProductSelection()"
+                          class="absolute right-2.5 top-3 text-slate-400 hover:text-slate-600 p-1 text-xs" title="សម្អាត">
+                          <i class="fa-solid fa-xmark"></i>
+                        </button>
+                      </div>
+                      <div class="stockin-resize-handle" title="ចុចទាញដើម្បីប្តូរប្រវែងវែងខ្លី (Drag to resize width)"><div></div></div>
+                    </div>
+
+                    <!-- 2. ខ្នាត (SIZE) -->
+                    <div id="stockInField_size" data-field-id="size" data-default-width="calc(25% - 8px)" style="width: calc(25% - 8px); min-width: 120px;" class="stockin-field-wrapper">
+                      <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center justify-between truncate" title="ខ្នាត (SIZE)">
+                        <span class="flex items-center truncate">
+                          <span class="stockin-drag-handle mr-1.5 text-slate-400 hover:text-emerald-600" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to reorder)">
+                            <i class="fa-solid fa-grip-vertical text-xs"></i>
+                          </span>
+                          <i class="fa-solid fa-ruler-combined text-slate-600 mr-1.5 shrink-0"></i>
+                          <span class="truncate">ខ្នាត (SIZE)</span>
+                        </span>
+                      </label>
+                      <input type="text" id="stockInSize" placeholder="ខ្នាត..."
+                        class="w-full h-11 px-3 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition shadow-2xs">
+                      <div class="stockin-resize-handle" title="ចុចទាញដើម្បីប្តូរប្រវែងវែងខ្លី (Drag to resize width)"><div></div></div>
+                    </div>
+
+                    <!-- 3. ពណ៌ (COLOR) -->
+                    <div id="stockInField_color" data-field-id="color" data-default-width="calc(25% - 8px)" style="width: calc(25% - 8px); min-width: 120px;" class="stockin-field-wrapper">
+                      <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center justify-between truncate" title="ពណ៌ (COLOR)">
+                        <span class="flex items-center truncate">
+                          <span class="stockin-drag-handle mr-1.5 text-slate-400 hover:text-emerald-600" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to reorder)">
+                            <i class="fa-solid fa-grip-vertical text-xs"></i>
+                          </span>
+                          <i class="fa-solid fa-palette text-amber-500 mr-1.5 shrink-0"></i>
+                          <span class="truncate">ពណ៌ (COLOR)</span>
+                        </span>
+                      </label>
+                      <input type="text" id="stockInColor" placeholder="ពណ៌..."
+                        class="w-full h-11 px-3 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition shadow-2xs">
+                      <div class="stockin-resize-handle" title="ចុចទាញដើម្បីប្តូរប្រវែងវែងខ្លី (Drag to resize width)"><div></div></div>
+                    </div>
+
+                    <!-- 4. តំបន់ស្តុក (ZONE) -->
+                    <div id="stockInField_zone" data-field-id="zone" data-default-width="calc(25% - 8px)" style="width: calc(25% - 8px); min-width: 140px;" class="stockin-field-wrapper">
+                      <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center justify-between truncate" title="តំបន់ស្តុក (ZONE)">
+                        <span class="flex items-center truncate">
+                          <span class="stockin-drag-handle mr-1.5 text-slate-400 hover:text-emerald-600" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to reorder)">
+                            <i class="fa-solid fa-grip-vertical text-xs"></i>
+                          </span>
+                          <i class="fa-solid fa-location-dot text-rose-500 mr-1.5 shrink-0"></i>
+                          <span class="truncate">តំបន់ស្តុក (ZONE)</span>
+                        </span>
+                      </label>
+                      <select id="stockInZone"
+                        class="w-full h-11 px-3 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition shadow-2xs">
+                        <option value="">-- រើសតំបន់ស្តុក (Zone) --</option>
+                        <optgroup label="តំបន់ A (A01 - A10)">
+                          <option value="A01">A01</option>
+                          <option value="A02">A02</option>
+                          <option value="A03">A03</option>
+                          <option value="A04">A04</option>
+                          <option value="A05">A05</option>
+                          <option value="A06">A06</option>
+                          <option value="A07">A07</option>
+                          <option value="A08">A08</option>
+                          <option value="A09">A09</option>
+                          <option value="A10">A10</option>
+                        </optgroup>
+                        <optgroup label="តំបន់ B (B01 - B10)">
+                          <option value="B01">B01</option>
+                          <option value="B02">B02</option>
+                          <option value="B03">B03</option>
+                          <option value="B04">B04</option>
+                          <option value="B05">B05</option>
+                          <option value="B06">B06</option>
+                          <option value="B07">B07</option>
+                          <option value="B08">B08</option>
+                          <option value="B09">B09</option>
+                          <option value="B10">B10</option>
+                        </optgroup>
+                        <optgroup label="តំបន់ C (C01 - C10)">
+                          <option value="C01">C01</option>
+                          <option value="C02">C02</option>
+                          <option value="C03">C03</option>
+                          <option value="C04">C04</option>
+                          <option value="C05">C05</option>
+                          <option value="C06">C06</option>
+                          <option value="C07">C07</option>
+                          <option value="C08">C08</option>
+                          <option value="C09">C09</option>
+                          <option value="C10">C10</option>
+                        </optgroup>
+                        <optgroup label="តំបន់ D (D01 - D10)">
+                          <option value="D01">D01</option>
+                          <option value="D02">D02</option>
+                          <option value="D03">D03</option>
+                          <option value="D04">D04</option>
+                          <option value="D05">D05</option>
+                          <option value="D06">D06</option>
+                          <option value="D07">D07</option>
+                          <option value="D08">D08</option>
+                          <option value="D09">D09</option>
+                          <option value="D10">D10</option>
+                        </optgroup>
+                        <optgroup label="តំបន់ E (E01 - E10)">
+                          <option value="E01">E01</option>
+                          <option value="E02">E02</option>
+                          <option value="E03">E03</option>
+                          <option value="E04">E04</option>
+                          <option value="E05">E05</option>
+                          <option value="E06">E06</option>
+                          <option value="E07">E07</option>
+                          <option value="E08">E08</option>
+                          <option value="E09">E09</option>
+                          <option value="E10">E10</option>
+                        </optgroup>
+                        <optgroup label="តំបន់ F (F01 - F10)">
+                          <option value="F01">F01</option>
+                          <option value="F02">F02</option>
+                          <option value="F03">F03</option>
+                          <option value="F04">F04</option>
+                          <option value="F05">F05</option>
+                          <option value="F06">F06</option>
+                          <option value="F07">F07</option>
+                          <option value="F08">F08</option>
+                          <option value="F09">F09</option>
+                          <option value="F10">F10</option>
+                        </optgroup>
+                        <optgroup label="តំបន់ G (G01 - G10)">
+                          <option value="G01">G01</option>
+                          <option value="G02">G02</option>
+                          <option value="G03">G03</option>
+                          <option value="G04">G04</option>
+                          <option value="G05">G05</option>
+                          <option value="G06">G06</option>
+                          <option value="G07">G07</option>
+                          <option value="G08">G08</option>
+                          <option value="G09">G09</option>
+                          <option value="G10">G10</option>
+                        </optgroup>
+                        <optgroup label="តំបន់ H (H01 - H10)">
+                          <option value="H01">H01</option>
+                          <option value="H02">H02</option>
+                          <option value="H03">H03</option>
+                          <option value="H04">H04</option>
+                          <option value="H05">H05</option>
+                          <option value="H06">H06</option>
+                          <option value="H07">H07</option>
+                          <option value="H08">H08</option>
+                          <option value="H09">H09</option>
+                          <option value="H10">H10</option>
+                        </optgroup>
+                        <optgroup label="តំបន់ I (I01 - I10)">
+                          <option value="I01">I01</option>
+                          <option value="I02">I02</option>
+                          <option value="I03">I03</option>
+                          <option value="I04">I04</option>
+                          <option value="I05">I05</option>
+                          <option value="I06">I06</option>
+                          <option value="I07">I07</option>
+                          <option value="I08">I08</option>
+                          <option value="I09">I09</option>
+                          <option value="I10">I10</option>
+                        </optgroup>
+                        <optgroup label="តំបន់ J (J01 - J10)">
+                          <option value="J01">J01</option>
+                          <option value="J02">J02</option>
+                          <option value="J03">J03</option>
+                          <option value="J04">J04</option>
+                          <option value="J05">J05</option>
+                          <option value="J06">J06</option>
+                          <option value="J07">J07</option>
+                          <option value="J08">J08</option>
+                          <option value="J09">J09</option>
+                          <option value="J10">J10</option>
+                        </optgroup>
+                      </select>
+                      <div class="stockin-resize-handle" title="ចុចទាញដើម្បីប្តូរប្រវែងវែងខ្លី (Drag to resize width)"><div></div></div>
+                    </div>
+
+                    <!-- 5. ចំនួនចូលស្តុក * រាយ -->
+                    <div id="stockInField_qtyRetail" data-field-id="qtyRetail" data-default-width="calc(25% - 8px)" style="width: calc(25% - 8px); min-width: 130px;" class="stockin-field-wrapper">
+                      <label class="block text-xs font-bold text-emerald-800 uppercase mb-1.5 flex items-center justify-between truncate" title="ចំនួនចូលស្តុក រាយ">
+                        <span class="flex items-center truncate">
+                          <span class="stockin-drag-handle mr-1.5 text-slate-400 hover:text-emerald-600" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to reorder)">
+                            <i class="fa-solid fa-grip-vertical text-xs"></i>
+                          </span>
+                          <i class="fa-solid fa-arrow-down text-emerald-600 mr-1 shrink-0"></i>
+                          <span class="truncate">ចំនួនចូលស្តុក *</span>
+                          <span class="text-xs font-extrabold text-emerald-800 shrink-0 ml-1" id="stockInRetailUnitBadge">រាយ</span>
+                        </span>
+                      </label>
+                      <input type="number" id="stockInQtyRetail" inputmode="decimal" min="0" step="any" placeholder="0" value="0"
+                        oninput="calculateStockInCalculations()"
+                        class="w-full h-11 text-center bg-emerald-50/50 border-2 border-emerald-400 rounded-xl px-2 text-base font-black text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition shadow-2xs">
+                      <div class="stockin-resize-handle" title="ចុចទាញដើម្បីប្តូរប្រវែងវែងខ្លី (Drag to resize width)"><div></div></div>
+                    </div>
+
+                    <!-- 6. ចំនួនចូលស្តុក * ដុំ -->
+                    <div id="stockInField_qtyBulk" data-field-id="qtyBulk" data-default-width="calc(25% - 8px)" style="width: calc(25% - 8px); min-width: 130px;" class="stockin-field-wrapper">
+                      <label class="block text-xs font-bold text-emerald-800 uppercase mb-1.5 flex items-center justify-between truncate" title="ចំនួនចូលស្តុក ដុំ">
+                        <span class="flex items-center truncate">
+                          <span class="stockin-drag-handle mr-1.5 text-slate-400 hover:text-emerald-600" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to reorder)">
+                            <i class="fa-solid fa-grip-vertical text-xs"></i>
+                          </span>
+                          <i class="fa-solid fa-arrow-down text-emerald-600 mr-1 shrink-0"></i>
+                          <span class="truncate">ចំនួនចូលស្តុក *</span>
+                          <span class="text-xs font-extrabold text-emerald-800 shrink-0 ml-1" id="stockInBulkUnitBadge">ដុំ</span>
+                        </span>
+                      </label>
+                      <input type="number" id="stockInQtyBulk" inputmode="decimal" min="0" step="any" placeholder="0" value="0"
+                        oninput="calculateStockInCalculations()"
+                        class="w-full h-11 text-center bg-emerald-50/50 border-2 border-emerald-400 rounded-xl px-2 text-base font-black text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition shadow-2xs">
+                      <div class="stockin-resize-handle" title="ចុចទាញដើម្បីប្តូរប្រវែងវែងខ្លី (Drag to resize width)"><div></div></div>
+                    </div>
+
+                    <!-- 7. សរុបស្តុកចាស់ -->
+                    <div id="stockInField_oldStock" data-field-id="oldStock" data-default-width="calc(25% - 8px)" style="width: calc(25% - 8px); min-width: 130px;" class="stockin-field-wrapper">
+                      <label class="block text-xs font-bold text-slate-600 uppercase mb-1.5 flex items-center justify-between truncate" id="stockInOldStockDetail" title="សរុបស្តុកចាស់">
+                        <span class="flex items-center truncate">
+                          <span class="stockin-drag-handle mr-1.5 text-slate-400 hover:text-emerald-600" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to reorder)">
+                            <i class="fa-solid fa-grip-vertical text-xs"></i>
+                          </span>
+                          <span class="truncate" id="stockInOldStockLabelText">សរុបស្តុកចាស់</span>
+                        </span>
+                      </label>
+                      <div class="w-full h-11 px-2.5 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center shadow-2xs">
+                        <span class="text-xs sm:text-sm font-black text-slate-800 truncate" id="stockInOldStockDisplay">0 ដុំ + 0 រាយ</span>
+                      </div>
+                      <div class="stockin-resize-handle" title="ចុចទាញដើម្បីប្តូរប្រវែងវែងខ្លី (Drag to resize width)"><div></div></div>
+                    </div>
+
+                    <!-- 8. សរុបស្តុកថ្មី -->
+                    <div id="stockInField_newTotal" data-field-id="newTotal" data-default-width="calc(25% - 8px)" style="width: calc(25% - 8px); min-width: 130px;" class="stockin-field-wrapper">
+                      <label class="block text-xs font-bold text-emerald-800 uppercase mb-1.5 flex items-center justify-between truncate" id="stockInNewTotalDetail" title="សរុបស្តុកថ្មី">
+                        <span class="flex items-center truncate">
+                          <span class="stockin-drag-handle mr-1.5 text-slate-400 hover:text-emerald-600" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to reorder)">
+                            <i class="fa-solid fa-grip-vertical text-xs"></i>
+                          </span>
+                          <span class="truncate" id="stockInNewTotalLabelText">សរុបស្តុកថ្មី</span>
+                        </span>
+                      </label>
+                      <div class="w-full h-11 px-2.5 rounded-xl bg-[#0d7a57] text-white flex items-center justify-center shadow-xs">
+                        <span class="text-xs sm:text-sm font-black text-white truncate" id="stockInNewTotalDisplay">0 ដុំ + 0 រាយ</span>
+                      </div>
+                      <div class="stockin-resize-handle" title="ចុចទាញដើម្បីប្តូរប្រវែងវែងខ្លី (Drag to resize width)"><div></div></div>
+                    </div>
+
+                    <!-- 9. កំណត់សម្គាល់បន្ថែម -->
+                    <div id="stockInField_notes" data-field-id="notes" data-default-width="calc(50% - 6px)" style="width: calc(50% - 6px); min-width: 180px;" class="stockin-field-wrapper">
+                      <label class="block text-xs font-bold text-slate-600 uppercase mb-1.5 flex items-center justify-between truncate" title="កំណត់សម្គាល់បន្ថែម">
+                        <span class="flex items-center truncate">
+                          <span class="stockin-drag-handle mr-1.5 text-slate-400 hover:text-emerald-600" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to reorder)">
+                            <i class="fa-solid fa-grip-vertical text-xs"></i>
+                          </span>
+                          <i class="fa-solid fa-note-sticky text-amber-500 mr-1.5 shrink-0"></i>
+                          <span class="truncate">កំណត់សម្គាល់បន្ថែម</span>
+                        </span>
+                      </label>
+                      <input type="text" id="stockInNotes" placeholder="លេខវិក្កយបត្រ, ស្ថានភាព..."
+                        class="w-full h-11 px-3.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition shadow-2xs">
+                      <div class="stockin-resize-handle" title="ចុចទាញដើម្បីប្តូរប្រវែងវែងខ្លី (Drag to resize width)"><div></div></div>
+                    </div>
+
+                    <!-- 10. សកម្មភាព (Clear) -->
+                    <div id="stockInField_actions" data-field-id="actions" data-default-width="calc(25% - 8px)" style="width: calc(25% - 8px); min-width: 110px;" class="stockin-field-wrapper">
+                      <label class="block text-xs font-bold text-slate-500 uppercase mb-1.5 flex items-center justify-between truncate" title="សកម្មភាព">
+                        <span class="flex items-center truncate">
+                          <span class="stockin-drag-handle mr-1.5 text-slate-400 hover:text-emerald-600" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to reorder)">
+                            <i class="fa-solid fa-grip-vertical text-xs"></i>
+                          </span>
+                          <i class="fa-solid fa-bolt text-slate-400 mr-1.5 shrink-0"></i>
+                          <span>សកម្មភាព</span>
+                        </span>
+                      </label>
+                      <button type="button" onclick="document.getElementById('stockInForm').reset(); document.getElementById('stockInQtyRetail').value=0; document.getElementById('stockInQtyBulk').value=0; document.getElementById('stockInOldStockValue').value=0; document.getElementById('stockInOldStockDisplay').innerText='0 ដុំ + 0 រាយ'; document.getElementById('stockInNewTotalDisplay').innerText='0 ដុំ + 0 រាយ'; generateStockInDocNo(); initStockInForm(); onStockInItemChange();"
+                        class="w-full h-11 px-3 rounded-xl bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-1.5 shadow-xs hover:scale-[1.01] active:scale-[0.99]">
+                        <i class="fa-solid fa-rotate-left text-xs text-white"></i>
+                        <span class="text-white font-khmer">សម្អាត</span>
                       </button>
+                      <div class="stockin-resize-handle" title="ចុចទាញដើម្បីប្តូរប្រវែងវែងខ្លី (Drag to resize width)"><div></div></div>
                     </div>
-                  </div>
 
-                  <!-- 2. ខ្នាត (SIZE) -->
-                  <div id="stockInField_size" data-field-id="size" class="col-span-1">
-                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center truncate" title="ខ្នាត (SIZE)">
-                      <i class="fa-solid fa-ruler-combined text-slate-600 mr-1.5 shrink-0"></i>
-                      <span class="truncate">ខ្នាត (SIZE)</span>
-                    </label>
-                    <input type="text" id="stockInSize" placeholder="ខ្នាត..."
-                      class="w-full h-11 px-3 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition shadow-2xs">
-                  </div>
-
-                  <!-- 3. ពណ៌ (COLOR) -->
-                  <div id="stockInField_color" data-field-id="color" class="col-span-1">
-                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center truncate" title="ពណ៌ (COLOR)">
-                      <i class="fa-solid fa-palette text-amber-500 mr-1.5 shrink-0"></i>
-                      <span class="truncate">ពណ៌ (COLOR)</span>
-                    </label>
-                    <input type="text" id="stockInColor" placeholder="ពណ៌..."
-                      class="w-full h-11 px-3 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition shadow-2xs">
-                  </div>
-
-                  <!-- 4. តំបន់ស្តុក (ZONE) -->
-                  <div id="stockInField_zone" data-field-id="zone" class="col-span-1">
-                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center truncate" title="តំបន់ស្តុក (ZONE)">
-                      <i class="fa-solid fa-location-dot text-rose-500 mr-1.5 shrink-0"></i>
-                      <span class="truncate">តំបន់ស្តុក (ZONE)</span>
-                    </label>
-                    <select id="stockInZone"
-                      class="w-full h-11 px-3 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition shadow-2xs">
-                      <option value="">-- រើសតំបន់ស្តុក (Zone) --</option>
-                      <optgroup label="តំបន់ A (A01 - A10)">
-                        <option value="A01">A01</option>
-                        <option value="A02">A02</option>
-                        <option value="A03">A03</option>
-                        <option value="A04">A04</option>
-                        <option value="A05">A05</option>
-                        <option value="A06">A06</option>
-                        <option value="A07">A07</option>
-                        <option value="A08">A08</option>
-                        <option value="A09">A09</option>
-                        <option value="A10">A10</option>
-                      </optgroup>
-                      <optgroup label="តំបន់ B (B01 - B10)">
-                        <option value="B01">B01</option>
-                        <option value="B02">B02</option>
-                        <option value="B03">B03</option>
-                        <option value="B04">B04</option>
-                        <option value="B05">B05</option>
-                        <option value="B06">B06</option>
-                        <option value="B07">B07</option>
-                        <option value="B08">B08</option>
-                        <option value="B09">B09</option>
-                        <option value="B10">B10</option>
-                      </optgroup>
-                      <optgroup label="តំបន់ C (C01 - C10)">
-                        <option value="C01">C01</option>
-                        <option value="C02">C02</option>
-                        <option value="C03">C03</option>
-                        <option value="C04">C04</option>
-                        <option value="C05">C05</option>
-                        <option value="C06">C06</option>
-                        <option value="C07">C07</option>
-                        <option value="C08">C08</option>
-                        <option value="C09">C09</option>
-                        <option value="C10">C10</option>
-                      </optgroup>
-                      <optgroup label="តំបន់ D (D01 - D10)">
-                        <option value="D01">D01</option>
-                        <option value="D02">D02</option>
-                        <option value="D03">D03</option>
-                        <option value="D04">D04</option>
-                        <option value="D05">D05</option>
-                        <option value="D06">D06</option>
-                        <option value="D07">D07</option>
-                        <option value="D08">D08</option>
-                        <option value="D09">D09</option>
-                        <option value="D10">D10</option>
-                      </optgroup>
-                      <optgroup label="តំបន់ E (E01 - E10)">
-                        <option value="E01">E01</option>
-                        <option value="E02">E02</option>
-                        <option value="E03">E03</option>
-                        <option value="E04">E04</option>
-                        <option value="E05">E05</option>
-                        <option value="E06">E06</option>
-                        <option value="E07">E07</option>
-                        <option value="E08">E08</option>
-                        <option value="E09">E09</option>
-                        <option value="E10">E10</option>
-                      </optgroup>
-                      <optgroup label="តំបន់ F (F01 - F10)">
-                        <option value="F01">F01</option>
-                        <option value="F02">F02</option>
-                        <option value="F03">F03</option>
-                        <option value="F04">F04</option>
-                        <option value="F05">F05</option>
-                        <option value="F06">F06</option>
-                        <option value="F07">F07</option>
-                        <option value="F08">F08</option>
-                        <option value="F09">F09</option>
-                        <option value="F10">F10</option>
-                      </optgroup>
-                      <optgroup label="តំបន់ G (G01 - G10)">
-                        <option value="G01">G01</option>
-                        <option value="G02">G02</option>
-                        <option value="G03">G03</option>
-                        <option value="G04">G04</option>
-                        <option value="G05">G05</option>
-                        <option value="G06">G06</option>
-                        <option value="G07">G07</option>
-                        <option value="G08">G08</option>
-                        <option value="G09">G09</option>
-                        <option value="G10">G10</option>
-                      </optgroup>
-                      <optgroup label="តំបន់ H (H01 - H10)">
-                        <option value="H01">H01</option>
-                        <option value="H02">H02</option>
-                        <option value="H03">H03</option>
-                        <option value="H04">H04</option>
-                        <option value="H05">H05</option>
-                        <option value="H06">H06</option>
-                        <option value="H07">H07</option>
-                        <option value="H08">H08</option>
-                        <option value="H09">H09</option>
-                        <option value="H10">H10</option>
-                      </optgroup>
-                      <optgroup label="តំបន់ I (I01 - I10)">
-                        <option value="I01">I01</option>
-                        <option value="I02">I02</option>
-                        <option value="I03">I03</option>
-                        <option value="I04">I04</option>
-                        <option value="I05">I05</option>
-                        <option value="I06">I06</option>
-                        <option value="I07">I07</option>
-                        <option value="I08">I08</option>
-                        <option value="I09">I09</option>
-                        <option value="I10">I10</option>
-                      </optgroup>
-                      <optgroup label="តំបន់ J (J01 - J10)">
-                        <option value="J01">J01</option>
-                        <option value="J02">J02</option>
-                        <option value="J03">J03</option>
-                        <option value="J04">J04</option>
-                        <option value="J05">J05</option>
-                        <option value="J06">J06</option>
-                        <option value="J07">J07</option>
-                        <option value="J08">J08</option>
-                        <option value="J09">J09</option>
-                        <option value="J10">J10</option>
-                      </optgroup>
-                    </select>
-                  </div>
-
-                  <!-- ROW 2 (4 cols: qtyRetail, qtyBulk, oldStock, newTotal) -->
-                  <!-- 5. ចំនួនចូលស្តុក * រាយ -->
-                  <div id="stockInField_qtyRetail" data-field-id="qtyRetail" class="col-span-1">
-                    <label class="block text-xs font-bold text-emerald-800 uppercase mb-1.5 flex items-center truncate" title="ចំនួនចូលស្តុក រាយ">
-                      <i class="fa-solid fa-arrow-down text-emerald-600 mr-1 shrink-0"></i>
-                      <span class="truncate">ចំនួនចូលស្តុក *</span>
-                      <span class="text-xs font-extrabold text-emerald-800 shrink-0 ml-1" id="stockInRetailUnitBadge">រាយ</span>
-                    </label>
-                    <input type="number" id="stockInQtyRetail" inputmode="decimal" min="0" step="any" placeholder="0" value="0"
-                      oninput="calculateStockInCalculations()"
-                      class="w-full h-11 text-center bg-emerald-50/50 border-2 border-emerald-400 rounded-xl px-2 text-base font-black text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition shadow-2xs">
-                  </div>
-
-                  <!-- 6. ចំនួនចូលស្តុក * ដុំ -->
-                  <div id="stockInField_qtyBulk" data-field-id="qtyBulk" class="col-span-1">
-                    <label class="block text-xs font-bold text-emerald-800 uppercase mb-1.5 flex items-center truncate" title="ចំនួនចូលស្តុក ដុំ">
-                      <i class="fa-solid fa-arrow-down text-emerald-600 mr-1 shrink-0"></i>
-                      <span class="truncate">ចំនួនចូលស្តុក *</span>
-                      <span class="text-xs font-extrabold text-emerald-800 shrink-0 ml-1" id="stockInBulkUnitBadge">ដុំ</span>
-                    </label>
-                    <input type="number" id="stockInQtyBulk" inputmode="decimal" min="0" step="any" placeholder="0" value="0"
-                      oninput="calculateStockInCalculations()"
-                      class="w-full h-11 text-center bg-emerald-50/50 border-2 border-emerald-400 rounded-xl px-2 text-base font-black text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition shadow-2xs">
-                  </div>
-
-                  <!-- 7. សរុបស្តុកចាស់ -->
-                  <div id="stockInField_oldStock" data-field-id="oldStock" class="col-span-1">
-                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1.5 flex items-center truncate" id="stockInOldStockDetail" title="សរុបស្តុកចាស់">
-                      <span class="truncate" id="stockInOldStockLabelText">សរុបស្តុកចាស់</span>
-                    </label>
-                    <div class="w-full h-11 px-2.5 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center shadow-2xs">
-                      <span class="text-xs sm:text-sm font-black text-slate-800 truncate" id="stockInOldStockDisplay">0 ដុំ + 0 រាយ</span>
+                    <!-- 11. បញ្ជាក់ / រក្សាទុក (Submit) -->
+                    <div id="stockInField_submit" data-field-id="submit" data-default-width="calc(25% - 8px)" style="width: calc(25% - 8px); min-width: 110px;" class="stockin-field-wrapper">
+                      <label class="block text-xs font-bold text-emerald-700 uppercase mb-1.5 flex items-center justify-between truncate" title="បញ្ជាក់">
+                        <span class="flex items-center truncate">
+                          <span class="stockin-drag-handle mr-1.5 text-slate-400 hover:text-emerald-600" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to reorder)">
+                            <i class="fa-solid fa-grip-vertical text-xs"></i>
+                          </span>
+                          <i class="fa-solid fa-circle-check text-emerald-600 mr-1.5 shrink-0"></i>
+                          <span>បញ្ជាក់</span>
+                        </span>
+                      </label>
+                      <button type="submit" id="btnSubmitStockIn"
+                        class="w-full h-11 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-1.5 shadow-sm hover:scale-[1.01] active:scale-[0.99]">
+                        <i class="fa-solid fa-check text-xs text-white"></i>
+                        <span class="text-white font-khmer">រក្សាទុក</span>
+                      </button>
+                      <div class="stockin-resize-handle" title="ចុចទាញដើម្បីប្តូរប្រវែងវែងខ្លី (Drag to resize width)"><div></div></div>
                     </div>
-                  </div>
 
-                  <!-- 8. សរុបស្តុកថ្មី -->
-                  <div id="stockInField_newTotal" data-field-id="newTotal" class="col-span-1">
-                    <label class="block text-xs font-bold text-emerald-800 uppercase mb-1.5 flex items-center truncate" id="stockInNewTotalDetail" title="សរុបស្តុកថ្មី">
-                      <span class="truncate" id="stockInNewTotalLabelText">សរុបស្តុកថ្មី</span>
-                    </label>
-                    <div class="w-full h-11 px-2.5 rounded-xl bg-[#0d7a57] text-white flex items-center justify-center shadow-xs">
-                      <span class="text-xs sm:text-sm font-black text-white truncate" id="stockInNewTotalDisplay">0 ដុំ + 0 រាយ</span>
-                    </div>
                   </div>
-
-                  <!-- ROW 3 (4 cols: Notes span 2, Clear span 1, Submit span 1) -->
-                  <!-- 9. កំណត់សម្គាល់បន្ថែម -->
-                  <div id="stockInField_notes" data-field-id="notes" class="col-span-1 sm:col-span-2 lg:col-span-2">
-                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1.5 flex items-center truncate" title="កំណត់សម្គាល់បន្ថែម">
-                      <i class="fa-solid fa-note-sticky text-amber-500 mr-1.5 shrink-0"></i>
-                      <span class="truncate">កំណត់សម្គាល់បន្ថែម</span>
-                    </label>
-                    <input type="text" id="stockInNotes" placeholder="លេខវិក្កយបត្រ, ស្ថានភាព..."
-                      class="w-full h-11 px-3.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition shadow-2xs">
-                  </div>
-
-                  <!-- 10. សកម្មភាព (Clear) -->
-                  <div id="stockInField_actions" data-field-id="actions" class="col-span-1 sm:col-span-1 lg:col-span-1">
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1.5 flex items-center truncate" title="សកម្មភាព">
-                      <i class="fa-solid fa-bolt text-slate-400 mr-1.5 shrink-0"></i>
-                      <span>សកម្មភាព</span>
-                    </label>
-                    <button type="button" onclick="document.getElementById('stockInForm').reset(); document.getElementById('stockInQtyRetail').value=0; document.getElementById('stockInQtyBulk').value=0; document.getElementById('stockInOldStockValue').value=0; document.getElementById('stockInOldStockDisplay').innerText='0 ដុំ + 0 រាយ'; document.getElementById('stockInNewTotalDisplay').innerText='0 ដុំ + 0 រាយ'; generateStockInDocNo(); initStockInForm(); onStockInItemChange();"
-                      class="w-full h-11 px-3 rounded-xl bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-1.5 shadow-xs hover:scale-[1.01] active:scale-[0.99]">
-                      <i class="fa-solid fa-rotate-left text-xs text-white"></i>
-                      <span class="text-white font-khmer">សម្អាត</span>
-                    </button>
-                  </div>
-
-                  <!-- 11. បញ្ជាក់ / រក្សាទុក (Submit) -->
-                  <div id="stockInField_submit" data-field-id="submit" class="col-span-1 sm:col-span-1 lg:col-span-1">
-                    <label class="block text-xs font-bold text-emerald-700 uppercase mb-1.5 flex items-center truncate" title="បញ្ជាក់">
-                      <i class="fa-solid fa-circle-check text-emerald-600 mr-1.5 shrink-0"></i>
-                      <span>បញ្ជាក់</span>
-                    </label>
-                    <button type="submit" id="btnSubmitStockIn"
-                      class="w-full h-11 px-3 bg-[#0d7a57] hover:bg-[#0b684a] text-white font-bold rounded-xl shadow-xs transition flex items-center justify-center space-x-1.5 text-xs sm:text-sm hover:scale-[1.01] active:scale-[0.99]">
-                      <i class="fa-solid fa-check text-xs"></i>
-                      <span class="font-khmer">រក្សាទុក</span>
-                    </button>
-                  </div>
-
                 </div>
               </div>
             </form>
@@ -14305,31 +14464,313 @@
     // ==========================================
     // Stock In Form Drag-and-Drop & Resizable Layout Engine
     // ==========================================
-    // Stock In Form Standard Fixed Grid Engine
-    // ==========================================
-    const STOCKIN_LAYOUT_STORAGE_KEY = 'stockin_custom_layout_v5';
+    const STOCKIN_LAYOUT_STORAGE_KEY = 'stockin_custom_layout_v6';
+    let isStockInCustomizerInitialized = false;
 
     function initStockInLayoutCustomizer() {
-      // Clear legacy custom layouts so the standard 5-column grid is strictly preserved
-      try {
-        localStorage.removeItem(STOCKIN_LAYOUT_STORAGE_KEY);
-        localStorage.removeItem('stockin_custom_layout_v4');
-        localStorage.removeItem('stockin_custom_layout');
-      } catch (e) {}
+      const container = document.getElementById('stockInFieldsContainer');
+      if (!container) return;
+
+      // Always apply saved layout if available
+      applyStockInCustomLayout();
+
+      if (isStockInCustomizerInitialized) return;
+      isStockInCustomizerInitialized = true;
+
+      // Ensure floating resize badge exists
+      let resizeBadge = document.getElementById('stockinResizeBadge');
+      if (!resizeBadge) {
+        resizeBadge = document.createElement('div');
+        resizeBadge.id = 'stockinResizeBadge';
+        document.body.appendChild(resizeBadge);
+      }
+
+      let draggedItem = null;
+      let dragOverItem = null;
+      let dragOverPosition = null;
+
+      const fieldWrappers = container.querySelectorAll('.stockin-field-wrapper');
+      fieldWrappers.forEach(wrapper => {
+        const handle = wrapper.querySelector('.stockin-drag-handle');
+        if (handle) {
+          // Enable dragging ONLY when user interacts with the drag handle to protect input typing
+          handle.addEventListener('mouseenter', () => {
+            wrapper.setAttribute('draggable', 'true');
+          });
+          handle.addEventListener('mouseleave', () => {
+            if (!draggedItem) wrapper.removeAttribute('draggable');
+          });
+          handle.addEventListener('mousedown', () => {
+            wrapper.setAttribute('draggable', 'true');
+          });
+          handle.addEventListener('mouseup', () => {
+            if (!draggedItem) wrapper.removeAttribute('draggable');
+          });
+
+          // Touch-based reordering for mobile/tablets
+          handle.addEventListener('touchstart', (e) => {
+            draggedItem = wrapper;
+            wrapper.classList.add('is-dragging');
+
+            const onTouchMove = (moveEvt) => {
+              moveEvt.preventDefault();
+              const t = moveEvt.touches[0];
+              const elemBelow = document.elementFromPoint(t.clientX, t.clientY);
+              if (!elemBelow) return;
+              const targetWrapper = elemBelow.closest('.stockin-field-wrapper');
+              if (targetWrapper && targetWrapper !== draggedItem && targetWrapper.parentNode === container) {
+                const rect = targetWrapper.getBoundingClientRect();
+                const midX = rect.left + rect.width / 2;
+                if (t.clientX < midX) {
+                  container.insertBefore(draggedItem, targetWrapper);
+                } else {
+                  container.insertBefore(draggedItem, targetWrapper.nextSibling);
+                }
+              }
+            };
+
+            const onTouchEnd = () => {
+              if (draggedItem) draggedItem.classList.remove('is-dragging');
+              draggedItem = null;
+              window.removeEventListener('touchmove', onTouchMove);
+              window.removeEventListener('touchend', onTouchEnd);
+              saveStockInCustomLayout();
+            };
+
+            window.addEventListener('touchmove', onTouchMove, { passive: false });
+            window.addEventListener('touchend', onTouchEnd);
+          }, { passive: true });
+        }
+
+        wrapper.addEventListener('dragstart', (e) => {
+          draggedItem = wrapper;
+          wrapper.classList.add('is-dragging');
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', wrapper.getAttribute('data-field-id') || '');
+        });
+
+        wrapper.addEventListener('dragend', () => {
+          if (draggedItem) {
+            draggedItem.classList.remove('is-dragging');
+            draggedItem.removeAttribute('draggable');
+          }
+          container.querySelectorAll('.stockin-field-wrapper').forEach(w => {
+            w.classList.remove('drop-target-left', 'drop-target-right');
+          });
+          draggedItem = null;
+          dragOverItem = null;
+          saveStockInCustomLayout();
+        });
+
+        wrapper.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          if (!draggedItem || draggedItem === wrapper) return;
+
+          const rect = wrapper.getBoundingClientRect();
+          const mouseX = e.clientX;
+          const midX = rect.left + rect.width / 2;
+
+          container.querySelectorAll('.stockin-field-wrapper').forEach(w => {
+            if (w !== wrapper) w.classList.remove('drop-target-left', 'drop-target-right');
+          });
+
+          if (mouseX < midX) {
+            dragOverPosition = 'left';
+            wrapper.classList.add('drop-target-left');
+            wrapper.classList.remove('drop-target-right');
+          } else {
+            dragOverPosition = 'right';
+            wrapper.classList.add('drop-target-right');
+            wrapper.classList.remove('drop-target-left');
+          }
+          dragOverItem = wrapper;
+        });
+
+        wrapper.addEventListener('dragleave', (e) => {
+          if (!wrapper.contains(e.relatedTarget)) {
+            wrapper.classList.remove('drop-target-left', 'drop-target-right');
+          }
+        });
+
+        wrapper.addEventListener('drop', (e) => {
+          e.preventDefault();
+          if (!draggedItem || !dragOverItem || draggedItem === dragOverItem) return;
+
+          if (dragOverPosition === 'left') {
+            container.insertBefore(draggedItem, dragOverItem);
+          } else {
+            container.insertBefore(draggedItem, dragOverItem.nextSibling);
+          }
+
+          container.querySelectorAll('.stockin-field-wrapper').forEach(w => {
+            w.classList.remove('drop-target-left', 'drop-target-right');
+          });
+
+          saveStockInCustomLayout();
+        });
+
+        // Resize implementation
+        const resizeHandle = wrapper.querySelector('.stockin-resize-handle');
+        if (resizeHandle && !resizeHandle._boundResize) {
+          resizeHandle._boundResize = true;
+
+          const startResize = (clientX, clientY) => {
+            const startX = clientX;
+            const startWidth = wrapper.getBoundingClientRect().width;
+            const containerWidth = container.getBoundingClientRect().width;
+            const minW = Number(wrapper.getAttribute('data-min-width') || 110);
+
+            wrapper.classList.add('is-resizing');
+            document.body.style.cursor = 'col-resize';
+            document.body.style.userSelect = 'none';
+
+            resizeBadge.style.display = 'block';
+            resizeBadge.style.left = `${clientX}px`;
+            resizeBadge.style.top = `${clientY}px`;
+            resizeBadge.innerText = `${Math.round(startWidth)}px`;
+
+            const onMove = (moveEvt) => {
+              const currentX = moveEvt.clientX !== undefined ? moveEvt.clientX : (moveEvt.touches && moveEvt.touches[0] ? moveEvt.touches[0].clientX : startX);
+              const currentY = moveEvt.clientY !== undefined ? moveEvt.clientY : (moveEvt.touches && moveEvt.touches[0] ? moveEvt.touches[0].clientY : startY);
+              const deltaX = currentX - startX;
+              let newW = Math.max(minW, Math.min(containerWidth, startWidth + deltaX));
+              
+              // Calculate percentage width for fluid responsiveness
+              const percent = Math.round((newW / containerWidth) * 100);
+              wrapper.style.width = `calc(${percent}% - 8px)`;
+
+              resizeBadge.style.left = `${currentX}px`;
+              resizeBadge.style.top = `${currentY}px`;
+              resizeBadge.innerText = `${percent}% (${Math.round(newW)}px)`;
+            };
+
+            const onEnd = () => {
+              wrapper.classList.remove('is-resizing');
+              document.body.style.cursor = '';
+              document.body.style.userSelect = '';
+              resizeBadge.style.display = 'none';
+
+              window.removeEventListener('mousemove', onMove);
+              window.removeEventListener('mouseup', onEnd);
+              window.removeEventListener('touchmove', onMove);
+              window.removeEventListener('touchend', onEnd);
+
+              saveStockInCustomLayout();
+            };
+
+            window.addEventListener('mousemove', onMove, { passive: false });
+            window.addEventListener('mouseup', onEnd);
+            window.addEventListener('touchmove', onMove, { passive: false });
+            window.addEventListener('touchend', onEnd);
+          };
+
+          resizeHandle.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            startResize(e.clientX, e.clientY);
+          });
+
+          resizeHandle.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.touches && e.touches[0]) {
+              startResize(e.touches[0].clientX, e.touches[0].clientY);
+            }
+          }, { passive: false });
+        }
+      });
     }
 
-    function saveStockInCustomLayout() {}
+    function saveStockInCustomLayout() {
+      const container = document.getElementById('stockInFieldsContainer');
+      if (!container) return;
+
+      const wrappers = Array.from(container.querySelectorAll('.stockin-field-wrapper'));
+      const order = [];
+      const widths = {};
+
+      wrappers.forEach(w => {
+        const fieldId = w.getAttribute('data-field-id');
+        if (fieldId) {
+          order.push(fieldId);
+          if (w.style.width) {
+            widths[fieldId] = w.style.width;
+          }
+        }
+      });
+
+      const layoutData = { order, widths };
+      localStorage.setItem(STOCKIN_LAYOUT_STORAGE_KEY, JSON.stringify(layoutData));
+    }
 
     function applyStockInCustomLayout() {
+      const container = document.getElementById('stockInFieldsContainer');
+      if (!container) return;
+
       try {
-        localStorage.removeItem(STOCKIN_LAYOUT_STORAGE_KEY);
-      } catch (e) {}
+        const raw = localStorage.getItem(STOCKIN_LAYOUT_STORAGE_KEY);
+        if (!raw) return;
+        const layoutData = JSON.parse(raw);
+        if (!layoutData) return;
+
+        // Apply order
+        if (Array.isArray(layoutData.order)) {
+          layoutData.order.forEach(fieldId => {
+            const el = container.querySelector(`[data-field-id="${fieldId}"]`);
+            if (el) {
+              container.appendChild(el);
+            }
+          });
+        }
+
+        // Apply widths
+        if (layoutData.widths && typeof layoutData.widths === 'object') {
+          Object.entries(layoutData.widths).forEach(([fieldId, widthVal]) => {
+            const el = container.querySelector(`[data-field-id="${fieldId}"]`);
+            if (el && widthVal) {
+              el.style.width = widthVal;
+            }
+          });
+        }
+      } catch (err) {
+        console.warn('Error applying custom stockin layout:', err);
+      }
     }
 
     function resetStockInCustomLayout() {
-      try {
-        localStorage.removeItem(STOCKIN_LAYOUT_STORAGE_KEY);
-      } catch (e) {}
+      const container = document.getElementById('stockInFieldsContainer');
+      if (!container) return;
+
+      localStorage.removeItem(STOCKIN_LAYOUT_STORAGE_KEY);
+
+      const defaultOrder = [
+        'sku', 'size', 'color', 'zone',
+        'qtyRetail', 'qtyBulk', 'oldStock', 'newTotal',
+        'notes', 'actions', 'submit'
+      ];
+
+      defaultOrder.forEach(fieldId => {
+        const el = container.querySelector(`[data-field-id="${fieldId}"]`);
+        if (el) {
+          container.appendChild(el);
+          const defWidth = el.getAttribute('data-default-width');
+          if (defWidth) {
+            el.style.width = defWidth;
+          } else {
+            el.style.width = '';
+          }
+        }
+      });
+
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: 'បានកំណត់ទម្រង់ និងទំហំដើមឡើងវិញរួចរាល់!',
+        showConfirmButton: false,
+        timer: 2000
+      });
     }
 
     function generateStockOutDocNo() {
