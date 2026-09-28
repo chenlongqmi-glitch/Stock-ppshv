@@ -863,14 +863,48 @@
        }
      }
 
-    /* Stock In Movable & Resizable Form Fields (2D Free Resize) */
+    /* Stock In Movable & Resizable Form Fields (2D Free Dense Layout) */
+    #stockInFieldsContainer {
+      display: grid;
+      grid-template-columns: repeat(20, minmax(0, 1fr));
+      grid-auto-flow: dense;
+      grid-auto-rows: minmax(72px, auto);
+      gap: 10px;
+      align-items: stretch;
+      width: 100%;
+      min-height: 120px;
+      position: relative;
+    }
+    .stockin-drop-placeholder {
+      grid-column: span 4;
+      grid-row: span 1;
+      min-height: 68px;
+      border: 2px dashed #10b981;
+      background: rgba(16, 185, 129, 0.12);
+      border-radius: 0.75rem;
+      pointer-events: none;
+      transition: all 0.12s ease;
+      box-shadow: 0 0 16px rgba(16, 185, 129, 0.35);
+      animation: pulseDropSlot 1.2s infinite alternate ease-in-out;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #059669;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    @keyframes pulseDropSlot {
+      0% { background: rgba(16, 185, 129, 0.06); border-color: #10b981; }
+      100% { background: rgba(16, 185, 129, 0.20); border-color: #059669; }
+    }
     .stockin-field-wrapper {
       position: relative;
-      flex: 0 0 auto;
       box-sizing: border-box;
       display: flex;
       flex-direction: column;
       justify-content: flex-end;
+      width: 100%;
+      min-width: 0;
       transition: box-shadow 0.15s ease, border-color 0.15s ease;
     }
     .stockin-field-wrapper > label {
@@ -1051,10 +1085,21 @@
       white-space: nowrap;
     }
     @media (max-width: 639px) {
+      #stockInFieldsContainer {
+        grid-template-columns: 1fr !important;
+        display: flex !important;
+        flex-direction: column !important;
+      }
       .stockin-field-wrapper {
         width: 100% !important;
         min-width: 100% !important;
+        grid-column: auto !important;
+        grid-row: auto !important;
         height: auto !important;
+      }
+      .stockin-drop-placeholder {
+        width: 100% !important;
+        grid-column: auto !important;
       }
       .stockin-resize-handle,
       .stockin-resize-handle-y,
@@ -2240,10 +2285,10 @@
                   </button>
                 </div>
 
-                <div id="stockInFieldsContainer" class="flex flex-wrap gap-2.5 items-start w-full">
+                <div id="stockInFieldsContainer" class="w-full">
                   
                   <!-- 1. ប្រអប់លេខឯកសារ (DOC NO) -->
-                  <div id="stockInField_docNo" data-field-id="docNo" data-default-width="calc(20% - 8px)" style="width: calc(20% - 8px); min-width: 140px;" class="stockin-field-wrapper">
+                  <div id="stockInField_docNo" data-field-id="docNo" data-default-span="4" style="grid-column: span 4;" class="stockin-field-wrapper">
                     <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center justify-between truncate" title="លេខឯកសារ">
                       <span class="flex items-center truncate">
                         <span class="stockin-drag-handle mr-1.5 text-slate-400 hover:text-emerald-600" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to reorder)">
@@ -2262,7 +2307,7 @@
                   </div>
 
                   <!-- 2. ឈ្មោះទំនិញ (KEYWORD/BARCODE) * -->
-                  <div id="stockInField_sku" data-field-id="sku" data-default-width="calc(25% - 8px)" style="width: calc(25% - 8px); min-width: 160px;" class="stockin-field-wrapper">
+                  <div id="stockInField_sku" data-field-id="sku" data-default-span="5" style="grid-column: span 5;" class="stockin-field-wrapper">
                     <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center justify-between truncate" title="ឈ្មោះទំនិញ (KEYWORD/BARCODE)">
                       <span class="flex items-center truncate">
                         <span class="stockin-drag-handle mr-1.5 text-slate-400 hover:text-emerald-600" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to reorder)">
@@ -2293,7 +2338,7 @@
                   </div>
 
                   <!-- 3. ខ្នាត (SIZE) -->
-                  <div id="stockInField_size" data-field-id="size" data-default-width="calc(15% - 8px)" style="width: calc(15% - 8px); min-width: 110px;" class="stockin-field-wrapper">
+                  <div id="stockInField_size" data-field-id="size" data-default-span="3" style="grid-column: span 3;" class="stockin-field-wrapper">
                     <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center justify-between truncate" title="ខ្នាត (SIZE)">
                       <span class="flex items-center truncate">
                         <span class="stockin-drag-handle mr-1.5 text-slate-400 hover:text-emerald-600" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to reorder)">
@@ -2311,7 +2356,7 @@
                   </div>
 
                   <!-- 4. ពណ៌ (COLOR) -->
-                  <div id="stockInField_color" data-field-id="color" data-default-width="calc(15% - 8px)" style="width: calc(15% - 8px); min-width: 110px;" class="stockin-field-wrapper">
+                  <div id="stockInField_color" data-field-id="color" data-default-span="3" style="grid-column: span 3;" class="stockin-field-wrapper">
                     <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center justify-between truncate" title="ពណ៌ (COLOR)">
                       <span class="flex items-center truncate">
                         <span class="stockin-drag-handle mr-1.5 text-slate-400 hover:text-emerald-600" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to reorder)">
@@ -2329,7 +2374,7 @@
                   </div>
 
                   <!-- 5. តំបន់ស្តុក (ZONE) - MODERN KEYWORD-SEARCHABLE PICKER -->
-                  <div id="stockInField_zone" data-field-id="zone" data-default-width="calc(25% - 8px)" style="width: calc(25% - 8px); min-width: 140px;" class="stockin-field-wrapper">
+                  <div id="stockInField_zone" data-field-id="zone" data-default-span="5" style="grid-column: span 5;" class="stockin-field-wrapper">
                     <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center justify-between truncate" title="តំបន់ស្តុក (ZONE)">
                       <span class="flex items-center truncate">
                         <span class="stockin-drag-handle mr-1.5 text-slate-400 hover:text-emerald-600" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to reorder)">
@@ -2368,7 +2413,7 @@
                   </div>
 
                   <!-- 6. ប្រអប់រូបភាពទំនិញ (PRODUCT IMAGE) -->
-                  <div id="stockInField_image" data-field-id="image" data-default-width="calc(20% - 8px)" style="width: calc(20% - 8px); min-width: 140px;" class="stockin-field-wrapper">
+                  <div id="stockInField_image" data-field-id="image" data-default-span="4" style="grid-column: span 4;" class="stockin-field-wrapper">
                     <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center justify-between truncate" title="រូបភាពទំនិញ">
                       <span class="flex items-center truncate">
                         <span class="stockin-drag-handle mr-1.5 text-slate-400 hover:text-emerald-600" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to reorder)">
@@ -2404,7 +2449,7 @@
                   </div>
 
                   <!-- 7. ចំនួនចូលស្តុក * រាយ -->
-                  <div id="stockInField_qtyRetail" data-field-id="qtyRetail" data-default-width="calc(20% - 8px)" style="width: calc(20% - 8px); min-width: 130px;" class="stockin-field-wrapper">
+                  <div id="stockInField_qtyRetail" data-field-id="qtyRetail" data-default-span="4" style="grid-column: span 4;" class="stockin-field-wrapper">
                     <label class="block text-xs font-bold text-emerald-800 uppercase mb-1.5 flex items-center justify-between truncate" title="ចំនួនចូលស្តុក រាយ">
                       <span class="flex items-center truncate">
                         <span class="stockin-drag-handle mr-1.5 text-slate-400 hover:text-emerald-600" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to reorder)">
@@ -2424,7 +2469,7 @@
                   </div>
 
                   <!-- 8. ចំនួនចូលស្តុក * ដុំ -->
-                  <div id="stockInField_qtyBulk" data-field-id="qtyBulk" data-default-width="calc(20% - 8px)" style="width: calc(20% - 8px); min-width: 130px;" class="stockin-field-wrapper">
+                  <div id="stockInField_qtyBulk" data-field-id="qtyBulk" data-default-span="4" style="grid-column: span 4;" class="stockin-field-wrapper">
                     <label class="block text-xs font-bold text-emerald-800 uppercase mb-1.5 flex items-center justify-between truncate" title="ចំនួនចូលស្តុក ដុំ">
                       <span class="flex items-center truncate">
                         <span class="stockin-drag-handle mr-1.5 text-slate-400 hover:text-emerald-600" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to reorder)">
@@ -2444,7 +2489,7 @@
                   </div>
 
                   <!-- 9. សរុបស្តុកចាស់ -->
-                  <div id="stockInField_oldStock" data-field-id="oldStock" data-default-width="calc(20% - 8px)" style="width: calc(20% - 8px); min-width: 130px;" class="stockin-field-wrapper">
+                  <div id="stockInField_oldStock" data-field-id="oldStock" data-default-span="4" style="grid-column: span 4;" class="stockin-field-wrapper">
                     <label class="block text-xs font-bold text-slate-600 uppercase mb-1.5 flex items-center justify-between truncate" id="stockInOldStockDetail" title="សរុបស្តុកចាស់">
                       <span class="flex items-center truncate">
                         <span class="stockin-drag-handle mr-1.5 text-slate-400 hover:text-emerald-600" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to reorder)">
@@ -2462,7 +2507,7 @@
                   </div>
 
                   <!-- 10. សរុបស្តុកថ្មី -->
-                  <div id="stockInField_newTotal" data-field-id="newTotal" data-default-width="calc(20% - 8px)" style="width: calc(20% - 8px); min-width: 130px;" class="stockin-field-wrapper">
+                  <div id="stockInField_newTotal" data-field-id="newTotal" data-default-span="4" style="grid-column: span 4;" class="stockin-field-wrapper">
                     <label class="block text-xs font-bold text-emerald-800 uppercase mb-1.5 flex items-center justify-between truncate" id="stockInNewTotalDetail" title="សរុបស្តុកថ្មី">
                       <span class="flex items-center truncate">
                         <span class="stockin-drag-handle mr-1.5 text-slate-400 hover:text-emerald-600" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to reorder)">
@@ -2480,7 +2525,7 @@
                   </div>
 
                   <!-- 11. កំណត់សម្គាល់បន្ថែម -->
-                  <div id="stockInField_notes" data-field-id="notes" data-default-width="calc(50% - 6px)" style="width: calc(50% - 6px); min-width: 180px;" class="stockin-field-wrapper">
+                  <div id="stockInField_notes" data-field-id="notes" data-default-span="10" style="grid-column: span 10;" class="stockin-field-wrapper">
                     <label class="block text-xs font-bold text-slate-600 uppercase mb-1.5 flex items-center justify-between truncate" title="កំណត់សម្គាល់បន្ថែម">
                       <span class="flex items-center truncate">
                         <span class="stockin-drag-handle mr-1.5 text-slate-400 hover:text-emerald-600" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to reorder)">
@@ -2498,7 +2543,7 @@
                   </div>
 
                   <!-- 12. សកម្មភាព (Clear) -->
-                  <div id="stockInField_actions" data-field-id="actions" data-default-width="calc(25% - 8px)" style="width: calc(25% - 8px); min-width: 110px;" class="stockin-field-wrapper">
+                  <div id="stockInField_actions" data-field-id="actions" data-default-span="5" style="grid-column: span 5;" class="stockin-field-wrapper">
                     <label class="block text-xs font-bold text-slate-500 uppercase mb-1.5 flex items-center justify-between truncate" title="សកម្មភាព">
                       <span class="flex items-center truncate">
                         <span class="stockin-drag-handle mr-1.5 text-slate-400 hover:text-emerald-600" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to reorder)">
@@ -2519,7 +2564,7 @@
                   </div>
 
                   <!-- 13. បញ្ជាក់ / រក្សាទុក (Submit) -->
-                  <div id="stockInField_submit" data-field-id="submit" data-default-width="calc(25% - 8px)" style="width: calc(25% - 8px); min-width: 110px;" class="stockin-field-wrapper">
+                  <div id="stockInField_submit" data-field-id="submit" data-default-span="5" style="grid-column: span 5;" class="stockin-field-wrapper">
                     <label class="block text-xs font-bold text-emerald-700 uppercase mb-1.5 flex items-center justify-between truncate" title="បញ្ជាក់">
                       <span class="flex items-center truncate">
                         <span class="stockin-drag-handle mr-1.5 text-slate-400 hover:text-emerald-600" title="ចុចទាញដើម្បីប្តូរទីតាំង (Drag to reorder)">
@@ -14762,8 +14807,75 @@
     // ==========================================
     // Stock In Form Drag-and-Drop & Resizable Layout Engine (2D Free Resize)
     // ==========================================
-    const STOCKIN_LAYOUT_STORAGE_KEY = 'stockin_custom_layout_v8';
+    const STOCKIN_LAYOUT_STORAGE_KEY = 'stockin_custom_layout_v9';
     let isStockInCustomizerInitialized = false;
+
+    // Helper: Find exact insertion node anywhere in the container, including empty space & gaps
+    function findDropInsertionPoint(container, clientX, clientY, draggedItem) {
+      const wrappers = Array.from(container.querySelectorAll('.stockin-field-wrapper')).filter(w => w !== draggedItem);
+      if (wrappers.length === 0) return null;
+
+      // Group wrappers into visual rows based on top offset
+      const rowGroups = [];
+      wrappers.forEach(w => {
+        const rect = w.getBoundingClientRect();
+        let foundRow = rowGroups.find(row => Math.abs(row.top - rect.top) < 25);
+        if (!foundRow) {
+          foundRow = { top: rect.top, bottom: rect.bottom, items: [] };
+          rowGroups.push(foundRow);
+        } else {
+          foundRow.bottom = Math.max(foundRow.bottom, rect.bottom);
+        }
+        foundRow.items.push({ elem: w, rect: rect });
+      });
+
+      // Sort rows vertically top to bottom
+      rowGroups.sort((a, b) => a.top - b.top);
+
+      // If clientY is above the first row, insert before first item
+      if (clientY < rowGroups[0].top) {
+        return rowGroups[0].items[0].elem;
+      }
+
+      // Find the row that clientY belongs to
+      let targetRow = null;
+      for (let i = 0; i < rowGroups.length; i++) {
+        const row = rowGroups[i];
+        const prevBottom = i > 0 ? rowGroups[i - 1].bottom : -Infinity;
+        const nextTop = i < rowGroups.length - 1 ? rowGroups[i + 1].top : Infinity;
+        const rowMidAbove = (row.top + prevBottom) / 2;
+        const rowMidBelow = (row.bottom + nextTop) / 2;
+
+        if (clientY >= rowMidAbove && clientY <= rowMidBelow) {
+          targetRow = row;
+          break;
+        }
+      }
+
+      // If clientY is below all rows, return null (meaning append at end)
+      if (!targetRow) {
+        return null;
+      }
+
+      // Inside targetRow: sort items from left to right
+      targetRow.items.sort((a, b) => a.rect.left - b.rect.left);
+
+      // Check if clientX is to the right of the last item in this row (the empty space!)
+      const lastItem = targetRow.items[targetRow.items.length - 1];
+      if (clientX > lastItem.rect.right - 10) {
+        return lastItem.elem.nextSibling;
+      }
+
+      // Check which item in the row clientX is closest to
+      for (const item of targetRow.items) {
+        const midX = item.rect.left + item.rect.width / 2;
+        if (clientX < midX) {
+          return item.elem;
+        }
+      }
+
+      return lastItem.elem.nextSibling;
+    }
 
     function initStockInLayoutCustomizer() {
       const container = document.getElementById('stockInFieldsContainer');
@@ -14783,15 +14895,57 @@
         document.body.appendChild(resizeBadge);
       }
 
+      // Ensure drop placeholder slot exists
+      let dropPlaceholder = container.querySelector('.stockin-drop-placeholder');
+      if (!dropPlaceholder) {
+        dropPlaceholder = document.createElement('div');
+        dropPlaceholder.className = 'stockin-drop-placeholder';
+        dropPlaceholder.innerHTML = '<span><i class="fa-solid fa-arrows-up-down-left-right mr-1"></i> ទម្លាក់ទីនេះ</span>';
+      }
+
       let draggedItem = null;
-      let dragOverItem = null;
-      let dragOverPosition = null;
+
+      // Container-level dragover to capture dragging over ANY empty whitespace or gap
+      container.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (!draggedItem) return;
+
+        const insertBeforeNode = findDropInsertionPoint(container, e.clientX, e.clientY, draggedItem);
+        if (insertBeforeNode) {
+          if (dropPlaceholder.nextSibling !== insertBeforeNode && insertBeforeNode !== dropPlaceholder) {
+            container.insertBefore(dropPlaceholder, insertBeforeNode);
+          }
+        } else {
+          if (container.lastElementChild !== dropPlaceholder) {
+            container.appendChild(dropPlaceholder);
+          }
+        }
+      });
+
+      // Container-level drop handler
+      container.addEventListener('drop', (e) => {
+        e.preventDefault();
+        if (!draggedItem) return;
+
+        if (dropPlaceholder.parentNode === container) {
+          container.insertBefore(draggedItem, dropPlaceholder);
+          dropPlaceholder.remove();
+        }
+
+        container.querySelectorAll('.stockin-field-wrapper').forEach(w => {
+          w.classList.remove('drop-target-left', 'drop-target-right', 'is-dragging');
+          w.removeAttribute('draggable');
+        });
+
+        draggedItem = null;
+        saveStockInCustomLayout();
+      });
 
       const fieldWrappers = container.querySelectorAll('.stockin-field-wrapper');
       fieldWrappers.forEach(wrapper => {
         const handle = wrapper.querySelector('.stockin-drag-handle');
         if (handle) {
-          // Enable dragging ONLY when user interacts with the drag handle to protect input typing
           handle.addEventListener('mouseenter', () => {
             wrapper.setAttribute('draggable', 'true');
           });
@@ -14810,25 +14964,40 @@
             draggedItem = wrapper;
             wrapper.classList.add('is-dragging');
 
+            const colSpan = wrapper.style.gridColumn || wrapper.getAttribute('data-default-span') || 'span 4';
+            const rowSpan = wrapper.style.gridRow || 'span 1';
+            dropPlaceholder.style.gridColumn = colSpan.startsWith('span') ? colSpan : `span ${colSpan}`;
+            dropPlaceholder.style.gridRow = rowSpan.startsWith('span') ? rowSpan : `span ${rowSpan}`;
+            if (wrapper.style.height) {
+              dropPlaceholder.style.height = wrapper.style.height;
+            } else {
+              dropPlaceholder.style.height = '';
+            }
+
             const onTouchMove = (moveEvt) => {
               moveEvt.preventDefault();
               const t = moveEvt.touches[0];
-              const elemBelow = document.elementFromPoint(t.clientX, t.clientY);
-              if (!elemBelow) return;
-              const targetWrapper = elemBelow.closest('.stockin-field-wrapper');
-              if (targetWrapper && targetWrapper !== draggedItem && targetWrapper.parentNode === container) {
-                const rect = targetWrapper.getBoundingClientRect();
-                const midX = rect.left + rect.width / 2;
-                if (t.clientX < midX) {
-                  container.insertBefore(draggedItem, targetWrapper);
-                } else {
-                  container.insertBefore(draggedItem, targetWrapper.nextSibling);
+              const insertBeforeNode = findDropInsertionPoint(container, t.clientX, t.clientY, draggedItem);
+              if (insertBeforeNode) {
+                if (dropPlaceholder.nextSibling !== insertBeforeNode && insertBeforeNode !== dropPlaceholder) {
+                  container.insertBefore(dropPlaceholder, insertBeforeNode);
+                }
+              } else {
+                if (container.lastElementChild !== dropPlaceholder) {
+                  container.appendChild(dropPlaceholder);
                 }
               }
             };
 
             const onTouchEnd = () => {
-              if (draggedItem) draggedItem.classList.remove('is-dragging');
+              if (dropPlaceholder.parentNode === container && draggedItem) {
+                container.insertBefore(draggedItem, dropPlaceholder);
+                dropPlaceholder.remove();
+              }
+              if (draggedItem) {
+                draggedItem.classList.remove('is-dragging');
+                draggedItem.removeAttribute('draggable');
+              }
               draggedItem = null;
               window.removeEventListener('touchmove', onTouchMove);
               window.removeEventListener('touchend', onTouchEnd);
@@ -14842,9 +15011,26 @@
 
         wrapper.addEventListener('dragstart', (e) => {
           draggedItem = wrapper;
-          wrapper.classList.add('is-dragging');
           e.dataTransfer.effectAllowed = 'move';
           e.dataTransfer.setData('text/plain', wrapper.getAttribute('data-field-id') || '');
+
+          // Setup placeholder size to mirror dragged card
+          const colSpan = wrapper.style.gridColumn || wrapper.getAttribute('data-default-span') || 'span 4';
+          const rowSpan = wrapper.style.gridRow || 'span 1';
+          dropPlaceholder.style.gridColumn = colSpan.startsWith('span') ? colSpan : `span ${colSpan}`;
+          dropPlaceholder.style.gridRow = rowSpan.startsWith('span') ? rowSpan : `span ${rowSpan}`;
+          if (wrapper.style.height) {
+            dropPlaceholder.style.height = wrapper.style.height;
+          } else {
+            dropPlaceholder.style.height = '';
+          }
+
+          // Delay adding is-dragging so HTML5 drag preview captures the element cleanly
+          setTimeout(() => {
+            if (draggedItem === wrapper) {
+              wrapper.classList.add('is-dragging');
+            }
+          }, 0);
         });
 
         wrapper.addEventListener('dragend', () => {
@@ -14852,59 +15038,13 @@
             draggedItem.classList.remove('is-dragging');
             draggedItem.removeAttribute('draggable');
           }
+          if (dropPlaceholder.parentNode) {
+            dropPlaceholder.remove();
+          }
           container.querySelectorAll('.stockin-field-wrapper').forEach(w => {
             w.classList.remove('drop-target-left', 'drop-target-right');
           });
           draggedItem = null;
-          dragOverItem = null;
-          saveStockInCustomLayout();
-        });
-
-        wrapper.addEventListener('dragover', (e) => {
-          e.preventDefault();
-          e.dataTransfer.dropEffect = 'move';
-          if (!draggedItem || draggedItem === wrapper) return;
-
-          const rect = wrapper.getBoundingClientRect();
-          const mouseX = e.clientX;
-          const midX = rect.left + rect.width / 2;
-
-          container.querySelectorAll('.stockin-field-wrapper').forEach(w => {
-            if (w !== wrapper) w.classList.remove('drop-target-left', 'drop-target-right');
-          });
-
-          if (mouseX < midX) {
-            dragOverPosition = 'left';
-            wrapper.classList.add('drop-target-left');
-            wrapper.classList.remove('drop-target-right');
-          } else {
-            dragOverPosition = 'right';
-            wrapper.classList.add('drop-target-right');
-            wrapper.classList.remove('drop-target-left');
-          }
-          dragOverItem = wrapper;
-        });
-
-        wrapper.addEventListener('dragleave', (e) => {
-          if (!wrapper.contains(e.relatedTarget)) {
-            wrapper.classList.remove('drop-target-left', 'drop-target-right');
-          }
-        });
-
-        wrapper.addEventListener('drop', (e) => {
-          e.preventDefault();
-          if (!draggedItem || !dragOverItem || draggedItem === dragOverItem) return;
-
-          if (dragOverPosition === 'left') {
-            container.insertBefore(draggedItem, dragOverItem);
-          } else {
-            container.insertBefore(draggedItem, dragOverItem.nextSibling);
-          }
-
-          container.querySelectorAll('.stockin-field-wrapper').forEach(w => {
-            w.classList.remove('drop-target-left', 'drop-target-right');
-          });
-
           saveStockInCustomLayout();
         });
 
@@ -14951,9 +15091,9 @@
           const startWidth = rect.width;
           const startHeight = rect.height;
           const containerWidth = container.getBoundingClientRect().width;
-          const minW = Number(wrapper.getAttribute('data-min-width') || 110);
-          const minH = 50; // Minimum height for field
-          const maxH = 500;
+          const minW = Number(wrapper.getAttribute('data-min-width') || 100);
+          const minH = 50;
+          const maxH = 600;
 
           wrapper.classList.add('is-resizing');
           if (mode === 'x') document.body.style.cursor = 'col-resize';
@@ -14964,7 +15104,6 @@
           resizeBadge.style.display = 'block';
           resizeBadge.style.left = `${clientX}px`;
           resizeBadge.style.top = `${clientY}px`;
-          resizeBadge.innerText = `${Math.round(startWidth)}px ✕ ${Math.round(startHeight)}px`;
 
           const onMove = (moveEvt) => {
             const currentX = moveEvt.clientX !== undefined ? moveEvt.clientX : (moveEvt.touches && moveEvt.touches[0] ? moveEvt.touches[0].clientX : startX);
@@ -14975,15 +15114,21 @@
             if (mode === 'x' || mode === 'xy') {
               const deltaX = currentX - startX;
               let newW = Math.max(minW, Math.min(containerWidth, startWidth + deltaX));
-              const percent = Math.round((newW / containerWidth) * 100);
-              wrapper.style.width = `calc(${percent}% - 8px)`;
-              badgeText += `${percent}% (${Math.round(newW)}px)`;
+              const colSpan = Math.max(2, Math.min(20, Math.round((newW / containerWidth) * 20)));
+              wrapper.style.gridColumn = `span ${colSpan}`;
+              wrapper.setAttribute('data-col-span', colSpan);
+              wrapper.style.width = '100%';
+              const percent = Math.round((colSpan / 20) * 100);
+              badgeText += `${percent}% (col: ${colSpan}/20)`;
             }
 
             // Handle Height (Y / ខ្ពស់ទាប)
             if (mode === 'y' || mode === 'xy') {
               const deltaY = currentY - startY;
               let newH = Math.max(minH, Math.min(maxH, startHeight + deltaY));
+              const rowSpan = Math.max(1, Math.min(6, Math.round((newH + 10) / 82)));
+              wrapper.style.gridRow = `span ${rowSpan}`;
+              wrapper.setAttribute('data-row-span', rowSpan);
               wrapper.style.height = `${Math.round(newH)}px`;
               if (newH > 75) {
                 wrapper.classList.add('is-tall');
@@ -14991,7 +15136,7 @@
                 wrapper.classList.remove('is-tall');
               }
               if (badgeText) badgeText += ' ✕ ';
-              badgeText += `H: ${Math.round(newH)}px`;
+              badgeText += `H: ${Math.round(newH)}px (row: ${rowSpan})`;
             }
 
             resizeBadge.style.left = `${currentX}px`;
@@ -15069,15 +15214,19 @@
 
       const wrappers = Array.from(container.querySelectorAll('.stockin-field-wrapper'));
       const order = [];
-      const widths = {};
+      const colSpans = {};
+      const rowSpans = {};
       const heights = {};
 
       wrappers.forEach(w => {
         const fieldId = w.getAttribute('data-field-id');
         if (fieldId) {
           order.push(fieldId);
-          if (w.style.width) {
-            widths[fieldId] = w.style.width;
+          if (w.style.gridColumn) {
+            colSpans[fieldId] = w.style.gridColumn;
+          }
+          if (w.style.gridRow) {
+            rowSpans[fieldId] = w.style.gridRow;
           }
           if (w.style.height) {
             heights[fieldId] = w.style.height;
@@ -15085,7 +15234,7 @@
         }
       });
 
-      const layoutData = { order, widths, heights };
+      const layoutData = { order, colSpans, rowSpans, heights };
       localStorage.setItem(STOCKIN_LAYOUT_STORAGE_KEY, JSON.stringify(layoutData));
     }
 
@@ -15095,6 +15244,9 @@
 
       try {
         let raw = localStorage.getItem(STOCKIN_LAYOUT_STORAGE_KEY);
+        if (!raw) {
+          raw = localStorage.getItem('stockin_custom_layout_v8');
+        }
         if (!raw) {
           raw = localStorage.getItem('stockin_custom_layout_v7');
         }
@@ -15112,12 +15264,36 @@
           });
         }
 
-        // Apply widths
-        if (layoutData.widths && typeof layoutData.widths === 'object') {
+        // Apply column spans (or convert backwards compatible widths)
+        if (layoutData.colSpans && typeof layoutData.colSpans === 'object') {
+          Object.entries(layoutData.colSpans).forEach(([fieldId, spanVal]) => {
+            const el = container.querySelector(`[data-field-id="${fieldId}"]`);
+            if (el && spanVal) {
+              el.style.gridColumn = spanVal;
+              el.style.width = '100%';
+            }
+          });
+        } else if (layoutData.widths && typeof layoutData.widths === 'object') {
           Object.entries(layoutData.widths).forEach(([fieldId, widthVal]) => {
             const el = container.querySelector(`[data-field-id="${fieldId}"]`);
             if (el && widthVal) {
-              el.style.width = widthVal;
+              const m = widthVal.match(/(\d+)%/);
+              if (m) {
+                const pct = parseInt(m[1], 10);
+                const span = Math.max(2, Math.min(20, Math.round((pct / 100) * 20)));
+                el.style.gridColumn = `span ${span}`;
+                el.style.width = '100%';
+              }
+            }
+          });
+        }
+
+        // Apply row spans
+        if (layoutData.rowSpans && typeof layoutData.rowSpans === 'object') {
+          Object.entries(layoutData.rowSpans).forEach(([fieldId, rowVal]) => {
+            const el = container.querySelector(`[data-field-id="${fieldId}"]`);
+            if (el && rowVal) {
+              el.style.gridRow = rowVal;
             }
           });
         }
@@ -15131,6 +15307,10 @@
               const hNum = parseInt(heightVal, 10);
               if (hNum > 75) {
                 el.classList.add('is-tall');
+                if (!el.style.gridRow || el.style.gridRow === 'auto') {
+                  const rowSpan = Math.max(1, Math.min(6, Math.round((hNum + 10) / 82)));
+                  el.style.gridRow = `span ${rowSpan}`;
+                }
               }
             }
           });
@@ -15145,24 +15325,32 @@
       if (!container) return;
 
       localStorage.removeItem(STOCKIN_LAYOUT_STORAGE_KEY);
+      localStorage.removeItem('stockin_custom_layout_v8');
       localStorage.removeItem('stockin_custom_layout_v7');
 
       const defaultOrder = [
-        'docNo', 'sku', 'size', 'color', 'zone',
-        'image', 'qtyRetail', 'qtyBulk', 'oldStock', 'newTotal',
-        'notes', 'actions', 'submit'
+        { id: 'docNo', span: 4 },
+        { id: 'sku', span: 5 },
+        { id: 'size', span: 3 },
+        { id: 'color', span: 3 },
+        { id: 'zone', span: 5 },
+        { id: 'image', span: 4 },
+        { id: 'qtyRetail', span: 4 },
+        { id: 'qtyBulk', span: 4 },
+        { id: 'oldStock', span: 4 },
+        { id: 'newTotal', span: 4 },
+        { id: 'notes', span: 10 },
+        { id: 'actions', span: 5 },
+        { id: 'submit', span: 5 }
       ];
 
-      defaultOrder.forEach(fieldId => {
-        const el = container.querySelector(`[data-field-id="${fieldId}"]`);
+      defaultOrder.forEach(item => {
+        const el = container.querySelector(`[data-field-id="${item.id}"]`);
         if (el) {
           container.appendChild(el);
-          const defWidth = el.getAttribute('data-default-width');
-          if (defWidth) {
-            el.style.width = defWidth;
-          } else {
-            el.style.width = '';
-          }
+          el.style.gridColumn = `span ${item.span}`;
+          el.style.gridRow = 'span 1';
+          el.style.width = '100%';
           el.style.height = '';
           el.classList.remove('is-tall');
         }
