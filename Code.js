@@ -5232,7 +5232,8 @@ function recordStockIn(dataOrPayload, user) {
 
   logActivity(u ? (u.fullName || u.username) : 'Staff', 'Staff', 'STOCK_IN', `Stock In +${qty} ${unit} of ${itemName} (${sku}) [${data.docNo || 'N/A'}]`);
 
-  sendTelegramNotification(`📥 <b>ដំណឹងស្តុកចូល (Stock In)</b>\n📄 លេខឯកសារ: <b>${data.docNo || 'N/A'}</b>\n📦 ទំនិញ: <b>${itemName}</b> (${sku})\n📏 ខ្នាត: <b>${unit}</b> | 🎨 ពណ៌: <b>${data.color || '-'}</b>\n📍 តំបន់: <b>${data.zone || '-'}</b>\n🔢 ចំនួនចូល: <b>+${qty} ${unit}</b>\n📊 ស្តុកចាស់: ${data.oldStock || currentStock} ➔ ស្តុកសរុបថ្មី: <b>${newStock}</b>\n🏢 ឃ្លាំង: ${location}\n👷 អ្នកទទួល: <b>${data.receivedBy || (u ? (u.fullName || u.username) : 'Staff')}</b>\n👤 ដោយ: ${u ? (u.fullName || u.username) : 'Staff'}`);
+  // sendTelegramNotification on stock in disabled per user request
+  // sendTelegramNotification(`📥 <b>ដំណឹងស្តុកចូល (Stock In)</b>\n📄 លេខឯកសារ: <b>${data.docNo || 'N/A'}</b>\n📦 ទំនិញ: <b>${itemName}</b> (${sku})\n📏 ខ្នាត: <b>${unit}</b> | 🎨 ពណ៌: <b>${data.color || '-'}</b>\n📍 តំបន់: <b>${data.zone || '-'}</b>\n🔢 ចំនួនចូល: <b>+${qty} ${unit}</b>\n📊 ស្តុកចាស់: ${data.oldStock || currentStock} ➔ ស្តុកសរុបថ្មី: <b>${newStock}</b>\n🏢 ឃ្លាំង: ${location}\n👷 អ្នកទទួល: <b>${data.receivedBy || (u ? (u.fullName || u.username) : 'Staff')}</b>\n👤 ដោយ: ${u ? (u.fullName || u.username) : 'Staff'}`);
 
 
 
@@ -5404,7 +5405,8 @@ function recordStockOut(dataOrPayload, user) {
 
   logActivity(u ? (u.fullName || u.username) : 'Staff', 'Staff', 'STOCK_OUT', `Stock Out -${qty} ${unit} of ${itemName} (${sku}) [${data.docNo || 'N/A'}]`);
 
-  sendTelegramNotification(`📤 <b>ដំណឹងស្តុកចេញ (Stock Out)</b>\n📄 លេខឯកសារ: <b>${data.docNo || 'N/A'}</b>\n📦 ទំនិញ: <b>${itemName}</b> (${sku})\n📏 ខ្នាត: <b>${unit}</b> | 🎨 ពណ៌: <b>${data.color || '-'}</b>\n👤 អ្នកបើកចេញ: <b>${data.issuer || (u ? (u.fullName || u.username) : 'Staff')}</b>\n🏢 គោលដៅ: <b>${data.toLocation || data.customer || 'ដកប្រើប្រាស់'}</b>\n🔢 ចំនួនបើកចេញ: <b>-${qty} ${unit}</b>\n📊 ស្តុកចាស់: ${currentStock} ➔ ស្តុកសរុបនៅសល់: <b>${newStock}</b>\n🏢 ឃ្លាំងដើម: ${location}\n👤 កត់ត្រាដោយ: ${u ? (u.fullName || u.username) : 'Staff'}`);
+  // sendTelegramNotification on stock out disabled per user request
+  // sendTelegramNotification(`📤 <b>ដំណឹងស្តុកចេញ (Stock Out)</b>\n📄 លេខឯកសារ: <b>${data.docNo || 'N/A'}</b>\n📦 ទំនិញ: <b>${itemName}</b> (${sku})\n📏 ខ្នាត: <b>${unit}</b> | 🎨 ពណ៌: <b>${data.color || '-'}</b>\n👤 អ្នកបើកចេញ: <b>${data.issuer || (u ? (u.fullName || u.username) : 'Staff')}</b>\n🏢 គោលដៅ: <b>${data.toLocation || data.customer || 'ដកប្រើប្រាស់'}</b>\n🔢 ចំនួនបើកចេញ: <b>-${qty} ${unit}</b>\n📊 ស្តុកចាស់: ${currentStock} ➔ ស្តុកសរុបនៅសល់: <b>${newStock}</b>\n🏢 ឃ្លាំងដើម: ${location}\n👤 កត់ត្រាដោយ: ${u ? (u.fullName || u.username) : 'Staff'}`);
 
 
 
@@ -5412,7 +5414,7 @@ function recordStockOut(dataOrPayload, user) {
 
     const alertMsg = `⚠️ <b>ប្រកាសអាសន្ន៖ ស្តុកជិតអស់ (Low Stock Alert)</b>\n📦 ទំនិញ: <b>${itemName}</b> (${sku})\n📉 ស្តុកនៅសល់: <b>${newStock} ${unit}</b> (កម្រិតទាបបំផុត: ${minStock} ${unit})\n🏢 ទីតាំង: ${location}\n👉 សូមរៀបចំបញ្ជាទិញបន្ថែម!`;
 
-    sendTelegramNotification(alertMsg);
+    // sendTelegramNotification(alertMsg);
 
     sendLowStockEmail(itemName, sku, newStock, minStock, location);
 
