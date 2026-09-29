@@ -135,6 +135,20 @@
       box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.25) !important;
     }
 
+    .note-collapsible.line-clamp-1 {
+      display: -webkit-box !important;
+      -webkit-line-clamp: 1 !important;
+      -webkit-box-orient: vertical !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+    }
+    .note-collapsible.line-clamp-none {
+      display: block !important;
+      -webkit-line-clamp: unset !important;
+      overflow: visible !important;
+      white-space: normal !important;
+    }
+
     :root {
       --app-font-sans: 'Kantumruy Pro', 'Battambang', 'Siemreap', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       --window-dpr: 1;
@@ -2367,20 +2381,19 @@
               <table class="w-full text-left text-xs sm:text-sm">
                 <thead class="bg-slate-50/95 text-slate-600 font-bold uppercase border-b border-slate-200 tracking-wider text-xs sticky top-0 z-10 backdrop-blur-xs">
                   <tr>
+                    <th class="px-3 py-3.5 text-center w-12">ល.រ</th>
                     <th class="px-4 py-3.5">លេខឯកសារ</th>
-                    <th class="px-4 py-3.5">កាលបរិច្ឆេទ</th>
                     <th class="px-4 py-3.5">ឈ្មោះទំនិញ & SKU</th>
                     <th class="px-4 py-3.5">ខ្នាត/ពណ៌/តំបន់</th>
                     <th class="px-4 py-3.5 text-center">ចំនួនចូលស្តុក</th>
                     <th class="px-4 py-3.5 text-center">ស្តុកចាស់ ➔ ថ្មី</th>
                     <th class="px-4 py-3.5">ឃ្លាំងទទួល</th>
-                    <th class="px-4 py-3.5">អ្នកទទួល</th>
-                    <th class="px-4 py-3.5">កំណត់សម្គាល់</th>
+                    <th class="px-4 py-3.5">អ្នកទទួល & កំណត់សម្គាល់</th>
                   </tr>
                 </thead>
                 <tbody id="stockInHistoryTableBody" class="divide-y divide-slate-100 bg-white">
                   <tr>
-                    <td colspan="9" class="text-center py-8 text-slate-400 text-sm">
+                    <td colspan="8" class="text-center py-8 text-slate-400 text-sm">
                       <i class="fa-solid fa-spinner fa-spin text-lg mb-1 block text-emerald-500"></i>
                       កំពុងផ្ទុកទិន្នន័យ...
                     </td>
@@ -2711,21 +2724,20 @@
               <table class="w-full text-left text-xs sm:text-sm">
                 <thead class="bg-slate-50/95 text-slate-600 font-bold uppercase border-b border-slate-200 tracking-wider text-xs sticky top-0 z-10 backdrop-blur-xs">
                   <tr>
+                    <th class="px-3 py-3.5 text-center w-12">ល.រ</th>
                     <th class="px-4 py-3.5">លេខឯកសារ</th>
-                    <th class="px-4 py-3.5">កាលបរិច្ឆេទ</th>
                     <th class="px-4 py-3.5">ឈ្មោះទំនិញ & SKU</th>
                     <th class="px-4 py-3.5">ខ្នាត/ពណ៌</th>
                     <th class="px-4 py-3.5 text-center">ចំនួនបើកចេញ</th>
                     <th class="px-4 py-3.5 text-center">ស្តុកនៅសល់</th>
                     <th class="px-4 py-3.5">មូលហេតុនៃការដក</th>
                     <th class="px-4 py-3.5">ចេញទៅឃ្លាំង/ស្ថានីយ</th>
-                    <th class="px-4 py-3.5">អ្នកបើកទំនិញ</th>
-                    <th class="px-4 py-3.5">កំណត់សម្គាល់</th>
+                    <th class="px-4 py-3.5">អ្នកបើក & កំណត់សម្គាល់</th>
                   </tr>
                 </thead>
                 <tbody id="stockOutHistoryTableBody" class="divide-y divide-slate-100 bg-white">
                   <tr>
-                    <td colspan="10" class="text-center py-8 text-slate-400 text-sm">
+                    <td colspan="9" class="text-center py-8 text-slate-400 text-sm">
                       <i class="fa-solid fa-spinner fa-spin text-lg mb-1 block text-amber-500"></i>
                       កំពុងផ្ទុកទិន្នន័យ...
                     </td>
@@ -14843,6 +14855,7 @@
         sku: sku,
         code: itemCode,
         itemName: itemName,
+        imageUrl: item?.imageUrl || '',
         size: size,
         color: color,
         zone: zone,
@@ -15548,6 +15561,7 @@
         sku: sku,
         code: itemCode,
         itemName: itemName,
+        imageUrl: item?.imageUrl || '',
         size: size,
         color: color,
         zone: zone,
@@ -15634,7 +15648,7 @@
       } else {
         const tbody = document.getElementById('stockInHistoryTableBody');
         if (tbody) {
-          tbody.innerHTML = '<tr><td colspan="9" class="text-center py-6 text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-1"></i> កំពុងផ្ទុកទិន្នន័យ...</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="8" class="text-center py-6 text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-1"></i> កំពុងផ្ទុកទិន្នន័យ...</td></tr>';
         }
       }
 
@@ -15673,6 +15687,44 @@
       renderStockInHistoryTable(filtered);
     }
 
+    // Toggle note show/hide (expand/collapse)
+    window.toggleHistoryNote = function(noteId, btn) {
+      const el = document.getElementById(noteId);
+      if (!el) return;
+      const isExpanded = el.classList.contains('line-clamp-none') || el.style.webkitLineClamp === 'unset';
+      const toggleTxt = btn ? btn.querySelector('.toggle-text') : null;
+      const icon = btn ? btn.querySelector('i') : null;
+
+      if (isExpanded) {
+        el.classList.remove('line-clamp-none');
+        el.classList.add('line-clamp-1');
+        el.style.webkitLineClamp = '1';
+        el.style.display = '-webkit-box';
+        el.style.webkitBoxOrient = 'vertical';
+        el.style.overflow = 'hidden';
+        if (btn) {
+          btn.setAttribute('title', 'ចុចដើម្បីបង្ហាញអត្ថន័យទាំងមូល');
+          btn.classList.remove('bg-emerald-100', 'text-emerald-800', 'border-emerald-300', 'bg-amber-100', 'text-amber-800', 'border-amber-300');
+          btn.classList.add('bg-slate-100', 'text-slate-500', 'border-slate-200');
+        }
+        if (icon) icon.className = 'fa-solid fa-eye text-[9px]';
+        if (toggleTxt) toggleTxt.innerText = 'បង្ហាញ';
+      } else {
+        el.classList.remove('line-clamp-1');
+        el.classList.add('line-clamp-none');
+        el.style.webkitLineClamp = 'unset';
+        el.style.display = 'block';
+        el.style.overflow = 'visible';
+        if (btn) {
+          btn.setAttribute('title', 'ចុចដើម្បីបិទវិញ');
+          btn.classList.remove('bg-slate-100', 'text-slate-500', 'border-slate-200');
+          btn.classList.add('bg-emerald-100', 'text-emerald-800', 'border-emerald-300');
+        }
+        if (icon) icon.className = 'fa-solid fa-eye-slash text-[9px]';
+        if (toggleTxt) toggleTxt.innerText = 'បិទ';
+      }
+    };
+
     function renderStockInHistoryTable(txs) {
       const tbody = document.getElementById('stockInHistoryTableBody');
       const countEl = document.getElementById('stockInHistoryCount');
@@ -15680,13 +15732,20 @@
       if (!tbody) return;
 
       if (!txs || txs.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-slate-400 text-sm">មិនទាន់មានទិន្នន័យកត់ត្រាទំនិញចូលស្តុកនៅឡើយទេ</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-slate-400 text-sm">មិនទាន់មានទិន្នន័យកត់ត្រាទំនិញចូលស្តុកនៅឡើយទេ</td></tr>';
         return;
       }
 
-      tbody.innerHTML = txs.map(t => {
-        const docId = escapeHtml(t.docNo || t.txId || 'N/A');
+      tbody.innerHTML = txs.map((t, idx) => {
+        let docId = t.docNo || t.txId || 'N/A';
+        if ((!t.docNo || t.docNo === t.txId || t.docNo.startsWith('TX-')) && t.notes) {
+          const docMatch = t.notes.match(/\[ឯកសារ:\s*([^\]]+)\]/);
+          if (docMatch) docId = docMatch[1].trim();
+        }
+        docId = escapeHtml(docId);
+
         const dStr = escapeHtml(t.date || '-');
+        const timeStr = t.time ? escapeHtml(t.time) : '';
         const iName = escapeHtml(t.itemName || t.sku || '-');
         const skuStr = escapeHtml(t.sku || '-');
         const codeStr = escapeHtml(t.code || t.itemCode || '');
@@ -15698,8 +15757,22 @@
         const oldSt = (t.oldStock !== undefined && t.oldStock !== null) ? Number(t.oldStock) : '-';
         const newSt = (t.newStock !== undefined && t.newStock !== null) ? Number(t.newStock) : (oldSt !== '-' ? (oldSt + qtyNum) : '-');
         const loc = escapeHtml(t.toLocation || t.location || '-');
-        const receiver = escapeHtml(t.receivedBy || t.user || '-');
+
+        let receiver = t.receivedBy || t.user || '';
+        if ((!receiver || receiver === '-' || receiver === 'Admin' || receiver === 'superadmin') && t.notes) {
+          const recMatch = t.notes.match(/\[អ្នកទទួល:\s*([^\]]+)\]/);
+          if (recMatch) receiver = recMatch[1].trim();
+        }
+        if (!receiver) receiver = t.user || '-';
+        receiver = escapeHtml(receiver);
+
         const note = escapeHtml(t.notes || '-');
+        const noteId = `note_in_${idx}_${Math.random().toString(36).slice(2, 7)}`;
+
+        // Resolve product thumbnail image
+        const item = (AppState.items || []).find(i => (i.sku && t.sku && i.sku.toLowerCase() === t.sku.toLowerCase()) || (i.name && t.itemName && i.name.toLowerCase() === t.itemName.toLowerCase()));
+        const rawImg = t.imageUrl || item?.imageUrl || '';
+        const imgUrl = (typeof formatDriveImageUrl === 'function') ? formatDriveImageUrl(rawImg) : rawImg;
 
         const attrParts = [];
         if (sizeStr) attrParts.push(sizeStr);
@@ -15708,34 +15781,87 @@
 
         return `
           <tr class="hover:bg-slate-50/80 transition-colors">
-            <td class="px-4 py-3 font-mono font-bold text-emerald-800 text-xs whitespace-nowrap">
-              <span class="bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200/80">${docId}</span>
+            <!-- 1. ល.រ -->
+            <td class="px-3 py-3 text-center text-xs font-bold text-slate-400 whitespace-nowrap">
+              ${idx + 1}
             </td>
-            <td class="px-4 py-3 text-slate-600 text-xs whitespace-nowrap">${dStr}</td>
-            <td class="px-4 py-3">
-              <p class="font-bold text-slate-800 text-xs sm:text-sm leading-snug">${iName}</p>
-              <div class="flex items-center space-x-1.5 text-xs text-slate-500 font-mono mt-0.5">
-                <span>SKU: ${skuStr}</span>
-                ${codeStr && codeStr !== skuStr ? `<span>• កូដ: ${codeStr}</span>` : ''}
+
+            <!-- 2. លេខឯកសារ & កាលបរិច្ឆេទ (ថ្ងៃខែនៅខាងក្រោម) -->
+            <td class="px-4 py-3 whitespace-nowrap">
+              <span class="bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200/80 font-mono font-bold text-emerald-800 text-xs inline-block shadow-3xs">${docId}</span>
+              <div class="text-[11px] text-slate-500 font-medium mt-1 flex items-center gap-1">
+                <i class="fa-regular fa-calendar-days text-[10px] text-slate-400"></i>
+                <span>${dStr}${timeStr ? ` <span class="text-slate-400 font-mono text-[10px]">${timeStr}</span>` : ''}</span>
               </div>
             </td>
+
+            <!-- 3. រូបភាព & ឈ្មោះទំនិញ (រូបភាពនៅពីមុខ) -->
+            <td class="px-4 py-3">
+              <div class="flex items-center gap-2.5 min-w-[200px]">
+                <div class="relative group/img shrink-0 cursor-zoom-in"
+                     onclick="event.stopPropagation(); previewLargeImage('${escapeHtml(rawImg)}', '${iName}', '${skuStr}', '${codeStr}', '${unitStr}', '${newSt}', '${loc}', '${zoneStr}')"
+                     title="ចុចដើម្បីមើលរូបភាពធំ">
+                  <img src="${imgUrl || 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=150'}"
+                       loading="lazy" decoding="async"
+                       onerror="handleProductImgError(this)"
+                       class="w-10 h-10 object-cover rounded-xl border border-slate-200 shadow-3xs group-hover/img:scale-105 group-hover/img:ring-2 group-hover/img:ring-emerald-400 transition-all duration-200">
+                  <span class="absolute -bottom-1 -right-1 bg-slate-900/80 text-white text-[8px] p-0.5 rounded-full opacity-0 group-hover/img:opacity-100 transition"><i class="fa-solid fa-magnifying-glass-plus"></i></span>
+                </div>
+                <div class="min-w-0">
+                  <p class="font-bold text-slate-800 text-xs sm:text-sm leading-snug truncate" title="${iName}">${iName}</p>
+                  <div class="flex items-center space-x-1.5 text-xs text-slate-500 font-mono mt-0.5">
+                    <span>SKU: ${skuStr}</span>
+                    ${codeStr && codeStr !== skuStr ? `<span>• កូដ: ${codeStr}</span>` : ''}
+                  </div>
+                </div>
+              </div>
+            </td>
+
+            <!-- 4. ខ្នាត/ពណ៌/តំបន់ -->
             <td class="px-4 py-3 text-slate-700 text-xs whitespace-nowrap">
               <span>${attrLine}</span>
               ${zoneStr ? `<span class="block text-xs text-indigo-600 font-semibold mt-0.5"><i class="fa-solid fa-location-dot mr-0.5"></i>${zoneStr}</span>` : ''}
             </td>
+
+            <!-- 5. ចំនួនចូលស្តុក -->
             <td class="px-4 py-3 text-center whitespace-nowrap">
               <span class="inline-flex items-center px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 font-black text-xs sm:text-sm border border-emerald-200">
                 +${qtyNum} ${unitStr}
               </span>
             </td>
+
+            <!-- 6. ស្តុកចាស់ ➔ ថ្មី -->
             <td class="px-4 py-3 text-center text-xs font-semibold text-slate-600 whitespace-nowrap">
               ${oldSt} ➔ <span class="font-bold text-emerald-700">${newSt}</span>
             </td>
+
+            <!-- 7. ឃ្លាំងទទួល -->
             <td class="px-4 py-3 text-slate-700 font-medium text-xs">${loc}</td>
-            <td class="px-4 py-3 text-slate-600 text-xs whitespace-nowrap">
-              <i class="fa-solid fa-user-check text-slate-400 mr-1"></i>${receiver}
+
+            <!-- 8. អ្នកទទួល & កំណត់សម្គាល់ (ឈ្មោះអ្នកទទួលនៅខាងលើ + toggle note) -->
+            <td class="px-4 py-3 text-xs min-w-[200px]">
+              <div class="flex items-center gap-1.5 font-bold text-slate-800 text-xs">
+                <i class="fa-solid fa-user-check text-emerald-600 text-xs shrink-0"></i>
+                <span class="truncate" title="${receiver}">${receiver}</span>
+              </div>
+              ${(!note || note === '-') ? `
+                <div class="text-[11px] text-slate-400 mt-1 italic">-</div>
+              ` : `
+                <div class="mt-1 flex items-start gap-1">
+                  <div id="${noteId}" onclick="toggleHistoryNote('${noteId}', document.getElementById('btn_${noteId}'))"
+                    class="note-collapsible line-clamp-1 max-w-[210px] text-[11px] leading-relaxed text-slate-600 break-words cursor-pointer hover:text-slate-800"
+                    title="${note}">
+                    ${note}
+                  </div>
+                  <button type="button" id="btn_${noteId}" onclick="event.stopPropagation(); toggleHistoryNote('${noteId}', this)"
+                    class="shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-bold text-slate-500 hover:text-emerald-700 bg-slate-100 hover:bg-emerald-50 rounded border border-slate-200 transition"
+                    title="ចុចដើម្បីបង្ហាញអត្ថន័យទាំងមូល">
+                    <i class="fa-solid fa-eye text-[9px]"></i>
+                    <span class="toggle-text text-[9px] hidden sm:inline">បង្ហាញ</span>
+                  </button>
+                </div>
+              `}
             </td>
-            <td class="px-4 py-3 text-slate-600 text-xs max-w-xs truncate" title="${note}">${note}</td>
           </tr>
         `;
       }).join('');
@@ -15751,7 +15877,7 @@
       } else {
         const tbody = document.getElementById('stockOutHistoryTableBody');
         if (tbody) {
-          tbody.innerHTML = '<tr><td colspan="10" class="text-center py-6 text-slate-400 text-sm"><i class="fa-solid fa-spinner fa-spin mr-1"></i> កំពុងផ្ទុកទិន្នន័យ...</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="9" class="text-center py-6 text-slate-400 text-sm"><i class="fa-solid fa-spinner fa-spin mr-1"></i> កំពុងផ្ទុកទិន្នន័យ...</td></tr>';
         }
       }
 
@@ -15796,13 +15922,20 @@
       if (!tbody) return;
 
       if (!txs || txs.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" class="text-center py-8 text-slate-400 text-sm">មិនទាន់មានទិន្នន័យកត់ត្រាទំនិញចេញពីស្តុកនៅឡើយទេ</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-slate-400 text-sm">មិនទាន់មានទិន្នន័យកត់ត្រាទំនិញចេញពីស្តុកនៅឡើយទេ</td></tr>';
         return;
       }
 
-      tbody.innerHTML = txs.map(t => {
-        const docId = escapeHtml(t.docNo || t.txId || 'N/A');
+      tbody.innerHTML = txs.map((t, idx) => {
+        let docId = t.docNo || t.txId || 'N/A';
+        if ((!t.docNo || t.docNo === t.txId || t.docNo.startsWith('TX-')) && t.notes) {
+          const docMatch = t.notes.match(/\[ឯកសារ:\s*([^\]]+)\]/);
+          if (docMatch) docId = docMatch[1].trim();
+        }
+        docId = escapeHtml(docId);
+
         const dStr = escapeHtml(t.date || '-');
+        const timeStr = t.time ? escapeHtml(t.time) : '';
         const iName = escapeHtml(t.itemName || t.sku || '-');
         const skuStr = escapeHtml(t.sku || '-');
         const sizeStr = escapeHtml(t.size || '');
@@ -15812,8 +15945,17 @@
         const oldSt = (t.oldStock !== undefined && t.oldStock !== null) ? Number(t.oldStock) : '-';
         const remSt = (oldSt !== '-') ? Math.max(0, oldSt - qtyNum) : '-';
         const loc = escapeHtml(t.toLocation || t.location || '-');
-        const issuer = escapeHtml(t.user || '-');
+
+        let issuer = t.issuer || t.user || '';
+        if ((!issuer || issuer === '-' || issuer === 'Admin' || issuer === 'superadmin') && t.notes) {
+          const issMatch = t.notes.match(/\[អ្នកបើក(?:ទំនិញ)?:\s*([^\]]+)\]/);
+          if (issMatch) issuer = issMatch[1].trim();
+        }
+        if (!issuer) issuer = t.user || '-';
+        issuer = escapeHtml(issuer);
+
         const note = escapeHtml(t.notes || '-');
+        const noteId = `note_out_${idx}_${Math.random().toString(36).slice(2, 7)}`;
 
         let reasonStr = t.reason || '';
         if (!reasonStr && note.includes('[មូលហេតុ:')) {
@@ -15822,6 +15964,11 @@
         }
         if (!reasonStr) reasonStr = 'ដកប្រើប្រាស់';
 
+        // Resolve product thumbnail image
+        const item = (AppState.items || []).find(i => (i.sku && t.sku && i.sku.toLowerCase() === t.sku.toLowerCase()) || (i.name && t.itemName && i.name.toLowerCase() === t.itemName.toLowerCase()));
+        const rawImg = t.imageUrl || item?.imageUrl || '';
+        const imgUrl = (typeof formatDriveImageUrl === 'function') ? formatDriveImageUrl(rawImg) : rawImg;
+
         const attrParts = [];
         if (sizeStr) attrParts.push(sizeStr);
         if (colorStr) attrParts.push(colorStr);
@@ -15829,35 +15976,90 @@
 
         return `
           <tr class="hover:bg-slate-50/80 transition-colors">
-            <td class="px-4 py-3 font-mono font-bold text-amber-800 text-xs whitespace-nowrap">
-              <span class="bg-amber-50 px-2.5 py-1 rounded-md border border-amber-200/80">${docId}</span>
+            <!-- 1. ល.រ -->
+            <td class="px-3 py-3 text-center text-xs font-bold text-slate-400 whitespace-nowrap">
+              ${idx + 1}
             </td>
-            <td class="px-4 py-3 text-slate-600 text-xs whitespace-nowrap">${dStr}</td>
+
+            <!-- 2. លេខឯកសារ & កាលបរិច្ឆេទ (ថ្ងៃខែនៅខាងក្រោម) -->
+            <td class="px-4 py-3 whitespace-nowrap">
+              <span class="bg-amber-50 px-2.5 py-1 rounded-md border border-amber-200/80 font-mono font-bold text-amber-900 text-xs inline-block shadow-3xs">${docId}</span>
+              <div class="text-[11px] text-slate-500 font-medium mt-1 flex items-center gap-1">
+                <i class="fa-regular fa-calendar-days text-[10px] text-slate-400"></i>
+                <span>${dStr}${timeStr ? ` <span class="text-slate-400 font-mono text-[10px]">${timeStr}</span>` : ''}</span>
+              </div>
+            </td>
+
+            <!-- 3. រូបភាព & ឈ្មោះទំនិញ (រូបភាពនៅពីមុខ) -->
             <td class="px-4 py-3">
-              <p class="font-bold text-slate-800 text-xs sm:text-sm leading-snug">${iName}</p>
-              <span class="text-xs text-slate-500 font-mono mt-0.5 block">${skuStr}</span>
+              <div class="flex items-center gap-2.5 min-w-[200px]">
+                <div class="relative group/img shrink-0 cursor-zoom-in"
+                     onclick="event.stopPropagation(); previewLargeImage('${escapeHtml(rawImg)}', '${iName}', '${skuStr}', '', '${unitStr}', '${remSt}', '${loc}', '')"
+                     title="ចុចដើម្បីមើលរូបភាពធំ">
+                  <img src="${imgUrl || 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=150'}"
+                       loading="lazy" decoding="async"
+                       onerror="handleProductImgError(this)"
+                       class="w-10 h-10 object-cover rounded-xl border border-slate-200 shadow-3xs group-hover/img:scale-105 group-hover/img:ring-2 group-hover/img:ring-amber-400 transition-all duration-200">
+                  <span class="absolute -bottom-1 -right-1 bg-slate-900/80 text-white text-[8px] p-0.5 rounded-full opacity-0 group-hover/img:opacity-100 transition"><i class="fa-solid fa-magnifying-glass-plus"></i></span>
+                </div>
+                <div class="min-w-0">
+                  <p class="font-bold text-slate-800 text-xs sm:text-sm leading-snug truncate" title="${iName}">${iName}</p>
+                  <span class="text-xs text-slate-500 font-mono mt-0.5 block">${skuStr}</span>
+                </div>
+              </div>
             </td>
+
+            <!-- 4. ខ្នាត/ពណ៌ -->
             <td class="px-4 py-3 text-slate-700 text-xs whitespace-nowrap">
               ${attrLine}
             </td>
+
+            <!-- 5. ចំនួនបើកចេញ -->
             <td class="px-4 py-3 text-center whitespace-nowrap">
               <span class="inline-flex items-center px-2.5 py-1 rounded-lg bg-amber-100 text-amber-900 font-black text-xs sm:text-sm border border-amber-300">
                 -${qtyNum} ${unitStr}
               </span>
             </td>
+
+            <!-- 6. ស្តុកនៅសល់ -->
             <td class="px-4 py-3 text-center text-xs font-bold text-slate-700 whitespace-nowrap">
               <span class="text-blue-700">${remSt} ${unitStr}</span>
             </td>
+
+            <!-- 7. មូលហេតុនៃការដក -->
             <td class="px-4 py-3 whitespace-nowrap">
               <span class="px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
                 ${escapeHtml(reasonStr)}
               </span>
             </td>
+
+            <!-- 8. ចេញទៅឃ្លាំង/ស្ថានីយ -->
             <td class="px-4 py-3 text-slate-700 font-medium text-xs">${loc}</td>
-            <td class="px-4 py-3 text-slate-600 text-xs whitespace-nowrap">
-              <i class="fa-solid fa-user text-slate-400 mr-1"></i>${issuer}
+
+            <!-- 9. អ្នកបើក & កំណត់សម្គាល់ (ឈ្មោះអ្នកបើកនៅខាងលើ + toggle note) -->
+            <td class="px-4 py-3 text-xs min-w-[200px]">
+              <div class="flex items-center gap-1.5 font-bold text-slate-800 text-xs">
+                <i class="fa-solid fa-user-tag text-amber-600 text-xs shrink-0"></i>
+                <span class="truncate" title="${issuer}">${issuer}</span>
+              </div>
+              ${(!note || note === '-') ? `
+                <div class="text-[11px] text-slate-400 mt-1 italic">-</div>
+              ` : `
+                <div class="mt-1 flex items-start gap-1">
+                  <div id="${noteId}" onclick="toggleHistoryNote('${noteId}', document.getElementById('btn_${noteId}'))"
+                    class="note-collapsible line-clamp-1 max-w-[210px] text-[11px] leading-relaxed text-slate-600 break-words cursor-pointer hover:text-slate-800"
+                    title="${note}">
+                    ${note}
+                  </div>
+                  <button type="button" id="btn_${noteId}" onclick="event.stopPropagation(); toggleHistoryNote('${noteId}', this)"
+                    class="shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-bold text-slate-500 hover:text-amber-700 bg-slate-100 hover:bg-amber-50 rounded border border-slate-200 transition"
+                    title="ចុចដើម្បីបង្ហាញអត្ថន័យទាំងមូល">
+                    <i class="fa-solid fa-eye text-[9px]"></i>
+                    <span class="toggle-text text-[9px] hidden sm:inline">បង្ហាញ</span>
+                  </button>
+                </div>
+              `}
             </td>
-            <td class="px-4 py-3 text-slate-600 text-xs max-w-xs truncate" title="${note}">${note}</td>
           </tr>
         `;
       }).join('');
