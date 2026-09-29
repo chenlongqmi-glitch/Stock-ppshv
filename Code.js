@@ -32,7 +32,11 @@ const SHEETS = {
 
   REQUISITIONS: 'ProductRequests',
 
-  CHAT: 'ChatMessages'
+  CHAT: 'ChatMessages',
+
+  STOCK_IN: 'Stock_in',
+
+  STOCK_OUT: 'Stock_out'
 
 };
 
@@ -687,6 +691,14 @@ function executeLocalApiAction(req) {
 
         return { success: true, message: 'បានដំឡើងរចនាសម្ព័ន្ធ Google Sheets ជោគជ័យ' };
 
+      case 'syncStockSheets':
+
+      case 'ensureStockSheets':
+
+        ensureStockSheetsInitialized(SpreadsheetApp.getActiveSpreadsheet());
+
+        return { success: true, message: 'Stock_in និង Stock_out បានធ្វើសមកាលកម្មជោគជ័យ' };
+
       case 'uploadImageToDrive':
 
       case 'uploadProductImage':
@@ -1076,11 +1088,11 @@ function setupDatabase() {
 
 
 
+  // 8. ធានាថា Sheet Stock_in និង Stock_out ត្រូវបានបង្កើត និងធ្វើសមកាលកម្មទិន្នន័យ
+  ensureStockSheetsInitialized(ss);
+
   // កំណត់ Font Khmer OS Siemreap លើគ្រប់ Sheets ទាំងអស់
-
   applyKhmerOSSiemreapFontToAllSheets(ss);
-
-
 
   Logger.log('✅ Database Setup Completed Successfully with Khmer OS Siemreap Font!');
 
@@ -1132,6 +1144,155 @@ function formatHeaderRow(sheet, colCount, bgHex) {
 
   } catch (e) { }
 
+}
+
+
+
+/**
+ * ធានាថា Sheet 'Stock_in' និង 'Stock_out' ត្រូវបានបង្កើត និងមាន Header ត្រឹមត្រូវ
+ * ព្រមទាំងទាញទិន្នន័យពី Transactions ចូលមកដោយស្វ័យប្រវត្តិប្រសិនបើតារាងនៅទំនេរ
+ */
+function ensureStockSheetsInitialized(ss) {
+  if (!ss) ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  function findSheet(name) {
+    const sheets = ss.getSheets();
+    for (let i = 0; i < sheets.length; i++) {
+      if (sheets[i].getName().trim().toLowerCase() === name.toLowerCase()) {
+        return sheets[i];
+      }
+    }
+    return null;
+  }
+
+  // 1. Sheet Stock_in
+  let stockInSheet = findSheet('Stock_in');
+  if (!stockInSheet) {
+    stockInSheet = ss.insertSheet('Stock_in');
+  }
+  const stockInHeaders = [
+    'TxID', 'DocNo', 'Date', 'SKU', 'ItemName', 'Size', 'Color', 'Zone',
+    'Quantity', 'Unit', 'UnitPrice', 'TotalAmount', 'Warehouse', 'ReceivedBy',
+    'Notes', 'User', 'Timestamp'
+  ];
+  if (stockInSheet.getLastRow() === 0) {
+    stockInSheet.appendRow(stockInHeaders);
+    formatHeaderRow(stockInSheet, stockInHeaders.length, '#047857');
+  }
+
+  // 2. Sheet Stock_out
+  let stockOutSheet = findSheet('Stock_out');
+  if (!stockOutSheet) {
+    stockOutSheet = ss.insertSheet('Stock_out');
+  }
+  const stockOutHeaders = [
+    'TxID', 'DocNo', 'Date', 'SKU', 'ItemName', 'Size', 'Color', 'Zone',
+    'Quantity', 'Unit', 'UnitPrice', 'TotalAmount', 'FromLocation', 'ToLocation',
+    'Issuer', 'Reason', 'Notes', 'User', 'Timestamp'
+  ];
+  if (stockOutSheet.getLastRow() === 0) {
+    stockOutSheet.appendRow(stockOutHeaders);
+    formatHeaderRow(stockOutSheet, stockOutHeaders.length, '#b45309');
+  }
+
+  // Auto-backfill existing transactions from Transactions sheet if Stock_in or Stock_out only has headers (rowCount <= 1)
+  try {
+    const txSheet = findSheet(SHEETS.TRANSACTIONS);
+    if (txSheet && txSheet.getLastRow() > 1) {
+      const txRows = txSheet.getDataRange().getValues();
+      const inLast = stockInSheet.getLastRow();
+      const outLast = stockOutSheet.getLastRow();
+
+      if (inLast <= 1) {
+        const inRowsToAppend = [];
+        for (let i = 1; i < txRows.length; i++) {
+          const row = txRows[i];
+          const txType = String(row[2] || '').toUpperCase();
+          if (txType === 'STOCK_IN') {
+            const rawNotes = String(row[11] || '');
+            const docNo = (rawNotes.match(/\[(?:ឯកសារ|Doc|DocNo):\s*([^\]]+)\]/i) || [])[1] || '';
+            const receiver = (rawNotes.match(/\[(?:អ្នកទទួល|Receiver):\s*([^\]]+)\]/i) || [])[1] || '';
+            const size = (rawNotes.match(/\[(?:ខ្នាត|Size):\s*([^\]]+)\]/i) || [])[1] || '';
+            const color = (rawNotes.match(/\[(?:ពណ៌|Color):\s*([^\]]+)\]/i) || [])[1] || '';
+            const zone = (rawNotes.match(/\[(?:តំបន់|Zone):\s*([^\]]+)\]/i) || [])[1] || '';
+            const cleanNotes = rawNotes.replace(/\[[^\]]+\]/g, '').trim();
+
+            inRowsToAppend.push([
+              row[0], // TxID
+              docNo,
+              row[1], // Date
+              row[3], // SKU
+              row[4], // ItemName
+              size,
+              color,
+              zone,
+              row[5], // Quantity
+              row[6], // Unit
+              row[7], // UnitPrice
+              row[8], // TotalAmount
+              row[10] || row[9] || '', // Warehouse/ToLocation
+              receiver,
+              cleanNotes,
+              row[12], // User
+              row[13] || new Date() // Timestamp
+            ]);
+          }
+        }
+        if (inRowsToAppend.length > 0) {
+          stockInSheet.getRange(2, 1, inRowsToAppend.length, stockInHeaders.length).setValues(inRowsToAppend);
+          try { stockInSheet.getDataRange().setFontFamily('Siemreap'); } catch(e) {}
+        }
+      }
+
+      if (outLast <= 1) {
+        const outRowsToAppend = [];
+        for (let i = 1; i < txRows.length; i++) {
+          const row = txRows[i];
+          const txType = String(row[2] || '').toUpperCase();
+          if (txType === 'STOCK_OUT') {
+            const rawNotes = String(row[11] || '');
+            const docNo = (rawNotes.match(/\[(?:ឯកសារ|Doc|DocNo):\s*([^\]]+)\]/i) || [])[1] || '';
+            const issuer = (rawNotes.match(/\[(?:អ្នកបើកចេញ|អ្នកបើក|Issuer):\s*([^\]]+)\]/i) || [])[1] || '';
+            const size = (rawNotes.match(/\[(?:ខ្នាត|Size):\s*([^\]]+)\]/i) || [])[1] || '';
+            const color = (rawNotes.match(/\[(?:ពណ៌|Color):\s*([^\]]+)\]/i) || [])[1] || '';
+            const zone = (rawNotes.match(/\[(?:តំបន់|Zone):\s*([^\]]+)\]/i) || [])[1] || '';
+            const reason = (rawNotes.match(/\[(?:មូលហេតុ|Reason):\s*([^\]]+)\]/i) || [])[1] || '';
+            const cleanNotes = rawNotes.replace(/\[[^\]]+\]/g, '').trim();
+
+            outRowsToAppend.push([
+              row[0], // TxID
+              docNo,
+              row[1], // Date
+              row[3], // SKU
+              row[4], // ItemName
+              size,
+              color,
+              zone,
+              row[5], // Quantity
+              row[6], // Unit
+              row[7], // UnitPrice
+              row[8], // TotalAmount
+              row[9], // FromLocation
+              row[10], // ToLocation
+              issuer,
+              reason,
+              cleanNotes,
+              row[12], // User
+              row[13] || new Date() // Timestamp
+            ]);
+          }
+        }
+        if (outRowsToAppend.length > 0) {
+          stockOutSheet.getRange(2, 1, outRowsToAppend.length, stockOutHeaders.length).setValues(outRowsToAppend);
+          try { stockOutSheet.getDataRange().setFontFamily('Siemreap'); } catch(e) {}
+        }
+      }
+    }
+  } catch (syncErr) {
+    Logger.log('ensureStockSheetsInitialized backfill error: ' + syncErr.toString());
+  }
+
+  return { stockInSheet: stockInSheet, stockOutSheet: stockOutSheet };
 }
 
 
@@ -5230,7 +5391,34 @@ function recordStockIn(dataOrPayload, user) {
 
   });
 
-
+  // កត់ត្រាចូលក្នុង Sheet 'Stock_in' ដោយផ្ទាល់
+  try {
+    const stockSheets = ensureStockSheetsInitialized(ss);
+    if (stockSheets && stockSheets.stockInSheet) {
+      const now = new Date();
+      stockSheets.stockInSheet.appendRow([
+        tx.txId,
+        data.docNo || '',
+        Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd'),
+        sku,
+        itemName,
+        data.size || '',
+        data.color || '',
+        data.zone || '',
+        qty,
+        unit,
+        costPrice,
+        totalAmount,
+        location,
+        data.receivedBy || (u ? (u.fullName || u.username) : 'Staff'),
+        data.notes || '',
+        u ? (u.fullName || u.username) : 'Staff',
+        now
+      ]);
+    }
+  } catch (errIn) {
+    Logger.log('Error writing to Stock_in sheet: ' + errIn.toString());
+  }
 
   logActivity(u ? (u.fullName || u.username) : 'Staff', 'Staff', 'STOCK_IN', `Stock In +${qty} ${unit} of ${itemName} (${sku}) [${data.docNo || 'N/A'}]`);
 
@@ -5403,7 +5591,36 @@ function recordStockOut(dataOrPayload, user) {
 
   });
 
-
+  // កត់ត្រាចូលក្នុង Sheet 'Stock_out' ដោយផ្ទាល់
+  try {
+    const stockSheets = ensureStockSheetsInitialized(ss);
+    if (stockSheets && stockSheets.stockOutSheet) {
+      const now = new Date();
+      stockSheets.stockOutSheet.appendRow([
+        tx.txId,
+        data.docNo || '',
+        Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd'),
+        sku,
+        itemName,
+        data.size || '',
+        data.color || '',
+        data.zone || '',
+        qty,
+        unit,
+        unitPriceFinal,
+        totalAmount,
+        location,
+        data.toLocation || data.customer || 'អតិថិជន/ដកប្រើប្រាស់',
+        data.issuer || (u ? (u.fullName || u.username) : 'Staff'),
+        data.reason || '',
+        data.notes || '',
+        u ? (u.fullName || u.username) : 'Staff',
+        now
+      ]);
+    }
+  } catch (errOut) {
+    Logger.log('Error writing to Stock_out sheet: ' + errOut.toString());
+  }
 
   logActivity(u ? (u.fullName || u.username) : 'Staff', 'Staff', 'STOCK_OUT', `Stock Out -${qty} ${unit} of ${itemName} (${sku}) [${data.docNo || 'N/A'}]`);
 
