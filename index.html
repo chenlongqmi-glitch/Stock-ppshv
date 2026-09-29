@@ -12,25 +12,6 @@
   <script>
     (function() {
       try {
-        // Startup Storage Purge: Strictly eliminate obsolete mock records so only Google Sheet data persists
-        try {
-          var savedItems = localStorage.getItem('inventory_items_db');
-          if (savedItems && (savedItems.includes('SKU-4608') || savedItems.includes('SKU-1979') || savedItems.includes('coca') || savedItems.includes('Indomie'))) {
-            var parsed = JSON.parse(savedItems);
-            var validSkus = { 'SKU-7501': 1, 'SKU-9050': 1, 'SKU-9144': 1, 'SKU-9649': 1, 'SKU-2089': 1, 'SKU-9816': 1, 'SKU-2021': 1 };
-            var filtered = parsed.filter(function(x) { return x && (validSkus[x.sku] || x._isPendingSync); });
-            localStorage.setItem('inventory_items_db', JSON.stringify(filtered));
-          }
-          var savedReqs = localStorage.getItem('inventory_product_requests');
-          if (savedReqs && (savedReqs.includes('Indomie') || savedReqs.includes('Vital') || savedReqs.includes('Angkor'))) {
-            localStorage.removeItem('inventory_product_requests');
-          }
-          var savedChats = localStorage.getItem('inventory_chat_messages');
-          if (savedChats && (savedChats.includes('MSG-001') || savedChats.includes('Nescafe'))) {
-            localStorage.removeItem('inventory_chat_messages');
-          }
-        } catch(e) {}
-
         var raw = sessionStorage.getItem('inventory_user');
         if (raw) {
           var u = JSON.parse(raw);
@@ -3705,7 +3686,7 @@
                   </span>
                 </label>
                 <div class="relative">
-                  <input type="text" id="modalName" required placeholder="ឧ. ប៊ិច-圆珠笔 / ក្រដាស់ជូតម៉ាត់-抽纸"
+                  <input type="text" id="modalName" required placeholder="ឧ. កាហ្វេ Nescafe 3in1 / Coca Cola 330ml"
                     oninput="onModalNameInput(this.value)"
                     onfocus="if(this.value) onModalNameInput(this.value)"
                     autocomplete="off"
@@ -4374,7 +4355,7 @@
         <div class="w-full md:w-1/2 space-y-3 text-xs">
           <div>
             <span class="text-[10px] text-slate-400 font-bold uppercase">ឈ្មោះទំនិញ</span>
-            <h4 id="largeImgModalName" class="text-base font-bold text-slate-900 mt-0.5 leading-snug">-
+            <h4 id="largeImgModalName" class="text-base font-bold text-slate-900 mt-0.5 leading-snug">Coca Cola 330ml
             </h4>
           </div>
 
@@ -5248,7 +5229,7 @@
         <div>
           <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">ឈ្មោះមុខទំនិញដែលត្រូវការស្នើសុំ
             *</label>
-          <input type="text" id="reqInputItemName" required placeholder="ឧ. ប៊ិច-圆珠笔 / ក្រដាស់ជូតម៉ាត់-抽纸"
+          <input type="text" id="reqInputItemName" required placeholder="ឧ. Coca Cola 330ml ឬ ប្រេងឆា 1L"
             list="reqItemOptions"
             class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-sky-500">
           <datalist id="reqItemOptions">
@@ -5584,6 +5565,80 @@
           };
         }
       })(),
+      items: [],
+      categories: [],
+      warehouses: WAREHOUSES_LIST,
+      selectedAdminWarehouseFilter: 'ALL',
+      dashboardStats: null,
+      transactions: [],
+      currentTab: 'dashboard',
+      html5QrCode: null,
+      lastScannedCode: null,
+      scannerActive: false,
+      movementChartInstance: null
+    };
+
+    // Helper to detect dummy / unregistered seed demo accounts (wh01-wh11, @inventory.local, USR-PENDING-01)
+    function isUnregisteredDummyUser(u) {
+      if (!u) return false;
+      const uname = String(u.username || '').trim().toLowerCase();
+      const email = String(u.email || '').trim().toLowerCase();
+      const uid = String(u.userId || '').trim().toUpperCase();
+      const fullName = String(u.fullName || '').trim();
+
+      // Explicitly allow actual users from Google Sheets & SuperAdmin
+      const realUsernames = ['superadmin', 'admin', 'chandara', 'singvan327@gmail.com', 'chandy'];
+      if (realUsernames.includes(uname)) return false;
+
+      // Filter out dummy/mock accounts created in local
+      if (uname === 'sdfsdf' || uname.startsWith('wh') || email.endsWith('@inventory.local')) return true;
+      if (/^USR-\d{2}$/.test(uid) && !realUsernames.includes(uname)) return true; // USR-01, USR-02, ...
+      if (uid === 'USR-PENDING-01' || uname === 'chan sovannak') return true;
+      if (fullName.startsWith('បុគ្គលិក ') && fullName.includes('ស្ថានីយ') && /^wh\d+$/i.test(uname)) return true;
+
+      return false;
+    }
+
+    // Universally check if target user object matches current logged-in session user
+    function isSelfUser(u, actor = AppState.currentUser) {
+      if (!u || !actor) return false;
+      
+      const curId = String(actor.userId || actor.id || '').trim().toLowerCase();
+      const uId = String(u.userId || u.id || '').trim().toLowerCase();
+      if (curId && uId && curId === uId) return true;
+
+      const cleanUname = (s) => String(s || '').replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/^@+/, '').trim().toLowerCase();
+      const curUsername = cleanUname(actor.username);
+      const uUsername = cleanUname(u.username);
+      if (curUsername && uUsername && curUsername === uUsername) return true;
+
+      const curEmail = String(actor.email || '').trim().toLowerCase();
+      const uEmail = String(u.email || '').trim().toLowerCase();
+      if (curEmail && uEmail && curEmail === uEmail && !curEmail.endsWith('@inventory.local')) return true;
+
+      const curName = String(actor.fullName || actor.name || '').trim().toLowerCase();
+      const uName = String(u.fullName || u.name || '').trim().toLowerCase();
+      if (curName && uName && curName === uName && curName.length > 2) {
+        return true;
+      }
+
+      const cleanPhone = (p) => String(p || '').replace(/\D/g, '');
+      const curPhone = cleanPhone(actor.phone);
+      const uPhone = cleanPhone(u.phone);
+      if (curPhone && uPhone && curPhone.length >= 7 && curPhone === uPhone) return true;
+
+      return false;
+    }
+
+    // --- LOCAL DATABASE (Keeps ONLY Google Sheet accounts, no fake local accounts) ---
+    const LOCAL_DB = {
+      users: [
+        { userId: 'USR-SA', username: 'superadmin', fullName: '陈龙', email: 'chenlongqmi@gmail.com', phone: '066 966 606', role: 'SuperAdmin', status: 'Active', warehouse: 'ALL', avatar: 'assets/superadmin_avatar.jpg', isRegistered: true },
+        { userId: 'USR-001', username: 'admin', fullName: '聂稳新', email: 'ppshv21qw024@gmail.com', phone: '098 987 653', role: 'Admin', status: 'Active', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', isRegistered: true },
+        { userId: 'USR-20260919123637', username: 'chandara', fullName: 'ចាន់ ដារា', email: '', phone: '098 666 154', role: 'អ្នកកាន់ស្តុក', status: 'Active', warehouse: '1-K3 ស្ថានីយ (ភ្នំពេញ)', avatar: '', isRegistered: true },
+        { userId: 'USR-20260921160928', username: 'singvan327@gmail.com', fullName: 'និត វ៉ាន់ស៊ិញ', email: 'singvan327@gmail.com', phone: '088 663 3966', role: 'Admin', status: 'Active', warehouse: 'ALL', avatar: '', isRegistered: true },
+        { userId: 'USR-20260921215746', username: 'chandy', fullName: 'ចាន់ ឌី', email: '', phone: '095 645 854', role: 'ប្រធានក្រុម', status: 'Active', warehouse: '1-K3 ស្ថានីយ (ភ្នំពេញ)', avatar: '', isRegistered: true }
+      ],
       items: [
         {
           sku: 'SKU-7501',
@@ -5595,13 +5650,13 @@
           unit: 'ដើម',
           packUnit: 'ប្រអប់',
           packQty: 12,
-          zone: 'សាកល្បង',
-          zoneNumber: 'ចាន់ តារា',
+          zone: 'តំបន់ A (A01)',
+          zoneNumber: 'Z-01',
           costPrice: 0.50,
           sellingPrice: 0.80,
           minStock: 1,
           minStockPercent: 10,
-          currentStock: 96,
+          currentStock: 95,
           location: 'គ្រប់ស្ថានីយទាំងអស់',
           notes: 'សាកល្បង',
           createdBy: 'ចាន់ តារា',
@@ -5619,8 +5674,8 @@
           unit: 'ដើម',
           packUnit: 'ប្រអប់',
           packQty: 12,
-          zone: 'សាកល្បង',
-          zoneNumber: 'ចាន់ ឌី',
+          zone: 'តំបន់ A (A01)',
+          zoneNumber: 'Z-01',
           costPrice: 0.50,
           sellingPrice: 0.80,
           minStock: 1,
@@ -5643,8 +5698,8 @@
           unit: 'ដើម',
           packUnit: 'ប្រអប់',
           packQty: 12,
-          zone: 'សាកល្បង',
-          zoneNumber: 'និត វ៉ាន់ស៊ិញ',
+          zone: 'តំបន់ A (A01)',
+          zoneNumber: 'Z-01',
           costPrice: 0.50,
           sellingPrice: 0.80,
           minStock: 1,
@@ -5667,8 +5722,8 @@
           unit: 'ដើម',
           packUnit: 'ប្រអប់',
           packQty: 12,
-          zone: 'ចំណាំសិន',
-          zoneNumber: 'និត វ៉ាន់ស៊ិញ',
+          zone: 'តំបន់ A (A01)',
+          zoneNumber: 'Z-01',
           costPrice: 0.50,
           sellingPrice: 0.80,
           minStock: 1,
@@ -5691,13 +5746,13 @@
           unit: 'ដុំ',
           packUnit: 'យូ',
           packQty: 7,
-          zone: 'សាកល្បង',
-          zoneNumber: '陈龙',
+          zone: 'តំបន់ B (B01)',
+          zoneNumber: 'Z-01',
           costPrice: 1.20,
           sellingPrice: 1.80,
           minStock: 1,
           minStockPercent: 10,
-          currentStock: 5,
+          currentStock: 0,
           location: 'គ្រប់ស្ថានីយទាំងអស់',
           notes: 'សាកល្បង',
           createdBy: '陈龙',
@@ -5715,8 +5770,8 @@
           unit: 'កញ្ចប់',
           packUnit: 'ដុំ',
           packQty: 4,
-          zone: '-',
-          zoneNumber: 'និត វ៉ាន់ស៊ិញ',
+          zone: 'តំបន់ A (A01)',
+          zoneNumber: 'Z-01',
           costPrice: 2.50,
           sellingPrice: 4.00,
           minStock: 1,
@@ -5739,13 +5794,13 @@
           unit: 'គ្រឿង',
           packUnit: 'ប្រអប់',
           packQty: 1,
-          zone: 'តំបន់ A 01',
+          zone: 'តំបន់ A (A01)',
           zoneNumber: 'Z-01',
-          costPrice: 0.00,
-          sellingPrice: 0.00,
-          minStock: 5,
+          costPrice: 5.00,
+          sellingPrice: 8.00,
+          minStock: 1,
           minStockPercent: 10,
-          currentStock: 3,
+          currentStock: 0,
           location: 'គ្រប់ស្ថានីយទាំងអស់',
           notes: 'ម៉ាស៊ីនគិតលេខសម្រាប់រដ្ឋបាល',
           createdBy: 'ស្រី មាស',
@@ -5931,12 +5986,12 @@
         ];
 
         let cleanedItems = [];
-        const VALID_INITIAL_SKUS = new Set(['SKU-7501', 'SKU-9050', 'SKU-9144', 'SKU-9649', 'SKU-2089', 'SKU-9816', 'SKU-2021']);
         if (Array.isArray(parsed) && parsed.length > 0) {
           cleanedItems = parsed.filter(item => {
             if (!item || !item.sku) return false;
-            if (item._isPendingSync) return true;
-            return VALID_INITIAL_SKUS.has(item.sku);
+            if (item.sku === 'SKU-4608' || item.sku === 'SKU-1979' || item.sku === 'SKU-001') return false;
+            const nameLower = (item.name || '').toLowerCase();
+            return !MOCK_KEYWORDS.some(kw => nameLower.includes(kw));
           });
         }
 
@@ -5952,13 +6007,13 @@
             unit: 'ដើម',
             packUnit: 'ប្រអប់',
             packQty: 12,
-            zone: 'សាកល្បង',
-            zoneNumber: 'ចាន់ តារា',
+            zone: 'តំបន់ A (A01)',
+            zoneNumber: 'Z-01',
             costPrice: 0.50,
             sellingPrice: 0.80,
             minStock: 1,
             minStockPercent: 10,
-            currentStock: 96,
+            currentStock: 95,
             location: 'គ្រប់ស្ថានីយទាំងអស់',
             notes: 'សាកល្បង',
             createdBy: 'ចាន់ តារា',
@@ -5976,8 +6031,8 @@
             unit: 'ដើម',
             packUnit: 'ប្រអប់',
             packQty: 12,
-            zone: 'សាកល្បង',
-            zoneNumber: 'ចាន់ ឌី',
+            zone: 'តំបន់ A (A01)',
+            zoneNumber: 'Z-01',
             costPrice: 0.50,
             sellingPrice: 0.80,
             minStock: 1,
@@ -6000,8 +6055,8 @@
             unit: 'ដើម',
             packUnit: 'ប្រអប់',
             packQty: 12,
-            zone: 'សាកល្បង',
-            zoneNumber: 'និត វ៉ាន់ស៊ិញ',
+            zone: 'តំបន់ A (A01)',
+            zoneNumber: 'Z-01',
             costPrice: 0.50,
             sellingPrice: 0.80,
             minStock: 1,
@@ -6024,8 +6079,8 @@
             unit: 'ដើម',
             packUnit: 'ប្រអប់',
             packQty: 12,
-            zone: 'ចំណាំសិន',
-            zoneNumber: 'និត វ៉ាន់ស៊ិញ',
+            zone: 'តំបន់ A (A01)',
+            zoneNumber: 'Z-01',
             costPrice: 0.50,
             sellingPrice: 0.80,
             minStock: 1,
@@ -6048,13 +6103,13 @@
             unit: 'ដុំ',
             packUnit: 'យូ',
             packQty: 7,
-            zone: 'សាកល្បង',
-            zoneNumber: '陈龙',
+            zone: 'តំបន់ B (B01)',
+            zoneNumber: 'Z-01',
             costPrice: 1.20,
             sellingPrice: 1.80,
             minStock: 1,
             minStockPercent: 10,
-            currentStock: 5,
+            currentStock: 0,
             location: 'គ្រប់ស្ថានីយទាំងអស់',
             notes: 'សាកល្បង',
             createdBy: '陈龙',
@@ -6072,8 +6127,8 @@
             unit: 'កញ្ចប់',
             packUnit: 'ដុំ',
             packQty: 4,
-            zone: '-',
-            zoneNumber: 'និត វ៉ាន់ស៊ិញ',
+            zone: 'តំបន់ A (A01)',
+            zoneNumber: 'Z-01',
             costPrice: 2.50,
             sellingPrice: 4.00,
             minStock: 1,
@@ -6096,13 +6151,13 @@
             unit: 'គ្រឿង',
             packUnit: 'ប្រអប់',
             packQty: 1,
-            zone: 'តំបន់ A 01',
+            zone: 'តំបន់ A (A01)',
             zoneNumber: 'Z-01',
-            costPrice: 0.00,
-            sellingPrice: 0.00,
-            minStock: 5,
+            costPrice: 5.00,
+            sellingPrice: 8.00,
+            minStock: 1,
             minStockPercent: 10,
-            currentStock: 3,
+            currentStock: 0,
             location: 'គ្រប់ស្ថានីយទាំងអស់',
             notes: 'ម៉ាស៊ីនគិតលេខសម្រាប់រដ្ឋបាល',
             createdBy: 'ស្រី មាស',
@@ -8807,32 +8862,12 @@
             outOfStockCount: outOfStockItems.length
           },
           lowStockItems: [...outOfStockItems, ...lowStockItems],
-          fastMovingItems: (() => {
-            const outCounts = {};
-            (LOCAL_DB.transactions || []).filter(t => t.type === 'STOCK_OUT').forEach(t => {
-              const s = t.sku;
-              if (!outCounts[s]) outCounts[s] = { sku: s, name: t.itemName || s, totalSoldQty: 0, totalRevenue: 0 };
-              outCounts[s].totalSoldQty += Number(t.quantity || 0);
-              outCounts[s].totalRevenue += (Number(t.quantity || 0) * Number(t.unitPrice || 0));
-            });
-            return Object.values(outCounts).sort((a, b) => b.totalSoldQty - a.totalSoldQty).slice(0, 4);
-          })(),
-          movementTrend: (() => {
-            const daily = {};
-            (LOCAL_DB.transactions || []).forEach(t => {
-              const d = String(t.date || '').slice(5, 10);
-              if (!d) return;
-              if (!daily[d]) daily[d] = { stockIn: 0, stockOut: 0 };
-              if (t.type === 'STOCK_IN') daily[d].stockIn += Number(t.quantity || 0);
-              if (t.type === 'STOCK_OUT') daily[d].stockOut += Number(t.quantity || 0);
-            });
-            const labels = Object.keys(daily).sort();
-            return {
-              labels: labels,
-              stockIn: labels.map(l => daily[l].stockIn),
-              stockOut: labels.map(l => daily[l].stockOut)
-            };
-          })()
+          fastMovingItems: filteredItems.slice(0, 4).map(i => ({ sku: i.sku, name: i.name, totalSoldQty: Math.floor(Math.random() * 80 + 10), totalRevenue: (i.sellingPrice * 50) })),
+          movementTrend: {
+            labels: ['08-15', '08-16', '08-17', '08-18', '08-19', '08-20', '08-21'],
+            stockIn: [40, 20, 80, 15, 60, 30, 50],
+            stockOut: [25, 30, 45, 10, 35, 55, 40]
+          }
         };
       }
 
@@ -8911,32 +8946,12 @@
             outOfStockCount: outOfStockItems.length
           },
           lowStockItems: [...outOfStockItems, ...lowStockItems],
-          fastMovingItems: (() => {
-            const outCounts = {};
-            (LOCAL_DB.transactions || []).filter(t => t.type === 'STOCK_OUT').forEach(t => {
-              const s = t.sku;
-              if (!outCounts[s]) outCounts[s] = { sku: s, name: t.itemName || s, totalSoldQty: 0, totalRevenue: 0 };
-              outCounts[s].totalSoldQty += Number(t.quantity || 0);
-              outCounts[s].totalRevenue += (Number(t.quantity || 0) * Number(t.unitPrice || 0));
-            });
-            return Object.values(outCounts).sort((a, b) => b.totalSoldQty - a.totalSoldQty).slice(0, 4);
-          })(),
-          movementTrend: (() => {
-            const daily = {};
-            (LOCAL_DB.transactions || []).forEach(t => {
-              const d = String(t.date || '').slice(5, 10);
-              if (!d) return;
-              if (!daily[d]) daily[d] = { stockIn: 0, stockOut: 0 };
-              if (t.type === 'STOCK_IN') daily[d].stockIn += Number(t.quantity || 0);
-              if (t.type === 'STOCK_OUT') daily[d].stockOut += Number(t.quantity || 0);
-            });
-            const labels = Object.keys(daily).sort();
-            return {
-              labels: labels,
-              stockIn: labels.map(l => daily[l].stockIn),
-              stockOut: labels.map(l => daily[l].stockOut)
-            };
-          })(),
+          fastMovingItems: items.slice(0, 4).map(i => ({ sku: i.sku, name: i.name, totalSoldQty: Math.floor(Math.random() * 80 + 10), totalRevenue: (i.sellingPrice * 50) })),
+          movementTrend: {
+            labels: ['08-15', '08-16', '08-17', '08-18', '08-19', '08-20', '08-21'],
+            stockIn: [40, 20, 80, 15, 60, 30, 50],
+            stockOut: [25, 30, 45, 10, 35, 55, 40]
+          },
           activeWarehouseFilter: targetWarehouse
         };
       }
@@ -11397,7 +11412,9 @@
               });
             } else {
               masterMap.forEach((it, sku) => {
-                if (it && it._isPendingSync && !mergedList.some(m => m.sku === sku)) {
+                const itName = (it.name || '').toLowerCase();
+                const isMock = itName.includes('beer') || itName.includes('coca') || itName.includes('indomie') || (itName === 'ប៊ិច' && !it.name.includes('-'));
+                if (!isMock && it._isPendingSync && !mergedList.some(m => m.sku === sku)) {
                   mergedList.push(it);
                 }
               });
@@ -12157,7 +12174,7 @@
             };
           });
 
-          // Strictly enforce Google Sheet as Single Source of Truth: Discard non-sheet items
+          // When remote items exist, prioritize Google Sheet as Single Source of Truth
           if (remoteItems.length === 0) {
             masterMap.forEach((it, sku) => {
               if (!mergedList.some(m => m.sku === sku)) {
@@ -12165,9 +12182,11 @@
               }
             });
           } else {
-            // Only preserve local items if actively pending background sync
+            // Keep only un-synced newly added items (filter out old mock/demo items)
             masterMap.forEach((it, sku) => {
-              if (it && it._isPendingSync && !mergedList.some(m => m.sku === sku)) {
+              const itName = (it.name || '').toLowerCase();
+              const isMock = itName.includes('beer') || itName.includes('coca') || itName.includes('indomie') || (itName === 'ប៊ិច' && !it.name.includes('-'));
+              if (!isMock && it._isPendingSync && !mergedList.some(m => m.sku === sku)) {
                 mergedList.push(it);
               }
             });
@@ -17424,43 +17443,43 @@
 
       const sampleData = [
         [
-          'ប៊ិច-圆珠笔',
-          'Pixcell',
-          'ខ្មៅ',
-          96,
-          10,
-          'ដើម',
-          'ប្រអប់',
-          12,
-          'https://lh3.googleusercontent.com/d/1CX6Nb7dj8PTSRnyfzgTMeQUooQGrRQ2E',
-          'សម្ភារៈការិយាល័យ-办公用品',
-          'សាកល្បង'
-        ],
-        [
-          'ក្រដាស់ជូតម៉ាត់-抽纸',
-          'LM',
-          'ស',
+          'កាហ្វេ Nescafe 3in1',
+          '330ml',
+          'ក្រហម',
+          120,
           5,
-          10,
-          'ដុំ',
-          'យូ',
-          7,
-          'https://lh3.googleusercontent.com/d/18YTR9If4CbWoUhAOYBtMtZZfLRGj_qyg',
+          'កំប៉ុង',
+          'កេស',
+          24,
+          'https://images.unsplash.com/photo-1546868871-7041f2a55e12?w=150',
           'សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资',
-          'សាកល្បង'
+          '-'
         ],
         [
-          'ទឹកលុប-涂改液',
-          'Pixcell',
+          'ក្រដាសជូតមាត់',
+          'XL',
           'ស',
-          0,
+          60,
           10,
-          'ដើម',
+          'កញ្ចប់',
           'ប្រអប់',
           12,
-          'https://lh3.googleusercontent.com/d/1xfWG0wZcc9xnQBlnLa62hO1PXJO6Jznl',
+          'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=150',
+          'សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资',
+          '-'
+        ],
+        [
+          'ប៊ិចសរសេរ',
+          '0.5mm',
+          'ខៀវ',
+          200,
+          5,
+          'ដើម',
+          'ប្រអប់',
+          50,
+          'https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?w=150',
           'សម្ភារៈការិយាល័យ-办公用品',
-          'សាកល្បង'
+          '-'
         ]
       ];
 
