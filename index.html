@@ -6287,12 +6287,12 @@
               category: authItem.category,
               size: cleanedItems[exIdx].size || authItem.size,
               color: cleanedItems[exIdx].color || authItem.color,
-              packUnit: (authItem.sku === 'SKU-2021') ? 'ប្រអប់' : (cleanedItems[exIdx].packUnit || authItem.packUnit),
-              packQty: cleanedItems[exIdx].packQty || authItem.packQty,
+              packUnit: cleanedItems[exIdx].packUnit || authItem.packUnit || 'ប្រអប់',
+              packQty: cleanedItems[exIdx].packQty || authItem.packQty || 1,
               costPrice: (cleanedItems[exIdx].costPrice && Number(cleanedItems[exIdx].costPrice) > 0) ? Number(cleanedItems[exIdx].costPrice) : authItem.costPrice,
               sellingPrice: (cleanedItems[exIdx].sellingPrice && Number(cleanedItems[exIdx].sellingPrice) > 0) ? Number(cleanedItems[exIdx].sellingPrice) : authItem.sellingPrice,
-              currentStock: (authItem.sku === 'SKU-2021') ? 0 : ((cleanedItems[exIdx].currentStock && Number(cleanedItems[exIdx].currentStock) > 0) ? Number(cleanedItems[exIdx].currentStock) : (authItem.currentStock || 0)),
-              minStock: (authItem.sku === 'SKU-2021') ? 1 : ((cleanedItems[exIdx].minStock !== undefined && cleanedItems[exIdx].minStock !== null) ? Number(cleanedItems[exIdx].minStock) : authItem.minStock),
+              currentStock: (cleanedItems[exIdx].currentStock !== undefined && cleanedItems[exIdx].currentStock !== null && !isNaN(Number(cleanedItems[exIdx].currentStock))) ? Number(cleanedItems[exIdx].currentStock) : (authItem.currentStock || 0),
+              minStock: (cleanedItems[exIdx].minStock !== undefined && cleanedItems[exIdx].minStock !== null) ? Number(cleanedItems[exIdx].minStock) : (authItem.minStock !== undefined ? authItem.minStock : 1),
               minStockPercent: cleanedItems[exIdx].minStockPercent || authItem.minStockPercent,
               notes: cleanedItems[exIdx].notes || authItem.notes,
               createdBy: cleanedItems[exIdx].createdBy || authItem.createdBy,
@@ -6310,6 +6310,9 @@
             item.category = 'សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资';
           }
         });
+
+        // Reconcile and calculate exact stock from transactions
+        syncItemStockFromHistory(cleanedItems);
 
         // Clean obsolete categories from local storage cache
         try {
@@ -6331,6 +6334,57 @@
         AppState.items = [...LOCAL_DB.items];
       } catch (e) {
         console.warn('Could not load items from localStorage', e);
+      }
+    }
+
+    // Auto-reconcile product stock from all recorded transactions
+    function syncItemStockFromHistory(itemsList) {
+      if (!Array.isArray(itemsList) || itemsList.length === 0) return;
+      let txs = [];
+      try {
+        const storedTxs = localStorage.getItem('inventory_transactions_db');
+        if (storedTxs) {
+          const parsed = JSON.parse(storedTxs);
+          if (Array.isArray(parsed)) txs = txs.concat(parsed);
+        }
+      } catch (e) {}
+      if (Array.isArray(LOCAL_DB.transactions)) txs = txs.concat(LOCAL_DB.transactions);
+      if (Array.isArray(AppState.stockInHistory)) txs = txs.concat(AppState.stockInHistory);
+      if (Array.isArray(AppState.stockOutHistory)) txs = txs.concat(AppState.stockOutHistory);
+      if (!txs.length) return;
+
+      const seen = new Set();
+      const netPerSku = {};
+      txs.forEach(t => {
+        if (!t) return;
+        const key = t.docNo || t.txId;
+        if (key && seen.has(key)) return;
+        if (key) seen.add(key);
+        const s = String(t.sku || '').trim();
+        if (!s) return;
+        if (!netPerSku[s]) netPerSku[s] = { in: 0, out: 0 };
+        const q = Number(t.quantity || 0);
+        if (t.type === 'STOCK_IN') {
+          netPerSku[s].in += q;
+        } else if (t.type === 'STOCK_OUT') {
+          netPerSku[s].out += q;
+        }
+      });
+
+      let changed = false;
+      itemsList.forEach(item => {
+        if (!item || !item.sku) return;
+        const net = netPerSku[item.sku];
+        if (net) {
+          const txNet = Math.max(0, net.in - net.out);
+          if (Number(item.currentStock || 0) < txNet) {
+            item.currentStock = txNet;
+            changed = true;
+          }
+        }
+      });
+      if (changed && typeof saveLocalItemsToStorage === 'function') {
+        saveLocalItemsToStorage();
       }
     }
 
@@ -12237,6 +12291,7 @@
             });
           }
 
+          syncItemStockFromHistory(mergedList);
           AppState.items = mergedList;
           LOCAL_DB.items = [...mergedList];
           saveLocalItemsToStorage();
@@ -12381,6 +12436,11 @@
           searchEl.setAttribute('readonly', 'readonly');
         }
         rawSearch = '';
+      }
+
+      if (typeof syncItemStockFromHistory === 'function') {
+        syncItemStockFromHistory(AppState.items);
+        syncItemStockFromHistory(LOCAL_DB.items);
       }
 
       let search = rawSearch.toLowerCase().trim();
@@ -16020,7 +16080,9 @@
 
             <!-- 6. ស្តុកចាស់ ➔ ថ្មី -->
             <td class="px-4 py-3 text-center text-xs font-semibold text-slate-600 whitespace-nowrap">
-              ${oldSt} ➔ <span class="font-bold text-emerald-700">${newSt}</span>
+              ${(oldSt !== '-' && newSt !== '-') 
+                ? `${oldSt} ➔ <span class="font-bold text-emerald-700">${newSt}</span>` 
+                : `<span class="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">+${qtyNum} ${escapeHtml(rUnit)}</span>`}
             </td>
 
             <!-- 7. ឃ្លាំងទទួល -->
