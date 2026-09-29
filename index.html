@@ -2251,7 +2251,7 @@
                       <i class="fa-solid fa-note-sticky text-amber-500 mr-1.5 shrink-0 text-xs"></i>
                       <span class="truncate">កំណត់សម្គាល់បន្ថែម</span>
                     </label>
-                    <input type="text" id="stockInNotes" placeholder="លេខវិក្កយបត្រ, ស្ថានភាព..."
+                    <input type="text" id="stockInNotes" value="-" placeholder="លេខវិក្កយបត្រ, ស្ថានភាព... (លំនាំដើម: -)"
                       class="w-full h-11 px-3.5 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition shadow-2xs">
                   </div>
 
@@ -2595,7 +2595,7 @@
                       <i class="fa-solid fa-note-sticky text-amber-500 mr-1.5 shrink-0 text-xs"></i>
                       <span class="truncate">កំណត់សម្គាល់បន្ថែម</span>
                     </label>
-                    <input type="text" id="stockOutNotes" placeholder="លេខវិក្កយបត្រ, ស្ថានភាព..."
+                    <input type="text" id="stockOutNotes" value="-" placeholder="លេខវិក្កយបត្រ, ស្ថានភាព... (លំនាំដើម: -)"
                       class="w-full h-11 px-3.5 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition shadow-2xs">
                   </div>
 
@@ -14356,6 +14356,64 @@
       calculateStockInCalculations();
     }
 
+    function clearStockInFieldErrors() {
+      const form = document.getElementById('stockInForm');
+      if (!form) return;
+      form.querySelectorAll('.stock-field-error-msg').forEach(el => el.remove());
+      form.querySelectorAll('.has-stock-error').forEach(el => {
+        el.classList.remove('has-stock-error', '!border-rose-500', '!ring-2', '!ring-rose-400', '!bg-rose-50/50');
+      });
+    }
+
+    function clearStockInSingleFieldError(inputEl) {
+      if (!inputEl) return;
+      inputEl.classList.remove('has-stock-error', '!border-rose-500', '!ring-2', '!ring-rose-400', '!bg-rose-50/50');
+      const parent = inputEl.closest('.w-full') || inputEl.parentElement;
+      const err = parent?.querySelector('.stock-field-error-msg');
+      if (err) err.remove();
+    }
+
+    function setStockInFieldError(inputEl, msg) {
+      if (!inputEl) return;
+      inputEl.classList.add('has-stock-error', '!border-rose-500', '!ring-2', '!ring-rose-400', '!bg-rose-50/50');
+      const parent = inputEl.closest('.w-full') || inputEl.parentElement;
+      if (parent && !parent.querySelector('.stock-field-error-msg')) {
+        const p = document.createElement('p');
+        p.className = 'stock-field-error-msg text-rose-600 font-bold text-[11px] mt-1 flex items-center gap-1';
+        p.innerHTML = `<i class="fa-solid fa-circle-exclamation text-[10px]"></i> <span>${escapeHtml(msg)}</span>`;
+        parent.appendChild(p);
+      }
+    }
+
+    function applyUserWarehouseToStockInLocation(targetEl) {
+      const locEl = targetEl || document.getElementById('stockInLocation');
+      if (!locEl) return;
+      const u = AppState.currentUser;
+      let targetWh = '';
+      if (u && u.warehouse && u.warehouse !== 'ALL' && u.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់' && u.warehouse !== 'គ្រប់ឃ្លាំង') {
+        targetWh = u.warehouse;
+      } else if (AppState.selectedAdminWarehouseFilter && AppState.selectedAdminWarehouseFilter !== 'ALL' && AppState.selectedAdminWarehouseFilter !== 'គ្រប់ស្ថានីយទាំងអស់') {
+        targetWh = AppState.selectedAdminWarehouseFilter;
+      } else {
+        targetWh = (u && u.warehouse && u.warehouse !== 'ALL') ? u.warehouse : '1-K3 ស្ថានីយ (ភ្នំពេញ)';
+      }
+
+      for (let opt of locEl.options) {
+        if (opt.value === targetWh) {
+          locEl.value = targetWh;
+          return;
+        }
+      }
+      const normTarget = targetWh.replace(/\s+/g, '').toLowerCase();
+      for (let opt of locEl.options) {
+        const normOpt = opt.value.replace(/\s+/g, '').toLowerCase();
+        if (normOpt.includes(normTarget) || normTarget.includes(normOpt)) {
+          locEl.value = opt.value;
+          return;
+        }
+      }
+    }
+
     function initStockInForm() {
       const docEl = document.getElementById('stockInDocNo');
       if (docEl && !docEl.value) {
@@ -14367,22 +14425,20 @@
         recEl.value = AppState.currentUser?.fullName || AppState.currentUser?.username || 'Admin';
       }
 
-      const u = AppState.currentUser;
-      const locEl = document.getElementById('stockInLocation');
-      if (locEl && u && u.warehouse && u.warehouse !== 'ALL' && u.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់' && u.warehouse !== 'គ្រប់ឃ្លាំង') {
-        for (let opt of locEl.options) {
-          if (opt.value === u.warehouse) {
-            locEl.value = u.warehouse;
-            break;
-          }
-        }
-      }
+      // ទីតាំងឃ្លាំងណា 默认តាមស្ថានាម account ដែលបាន login ប្រើប្រាស់
+      applyUserWarehouseToStockInLocation();
       
       const zoneEl = document.getElementById('stockInZone');
       if (zoneEl) zoneEl.value = '';
       const zoneClearBtn = document.getElementById('stockInZoneClearBtn');
       if (zoneClearBtn) zoneClearBtn.classList.add('hidden');
 
+      const notesEl = document.getElementById('stockInNotes');
+      if (notesEl && (!notesEl.value || notesEl.value.trim() === '')) {
+        notesEl.value = '-';
+      }
+
+      clearStockInFieldErrors();
       updateStockInImagePreview(null);
     }
 
@@ -14525,16 +14581,11 @@
 
         updateStockInBadges(oldBulk, oldRetail, oldBulk, oldRetail, packUnit, baseUnit);
 
-        if (item.location) {
-          const locSelect = document.getElementById('stockInLocation');
-          if (locSelect) {
-            for (let opt of locSelect.options) {
-              if (opt.value === item.location) {
-                locSelect.value = item.location;
-                break;
-              }
-            }
-          }
+        // ទីតាំងឃ្លាំងណា 默认តាមស្ថានាម account ដែលបាន login ប្រើប្រាស់
+        applyUserWarehouseToStockInLocation();
+        clearStockInSingleFieldError(document.getElementById('stockInSku'));
+        if (item.zone) {
+          clearStockInSingleFieldError(document.getElementById('stockInZone'));
         }
 
         updateStockInImagePreview(item);
@@ -14637,8 +14688,11 @@
       const oldStockValEl = document.getElementById('stockInOldStockValue');
       if (oldStockValEl) oldStockValEl.value = 0;
       const notesEl = document.getElementById('stockInNotes');
-      if (notesEl) notesEl.value = '';
+      if (notesEl) notesEl.value = '-';
 
+      // ទីតាំងឃ្លាំងណា 默认តាមស្ថានាម account ដែលបាន login ប្រើប្រាស់
+      applyUserWarehouseToStockInLocation();
+      clearStockInFieldErrors();
       updateStockInBadges(0, 0, 0, 0, 'ប្រអប់', 'ដើម');
       updateStockInImagePreview(null);
       generateStockInDocNo();
@@ -14646,6 +14700,8 @@
 
     async function handleStockInSubmit(e) {
       e.preventDefault();
+      clearStockInFieldErrors();
+
       const docNo = document.getElementById('stockInDocNo')?.value.trim() || generateStockInDocNo();
       const rawSku = document.getElementById('stockInSku')?.value || '';
       const sku = extractSkuFromInput(rawSku);
@@ -14667,20 +14723,54 @@
       const newStock = oldStock + effectiveQty;
       const unitPrice = 0;
       const supplier = '';
-      const location = document.getElementById('stockInLocation')?.value || AppState.currentUser?.warehouse || '中心库房 (ឃ្លាំងស្តុកនៅបុងសឹង)';
+      const location = document.getElementById('stockInLocation')?.value || AppState.currentUser?.warehouse || '1-K3 ស្ថានីយ (ភ្នំពេញ)';
       const receiver = AppState.currentUser?.fullName || AppState.currentUser?.username || document.getElementById('stockInReceiver')?.value.trim() || 'Admin';
-      const notes = document.getElementById('stockInNotes')?.value.trim() || '';
+      const rawNotes = document.getElementById('stockInNotes')?.value.trim();
+      const notes = (!rawNotes || rawNotes === '') ? '-' : rawNotes;
 
-      if (!sku) {
-        Swal.fire('សូមជ្រើសរើសទំនិញ', 'សូមវាយបញ្ចូល ឬជ្រើសរើសឈ្មោះទំនិញជាមុនសិន!', 'warning');
-        return;
+      // =========================================================================
+      // 1. ត្រួតពិនិត្យគ្រប់ប្រអប់ដែលត្រូវបញ្ចូល: លោតពណ៌ក្រហមត្រង់កន្លែងដែលមិនបានបញ្ចូល
+      // =========================================================================
+      let hasError = false;
+      const item = sku ? (AppState.items || []).find(i => i.sku === sku) : null;
+      if (!sku || !item) {
+        setStockInFieldError(document.getElementById('stockInSku'), 'សូមវាយបញ្ចូល ឬជ្រើសរើសមុខទំនិញ!');
+        hasError = true;
+      }
+      if (!zone) {
+        setStockInFieldError(document.getElementById('stockInZone'), 'សូមបញ្ចូល ឬជ្រើសរើសតំបន់ស្តុក (ZONE)!');
+        hasError = true;
       }
       if (effectiveQty <= 0) {
-        Swal.fire('ចំនួនមិនត្រឹមត្រូវ', 'សូមបញ្ចូលចំនួនចូលស្តុកឱ្យធំជាង 0 (រាយ ឬ ដុំ)!', 'warning');
+        setStockInFieldError(document.getElementById('stockInQtyBulk'), 'សូមបញ្ចូលចំនួនចូលស្តុកឱ្យធំជាង 0 (រាយ ឬ ដុំ)!');
+        setStockInFieldError(document.getElementById('stockInQtyRetail'), 'សូមបញ្ចូលចំនួនចូលស្តុកឱ្យធំជាង 0 (រាយ ឬ ដុំ)!');
+        hasError = true;
+      }
+      if (!docNo) {
+        setStockInFieldError(document.getElementById('stockInDocNo'), 'សូមបញ្ចូលលេខឯកសារ!');
+        hasError = true;
+      }
+      if (!location) {
+        setStockInFieldError(document.getElementById('stockInLocation'), 'សូមជ្រើសរើសទីតាំងឃ្លាំង!');
+        hasError = true;
+      }
+
+      if (hasError) {
+        const firstErr = document.querySelector('#stockInForm .has-stock-error');
+        if (firstErr) {
+          firstErr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          firstErr.focus();
+        }
+        Swal.fire({
+          icon: 'warning',
+          title: 'មិនអាចរក្សាទុកបានទេ!',
+          text: 'សូមពិនិត្យមើលប្រអប់ដែលមានអក្សរ និងបន្ទាត់ពណ៌ក្រហម ហើយបំពេញព័ត៌មានឱ្យបានគ្រប់ជ្រុងជ្រោយ!',
+          confirmButtonColor: '#046c4e',
+          confirmButtonText: 'យល់ព្រម'
+        });
         return;
       }
 
-      const item = AppState.items.find(i => i.sku === sku);
       const itemName = item?.name || sku;
 
       let modeNote = '';
@@ -14689,6 +14779,7 @@
       } else if (bulkQty > 0 && packUnit && packQty > 1) {
         modeNote = ` [ចូលជាដុំ: ${bulkQty} ${packUnit} = ${effectiveQty} ${baseUnit}]`;
       }
+      const finalNotes = (notes !== '-' ? notes + modeNote : (modeNote ? modeNote.trim() : '-')).trim();
 
       const payload = {
         data: { 
@@ -14711,74 +14802,154 @@
           supplier, 
           toLocation: location, 
           receivedBy: receiver,
-          notes: (notes ? notes + modeNote : modeNote).trim()
+          notes: finalNotes
         },
         user: AppState.currentUser
       };
 
-      const btn = document.getElementById('btnSubmitStockIn');
-      if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> កំពុងកត់ត្រា...';
+      // =========================================================================
+      // 2. OPTIMISTIC UI: បង្ហាញទិន្នន័យនៅតារាងខាងក្រោមភ្លាមៗ មិនបង្អង់យឺតយ៉ាវ
+      // =========================================================================
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10);
+      const timeStr = now.toLocaleTimeString();
+      const tempTxId = 'TX-' + dateStr.replace(/-/g, '') + '-' + Math.floor(1000 + Math.random() * 9000);
+
+      const pQtyRaw = packQty;
+      let oldBulkVal = 0, oldRetailVal = 0;
+      let newBulkVal = 0, newRetailVal = 0;
+      if (pQtyRaw > 1) {
+        oldBulkVal = Math.floor(oldStock / pQtyRaw);
+        oldRetailVal = oldStock % pQtyRaw;
+        const totR = oldRetailVal + retailQty;
+        const roll = Math.floor(totR / pQtyRaw);
+        newRetailVal = totR % pQtyRaw;
+        newBulkVal = oldBulkVal + bulkQty + roll;
+      } else {
+        oldBulkVal = 0;
+        oldRetailVal = oldStock;
+        newBulkVal = bulkQty;
+        newRetailVal = oldStock + retailQty;
       }
+      const oldStockStr = `${oldBulkVal} ${packUnit} + ${oldRetailVal} ${baseUnit}`;
+      const newStockStr = `${newBulkVal} ${packUnit} + ${newRetailVal} ${baseUnit}`;
 
-      try {
-        const res = await apiCall('recordStockIn', payload);
-        if (res.success) {
-          const pQtyRaw = Number(document.getElementById('stockInPackQtyVal')?.value || 0);
-          let oldBulkVal = 0, oldRetailVal = 0;
-          let newBulkVal = 0, newRetailVal = 0;
-          if (pQtyRaw > 1) {
-            oldBulkVal = Math.floor(oldStock / pQtyRaw);
-            oldRetailVal = oldStock % pQtyRaw;
-            const totR = oldRetailVal + retailQty;
-            const roll = Math.floor(totR / pQtyRaw);
-            newRetailVal = totR % pQtyRaw;
-            newBulkVal = oldBulkVal + bulkQty + roll;
-          } else {
-            oldBulkVal = 0;
-            oldRetailVal = oldStock;
-            newBulkVal = bulkQty;
-            newRetailVal = oldStock + retailQty;
-          }
-          const oldStockStr = `${oldBulkVal} ${packUnit} + ${oldRetailVal} ${baseUnit}`;
-          const newStockStr = `${newBulkVal} ${packUnit} + ${newRetailVal} ${baseUnit}`;
+      const newTx = {
+        txId: tempTxId,
+        docNo: docNo,
+        date: dateStr,
+        time: timeStr,
+        type: 'STOCK_IN',
+        sku: sku,
+        code: itemCode,
+        itemName: itemName,
+        size: size,
+        color: color,
+        zone: zone,
+        quantity: effectiveQty,
+        unit: baseUnit,
+        packUnit: packUnit,
+        packQty: packQty,
+        oldStock: oldStock,
+        newStock: newStock,
+        toLocation: location,
+        receivedBy: receiver,
+        notes: finalNotes
+      };
 
-          Swal.fire({
-            title: 'ជោគជ័យ!',
-            html: `<div class="text-left text-sm space-y-1.5 p-2">
-              <p class="text-slate-600 font-medium">បានកត់ត្រាទំនិញចូលស្តុកជោគជ័យ!</p>
-              <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-xs space-y-1 mt-2">
-                <p><b>លេខឯកសារ:</b> <span class="font-mono text-emerald-800 font-bold">${escapeHtml(docNo)}</span></p>
-                <p><b>ទំនិញ:</b> <span class="font-bold text-slate-800">${escapeHtml(itemName)}</span> (${escapeHtml(sku)})</p>
-                <p><b>ខ្នាត:</b> ${escapeHtml(size || baseUnit)} | <b>ពណ៌:</b> ${escapeHtml(color || '-')}</p>
-                <p><b>ចំនួនចូល:</b> <span class="text-emerald-700 font-black">+${effectiveQty} ${escapeHtml(baseUnit)}${modeNote}</span></p>
-                <p><b>សរុបស្តុកចាស់:</b> ${oldStockStr} ➔ <b>សរុបស្តុកថ្មី:</b> <span class="text-emerald-700 font-black">${newStockStr}</span></p>
-                <p><b>ឃ្លាំង:</b> ${escapeHtml(location)}</p>
-                <p><b>អ្នកទទួល:</b> ${escapeHtml(receiver)}</p>
-              </div>
-            </div>`,
-            icon: 'success'
-          });
-          clearStockInAllFields();
-          await loadItems();
-          await loadDashboard();
-          await loadStockInHistory();
+      if (!AppState.stockInHistory) AppState.stockInHistory = [];
+      AppState.stockInHistory.unshift(newTx);
+
+      if (!LOCAL_DB.transactions) LOCAL_DB.transactions = [];
+      LOCAL_DB.transactions.unshift(newTx);
+      if (typeof saveLocalTransactionsToStorage === 'function') saveLocalTransactionsToStorage();
+
+      // បង្ហាញក្នុងតារាងភ្លាមៗ
+      renderStockInHistoryTable(AppState.stockInHistory);
+
+      // កែប្រែចំនួនស្តុកជាក់ស្តែងភ្លាមៗ (Instant local stock update)
+      if (item) {
+        item.currentStock = newStock;
+        if (zone) item.zone = zone;
+      }
+      const localItem = (LOCAL_DB.items || []).find(i => i.sku === sku);
+      if (localItem) {
+        localItem.currentStock = newStock;
+        if (zone) localItem.zone = zone;
+      }
+      if (typeof saveLocalItemsToStorage === 'function') saveLocalItemsToStorage();
+      if (typeof renderItemsTable === 'function') renderItemsTable();
+
+      // សម្អាត Form ភ្លាមៗ (កំណត់សម្គាល់ត្រឡប់ទៅ '-' & ទីតាំងឃ្លាំងរក្សា default)
+      clearStockInAllFields();
+
+      // បង្ហាញការជូនដំណឹងជោគជ័យភ្លាមៗ
+      Swal.fire({
+        icon: 'success',
+        title: 'បានកត់ត្រាទំនិញចូលស្តុកជោគជ័យ!',
+        html: `<div class="text-left text-sm space-y-1.5 p-2">
+          <p class="text-slate-600 font-medium">ទិន្នន័យបានបង្ហាញនៅតារាងខាងក្រោមរួចរាល់!</p>
+          <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-xs space-y-1 mt-2">
+            <p><b>លេខឯកសារ:</b> <span class="font-mono text-emerald-800 font-bold">${escapeHtml(docNo)}</span></p>
+            <p><b>ទំនិញ:</b> <span class="font-bold text-slate-800">${escapeHtml(itemName)}</span> (${escapeHtml(sku)})</p>
+            <p><b>ខ្នាត/ពណ៌:</b> ${escapeHtml(size || baseUnit)} | ${escapeHtml(color || '-')}</p>
+            <p><b>តំបន់:</b> <span class="text-indigo-700 font-bold">${escapeHtml(zone || '-')}</span></p>
+            <p><b>ចំនួនចូល:</b> <span class="text-emerald-700 font-black">+${effectiveQty} ${escapeHtml(baseUnit)}${modeNote}</span></p>
+            <p><b>សរុបស្តុកចាស់:</b> ${oldStockStr} ➔ <b>សរុបស្តុកថ្មី:</b> <span class="text-emerald-700 font-black">${newStockStr}</span></p>
+            <p><b>ឃ្លាំង:</b> ${escapeHtml(location)}</p>
+            <p><b>អ្នកទទួល:</b> ${escapeHtml(receiver)}</p>
+            <p><b>កំណត់សម្គាល់:</b> ${escapeHtml(finalNotes)}</p>
+          </div>
+        </div>`,
+        timer: 3500,
+        timerProgressBar: true,
+        confirmButtonColor: '#046c4e',
+        confirmButtonText: 'យល់ព្រម'
+      });
+
+      // =========================================================================
+      // 3. BACKGROUND UPDATE: ធ្វើការ update ក្នុងប្រព័ន្ធតាមក្រោយ
+      // =========================================================================
+      apiCall('recordStockIn', payload).then(res => {
+        if (res && res.success) {
+          if (res.docNo && res.docNo !== docNo) newTx.docNo = res.docNo;
+          if (res.txId) newTx.txId = res.txId;
+          renderStockInHistoryTable(AppState.stockInHistory);
+          if (typeof loadDashboard === 'function') loadDashboard();
           if (typeof broadcastInventoryMutation === 'function') {
             broadcastInventoryMutation('STOCK_IN', { items: AppState.items });
           }
         } else {
-          Swal.fire('កំហុស', res.message || 'មិនអាចកត់ត្រាទំនិញចូលស្តុកបានទេ', 'error');
+          console.warn('Background sync warning:', res?.message);
         }
-      } catch (err) {
-        Swal.fire('Error', err.toString(), 'error');
-      } finally {
-        if (btn) {
-          btn.disabled = false;
-          btn.innerHTML = '<i class="fa-solid fa-check text-xs"></i> <span>រក្សាទុក</span>';
+      }).catch(err => {
+        console.warn('Background sync network error:', err);
+      });
+    }
+
+    (function setupStockInLiveValidation() {
+      function bindStockInEvents() {
+        const sForm = document.getElementById('stockInForm');
+        if (sForm && !sForm.dataset.liveValidationBound) {
+          sForm.dataset.liveValidationBound = 'true';
+          sForm.addEventListener('input', (e) => {
+            if (e.target && e.target.classList.contains('has-stock-error')) {
+              clearStockInSingleFieldError(e.target);
+            }
+          });
+          sForm.addEventListener('change', (e) => {
+            if (e.target && e.target.classList.contains('has-stock-error')) {
+              clearStockInSingleFieldError(e.target);
+            }
+          });
         }
       }
-    }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bindStockInEvents);
+      } else {
+        bindStockInEvents();
+      }
+    })();
 
     function initStockInLayoutCustomizer() {
       // Standardized layout
@@ -15280,7 +15451,7 @@
       const oldStockValEl = document.getElementById('stockOutOldStockValue');
       if (oldStockValEl) oldStockValEl.value = 0;
       const notesEl = document.getElementById('stockOutNotes');
-      if (notesEl) notesEl.value = '';
+      if (notesEl) notesEl.value = '-';
 
       updateStockOutBadges(0, 0, 0, 0, 'ប្រអប់', 'ដើម');
       updateStockOutImagePreview(null);
@@ -15310,7 +15481,8 @@
       const toLocation = document.getElementById('stockOutToLocation')?.value || '1-K3 ស្ថានីយ (ភ្នំពេញ)';
       const issuer = AppState.currentUser?.fullName || AppState.currentUser?.username || document.getElementById('stockOutIssuer')?.value.trim() || 'Admin';
       const reason = document.getElementById('stockOutReason')?.value || 'ដកប្រើប្រាស់ផ្ទៃក្នុង (Internal Use)';
-      const notes = document.getElementById('stockOutNotes')?.value.trim() || '';
+      const rawNotes = document.getElementById('stockOutNotes')?.value.trim();
+      const notes = (!rawNotes || rawNotes === '') ? '-' : rawNotes;
 
       if (!sku) {
         Swal.fire('សូមជ្រើសរើសទំនិញ', 'សូមវាយបញ្ចូល ឬជ្រើសរើសឈ្មោះទំនិញជាមុនសិន!', 'warning');
@@ -15334,6 +15506,7 @@
       } else if (bulkQty > 0 && packUnit && packQty > 1) {
         modeNote = ` [ចេញជាដុំ: ${bulkQty} ${packUnit} = ${qty} ${baseUnit}]`;
       }
+      const finalNotes = (notes !== '-' ? notes + modeNote : (modeNote ? modeNote.trim() : '-')).trim();
 
       const payload = {
         data: {
@@ -15351,58 +15524,98 @@
           oldStock,
           newStock: remainingStock,
           unitPrice,
-          fromLocation: item?.location || AppState.currentUser?.warehouse || 'ឃ្លាំងកណ្តាល',
+          fromLocation: item?.location || AppState.currentUser?.warehouse || '1-K3 ស្ថានីយ (ភ្នំពេញ)',
           toLocation,
           issuer,
           reason,
-          notes: (notes ? notes + modeNote : modeNote).trim()
+          notes: finalNotes
         },
         user: AppState.currentUser
       };
 
-      const btn = document.getElementById('btnSubmitStockOut');
-      if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> កំពុងកត់ត្រា...';
-      }
+      // OPTIMISTIC UI: បង្ហាញទិន្នន័យនៅតារាងខាងក្រោមភ្លាមៗ
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10);
+      const timeStr = now.toLocaleTimeString();
+      const tempTxId = 'TX-' + dateStr.replace(/-/g, '') + '-' + Math.floor(1000 + Math.random() * 9000);
 
-      try {
-        const res = await apiCall('recordStockOut', payload);
-        if (res.success) {
-          Swal.fire({
-            title: 'ជោគជ័យ!',
-            html: `<div class="text-left text-sm space-y-1.5 p-2">
-              <p class="text-slate-600 font-medium">បានកត់ត្រាទំនិញចេញពីស្តុកជោគជ័យ!</p>
-              <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs space-y-1 mt-2">
-                <p><b>លេខឯកសារ:</b> <span class="font-mono text-amber-900 font-bold">${escapeHtml(docNo)}</span></p>
-                <p><b>ទំនិញ:</b> <span class="font-bold text-slate-800">${escapeHtml(itemName)}</span> (${escapeHtml(sku)})</p>
-                <p><b>ខ្នាត:</b> ${escapeHtml(size || baseUnit)} | <b>ពណ៌:</b> ${escapeHtml(color || '-')}</p>
-                <p><b>អ្នកបើកចេញ:</b> <span class="font-bold text-indigo-800">${escapeHtml(issuer)}</span></p>
-                <p><b>គោលដៅ:</b> ${escapeHtml(toLocation)} (${escapeHtml(reason)})</p>
-                <p><b>ចំនួនបើកចេញ:</b> <span class="text-amber-700 font-black">-${qty} ${escapeHtml(baseUnit)}${modeNote}</span></p>
-                <p><b>ស្តុកនៅសល់:</b> <span class="text-slate-800 font-black">${remainingStock} ${escapeHtml(baseUnit)}</span></p>
-              </div>
-            </div>`,
-            icon: 'success'
-          });
-          clearStockOutAllFields();
-          await loadItems();
-          await loadDashboard();
-          await loadStockOutHistory();
+      const newTx = {
+        txId: tempTxId,
+        docNo: docNo,
+        date: dateStr,
+        time: timeStr,
+        type: 'STOCK_OUT',
+        sku: sku,
+        code: itemCode,
+        itemName: itemName,
+        size: size,
+        color: color,
+        zone: zone,
+        quantity: qty,
+        unit: baseUnit,
+        packUnit: packUnit,
+        packQty: packQty,
+        oldStock: oldStock,
+        newStock: remainingStock,
+        fromLocation: payload.data.fromLocation,
+        toLocation: toLocation,
+        issuer: issuer,
+        reason: reason,
+        notes: finalNotes
+      };
+
+      if (!AppState.stockOutHistory) AppState.stockOutHistory = [];
+      AppState.stockOutHistory.unshift(newTx);
+
+      if (!LOCAL_DB.transactions) LOCAL_DB.transactions = [];
+      LOCAL_DB.transactions.unshift(newTx);
+      if (typeof saveLocalTransactionsToStorage === 'function') saveLocalTransactionsToStorage();
+
+      if (typeof renderStockOutHistoryTable === 'function') renderStockOutHistoryTable(AppState.stockOutHistory);
+
+      if (item) item.currentStock = remainingStock;
+      const localItem = (LOCAL_DB.items || []).find(i => i.sku === sku);
+      if (localItem) localItem.currentStock = remainingStock;
+      if (typeof saveLocalItemsToStorage === 'function') saveLocalItemsToStorage();
+      if (typeof renderItemsTable === 'function') renderItemsTable();
+
+      clearStockOutAllFields();
+
+      Swal.fire({
+        icon: 'success',
+        title: 'បានកត់ត្រាទំនិញចេញពីស្តុកជោគជ័យ!',
+        html: `<div class="text-left text-sm space-y-1.5 p-2">
+          <p class="text-slate-600 font-medium">ទិន្នន័យបានបង្ហាញនៅតារាងខាងក្រោមរួចរាល់!</p>
+          <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs space-y-1 mt-2">
+            <p><b>លេខឯកសារ:</b> <span class="font-mono text-amber-900 font-bold">${escapeHtml(docNo)}</span></p>
+            <p><b>ទំនិញ:</b> <span class="font-bold text-slate-800">${escapeHtml(itemName)}</span> (${escapeHtml(sku)})</p>
+            <p><b>ខ្នាត:</b> ${escapeHtml(size || baseUnit)} | <b>ពណ៌:</b> ${escapeHtml(color || '-')}</p>
+            <p><b>អ្នកបើកចេញ:</b> <span class="font-bold text-indigo-800">${escapeHtml(issuer)}</span></p>
+            <p><b>គោលដៅ:</b> ${escapeHtml(toLocation)} (${escapeHtml(reason)})</p>
+            <p><b>ចំនួនបើកចេញ:</b> <span class="text-amber-700 font-black">-${qty} ${escapeHtml(baseUnit)}${modeNote}</span></p>
+            <p><b>ស្តុកនៅសល់:</b> <span class="text-slate-800 font-black">${remainingStock} ${escapeHtml(baseUnit)}</span></p>
+          </div>
+        </div>`,
+        timer: 3500,
+        timerProgressBar: true,
+        confirmButtonColor: '#046c4e',
+        confirmButtonText: 'យល់ព្រម'
+      });
+
+      // Background sync
+      apiCall('recordStockOut', payload).then(res => {
+        if (res && res.success) {
+          if (res.docNo && res.docNo !== docNo) newTx.docNo = res.docNo;
+          if (res.txId) newTx.txId = res.txId;
+          if (typeof renderStockOutHistoryTable === 'function') renderStockOutHistoryTable(AppState.stockOutHistory);
+          if (typeof loadDashboard === 'function') loadDashboard();
           if (typeof broadcastInventoryMutation === 'function') {
             broadcastInventoryMutation('STOCK_OUT', { items: AppState.items });
           }
-        } else {
-          Swal.fire('កំហុស', res.message || 'មិនអាចកត់ត្រាទំនិញចេញបានទេ', 'error');
         }
-      } catch (err) {
-        Swal.fire('Error', err.toString(), 'error');
-      } finally {
-        if (btn) {
-          btn.disabled = false;
-          btn.innerHTML = '<i class="fa-solid fa-check text-xs"></i> <span>រក្សាទុក</span>';
-        }
-      }
+      }).catch(err => {
+        console.warn('Background sync error:', err);
+      });
     }
 
     // =========================================================================
