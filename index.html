@@ -2388,7 +2388,7 @@
                     <th class="px-4 py-3.5">ខ្នាត/ពណ៌/តំបន់</th>
                     <th class="px-4 py-3.5 text-center">ចំនួនចូលស្តុក</th>
                     <th class="px-4 py-3.5 text-center">ស្តុកចាស់ ➔ ថ្មី</th>
-                    <th class="px-4 py-3.5">ឃ្លាំងទទួល</th>
+                    <th class="px-4 py-3.5">ស្តុកនៅឃ្លាំង</th>
                     <th class="px-4 py-3.5">អ្នកទទួល & កំណត់សម្គាល់</th>
                   </tr>
                 </thead>
@@ -15739,6 +15739,15 @@
       }
     };
 
+    function cleanDisplayNote(rawNote) {
+      if (!rawNote || rawNote === '-') return '-';
+      let cleaned = String(rawNote)
+        .replace(/\[\s*(?:ឯកសារ|លេខឯកសារ|អ្នកទទួល|អ្នកបើក|អ្នកបើកចេញ|អ្នកបើកទំនិញ|ខ្នាត|ពណ៌|តំបន់|មូលហេតុ|ចូល|ចូលជាដុំ)\s*:[^\]]*\]/gi, '')
+        .trim();
+      cleaned = cleaned.replace(/^[\s\-–—:]+|[\s\-–—:]+$/g, '').trim();
+      return cleaned || '-';
+    }
+
     function renderStockInHistoryTable(txs) {
       const tbody = document.getElementById('stockInHistoryTableBody');
       const countEl = document.getElementById('stockInHistoryCount');
@@ -15780,7 +15789,7 @@
         if (!receiver) receiver = t.user || '-';
         receiver = escapeHtml(receiver);
 
-        const note = escapeHtml(t.notes || '-');
+        const note = escapeHtml(cleanDisplayNote(t.notes));
         const noteId = `note_in_${idx}_${Math.random().toString(36).slice(2, 7)}`;
 
         // Resolve product thumbnail image
@@ -15986,15 +15995,15 @@
         if (!issuer) issuer = t.user || '-';
         issuer = escapeHtml(issuer);
 
-        const note = escapeHtml(t.notes || '-');
-        const noteId = `note_out_${idx}_${Math.random().toString(36).slice(2, 7)}`;
-
         let reasonStr = t.reason || '';
-        if (!reasonStr && note.includes('[មូលហេតុ:')) {
-          const m = note.match(/\[មូលហេតុ:\s*([^\]]+)\]/);
+        if (!reasonStr && t.notes && t.notes.includes('[មូលហេតុ:')) {
+          const m = t.notes.match(/\[មូលហេតុ:\s*([^\]]+)\]/);
           if (m) reasonStr = m[1];
         }
         if (!reasonStr) reasonStr = 'ដកប្រើប្រាស់';
+
+        const note = escapeHtml(cleanDisplayNote(t.notes));
+        const noteId = `note_out_${idx}_${Math.random().toString(36).slice(2, 7)}`;
 
         // Resolve product thumbnail image
         const item = (AppState.items || []).find(i => (i.sku && t.sku && i.sku.toLowerCase() === t.sku.toLowerCase()) || (i.name && t.itemName && i.name.toLowerCase() === t.itemName.toLowerCase()));
