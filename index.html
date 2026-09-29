@@ -424,12 +424,24 @@
         overscroll-behavior: contain !important;
       }
 
+      .table-scroll-container table {
+        border-collapse: separate !important;
+        border-spacing: 0 !important;
+      }
+
+      .table-scroll-container thead {
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 20 !important;
+      }
+
       .table-scroll-container thead th {
         position: sticky !important;
         top: 0 !important;
         z-index: 20 !important;
-        background-color: #f8fafc !important;
-        box-shadow: inset 0 -1px 0 #e2e8f0 !important;
+        background-color: #f1f5f9 !important;
+        opacity: 1 !important;
+        box-shadow: inset 0 -1px 0 #cbd5e1, 0 1px 2px rgba(0, 0, 0, 0.05) !important;
       }
     }
 
@@ -452,12 +464,18 @@
         overflow-x: auto;
       }
 
+      .table-scroll-container table {
+        border-collapse: separate !important;
+        border-spacing: 0 !important;
+      }
+
       .table-scroll-container thead th {
         position: sticky !important;
         top: 0 !important;
         z-index: 20 !important;
-        background-color: #f8fafc !important;
-        box-shadow: inset 0 -1px 0 #e2e8f0 !important;
+        background-color: #f1f5f9 !important;
+        opacity: 1 !important;
+        box-shadow: inset 0 -1px 0 #cbd5e1 !important;
       }
     }
 
@@ -2457,7 +2475,7 @@
             <!-- Table container -->
             <div id="stockInTableContainer" class="table-scroll-container overflow-x-auto rounded-2xl border border-slate-200 max-h-[520px] overflow-y-auto custom-scrollbar">
               <table class="w-full text-left text-xs sm:text-sm">
-                <thead class="bg-slate-50/95 text-slate-600 font-bold uppercase border-b border-slate-200 tracking-wider text-xs sticky top-0 z-10 backdrop-blur-xs">
+                <thead class="bg-[#f1f5f9] text-slate-700 font-bold uppercase border-b border-slate-300 tracking-wider text-xs sticky top-0 z-20">
                   <tr>
                     <th class="px-3 py-3.5 text-center w-12">ល.រ</th>
                     <th class="px-4 py-3.5">លេខឯកសារ</th>
@@ -2792,7 +2810,7 @@
             <!-- Table container -->
             <div id="stockOutTableContainer" class="table-scroll-container overflow-x-auto rounded-2xl border border-slate-200 max-h-[520px] overflow-y-auto custom-scrollbar">
               <table class="w-full text-left text-xs sm:text-sm">
-                <thead class="bg-slate-50/95 text-slate-600 font-bold uppercase border-b border-slate-200 tracking-wider text-xs sticky top-0 z-10 backdrop-blur-xs">
+                <thead class="bg-[#f1f5f9] text-slate-700 font-bold uppercase border-b border-slate-300 tracking-wider text-xs sticky top-0 z-20">
                   <tr>
                     <th class="px-3 py-3.5 text-center w-12">ល.រ</th>
                     <th class="px-4 py-3.5">លេខឯកសារ</th>
@@ -15813,12 +15831,15 @@
           const stored = localStorage.getItem('inventory_stock_in_history_db');
           if (stored) {
             const parsed = JSON.parse(stored);
-            if (Array.isArray(parsed) && parsed.length > 0) cachedTxs = parsed;
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              cachedTxs = parsed.filter(t => {
+                const doc = String(t.docNo || t.txId || '').toUpperCase();
+                const notes = String(t.notes || '').toLowerCase();
+                return !doc.includes('TEST') && !notes.includes('test auto sync');
+              });
+            }
           }
         } catch(e) {}
-      }
-      if (!cachedTxs && LOCAL_DB.transactions && LOCAL_DB.transactions.length > 0) {
-        cachedTxs = LOCAL_DB.transactions.filter(t => t.type === 'STOCK_IN');
       }
 
       if (cachedTxs && cachedTxs.length > 0) {
@@ -15834,9 +15855,14 @@
       try {
         const res = await apiCall('getTransactionHistory', { filters: { type: 'STOCK_IN', limit: 200 } });
         if (res && res.success && Array.isArray(res.transactions)) {
-          AppState.stockInHistory = res.transactions;
+          const cleanTxs = res.transactions.filter(t => {
+            const doc = String(t.docNo || t.txId || '').toUpperCase();
+            const notes = String(t.notes || '').toLowerCase();
+            return !doc.includes('TEST') && !notes.includes('test auto sync');
+          });
+          AppState.stockInHistory = cleanTxs;
           try {
-            localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(res.transactions));
+            localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(cleanTxs));
           } catch(e) {}
           renderStockInHistoryTable(AppState.stockInHistory);
         }
@@ -16141,12 +16167,15 @@
           const stored = localStorage.getItem('inventory_stock_out_history_db');
           if (stored) {
             const parsed = JSON.parse(stored);
-            if (Array.isArray(parsed) && parsed.length > 0) cachedTxs = parsed;
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              cachedTxs = parsed.filter(t => {
+                const doc = String(t.docNo || t.txId || '').toUpperCase();
+                const notes = String(t.notes || '').toLowerCase();
+                return !doc.includes('TEST') && !notes.includes('test auto sync');
+              });
+            }
           }
         } catch(e) {}
-      }
-      if (!cachedTxs && LOCAL_DB.transactions && LOCAL_DB.transactions.length > 0) {
-        cachedTxs = LOCAL_DB.transactions.filter(t => t.type === 'STOCK_OUT');
       }
 
       if (cachedTxs && cachedTxs.length > 0) {
@@ -16162,9 +16191,14 @@
       try {
         const res = await apiCall('getTransactionHistory', { filters: { type: 'STOCK_OUT', limit: 200 } });
         if (res && res.success && Array.isArray(res.transactions)) {
-          AppState.stockOutHistory = res.transactions;
+          const cleanTxs = res.transactions.filter(t => {
+            const doc = String(t.docNo || t.txId || '').toUpperCase();
+            const notes = String(t.notes || '').toLowerCase();
+            return !doc.includes('TEST') && !notes.includes('test auto sync');
+          });
+          AppState.stockOutHistory = cleanTxs;
           try {
-            localStorage.setItem('inventory_stock_out_history_db', JSON.stringify(res.transactions));
+            localStorage.setItem('inventory_stock_out_history_db', JSON.stringify(cleanTxs));
           } catch(e) {}
           renderStockOutHistoryTable(AppState.stockOutHistory);
         }

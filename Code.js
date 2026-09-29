@@ -1315,13 +1315,23 @@ function ensureStockSheetsInitialized(ss) {
     Logger.log('ensureStockSheetsInitialized backfill error: ' + syncErr.toString());
   }
 
-  // សម្អាតទិន្នន័យ test ប្រសិនបើមាន
+  // សម្អាតទិន្នន័យ test ប្រសិនបើមាន ទាំងក្នុង Stock_in និង Transactions
   try {
     const inVals = stockInSheet.getDataRange().getValues();
     for (let r = inVals.length; r >= 2; r--) {
       const row = inVals[r - 1];
-      if (row.some(c => String(c).includes('TEST-DOC-01') || String(c).includes('Test auto sync'))) {
+      if (row.some(c => String(c).includes('TEST-DOC-01') || String(c).includes('Test auto sync') || String(c).toUpperCase().startsWith('TEST-'))) {
         stockInSheet.deleteRow(r);
+      }
+    }
+    const txSheet = ss.getSheetByName(SHEETS.TRANSACTIONS);
+    if (txSheet && txSheet.getLastRow() > 1) {
+      const txVals = txSheet.getDataRange().getValues();
+      for (let r = txVals.length; r >= 2; r--) {
+        const row = txVals[r - 1];
+        if (row.some(c => String(c).includes('TEST-DOC-01') || String(c).includes('Test auto sync') || String(c).toUpperCase().startsWith('TEST-'))) {
+          txSheet.deleteRow(r);
+        }
       }
     }
   } catch(e) {}
@@ -6207,6 +6217,11 @@ function getTransactionHistory(filtersOrPayload, userParam) {
   for (let i = data.length - 1; i >= 1; i--) {
     const row = data[i];
     if (!row[0]) continue;
+    const rawTxId = String(row[0]).trim().toUpperCase();
+    const rawNotesCheck = String(row[11] || '').toLowerCase();
+    if (rawTxId.startsWith('TEST-') || rawNotesCheck.includes('test auto sync') || rawNotesCheck.includes('test-doc')) {
+      continue;
+    }
 
     const fromLoc = String(row[9] || '');
     const toLoc = String(row[10] || '');
