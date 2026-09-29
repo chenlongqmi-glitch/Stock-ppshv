@@ -1171,10 +1171,16 @@ function ensureStockSheetsInitialized(ss) {
     stockInSheet = ss.insertSheet('Stock_in');
   }
   const stockInHeaders = [
-    'TxID', 'DocNo', 'Date', 'SKU', 'ItemName', 'Size', 'Color', 'Zone',
+    'DocNo', 'Date', 'SKU', 'ItemName', 'Size', 'Color', 'Zone',
     'Quantity', 'Unit', 'UnitPrice', 'TotalAmount', 'Warehouse', 'ReceivedBy',
     'Notes', 'User', 'Timestamp'
   ];
+
+  // បើមានជួរឈរ TxID (Column 1) សូមលុបចេញ
+  if (stockInSheet.getLastRow() > 0 && String(stockInSheet.getRange(1, 1).getValue()).trim().toUpperCase() === 'TXID') {
+    stockInSheet.deleteColumn(1);
+  }
+
   if (stockInSheet.getLastRow() === 0) {
     stockInSheet.appendRow(stockInHeaders);
     formatHeaderRow(stockInSheet, stockInHeaders.length, '#047857');
@@ -1186,10 +1192,16 @@ function ensureStockSheetsInitialized(ss) {
     stockOutSheet = ss.insertSheet('Stock_out');
   }
   const stockOutHeaders = [
-    'TxID', 'DocNo', 'Date', 'SKU', 'ItemName', 'Size', 'Color', 'Zone',
+    'DocNo', 'Date', 'SKU', 'ItemName', 'Size', 'Color', 'Zone',
     'Quantity', 'Unit', 'UnitPrice', 'TotalAmount', 'FromLocation', 'ToLocation',
     'Issuer', 'Reason', 'Notes', 'User', 'Timestamp'
   ];
+
+  // បើមានជួរឈរ TxID (Column 1) សូមលុបចេញ
+  if (stockOutSheet.getLastRow() > 0 && String(stockOutSheet.getRange(1, 1).getValue()).trim().toUpperCase() === 'TXID') {
+    stockOutSheet.deleteColumn(1);
+  }
+
   if (stockOutSheet.getLastRow() === 0) {
     stockOutSheet.appendRow(stockOutHeaders);
     formatHeaderRow(stockOutSheet, stockOutHeaders.length, '#b45309');
@@ -1218,7 +1230,6 @@ function ensureStockSheetsInitialized(ss) {
             const cleanNotes = rawNotes.replace(/\[[^\]]+\]/g, '').trim();
 
             inRowsToAppend.push([
-              row[0], // TxID
               docNo,
               row[1], // Date
               row[3], // SKU
@@ -1260,7 +1271,6 @@ function ensureStockSheetsInitialized(ss) {
             const cleanNotes = rawNotes.replace(/\[[^\]]+\]/g, '').trim();
 
             outRowsToAppend.push([
-              row[0], // TxID
               docNo,
               row[1], // Date
               row[3], // SKU
@@ -1291,6 +1301,17 @@ function ensureStockSheetsInitialized(ss) {
   } catch (syncErr) {
     Logger.log('ensureStockSheetsInitialized backfill error: ' + syncErr.toString());
   }
+
+  // សម្អាតទិន្នន័យ test ប្រសិនបើមាន
+  try {
+    const inVals = stockInSheet.getDataRange().getValues();
+    for (let r = inVals.length; r >= 2; r--) {
+      const row = inVals[r - 1];
+      if (row.some(c => String(c).includes('TEST-DOC-01') || String(c).includes('Test auto sync'))) {
+        stockInSheet.deleteRow(r);
+      }
+    }
+  } catch(e) {}
 
   return { stockInSheet: stockInSheet, stockOutSheet: stockOutSheet };
 }
@@ -5397,7 +5418,6 @@ function recordStockIn(dataOrPayload, user) {
     if (stockSheets && stockSheets.stockInSheet) {
       const now = new Date();
       stockSheets.stockInSheet.appendRow([
-        tx.txId,
         data.docNo || '',
         Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd'),
         sku,
@@ -5597,7 +5617,6 @@ function recordStockOut(dataOrPayload, user) {
     if (stockSheets && stockSheets.stockOutSheet) {
       const now = new Date();
       stockSheets.stockOutSheet.appendRow([
-        tx.txId,
         data.docNo || '',
         Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd'),
         sku,
