@@ -2389,11 +2389,12 @@
                     <th class="px-4 py-3.5 text-center">ស្តុកចាស់ ➔ ថ្មី</th>
                     <th class="px-4 py-3.5">ស្តុកនៅឃ្លាំង</th>
                     <th class="px-4 py-3.5">អ្នកទទួល & កំណត់សម្គាល់</th>
+                    <th class="px-4 py-3.5 text-center">សកម្មភាព</th>
                   </tr>
                 </thead>
                 <tbody id="stockInHistoryTableBody" class="divide-y divide-slate-100 bg-white">
                   <tr>
-                    <td colspan="8" class="text-center py-8 text-slate-400 text-sm">
+                    <td colspan="9" class="text-center py-8 text-slate-400 text-sm">
                       <i class="fa-solid fa-spinner fa-spin text-lg mb-1 block text-emerald-500"></i>
                       កំពុងផ្ទុកទិន្នន័យ...
                     </td>
@@ -2733,11 +2734,12 @@
                     <th class="px-4 py-3.5">មូលហេតុនៃការដក</th>
                     <th class="px-4 py-3.5">ចេញទៅឃ្លាំង/ស្ថានីយ</th>
                     <th class="px-4 py-3.5">អ្នកបើក & កំណត់សម្គាល់</th>
+                    <th class="px-4 py-3.5 text-center">សកម្មភាព</th>
                   </tr>
                 </thead>
                 <tbody id="stockOutHistoryTableBody" class="divide-y divide-slate-100 bg-white">
                   <tr>
-                    <td colspan="9" class="text-center py-8 text-slate-400 text-sm">
+                    <td colspan="10" class="text-center py-8 text-slate-400 text-sm">
                       <i class="fa-solid fa-spinner fa-spin text-lg mb-1 block text-amber-500"></i>
                       កំពុងផ្ទុកទិន្នន័យ...
                     </td>
@@ -7692,7 +7694,8 @@
       'updateUserProfile', 'updateProfile', 'addWarehouse', 'deleteWarehouse',
       'updateUserStatus', 'deleteUser', 'requestUserDeletion', 'approveUserDeletion',
       'rejectUserDeletion', 'createProductRequest', 'updateProductRequestStatus',
-      'saveSettings', 'sendChatMessage', 'sendChat', 'logoutUser', 'logout'
+      'saveSettings', 'sendChatMessage', 'sendChat', 'logoutUser', 'logout',
+      'updateStockTransaction', 'updateTransaction', 'deleteStockTransaction', 'deleteTransaction'
     ]);
 
     async function apiCall(action, payload = {}) {
@@ -9269,6 +9272,94 @@
         });
         addNotification('TRANSFER', 'ផ្ទេរស្តុកទំនិញ (Transfer)', `ផ្ទេរ ${d.quantity} ដុំ ពី ${d.fromLocation} ទៅ ${d.toLocation}`, d.fromLocation, u?.username || 'Staff');
         return { success: true, message: 'បានផ្ទេរស្តុកទំនិញជោគជ័យ!' };
+      }
+
+      if (action === 'deleteStockTransaction' || action === 'deleteTransaction') {
+        const d = payload.data || payload;
+        const txId = d.txId || d.docNo;
+        const txType = (d.type || '').toUpperCase();
+        const sku = d.sku;
+        const qty = Number(d.quantity || 0);
+
+        const txIdx = (LOCAL_DB.transactions || []).findIndex(t => (txId && t.txId === txId) || (d.docNo && t.docNo === d.docNo));
+        if (txIdx >= 0) {
+          LOCAL_DB.transactions.splice(txIdx, 1);
+          if (typeof saveLocalTransactionsToStorage === 'function') saveLocalTransactionsToStorage();
+        }
+
+        const itm = (LOCAL_DB.items || []).find(i => (i.sku && sku && i.sku.toLowerCase() === sku.toLowerCase()));
+        if (itm) {
+          if (txType === 'STOCK_IN') {
+            itm.currentStock = Math.max(0, Number(itm.currentStock || 0) - qty);
+          } else if (txType === 'STOCK_OUT') {
+            itm.currentStock = Number(itm.currentStock || 0) + qty;
+          }
+          if (typeof saveLocalItemsToStorage === 'function') saveLocalItemsToStorage();
+          const appItm = (AppState.items || []).find(i => (i.sku && sku && i.sku.toLowerCase() === sku.toLowerCase()));
+          if (appItm) appItm.currentStock = itm.currentStock;
+        }
+
+        if (AppState.stockInHistory) {
+          AppState.stockInHistory = AppState.stockInHistory.filter(t => (txId && t.txId !== txId) && (!d.docNo || t.docNo !== d.docNo));
+        }
+        if (AppState.stockOutHistory) {
+          AppState.stockOutHistory = AppState.stockOutHistory.filter(t => (txId && t.txId !== txId) && (!d.docNo || t.docNo !== d.docNo));
+        }
+
+        return { success: true, message: 'បានលុបប្រតិបត្តិការជោគជ័យ!' };
+      }
+
+      if (action === 'updateStockTransaction' || action === 'updateTransaction') {
+        const d = payload.data || payload;
+        const txId = d.txId || d.docNo;
+        const oldQty = Number(d.oldQuantity || 0);
+        const newQty = Number(d.newQuantity !== undefined ? d.newQuantity : (d.quantity || 0));
+        const txType = (d.type || '').toUpperCase();
+        const sku = d.sku;
+        const qtyDiff = newQty - oldQty;
+
+        if (qtyDiff !== 0) {
+          const itm = (LOCAL_DB.items || []).find(i => (i.sku && sku && i.sku.toLowerCase() === sku.toLowerCase()));
+          if (itm) {
+            if (txType === 'STOCK_IN') {
+              itm.currentStock = Math.max(0, Number(itm.currentStock || 0) + qtyDiff);
+            } else if (txType === 'STOCK_OUT') {
+              itm.currentStock = Math.max(0, Number(itm.currentStock || 0) - qtyDiff);
+            }
+            if (typeof saveLocalItemsToStorage === 'function') saveLocalItemsToStorage();
+            const appItm = (AppState.items || []).find(i => (i.sku && sku && i.sku.toLowerCase() === sku.toLowerCase()));
+            if (appItm) appItm.currentStock = itm.currentStock;
+          }
+        }
+
+        const updateTxObj = (t) => {
+          if (!t) return;
+          if (d.docNo) t.docNo = d.docNo;
+          if (d.newQuantity !== undefined) t.quantity = newQty;
+          if (d.date) t.date = d.date;
+          if (d.size !== undefined) t.size = d.size;
+          if (d.color !== undefined) t.color = d.color;
+          if (d.zone !== undefined) t.zone = d.zone;
+          if (d.toLocation) { t.toLocation = d.toLocation; t.location = d.toLocation; }
+          if (d.fromLocation) t.fromLocation = d.fromLocation;
+          if (d.receivedBy) t.receivedBy = d.receivedBy;
+          if (d.issuer) t.issuer = d.issuer;
+          if (d.notes !== undefined) t.notes = d.notes;
+        };
+
+        const tx = (LOCAL_DB.transactions || []).find(t => (txId && t.txId === txId) || (d.docNo && t.docNo === d.docNo));
+        if (tx) {
+          updateTxObj(tx);
+          if (typeof saveLocalTransactionsToStorage === 'function') saveLocalTransactionsToStorage();
+        }
+
+        const hIn = (AppState.stockInHistory || []).find(t => (txId && t.txId === txId) || (d.docNo && t.docNo === d.docNo));
+        if (hIn) updateTxObj(hIn);
+
+        const hOut = (AppState.stockOutHistory || []).find(t => (txId && t.txId === txId) || (d.docNo && t.docNo === d.docNo));
+        if (hOut) updateTxObj(hOut);
+
+        return { success: true, message: 'បានកែសម្រួលប្រតិបត្តិការជោគជ័យ!' };
       }
 
       if (action === 'getSystemSettings' || action === 'getSettings') {
@@ -15753,7 +15844,7 @@
       if (!tbody) return;
 
       if (!txs || txs.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-slate-400 text-sm">មិនទាន់មានទិន្នន័យកត់ត្រាទំនិញចូលស្តុកនៅឡើយទេ</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-slate-400 text-sm">មិនទាន់មានទិន្នន័យកត់ត្រាទំនិញចូលស្តុកនៅឡើយទេ</td></tr>';
         return;
       }
 
@@ -15901,6 +15992,24 @@
                 </div>
               `}
             </td>
+
+            <!-- 9. សកម្មភាព (កែត្រូវ & លុបចេញ) -->
+            <td class="px-4 py-3 text-center whitespace-nowrap">
+              <div class="inline-flex items-center gap-1.5">
+                <button type="button" onclick="openEditStockInModal('${escapeHtml(t.txId || '')}', '${escapeHtml(t.docNo || '')}')"
+                  class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg shadow-3xs transition hover:scale-105 active:scale-95 cursor-pointer"
+                  title="កែត្រូវ / កែប្រែទិន្នន័យ">
+                  <i class="fa-solid fa-pen-to-square text-xs text-emerald-600"></i>
+                  <span>កែត្រូវ</span>
+                </button>
+                <button type="button" onclick="confirmDeleteStockInRecord('${escapeHtml(t.txId || '')}', '${escapeHtml(t.docNo || '')}')"
+                  class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-300 rounded-lg shadow-3xs transition hover:scale-105 active:scale-95 cursor-pointer"
+                  title="លុបប្រតិបត្តិការនេះចេញ">
+                  <i class="fa-solid fa-trash-can text-xs text-rose-600"></i>
+                  <span>លុប</span>
+                </button>
+              </div>
+            </td>
           </tr>
         `;
       }).join('');
@@ -15961,7 +16070,7 @@
       if (!tbody) return;
 
       if (!txs || txs.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-slate-400 text-sm">មិនទាន់មានទិន្នន័យកត់ត្រាទំនិញចេញពីស្តុកនៅឡើយទេ</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center py-8 text-slate-400 text-sm">មិនទាន់មានទិន្នន័យកត់ត្រាទំនិញចេញពីស្តុកនៅឡើយទេ</td></tr>';
         return;
       }
 
@@ -16117,9 +16226,528 @@
                 </div>
               `}
             </td>
+
+            <!-- 10. សកម្មភាព (កែត្រូវ & លុបចេញ) -->
+            <td class="px-4 py-3 text-center whitespace-nowrap">
+              <div class="inline-flex items-center gap-1.5">
+                <button type="button" onclick="openEditStockOutModal('${escapeHtml(t.txId || '')}', '${escapeHtml(t.docNo || '')}')"
+                  class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-lg shadow-3xs transition hover:scale-105 active:scale-95 cursor-pointer"
+                  title="កែត្រូវ / កែប្រែទិន្នន័យ">
+                  <i class="fa-solid fa-pen-to-square text-xs text-amber-600"></i>
+                  <span>កែត្រូវ</span>
+                </button>
+                <button type="button" onclick="confirmDeleteStockOutRecord('${escapeHtml(t.txId || '')}', '${escapeHtml(t.docNo || '')}')"
+                  class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-300 rounded-lg shadow-3xs transition hover:scale-105 active:scale-95 cursor-pointer"
+                  title="លុបប្រតិបត្តិការនេះចេញ">
+                  <i class="fa-solid fa-trash-can text-xs text-rose-600"></i>
+                  <span>លុប</span>
+                </button>
+              </div>
+            </td>
           </tr>
         `;
       }).join('');
+    }
+
+    // =========================================================================
+    // មុខងារកែត្រូវ (EDIT) និង លុបចេញ (DELETE) ប្រតិបត្តិការចូលស្តុក / ចេញស្តុក
+    // =========================================================================
+    function findTransactionRecord(txId, docNo, type) {
+      const list = (type === 'STOCK_OUT') ? (AppState.stockOutHistory || []) : (AppState.stockInHistory || []);
+      let found = list.find(t => (txId && t.txId === txId) || (docNo && t.docNo === docNo));
+      if (!found && LOCAL_DB.transactions) {
+        found = LOCAL_DB.transactions.find(t => (!type || t.type === type) && ((txId && t.txId === txId) || (docNo && t.docNo === docNo)));
+      }
+      return found;
+    }
+
+    function openEditStockInModal(txId, docNo) {
+      const tx = findTransactionRecord(txId, docNo, 'STOCK_IN');
+      if (!tx) {
+        Swal.fire({ icon: 'error', title: 'រកមិនឃើញទិន្នន័យប្រតិបត្តិការទេ!', confirmButtonColor: '#047857' });
+        return;
+      }
+
+      const item = (AppState.items || []).find(i => (i.sku && tx.sku && i.sku.toLowerCase() === tx.sku.toLowerCase()) || (i.name && tx.itemName && i.name.toLowerCase() === tx.itemName.toLowerCase()));
+      const iName = escapeHtml(tx.itemName || item?.name || tx.sku || '');
+      const curDocNo = escapeHtml(tx.docNo || '');
+      const curDate = escapeHtml(tx.date || new Date().toISOString().slice(0, 10));
+      const curQty = Number(tx.quantity || 0);
+      const curSize = escapeHtml(tx.size || '');
+      const curColor = escapeHtml(tx.color || '');
+      const curZone = escapeHtml(tx.zone || '');
+      const curReceiver = escapeHtml(tx.receivedBy || tx.user || '');
+      const curLocation = escapeHtml(tx.toLocation || tx.location || '1-K3 ស្ថានីយ (ភ្នំពេញ)');
+      const curUnit = escapeHtml(tx.unit || item?.unit || 'ដុំ');
+      const curNotes = escapeHtml(cleanDisplayNote(tx.notes || ''));
+
+      const whList = AppState.warehouses && AppState.warehouses.length > 0 ? AppState.warehouses : [
+        { name: '1-K3 ស្ថានីយ (ភ្នំពេញ)' }, { name: '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)' },
+        { name: '3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)' }, { name: '4-K76 ស្ថានីយ (ត្រែងត្រយឹង)' },
+        { name: '5-K113 ស្ថានីយ (កំពង់សិលា)' }, { name: '6-K141 ស្ថានីយ (ស្រែអំបិល)' },
+        { name: '7-K172 ស្ថានីយ (វាលរេញ)' }, { name: '8-K187 ស្ថានីយ (ព្រៃនប់)' },
+        { name: '9-K208 ស្ថានីយ (កែវផុស)' }, { name: '10-K240 ស្ថានីយ (ស្ទឹងហាវ)' },
+        { name: '11-K287 ស្ថានីយ (ក្រុងព្រះសីហនុ)' }
+      ];
+      const whOptions = whList.map(w => `<option value="${escapeHtml(w.name || w)}" ${curLocation === (w.name || w) ? 'selected' : ''}>${escapeHtml(w.name || w)}</option>`).join('');
+
+      Swal.fire({
+        title: '<div class="flex items-center justify-center gap-2 text-emerald-800 text-lg font-bold"><i class="fa-solid fa-pen-to-square text-emerald-600"></i><span>កែត្រូវទិន្នន័យចូលស្តុក</span></div>',
+        html: `
+          <div class="text-left text-xs sm:text-sm space-y-3 p-1">
+            <div class="p-2.5 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center justify-between">
+              <div>
+                <p class="font-bold text-slate-800 text-xs sm:text-sm">${iName}</p>
+                <p class="text-xs text-slate-500 font-mono mt-0.5">SKU: ${escapeHtml(tx.sku || '-')}</p>
+              </div>
+              <span class="px-2.5 py-1 bg-emerald-100 border border-emerald-300 text-emerald-900 rounded-lg font-bold text-xs">ចូលស្តុក</span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">លេខឯកសារ (Doc No)</label>
+                <input id="swalEditDocNo" type="text" value="${curDocNo}" class="w-full h-9 px-3 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500 font-mono font-bold text-emerald-800">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">កាលបរិច្ឆេទ</label>
+                <input id="swalEditDate" type="date" value="${curDate}" class="w-full h-9 px-3 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">ចំនួនចូលស្តុក (${curUnit}) *</label>
+                <input id="swalEditQty" type="number" step="any" min="0.01" value="${curQty}" class="w-full h-9 px-3 bg-white border-2 border-emerald-400 rounded-lg text-sm font-bold text-emerald-800 outline-none focus:ring-2 focus:ring-emerald-600">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">ទីតាំងឃ្លាំងទទួល</label>
+                <select id="swalEditLocation" class="w-full h-9 px-2 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500">
+                  ${whOptions}
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">ខ្នាត</label>
+                <input id="swalEditSize" type="text" value="${curSize}" placeholder="ឧ. Pixcell" class="w-full h-8 px-2.5 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">ពណ៌</label>
+                <input id="swalEditColor" type="text" value="${curColor}" placeholder="ឧ. ខ្មៅ" class="w-full h-8 px-2.5 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">តំបន់</label>
+                <input id="swalEditZone" type="text" value="${curZone}" placeholder="ឧ. តំបន់ A" class="w-full h-8 px-2.5 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-indigo-700">
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">អ្នកទទួល</label>
+              <input id="swalEditReceiver" type="text" value="${curReceiver}" class="w-full h-9 px-3 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500">
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">កំណត់សម្គាល់</label>
+              <input id="swalEditNotes" type="text" value="${curNotes}" placeholder="កំណត់សម្គាល់បន្ថែម..." class="w-full h-9 px-3 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500">
+            </div>
+          </div>
+        `,
+        showCancelButton: true,
+        confirmButtonColor: '#047857',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: '<i class="fa-solid fa-check mr-1"></i> រក្សាទុកការកែប្រែ',
+        cancelButtonText: 'បោះបង់',
+        focusConfirm: false,
+        preConfirm: () => {
+          const newQty = parseFloat(document.getElementById('swalEditQty')?.value);
+          if (isNaN(newQty) || newQty <= 0) {
+            Swal.showValidationMessage('សូមបញ្ចូលចំនួនចូលស្តុកឱ្យធំជាង 0!');
+            return false;
+          }
+          return {
+            newQty: newQty,
+            docNo: document.getElementById('swalEditDocNo')?.value.trim(),
+            date: document.getElementById('swalEditDate')?.value,
+            location: document.getElementById('swalEditLocation')?.value,
+            size: document.getElementById('swalEditSize')?.value.trim(),
+            color: document.getElementById('swalEditColor')?.value.trim(),
+            zone: document.getElementById('swalEditZone')?.value.trim(),
+            receiver: document.getElementById('swalEditReceiver')?.value.trim(),
+            notes: document.getElementById('swalEditNotes')?.value.trim()
+          };
+        }
+      }).then((res) => {
+        if (!res.isConfirmed || !res.value) return;
+        const v = res.value;
+        const oldQty = Number(tx.quantity || 0);
+        const qtyDiff = v.newQty - oldQty;
+
+        // 1. Optimistic updates
+        tx.quantity = v.newQty;
+        if (v.docNo) tx.docNo = v.docNo;
+        if (v.date) tx.date = v.date;
+        tx.toLocation = v.location;
+        tx.location = v.location;
+        tx.size = v.size;
+        tx.color = v.color;
+        tx.zone = v.zone;
+        tx.receivedBy = v.receiver;
+        tx.notes = v.notes || '-';
+
+        if (qtyDiff !== 0) {
+          const itm = (AppState.items || []).find(i => (i.sku && tx.sku && i.sku.toLowerCase() === tx.sku.toLowerCase()));
+          if (itm) itm.currentStock = Math.max(0, Number(itm.currentStock || 0) + qtyDiff);
+          const localItm = (LOCAL_DB.items || []).find(i => (i.sku && tx.sku && i.sku.toLowerCase() === tx.sku.toLowerCase()));
+          if (localItm) localItm.currentStock = itm ? itm.currentStock : Math.max(0, Number(localItm.currentStock || 0) + qtyDiff);
+          if (typeof saveLocalItemsToStorage === 'function') saveLocalItemsToStorage();
+        }
+
+        if (typeof saveLocalTransactionsToStorage === 'function') saveLocalTransactionsToStorage();
+        renderStockInHistoryTable(AppState.stockInHistory);
+        if (typeof renderItemsTable === 'function') renderItemsTable();
+        if (typeof loadDashboard === 'function') loadDashboard();
+
+        // 2. Background cloud sync
+        apiCall('updateStockTransaction', {
+          data: {
+            txId: tx.txId,
+            docNo: tx.docNo,
+            type: 'STOCK_IN',
+            sku: tx.sku,
+            oldQuantity: oldQty,
+            newQuantity: v.newQty,
+            date: v.date,
+            size: v.size,
+            color: v.color,
+            zone: v.zone,
+            toLocation: v.location,
+            receivedBy: v.receiver,
+            notes: v.notes
+          }
+        }).then(r => {
+          if (!r || !r.success) console.warn('Update stock in cloud warning:', r?.message);
+        }).catch(e => console.warn('Update stock in cloud error:', e));
+
+        Swal.fire({
+          icon: 'success',
+          title: 'បានកែត្រូវជោគជ័យ!',
+          text: `ប្រតិបត្តិការ ${tx.docNo || tx.txId} ត្រូវបានកែសម្រួលរួចរាល់`,
+          timer: 2000,
+          showConfirmButton: false
+        });
+      });
+    }
+
+    function confirmDeleteStockInRecord(txId, docNo) {
+      const tx = findTransactionRecord(txId, docNo, 'STOCK_IN');
+      if (!tx) {
+        Swal.fire({ icon: 'error', title: 'រកមិនឃើញទិន្នន័យប្រតិបត្តិការទេ!', confirmButtonColor: '#047857' });
+        return;
+      }
+
+      const docDisplay = escapeHtml(tx.docNo || tx.txId || 'N/A');
+      const iName = escapeHtml(tx.itemName || tx.sku || '');
+      const qtyNum = Number(tx.quantity || 0);
+      const unit = escapeHtml(tx.unit || 'ដុំ');
+
+      Swal.fire({
+        title: '<div class="text-rose-600 font-bold flex items-center justify-center gap-2 text-lg"><i class="fa-solid fa-triangle-exclamation"></i><span>តើអ្នកពិតជាចង់លុបប្រតិបត្តិការនេះ?</span></div>',
+        html: `
+          <div class="text-left text-xs sm:text-sm space-y-2 p-1">
+            <p class="text-slate-600">ប្រតិបត្តិការខាងក្រោមនឹងត្រូវលុបចេញពីប្រព័ន្ធ និងពី Google Sheets៖</p>
+            <div class="p-3 bg-rose-50 rounded-xl border border-rose-200 text-xs space-y-1.5 font-medium">
+              <p><b>លេខឯកសារ:</b> <span class="font-mono text-rose-800 font-bold">${docDisplay}</span></p>
+              <p><b>ទំនិញ:</b> <span class="font-bold text-slate-800">${iName}</span> (${escapeHtml(tx.sku || '-')})</p>
+              <p><b>ចំនួនចូលដែលត្រូវលុប:</b> <span class="text-rose-700 font-black text-sm">-${qtyNum} ${unit}</span></p>
+              <p><b>ឃ្លាំង:</b> ${escapeHtml(tx.toLocation || tx.location || '-')}</p>
+            </div>
+            <p class="text-rose-600 text-xs font-semibold">⚠️ បញ្ជាក់៖ ស្តុកទំនិញជាក់ស្តែងនឹងត្រូវដកកាត់កងចំនួន <b>${qtyNum} ${unit}</b> ត្រឡប់ទៅវិញដោយស្វ័យប្រវត្តិ!</p>
+          </div>
+        `,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: '<i class="fa-solid fa-trash-can mr-1"></i> យល់ព្រម លុបចេញ',
+        cancelButtonText: 'បោះបង់'
+      }).then((result) => {
+        if (!result.isConfirmed) return;
+
+        // 1. Optimistic Stock & Transaction Reversal
+        const itm = (AppState.items || []).find(i => (i.sku && tx.sku && i.sku.toLowerCase() === tx.sku.toLowerCase()));
+        if (itm) itm.currentStock = Math.max(0, Number(itm.currentStock || 0) - qtyNum);
+        const localItm = (LOCAL_DB.items || []).find(i => (i.sku && tx.sku && i.sku.toLowerCase() === tx.sku.toLowerCase()));
+        if (localItm) localItm.currentStock = itm ? itm.currentStock : Math.max(0, Number(localItm.currentStock || 0) - qtyNum);
+        if (typeof saveLocalItemsToStorage === 'function') saveLocalItemsToStorage();
+
+        AppState.stockInHistory = (AppState.stockInHistory || []).filter(t => t !== tx && t.txId !== tx.txId && (!tx.docNo || t.docNo !== tx.docNo));
+        if (LOCAL_DB.transactions) {
+          LOCAL_DB.transactions = LOCAL_DB.transactions.filter(t => t !== tx && t.txId !== tx.txId && (!tx.docNo || t.docNo !== tx.docNo));
+          if (typeof saveLocalTransactionsToStorage === 'function') saveLocalTransactionsToStorage();
+        }
+
+        renderStockInHistoryTable(AppState.stockInHistory);
+        if (typeof renderItemsTable === 'function') renderItemsTable();
+        if (typeof loadDashboard === 'function') loadDashboard();
+
+        // 2. Background Cloud Sync
+        apiCall('deleteStockTransaction', {
+          data: {
+            txId: tx.txId,
+            docNo: tx.docNo,
+            type: 'STOCK_IN',
+            sku: tx.sku,
+            quantity: qtyNum
+          }
+        }).then(r => {
+          if (!r || !r.success) console.warn('Delete stock in cloud warning:', r?.message);
+        }).catch(e => console.warn('Delete stock in cloud error:', e));
+
+        Swal.fire({
+          icon: 'success',
+          title: 'បានលុបប្រតិបត្តិការជោគជ័យ!',
+          text: `ប្រតិបត្តិការ ${docDisplay} ត្រូវបានលុប និងកាត់កងស្តុកត្រឡប់ទៅវិញរួចរាល់`,
+          timer: 2000,
+          showConfirmButton: false
+        });
+      });
+    }
+
+    function openEditStockOutModal(txId, docNo) {
+      const tx = findTransactionRecord(txId, docNo, 'STOCK_OUT');
+      if (!tx) {
+        Swal.fire({ icon: 'error', title: 'រកមិនឃើញទិន្នន័យប្រតិបត្តិការទេ!', confirmButtonColor: '#b45309' });
+        return;
+      }
+
+      const item = (AppState.items || []).find(i => (i.sku && tx.sku && i.sku.toLowerCase() === tx.sku.toLowerCase()) || (i.name && tx.itemName && i.name.toLowerCase() === tx.itemName.toLowerCase()));
+      const iName = escapeHtml(tx.itemName || item?.name || tx.sku || '');
+      const curDocNo = escapeHtml(tx.docNo || '');
+      const curDate = escapeHtml(tx.date || new Date().toISOString().slice(0, 10));
+      const curQty = Number(tx.quantity || 0);
+      const curReason = escapeHtml(tx.reason || '');
+      const curIssuer = escapeHtml(tx.issuer || tx.user || '');
+      const curLocation = escapeHtml(tx.toLocation || tx.location || 'អតិថិជន/ដកប្រើប្រាស់');
+      const curUnit = escapeHtml(tx.unit || item?.unit || 'ដុំ');
+      const curNotes = escapeHtml(cleanDisplayNote(tx.notes || ''));
+
+      const whList = AppState.warehouses && AppState.warehouses.length > 0 ? AppState.warehouses : [
+        { name: '1-K3 ស្ថានីយ (ភ្នំពេញ)' }, { name: '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)' },
+        { name: '3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)' }, { name: '4-K76 ស្ថានីយ (ត្រែងត្រយឹង)' },
+        { name: '5-K113 ស្ថានីយ (កំពង់សិលា)' }, { name: '6-K141 ស្ថានីយ (ស្រែអំបិល)' },
+        { name: '7-K172 ស្ថានីយ (វាលរេញ)' }, { name: '8-K187 ស្ថានីយ (ព្រៃនប់)' },
+        { name: '9-K208 ស្ថានីយ (កែវផុស)' }, { name: '10-K240 ស្ថានីយ (ស្ទឹងហាវ)' },
+        { name: '11-K287 ស្ថានីយ (ក្រុងព្រះសីហនុ)' }
+      ];
+      const whOptions = `<option value="អតិថិជន/ដកប្រើប្រាស់" ${curLocation === 'អតិថិជន/ដកប្រើប្រាស់' ? 'selected' : ''}>អតិថិជន/ដកប្រើប្រាស់</option>` +
+        whList.map(w => `<option value="${escapeHtml(w.name || w)}" ${curLocation === (w.name || w) ? 'selected' : ''}>${escapeHtml(w.name || w)}</option>`).join('');
+
+      Swal.fire({
+        title: '<div class="flex items-center justify-center gap-2 text-amber-900 text-lg font-bold"><i class="fa-solid fa-pen-to-square text-amber-600"></i><span>កែត្រូវទិន្នន័យចេញស្តុក</span></div>',
+        html: `
+          <div class="text-left text-xs sm:text-sm space-y-3 p-1">
+            <div class="p-2.5 bg-amber-50 rounded-xl border border-amber-200 flex items-center justify-between">
+              <div>
+                <p class="font-bold text-slate-800 text-xs sm:text-sm">${iName}</p>
+                <p class="text-xs text-slate-500 font-mono mt-0.5">SKU: ${escapeHtml(tx.sku || '-')}</p>
+              </div>
+              <span class="px-2.5 py-1 bg-amber-100 border border-amber-300 text-amber-900 rounded-lg font-bold text-xs">ចេញស្តុក</span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">លេខឯកសារ (Doc No)</label>
+                <input id="swalEditOutDocNo" type="text" value="${curDocNo}" class="w-full h-9 px-3 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-amber-500 font-mono font-bold text-amber-900">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">កាលបរិច្ឆេទ</label>
+                <input id="swalEditOutDate" type="date" value="${curDate}" class="w-full h-9 px-3 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-amber-500">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">ចំនួនបើកចេញ (${curUnit}) *</label>
+                <input id="swalEditOutQty" type="number" step="any" min="0.01" value="${curQty}" class="w-full h-9 px-3 bg-white border-2 border-amber-400 rounded-lg text-sm font-bold text-amber-900 outline-none focus:ring-2 focus:ring-amber-600">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">គោលដៅ / ឃ្លាំង</label>
+                <select id="swalEditOutLocation" class="w-full h-9 px-2 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-amber-500">
+                  ${whOptions}
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">អ្នកបើកចេញ</label>
+                <input id="swalEditOutIssuer" type="text" value="${curIssuer}" class="w-full h-9 px-3 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-amber-500">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">មូលហេតុនៃការដក</label>
+                <input id="swalEditOutReason" type="text" value="${curReason}" placeholder="ឧ. ដកប្រើប្រាស់" class="w-full h-9 px-3 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-amber-500">
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">កំណត់សម្គាល់</label>
+              <input id="swalEditOutNotes" type="text" value="${curNotes}" placeholder="កំណត់សម្គាល់បន្ថែម..." class="w-full h-9 px-3 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-amber-500">
+            </div>
+          </div>
+        `,
+        showCancelButton: true,
+        confirmButtonColor: '#b45309',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: '<i class="fa-solid fa-check mr-1"></i> រក្សាទុកការកែប្រែ',
+        cancelButtonText: 'បោះបង់',
+        focusConfirm: false,
+        preConfirm: () => {
+          const newQty = parseFloat(document.getElementById('swalEditOutQty')?.value);
+          if (isNaN(newQty) || newQty <= 0) {
+            Swal.showValidationMessage('សូមបញ្ចូលចំនួនបើកចេញឱ្យធំជាង 0!');
+            return false;
+          }
+          return {
+            newQty: newQty,
+            docNo: document.getElementById('swalEditOutDocNo')?.value.trim(),
+            date: document.getElementById('swalEditOutDate')?.value,
+            location: document.getElementById('swalEditOutLocation')?.value,
+            issuer: document.getElementById('swalEditOutIssuer')?.value.trim(),
+            reason: document.getElementById('swalEditOutReason')?.value.trim(),
+            notes: document.getElementById('swalEditOutNotes')?.value.trim()
+          };
+        }
+      }).then((res) => {
+        if (!res.isConfirmed || !res.value) return;
+        const v = res.value;
+        const oldQty = Number(tx.quantity || 0);
+        const qtyDiff = v.newQty - oldQty;
+
+        // 1. Optimistic updates
+        tx.quantity = v.newQty;
+        if (v.docNo) tx.docNo = v.docNo;
+        if (v.date) tx.date = v.date;
+        tx.toLocation = v.location;
+        tx.issuer = v.issuer;
+        tx.reason = v.reason;
+        tx.notes = v.notes || '-';
+
+        if (qtyDiff !== 0) {
+          const itm = (AppState.items || []).find(i => (i.sku && tx.sku && i.sku.toLowerCase() === tx.sku.toLowerCase()));
+          if (itm) itm.currentStock = Math.max(0, Number(itm.currentStock || 0) - qtyDiff);
+          const localItm = (LOCAL_DB.items || []).find(i => (i.sku && tx.sku && i.sku.toLowerCase() === tx.sku.toLowerCase()));
+          if (localItm) localItm.currentStock = itm ? itm.currentStock : Math.max(0, Number(localItm.currentStock || 0) - qtyDiff);
+          if (typeof saveLocalItemsToStorage === 'function') saveLocalItemsToStorage();
+        }
+
+        if (typeof saveLocalTransactionsToStorage === 'function') saveLocalTransactionsToStorage();
+        renderStockOutHistoryTable(AppState.stockOutHistory);
+        if (typeof renderItemsTable === 'function') renderItemsTable();
+        if (typeof loadDashboard === 'function') loadDashboard();
+
+        // 2. Background cloud sync
+        apiCall('updateStockTransaction', {
+          data: {
+            txId: tx.txId,
+            docNo: tx.docNo,
+            type: 'STOCK_OUT',
+            sku: tx.sku,
+            oldQuantity: oldQty,
+            newQuantity: v.newQty,
+            date: v.date,
+            toLocation: v.location,
+            issuer: v.issuer,
+            reason: v.reason,
+            notes: v.notes
+          }
+        }).then(r => {
+          if (!r || !r.success) console.warn('Update stock out cloud warning:', r?.message);
+        }).catch(e => console.warn('Update stock out cloud error:', e));
+
+        Swal.fire({
+          icon: 'success',
+          title: 'បានកែត្រូវជោគជ័យ!',
+          text: `ប្រតិបត្តិការ ${tx.docNo || tx.txId} ត្រូវបានកែសម្រួលរួចរាល់`,
+          timer: 2000,
+          showConfirmButton: false
+        });
+      });
+    }
+
+    function confirmDeleteStockOutRecord(txId, docNo) {
+      const tx = findTransactionRecord(txId, docNo, 'STOCK_OUT');
+      if (!tx) {
+        Swal.fire({ icon: 'error', title: 'រកមិនឃើញទិន្នន័យប្រតិបត្តិការទេ!', confirmButtonColor: '#b45309' });
+        return;
+      }
+
+      const docDisplay = escapeHtml(tx.docNo || tx.txId || 'N/A');
+      const iName = escapeHtml(tx.itemName || tx.sku || '');
+      const qtyNum = Number(tx.quantity || 0);
+      const unit = escapeHtml(tx.unit || 'ដុំ');
+
+      Swal.fire({
+        title: '<div class="text-rose-600 font-bold flex items-center justify-center gap-2 text-lg"><i class="fa-solid fa-triangle-exclamation"></i><span>តើអ្នកពិតជាចង់លុបប្រតិបត្តិការនេះ?</span></div>',
+        html: `
+          <div class="text-left text-xs sm:text-sm space-y-2 p-1">
+            <p class="text-slate-600">ប្រតិបត្តិការចេញស្តុកខាងក្រោមនឹងត្រូវលុបចេញពីប្រព័ន្ធ និងពី Google Sheets៖</p>
+            <div class="p-3 bg-rose-50 rounded-xl border border-rose-200 text-xs space-y-1.5 font-medium">
+              <p><b>លេខឯកសារ:</b> <span class="font-mono text-rose-800 font-bold">${docDisplay}</span></p>
+              <p><b>ទំនិញ:</b> <span class="font-bold text-slate-800">${iName}</span> (${escapeHtml(tx.sku || '-')})</p>
+              <p><b>ចំនួនបើកចេញដែលត្រូវលុប:</b> <span class="text-rose-700 font-black text-sm">${qtyNum} ${unit}</span></p>
+              <p><b>គោលដៅ:</b> ${escapeHtml(tx.toLocation || tx.location || '-')}</p>
+            </div>
+            <p class="text-emerald-700 text-xs font-semibold">ℹ️ បញ្ជាក់៖ ស្តុកទំនិញជាក់ស្តែងនឹងត្រូវបូកត្រឡប់ចូលស្តុកវិញចំនួន <b>+${qtyNum} ${unit}</b> ដោយស្វ័យប្រវត្តិ!</p>
+          </div>
+        `,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: '<i class="fa-solid fa-trash-can mr-1"></i> យល់ព្រម លុបចេញ',
+        cancelButtonText: 'បោះបង់'
+      }).then((result) => {
+        if (!result.isConfirmed) return;
+
+        // 1. Optimistic Stock & Transaction Reversal
+        const itm = (AppState.items || []).find(i => (i.sku && tx.sku && i.sku.toLowerCase() === tx.sku.toLowerCase()));
+        if (itm) itm.currentStock = Number(itm.currentStock || 0) + qtyNum;
+        const localItm = (LOCAL_DB.items || []).find(i => (i.sku && tx.sku && i.sku.toLowerCase() === tx.sku.toLowerCase()));
+        if (localItm) localItm.currentStock = itm ? itm.currentStock : Number(localItm.currentStock || 0) + qtyNum;
+        if (typeof saveLocalItemsToStorage === 'function') saveLocalItemsToStorage();
+
+        AppState.stockOutHistory = (AppState.stockOutHistory || []).filter(t => t !== tx && t.txId !== tx.txId && (!tx.docNo || t.docNo !== tx.docNo));
+        if (LOCAL_DB.transactions) {
+          LOCAL_DB.transactions = LOCAL_DB.transactions.filter(t => t !== tx && t.txId !== tx.txId && (!tx.docNo || t.docNo !== tx.docNo));
+          if (typeof saveLocalTransactionsToStorage === 'function') saveLocalTransactionsToStorage();
+        }
+
+        renderStockOutHistoryTable(AppState.stockOutHistory);
+        if (typeof renderItemsTable === 'function') renderItemsTable();
+        if (typeof loadDashboard === 'function') loadDashboard();
+
+        // 2. Background Cloud Sync
+        apiCall('deleteStockTransaction', {
+          data: {
+            txId: tx.txId,
+            docNo: tx.docNo,
+            type: 'STOCK_OUT',
+            sku: tx.sku,
+            quantity: qtyNum
+          }
+        }).then(r => {
+          if (!r || !r.success) console.warn('Delete stock out cloud warning:', r?.message);
+        }).catch(e => console.warn('Delete stock out cloud error:', e));
+
+        Swal.fire({
+          icon: 'success',
+          title: 'បានលុបប្រតិបត្តិការជោគជ័យ!',
+          text: `ប្រតិបត្តិការ ${docDisplay} ត្រូវបានលុប និងបូកស្តុកត្រឡប់ទៅវិញរួចរាល់`,
+          timer: 2000,
+          showConfirmButton: false
+        });
+      });
     }
 
     function quickStockIn(sku) {

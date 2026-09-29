@@ -590,7 +590,8 @@ function executeLocalApiAction(req) {
       'updateUserProfile': true, 'updateProfile': true, 'resetPasswordWithOtp': true,
       'createProductRequest': true, 'updateProductRequestStatus': true, 'deleteProductRequest': true,
       'saveSystemSettings': true, 'saveSettings': true, 'addWarehouse': true, 'deleteWarehouse': true,
-      'resetUserDevice': true, 'disconnectDevice': true, 'resetDevice': true, 'sendChatMessage': true
+      'resetUserDevice': true, 'disconnectDevice': true, 'resetDevice': true, 'sendChatMessage': true,
+      'updateStockTransaction': true, 'updateTransaction': true, 'deleteStockTransaction': true, 'deleteTransaction': true
     };
     if (MUTATIONS[action]) {
       invalidateAppCache();
@@ -732,6 +733,18 @@ function executeLocalApiAction(req) {
       case 'stockAdjustment':
 
         return recordStockAdjustment(payload.data || payload, payload.user);
+
+      case 'updateStockTransaction':
+
+      case 'updateTransaction':
+
+        return updateStockTransaction(payload.data || payload, payload.user);
+
+      case 'deleteStockTransaction':
+
+      case 'deleteTransaction':
+
+        return deleteStockTransaction(payload.data || payload, payload.user);
 
       case 'getTransactionHistory':
 
@@ -6100,6 +6113,180 @@ function getTransactionHistory(filtersOrPayload, userParam) {
 
   return { success: true, transactions: transactions };
 
+}
+
+
+
+function deleteStockTransaction(payloadOrData, user) {
+  let data = (payloadOrData && payloadOrData.data) ? payloadOrData.data : (payloadOrData || {});
+  let u = user || (payloadOrData && payloadOrData.user);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  const txId = String(data.txId || '').trim();
+  const docNo = String(data.docNo || '').trim();
+  const txType = String(data.type || 'STOCK_IN').toUpperCase();
+  const sku = String(data.sku || '').trim();
+  const qty = Number(data.quantity || 0);
+
+  // 1. Revert stock in Items sheet
+  if (sku && qty > 0) {
+    const itemsSheet = ss.getSheetByName(SHEETS.ITEMS);
+    if (itemsSheet) {
+      const itemsData = itemsSheet.getDataRange().getValues();
+      for (let i = 1; i < itemsData.length; i++) {
+        if (String(itemsData[i][0]).trim() === sku || String(itemsData[i][1]).trim() === sku) {
+          const curStock = Number(itemsData[i][9] || 0);
+          let newStock = curStock;
+          if (txType === 'STOCK_IN') {
+            newStock = Math.max(0, curStock - qty);
+          } else if (txType === 'STOCK_OUT') {
+            newStock = curStock + qty;
+          }
+          itemsSheet.getRange(i + 1, 10).setValue(newStock);
+          itemsSheet.getRange(i + 1, 13).setValue(new Date());
+          break;
+        }
+      }
+    }
+  }
+
+  // 2. Delete row from Transactions sheet
+  const txSheet = ss.getSheetByName(SHEETS.TRANSACTIONS);
+  if (txSheet) {
+    const txRows = txSheet.getDataRange().getValues();
+    for (let i = txRows.length - 1; i >= 1; i--) {
+      const rTxId = String(txRows[i][0]).trim();
+      const rNotes = String(txRows[i][11] || '');
+      if ((txId && rTxId === txId) || (docNo && (rTxId === docNo || rNotes.includes(docNo)))) {
+        txSheet.deleteRow(i + 1);
+        break;
+      }
+    }
+  }
+
+  // 3. Delete row from Stock_in or Stock_out sheet
+  function findSheet(name) {
+    const sheets = ss.getSheets();
+    for (let i = 0; i < sheets.length; i++) {
+      if (sheets[i].getName().trim().toLowerCase() === name.toLowerCase()) return sheets[i];
+    }
+    return null;
+  }
+
+  const targetSheetName = (txType === 'STOCK_OUT') ? 'Stock_out' : 'Stock_in';
+  const targetSheet = findSheet(targetSheetName);
+  if (targetSheet) {
+    const rows = targetSheet.getDataRange().getValues();
+    for (let i = rows.length - 1; i >= 1; i--) {
+      const rDoc = String(rows[i][0]).trim();
+      if ((docNo && rDoc === docNo) || (txId && rDoc === txId)) {
+        targetSheet.deleteRow(i + 1);
+        break;
+      }
+    }
+  }
+
+  logActivity(u ? (u.fullName || u.username) : 'Staff', 'Staff', 'DELETE_TX', `Deleted transaction ${docNo || txId} (${txType}) for SKU: ${sku}`);
+
+  return { success: true, message: `បានលុបប្រតិបត្តិការ ${docNo || txId} ជោគជ័យ!` };
+}
+
+function updateStockTransaction(payloadOrData, user) {
+  let data = (payloadOrData && payloadOrData.data) ? payloadOrData.data : (payloadOrData || {});
+  let u = user || (payloadOrData && payloadOrData.user);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  const txId = String(data.txId || '').trim();
+  const docNo = String(data.docNo || '').trim();
+  const txType = String(data.type || 'STOCK_IN').toUpperCase();
+  const sku = String(data.sku || '').trim();
+  const oldQty = Number(data.oldQuantity || 0);
+  const newQty = Number(data.newQuantity !== undefined ? data.newQuantity : (data.quantity || 0));
+  const qtyDiff = newQty - oldQty;
+
+  // 1. Adjust Stock in Items sheet if quantity changed
+  if (sku && qtyDiff !== 0) {
+    const itemsSheet = ss.getSheetByName(SHEETS.ITEMS);
+    if (itemsSheet) {
+      const itemsData = itemsSheet.getDataRange().getValues();
+      for (let i = 1; i < itemsData.length; i++) {
+        if (String(itemsData[i][0]).trim() === sku || String(itemsData[i][1]).trim() === sku) {
+          const curStock = Number(itemsData[i][9] || 0);
+          let newStock = curStock;
+          if (txType === 'STOCK_IN') {
+            newStock = curStock + qtyDiff;
+          } else if (txType === 'STOCK_OUT') {
+            newStock = Math.max(0, curStock - qtyDiff);
+          }
+          itemsSheet.getRange(i + 1, 10).setValue(newStock);
+          itemsSheet.getRange(i + 1, 13).setValue(new Date());
+          break;
+        }
+      }
+    }
+  }
+
+  // 2. Update in Transactions sheet
+  const txSheet = ss.getSheetByName(SHEETS.TRANSACTIONS);
+  if (txSheet) {
+    const txRows = txSheet.getDataRange().getValues();
+    for (let i = 1; i < txRows.length; i++) {
+      const rTxId = String(txRows[i][0]).trim();
+      const rNotes = String(txRows[i][11] || '');
+      if ((txId && rTxId === txId) || (docNo && (rTxId === docNo || rNotes.includes(docNo)))) {
+        const rowNum = i + 1;
+        if (data.newQuantity !== undefined) txSheet.getRange(rowNum, 6).setValue(newQty);
+        if (data.toLocation) txSheet.getRange(rowNum, 11).setValue(data.toLocation);
+        if (data.date) txSheet.getRange(rowNum, 2).setValue(data.date);
+        break;
+      }
+    }
+  }
+
+  // 3. Update in Stock_in or Stock_out sheet
+  function findSheet(name) {
+    const sheets = ss.getSheets();
+    for (let i = 0; i < sheets.length; i++) {
+      if (sheets[i].getName().trim().toLowerCase() === name.toLowerCase()) return sheets[i];
+    }
+    return null;
+  }
+
+  const targetSheetName = (txType === 'STOCK_OUT') ? 'Stock_out' : 'Stock_in';
+  const targetSheet = findSheet(targetSheetName);
+  if (targetSheet) {
+    const rows = targetSheet.getDataRange().getValues();
+    for (let i = 1; i < rows.length; i++) {
+      const rDoc = String(rows[i][0]).trim();
+      if ((docNo && rDoc === docNo) || (txId && rDoc === txId)) {
+        const rowNum = i + 1;
+        if (targetSheetName === 'Stock_in') {
+          if (data.docNo) targetSheet.getRange(rowNum, 1).setValue(data.docNo);
+          if (data.date) targetSheet.getRange(rowNum, 2).setValue(data.date);
+          if (data.size !== undefined) targetSheet.getRange(rowNum, 5).setValue(data.size);
+          if (data.color !== undefined) targetSheet.getRange(rowNum, 6).setValue(data.color);
+          if (data.zone !== undefined) targetSheet.getRange(rowNum, 7).setValue(data.zone);
+          if (data.newQuantity !== undefined) targetSheet.getRange(rowNum, 8).setValue(newQty);
+          if (data.toLocation) targetSheet.getRange(rowNum, 12).setValue(data.toLocation);
+          if (data.receivedBy) targetSheet.getRange(rowNum, 13).setValue(data.receivedBy);
+          if (data.notes !== undefined) targetSheet.getRange(rowNum, 14).setValue(data.notes);
+        } else {
+          if (data.docNo) targetSheet.getRange(rowNum, 1).setValue(data.docNo);
+          if (data.date) targetSheet.getRange(rowNum, 2).setValue(data.date);
+          if (data.newQuantity !== undefined) targetSheet.getRange(rowNum, 8).setValue(newQty);
+          if (data.toLocation) targetSheet.getRange(rowNum, 13).setValue(data.toLocation);
+          if (data.issuer) targetSheet.getRange(rowNum, 14).setValue(data.issuer);
+          if (data.reason !== undefined) targetSheet.getRange(rowNum, 15).setValue(data.reason);
+          if (data.notes !== undefined) targetSheet.getRange(rowNum, 16).setValue(data.notes);
+        }
+        break;
+      }
+    }
+  }
+
+  logActivity(u ? (u.fullName || u.username) : 'Staff', 'Staff', 'UPDATE_TX', `Updated transaction ${docNo || txId} (${txType}) for SKU: ${sku}`);
+
+  return { success: true, message: `បានកែសម្រួលប្រតិបត្តិការ ${docNo || txId} ជោគជ័យ!` };
 }
 
 
