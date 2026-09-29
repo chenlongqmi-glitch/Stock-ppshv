@@ -2256,6 +2256,7 @@
                         0 ដើម
                       </span>
                     </div>
+                    <span id="stockInFormulaText" class="text-[10px] text-slate-400 font-medium mt-1 block text-left"></span>
                     <span id="stockInNewTotalDisplay" class="hidden">0 ដុំ + 0 រាយ</span>
                   </div>
 
@@ -2599,6 +2600,7 @@
                         0 ដើម
                       </span>
                     </div>
+                    <span id="stockOutFormulaText" class="text-[10px] text-slate-400 font-medium mt-1 block text-left"></span>
                     <span id="stockOutRemainingDisplay" class="hidden">0 ដុំ</span>
                   </div>
 
@@ -14531,6 +14533,18 @@
       if (oldDisplay) oldDisplay.innerText = `${oldBulk} ${bUnit} + ${oldRetail} ${rUnit}`;
       const newDisplay = document.getElementById('stockInNewTotalDisplay');
       if (newDisplay) newDisplay.innerText = `${newBulk} ${bUnit} + ${newRetail} ${rUnit}`;
+
+      const formulaEl = document.getElementById('stockInFormulaText');
+      if (formulaEl) {
+        const pQty = Number(document.getElementById('stockInPackQtyVal')?.value || 1);
+        if (bUnit) {
+          formulaEl.innerText = `1 ${bUnit} = ${pQty} ${rUnit}`;
+          formulaEl.classList.remove('hidden');
+        } else {
+          formulaEl.innerText = '';
+          formulaEl.classList.add('hidden');
+        }
+      }
     }
 
     function onStockInItemChange() {
@@ -15312,6 +15326,18 @@
       if (oldDisplay) oldDisplay.innerText = `${oldBulk} ${bUnit} + ${oldRetail} ${rUnit}`;
       const remDisplay = document.getElementById('stockOutRemainingDisplay');
       if (remDisplay) remDisplay.innerText = `${newBulk} ${bUnit} + ${newRetail} ${rUnit}`;
+
+      const formulaEl = document.getElementById('stockOutFormulaText');
+      if (formulaEl) {
+        const pQty = Number(document.getElementById('stockOutPackQtyVal')?.value || 1);
+        if (bUnit) {
+          formulaEl.innerText = `1 ${bUnit} = ${pQty} ${rUnit}`;
+          formulaEl.classList.remove('hidden');
+        } else {
+          formulaEl.innerText = '';
+          formulaEl.classList.add('hidden');
+        }
+      }
     }
 
     function onStockOutItemChange() {
@@ -15762,6 +15788,13 @@
         const rawImg = t.imageUrl || item?.imageUrl || '';
         const imgUrl = (typeof formatDriveImageUrl === 'function') ? formatDriveImageUrl(rawImg) : rawImg;
 
+        const pQty = Number(t.packQty || item?.packQty || 1);
+        const pUnit = (t.packUnit || item?.packUnit || '').trim() || 'ដុំ';
+        const rUnit = (t.unit || item?.unit || unitStr || 'រាយ').trim() || 'រាយ';
+
+        const inBulkStock = (pQty > 1) ? Math.floor(qtyNum / pQty) : qtyNum;
+        const inLooseStock = (pQty > 1) ? (qtyNum % pQty) : 0;
+
         const attrParts = [];
         if (sizeStr) attrParts.push(sizeStr);
         if (colorStr) attrParts.push(colorStr);
@@ -15811,11 +15844,22 @@
               ${zoneStr ? `<span class="block text-xs text-indigo-600 font-semibold mt-0.5"><i class="fa-solid fa-location-dot mr-0.5"></i>${zoneStr}</span>` : ''}
             </td>
 
-            <!-- 5. ចំនួនចូលស្តុក -->
+            <!-- 5. ចំនួនចូលស្តុក (ដុំ & រាយ និងរូបមន្តបំប្លែងដូចរូបភាពទី២) -->
             <td class="px-4 py-3 text-center whitespace-nowrap">
-              <span class="inline-flex items-center px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 font-black text-xs sm:text-sm border border-emerald-200">
-                ${qtyNum} ${unitStr}
-              </span>
+              <div class="inline-flex flex-col items-center justify-center">
+                <div class="flex items-center gap-1.5">
+                  <!-- ចំនួនសរុបដុំ -->
+                  <span class="inline-flex items-center justify-center min-w-[70px] h-7 min-h-[28px] max-h-[28px] px-2.5 rounded-lg text-xs font-black shadow-3xs whitespace-nowrap text-center leading-none bg-indigo-100 text-indigo-800 border border-indigo-300">
+                    ${inBulkStock} ${escapeHtml(pUnit)}
+                  </span>
+
+                  <!-- ចំនួនរាយនៅសល់ -->
+                  <span class="inline-flex items-center justify-center min-w-[65px] h-7 min-h-[28px] max-h-[28px] px-2.5 rounded-lg text-xs font-bold text-slate-600 bg-slate-100/90 border border-slate-200 shadow-3xs whitespace-nowrap text-center leading-none" title="ចំនួនរាយ">
+                    ${inLooseStock} ${escapeHtml(rUnit)}
+                  </span>
+                </div>
+                ${pUnit ? `<span class="text-[10px] text-slate-400 font-medium mt-1 text-center whitespace-nowrap">1 ${escapeHtml(pUnit)} = ${pQty} ${escapeHtml(rUnit)}</span>` : ''}
+              </div>
             </td>
 
             <!-- 6. ស្តុកចាស់ ➔ ថ្មី -->
@@ -15957,6 +16001,13 @@
         const rawImg = t.imageUrl || item?.imageUrl || '';
         const imgUrl = (typeof formatDriveImageUrl === 'function') ? formatDriveImageUrl(rawImg) : rawImg;
 
+        const pQty = Number(t.packQty || item?.packQty || 1);
+        const pUnit = (t.packUnit || item?.packUnit || '').trim() || 'ដុំ';
+        const rUnit = (t.unit || item?.unit || unitStr || 'រាយ').trim() || 'រាយ';
+
+        const outBulkStock = (pQty > 1) ? Math.floor(qtyNum / pQty) : qtyNum;
+        const outLooseStock = (pQty > 1) ? (qtyNum % pQty) : 0;
+
         const attrParts = [];
         if (sizeStr) attrParts.push(sizeStr);
         if (colorStr) attrParts.push(colorStr);
@@ -16002,11 +16053,22 @@
               ${attrLine}
             </td>
 
-            <!-- 5. ចំនួនបើកចេញ -->
+            <!-- 5. ចំនួនបើកចេញ (ដុំ & រាយ និងរូបមន្តបំប្លែងដូចរូបភាពទី២) -->
             <td class="px-4 py-3 text-center whitespace-nowrap">
-              <span class="inline-flex items-center px-2.5 py-1 rounded-lg bg-amber-100 text-amber-900 font-black text-xs sm:text-sm border border-amber-300">
-                ${qtyNum} ${unitStr}
-              </span>
+              <div class="inline-flex flex-col items-center justify-center">
+                <div class="flex items-center gap-1.5">
+                  <!-- ចំនួនសរុបដុំ -->
+                  <span class="inline-flex items-center justify-center min-w-[70px] h-7 min-h-[28px] max-h-[28px] px-2.5 rounded-lg text-xs font-black shadow-3xs whitespace-nowrap text-center leading-none bg-amber-100 text-amber-900 border border-amber-300">
+                    ${outBulkStock} ${escapeHtml(pUnit)}
+                  </span>
+
+                  <!-- ចំនួនរាយនៅសល់ -->
+                  <span class="inline-flex items-center justify-center min-w-[65px] h-7 min-h-[28px] max-h-[28px] px-2.5 rounded-lg text-xs font-bold text-slate-600 bg-slate-100/90 border border-slate-200 shadow-3xs whitespace-nowrap text-center leading-none" title="ចំនួនរាយ">
+                    ${outLooseStock} ${escapeHtml(rUnit)}
+                  </span>
+                </div>
+                ${pUnit ? `<span class="text-[10px] text-slate-400 font-medium mt-1 text-center whitespace-nowrap">1 ${escapeHtml(pUnit)} = ${pQty} ${escapeHtml(rUnit)}</span>` : ''}
+              </div>
             </td>
 
             <!-- 6. ស្តុកនៅសល់ -->
