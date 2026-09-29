@@ -897,7 +897,7 @@ function setupDatabase() {
     itemsSheet.appendRow(['SKU-4608', 'SKU-4608', 'ក្រដាស់ជូតម៉ាត់-抽纸', 'សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资', 'ដុំ', 1.50, 2.20, 1, 'គ្រប់ស្ថានីយទាំងអស់', 0, 'https://lh3.googleusercontent.com/d/18YTR9If4CbWoUhAOYBtMtZZfLRGj_qyg', 'Active', new Date(), 'xxl', 'ស', 'យូ', 7, 'តំបន់ B (B01)', 'Z-01', 'សាកល្បង', '陈龙']);
     itemsSheet.appendRow(['SKU-1979', 'SKU-1979', 'ប៊ិច-圆珠笔', 'សម្ភារៈការិយាល័យ-办公用品', 'ដើម', 0.50, 0.80, 1, 'គ្រប់ស្ថានីយទាំងអស់', 0, 'https://lh3.googleusercontent.com/d/1CX6Nb7dj8PTSRnyfzgTMeQUooQGrRQ2E', 'Active', new Date(), 'Pixcell1', 'ខ្មៅ', 'ប្រអប់', 12, 'តំបន់ A (A01)', 'Z-01', 'សាកល្បង', '陈龙']);
     itemsSheet.appendRow(['SKU-9816', 'SKU-9816', '母卡', 'គ្រឿងបរិក្ខារអេឡិចត្រូនិច និងអគ្គិសនី-机电设备', 'កញ្ចប់', 2.50, 4.00, 1, 'គ្រប់ស្ថានីយទាំងអស់', 0, 'https://lh3.googleusercontent.com/d/1TIBybQbnfxWcZa32Cdo5VS0wacQr-sSN', 'Active', new Date(), 'samka', 'ស', 'ដុំ', 4, 'តំបន់ A (A01)', 'Z-01', '-', 'និត វ៉ាន់ស៊ិញ']);
-    itemsSheet.appendRow(['SKU-2021', 'SKU-2021', 'ម៉ាស៊ីនគិតលេខ-​计算机', 'សម្ភារៈការិយាល័យ-办公用品', 'គ្រឿង', 5.00, 8.00, 5, 'គ្រប់ស្ថានីយទាំងអស់', 0, 'https://lh3.googleusercontent.com/d/1Q6mLfPOJx8bKXtv0pLXj1-03fWBkIsDc', 'Active', new Date(), '២៣', 'ខ្មៅ', 'គ្រឿង', 1, 'តំបន់ A (A01)', 'Z-01', 'ម៉ាស៊ីនគិតលេខសម្រាប់រដ្ឋបាល', 'ស្រី មាស']);
+    itemsSheet.appendRow(['SKU-2021', 'SKU-2021', 'ម៉ាស៊ីនគិតលេខ-​计算机', 'សម្ភារៈការិយាល័យ-办公用品', 'គ្រឿង', 5.00, 8.00, 1, 'គ្រប់ស្ថានីយទាំងអស់', 0, 'https://lh3.googleusercontent.com/d/1Q6mLfPOJx8bKXtv0pLXj1-03fWBkIsDc', 'Active', new Date(), '២៣', 'ខ្មៅ', 'ប្រអប់', 1, 'តំបន់ A (A01)', 'Z-01', 'ម៉ាស៊ីនគិតលេខសម្រាប់រដ្ឋបាល', 'ស្រី មាស']);
   }
 
   // 2. Sheet Transactions
