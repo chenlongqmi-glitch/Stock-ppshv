@@ -9179,6 +9179,7 @@
         const oldStockNum = Number(d.oldStock || 0);
         const qtyNum = Number(d.quantity);
         const newStockNum = Number(d.newStock || (oldStockNum + qtyNum));
+        const matched = LOCAL_DB.items.find(i => i.sku === d.sku);
 
         LOCAL_DB.transactions.unshift({
           txId: d.docNo || ('TX-' + Date.now().toString().slice(-6)),
@@ -9188,6 +9189,11 @@
           sku: d.sku,
           itemName: d.itemName || d.sku,
           quantity: qtyNum,
+          bulkQty: d.bulkQty !== undefined ? d.bulkQty : (d.inUnitMode === 'BULK' ? d.inputQty : undefined),
+          retailQty: d.retailQty !== undefined ? d.retailQty : (d.inUnitMode === 'RETAIL' ? d.quantity : undefined),
+          inUnitMode: d.inUnitMode || '',
+          packUnit: d.packUnit || matched?.packUnit || '',
+          packQty: Number(d.packQty || matched?.packQty || 1),
           unit: d.unit || 'ដុំ',
           unitPrice: Number(d.unitPrice || 0),
           totalAmount: qtyNum * Number(d.unitPrice || 0),
@@ -9203,7 +9209,6 @@
           oldStock: oldStockNum,
           newStock: newStockNum
         });
-        const matched = LOCAL_DB.items.find(i => i.sku === d.sku);
         if (matched) {
           matched.currentStock = newStockNum;
           if (d.color && !matched.color) matched.color = d.color;
@@ -9226,6 +9231,7 @@
         const oldStockNum = Number(d.oldStock || 0);
         const qtyNum = Number(d.quantity);
         const newStockNum = Math.max(0, oldStockNum - qtyNum);
+        const matched = LOCAL_DB.items.find(i => i.sku === d.sku);
 
         LOCAL_DB.transactions.unshift({
           txId: d.docNo || ('TX-' + Date.now().toString().slice(-6)),
@@ -9235,6 +9241,11 @@
           sku: d.sku,
           itemName: d.itemName || d.sku,
           quantity: qtyNum,
+          bulkQty: d.bulkQty !== undefined ? d.bulkQty : (d.outUnitMode === 'BULK' ? d.inputQty : undefined),
+          retailQty: d.retailQty !== undefined ? d.retailQty : (d.outUnitMode === 'RETAIL' ? d.quantity : undefined),
+          outUnitMode: d.outUnitMode || '',
+          packUnit: d.packUnit || matched?.packUnit || '',
+          packQty: Number(d.packQty || matched?.packQty || 1),
           unit: d.unit || 'ដុំ',
           unitPrice: Number(d.unitPrice || 0),
           totalAmount: qtyNum * Number(d.unitPrice || 0),
@@ -9247,7 +9258,6 @@
           oldStock: oldStockNum,
           newStock: newStockNum
         });
-        const matched = LOCAL_DB.items.find(i => i.sku === d.sku);
         if (matched) matched.currentStock = newStockNum;
         addNotification('STOCK_OUT', 'នាំចេញស្តុកទំនិញ (Stock Out)', `-${qtyNum} ${d.unit || 'ដុំ'} នៃ ${d.itemName || d.sku} (ឯកសារ: ${d.docNo || 'N/A'})`, d.toLocation || d.fromLocation || u?.warehouse, u?.username || 'Staff');
         return { success: true, message: 'បានកត់ត្រាទំនិញចេញពីស្តុកជោគជ័យ!' };
@@ -12408,8 +12418,8 @@
         const pUnit = (item.packUnit || '').trim() || 'ដុំ';
         const rUnit = (item.unit || '').trim() || 'រាយ';
 
-        const bulkStock = (pQty > 1) ? Math.floor(curStock / pQty) : curStock;
-        const looseRemainder = (pQty > 1) ? (curStock % pQty) : 0;
+        const bulkStock = (pQty > 1) ? Math.floor(curStock / pQty) : 0;
+        const looseRemainder = (pQty > 1) ? (curStock % pQty) : curStock;
 
         return `
         <tr ondblclick="previewLargeImage('${escapeHtml(item.imageUrl)}', '${escapeHtml(item.name)}', '${item.sku}', '${item.barcode || '-'}', '${item.unit || 'ដុំ'}', ${item.currentStock || 0}, '${escapeHtml(getUserDisplayName(item.createdBy))}', '${escapeHtml(item.zone || '-')}')"
@@ -14877,10 +14887,12 @@
       const itemName = item?.name || sku;
 
       let modeNote = '';
-      if (bulkQty > 0 && retailQty > 0 && packUnit && (packQty > 1 || packUnit !== baseUnit)) {
+      if (bulkQty > 0 && retailQty > 0) {
         modeNote = ` [ចូល: ${bulkQty} ${packUnit} + ${retailQty} ${baseUnit} = ${effectiveQty} ${baseUnit}]`;
-      } else if (bulkQty > 0 && packUnit && (packQty > 1 || packUnit !== baseUnit)) {
+      } else if (bulkQty > 0) {
         modeNote = ` [ចូលជាដុំ: ${bulkQty} ${packUnit} = ${effectiveQty} ${baseUnit}]`;
+      } else if (retailQty > 0) {
+        modeNote = ` [ចូលជារាយ: ${retailQty} ${baseUnit}]`;
       }
       const finalNotes = (notes !== '-' ? notes + modeNote : (modeNote ? modeNote.trim() : '-')).trim();
 
@@ -14894,6 +14906,8 @@
           unit: baseUnit, 
           packUnit,
           packQty,
+          bulkQty: bulkQty,
+          retailQty: retailQty,
           inUnitMode: mode,
           inputQty: rawQty,
           color,
@@ -14951,6 +14965,9 @@
         color: color,
         zone: zone,
         quantity: effectiveQty,
+        bulkQty: bulkQty,
+        retailQty: retailQty,
+        inUnitMode: mode,
         unit: baseUnit,
         packUnit: packUnit,
         packQty: packQty,
@@ -15617,10 +15634,12 @@
       const itemName = item?.name || sku;
 
       let modeNote = '';
-      if (bulkQty > 0 && retailQty > 0 && packUnit && (packQty > 1 || packUnit !== baseUnit)) {
+      if (bulkQty > 0 && retailQty > 0) {
         modeNote = ` [ចេញ: ${bulkQty} ${packUnit} + ${retailQty} ${baseUnit} = ${qty} ${baseUnit}]`;
-      } else if (bulkQty > 0 && packUnit && (packQty > 1 || packUnit !== baseUnit)) {
+      } else if (bulkQty > 0) {
         modeNote = ` [ចេញជាដុំ: ${bulkQty} ${packUnit} = ${qty} ${baseUnit}]`;
+      } else if (retailQty > 0) {
+        modeNote = ` [ចេញជារាយ: ${retailQty} ${baseUnit}]`;
       }
       const finalNotes = (notes !== '-' ? notes + modeNote : (modeNote ? modeNote.trim() : '-')).trim();
 
@@ -15634,6 +15653,9 @@
           unit: baseUnit,
           packUnit,
           packQty,
+          bulkQty: bulkQty,
+          retailQty: retailQty,
+          outUnitMode: (bulkQty > 0 && retailQty === 0) ? 'BULK' : 'RETAIL',
           color,
           zone,
           quantity: qty,
@@ -15669,6 +15691,9 @@
         color: color,
         zone: zone,
         quantity: qty,
+        bulkQty: bulkQty,
+        retailQty: retailQty,
+        outUnitMode: (bulkQty > 0 && retailQty === 0) ? 'BULK' : 'RETAIL',
         unit: baseUnit,
         packUnit: packUnit,
         packQty: packQty,
@@ -15831,7 +15856,7 @@
     function cleanDisplayNote(rawNote) {
       if (!rawNote || rawNote === '-') return '-';
       let cleaned = String(rawNote)
-        .replace(/\[\s*(?:ឯកសារ|លេខឯកសារ|អ្នកទទួល|អ្នកបើក|អ្នកបើកចេញ|អ្នកបើកទំនិញ|ខ្នាត|ពណ៌|តំបន់|មូលហេតុ|ចូល|ចូលជាដុំ)\s*:[^\]]*\]/gi, '')
+        .replace(/\[\s*(?:ឯកសារ|លេខឯកសារ|អ្នកទទួល|អ្នកបើក|អ្នកបើកចេញ|អ្នកបើកទំនិញ|ខ្នាត|ពណ៌|តំបន់|មូលហេតុ|ចូល|ចូលជាដុំ|ចូលជារាយ|ចេញ|ចេញជាដុំ|ចេញជារាយ|ដុំ|រាយ)\s*:[^\]]*\]/gi, '')
         .trim();
       cleaned = cleaned.replace(/^[\s\-–—:]+|[\s\-–—:]+$/g, '').trim();
       return cleaned || '-';
@@ -15890,8 +15915,41 @@
         const pUnit = (t.packUnit || item?.packUnit || '').trim() || 'ដុំ';
         const rUnit = (t.unit || item?.unit || unitStr || 'រាយ').trim() || 'រាយ';
 
-        const inBulkStock = (pQty > 1) ? Math.floor(qtyNum / pQty) : qtyNum;
-        const inLooseStock = (pQty > 1) ? (qtyNum % pQty) : 0;
+        let inBulkStock = 0;
+        let inLooseStock = 0;
+        if (t.bulkQty !== undefined && t.retailQty !== undefined && t.bulkQty !== null && t.retailQty !== null) {
+          inBulkStock = Number(t.bulkQty);
+          inLooseStock = Number(t.retailQty);
+        } else if (t.notes) {
+          const cMatch = t.notes.match(/\[(?:ចូល|ចេញ):\s*(\d+)\s*[^\+\d]+\+\s*(\d+)/);
+          const bMatch = t.notes.match(/\[(?:ចូល|ចេញ)ជាដុំ:\s*(\d+)/);
+          const rMatch = t.notes.match(/\[(?:ចូល|ចេញ)ជារាយ:\s*(\d+)/);
+          if (cMatch) {
+            inBulkStock = Number(cMatch[1]);
+            inLooseStock = Number(cMatch[2]);
+          } else if (bMatch) {
+            inBulkStock = Number(bMatch[1]);
+            inLooseStock = 0;
+          } else if (rMatch) {
+            inBulkStock = 0;
+            inLooseStock = Number(rMatch[1]);
+          } else if (pQty > 1) {
+            inBulkStock = Math.floor(qtyNum / pQty);
+            inLooseStock = qtyNum % pQty;
+          } else {
+            inBulkStock = 0;
+            inLooseStock = qtyNum;
+          }
+        } else if (t.inUnitMode === 'BULK') {
+          inBulkStock = (t.inputQty !== undefined) ? Number(t.inputQty) : (pQty > 1 ? Math.floor(qtyNum / pQty) : qtyNum);
+          inLooseStock = 0;
+        } else if (pQty > 1) {
+          inBulkStock = Math.floor(qtyNum / pQty);
+          inLooseStock = qtyNum % pQty;
+        } else {
+          inBulkStock = 0;
+          inLooseStock = qtyNum;
+        }
 
         const attrParts = [];
         if (sizeStr) attrParts.push(sizeStr);
@@ -16121,8 +16179,41 @@
         const pUnit = (t.packUnit || item?.packUnit || '').trim() || 'ដុំ';
         const rUnit = (t.unit || item?.unit || unitStr || 'រាយ').trim() || 'រាយ';
 
-        const outBulkStock = (pQty > 1) ? Math.floor(qtyNum / pQty) : qtyNum;
-        const outLooseStock = (pQty > 1) ? (qtyNum % pQty) : 0;
+        let outBulkStock = 0;
+        let outLooseStock = 0;
+        if (t.bulkQty !== undefined && t.retailQty !== undefined && t.bulkQty !== null && t.retailQty !== null) {
+          outBulkStock = Number(t.bulkQty);
+          outLooseStock = Number(t.retailQty);
+        } else if (t.notes) {
+          const cMatch = t.notes.match(/\[(?:ចេញ|ចូល):\s*(\d+)\s*[^\+\d]+\+\s*(\d+)/);
+          const bMatch = t.notes.match(/\[(?:ចេញ|ចូល)ជាដុំ:\s*(\d+)/);
+          const rMatch = t.notes.match(/\[(?:ចេញ|ចូល)ជារាយ:\s*(\d+)/);
+          if (cMatch) {
+            outBulkStock = Number(cMatch[1]);
+            outLooseStock = Number(cMatch[2]);
+          } else if (bMatch) {
+            outBulkStock = Number(bMatch[1]);
+            outLooseStock = 0;
+          } else if (rMatch) {
+            outBulkStock = 0;
+            outLooseStock = Number(rMatch[1]);
+          } else if (pQty > 1) {
+            outBulkStock = Math.floor(qtyNum / pQty);
+            outLooseStock = qtyNum % pQty;
+          } else {
+            outBulkStock = 0;
+            outLooseStock = qtyNum;
+          }
+        } else if (t.outUnitMode === 'BULK' || t.inUnitMode === 'BULK') {
+          outBulkStock = (t.inputQty !== undefined) ? Number(t.inputQty) : (pQty > 1 ? Math.floor(qtyNum / pQty) : qtyNum);
+          outLooseStock = 0;
+        } else if (pQty > 1) {
+          outBulkStock = Math.floor(qtyNum / pQty);
+          outLooseStock = qtyNum % pQty;
+        } else {
+          outBulkStock = 0;
+          outLooseStock = qtyNum;
+        }
 
         const attrParts = [];
         if (sizeStr) attrParts.push(sizeStr);
@@ -16385,6 +16476,9 @@
 
         // 1. Optimistic updates
         tx.quantity = v.newQty;
+        const curPQty = Number(tx.packQty || item?.packQty || 1);
+        tx.bulkQty = (curPQty > 1) ? Math.floor(v.newQty / curPQty) : 0;
+        tx.retailQty = (curPQty > 1) ? (v.newQty % curPQty) : v.newQty;
         if (v.docNo) tx.docNo = v.docNo;
         if (v.date) tx.date = v.date;
         tx.toLocation = v.location;
@@ -16626,6 +16720,9 @@
 
         // 1. Optimistic updates
         tx.quantity = v.newQty;
+        const curPQty = Number(tx.packQty || (AppState.items || []).find(i => (i.sku && tx.sku && i.sku.toLowerCase() === tx.sku.toLowerCase()))?.packQty || 1);
+        tx.bulkQty = (curPQty > 1) ? Math.floor(v.newQty / curPQty) : 0;
+        tx.retailQty = (curPQty > 1) ? (v.newQty % curPQty) : v.newQty;
         if (v.docNo) tx.docNo = v.docNo;
         if (v.date) tx.date = v.date;
         tx.toLocation = v.location;
