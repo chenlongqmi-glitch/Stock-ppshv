@@ -2368,7 +2368,7 @@
                     <i class="fa-solid fa-xmark"></i>
                   </button>
                 </div>
-                <button type="button" onclick="loadStockInHistory()" title="ផ្ទុកទិន្នន័យឡើងវិញ"
+                <button type="button" onclick="loadStockInHistory(true)" title="ផ្ទុកទិន្នន័យឡើងវិញ"
                   class="h-9 px-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs sm:text-sm font-bold transition flex items-center space-x-1.5 border border-slate-200 shadow-3xs shrink-0">
                   <i class="fa-solid fa-rotate text-xs"></i>
                   <span class="hidden sm:inline">Refresh</span>
@@ -2712,7 +2712,7 @@
                     <i class="fa-solid fa-xmark"></i>
                   </button>
                 </div>
-                <button type="button" onclick="loadStockOutHistory()" title="ផ្ទុកទិន្នន័យឡើងវិញ"
+                <button type="button" onclick="loadStockOutHistory(true)" title="ផ្ទុកទិន្នន័យឡើងវិញ"
                   class="h-9 px-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs sm:text-sm font-bold transition flex items-center space-x-1.5 border border-slate-200 shadow-3xs shrink-0">
                   <i class="fa-solid fa-rotate text-xs"></i>
                   <span class="hidden sm:inline">Refresh</span>
@@ -5860,10 +5860,7 @@
           status: 'Active'
         }
       ],
-      transactions: [
-        { txId: 'TX-20260821-01', date: '2026-08-21', type: 'STOCK_IN', sku: 'SKU-001', itemName: 'Coca Cola 330ml', quantity: 50, unit: 'កំប៉ុង', unitPrice: 0.45, totalAmount: 22.5, fromLocation: 'Supplier A', toLocation: '1-K3 ស្ថានីយ (ភ្នំពេញ)', notes: 'Restock', user: 'sdfsdf' },
-        { txId: 'TX-20260821-02', date: '2026-08-21', type: 'STOCK_OUT', sku: 'SKU-003', itemName: 'Nescafe 3in1 Coffee', quantity: 10, unit: 'កញ្ចប់', unitPrice: 3.20, totalAmount: 32.0, fromLocation: '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)', toLocation: 'Retail Customer', notes: 'Sold', user: 'chandy' }
-      ],
+      transactions: [],
       productRequests: [
         { reqId: 'REQ-20260821-01', warehouse: '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)', itemName: 'Indomie Goreng Noodle', category: 'អាហារស្ងួត', quantity: 150, unit: 'កញ្ចប់', urgency: 'Urgent', reason: 'ស្តុកជិតដាច់សម្រាប់ចុងសប្តាហ៍', requestedBy: 'chandy', status: 'Pending', createdAt: '2026-08-21 14:30', adminNotes: '' },
         { reqId: 'REQ-20260821-02', warehouse: '1-K3 ស្ថានីយ (ភ្នំពេញ)', itemName: 'Vital Premium Water 500ml', category: 'ភេសជ្ជៈ', quantity: 200, unit: 'ដប', urgency: 'Normal', reason: 'កុម្ម៉ង់បំពេញស្តុកប្រចាំខែ', requestedBy: 'sdfsdf', status: 'Approved', createdAt: '2026-08-21 11:20', adminNotes: 'បានបញ្ជាទិញរួចរាល់' },
@@ -7890,7 +7887,7 @@
               'getCategoriesList', 'getCategories', 'getWarehousesList', 'getWarehouses',
               'getWarehousesDetailed', 'getDashboardStats', 'getDashboardData', 'getUsersList',
               'getUsers', 'getProductRequests', 'getRequisitions', 'getTransactionsList',
-              'getTransactions', 'checkUserStatus', 'checkSession', 'ping', 'flushCodeCache'
+              'getTransactions', 'getTransactionHistory', 'checkUserStatus', 'checkSession', 'ping', 'flushCodeCache'
             ]);
 
             const payloadStr = JSON.stringify(payload || {});
@@ -9065,9 +9062,19 @@
         };
       }
 
-      if (action === 'getTransactionHistory') {
-        let txs = LOCAL_DB.transactions;
-        if (targetWarehouse) {
+      if (action === 'getTransactionHistory' || action === 'getTransactions') {
+        const filters = payload.filters || payload || {};
+        let txs = LOCAL_DB.transactions || [];
+        if (filters.type && filters.type !== 'ALL') {
+          txs = txs.filter(t => t.type === filters.type);
+        }
+        if (filters.startDate) {
+          txs = txs.filter(t => (t.date || '') >= filters.startDate);
+        }
+        if (filters.endDate) {
+          txs = txs.filter(t => (t.date || '') <= filters.endDate);
+        }
+        if (targetWarehouse && targetWarehouse !== 'ALL' && targetWarehouse !== 'គ្រប់ឃ្លាំង') {
           txs = txs.filter(t => t.fromLocation === targetWarehouse || t.toLocation === targetWarehouse);
         }
         return { success: true, transactions: txs };
@@ -15826,24 +15833,43 @@
     AppState.stockInHistory = [];
     AppState.stockOutHistory = [];
 
-    async function loadStockInHistory() {
-      const cachedTxs = (AppState.stockInHistory && AppState.stockInHistory.length > 0)
+    async function loadStockInHistory(forceRefresh = false) {
+      if (forceRefresh) {
+        API_CACHE.clear();
+      }
+      let cachedTxs = (AppState.stockInHistory && AppState.stockInHistory.length > 0)
         ? AppState.stockInHistory
-        : (LOCAL_DB.transactions || []).filter(t => t.type === 'STOCK_IN');
+        : null;
+      if (!cachedTxs) {
+        try {
+          const stored = localStorage.getItem('inventory_stock_in_history_db');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed) && parsed.length > 0) cachedTxs = parsed;
+          }
+        } catch(e) {}
+      }
+      if (!cachedTxs && LOCAL_DB.transactions && LOCAL_DB.transactions.length > 0) {
+        cachedTxs = LOCAL_DB.transactions.filter(t => t.type === 'STOCK_IN');
+      }
+
       if (cachedTxs && cachedTxs.length > 0) {
         AppState.stockInHistory = cachedTxs;
         renderStockInHistoryTable(AppState.stockInHistory);
       } else {
         const tbody = document.getElementById('stockInHistoryTableBody');
         if (tbody) {
-          tbody.innerHTML = '<tr><td colspan="8" class="text-center py-6 text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-1"></i> កំពុងផ្ទុកទិន្នន័យ...</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="9" class="text-center py-6 text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-1"></i> កំពុងផ្ទុកទិន្នន័យពី Google Sheets...</td></tr>';
         }
       }
 
       try {
-        const res = await apiCall('getTransactionHistory', { filters: { type: 'STOCK_IN', limit: 100 } });
+        const res = await apiCall('getTransactionHistory', { filters: { type: 'STOCK_IN', limit: 200 } });
         if (res && res.success && Array.isArray(res.transactions)) {
           AppState.stockInHistory = res.transactions;
+          try {
+            localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(res.transactions));
+          } catch(e) {}
           renderStockInHistoryTable(AppState.stockInHistory);
         }
       } catch (err) {
@@ -16135,24 +16161,43 @@
       }).join('');
     }
 
-    async function loadStockOutHistory() {
-      const cachedTxs = (AppState.stockOutHistory && AppState.stockOutHistory.length > 0)
+    async function loadStockOutHistory(forceRefresh = false) {
+      if (forceRefresh) {
+        API_CACHE.clear();
+      }
+      let cachedTxs = (AppState.stockOutHistory && AppState.stockOutHistory.length > 0)
         ? AppState.stockOutHistory
-        : (LOCAL_DB.transactions || []).filter(t => t.type === 'STOCK_OUT');
+        : null;
+      if (!cachedTxs) {
+        try {
+          const stored = localStorage.getItem('inventory_stock_out_history_db');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed) && parsed.length > 0) cachedTxs = parsed;
+          }
+        } catch(e) {}
+      }
+      if (!cachedTxs && LOCAL_DB.transactions && LOCAL_DB.transactions.length > 0) {
+        cachedTxs = LOCAL_DB.transactions.filter(t => t.type === 'STOCK_OUT');
+      }
+
       if (cachedTxs && cachedTxs.length > 0) {
         AppState.stockOutHistory = cachedTxs;
         renderStockOutHistoryTable(AppState.stockOutHistory);
       } else {
         const tbody = document.getElementById('stockOutHistoryTableBody');
         if (tbody) {
-          tbody.innerHTML = '<tr><td colspan="9" class="text-center py-6 text-slate-400 text-sm"><i class="fa-solid fa-spinner fa-spin mr-1"></i> កំពុងផ្ទុកទិន្នន័យ...</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="9" class="text-center py-6 text-slate-400 text-sm"><i class="fa-solid fa-spinner fa-spin mr-1"></i> កំពុងផ្ទុកទិន្នន័យពី Google Sheets...</td></tr>';
         }
       }
 
       try {
-        const res = await apiCall('getTransactionHistory', { filters: { type: 'STOCK_OUT', limit: 100 } });
+        const res = await apiCall('getTransactionHistory', { filters: { type: 'STOCK_OUT', limit: 200 } });
         if (res && res.success && Array.isArray(res.transactions)) {
           AppState.stockOutHistory = res.transactions;
+          try {
+            localStorage.setItem('inventory_stock_out_history_db', JSON.stringify(res.transactions));
+          } catch(e) {}
           renderStockOutHistoryTable(AppState.stockOutHistory);
         }
       } catch (err) {

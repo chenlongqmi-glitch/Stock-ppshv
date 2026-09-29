@@ -5977,142 +5977,314 @@ function recordTransactionInternal(ss, tx) {
 
 
 
-function getTransactionHistory(filtersOrPayload, userParam) {
+function syncSheetsTransactionsInternal(ss, targetType) {
+  if (!ss) ss = SpreadsheetApp.getActiveSpreadsheet();
+  const txSheet = ss.getSheetByName(SHEETS.TRANSACTIONS);
+  if (!txSheet) return;
 
-  let filters = filtersOrPayload || {};
+  const txData = txSheet.getDataRange().getValues();
+  const existingDocs = new Set();
+  const existingTxIds = new Set();
+  const existingSignatures = new Set();
 
-  let user = userParam;
+  for (let i = 1; i < txData.length; i++) {
+    const row = txData[i];
+    const txId = String(row[0] || '').trim();
+    if (txId) existingTxIds.add(txId);
+    const notes = String(row[11] || '');
+    const docM = notes.match(/\[(?:ឯកសារ|Doc|DocNo):\s*([^\]]+)\]/i);
+    if (docM) existingDocs.add(docM[1].trim().toUpperCase());
+    const fromLoc = String(row[9] || '');
+    const docM2 = fromLoc.match(/Doc:\s*([^,\s]+)/i);
+    if (docM2) existingDocs.add(docM2[1].trim().toUpperCase());
 
-  if (filtersOrPayload && filtersOrPayload.filters) {
-
-    filters = filtersOrPayload.filters;
-
-    user = filtersOrPayload.user || userParam;
-
+    let dStr = '';
+    if (row[1] instanceof Date) {
+      try { dStr = Utilities.formatDate(row[1], 'GMT+7', 'yyyy-MM-dd'); } catch(e) {}
+    } else if (row[1]) {
+      dStr = String(row[1]).slice(0, 10);
+    }
+    const sig = `${String(row[2] || '').toUpperCase()}_${String(row[3] || '').trim()}_${Number(row[5] || 0)}_${dStr}`;
+    existingSignatures.add(sig);
   }
 
+  // 1. Sync Stock_in sheet -> Transactions sheet
+  if (!targetType || targetType === 'STOCK_IN') {
+    const stockInSheet = ss.getSheetByName('Stock_in');
+    if (stockInSheet && stockInSheet.getLastRow() > 1) {
+      const inData = stockInSheet.getDataRange().getValues();
+      const inHeaders = inData[0];
+      const newTxRows = [];
 
+      for (let r = 1; r < inData.length; r++) {
+        const row = inData[r];
+        const docNo = String(row[0] || '').trim();
+        const sku = String(row[2] || '').trim();
+        if (!sku) continue;
+
+        let dStr = '';
+        if (row[1] instanceof Date) {
+          try { dStr = Utilities.formatDate(row[1], 'GMT+7', 'yyyy-MM-dd'); } catch(e) {}
+        } else if (row[1]) {
+          try { dStr = Utilities.formatDate(new Date(row[1]), 'GMT+7', 'yyyy-MM-dd'); } catch(e) { dStr = String(row[1]).slice(0, 10); }
+        }
+
+        const qty = Number(row[7] || 0);
+        const sig = `STOCK_IN_${sku}_${qty}_${dStr}`;
+
+        const isKnown = (docNo && existingDocs.has(docNo.toUpperCase())) ||
+                        (docNo && existingTxIds.has(docNo)) ||
+                        existingSignatures.has(sig);
+
+        if (!isKnown) {
+          const txId = 'TX-' + Utilities.formatDate(new Date(), 'GMT+7', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 900 + 100);
+          const iName = String(row[3] || sku);
+          const size = String(row[4] || '');
+          const color = String(row[5] || '');
+          const zone = String(row[6] || '');
+          const unit = String(row[8] || 'ដុំ');
+          const unitPrice = Number(row[9] || 0);
+          const totalAmount = Number(row[10] || (qty * unitPrice));
+          const wh = String(row[11] || 'គ្រប់ស្ថានីយទាំងអស់');
+          const recBy = String(row[12] || '');
+          const notesRaw = String(row[13] || '');
+          const userStr = String(row[14] || 'Admin');
+          const ts = row[15] || new Date();
+
+          const formattedNotes = [
+            docNo ? `[ឯកសារ: ${docNo}]` : '',
+            recBy ? `[អ្នកទទួល: ${recBy}]` : '',
+            size ? `[ខ្នាត: ${size}]` : '',
+            color ? `[ពណ៌: ${color}]` : '',
+            zone ? `[តំបន់: ${zone}]` : '',
+            notesRaw
+          ].filter(Boolean).join(' ');
+
+          newTxRows.push([
+            txId,
+            dStr || Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd'),
+            'STOCK_IN',
+            sku,
+            iName,
+            qty,
+            unit,
+            unitPrice,
+            totalAmount,
+            docNo ? `Doc: ${docNo}` : 'Supplier',
+            wh,
+            formattedNotes,
+            userStr,
+            ts
+          ]);
+
+          if (docNo) existingDocs.add(docNo.toUpperCase());
+          existingTxIds.add(txId);
+          existingSignatures.add(sig);
+        }
+      }
+
+      if (newTxRows.length > 0) {
+        txSheet.getRange(txSheet.getLastRow() + 1, 1, newTxRows.length, newTxRows[0].length).setValues(newTxRows);
+      }
+    }
+  }
+
+  // 2. Sync Stock_out sheet -> Transactions sheet
+  if (!targetType || targetType === 'STOCK_OUT') {
+    const stockOutSheet = ss.getSheetByName('Stock_out');
+    if (stockOutSheet && stockOutSheet.getLastRow() > 1) {
+      const outData = stockOutSheet.getDataRange().getValues();
+      const newOutTxRows = [];
+
+      for (let r = 1; r < outData.length; r++) {
+        const row = outData[r];
+        const docNo = String(row[0] || '').trim();
+        const sku = String(row[2] || '').trim();
+        if (!sku) continue;
+
+        let dStr = '';
+        if (row[1] instanceof Date) {
+          try { dStr = Utilities.formatDate(row[1], 'GMT+7', 'yyyy-MM-dd'); } catch(e) {}
+        } else if (row[1]) {
+          try { dStr = Utilities.formatDate(new Date(row[1]), 'GMT+7', 'yyyy-MM-dd'); } catch(e) { dStr = String(row[1]).slice(0, 10); }
+        }
+
+        const qty = Number(row[7] || 0);
+        const sig = `STOCK_OUT_${sku}_${qty}_${dStr}`;
+
+        const isKnown = (docNo && existingDocs.has(docNo.toUpperCase())) ||
+                        (docNo && existingTxIds.has(docNo)) ||
+                        existingSignatures.has(sig);
+
+        if (!isKnown) {
+          const txId = 'TX-' + Utilities.formatDate(new Date(), 'GMT+7', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 900 + 100);
+          const iName = String(row[3] || sku);
+          const size = String(row[4] || '');
+          const color = String(row[5] || '');
+          const zone = String(row[6] || '');
+          const unit = String(row[8] || 'ដុំ');
+          const unitPrice = Number(row[9] || 0);
+          const totalAmount = Number(row[10] || (qty * unitPrice));
+          const fromLoc = String(row[11] || 'គ្រប់ស្ថានីយទាំងអស់');
+          const toLoc = String(row[12] || 'Customer');
+          const issuer = String(row[13] || '');
+          const reason = String(row[14] || '');
+          const notesRaw = String(row[15] || '');
+          const userStr = String(row[16] || 'Admin');
+          const ts = row[17] || new Date();
+
+          const formattedNotes = [
+            docNo ? `[ឯកសារ: ${docNo}]` : '',
+            issuer ? `[អ្នកបើកចេញ: ${issuer}]` : '',
+            reason ? `[មូលហេតុ: ${reason}]` : '',
+            size ? `[ខ្នាត: ${size}]` : '',
+            color ? `[ពណ៌: ${color}]` : '',
+            zone ? `[តំបន់: ${zone}]` : '',
+            notesRaw
+          ].filter(Boolean).join(' ');
+
+          newOutTxRows.push([
+            txId,
+            dStr || Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd'),
+            'STOCK_OUT',
+            sku,
+            iName,
+            qty,
+            unit,
+            unitPrice,
+            totalAmount,
+            fromLoc,
+            toLoc,
+            formattedNotes,
+            userStr,
+            ts
+          ]);
+
+          if (docNo) existingDocs.add(docNo.toUpperCase());
+          existingTxIds.add(txId);
+          existingSignatures.add(sig);
+        }
+      }
+
+      if (newOutTxRows.length > 0) {
+        txSheet.getRange(txSheet.getLastRow() + 1, 1, newOutTxRows.length, newOutTxRows[0].length).setValues(newOutTxRows);
+      }
+    }
+  }
+}
+
+function getTransactionHistory(filtersOrPayload, userParam) {
+  let filters = filtersOrPayload || {};
+  let user = userParam;
+  if (filtersOrPayload && filtersOrPayload.filters) {
+    filters = filtersOrPayload.filters;
+    user = filtersOrPayload.user || userParam;
+  }
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-
   const sheet = ss.getSheetByName(SHEETS.TRANSACTIONS);
-
   if (!sheet) return { success: false, transactions: [] };
 
+  const targetType = (filters.type && filters.type !== 'ALL') ? String(filters.type).toUpperCase() : null;
 
+  // Auto-sync rows added directly in Stock_in or Stock_out sheet to Transactions
+  try {
+    syncSheetsTransactionsInternal(ss, targetType);
+  } catch(syncErr) {
+    Logger.log('syncSheetsTransactionsInternal error: ' + syncErr.toString());
+  }
 
   const data = sheet.getDataRange().getValues();
-
   const transactions = [];
 
-
-
   let targetWarehouse = null;
-
   if (user && user.role !== 'Admin' && user.role !== 'SuperAdmin' && user.warehouse && user.warehouse !== 'ALL' && user.warehouse !== 'គ្រប់ឃ្លាំង') {
-
     targetWarehouse = user.warehouse;
-
   } else if (filters.warehouse && filters.warehouse !== 'ALL' && filters.warehouse !== 'គ្រប់ឃ្លាំង') {
-
     targetWarehouse = filters.warehouse;
-
   }
-
-
 
   for (let i = data.length - 1; i >= 1; i--) {
-
     const row = data[i];
-
     if (!row[0]) continue;
 
-
-
     const fromLoc = String(row[9] || '');
-
     const toLoc = String(row[10] || '');
 
-
-
     if (targetWarehouse && fromLoc !== targetWarehouse && toLoc !== targetWarehouse) {
-
       continue;
-
     }
 
+    let txDate = '';
+    try {
+      if (row[1] instanceof Date) {
+        txDate = Utilities.formatDate(row[1], 'GMT+7', 'yyyy-MM-dd');
+      } else if (row[1]) {
+        const d = new Date(row[1]);
+        if (!isNaN(d.getTime())) {
+          txDate = Utilities.formatDate(d, 'GMT+7', 'yyyy-MM-dd');
+        } else {
+          txDate = String(row[1]).slice(0, 10);
+        }
+      }
+    } catch(e) {
+      txDate = String(row[1] || '').slice(0, 10);
+    }
 
-
-    const txDate = Utilities.formatDate(new Date(row[1]), 'GMT+7', 'yyyy-MM-dd');
-
-    const txType = row[2];
-
-
+    const txType = String(row[2] || '').toUpperCase();
 
     if (filters.startDate && txDate < filters.startDate) continue;
-
     if (filters.endDate && txDate > filters.endDate) continue;
-
-    if (filters.type && filters.type !== 'ALL' && txType !== filters.type) continue;
+    if (targetType && txType !== targetType) continue;
 
     if (filters.search) {
-
       const q = filters.search.toLowerCase();
-
       const match = String(row[3]).toLowerCase().includes(q) ||
-
         String(row[4]).toLowerCase().includes(q) ||
-
-        String(row[0]).toLowerCase().includes(q);
-
+        String(row[0]).toLowerCase().includes(q) ||
+        String(row[11] || '').toLowerCase().includes(q);
       if (!match) continue;
-
     }
 
+    const rawNotes = String(row[11] || '');
+    let docNo = (rawNotes.match(/\[(?:ឯកសារ|Doc|DocNo):\s*([^\]]+)\]/i) || [])[1] || '';
+    if (!docNo) {
+      const fromMatch = fromLoc.match(/Doc:\s*([^,\s]+)/i);
+      if (fromMatch) docNo = fromMatch[1];
+    }
+    if (!docNo) docNo = String(row[0]);
 
+    const size = (rawNotes.match(/\[(?:ខ្នាត|Size):\s*([^\]]+)\]/i) || [])[1] || '';
+    const color = (rawNotes.match(/\[(?:ពណ៌|Color):\s*([^\]]+)\]/i) || [])[1] || '';
+    const zone = (rawNotes.match(/\[(?:តំបន់|Zone):\s*([^\]]+)\]/i) || [])[1] || '';
+    const receiver = (rawNotes.match(/\[(?:អ្នកទទួល|Receiver):\s*([^\]]+)\]/i) || [])[1] || (String(row[12]) || 'Staff');
 
     transactions.push({
-
-      txId: row[0],
-
+      txId: String(row[0]),
+      docNo: docNo,
       date: txDate,
-
-      type: row[2],
-
-      sku: row[3],
-
-      itemName: row[4],
-
-      quantity: row[5],
-
-      unit: row[6],
-
-      unitPrice: row[7],
-
-      totalAmount: row[8],
-
-      fromLocation: row[9],
-
-      toLocation: row[10],
-
-      notes: row[11],
-
-      user: row[12],
-
-      timestamp: row[13]
-
+      type: txType,
+      sku: String(row[3]),
+      itemName: String(row[4]),
+      quantity: Number(row[5] || 0),
+      unit: String(row[6] || 'ដុំ'),
+      unitPrice: Number(row[7] || 0),
+      totalAmount: Number(row[8] || 0),
+      fromLocation: fromLoc,
+      toLocation: toLoc,
+      notes: rawNotes,
+      user: String(row[12] || ''),
+      receivedBy: receiver,
+      size: size,
+      color: color,
+      zone: zone,
+      timestamp: row[13] || txDate
     });
 
-
-
     if (transactions.length >= (filters.limit || 200)) break;
-
   }
 
-
-
   return { success: true, transactions: transactions };
-
 }
 
 
