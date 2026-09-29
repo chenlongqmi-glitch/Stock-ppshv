@@ -373,6 +373,94 @@
       padding-bottom: 0.5rem !important;
     }
 
+    /* Stock In & Stock Out: Frozen Top Form & Dedicated Scrollable History Table */
+    main.stock-freeze-active {
+      overflow-y: hidden !important;
+      padding-top: 0.75rem !important;
+      padding-bottom: 0.75rem !important;
+    }
+
+    @media (min-width: 1024px) {
+      #tabStockIn:not(.hidden),
+      #tabStockOut:not(.hidden) {
+        display: flex !important;
+        flex-direction: column !important;
+        height: calc(100vh - 96px) !important;
+        max-height: calc(100vh - 96px) !important;
+        gap: 0.75rem !important;
+      }
+
+      .form-freeze-card {
+        flex-shrink: 0 !important;
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 25 !important;
+        background-color: #ffffff !important;
+        box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.05), 0 2px 6px -2px rgba(0, 0, 0, 0.03) !important;
+      }
+
+      .table-freeze-card {
+        flex: 1 1 0% !important;
+        min-height: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
+        padding-top: 0.75rem !important;
+        padding-bottom: 0.75rem !important;
+      }
+
+      .table-freeze-card > div:first-child {
+        flex-shrink: 0 !important;
+        padding-bottom: 0.5rem !important;
+      }
+
+      .table-scroll-container {
+        flex: 1 1 0% !important;
+        min-height: 0 !important;
+        max-height: 100% !important;
+        overflow-y: auto !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        overscroll-behavior: contain !important;
+      }
+
+      .table-scroll-container thead th {
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 20 !important;
+        background-color: #f8fafc !important;
+        box-shadow: inset 0 -1px 0 #e2e8f0 !important;
+      }
+    }
+
+    @media (max-width: 1023px) {
+      main.stock-freeze-active {
+        overflow-y: auto !important;
+      }
+
+      .form-freeze-card {
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 25 !important;
+        background-color: #ffffff !important;
+        box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.07) !important;
+      }
+
+      .table-scroll-container {
+        max-height: 480px;
+        overflow-y: auto;
+        overflow-x: auto;
+      }
+
+      .table-scroll-container thead th {
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 20 !important;
+        background-color: #f8fafc !important;
+        box-shadow: inset 0 -1px 0 #e2e8f0 !important;
+      }
+    }
+
     input::-ms-reveal,
     input::-ms-clear {
       display: none !important;
@@ -2068,7 +2156,7 @@
         <!-- TAB 3: STOCK IN (ស្តុកចូល) -->
         <!-- ========================================== -->
         <div id="tabStockIn" class="w-full space-y-4 hidden">
-          <div class="glass-card p-4 sm:p-5 lg:p-6 rounded-2xl sm:rounded-3xl shadow-sm border-2 border-emerald-300/80 bg-gradient-to-br from-emerald-50/30 via-white to-teal-50/20">
+          <div id="stockInFormCard" class="glass-card form-freeze-card p-3 sm:p-4 lg:p-4 rounded-2xl sm:rounded-3xl shadow-sm border-2 border-emerald-300/80 bg-gradient-to-br from-emerald-50/30 via-white to-teal-50/20">
 
             <form id="stockInForm" onsubmit="handleStockInSubmit(event)" class="space-y-3">
               <!-- Hidden Old Stock & Pack Conversion Stores -->
@@ -2085,7 +2173,7 @@
                 <!-- ផ្នែកខាងឆ្វេង: ប្រអប់រូបភាពទំនិញ (Pure Image Preview Card spanning 3 rows) -->
                 <div class="w-full lg:w-48 xl:w-56 shrink-0 flex flex-col justify-stretch">
                   <div id="stockInImgCard"
-                    class="flex-1 w-full border-2 border-emerald-300/80 rounded-2xl bg-emerald-50/20 flex flex-col items-center justify-center p-3 relative overflow-hidden group cursor-pointer shadow-xs hover:border-emerald-500 hover:bg-white transition min-h-[200px] lg:min-h-[210px]"
+                    class="flex-1 w-full border-2 border-emerald-300/80 rounded-2xl bg-emerald-50/20 flex flex-col items-center justify-center p-3 relative overflow-hidden group cursor-pointer shadow-xs hover:border-emerald-500 hover:bg-white transition min-h-[165px] lg:min-h-[175px]"
                     onclick="previewStockInCurrentItemImage()"
                     title="ចុចដើម្បីមើលរូបភាពធំ (Click to preview)">
                     
@@ -2324,9 +2412,9 @@
           </div>
 
           <!-- TABLE LIST CARD (ខាងក្រោម: បញ្ជីបង្ហាញពីទិន្នន័យចូល) -->
-          <div class="glass-card p-4 sm:p-5 lg:p-6 rounded-2xl sm:rounded-3xl shadow-xs border border-slate-200/80 bg-white space-y-4">
+          <div id="stockInTableCard" class="glass-card table-freeze-card p-4 sm:p-5 lg:p-6 rounded-2xl sm:rounded-3xl shadow-xs border border-slate-200/80 bg-white space-y-4">
             <!-- Header of list -->
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+            <div id="stockInTableHeader" class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
               <div class="flex items-center space-x-3">
                 <div class="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center text-lg shadow-xs">
                   <i class="fa-solid fa-clock-rotate-left"></i>
@@ -2367,7 +2455,7 @@
             </div>
 
             <!-- Table container -->
-            <div class="overflow-x-auto rounded-2xl border border-slate-200 max-h-[520px] overflow-y-auto">
+            <div id="stockInTableContainer" class="table-scroll-container overflow-x-auto rounded-2xl border border-slate-200 max-h-[520px] overflow-y-auto custom-scrollbar">
               <table class="w-full text-left text-xs sm:text-sm">
                 <thead class="bg-slate-50/95 text-slate-600 font-bold uppercase border-b border-slate-200 tracking-wider text-xs sticky top-0 z-10 backdrop-blur-xs">
                   <tr>
@@ -2399,7 +2487,7 @@
         <!-- TAB 4: STOCK OUT (ស្តុកចេញ) -->
         <!-- ========================================== -->
         <div id="tabStockOut" class="w-full space-y-4 hidden">
-          <div class="glass-card p-4 sm:p-5 lg:p-6 rounded-2xl sm:rounded-3xl shadow-sm border-2 border-amber-300/80 bg-gradient-to-br from-amber-50/30 via-white to-orange-50/20">
+          <div id="stockOutFormCard" class="glass-card form-freeze-card p-3 sm:p-4 lg:p-4 rounded-2xl sm:rounded-3xl shadow-sm border-2 border-amber-300/80 bg-gradient-to-br from-amber-50/30 via-white to-orange-50/20">
 
 
             <form id="stockOutForm" onsubmit="handleStockOutSubmit(event)" class="space-y-3">
@@ -2420,7 +2508,7 @@
                 <!-- ផ្នែកខាងឆ្វេង: ប្រអប់រូបភាពទំនិញ (Pure Image Preview Card spanning 3 rows) -->
                 <div class="w-full lg:w-48 xl:w-56 shrink-0 flex flex-col justify-stretch">
                   <div id="stockOutImgCard"
-                    class="flex-1 w-full border-2 border-amber-300/80 rounded-2xl bg-amber-50/20 flex flex-col items-center justify-center p-3 relative overflow-hidden group cursor-pointer shadow-xs hover:border-amber-500 hover:bg-white transition min-h-[200px] lg:min-h-[210px]"
+                    class="flex-1 w-full border-2 border-amber-300/80 rounded-2xl bg-amber-50/20 flex flex-col items-center justify-center p-3 relative overflow-hidden group cursor-pointer shadow-xs hover:border-amber-500 hover:bg-white transition min-h-[165px] lg:min-h-[175px]"
                     onclick="previewStockOutCurrentItemImage()"
                     title="ចុចដើម្បីមើលរូបភាពធំ (Click to preview)">
                     
@@ -2659,9 +2747,9 @@
           </div>
 
           <!-- TABLE LIST CARD (ខាងក្រោម: បញ្ជីបង្ហាញពីទិន្នន័យចេញ) -->
-          <div class="glass-card p-4 sm:p-5 lg:p-6 rounded-2xl sm:rounded-3xl shadow-xs border border-slate-200/80 bg-white space-y-4">
+          <div id="stockOutTableCard" class="glass-card table-freeze-card p-4 sm:p-5 lg:p-6 rounded-2xl sm:rounded-3xl shadow-xs border border-slate-200/80 bg-white space-y-4">
             <!-- Header of list -->
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+            <div id="stockOutTableHeader" class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
               <div class="flex items-center space-x-3">
                 <div class="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center text-lg shadow-xs">
                   <i class="fa-solid fa-clock-rotate-left"></i>
@@ -2702,7 +2790,7 @@
             </div>
 
             <!-- Table container -->
-            <div class="overflow-x-auto rounded-2xl border border-slate-200 max-h-[520px] overflow-y-auto">
+            <div id="stockOutTableContainer" class="table-scroll-container overflow-x-auto rounded-2xl border border-slate-200 max-h-[520px] overflow-y-auto custom-scrollbar">
               <table class="w-full text-left text-xs sm:text-sm">
                 <thead class="bg-slate-50/95 text-slate-600 font-bold uppercase border-b border-slate-200 tracking-wider text-xs sticky top-0 z-10 backdrop-blur-xs">
                   <tr>
@@ -11678,6 +11766,11 @@
           mainContainer.classList.add('chat-mode-active');
         } else {
           mainContainer.classList.remove('chat-mode-active');
+        }
+        if (tabName === 'stockin' || tabName === 'stockout') {
+          mainContainer.classList.add('stock-freeze-active');
+        } else {
+          mainContainer.classList.remove('stock-freeze-active');
         }
       }
 
