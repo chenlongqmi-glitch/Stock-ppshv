@@ -3643,6 +3643,16 @@
                     <span>បើកមើល</span>
                   </button>
                 </div>
+                <div class="pt-2 border-t border-emerald-200/70 flex items-center justify-between">
+                  <span class="text-[11px] text-emerald-800 font-medium">
+                    <i class="fa-solid fa-wrench mr-1 text-emerald-600"></i>បញ្ហា Header មិនត្រូវនឹងទិន្នន័យ?
+                  </span>
+                  <button type="button" onclick="handleFixGoogleSheetHeaders()"
+                    class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[11px] font-bold shadow-sm flex items-center space-x-1.5 transition">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    <span>ជួសជុល Header គ្រប់ Sheet</span>
+                  </button>
+                </div>
               </div>
 
               <!-- Google Drive Product Image Storage Folder -->
@@ -24293,6 +24303,49 @@
         return;
       }
       openSwitchUserModal();
+    }
+
+    /* Fix and Align Google Sheet Headers */
+    async function handleFixGoogleSheetHeaders() {
+      const confirmRes = await Swal.fire({
+        icon: 'question',
+        title: 'ជួសជុល Header លើ Google Sheet?',
+        text: 'តើលោកអ្នកចង់ឱ្យប្រព័ន្ធតម្រឹម និងជួសជុល Header (Row 1) នៃតារាង Items, Transactions, Users ទាំងអស់លើ Google Sheet ឱ្យត្រឹមត្រូវតាមស្តង់ដារ 100% ឬទេ? (ទិន្នន័យពីជួរទី ២ ចុះក្រោមនឹងមិនរងផលប៉ះពាល់ឡើយ)',
+        showCancelButton: true,
+        confirmButtonText: 'យល់ព្រម ជួសជុល',
+        cancelButtonText: 'បោះបង់',
+        confirmButtonColor: '#4f46e5'
+      });
+
+      if (!confirmRes.isConfirmed) return;
+
+      Swal.fire({
+        title: 'កំពុងជួសជុល Header...',
+        html: '<p class="text-xs text-slate-500">កំពុងតម្រឹមជួរឈរ Header លើ Google Sheet ដោយស្វ័យប្រវត្តិ...</p>',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
+
+      try {
+        const res = await apiCall('fixAllSheetHeaders', {});
+        if (res && res.success) {
+          Swal.fire({
+            icon: 'success',
+            title: 'ជោគជ័យ 🎉',
+            text: 'បានជួសជុល និងតម្រឹម Header គ្រប់ Sheet លើ Google Sheet ត្រឹមត្រូវតាមស្តង់ដារ 100% រួចរាល់!',
+            confirmButtonColor: '#10b981'
+          });
+        } else {
+          throw new Error(res?.message || 'ប្រតិបត្តិការបរាជ័យ');
+        }
+      } catch (err) {
+        Swal.fire({
+          icon: 'error',
+          title: 'ជួបបញ្ហា',
+          text: 'មិនអាចជួសជុលបានទេ៖ ' + (err.message || err.toString()),
+          confirmButtonColor: '#ef4444'
+        });
+      }
     }
 
     /* Direct Google Sheet Access for SuperAdmin */

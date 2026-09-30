@@ -692,6 +692,14 @@ function executeLocalApiAction(req) {
 
         return { success: true, message: 'បានដំឡើងរចនាសម្ព័ន្ធ Google Sheets ជោគជ័យ' };
 
+      case 'fixAllSheetHeaders':
+
+      case 'fixHeaders':
+
+      case 'repairDatabaseHeaders':
+
+        return fixAllSheetHeaders();
+
       case 'syncStockSheets':
 
       case 'ensureStockSheets':
@@ -886,10 +894,106 @@ function onOpen() {
     ui.createMenu('⚡ Smart Inventory')
       .addItem('🔄 ដំឡើងរចនាសម្ព័ន្ធតារាង និងទិន្នន័យ (Setup Database & Items)', 'setupDatabase')
       .addItem('📦 បញ្ចូលទំនិញគំរូ (Seed Master Catalog)', 'setupDatabase')
+      .addItem('🛠️ ជួសជុល Header គ្រប់ Sheet (Fix Header Alignment)', 'fixAllSheetHeaders')
       .addToUi();
   } catch (e) {
     if (typeof Logger !== 'undefined') Logger.log('onOpen menu notice: ' + e.toString());
   }
+}
+
+/**
+ * មុខងារជួសជុល និងតម្រឹម Header (Row 1) នៃតារាងទាំងអស់ឱ្យត្រូវតាមស្តង់ដារ 100%
+ * ដោយមិនប៉ះពាល់ ឬលុបទិន្នន័យពីជួរទី ២ ចុះក្រោមឡើយ
+ */
+function fixAllSheetHeaders() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let updatedSheets = [];
+
+  // 1. Items Sheet Header
+  const itemsSheet = ss.getSheetByName(SHEETS.ITEMS);
+  if (itemsSheet) {
+    const itemHeaders = [
+      'SKU', 'Barcode', 'ItemName', 'Category', 'Unit',
+      'CostPrice', 'SellingPrice', 'MinStockLevel', 'Location',
+      'CurrentStock', 'ImageUrl', 'Status', 'UpdatedAt',
+      'Size', 'Color', 'PackUnit', 'PackQty', 'Zone', 'ZoneNumber', 'Notes', 'CreatedBy'
+    ];
+    itemsSheet.getRange(1, 1, 1, itemHeaders.length).setValues([itemHeaders]);
+    formatHeaderRow(itemsSheet, itemHeaders.length, '#1e293b');
+    updatedSheets.push(SHEETS.ITEMS);
+  }
+
+  // 2. Transactions Sheet Header
+  const txSheet = ss.getSheetByName(SHEETS.TRANSACTIONS);
+  if (txSheet) {
+    const txHeaders = [
+      'TxID', 'Date', 'Type', 'SKU', 'ItemName',
+      'Quantity', 'Unit', 'UnitPrice', 'TotalAmount',
+      'FromLocation', 'ToLocation', 'Reason_Notes', 'User', 'Timestamp'
+    ];
+    txSheet.getRange(1, 1, 1, txHeaders.length).setValues([txHeaders]);
+    formatHeaderRow(txSheet, txHeaders.length, '#0f766e');
+    updatedSheets.push(SHEETS.TRANSACTIONS);
+  }
+
+  // 3. Users Sheet Header
+  const usersSheet = ss.getSheetByName(SHEETS.USERS);
+  if (usersSheet) {
+    const userHeaders = [
+      'UserID', 'Username', 'FullName', 'Email',
+      'Password', 'Salt', 'Role', 'Status', 'CreatedAt', 'Warehouse', 'Avatar', 'Phone',
+      'DeleteReason', 'DeleteRequestedBy', 'DeleteRequestedAt', 'BoundDevices', 'Password'
+    ];
+    usersSheet.getRange(1, 1, 1, userHeaders.length).setValues([userHeaders]);
+    formatHeaderRow(usersSheet, userHeaders.length, '#4338ca');
+    updatedSheets.push(SHEETS.USERS);
+  }
+
+  // 4. Warehouses Sheet Header
+  const whSheet = ss.getSheetByName(SHEETS.WAREHOUSES);
+  if (whSheet) {
+    const whHeaders = ['WarehouseID', 'Name', 'Location', 'Manager', 'Status'];
+    whSheet.getRange(1, 1, 1, whHeaders.length).setValues([whHeaders]);
+    formatHeaderRow(whSheet, whHeaders.length, '#334155');
+    updatedSheets.push(SHEETS.WAREHOUSES);
+  }
+
+  // 5. Categories Sheet Header
+  const catSheet = ss.getSheetByName(SHEETS.CATEGORIES);
+  if (catSheet) {
+    const catHeaders = ['CategoryID', 'Name', 'Description'];
+    catSheet.getRange(1, 1, 1, catHeaders.length).setValues([catHeaders]);
+    formatHeaderRow(catSheet, catHeaders.length, '#334155');
+    updatedSheets.push(SHEETS.CATEGORIES);
+  }
+
+  // 6. ActivityLogs Sheet Header
+  const logSheet = ss.getSheetByName(SHEETS.LOGS);
+  if (logSheet) {
+    const logHeaders = ['LogID', 'Timestamp', 'User', 'Role', 'Action', 'Details'];
+    logSheet.getRange(1, 1, 1, logHeaders.length).setValues([logHeaders]);
+    formatHeaderRow(logSheet, logHeaders.length, '#64748b');
+    updatedSheets.push(SHEETS.LOGS);
+  }
+
+  // 7. Settings Sheet Header
+  const setSheet = ss.getSheetByName(SHEETS.SETTINGS);
+  if (setSheet) {
+    const setHeaders = ['Key', 'Value', 'Description', 'UpdatedAt'];
+    setSheet.getRange(1, 1, 1, setHeaders.length).setValues([setHeaders]);
+    formatHeaderRow(setSheet, setHeaders.length, '#475569');
+    updatedSheets.push(SHEETS.SETTINGS);
+  }
+
+  try {
+    SpreadsheetApp.getActiveSpreadsheet().toast('✅ បានជួសជុល Header គ្រប់ Sheet ត្រឹមត្រូវតាមស្តង់ដារ 100%!', 'ជោគជ័យ', 5);
+  } catch(e) {}
+
+  return {
+    success: true,
+    message: 'Headers fixed and aligned successfully for: ' + updatedSheets.join(', '),
+    updatedSheets: updatedSheets
+  };
 }
 
 /**
@@ -909,6 +1013,10 @@ function setupDatabase() {
 
   if (itemsSheet.getLastRow() === 0) {
     itemsSheet.appendRow(itemHeaders);
+    formatHeaderRow(itemsSheet, itemHeaders.length, '#1e293b');
+  } else {
+    // ធានាថា Row 1 (Header) ត្រូវតាមលំដាប់លំដោយត្រឹមត្រូវ 100% ជានិច្ច
+    itemsSheet.getRange(1, 1, 1, itemHeaders.length).setValues([itemHeaders]);
     formatHeaderRow(itemsSheet, itemHeaders.length, '#1e293b');
   }
 
