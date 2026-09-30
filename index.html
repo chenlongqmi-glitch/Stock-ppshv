@@ -14712,6 +14712,68 @@
       }
     }
 
+    // ស្វែងរកតំបន់ស្តុកចុងក្រោយដែលទំនិញនេះធ្លាប់បានចូលស្តុកពីមុន (Find previous Stock In zone for this item)
+    function findItemPreviousZone(item) {
+      if (!item) return '';
+      const itemSku = String(item.sku || '').trim().toLowerCase();
+      const itemName = String(item.name || '').trim().toLowerCase();
+
+      // 1. ស្វែងរកក្នុងប្រវត្តិកត់ត្រាទំនិញចូលស្តុក (AppState.stockInHistory) - យកប្រតិបត្តិការចុងក្រោយគេបង្អស់ដែលមានកំណត់តំបន់
+      let historyList = (AppState.stockInHistory && AppState.stockInHistory.length > 0) ? AppState.stockInHistory : null;
+      if (!historyList) {
+        try {
+          const stored = localStorage.getItem('inventory_stock_in_history_db');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              historyList = parsed;
+              AppState.stockInHistory = parsed;
+            }
+          }
+        } catch(e) {}
+      }
+
+      if (historyList && historyList.length > 0) {
+        const prevTx = historyList.find(t => {
+          const tSku = String(t.sku || t.itemCode || t.code || '').trim().toLowerCase();
+          const tName = String(t.itemName || '').trim().toLowerCase();
+          const isMatch = (itemSku && tSku === itemSku) || (itemName && tName === itemName);
+          const z = String(t.zone || '').trim();
+          return isMatch && z && z !== '-' && z !== 'គ្មាន' && z !== 'null' && z !== 'undefined';
+        });
+        if (prevTx && prevTx.zone) {
+          return String(prevTx.zone).trim();
+        }
+      }
+
+      // 2. ពិនិត្យក្នុងប្រតិបត្តិការទូទៅ (AppState.transactions ឬ LOCAL_DB.transactions)
+      const allTxs = (AppState.transactions && AppState.transactions.length > 0)
+        ? AppState.transactions
+        : (LOCAL_DB.transactions || []);
+      if (allTxs && allTxs.length > 0) {
+        const prevTx = allTxs.find(t => {
+          const tSku = String(t.sku || t.itemCode || t.code || '').trim().toLowerCase();
+          const tName = String(t.itemName || '').trim().toLowerCase();
+          const isMatch = (itemSku && tSku === itemSku) || (itemName && tName === itemName);
+          const z = String(t.zone || '').trim();
+          return isMatch && (t.type === 'STOCK_IN' || !t.type) && z && z !== '-' && z !== 'គ្មាន' && z !== 'null' && z !== 'undefined';
+        });
+        if (prevTx && prevTx.zone) {
+          return String(prevTx.zone).trim();
+        }
+      }
+
+      // 3. ពិនិត្យក្នុងទិន្នន័យទំនិញផ្ទាល់ (item.zone)
+      if (item.zone) {
+        const iz = String(item.zone).trim();
+        if (iz && iz !== '-' && iz !== 'គ្មាន' && iz !== 'null' && iz !== 'undefined') {
+          return iz;
+        }
+      }
+
+      return '';
+    }
+
     function onStockInItemChange() {
       const skuInput = document.getElementById('stockInSku');
       const inputVal = skuInput?.value || '';
@@ -14732,13 +14794,19 @@
         const colorEl = document.getElementById('stockInColor');
         if (colorEl) colorEl.value = item.color || '';
 
-        // មិនអនុញ្ញាតឲ្យមានអក្សរអីលោតចូលទេ គឺទុកឲ្យអ្នកបញ្ចូលស្តុកជាអ្នកជ្រើសរើសតំបន់ស្តុកដោយខ្លួនឯង
+        // ប្រសិនបើទំនិញនោះធ្លាប់បានចូលស្តុករួចពីមុន និងមានកំណត់តំបន់ យកមកបញ្ចូលក្នុងប្រអប់តំបន់ស្តុកដោយស្វ័យប្រវត្តិ បើគ្មានទុកទទេឱ្យ user កំណត់ខ្លួនឯង
+        const prevZone = findItemPreviousZone(item);
         const zoneEl = document.getElementById('stockInZone');
-        if (zoneEl) {
-          zoneEl.value = '';
-        }
         const zoneClearBtn = document.getElementById('stockInZoneClearBtn');
-        if (zoneClearBtn) zoneClearBtn.classList.add('hidden');
+        if (zoneEl) {
+          if (prevZone) {
+            zoneEl.value = prevZone;
+            if (zoneClearBtn) zoneClearBtn.classList.remove('hidden');
+          } else {
+            zoneEl.value = '';
+            if (zoneClearBtn) zoneClearBtn.classList.add('hidden');
+          }
+        }
 
         const baseUnit = item.unit || 'ដើម';
         const packUnit = (item.packUnit || '').trim() || 'ប្រអប់';
@@ -14860,6 +14928,8 @@
       if (colorEl) colorEl.value = '';
       const zoneEl = document.getElementById('stockInZone');
       if (zoneEl) zoneEl.value = '';
+      const zoneClearBtn = document.getElementById('stockInZoneClearBtn');
+      if (zoneClearBtn) zoneClearBtn.classList.add('hidden');
       const qtyBulkEl = document.getElementById('stockInQtyBulk');
       if (qtyBulkEl) qtyBulkEl.value = 0;
       const qtyRetailEl = document.getElementById('stockInQtyRetail');
@@ -15532,8 +15602,19 @@
         const colorEl = document.getElementById('stockOutColor');
         if (colorEl) colorEl.value = item.color || '';
 
+        // ប្រសិនបើទំនិញនោះធ្លាប់បានចូលស្តុករួចពីមុន និងមានកំណត់តំបន់ យកមកបញ្ចូលក្នុងប្រអប់តំបន់ស្តុកដោយស្វ័យប្រវត្តិ
+        const prevOutZone = findItemPreviousZone(item);
         const zoneEl = document.getElementById('stockOutZone');
-        if (zoneEl) zoneEl.value = item.zone || '';
+        const zoneClearBtn = document.getElementById('stockOutZoneClearBtn');
+        if (zoneEl) {
+          if (prevOutZone) {
+            zoneEl.value = prevOutZone;
+            if (zoneClearBtn) zoneClearBtn.classList.remove('hidden');
+          } else {
+            zoneEl.value = '';
+            if (zoneClearBtn) zoneClearBtn.classList.add('hidden');
+          }
+        }
 
         const baseUnit = item.unit || 'ដើម';
         const packUnit = (item.packUnit || '').trim() || 'ប្រអប់';
@@ -15643,6 +15724,8 @@
       if (colorEl) colorEl.value = '';
       const zoneEl = document.getElementById('stockOutZone');
       if (zoneEl) zoneEl.value = '';
+      const zoneClearBtn = document.getElementById('stockOutZoneClearBtn');
+      if (zoneClearBtn) zoneClearBtn.classList.add('hidden');
       const qtyBulkEl = document.getElementById('stockOutQtyBulk');
       if (qtyBulkEl) qtyBulkEl.value = 0;
       const qtyRetailEl = document.getElementById('stockOutQtyRetail');
