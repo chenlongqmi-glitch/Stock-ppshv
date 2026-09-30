@@ -939,7 +939,9 @@ function migrateAndAlignItemsSheet(optSs) {
       minStock: 1,
       zone: 'តំបន់ A (A01)',
       zoneNumber: 'Z-01',
-      imageUrl: 'https://lh3.googleusercontent.com/d/1CX6Nb7dj8PTSRnyfzgTMeQUooQGrRQ2E'
+      imageUrl: 'https://lh3.googleusercontent.com/d/1CX6Nb7dj8PTSRnyfzgTMeQUooQGrRQ2E',
+      notes: 'សាកល្បង',
+      createdBy: 'ចាន់ តារា'
     },
     'SKU-9050': {
       barcode: 'SKU-9050',
@@ -953,7 +955,9 @@ function migrateAndAlignItemsSheet(optSs) {
       minStock: 1,
       zone: 'តំបន់ A (A01)',
       zoneNumber: 'Z-01',
-      imageUrl: 'https://lh3.googleusercontent.com/d/1KpbzNdQc6eRTHCDQvIBruytYtHo6OCUx'
+      imageUrl: 'https://lh3.googleusercontent.com/d/1KpbzNdQc6eRTHCDQvIBruytYtHo6OCUx',
+      notes: 'សាកល្បង',
+      createdBy: 'ចាន់ ឌី'
     },
     'SKU-9144': {
       barcode: 'SKU-9144',
@@ -967,7 +971,9 @@ function migrateAndAlignItemsSheet(optSs) {
       minStock: 1,
       zone: 'តំបន់ A (A01)',
       zoneNumber: 'Z-01',
-      imageUrl: 'https://lh3.googleusercontent.com/d/1xfWG0wZcc9xnQBlnLa62hO1PXJO6Jznl'
+      imageUrl: 'https://lh3.googleusercontent.com/d/1xfWG0wZcc9xnQBlnLa62hO1PXJO6Jznl',
+      notes: 'សាកល្បង',
+      createdBy: 'និត វ៉ាន់ស៊ិញ'
     },
     'SKU-9649': {
       barcode: 'SKU-9649',
@@ -981,7 +987,9 @@ function migrateAndAlignItemsSheet(optSs) {
       minStock: 1,
       zone: 'តំបន់ A (A01)',
       zoneNumber: 'Z-01',
-      imageUrl: 'https://lh3.googleusercontent.com/d/1RE9PKj3VyPYaO8kOdodzt5U28lA8CGhV'
+      imageUrl: 'https://lh3.googleusercontent.com/d/1RE9PKj3VyPYaO8kOdodzt5U28lA8CGhV',
+      notes: 'ចំណាំសិន',
+      createdBy: 'និត វ៉ាន់ស៊ិញ'
     },
     'SKU-2089': {
       barcode: 'SKU-2089',
@@ -995,7 +1003,9 @@ function migrateAndAlignItemsSheet(optSs) {
       minStock: 1,
       zone: 'តំបន់ B (B01)',
       zoneNumber: 'Z-01',
-      imageUrl: 'https://lh3.googleusercontent.com/d/18YTR9If4CbWoUhAOYBtMtZZfLRGj_qyg'
+      imageUrl: 'https://lh3.googleusercontent.com/d/18YTR9If4CbWoUhAOYBtMtZZfLRGj_qyg',
+      notes: 'សាកល្បង',
+      createdBy: '陈龙'
     },
     'SKU-9816': {
       barcode: 'SKU-9816',
@@ -1009,7 +1019,9 @@ function migrateAndAlignItemsSheet(optSs) {
       minStock: 1,
       zone: 'តំបន់ A (A01)',
       zoneNumber: 'Z-01',
-      imageUrl: 'https://lh3.googleusercontent.com/d/1TIBybQbnfxWcZa32Cdo5VS0wacQr-sSN'
+      imageUrl: 'https://lh3.googleusercontent.com/d/1TIBybQbnfxWcZa32Cdo5VS0wacQr-sSN',
+      notes: '-',
+      createdBy: 'និត វ៉ាន់ស៊ិញ'
     },
     'SKU-2021': {
       barcode: 'SKU-2021',
@@ -1021,9 +1033,11 @@ function migrateAndAlignItemsSheet(optSs) {
       packUnit: 'ប្រអប់',
       packQty: 1,
       minStock: 1,
-      zone: 'តំបន់ A (A01)',
+      zone: 'តំបន់ A 01',
       zoneNumber: 'Z-01',
-      imageUrl: 'https://lh3.googleusercontent.com/d/1Q6mLfPOJx8bKXtv0pLXj1-03fWBkIsDc'
+      imageUrl: 'https://lh3.googleusercontent.com/d/1Q6mLfPOJx8bKXtv0pLXj1-03fWBkIsDc',
+      notes: 'ម៉ាស៊ីនគិតលេខសម្រាប់រដ្ឋបាល',
+      createdBy: 'ស្រី មាស'
     }
   };
 
@@ -1173,18 +1187,51 @@ function migrateAndAlignItemsSheet(optSs) {
       statusVal = String(r[11] || 'Active').trim();
     }
 
-    // Fallbacks from catalog if blank or default placeholder
+    // Helper to detect if a value is actually notes ("សាកល្បង", "ចំណាំសិន", etc.)
+    const isNotesText = (val) => {
+      const s = String(val || '').trim();
+      return s.includes('សាកល្បង') || s.includes('ចំណាំ') || s.includes('ម៉ាស៊ីនគិតលេខ') || s === '-';
+    };
+
+    // Helper to detect if a value is actually a person's name (createdBy)
+    const isPersonName = (val) => {
+      const s = String(val || '').trim();
+      const knownPersons = ['ចាន់ តារា', 'ចាន់ ឌី', 'និត វ៉ាន់ស៊ិញ', '陈龙', 'ស្រី មាស', 'admin'];
+      if (knownPersons.some(p => s.toLowerCase().includes(p.toLowerCase()))) return true;
+      if (/[^\x00-\x7F]/.test(s) && !s.includes('តំបន់') && !s.includes('Zone') && !s.includes('Z-') && !/\d/.test(s)) {
+        return true;
+      }
+      return false;
+    };
+
+    // If zoneVal is actually notes, transfer it to notesVal
+    if (isNotesText(zoneVal)) {
+      if (!notesVal || notesVal === '-') notesVal = zoneVal;
+      zoneVal = '';
+    }
+
+    // If zoneNumberVal is actually a person's name, transfer it to createdByVal
+    if (isPersonName(zoneNumberVal)) {
+      if (!createdByVal || createdByVal === 'Admin') createdByVal = zoneNumberVal;
+      zoneNumberVal = '';
+    }
+
+    // Fallbacks from catalog if blank, default placeholder, or shifted
     if (catItem) {
       if (!colorVal || colorVal === '-') colorVal = catItem.color;
       if (!sizeVal || sizeVal === '-') sizeVal = catItem.size;
       if (!packUnitVal || packUnitVal === '-' || isNumericStr(packUnitVal)) packUnitVal = catItem.packUnit;
       if (!packQtyVal || packQtyVal === 1) packQtyVal = catItem.packQty;
-      if (!zoneVal || zoneVal === '-') zoneVal = catItem.zone;
-      if (!zoneNumberVal || zoneNumberVal === '-') zoneNumberVal = catItem.zoneNumber;
+      if (!zoneVal || zoneVal === '-' || isNotesText(zoneVal)) zoneVal = catItem.zone;
+      if (!zoneNumberVal || zoneNumberVal === '-' || isPersonName(zoneNumberVal)) zoneNumberVal = catItem.zoneNumber;
+      if (!notesVal || notesVal === '-') notesVal = catItem.notes || '-';
+      if (!createdByVal || createdByVal === 'Admin') createdByVal = catItem.createdBy || 'Admin';
     } else {
       if (!packUnitVal || isNumericStr(packUnitVal)) packUnitVal = 'ប្រអប់';
       if (!zoneVal) zoneVal = 'តំបន់ A (A01)';
       if (!zoneNumberVal) zoneNumberVal = 'Z-01';
+      if (!notesVal) notesVal = '-';
+      if (!createdByVal) createdByVal = 'Admin';
     }
 
     const rowUpdatedAt = r[17] instanceof Date ? r[17] : (r[12] instanceof Date ? r[12] : new Date());
@@ -4694,12 +4741,17 @@ function getItemsList(userOrPayload, warehouseFilter, optSs) {
   let data = sheet.getDataRange().getValues();
   let headers = (data[0] || []).map(h => String(h || '').trim().toLowerCase());
 
-  // Automatic Migration: If sheet is in legacy format or has numeric units, migrate to 18-column system format
+  // Automatic Migration: If sheet is in legacy format, has numeric units, or has shifted zone/notes columns
   const hasCorruptedUnit = data.slice(1).some(r => {
     const u = String(r[6] || '').trim();
     return !isNaN(Number(u)) && u !== '';
   });
-  if (headers.indexOf('color') !== 4 || headers.indexOf('currentstock') !== 9 || hasCorruptedUnit) {
+  const hasCorruptedZone = data.slice(1).some(r => {
+    const z = String(r[11] || '').trim();
+    const zn = String(r[12] || '').trim();
+    return z.includes('សាកល្បង') || z.includes('ចំណាំ') || zn.includes('និត') || zn.includes('ចាន់') || zn.includes('陈龙');
+  });
+  if (headers.indexOf('color') !== 4 || headers.indexOf('currentstock') !== 9 || hasCorruptedUnit || hasCorruptedZone) {
     try {
       migrateAndAlignItemsSheet(ss);
       data = sheet.getDataRange().getValues();
