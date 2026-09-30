@@ -692,6 +692,10 @@ function executeLocalApiAction(req) {
 
         return { success: true, message: 'បានដំឡើងរចនាសម្ព័ន្ធ Google Sheets ជោគជ័យ' };
 
+      case 'migrateAndAlignItemsSheet':
+      case 'alignSheetToSystem':
+        return migrateAndAlignItemsSheet();
+
       case 'fixAllSheetHeaders':
 
       case 'fixHeaders':
@@ -906,7 +910,8 @@ function onOpen() {
  * មុខងារកែសម្រួលតារាង Items លើ Google Sheet ឱ្យដូចក្នុងប្រព័ន្ធ 100%
  * - លុបចោល SellingPrice និង Location (ដែលប្រព័ន្ធមិនប្រើ)
  * - ប្តូរ MinStockLevel ទៅជា MinStock
- * - តម្រឹម ImageUrl ទៅដាក់ Link រូបភាពពិតប្រាកដ (មិនមែនលេខ 96 ទៀតទេ)
+ * - កែតម្រូវ Unit (ឯកតា) ឱ្យត្រឹមត្រូវ (ដើម, ដុំ, កញ្ចប់, គ្រឿង...) មិនឱ្យមានលេខ 0.8, 1.8 ឡើយ
+ * - តម្រឹម ImageUrl ទៅដាក់ Link រូបភាព Google Drive ពិតប្រាកដ
  * - តម្រឹម CurrentStock ទៅដាក់ចំនួនស្តុកពិតប្រាកដ
  * - រៀបចំជួរឈរទាំង 18 តាមលំដាប់លំដោយនៃប្រព័ន្ធ
  */
@@ -921,6 +926,114 @@ function migrateAndAlignItemsSheet(optSs) {
     'Zone', 'ZoneNumber', 'ImageUrl', 'Notes', 'CreatedBy', 'Status', 'UpdatedAt'
   ];
 
+  const standardCatalogMap = {
+    'SKU-7501': {
+      barcode: 'SKU-7501',
+      name: 'ប៊ិច-圆珠笔',
+      category: 'សម្ភារៈការិយាល័យ-办公用品',
+      color: 'ខ្មៅ',
+      size: 'Pixcell',
+      unit: 'ដើម',
+      packUnit: 'ប្រអប់',
+      packQty: 12,
+      minStock: 1,
+      zone: 'តំបន់ A (A01)',
+      zoneNumber: 'Z-01',
+      imageUrl: 'https://lh3.googleusercontent.com/d/1CX6Nb7dj8PTSRnyfzgTMeQUooQGrRQ2E'
+    },
+    'SKU-9050': {
+      barcode: 'SKU-9050',
+      name: 'ប៊ិច-圆珠笔',
+      category: 'សម្ភារៈការិយាល័យ-办公用品',
+      color: 'ក្រហម',
+      size: 'Pixcell',
+      unit: 'ដើម',
+      packUnit: 'ប្រអប់',
+      packQty: 12,
+      minStock: 1,
+      zone: 'តំបន់ A (A01)',
+      zoneNumber: 'Z-01',
+      imageUrl: 'https://lh3.googleusercontent.com/d/1KpbzNdQc6eRTHCDQvIBruytYtHo6OCUx'
+    },
+    'SKU-9144': {
+      barcode: 'SKU-9144',
+      name: 'ទឹកលុប-涂改液',
+      category: 'សម្ភារៈការិយាល័យ-办公用品',
+      color: 'ស',
+      size: 'Pixcell',
+      unit: 'ដើម',
+      packUnit: 'ប្រអប់',
+      packQty: 12,
+      minStock: 1,
+      zone: 'តំបន់ A (A01)',
+      zoneNumber: 'Z-01',
+      imageUrl: 'https://lh3.googleusercontent.com/d/1xfWG0wZcc9xnQBlnLa62hO1PXJO6Jznl'
+    },
+    'SKU-9649': {
+      barcode: 'SKU-9649',
+      name: 'ប៊ិច-圆珠笔',
+      category: 'សម្ភារៈការិយាល័យ-办公用品',
+      color: 'ខៀវ',
+      size: 'Pixcell',
+      unit: 'ដើម',
+      packUnit: 'ប្រអប់',
+      packQty: 12,
+      minStock: 1,
+      zone: 'តំបន់ A (A01)',
+      zoneNumber: 'Z-01',
+      imageUrl: 'https://lh3.googleusercontent.com/d/1RE9PKj3VyPYaO8kOdodzt5U28lA8CGhV'
+    },
+    'SKU-2089': {
+      barcode: 'SKU-2089',
+      name: 'ក្រដាស់ជូតម៉ាត់-抽纸',
+      category: 'សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资',
+      color: 'ស',
+      size: 'LM',
+      unit: 'ដុំ',
+      packUnit: 'យូ',
+      packQty: 7,
+      minStock: 1,
+      zone: 'តំបន់ B (B01)',
+      zoneNumber: 'Z-01',
+      imageUrl: 'https://lh3.googleusercontent.com/d/18YTR9If4CbWoUhAOYBtMtZZfLRGj_qyg'
+    },
+    'SKU-9816': {
+      barcode: 'SKU-9816',
+      name: '母卡',
+      category: 'គ្រឿងបរិក្ខារអេឡិចត្រូនិច និងអគ្គិសនី-机电设备',
+      color: 'ស',
+      size: 'samka',
+      unit: 'កញ្ចប់',
+      packUnit: 'ដុំ',
+      packQty: 4,
+      minStock: 1,
+      zone: 'តំបន់ A (A01)',
+      zoneNumber: 'Z-01',
+      imageUrl: 'https://lh3.googleusercontent.com/d/1TIBybQbnfxWcZa32Cdo5VS0wacQr-sSN'
+    },
+    'SKU-2021': {
+      barcode: 'SKU-2021',
+      name: 'ម៉ាស៊ីនគិតលេខ-​计算机',
+      category: 'សម្ភារៈការិយាល័យ-办公用品',
+      color: 'ខ្មៅ',
+      size: '២៣',
+      unit: 'គ្រឿង',
+      packUnit: 'ប្រអប់',
+      packQty: 1,
+      minStock: 1,
+      zone: 'តំបន់ A (A01)',
+      zoneNumber: 'Z-01',
+      imageUrl: 'https://lh3.googleusercontent.com/d/1Q6mLfPOJx8bKXtv0pLXj1-03fWBkIsDc'
+    }
+  };
+
+  const isNumericStr = (v) => {
+    if (v === null || v === undefined) return false;
+    const s = String(v).trim();
+    if (s === '') return false;
+    return !isNaN(Number(s)) || /^[\d\.\,\s]+$/.test(s);
+  };
+
   const lastRow = itemsSheet.getLastRow();
   const lastCol = itemsSheet.getLastColumn();
 
@@ -934,6 +1047,7 @@ function migrateAndAlignItemsSheet(optSs) {
 
   const rawData = itemsSheet.getRange(1, 1, lastRow, Math.max(lastCol, targetHeaders.length, 21)).getValues();
   const oldHeaders = rawData[0].map(h => String(h || '').trim().toLowerCase());
+  const isAlready18Col = oldHeaders.indexOf('color') === 4;
 
   const migratedRows = [];
 
@@ -941,6 +1055,8 @@ function migrateAndAlignItemsSheet(optSs) {
     const r = rawData[i];
     const sku = String(r[0] || '').trim();
     if (!sku) continue;
+
+    const catItem = standardCatalogMap[sku] || null;
 
     // Detect ImageUrl from cells (look for http link)
     let imgUrl = '';
@@ -951,67 +1067,126 @@ function migrateAndAlignItemsSheet(optSs) {
         break;
       }
     }
+    if (!imgUrl && catItem && catItem.imageUrl) {
+      imgUrl = catItem.imageUrl;
+    }
 
-    // Detect currentStock number
+    // Detect CurrentStock number
     let stockNum = 0;
     if (typeof r[9] === 'number') {
       stockNum = r[9];
-    } else if (!isNaN(Number(r[9])) && String(r[9]).trim() !== '' && !String(r[9]).startsWith('http')) {
+    } else if (isNumericStr(r[9]) && !String(r[9]).startsWith('http')) {
       stockNum = Number(r[9]);
     }
 
     // Detect MinStock number
     let minNum = 1;
-    if (typeof r[7] === 'number') {
-      minNum = r[7];
-    } else if (typeof r[10] === 'number') {
-      minNum = r[10];
-    } else if (!isNaN(Number(r[7])) && String(r[7]).trim() !== '') {
-      minNum = Number(r[7]);
+    if (isAlready18Col) {
+      if (isNumericStr(r[10])) {
+        minNum = Number(r[10]);
+      } else if (catItem && catItem.minStock) {
+        minNum = catItem.minStock;
+      }
+    } else {
+      if (isNumericStr(r[7])) {
+        minNum = Number(r[7]);
+      } else if (isNumericStr(r[10])) {
+        minNum = Number(r[10]);
+      } else if (catItem && catItem.minStock) {
+        minNum = catItem.minStock;
+      }
+    }
+
+    // Detect Unit: Unit CANNOT be a numeric string like "0.8", "1.8", "4"
+    let rowUnit = '';
+    if (isAlready18Col) {
+      if (r[6] && !isNumericStr(r[6])) {
+        rowUnit = String(r[6]).trim();
+      }
+    } else {
+      if (r[4] && !isNumericStr(r[4])) {
+        rowUnit = String(r[4]).trim();
+      } else if (r[6] && !isNumericStr(r[6])) {
+        rowUnit = String(r[6]).trim();
+      }
+    }
+
+    // If unit is still empty or numeric, get from catalog or fallback
+    if (!rowUnit || isNumericStr(rowUnit)) {
+      if (catItem && catItem.unit) {
+        rowUnit = catItem.unit;
+      } else {
+        for (let c = 0; c < r.length; c++) {
+          const s = String(r[c] || '').trim();
+          if (['ដើម', 'ដុំ', 'កញ្ចប់', 'គ្រឿង', 'ប្រអប់', 'កេស', 'ដប', 'គីឡូ', 'ម៉ែត្រ', 'បន្ទះ', 'សន្លឹក', 'កែវ', 'ថង់', 'កំប៉ុង', 'ឈុត', 'យូ'].includes(s)) {
+            rowUnit = s;
+            break;
+          }
+        }
+        if (!rowUnit || isNumericStr(rowUnit)) {
+          rowUnit = 'ដុំ';
+        }
+      }
+    }
+
+    // Name & Category
+    let rowBarcode = String(r[1] || sku).trim();
+    let rowName = String(r[2] || '').trim();
+    let rowCategory = String(r[3] || 'ទូទៅ').trim();
+
+    if (catItem) {
+      if (!rowName || rowName === sku) rowName = catItem.name;
+      if (!rowCategory || rowCategory === 'ទូទៅ') rowCategory = catItem.category;
+      if (!rowBarcode) rowBarcode = catItem.barcode;
     }
 
     // Colors & Sizes:
     let colorVal = '';
     let sizeVal = '';
-    let packUnitVal = 'ប្រអប់';
+    let packUnitVal = '';
     let packQtyVal = 1;
-    let zoneVal = 'តំបន់ A (A01)';
-    let zoneNumberVal = 'Z-01';
+    let zoneVal = '';
+    let zoneNumberVal = '';
     let notesVal = '-';
     let createdByVal = 'Admin';
     let statusVal = 'Active';
 
-    // If already in 18-col layout
-    if (oldHeaders.indexOf('color') === 4) {
+    if (isAlready18Col) {
       colorVal = String(r[4] || '').trim();
       sizeVal = String(r[5] || '').trim();
-      packUnitVal = String(r[7] || 'ប្រអប់').trim();
-      packQtyVal = Number(r[8] || 1);
-      stockNum = Number(r[9] !== undefined ? r[9] : 0);
-      minNum = Number(r[10] !== undefined ? r[10] : 1);
-      zoneVal = String(r[11] || '-').trim();
-      zoneNumberVal = String(r[12] || '-').trim();
-      imgUrl = imgUrl || String(r[13] || '').trim();
+      packUnitVal = String(r[7] || '').trim();
+      packQtyVal = isNumericStr(r[8]) ? Number(r[8]) : 1;
+      zoneVal = String(r[11] || '').trim();
+      zoneNumberVal = String(r[12] || '').trim();
       notesVal = String(r[14] || '-').trim();
       createdByVal = String(r[15] || 'Admin').trim();
       statusVal = String(r[16] || 'Active').trim();
     } else {
-      // Legacy layout
       colorVal = String(r[14] || '').trim();
       sizeVal = String(r[13] || '').trim();
-      packUnitVal = String(r[15] || 'ប្រអប់').trim();
-      packQtyVal = Number(r[16] || 1);
-      zoneVal = String(r[17] || 'តំបន់ A (A01)').trim();
-      zoneNumberVal = String(r[18] || 'Z-01').trim();
+      packUnitVal = String(r[15] || '').trim();
+      packQtyVal = isNumericStr(r[16]) ? Number(r[16]) : 1;
+      zoneVal = String(r[17] || '').trim();
+      zoneNumberVal = String(r[18] || '').trim();
       notesVal = String(r[19] || '-').trim();
       createdByVal = String(r[20] || 'Admin').trim();
       statusVal = String(r[11] || 'Active').trim();
     }
 
-    const rowBarcode = String(r[1] || sku).trim();
-    const rowName = String(r[2] || '').trim();
-    const rowCategory = String(r[3] || 'ទូទៅ').trim();
-    const rowUnit = String(r[6] || r[4] || 'ដុំ').trim();
+    // Fallbacks from catalog if blank or default placeholder
+    if (catItem) {
+      if (!colorVal || colorVal === '-') colorVal = catItem.color;
+      if (!sizeVal || sizeVal === '-') sizeVal = catItem.size;
+      if (!packUnitVal || packUnitVal === '-' || isNumericStr(packUnitVal)) packUnitVal = catItem.packUnit;
+      if (!packQtyVal || packQtyVal === 1) packQtyVal = catItem.packQty;
+      if (!zoneVal || zoneVal === '-') zoneVal = catItem.zone;
+      if (!zoneNumberVal || zoneNumberVal === '-') zoneNumberVal = catItem.zoneNumber;
+    } else {
+      if (!packUnitVal || isNumericStr(packUnitVal)) packUnitVal = 'ប្រអប់';
+      if (!zoneVal) zoneVal = 'តំបន់ A (A01)';
+      if (!zoneNumberVal) zoneNumberVal = 'Z-01';
+    }
+
     const rowUpdatedAt = r[17] instanceof Date ? r[17] : (r[12] instanceof Date ? r[12] : new Date());
 
     migratedRows.push([
@@ -4519,8 +4694,12 @@ function getItemsList(userOrPayload, warehouseFilter, optSs) {
   let data = sheet.getDataRange().getValues();
   let headers = (data[0] || []).map(h => String(h || '').trim().toLowerCase());
 
-  // Automatic Migration: If sheet is in legacy format, migrate to 18-column system format
-  if (headers.indexOf('color') !== 4 || headers.indexOf('currentstock') !== 9) {
+  // Automatic Migration: If sheet is in legacy format or has numeric units, migrate to 18-column system format
+  const hasCorruptedUnit = data.slice(1).some(r => {
+    const u = String(r[6] || '').trim();
+    return !isNaN(Number(u)) && u !== '';
+  });
+  if (headers.indexOf('color') !== 4 || headers.indexOf('currentstock') !== 9 || hasCorruptedUnit) {
     try {
       migrateAndAlignItemsSheet(ss);
       data = sheet.getDataRange().getValues();
@@ -4590,7 +4769,7 @@ function getItemsList(userOrPayload, warehouseFilter, optSs) {
 
 
 
-  const itemsResult = { success: true, items: items, categories: categories, warehouses: warehouses, activeWarehouseFilter: targetWarehouse };
+  const itemsResult = { success: true, items: items, categories: categories, warehouses: warehouses, activeWarehouseFilter: whFilter || null };
   setAppScriptCache(cacheKey, itemsResult, 3);
   return itemsResult;
 
