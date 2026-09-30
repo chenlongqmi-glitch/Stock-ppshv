@@ -24305,14 +24305,14 @@
       openSwitchUserModal();
     }
 
-    /* Fix and Align Google Sheet Headers */
+    /* Fix and Align Google Sheet to System */
     async function handleFixGoogleSheetHeaders() {
       const confirmRes = await Swal.fire({
         icon: 'question',
-        title: 'ជួសជុល Header លើ Google Sheet?',
-        text: 'តើលោកអ្នកចង់ឱ្យប្រព័ន្ធតម្រឹម និងជួសជុល Header (Row 1) នៃតារាង Items, Transactions, Users ទាំងអស់លើ Google Sheet ឱ្យត្រឹមត្រូវតាមស្តង់ដារ 100% ឬទេ? (ទិន្នន័យពីជួរទី ២ ចុះក្រោមនឹងមិនរងផលប៉ះពាល់ឡើយ)',
+        title: 'កែតម្រូវ Google Sheet ឱ្យដូចក្នុងប្រព័ន្ធ?',
+        text: 'ប្រព័ន្ធនឹងធ្វើការកែសម្រួលតារាង Google Sheet Items ទាំងមូលឱ្យដូចក្នុងប្រព័ន្ធ 100%៖ លុបជួរឈរ SellingPrice & Location ដែលមិនប្រើ, ប្តូរ MinStockLevel ទៅ MinStock, និងតម្រឹម ImageUrl ដាក់ Link រូបភាព និង CurrentStock ដាក់ចំនួនស្តុកពិតប្រាកដ។',
         showCancelButton: true,
-        confirmButtonText: 'យល់ព្រម ជួសជុល',
+        confirmButtonText: 'យល់ព្រម កែតម្រូវឥឡូវនេះ',
         cancelButtonText: 'បោះបង់',
         confirmButtonColor: '#4f46e5'
       });
@@ -24320,21 +24320,22 @@
       if (!confirmRes.isConfirmed) return;
 
       Swal.fire({
-        title: 'កំពុងជួសជុល Header...',
-        html: '<p class="text-xs text-slate-500">កំពុងតម្រឹមជួរឈរ Header លើ Google Sheet ដោយស្វ័យប្រវត្តិ...</p>',
+        title: 'កំពុងកែតម្រូវ Google Sheet...',
+        html: '<p class="text-xs text-slate-500">កំពុងតម្រឹមជួរឈរទាំង ១៨ លើ Google Sheet ឱ្យដូចក្នុងប្រព័ន្ធ 100%...</p>',
         allowOutsideClick: false,
         didOpen: () => Swal.showLoading()
       });
 
       try {
-        const res = await apiCall('fixAllSheetHeaders', {});
+        const res = await apiCall('migrateAndAlignItemsSheet', {});
         if (res && res.success) {
           Swal.fire({
             icon: 'success',
             title: 'ជោគជ័យ 🎉',
-            text: 'បានជួសជុល និងតម្រឹម Header គ្រប់ Sheet លើ Google Sheet ត្រឹមត្រូវតាមស្តង់ដារ 100% រួចរាល់!',
+            text: 'បានកែសម្រួល Google Sheet ឱ្យដូចក្នុងប្រព័ន្ធ 100% រួចរាល់! ជួរឈរ SellingPrice & Location ត្រូវបានលុបចេញ ហើយ ImageUrl & CurrentStock ត្រូវបានតម្រឹមត្រឹមត្រូវ។',
             confirmButtonColor: '#10b981'
           });
+          if (typeof loadItems === 'function') loadItems();
         } else {
           throw new Error(res?.message || 'ប្រតិបត្តិការបរាជ័យ');
         }
@@ -24342,7 +24343,7 @@
         Swal.fire({
           icon: 'error',
           title: 'ជួបបញ្ហា',
-          text: 'មិនអាចជួសជុលបានទេ៖ ' + (err.message || err.toString()),
+          text: 'មិនអាចកែតម្រូវបានទេ៖ ' + (err.message || err.toString()),
           confirmButtonColor: '#ef4444'
         });
       }
