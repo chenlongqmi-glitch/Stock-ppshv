@@ -6007,21 +6007,16 @@ function recordStockIn(dataOrPayload, user) {
 
   logActivity(u ? (u.fullName || u.username) : 'Staff', 'Staff', 'STOCK_IN', `Stock In +${qty} ${unit} of ${itemName} (${sku}) [${data.docNo || 'N/A'}]`);
 
-  // sendTelegramNotification on stock in disabled per user request
-  // sendTelegramNotification(`📥 <b>ដំណឹងស្តុកចូល (Stock In)</b>\n📄 លេខឯកសារ: <b>${data.docNo || 'N/A'}</b>\n📦 ទំនិញ: <b>${itemName}</b> (${sku})\n📏 ខ្នាត: <b>${unit}</b> | 🎨 ពណ៌: <b>${data.color || '-'}</b>\n📍 តំបន់: <b>${data.zone || '-'}</b>\n🔢 ចំនួនចូល: <b>+${qty} ${unit}</b>\n📊 ស្តុកចាស់: ${data.oldStock || currentStock} ➔ ស្តុកសរុបថ្មី: <b>${newStock}</b>\n🏢 ឃ្លាំង: ${location}\n👷 អ្នកទទួល: <b>${data.receivedBy || (u ? (u.fullName || u.username) : 'Staff')}</b>\n👤 ដោយ: ${u ? (u.fullName || u.username) : 'Staff'}`);
-
-
+  try {
+    CacheService.getScriptCache().remove('TX_SHEETS_SYNC_ALL');
+    CacheService.getScriptCache().remove('TX_SHEETS_SYNC_STOCK_IN');
+  } catch(e) {}
 
   return {
-
     success: true,
-
     message: `បាននាំចូលស្តុក +${qty} ${unit} នៃ ${itemName} ជោគជ័យ! ស្តុកបច្ចុប្បន្ន: ${newStock}`,
-
     currentStock: newStock,
-
     txId: tx.txId
-
   };
 
 }
@@ -6199,23 +6194,19 @@ function recordStockOut(dataOrPayload, user) {
     // sendTelegramNotification(alertMsg);
 
     sendLowStockEmail(itemName, sku, newStock, minStock, location);
-
   }
 
-
+  try {
+    CacheService.getScriptCache().remove('TX_SHEETS_SYNC_ALL');
+    CacheService.getScriptCache().remove('TX_SHEETS_SYNC_STOCK_OUT');
+  } catch(e) {}
 
   return {
-
     success: true,
-
     message: `បានកត់ត្រាស្តុកចេញ -${qty} ${unit} ជោគជ័យ! ស្តុកនៅសល់: ${newStock}`,
-
     currentStock: newStock,
-
     isLowStock: newStock <= minStock,
-
     txId: tx.txId
-
   };
 
 }
@@ -6515,6 +6506,11 @@ function syncSheetsTransactionsInternal(ss, targetType) {
     const docM2 = fromLoc.match(/Doc:\s*([^,\s]+)/i);
     if (docM2) existingDocs.add(docM2[1].trim().toUpperCase());
 
+    // Auto-fix any row with corrupted numeric toLocation like "4"
+    if (/^\d+$/.test(String(row[10] || '').trim())) {
+      try { txSheet.getRange(i + 1, 11).setValue('គ្រប់ស្ថានីយទាំងអស់'); } catch(eFix) {}
+    }
+
     let dStr = '';
     if (row[1] instanceof Date) {
       try { dStr = Utilities.formatDate(row[1], 'GMT+7', 'yyyy-MM-dd'); } catch(e) {}
@@ -6530,23 +6526,40 @@ function syncSheetsTransactionsInternal(ss, targetType) {
     const stockInSheet = ss.getSheetByName('Stock_in');
     if (stockInSheet && stockInSheet.getLastRow() > 1) {
       const inData = stockInSheet.getDataRange().getValues();
-      const inHeaders = inData[0];
+      const inHeaders = (inData[0] || []).map(h => String(h || '').trim().toLowerCase());
+      const idxDoc = inHeaders.indexOf('docno') >= 0 ? inHeaders.indexOf('docno') : 0;
+      const idxDate = inHeaders.indexOf('date') >= 0 ? inHeaders.indexOf('date') : 1;
+      const idxSku = inHeaders.indexOf('sku') >= 0 ? inHeaders.indexOf('sku') : 2;
+      const idxName = inHeaders.indexOf('itemname') >= 0 ? inHeaders.indexOf('itemname') : 3;
+      const idxSize = inHeaders.indexOf('size') >= 0 ? inHeaders.indexOf('size') : 4;
+      const idxColor = inHeaders.indexOf('color') >= 0 ? inHeaders.indexOf('color') : 5;
+      const idxZone = inHeaders.indexOf('zone') >= 0 ? inHeaders.indexOf('zone') : 6;
+      const idxQty = inHeaders.indexOf('quantity') >= 0 ? inHeaders.indexOf('quantity') : 7;
+      const idxUnit = inHeaders.indexOf('unit') >= 0 ? inHeaders.indexOf('unit') : 8;
+      const idxPrice = inHeaders.indexOf('unitprice') >= 0 ? inHeaders.indexOf('unitprice') : 12;
+      const idxTotal = inHeaders.indexOf('totalamount') >= 0 ? inHeaders.indexOf('totalamount') : 13;
+      const idxWh = inHeaders.indexOf('warehouse') >= 0 ? inHeaders.indexOf('warehouse') : 14;
+      const idxRecBy = inHeaders.indexOf('receivedby') >= 0 ? inHeaders.indexOf('receivedby') : 15;
+      const idxNotes = inHeaders.indexOf('notes') >= 0 ? inHeaders.indexOf('notes') : 16;
+      const idxUser = inHeaders.indexOf('user') >= 0 ? inHeaders.indexOf('user') : 17;
+      const idxTs = inHeaders.indexOf('timestamp') >= 0 ? inHeaders.indexOf('timestamp') : 18;
+
       const newTxRows = [];
 
       for (let r = 1; r < inData.length; r++) {
         const row = inData[r];
-        const docNo = String(row[0] || '').trim();
-        const sku = String(row[2] || '').trim();
+        const docNo = String(row[idxDoc] || '').trim();
+        const sku = String(row[idxSku] || '').trim();
         if (!sku) continue;
 
         let dStr = '';
-        if (row[1] instanceof Date) {
-          try { dStr = Utilities.formatDate(row[1], 'GMT+7', 'yyyy-MM-dd'); } catch(e) {}
-        } else if (row[1]) {
-          try { dStr = Utilities.formatDate(new Date(row[1]), 'GMT+7', 'yyyy-MM-dd'); } catch(e) { dStr = String(row[1]).slice(0, 10); }
+        if (row[idxDate] instanceof Date) {
+          try { dStr = Utilities.formatDate(row[idxDate], 'GMT+7', 'yyyy-MM-dd'); } catch(e) {}
+        } else if (row[idxDate]) {
+          try { dStr = Utilities.formatDate(new Date(row[idxDate]), 'GMT+7', 'yyyy-MM-dd'); } catch(e) { dStr = String(row[idxDate]).slice(0, 10); }
         }
 
-        const qty = Number(row[7] || 0);
+        const qty = Number(row[idxQty] || 0);
         const sig = `STOCK_IN_${sku}_${qty}_${dStr}`;
 
         const isKnown = (docNo && existingDocs.has(docNo.toUpperCase())) ||
@@ -6555,18 +6568,19 @@ function syncSheetsTransactionsInternal(ss, targetType) {
 
         if (!isKnown) {
           const txId = 'TX-' + Utilities.formatDate(new Date(), 'GMT+7', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 900 + 100);
-          const iName = String(row[3] || sku);
-          const size = String(row[4] || '');
-          const color = String(row[5] || '');
-          const zone = String(row[6] || '');
-          const unit = String(row[8] || 'ដុំ');
-          const unitPrice = Number(row[9] || 0);
-          const totalAmount = Number(row[10] || (qty * unitPrice));
-          const wh = String(row[11] || 'គ្រប់ស្ថានីយទាំងអស់');
-          const recBy = String(row[12] || '');
-          const notesRaw = String(row[13] || '');
-          const userStr = String(row[14] || 'Admin');
-          const ts = row[15] || new Date();
+          const iName = String(row[idxName] || sku);
+          const size = String(row[idxSize] || '');
+          const color = String(row[idxColor] || '');
+          const zone = String(row[idxZone] || '');
+          const unit = String(row[idxUnit] || 'ដុំ');
+          const unitPrice = Number(row[idxPrice] || 0);
+          const totalAmount = Number(row[idxTotal] || (qty * unitPrice));
+          let wh = String(row[idxWh] || 'គ្រប់ស្ថានីយទាំងអស់');
+          if (/^\d+$/.test(wh.trim())) wh = 'គ្រប់ស្ថានីយទាំងអស់';
+          const recBy = String(row[idxRecBy] || '');
+          const notesRaw = String(row[idxNotes] || '');
+          const userStr = String(row[idxUser] || 'Admin');
+          const ts = row[idxTs] || new Date();
 
           const formattedNotes = [
             docNo ? `[ឯកសារ: ${docNo}]` : '',
@@ -6611,22 +6625,42 @@ function syncSheetsTransactionsInternal(ss, targetType) {
     const stockOutSheet = ss.getSheetByName('Stock_out');
     if (stockOutSheet && stockOutSheet.getLastRow() > 1) {
       const outData = stockOutSheet.getDataRange().getValues();
+      const outHeaders = (outData[0] || []).map(h => String(h || '').trim().toLowerCase());
+      const idxDoc = outHeaders.indexOf('docno') >= 0 ? outHeaders.indexOf('docno') : 0;
+      const idxDate = outHeaders.indexOf('date') >= 0 ? outHeaders.indexOf('date') : 1;
+      const idxSku = outHeaders.indexOf('sku') >= 0 ? outHeaders.indexOf('sku') : 2;
+      const idxName = outHeaders.indexOf('itemname') >= 0 ? outHeaders.indexOf('itemname') : 3;
+      const idxSize = outHeaders.indexOf('size') >= 0 ? outHeaders.indexOf('size') : 4;
+      const idxColor = outHeaders.indexOf('color') >= 0 ? outHeaders.indexOf('color') : 5;
+      const idxZone = outHeaders.indexOf('zone') >= 0 ? outHeaders.indexOf('zone') : 6;
+      const idxQty = outHeaders.indexOf('quantity') >= 0 ? outHeaders.indexOf('quantity') : 7;
+      const idxUnit = outHeaders.indexOf('unit') >= 0 ? outHeaders.indexOf('unit') : 8;
+      const idxPrice = outHeaders.indexOf('unitprice') >= 0 ? outHeaders.indexOf('unitprice') : 12;
+      const idxTotal = outHeaders.indexOf('totalamount') >= 0 ? outHeaders.indexOf('totalamount') : 13;
+      const idxFromLoc = outHeaders.indexOf('fromlocation') >= 0 ? outHeaders.indexOf('fromlocation') : 14;
+      const idxToLoc = outHeaders.indexOf('tolocation') >= 0 ? outHeaders.indexOf('tolocation') : 15;
+      const idxIssuer = outHeaders.indexOf('issuer') >= 0 ? outHeaders.indexOf('issuer') : 16;
+      const idxReason = outHeaders.indexOf('reason') >= 0 ? outHeaders.indexOf('reason') : 17;
+      const idxNotes = outHeaders.indexOf('notes') >= 0 ? outHeaders.indexOf('notes') : 18;
+      const idxUser = outHeaders.indexOf('user') >= 0 ? outHeaders.indexOf('user') : 19;
+      const idxTs = outHeaders.indexOf('timestamp') >= 0 ? outHeaders.indexOf('timestamp') : 20;
+
       const newOutTxRows = [];
 
       for (let r = 1; r < outData.length; r++) {
         const row = outData[r];
-        const docNo = String(row[0] || '').trim();
-        const sku = String(row[2] || '').trim();
+        const docNo = String(row[idxDoc] || '').trim();
+        const sku = String(row[idxSku] || '').trim();
         if (!sku) continue;
 
         let dStr = '';
-        if (row[1] instanceof Date) {
-          try { dStr = Utilities.formatDate(row[1], 'GMT+7', 'yyyy-MM-dd'); } catch(e) {}
-        } else if (row[1]) {
-          try { dStr = Utilities.formatDate(new Date(row[1]), 'GMT+7', 'yyyy-MM-dd'); } catch(e) { dStr = String(row[1]).slice(0, 10); }
+        if (row[idxDate] instanceof Date) {
+          try { dStr = Utilities.formatDate(row[idxDate], 'GMT+7', 'yyyy-MM-dd'); } catch(e) {}
+        } else if (row[idxDate]) {
+          try { dStr = Utilities.formatDate(new Date(row[idxDate]), 'GMT+7', 'yyyy-MM-dd'); } catch(e) { dStr = String(row[idxDate]).slice(0, 10); }
         }
 
-        const qty = Number(row[7] || 0);
+        const qty = Number(row[idxQty] || 0);
         const sig = `STOCK_OUT_${sku}_${qty}_${dStr}`;
 
         const isKnown = (docNo && existingDocs.has(docNo.toUpperCase())) ||
@@ -6635,20 +6669,21 @@ function syncSheetsTransactionsInternal(ss, targetType) {
 
         if (!isKnown) {
           const txId = 'TX-' + Utilities.formatDate(new Date(), 'GMT+7', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 900 + 100);
-          const iName = String(row[3] || sku);
-          const size = String(row[4] || '');
-          const color = String(row[5] || '');
-          const zone = String(row[6] || '');
-          const unit = String(row[8] || 'ដុំ');
-          const unitPrice = Number(row[9] || 0);
-          const totalAmount = Number(row[10] || (qty * unitPrice));
-          const fromLoc = String(row[11] || 'គ្រប់ស្ថានីយទាំងអស់');
-          const toLoc = String(row[12] || 'Customer');
-          const issuer = String(row[13] || '');
-          const reason = String(row[14] || '');
-          const notesRaw = String(row[15] || '');
-          const userStr = String(row[16] || 'Admin');
-          const ts = row[17] || new Date();
+          const iName = String(row[idxName] || sku);
+          const size = String(row[idxSize] || '');
+          const color = String(row[idxColor] || '');
+          const zone = String(row[idxZone] || '');
+          const unit = String(row[idxUnit] || 'ដុំ');
+          const unitPrice = Number(row[idxPrice] || 0);
+          const totalAmount = Number(row[idxTotal] || (qty * unitPrice));
+          let fromLoc = String(row[idxFromLoc] || 'គ្រប់ស្ថានីយទាំងអស់');
+          if (/^\d+$/.test(fromLoc.trim())) fromLoc = 'គ្រប់ស្ថានីយទាំងអស់';
+          const toLoc = String(row[idxToLoc] || 'Customer');
+          const issuer = String(row[idxIssuer] || '');
+          const reason = String(row[idxReason] || '');
+          const notesRaw = String(row[idxNotes] || '');
+          const userStr = String(row[idxUser] || 'Admin');
+          const ts = row[idxTs] || new Date();
 
           const formattedNotes = [
             docNo ? `[ឯកសារ: ${docNo}]` : '',
@@ -6704,20 +6739,25 @@ function getTransactionHistory(filtersOrPayload, userParam) {
 
   const targetType = (filters.type && filters.type !== 'ALL') ? String(filters.type).toUpperCase() : null;
 
-  // Auto-sync rows added directly in Stock_in or Stock_out sheet to Transactions
-  try {
-    syncSheetsTransactionsInternal(ss, targetType);
-  } catch(syncErr) {
-    Logger.log('syncSheetsTransactionsInternal error: ' + syncErr.toString());
+  // Debounced auto-sync (runs at most once every 60s to keep read speed under 0.8s)
+  const syncCacheKey = 'TX_SHEETS_SYNC_' + (targetType || 'ALL');
+  const hasSyncedRecently = CacheService.getScriptCache().get(syncCacheKey);
+  if (!hasSyncedRecently) {
+    try {
+      syncSheetsTransactionsInternal(ss, targetType);
+      CacheService.getScriptCache().put(syncCacheKey, '1', 60);
+    } catch(syncErr) {
+      Logger.log('syncSheetsTransactionsInternal error: ' + syncErr.toString());
+    }
   }
 
   const data = sheet.getDataRange().getValues();
   const transactions = [];
 
   let targetWarehouse = null;
-  if (user && user.role !== 'Admin' && user.role !== 'SuperAdmin' && user.warehouse && user.warehouse !== 'ALL' && user.warehouse !== 'គ្រប់ឃ្លាំង') {
+  if (user && user.role !== 'Admin' && user.role !== 'SuperAdmin' && user.warehouse && user.warehouse !== 'ALL' && user.warehouse !== 'គ្រប់ឃ្លាំង' && user.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
     targetWarehouse = user.warehouse;
-  } else if (filters.warehouse && filters.warehouse !== 'ALL' && filters.warehouse !== 'គ្រប់ឃ្លាំង') {
+  } else if (filters.warehouse && filters.warehouse !== 'ALL' && filters.warehouse !== 'គ្រប់ឃ្លាំង' && filters.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
     targetWarehouse = filters.warehouse;
   }
 
@@ -6731,10 +6771,16 @@ function getTransactionHistory(filtersOrPayload, userParam) {
     }
 
     const fromLoc = String(row[9] || '');
-    const toLoc = String(row[10] || '');
+    let toLoc = String(row[10] || '');
+    if (/^\d+$/.test(toLoc.trim())) {
+      toLoc = 'គ្រប់ស្ថានីយទាំងអស់';
+    }
 
-    if (targetWarehouse && fromLoc !== targetWarehouse && toLoc !== targetWarehouse) {
-      continue;
+    if (targetWarehouse) {
+      const isGlobal = toLoc === 'គ្រប់ស្ថានីយទាំងអស់' || toLoc === 'ALL' || toLoc === 'គ្រប់ឃ្លាំង' || fromLoc === 'គ្រប់ស្ថានីយទាំងអស់' || fromLoc === 'ALL' || fromLoc === 'គ្រប់ឃ្លាំង';
+      if (!isGlobal && fromLoc !== targetWarehouse && toLoc !== targetWarehouse) {
+        continue;
+      }
     }
 
     let txDate = '';

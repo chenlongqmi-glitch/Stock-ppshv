@@ -6077,6 +6077,67 @@
       }
     }
 
+    // Persistent Local Transactions Database
+    function saveLocalTransactionsToStorage() {
+      try {
+        localStorage.setItem('inventory_transactions_db', JSON.stringify(LOCAL_DB.transactions || []));
+      } catch (e) {
+        console.warn('Could not save transactions to localStorage', e);
+      }
+    }
+
+    function loadLocalTransactionsFromStorage() {
+      try {
+        let allTxs = [];
+        const storedTxs = localStorage.getItem('inventory_transactions_db');
+        if (storedTxs) {
+          try {
+            const parsed = JSON.parse(storedTxs);
+            if (Array.isArray(parsed)) allTxs = allTxs.concat(parsed);
+          } catch(e) {}
+        }
+        const storedIn = localStorage.getItem('inventory_stock_in_history_db');
+        if (storedIn) {
+          try {
+            const parsedIn = JSON.parse(storedIn);
+            if (Array.isArray(parsedIn)) allTxs = allTxs.concat(parsedIn);
+          } catch(e) {}
+        }
+        const storedOut = localStorage.getItem('inventory_stock_out_history_db');
+        if (storedOut) {
+          try {
+            const parsedOut = JSON.parse(storedOut);
+            if (Array.isArray(parsedOut)) allTxs = allTxs.concat(parsedOut);
+          } catch(e) {}
+        }
+        if (Array.isArray(AppState.stockInHistory) && AppState.stockInHistory.length > 0) {
+          allTxs = allTxs.concat(AppState.stockInHistory);
+        }
+        if (Array.isArray(AppState.stockOutHistory) && AppState.stockOutHistory.length > 0) {
+          allTxs = allTxs.concat(AppState.stockOutHistory);
+        }
+
+        const seen = new Set();
+        const unique = [];
+        allTxs.forEach(t => {
+          if (!t) return;
+          const doc = String(t.docNo || t.txId || '').toUpperCase();
+          const notes = String(t.notes || '').toLowerCase();
+          if (doc.includes('TEST') || notes.includes('test auto sync')) return;
+          const key = t.txId || t.docNo;
+          if (key && seen.has(key)) return;
+          if (key) seen.add(key);
+          unique.push(t);
+        });
+        LOCAL_DB.transactions = unique;
+        return unique;
+      } catch (e) {
+        console.warn('Could not load transactions from localStorage', e);
+        if (!LOCAL_DB.transactions) LOCAL_DB.transactions = [];
+        return LOCAL_DB.transactions;
+      }
+    }
+
     function loadLocalItemsFromStorage() {
       try {
         const saved = localStorage.getItem('inventory_items_db');
@@ -7854,7 +7915,7 @@
 
       // High-speed real-time Background Auto-Sync TTL (0s for heartbeats, 1s for real-time sync queries)
       const effectiveTTL = (action === 'checkDataVersion' || action === 'getSyncHeartbeat') ? 0 :
-        (action === 'getChatMessages' || action === 'getUsersList' || action === 'getUsers' || action === 'getBootstrapData' || action === 'getProductRequests' || action === 'getItemsList' || action === 'getDashboardStats') ? 1000 : CACHE_TTL_MS;
+        (action === 'getChatMessages' || action === 'getUsersList' || action === 'getUsers' || action === 'getBootstrapData' || action === 'getProductRequests' || action === 'getItemsList' || action === 'getDashboardStats' || action === 'getTransactionHistory' || action === 'getTransactions') ? 1000 : CACHE_TTL_MS;
 
       if (cached && (now - cached.timestamp < effectiveTTL)) {
         return cached.data;
@@ -7951,9 +8012,6 @@
           } catch (err) {
             console.warn('[apiCall] Error calling GAS API:', action, err.message);
             const localFallback = simulateLocalApi(action, payload);
-            if (localFallback && localFallback.success) {
-              API_CACHE.set(cacheKey, { data: localFallback, timestamp: Date.now() });
-            }
             return localFallback;
           }
         } else {
@@ -9067,7 +9125,10 @@
 
       if (action === 'getTransactionHistory' || action === 'getTransactions') {
         const filters = payload.filters || payload || {};
-        let txs = LOCAL_DB.transactions || [];
+        if (typeof loadLocalTransactionsFromStorage === 'function') {
+          loadLocalTransactionsFromStorage();
+        }
+        let txs = (LOCAL_DB.transactions && LOCAL_DB.transactions.length > 0) ? [...LOCAL_DB.transactions] : [];
         if (filters.type && filters.type !== 'ALL') {
           txs = txs.filter(t => t.type === filters.type);
         }
@@ -9077,10 +9138,13 @@
         if (filters.endDate) {
           txs = txs.filter(t => (t.date || '') <= filters.endDate);
         }
-        if (targetWarehouse && targetWarehouse !== 'ALL' && targetWarehouse !== 'គ្រប់ឃ្លាំង') {
-          txs = txs.filter(t => t.fromLocation === targetWarehouse || t.toLocation === targetWarehouse);
+        if (targetWarehouse && targetWarehouse !== 'ALL' && targetWarehouse !== 'គ្រប់ឃ្លាំង' && targetWarehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
+          txs = txs.filter(t => {
+            const isGlobal = t.toLocation === 'គ្រប់ស្ថានីយទាំងអស់' || t.toLocation === 'ALL' || t.fromLocation === 'គ្រប់ស្ថានីយទាំងអស់';
+            return isGlobal || t.fromLocation === targetWarehouse || t.toLocation === targetWarehouse;
+          });
         }
-        return { success: true, transactions: txs };
+        return { success: true, transactions: txs, isLocalFallback: true };
       }
 
       if (action === 'sendChatMessage' || action === 'sendChat') {
@@ -15948,6 +16012,22 @@
         } catch(e) {}
       }
 
+      if (!cachedTxs || cachedTxs.length === 0) {
+        try {
+          const storedGen = localStorage.getItem('inventory_transactions_db');
+          if (storedGen) {
+            const parsedGen = JSON.parse(storedGen);
+            if (Array.isArray(parsedGen) && parsedGen.length > 0) {
+              cachedTxs = parsedGen.filter(t => {
+                const doc = String(t.docNo || t.txId || '').toUpperCase();
+                const notes = String(t.notes || '').toLowerCase();
+                return t.type === 'STOCK_IN' && !doc.includes('TEST') && !notes.includes('test auto sync');
+              });
+            }
+          }
+        } catch(e) {}
+      }
+
       if (cachedTxs && cachedTxs.length > 0) {
         AppState.stockInHistory = cachedTxs;
         renderStockInHistoryTable(AppState.stockInHistory);
@@ -15966,14 +16046,32 @@
             const notes = String(t.notes || '').toLowerCase();
             return !doc.includes('TEST') && !notes.includes('test auto sync');
           });
+
+          // Safeguard: If incoming transactions are empty but we already have valid cached data,
+          // do NOT destroy the existing table on transient empty responses or local fallback
+          if (cleanTxs.length === 0 && AppState.stockInHistory && AppState.stockInHistory.length > 0) {
+            if (res.isLocalFallback || !forceRefresh) {
+              console.warn('[loadStockInHistory] Preserving cached stock in records against empty response');
+              renderStockInHistoryTable(AppState.stockInHistory);
+              return;
+            }
+          }
+
           AppState.stockInHistory = cleanTxs;
-          try {
-            localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(cleanTxs));
-          } catch(e) {}
+          if (cleanTxs.length > 0 || forceRefresh) {
+            try {
+              localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(cleanTxs));
+            } catch(e) {}
+          }
+          renderStockInHistoryTable(AppState.stockInHistory);
+        } else if (AppState.stockInHistory && AppState.stockInHistory.length > 0) {
           renderStockInHistoryTable(AppState.stockInHistory);
         }
       } catch (err) {
         console.warn('loadStockInHistory error:', err);
+        if (AppState.stockInHistory && AppState.stockInHistory.length > 0) {
+          renderStockInHistoryTable(AppState.stockInHistory);
+        }
       }
     }
 
@@ -16305,6 +16403,22 @@
         } catch(e) {}
       }
 
+      if (!cachedTxs || cachedTxs.length === 0) {
+        try {
+          const storedGen = localStorage.getItem('inventory_transactions_db');
+          if (storedGen) {
+            const parsedGen = JSON.parse(storedGen);
+            if (Array.isArray(parsedGen) && parsedGen.length > 0) {
+              cachedTxs = parsedGen.filter(t => {
+                const doc = String(t.docNo || t.txId || '').toUpperCase();
+                const notes = String(t.notes || '').toLowerCase();
+                return t.type === 'STOCK_OUT' && !doc.includes('TEST') && !notes.includes('test auto sync');
+              });
+            }
+          }
+        } catch(e) {}
+      }
+
       if (cachedTxs && cachedTxs.length > 0) {
         AppState.stockOutHistory = cachedTxs;
         renderStockOutHistoryTable(AppState.stockOutHistory);
@@ -16323,14 +16437,32 @@
             const notes = String(t.notes || '').toLowerCase();
             return !doc.includes('TEST') && !notes.includes('test auto sync');
           });
+
+          // Safeguard: If incoming transactions are empty but we already have valid cached data,
+          // do NOT destroy the existing table on transient empty responses or local fallback
+          if (cleanTxs.length === 0 && AppState.stockOutHistory && AppState.stockOutHistory.length > 0) {
+            if (res.isLocalFallback || !forceRefresh) {
+              console.warn('[loadStockOutHistory] Preserving cached stock out records against empty response');
+              renderStockOutHistoryTable(AppState.stockOutHistory);
+              return;
+            }
+          }
+
           AppState.stockOutHistory = cleanTxs;
-          try {
-            localStorage.setItem('inventory_stock_out_history_db', JSON.stringify(cleanTxs));
-          } catch(e) {}
+          if (cleanTxs.length > 0 || forceRefresh) {
+            try {
+              localStorage.setItem('inventory_stock_out_history_db', JSON.stringify(cleanTxs));
+            } catch(e) {}
+          }
+          renderStockOutHistoryTable(AppState.stockOutHistory);
+        } else if (AppState.stockOutHistory && AppState.stockOutHistory.length > 0) {
           renderStockOutHistoryTable(AppState.stockOutHistory);
         }
       } catch (err) {
         console.warn('loadStockOutHistory error:', err);
+        if (AppState.stockOutHistory && AppState.stockOutHistory.length > 0) {
+          renderStockOutHistoryTable(AppState.stockOutHistory);
+        }
       }
     }
 
@@ -17418,8 +17550,14 @@
 
       try {
         const res = await apiCall('getTransactionHistory', { filters: { startDate, endDate, type, limit: 200 } });
-        if (res.success) {
+        if (res && res.success && Array.isArray(res.transactions)) {
+          if (res.transactions.length === 0 && res.isLocalFallback && AppState.transactions && AppState.transactions.length > 0) {
+            renderReportTable(AppState.transactions);
+            return;
+          }
           AppState.transactions = res.transactions || [];
+          renderReportTable(AppState.transactions);
+        } else if (AppState.transactions && AppState.transactions.length > 0) {
           renderReportTable(AppState.transactions);
         }
       } catch (err) {
