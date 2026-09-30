@@ -2494,7 +2494,8 @@
                     <th class="px-4 py-3.5">ឈ្មោះទំនិញ & SKU</th>
                     <th class="px-4 py-3.5">ខ្នាត/ពណ៌/តំបន់</th>
                     <th class="px-4 py-3.5 text-center">ចំនួនចូលស្តុក</th>
-                    <th class="px-4 py-3.5 text-center">ស្តុកចាស់ ➔ ថ្មី</th>
+                    <th class="px-4 py-3.5 text-center">ស្តុកចាស់</th>
+                    <th class="px-4 py-3.5 text-center">ស្តុកថ្មី</th>
                     <th class="px-4 py-3.5">ស្តុកនៅឃ្លាំង</th>
                     <th class="px-4 py-3.5">អ្នកទទួល & កំណត់សម្គាល់</th>
                     <th class="px-4 py-3.5 text-center">សកម្មភាព</th>
@@ -2502,7 +2503,7 @@
                 </thead>
                 <tbody id="stockInHistoryTableBody" class="divide-y divide-slate-100 bg-white">
                   <tr>
-                    <td colspan="9" class="text-center py-8 text-slate-400 text-sm">
+                    <td colspan="10" class="text-center py-8 text-slate-400 text-sm">
                       <i class="fa-solid fa-spinner fa-spin text-lg mb-1 block text-emerald-500"></i>
                       កំពុងផ្ទុកទិន្នន័យ...
                     </td>
@@ -2829,7 +2830,8 @@
                     <th class="px-4 py-3.5">ឈ្មោះទំនិញ & SKU</th>
                     <th class="px-4 py-3.5">ខ្នាត/ពណ៌</th>
                     <th class="px-4 py-3.5 text-center">ចំនួនបើកចេញ</th>
-                    <th class="px-4 py-3.5 text-center">ស្តុកចាស់ ➔ នៅសល់</th>
+                    <th class="px-4 py-3.5 text-center">ស្តុកចាស់</th>
+                    <th class="px-4 py-3.5 text-center">ស្តុកនៅសល់</th>
                     <th class="px-4 py-3.5">មូលហេតុនៃការដក</th>
                     <th class="px-4 py-3.5">ចេញទៅឃ្លាំង/ស្ថានីយ</th>
                     <th class="px-4 py-3.5">អ្នកបើក & កំណត់សម្គាល់</th>
@@ -2838,7 +2840,7 @@
                 </thead>
                 <tbody id="stockOutHistoryTableBody" class="divide-y divide-slate-100 bg-white">
                   <tr>
-                    <td colspan="10" class="text-center py-8 text-slate-400 text-sm">
+                    <td colspan="11" class="text-center py-8 text-slate-400 text-sm">
                       <i class="fa-solid fa-spinner fa-spin text-lg mb-1 block text-amber-500"></i>
                       កំពុងផ្ទុកទិន្នន័យ...
                     </td>
@@ -16034,7 +16036,7 @@
       } else {
         const tbody = document.getElementById('stockInHistoryTableBody');
         if (tbody) {
-          tbody.innerHTML = '<tr><td colspan="9" class="text-center py-6 text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-1"></i> កំពុងផ្ទុកទិន្នន័យពី Google Sheets...</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="10" class="text-center py-6 text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-1"></i> កំពុងផ្ទុកទិន្នន័យពី Google Sheets...</td></tr>';
         }
       }
 
@@ -16154,7 +16156,7 @@
       if (!tbody) return;
 
       if (!txs || txs.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-slate-400 text-sm">មិនទាន់មានទិន្នន័យកត់ត្រាទំនិញចូលស្តុកនៅឡើយទេ</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center py-8 text-slate-400 text-sm">មិនទាន់មានទិន្នន័យកត់ត្រាទំនិញចូលស្តុកនៅឡើយទេ</td></tr>';
         return;
       }
 
@@ -16254,6 +16256,14 @@
         if (colorStr) attrParts.push(colorStr);
         const attrLine = attrParts.join(' | ') || '-';
 
+        const safeOldSt = Math.max(0, oldSt);
+        const oldBulkStock = pQty > 1 ? Math.floor(safeOldSt / pQty) : 0;
+        const oldLooseStock = pQty > 1 ? (safeOldSt % pQty) : safeOldSt;
+
+        const safeNewSt = Math.max(0, newSt);
+        const newBulkStock = pQty > 1 ? Math.floor(safeNewSt / pQty) : 0;
+        const newLooseStock = pQty > 1 ? (safeNewSt % pQty) : safeNewSt;
+
         return `
           <tr class="hover:bg-slate-50/80 transition-colors">
             <!-- 1. ល.រ -->
@@ -16298,7 +16308,7 @@
               ${zoneStr ? `<span class="block text-xs text-indigo-600 font-semibold mt-0.5"><i class="fa-solid fa-location-dot mr-0.5"></i>${zoneStr}</span>` : ''}
             </td>
 
-            <!-- 5. ចំនួនចូលស្តុក (ដុំ & រាយ និងរូបមន្តបំប្លែងដូចរូបភាពទី២) -->
+            <!-- 5. ចំនួនចូលស្តុក (ដុំ & រាយ) -->
             <td class="px-4 py-3 text-center whitespace-nowrap align-top">
               <div class="inline-flex flex-col items-start justify-center">
                 <div class="flex items-center gap-1.5">
@@ -16316,15 +16326,30 @@
               </div>
             </td>
 
-            <!-- 6. ស្តុកចាស់ ➔ ថ្មី -->
+            <!-- 6. ស្តុកចាស់ (ដុំ & រាយ) -->
             <td class="px-4 py-3 text-center whitespace-nowrap align-top">
-              <div class="inline-flex flex-col items-center justify-start">
+              <div class="inline-flex flex-col items-center justify-center">
                 <div class="flex items-center gap-1.5">
-                  <span class="inline-flex items-center justify-center min-w-[65px] h-7 min-h-[28px] max-h-[28px] px-2.5 rounded-lg text-xs font-bold text-blue-700 bg-blue-50/80 border border-blue-300 shadow-3xs whitespace-nowrap text-center leading-none" title="ស្តុកចាស់: ${oldSt} ${escapeHtml(rUnit)}">
-                    ${oldSt} ${escapeHtml(rUnit)}
+                  <span class="inline-flex items-center justify-center min-w-[70px] h-7 min-h-[28px] max-h-[28px] px-2.5 rounded-lg text-xs font-black shadow-3xs whitespace-nowrap text-center leading-none bg-indigo-100 text-indigo-800 border border-indigo-300">
+                    ${oldBulkStock} ${escapeHtml(pUnit)}
                   </span>
-                  <span class="inline-flex items-center justify-center min-w-[65px] h-7 min-h-[28px] max-h-[28px] px-2.5 rounded-lg text-xs font-bold text-slate-700 bg-slate-100 border border-slate-200/90 shadow-3xs whitespace-nowrap text-center leading-none" title="ស្តុកថ្មី: ${newSt} ${escapeHtml(rUnit)}">
-                    ${newSt} ${escapeHtml(rUnit)}
+                  <span class="inline-flex items-center justify-center min-w-[65px] h-7 min-h-[28px] max-h-[28px] px-2.5 rounded-lg text-xs font-bold text-slate-600 bg-slate-100/90 border border-slate-200 shadow-3xs whitespace-nowrap text-center leading-none" title="ចំនួនរាយ: ${oldLooseStock} ${escapeHtml(rUnit)}">
+                    ${oldLooseStock} ${escapeHtml(rUnit)}
+                  </span>
+                </div>
+                ${pUnit ? `<span class="text-[10px] text-transparent select-none font-medium mt-1 leading-normal opacity-0 pointer-events-none" aria-hidden="true">1 ${escapeHtml(pUnit)} = ${pQty} ${escapeHtml(rUnit)}</span>` : ''}
+              </div>
+            </td>
+
+            <!-- 7. ស្តុកថ្មី (ដុំ & រាយ) -->
+            <td class="px-4 py-3 text-center whitespace-nowrap align-top">
+              <div class="inline-flex flex-col items-center justify-center">
+                <div class="flex items-center gap-1.5">
+                  <span class="inline-flex items-center justify-center min-w-[70px] h-7 min-h-[28px] max-h-[28px] px-2.5 rounded-lg text-xs font-black shadow-3xs whitespace-nowrap text-center leading-none bg-indigo-100 text-indigo-800 border border-indigo-300">
+                    ${newBulkStock} ${escapeHtml(pUnit)}
+                  </span>
+                  <span class="inline-flex items-center justify-center min-w-[65px] h-7 min-h-[28px] max-h-[28px] px-2.5 rounded-lg text-xs font-bold text-slate-600 bg-slate-100/90 border border-slate-200 shadow-3xs whitespace-nowrap text-center leading-none" title="ចំនួនរាយ: ${newLooseStock} ${escapeHtml(rUnit)}">
+                    ${newLooseStock} ${escapeHtml(rUnit)}
                   </span>
                 </div>
                 ${pUnit ? `<span class="text-[10px] text-transparent select-none font-medium mt-1 leading-normal opacity-0 pointer-events-none" aria-hidden="true">1 ${escapeHtml(pUnit)} = ${pQty} ${escapeHtml(rUnit)}</span>` : ''}
@@ -16426,7 +16451,7 @@
       } else {
         const tbody = document.getElementById('stockOutHistoryTableBody');
         if (tbody) {
-          tbody.innerHTML = '<tr><td colspan="9" class="text-center py-6 text-slate-400 text-sm"><i class="fa-solid fa-spinner fa-spin mr-1"></i> កំពុងផ្ទុកទិន្នន័យពី Google Sheets...</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="11" class="text-center py-6 text-slate-400 text-sm"><i class="fa-solid fa-spinner fa-spin mr-1"></i> កំពុងផ្ទុកទិន្នន័យពី Google Sheets...</td></tr>';
         }
       }
 
@@ -16497,7 +16522,7 @@
       if (!tbody) return;
 
       if (!txs || txs.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" class="text-center py-8 text-slate-400 text-sm">មិនទាន់មានទិន្នន័យកត់ត្រាទំនិញចេញពីស្តុកនៅឡើយទេ</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" class="text-center py-8 text-slate-400 text-sm">មិនទាន់មានទិន្នន័យកត់ត្រាទំនិញចេញពីស្តុកនៅឡើយទេ</td></tr>';
         return;
       }
 
@@ -16600,6 +16625,14 @@
         if (colorStr) attrParts.push(colorStr);
         const attrLine = attrParts.join(' | ') || '-';
 
+        const safeOldSt = Math.max(0, oldSt);
+        const oldBulkStock = pQty > 1 ? Math.floor(safeOldSt / pQty) : 0;
+        const oldLooseStock = pQty > 1 ? (safeOldSt % pQty) : safeOldSt;
+
+        const safeRemSt = Math.max(0, remSt);
+        const remBulkStock = pQty > 1 ? Math.floor(safeRemSt / pQty) : 0;
+        const remLooseStock = pQty > 1 ? (safeRemSt % pQty) : safeRemSt;
+
         return `
           <tr class="hover:bg-slate-50/80 transition-colors">
             <!-- 1. ល.រ -->
@@ -16640,7 +16673,7 @@
               ${attrLine}
             </td>
 
-            <!-- 5. ចំនួនបើកចេញ (ដុំ & រាយ និងរូបមន្តបំប្លែងដូចរូបភាពទី២) -->
+            <!-- 5. ចំនួនបើកចេញ (ដុំ & រាយ) -->
             <td class="px-4 py-3 text-center whitespace-nowrap align-top">
               <div class="inline-flex flex-col items-start justify-center">
                 <div class="flex items-center gap-1.5">
@@ -16658,15 +16691,30 @@
               </div>
             </td>
 
-            <!-- 6. ស្តុកចាស់ ➔ នៅសល់ -->
+            <!-- 6. ស្តុកចាស់ (ដុំ & រាយ) -->
             <td class="px-4 py-3 text-center whitespace-nowrap align-top">
-              <div class="inline-flex flex-col items-center justify-start">
+              <div class="inline-flex flex-col items-center justify-center">
                 <div class="flex items-center gap-1.5">
-                  <span class="inline-flex items-center justify-center min-w-[65px] h-7 min-h-[28px] max-h-[28px] px-2.5 rounded-lg text-xs font-bold text-blue-700 bg-blue-50/80 border border-blue-300 shadow-3xs whitespace-nowrap text-center leading-none" title="ស្តុកចាស់: ${oldSt} ${escapeHtml(rUnit)}">
-                    ${oldSt} ${escapeHtml(rUnit)}
+                  <span class="inline-flex items-center justify-center min-w-[70px] h-7 min-h-[28px] max-h-[28px] px-2.5 rounded-lg text-xs font-black shadow-3xs whitespace-nowrap text-center leading-none bg-indigo-100 text-indigo-800 border border-indigo-300">
+                    ${oldBulkStock} ${escapeHtml(pUnit)}
                   </span>
-                  <span class="inline-flex items-center justify-center min-w-[65px] h-7 min-h-[28px] max-h-[28px] px-2.5 rounded-lg text-xs font-bold text-slate-700 bg-slate-100 border border-slate-200/90 shadow-3xs whitespace-nowrap text-center leading-none" title="ស្តុកនៅសល់: ${remSt} ${escapeHtml(rUnit)}">
-                    ${remSt} ${escapeHtml(rUnit)}
+                  <span class="inline-flex items-center justify-center min-w-[65px] h-7 min-h-[28px] max-h-[28px] px-2.5 rounded-lg text-xs font-bold text-slate-600 bg-slate-100/90 border border-slate-200 shadow-3xs whitespace-nowrap text-center leading-none" title="ចំនួនរាយ: ${oldLooseStock} ${escapeHtml(rUnit)}">
+                    ${oldLooseStock} ${escapeHtml(rUnit)}
+                  </span>
+                </div>
+                ${pUnit ? `<span class="text-[10px] text-transparent select-none font-medium mt-1 leading-normal opacity-0 pointer-events-none" aria-hidden="true">1 ${escapeHtml(pUnit)} = ${pQty} ${escapeHtml(rUnit)}</span>` : ''}
+              </div>
+            </td>
+
+            <!-- 7. ស្តុកនៅសល់ (ដុំ & រាយ) -->
+            <td class="px-4 py-3 text-center whitespace-nowrap align-top">
+              <div class="inline-flex flex-col items-center justify-center">
+                <div class="flex items-center gap-1.5">
+                  <span class="inline-flex items-center justify-center min-w-[70px] h-7 min-h-[28px] max-h-[28px] px-2.5 rounded-lg text-xs font-black shadow-3xs whitespace-nowrap text-center leading-none bg-indigo-100 text-indigo-800 border border-indigo-300">
+                    ${remBulkStock} ${escapeHtml(pUnit)}
+                  </span>
+                  <span class="inline-flex items-center justify-center min-w-[65px] h-7 min-h-[28px] max-h-[28px] px-2.5 rounded-lg text-xs font-bold text-slate-600 bg-slate-100/90 border border-slate-200 shadow-3xs whitespace-nowrap text-center leading-none" title="ចំនួនរាយ: ${remLooseStock} ${escapeHtml(rUnit)}">
+                    ${remLooseStock} ${escapeHtml(rUnit)}
                   </span>
                 </div>
                 ${pUnit ? `<span class="text-[10px] text-transparent select-none font-medium mt-1 leading-normal opacity-0 pointer-events-none" aria-hidden="true">1 ${escapeHtml(pUnit)} = ${pQty} ${escapeHtml(rUnit)}</span>` : ''}
