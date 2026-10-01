@@ -2074,18 +2074,16 @@
                 <span>ទាញពី Google Sheet</span>
               </button>
 
-              <!-- Auto Sync to Google Sheets Button -->
+              <!-- Auto Sync to Google Sheets Button (Compact Icon Button) -->
               <button type="button" onclick="syncAllItemsToCloud(false)" id="btnSyncItemsToSheet"
-                title="ប្រព័ន្ធកំណត់ Auto Sync ទៅកាន់ Google Sheet ដោយស្វ័យប្រវត្តិតាមពេលជាក់ស្តែងរាល់ពេលមានការកែប្រែទិន្នន័យ (ចុចដើម្បី Sync ភ្លាមៗ)"
-                class="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold flex items-center space-x-2 shadow-sm shadow-emerald-500/20 transition-all active:scale-95 cursor-pointer group">
-                <span id="syncPulseDot" class="relative flex h-2 w-2">
-                  <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-200"></span>
+                title="ប្រព័ន្ធកំណត់ Auto Sync ទៅកាន់ Google Sheet ដោយស្វ័យប្រវត្តិតាមពេលជាក់ស្តែង (ចុចដើម្បី Sync ភ្លាមៗ)"
+                class="w-9 h-9 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl flex items-center justify-center shadow-sm shadow-emerald-500/20 transition-all active:scale-95 cursor-pointer relative group">
+                <span id="syncPulseDot" class="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+                  <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-300 ring-2 ring-white"></span>
                 </span>
-                <i id="btnSyncIcon" class="fa-solid fa-cloud-arrow-up group-hover:scale-110 transition-transform"></i>
-                <span id="btnSyncItemsToSheetText">Auto Sync ទៅ Google Sheet</span>
-                <span id="btnSyncStatusBadge" class="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded-md bg-white/20 text-[10px] font-semibold tracking-wide">
-                  <i class="fa-solid fa-bolt mr-1 text-emerald-200 text-[9px]"></i>Auto
-                </span>
+                <i id="btnSyncIcon" class="fa-solid fa-cloud-arrow-up text-sm group-hover:scale-110 transition-transform"></i>
+                <span id="btnSyncItemsToSheetText" class="sr-only">Auto Sync ទៅ Google Sheet</span>
+                <span id="btnSyncStatusBadge" class="hidden"></span>
               </button>
 
               <!-- Excel Import Button -->
@@ -12564,62 +12562,51 @@
 
         if (currentState === 'syncing') {
           btn.disabled = true;
+          btn.title = 'កំពុង Auto Sync ទៅ Google Sheet...';
           if (pulseDot) {
-            pulseDot.className = 'relative flex h-2 w-2';
-            pulseDot.innerHTML = '<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-200"></span>';
+            pulseDot.className = 'absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5';
+            pulseDot.innerHTML = '<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-200 ring-2 ring-white"></span>';
           }
-          if (icon) icon.className = 'fa-solid fa-arrows-rotate fa-spin text-emerald-200';
+          if (icon) icon.className = 'fa-solid fa-arrows-rotate fa-spin text-sm text-emerald-200';
           if (text) text.innerText = 'កំពុង Auto Sync...';
-          if (badge) {
-            badge.className = 'hidden sm:inline-flex items-center px-1.5 py-0.5 rounded-md bg-white/30 text-[10px] font-semibold text-white tracking-wide animate-pulse';
-            badge.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1 text-[9px]"></i>Syncing';
-          }
         } else if (currentState === 'pending') {
           btn.disabled = false;
+          btn.title = 'Auto Sync: កំពុងរង់ចាំក្នុងជួរ...';
           if (pulseDot) {
-            pulseDot.className = 'relative flex h-2 w-2';
-            pulseDot.innerHTML = '<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-300 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-amber-200"></span>';
+            pulseDot.className = 'absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5';
+            pulseDot.innerHTML = '<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-300 opacity-75"></span><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-300 ring-2 ring-white"></span>';
           }
-          if (icon) icon.className = 'fa-solid fa-cloud-arrow-up text-amber-200 animate-bounce';
+          if (icon) icon.className = 'fa-solid fa-cloud-arrow-up text-sm text-amber-200 animate-bounce';
           if (text) text.innerText = 'Auto Sync: រង់ចាំ...';
-          if (badge) {
-            badge.className = 'hidden sm:inline-flex items-center px-1.5 py-0.5 rounded-md bg-amber-400/30 text-amber-100 text-[10px] font-semibold tracking-wide';
-            badge.innerHTML = '<i class="fa-solid fa-clock mr-1 text-[9px]"></i>Queue';
-          }
         } else if (currentState === 'success') {
           btn.disabled = false;
-          if (pulseDot) {
-            pulseDot.className = 'relative flex h-2 w-2';
-            pulseDot.innerHTML = '<span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-300"></span>';
-          }
-          if (icon) icon.className = 'fa-solid fa-cloud-check text-emerald-100';
           const timeFormatted = this.lastSyncTime ? this.lastSyncTime.toLocaleTimeString('km-KH', { hour: '2-digit', minute: '2-digit' }) : '';
-          if (text) text.innerText = timeFormatted ? `Auto Sync រួច (${timeFormatted})` : 'Auto Sync រួចរាល់';
-          if (badge) {
-            badge.className = 'hidden sm:inline-flex items-center px-1.5 py-0.5 rounded-md bg-emerald-400/40 text-white text-[10px] font-semibold tracking-wide';
-            badge.innerHTML = '<i class="fa-solid fa-check mr-1 text-[9px]"></i>100%';
+          btn.title = timeFormatted ? `Auto Sync ជោគជ័យ (${timeFormatted})` : 'Auto Sync ជោគជ័យ';
+          if (pulseDot) {
+            pulseDot.className = 'absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5';
+            pulseDot.innerHTML = '<span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-300 ring-2 ring-white"></span>';
           }
+          if (icon) icon.className = 'fa-solid fa-cloud-check text-sm text-emerald-100';
+          if (text) text.innerText = timeFormatted ? `Auto Sync រួច (${timeFormatted})` : 'Auto Sync រួចរាល់';
           if (this.statusResetTimer) clearTimeout(this.statusResetTimer);
           this.statusResetTimer = setTimeout(() => {
             if (!this.isSyncing && !this.hasPendingChanges) this.updateUI('idle');
           }, 3500);
         } else if (currentState === 'offline') {
           btn.disabled = false;
+          btn.title = 'Auto Sync: គ្មានអ៊ីនធឺណិត (Offline)';
           if (pulseDot) pulseDot.className = 'hidden';
-          if (icon) icon.className = 'fa-solid fa-cloud-slash text-amber-300';
+          if (icon) icon.className = 'fa-solid fa-cloud-slash text-sm text-amber-300';
           if (text) text.innerText = 'Auto Sync: រង់ចាំអ៊ីនធឺណិត';
-          if (badge) {
-            badge.className = 'hidden sm:inline-flex items-center px-1.5 py-0.5 rounded-md bg-amber-500/30 text-amber-200 text-[10px] font-semibold tracking-wide';
-            badge.innerHTML = '<i class="fa-solid fa-wifi-slash mr-1 text-[9px]"></i>Offline';
-          }
         } else if (currentState === 'error') {
           btn.disabled = false;
-          if (icon) icon.className = 'fa-solid fa-circle-exclamation text-amber-300';
-          if (text) text.innerText = 'Auto Sync: នឹងព្យាយាមម្តងទៀត';
-          if (badge) {
-            badge.className = 'hidden sm:inline-flex items-center px-1.5 py-0.5 rounded-md bg-rose-500/30 text-rose-200 text-[10px] font-semibold tracking-wide';
-            badge.innerHTML = '<i class="fa-solid fa-triangle-exclamation mr-1 text-[9px]"></i>Retry';
+          btn.title = 'Auto Sync: បរាជ័យ សូមចុចដើម្បីសាកល្បងឡើងវិញ';
+          if (pulseDot) {
+            pulseDot.className = 'absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5';
+            pulseDot.innerHTML = '<span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-400 ring-2 ring-white"></span>';
           }
+          if (icon) icon.className = 'fa-solid fa-circle-exclamation text-sm text-rose-200';
+          if (text) text.innerText = 'Auto Sync: នឹងព្យាយាមម្តងទៀត';
           if (this.statusResetTimer) clearTimeout(this.statusResetTimer);
           this.statusResetTimer = setTimeout(() => {
             if (!this.isSyncing && !this.hasPendingChanges) this.updateUI('idle');
@@ -12627,17 +12614,14 @@
         } else {
           // 'idle'
           btn.disabled = false;
-          if (pulseDot) {
-            pulseDot.className = 'relative flex h-2 w-2';
-            pulseDot.innerHTML = '<span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-200"></span>';
-          }
-          if (icon) icon.className = 'fa-solid fa-cloud-arrow-up group-hover:scale-110 transition-transform';
           const timeFormatted = this.lastSyncTime ? this.lastSyncTime.toLocaleTimeString('km-KH', { hour: '2-digit', minute: '2-digit' }) : '';
-          if (text) text.innerText = timeFormatted ? `Auto Sync ទៅ Google Sheet (${timeFormatted})` : 'Auto Sync ទៅ Google Sheet';
-          if (badge) {
-            badge.className = 'hidden sm:inline-flex items-center px-1.5 py-0.5 rounded-md bg-white/20 text-[10px] font-semibold tracking-wide';
-            badge.innerHTML = '<i class="fa-solid fa-bolt mr-1 text-emerald-200 text-[9px]"></i>Auto';
+          btn.title = timeFormatted ? `Auto Sync ទៅ Google Sheet (Sync ចុងក្រោយ: ${timeFormatted})` : 'Auto Sync ទៅ Google Sheet (ចុចដើម្បី Sync ភ្លាមៗ)';
+          if (pulseDot) {
+            pulseDot.className = 'absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5';
+            pulseDot.innerHTML = '<span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-300 ring-2 ring-white"></span>';
           }
+          if (icon) icon.className = 'fa-solid fa-cloud-arrow-up text-sm text-white group-hover:scale-110 transition-transform';
+          if (text) text.innerText = 'Auto Sync ទៅ Google Sheet';
         }
       }
     };
@@ -18941,7 +18925,9 @@
       const btnSheet = document.getElementById('btnSyncItemsToSheet');
       if (btnSheet) {
         btnSheet.disabled = true;
-        btnSheet.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i><span>កំពុង Auto Sync...</span>';
+        btnSheet.title = 'កំពុង Auto Sync ទៅ Google Sheet...';
+        const icon = document.getElementById('btnSyncIcon');
+        if (icon) icon.className = 'fa-solid fa-spinner fa-spin text-sm text-white';
       }
 
       loadLocalItemsFromStorage();
