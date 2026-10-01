@@ -2057,7 +2057,7 @@
               <div>
                 <div class="flex flex-wrap items-center gap-2">
                   <h4 class="font-bold text-slate-800 text-sm sm:text-base">បញ្ជីទំនិញទាំងអស់ (Product Inventory)</h4>
-                  <span id="itemsTotalProductsBadge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-3xs">0 មុខទំនិញ</span>
+                  <span id="itemsTotalProductsBadge" onclick="loadItemsFromGoogleSheet(false)" title="ចុចដើម្បីទាញទិន្នន័យស្រស់ពី Google Sheet ផ្ទាល់ 100%" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-3xs cursor-pointer hover:bg-emerald-200 transition">0 មុខទំនិញ</span>
                   <span id="itemsTotalTxCountBadge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-3xs cursor-pointer hover:bg-emerald-200 transition" onclick="switchTab('reports')" title="ចុចដើម្បីមើលរបាយការណ៍ប្រតិបត្តិការទាំងអស់">0 ប្រតិបត្តិការ</span>
                 </div>
                 <p class="text-xs text-slate-400 mt-0.5">គ្រប់គ្រងទិន្នន័យស្តុកទំនិញ ខ្នាតដុំ-រាយ និងតាមដានប្រវត្តិប្រតិបត្តិការស្តុក</p>
@@ -2066,6 +2066,14 @@
 
             <!-- Action buttons: Auto Sync, Import Excel, Export, Add Item -->
             <div class="flex items-center flex-wrap gap-2 justify-end">
+              <!-- Reload from Google Sheet Button -->
+              <button type="button" onclick="loadItemsFromGoogleSheet(false)" id="btnReloadItemsFromSheet"
+                title="ទាញយកទិន្នន័យទំនិញថ្មីចុងក្រោយពី Google Sheet ដោយផ្ទាល់ 100%"
+                class="px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold flex items-center space-x-2 shadow-sm shadow-blue-500/20 transition-all active:scale-95 cursor-pointer group">
+                <i class="fa-solid fa-arrows-rotate group-hover:rotate-180 transition-transform duration-500"></i>
+                <span>ទាញពី Google Sheet</span>
+              </button>
+
               <!-- Auto Sync to Google Sheets Button -->
               <button type="button" onclick="syncAllItemsToCloud(false)" id="btnSyncItemsToSheet"
                 title="ប្រព័ន្ធកំណត់ Auto Sync ទៅកាន់ Google Sheet ដោយស្វ័យប្រវត្តិតាមពេលជាក់ស្តែងរាល់ពេលមានការកែប្រែទិន្នន័យ (ចុចដើម្បី Sync ភ្លាមៗ)"
@@ -11796,7 +11804,13 @@
       }
 
       // 2. High-speed single-call background bootstrap sync
-      applyBootstrapDataSync();
+      applyBootstrapDataSync().then(() => {
+        if (!AppState.items || AppState.items.length <= 7) {
+          if (typeof loadItems === 'function') loadItems();
+        }
+      }).catch(() => {
+        if (typeof loadItems === 'function') loadItems();
+      });
     }
 
 
@@ -11887,6 +11901,11 @@
         }
         if (typeof renderItemsTable === 'function') {
           renderItemsTable();
+        }
+        if (!AppState.items || AppState.items.length <= 7) {
+          if (typeof loadItems === 'function') {
+            loadItems();
+          }
         }
       }
       if (tabName === 'users') {
@@ -12617,6 +12636,50 @@
       }
     };
 
+    // Pull all items directly from Google Sheet (Guaranteed 100% full dataset)
+    async function loadItemsFromGoogleSheet(silent = false) {
+      if (!silent) {
+        Swal.fire({
+          title: 'កំពុងទាញទិន្នន័យពី Google Sheet...',
+          html: '<p class="text-sm text-slate-600">ប្រព័ន្ធកំពុងទាញយកបញ្ជីទំនិញទាំងអស់ពី Google Sheet ផ្ទាល់ 100%...</p>',
+          allowOutsideClick: false,
+          didOpen: () => { Swal.showLoading(); }
+        });
+      }
+      try {
+        API_CACHE.clear();
+        await applyBootstrapDataSync(true);
+        await loadItems();
+        const count = (AppState.items || []).length;
+        if (!silent) {
+          Swal.fire({
+            icon: 'success',
+            title: 'ទាញទិន្នន័យជោគជ័យ! ⚡',
+            html: `
+              <div class="text-left text-xs bg-emerald-50 border border-emerald-200 rounded-2xl p-4 space-y-2 mt-2 font-sans">
+                <p class="font-extrabold text-emerald-800 text-sm flex items-center">
+                  <i class="fa-solid fa-circle-check text-emerald-600 mr-2 text-base"></i>
+                  ទិន្នន័យបានបង្ហាញដូច Google Sheet 100%!
+                </p>
+                <div class="space-y-1 text-slate-700 pt-2 border-t border-emerald-200/80">
+                  <p>📦 <b>ទំនិញទទួលបានសរុប៖</b> <span class="font-bold text-slate-900">${count} មុខទំនិញ</span></p>
+                  <p>⚡ <b>ស្ថានភាព៖</b> <span class="text-emerald-700 font-bold">ទិន្នន័យទាន់សម័យ 100%</span></p>
+                </div>
+              </div>
+            `,
+            confirmButtonColor: '#059669',
+            confirmButtonText: 'យល់ព្រម'
+          });
+        }
+      } catch (err) {
+        console.error('loadItemsFromGoogleSheet error:', err);
+        if (!silent) {
+          Swal.fire('កំហុស', 'មិនអាចទាញទិន្នន័យបានទេ: ' + (err.message || err), 'error');
+        }
+      }
+    }
+    window.loadItemsFromGoogleSheet = loadItemsFromGoogleSheet;
+
     // Public unified sync API
     async function syncAllItemsToCloud(silent = false) {
       return await AutoSyncEngine.executeSync(silent, silent ? 'auto' : 'manual');
@@ -12902,10 +12965,22 @@
       const tbody = document.getElementById('itemsTableBody');
       if (!tbody) return;
 
-      // Ensure AppState.items is always populated with the pure master list of items (purging mock demo items)
-      if (!AppState.items || AppState.items.length === 0 || AppState.items.some(i => (i.name || '').toLowerCase().includes('coca cola') || (i.name || '').toLowerCase().includes('anchor beer') || (i.name || '').toLowerCase().includes('indomie'))) {
+      // Ensure AppState.items is populated
+      if (!AppState.items || AppState.items.length === 0) {
         loadLocalItemsFromStorage();
         AppState.items = [...LOCAL_DB.items];
+      }
+
+      // If items list has 7 or fewer items, automatically trigger background load to pull all 1,182+ items
+      if (AppState.items && AppState.items.length <= 7 && !window._ppshv_auto_items_loading && navigator.onLine) {
+        window._ppshv_auto_items_loading = true;
+        setTimeout(() => {
+          if (typeof loadItems === 'function') {
+            loadItems().finally(() => { window._ppshv_auto_items_loading = false; });
+          } else {
+            window._ppshv_auto_items_loading = false;
+          }
+        }, 80);
       }
 
       const searchEl = document.getElementById('itemSearchInput');

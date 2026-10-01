@@ -7480,6 +7480,10 @@ function getDashboardStats(userOrPayload, warehouseFilter, optSs) {
   const idxMinStock = headers.indexOf('minstock') >= 0 ? headers.indexOf('minstock') : (headers.indexOf('minstocklevel') >= 0 ? headers.indexOf('minstocklevel') : 10);
   const idxCost = headers.indexOf('costprice') >= 0 ? headers.indexOf('costprice') : -1;
   const idxPrice = headers.indexOf('sellingprice') >= 0 ? headers.indexOf('sellingprice') : -1;
+  const idxLocation = headers.indexOf('location') >= 0 ? headers.indexOf('location') : -1;
+  const idxName = headers.indexOf('itemname') >= 0 ? headers.indexOf('itemname') : (headers.indexOf('name') >= 0 ? headers.indexOf('name') : 1);
+  const idxCategory = headers.indexOf('category') >= 0 ? headers.indexOf('category') : 2;
+  const idxUnit = headers.indexOf('unit') >= 0 ? headers.indexOf('unit') : 5;
 
   for (let i = 1; i < itemsData.length; i++) {
     const row = itemsData[i];
@@ -7490,63 +7494,40 @@ function getDashboardStats(userOrPayload, warehouseFilter, optSs) {
     const price = idxPrice >= 0 ? Number(row[idxPrice] || 0) : 0;
     const minStock = Number(row[idxMinStock] || 0);
     const currentStock = Number(row[idxCurrentStock] || 0);
+    const loc = idxLocation >= 0 ? String(row[idxLocation] || '').trim() : 'គ្រប់ស្ថានីយទាំងអស់';
+    const itemName = String(row[idxName] || row[1] || '').trim();
+    const itemCat = String(row[idxCategory] || row[2] || '').trim();
+    const itemUnit = String(row[idxUnit] || row[5] || 'ដុំ').trim();
 
     totalStockQuantity += currentStock;
     totalInventoryCostValue += (currentStock * cost);
     totalInventoryRetailValue += (currentStock * price);
 
-
-
     if (currentStock === 0) {
-
       outOfStockCount++;
-
       lowStockItems.push({
-
         sku: row[0],
-
-        name: row[2],
-
-        category: row[3],
-
+        name: itemName,
+        category: itemCat,
         currentStock: 0,
-
         minStock: minStock,
-
-        unit: row[4],
-
+        unit: itemUnit,
         location: loc,
-
         status: 'OUT_OF_STOCK'
-
       });
-
     } else if (currentStock <= minStock) {
-
       lowStockCount++;
-
       lowStockItems.push({
-
         sku: row[0],
-
-        name: row[2],
-
-        category: row[3],
-
+        name: itemName,
+        category: itemCat,
         currentStock: currentStock,
-
         minStock: minStock,
-
-        unit: row[4],
-
+        unit: itemUnit,
         location: loc,
-
         status: 'LOW_STOCK'
-
       });
-
     }
-
   }
 
 
