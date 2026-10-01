@@ -5448,19 +5448,32 @@ function syncAllItems(itemsListOrPayload, username) {
 
     const data = sheet.getDataRange().getValues();
     const existingMap = {}; // sku -> rowIndex (1-based)
+    const existingNameMap = {}; // name|size|color -> rowIndex (1-based)
+    const headers = (data[0] || []).map(h => String(h || '').trim().toLowerCase());
+    const isNewLayout = headers.indexOf('color') === 4;
+
     for (let i = 1; i < data.length; i++) {
       const sku = String(data[i][0] || '').trim();
       if (sku) existingMap[sku] = i + 1;
+      const iName = String(data[i][2] || '').trim();
+      const iColor = String(isNewLayout ? data[i][4] : data[i][14] || '').trim();
+      const iSize = String(isNewLayout ? data[i][5] : data[i][13] || '').trim();
+      const nKey = (iName + '|' + iSize + '|' + iColor).toLowerCase();
+      if (nKey !== '||' && !existingNameMap[nKey]) {
+        existingNameMap[nKey] = i + 1;
+      }
     }
 
     let updatedCount = 0;
-    const headers = (data[0] || []).map(h => String(h || '').trim().toLowerCase());
-    const isNewLayout = headers.indexOf('color') === 4;
+    let addedCount = 0;
+    const rowsToAppend = [];
 
     for (let i = 0; i < itemsList.length; i++) {
       const item = itemsList[i];
       if (!item) continue;
       const sku = String(item.sku || '').trim() || ('SKU-' + Utilities.formatDate(new Date(), 'GMT+7', 'yyMMddHHmmss') + i);
+      const nameKey = (String(item.name || '').trim() + '|' + String(item.size || '').trim() + '|' + String(item.color || '').trim()).toLowerCase();
+
       let rowValues;
       if (isNewLayout) {
         rowValues = [
@@ -5509,14 +5522,18 @@ function syncAllItems(itemsListOrPayload, username) {
         ];
       }
 
-      if (existingMap[sku]) {
-        sheet.getRange(existingMap[sku], 1, 1, rowValues.length).setValues([rowValues]);
+      const targetRow = existingMap[sku] || existingNameMap[nameKey];
+      if (targetRow) {
+        sheet.getRange(targetRow, 1, 1, rowValues.length).setValues([rowValues]);
         updatedCount++;
       } else {
-        sheet.appendRow(rowValues);
-        existingMap[sku] = sheet.getLastRow();
+        rowsToAppend.push(rowValues);
         addedCount++;
       }
+    }
+
+    if (rowsToAppend.length > 0) {
+      sheet.getRange(sheet.getLastRow() + 1, 1, rowsToAppend.length, rowsToAppend[0].length).setValues(rowsToAppend);
     }
 
     logActivity(user || 'System', 'Staff', 'SYNC_ALL_ITEMS', `Synced ${itemsList.length} items (${addedCount} added, ${updatedCount} updated) to Google Sheet`);

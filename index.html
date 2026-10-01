@@ -7944,7 +7944,7 @@
         } else if (gasUrl && gasUrl.startsWith('https://script.google.com/')) {
           try {
             const controller = new AbortController();
-            const timeoutMs = (action === 'uploadImageToDrive' || action === 'uploadProductImage') ? 35000 : (action === 'checkDataVersion' || action === 'getSyncHeartbeat') ? 3500 : 18000;
+            const timeoutMs = (action === 'uploadImageToDrive' || action === 'uploadProductImage' || action === 'syncAllItems' || action === 'syncItems') ? 60000 : (action === 'checkDataVersion' || action === 'getSyncHeartbeat') ? 3500 : 25000;
             const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
             const READ_ACTIONS = new Set([
@@ -12250,11 +12250,14 @@
 
     // Items Management
     async function syncAllItemsToCloud(silent = false) {
-      if (!isStrictSuperAdmin()) {
+      const u = AppState.currentUser;
+      const isSuper = isStrictSuperAdmin();
+      const isAdmin = u && (u.role === 'Admin' || u.role === 'SuperAdmin' || String(u.username || '').toLowerCase() === 'admin' || String(u.username || '').toLowerCase() === 'superadmin' || u.role === 'Manager');
+      if (!isSuper && !isAdmin) {
         if (!silent) {
-          Swal.fire('ការអនុញ្ញាតមិនគ្រប់គ្រាន់', 'មុខងារនេះអនុញ្ញាតសម្រាប់តែ SuperAdmin ប៉ុណ្ណោះ', 'warning');
+          Swal.fire('ការអនុញ្ញាតមិនគ្រប់គ្រាន់', 'មុខងារនេះអនុញ្ញាតសម្រាប់ Admin និង SuperAdmin', 'warning');
         }
-        return;
+        return false;
       }
       try {
         const items = (AppState.items && AppState.items.length > 0) ? AppState.items : (LOCAL_DB.items || []);
@@ -18484,9 +18487,9 @@
         confirmButtonColor: '#059669'
       });
 
-      // Background Sync to Google Sheets
+      // Auto-Sync to Google Sheets
       if (shouldSync) {
-        syncAllItemsToCloud(true);
+        syncAllItemsToCloud(false);
       }
     }
 
