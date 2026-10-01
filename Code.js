@@ -696,6 +696,10 @@ function executeLocalApiAction(req) {
       case 'alignSheetToSystem':
         return migrateAndAlignItemsSheet();
 
+      case 'removeBarcodeColumn':
+      case 'deleteBarcodeColumn':
+        return removeBarcodeColumnFromItemsSheet();
+
       case 'fixAllSheetHeaders':
 
       case 'fixHeaders':
@@ -924,7 +928,7 @@ function migrateAndAlignItemsSheet(optSs) {
   if (!itemsSheet) return { success: false, message: 'Sheet Items not found' };
 
   const targetHeaders = [
-    'SKU', 'Barcode', 'ItemName', 'Category', 'Color', 'Size',
+    'SKU', 'ItemName', 'Category', 'Color', 'Size',
     'Unit', 'PackUnit', 'PackQty', 'CurrentStock', 'MinStock',
     'Zone', 'ZoneNumber', 'ImageUrl', 'Notes', 'CreatedBy', 'Status', 'UpdatedAt'
   ];
@@ -1147,14 +1151,13 @@ function migrateAndAlignItemsSheet(optSs) {
     }
 
     // Name & Category
-    let rowBarcode = String(r[1] || sku).trim();
-    let rowName = String(r[2] || '').trim();
-    let rowCategory = String(r[3] || 'ទូទៅ').trim();
+    const hasBarcodeCol = oldHeaders.indexOf('barcode') >= 0;
+    let rowName = String(hasBarcodeCol ? (r[2] || '') : (r[1] || '')).trim();
+    let rowCategory = String(hasBarcodeCol ? (r[3] || 'ទូទៅ') : (r[2] || 'ទូទៅ')).trim();
 
     if (catItem) {
       if (!rowName || rowName === sku) rowName = catItem.name;
       if (!rowCategory || rowCategory === 'ទូទៅ') rowCategory = catItem.category;
-      if (!rowBarcode) rowBarcode = catItem.barcode;
     }
 
     // Colors & Sizes:
@@ -1168,7 +1171,7 @@ function migrateAndAlignItemsSheet(optSs) {
     let createdByVal = 'Admin';
     let statusVal = 'Active';
 
-    if (isAlready18Col) {
+    if (hasBarcodeCol) {
       colorVal = String(r[4] || '').trim();
       sizeVal = String(r[5] || '').trim();
       packUnitVal = String(r[7] || '').trim();
@@ -1178,6 +1181,16 @@ function migrateAndAlignItemsSheet(optSs) {
       notesVal = String(r[14] || '-').trim();
       createdByVal = String(r[15] || 'Admin').trim();
       statusVal = String(r[16] || 'Active').trim();
+    } else if (isAlready18Col) {
+      colorVal = String(r[3] || '').trim();
+      sizeVal = String(r[4] || '').trim();
+      packUnitVal = String(r[6] || '').trim();
+      packQtyVal = isNumericStr(r[7]) ? Number(r[7]) : 1;
+      zoneVal = String(r[10] || '').trim();
+      zoneNumberVal = String(r[11] || '').trim();
+      notesVal = String(r[13] || '-').trim();
+      createdByVal = String(r[14] || 'Admin').trim();
+      statusVal = String(r[15] || 'Active').trim();
     } else {
       colorVal = String(r[14] || '').trim();
       sizeVal = String(r[13] || '').trim();
@@ -1241,7 +1254,6 @@ function migrateAndAlignItemsSheet(optSs) {
 
     migratedRows.push([
       sku,
-      rowBarcode,
       rowName,
       rowCategory,
       colorVal,
@@ -1264,7 +1276,7 @@ function migrateAndAlignItemsSheet(optSs) {
   // Clear sheet to eliminate old columns completely
   itemsSheet.clear();
 
-  // Write new 18 clean headers
+  // Write new 17 clean headers (without Barcode)
   itemsSheet.getRange(1, 1, 1, targetHeaders.length).setValues([targetHeaders]);
   formatHeaderRow(itemsSheet, targetHeaders.length, '#1e293b');
 
@@ -1279,20 +1291,20 @@ function migrateAndAlignItemsSheet(optSs) {
 
   return {
     success: true,
-    message: `បានកែសម្រួលជួរឈរ Items ចំនួន ${migratedRows.length} មុខឱ្យត្រូវតាមប្រព័ន្ធ 100%`,
+    message: `បានកែសម្រួលជួរឈរ Items ចំនួន ${migratedRows.length} មុខឱ្យត្រូវតាមប្រព័ន្ធ 100% (គ្មានជួរឈរ Barcode)`,
     count: migratedRows.length
   };
 }
 
 function seedMasterItemsInternal(itemsSheet) {
   const seedRows = [
-    ['SKU-7501', 'SKU-7501', 'ប៊ិច-圆珠笔', 'សម្ភារៈការិយាល័យ-办公用品', 'ខ្មៅ', 'Pixcell', 'ដើម', 'ប្រអប់', 12, 95, 1, 'តំបន់ A (A01)', 'Z-01', 'https://lh3.googleusercontent.com/d/1CX6Nb7dj8PTSRnyfzgTMeQUooQGrRQ2E', 'សាកល្បង', 'ចាន់ តារា', 'Active', new Date()],
-    ['SKU-9050', 'SKU-9050', 'ប៊ិច-圆珠笔', 'សម្ភារៈការិយាល័យ-办公用品', 'ក្រហម', 'Pixcell', 'ដើម', 'ប្រអប់', 12, 0, 1, 'តំបន់ A (A01)', 'Z-01', 'https://lh3.googleusercontent.com/d/1KpbzNdQc6eRTHCDQvIBruytYtHo6OCUx', 'សាកល្បង', 'ចាន់ ឌី', 'Active', new Date()],
-    ['SKU-9144', 'SKU-9144', 'ទឹកលុប-涂改液', 'សម្ភារៈការិយាល័យ-办公用品', 'ស', 'Pixcell', 'ដើម', 'ប្រអប់', 12, 0, 1, 'តំបន់ A (A01)', 'Z-01', 'https://lh3.googleusercontent.com/d/1xfWG0wZcc9xnQBlnLa62hO1PXJO6Jznl', 'សាកល្បង', 'និត វ៉ាន់ស៊ិញ', 'Active', new Date()],
-    ['SKU-9649', 'SKU-9649', 'ប៊ិច-圆珠笔', 'សម្ភារៈការិយាល័យ-办公用品', 'ខៀវ', 'Pixcell', 'ដើម', 'ប្រអប់', 12, 0, 1, 'តំបន់ A (A01)', 'Z-01', 'https://lh3.googleusercontent.com/d/1RE9PKj3VyPYaO8kOdodzt5U28lA8CGhV', 'ចំណាំសិន', 'និត វ៉ាន់ស៊ិញ', 'Active', new Date()],
-    ['SKU-2089', 'SKU-2089', 'ក្រដាស់ជូតម៉ាត់-抽纸', 'សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资', 'ស', 'LM', 'ដុំ', 'យូ', 7, 0, 1, 'តំបន់ B (B01)', 'Z-01', 'https://lh3.googleusercontent.com/d/18YTR9If4CbWoUhAOYBtMtZZfLRGj_qyg', 'សាកល្បង', '陈龙', 'Active', new Date()],
-    ['SKU-9816', 'SKU-9816', '母卡', 'គ្រឿងបរិក្ខារអេឡិចត្រូនិច និងអគ្គិសនី-机电设备', 'ស', 'samka', 'កញ្ចប់', 'ដុំ', 4, 0, 1, 'តំបន់ A (A01)', 'Z-01', 'https://lh3.googleusercontent.com/d/1TIBybQbnfxWcZa32Cdo5VS0wacQr-sSN', '-', 'និត វ៉ាន់ស៊ិញ', 'Active', new Date()],
-    ['SKU-2021', 'SKU-2021', 'ម៉ាស៊ីនគិតលេខ-​计算机', 'សម្ភារៈការិយាល័យ-办公用品', 'ខ្មៅ', '២៣', 'គ្រឿង', 'ប្រអប់', 1, 0, 1, 'តំបន់ A (A01)', 'Z-01', 'https://lh3.googleusercontent.com/d/1Q6mLfPOJx8bKXtv0pLXj1-03fWBkIsDc', 'ម៉ាស៊ីនគិតលេខសម្រាប់រដ្ឋបាល', 'ស្រី មាស', 'Active', new Date()]
+    ['SKU-7501', 'ប៊ិច-圆珠笔', 'សម្ភារៈការិយាល័យ-办公用品', 'ខ្មៅ', 'Pixcell', 'ដើម', 'ប្រអប់', 12, 95, 1, 'តំបន់ A (A01)', 'Z-01', 'https://lh3.googleusercontent.com/d/1CX6Nb7dj8PTSRnyfzgTMeQUooQGrRQ2E', 'សាកល្បង', 'ចាន់ តារា', 'Active', new Date()],
+    ['SKU-9050', 'ប៊ិច-圆珠笔', 'សម្ភារៈការិយាល័យ-办公用品', 'ក្រហម', 'Pixcell', 'ដើម', 'ប្រអប់', 12, 0, 1, 'តំបន់ A (A01)', 'Z-01', 'https://lh3.googleusercontent.com/d/1KpbzNdQc6eRTHCDQvIBruytYtHo6OCUx', 'សាកល្បង', 'ចាន់ ឌី', 'Active', new Date()],
+    ['SKU-9144', 'ទឹកលុប-涂改液', 'សម្ភារៈការិយាល័យ-办公用品', 'ស', 'Pixcell', 'ដើម', 'ប្រអប់', 12, 0, 1, 'តំបន់ A (A01)', 'Z-01', 'https://lh3.googleusercontent.com/d/1xfWG0wZcc9xnQBlnLa62hO1PXJO6Jznl', 'សាកល្បង', 'និត វ៉ាន់ស៊ិញ', 'Active', new Date()],
+    ['SKU-9649', 'ប៊ិច-圆珠笔', 'សម្ភារៈការិយាល័យ-办公用品', 'ខៀវ', 'Pixcell', 'ដើម', 'ប្រអប់', 12, 0, 1, 'តំបន់ A (A01)', 'Z-01', 'https://lh3.googleusercontent.com/d/1RE9PKj3VyPYaO8kOdodzt5U28lA8CGhV', 'ចំណាំសិន', 'និត វ៉ាន់ស៊ិញ', 'Active', new Date()],
+    ['SKU-2089', 'ក្រដាស់ជូតម៉ាត់-抽纸', 'សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资', 'ស', 'LM', 'ដុំ', 'យូ', 7, 0, 1, 'តំបន់ B (B01)', 'Z-01', 'https://lh3.googleusercontent.com/d/18YTR9If4CbWoUhAOYBtMtZZfLRGj_qyg', 'សាកល្បង', '陈龙', 'Active', new Date()],
+    ['SKU-9816', '母卡', 'គ្រឿងបរិក្ខារអេឡិចត្រូនិច និងអគ្គិសនី-机电设备', 'ស', 'samka', 'កញ្ចប់', 'ដុំ', 4, 0, 1, 'តំបន់ A (A01)', 'Z-01', 'https://lh3.googleusercontent.com/d/1TIBybQbnfxWcZa32Cdo5VS0wacQr-sSN', '-', 'និត វ៉ាន់ស៊ិញ', 'Active', new Date()],
+    ['SKU-2021', 'ម៉ាស៊ីនគិតលេខ-​计算机', 'សម្ភារៈការិយាល័យ-办公用品', 'ខ្មៅ', '២៣', 'គ្រឿង', 'ប្រអប់', 1, 0, 1, 'តំបន់ A (A01)', 'Z-01', 'https://lh3.googleusercontent.com/d/1Q6mLfPOJx8bKXtv0pLXj1-03fWBkIsDc', 'ម៉ាស៊ីនគិតលេខសម្រាប់រដ្ឋបាល', 'ស្រី មាស', 'Active', new Date()]
   ];
   itemsSheet.getRange(2, 1, seedRows.length, seedRows[0].length).setValues(seedRows);
 }
@@ -5237,7 +5249,6 @@ function saveOrUpdateItem(itemDataOrPayload, username) {
   const newNameNorm = normStr(itemData.name);
   const newSizeNorm = normStr(itemData.size);
   const newColorNorm = normStr(itemData.color);
-  const newBarcode = String(itemData.barcode || '').trim().toLowerCase();
   const newLoc = normalizeStationLocationInternal(itemData.location || '1-K3 ស្ថានីយ (ភ្នំពេញ)');
   itemData.location = newLoc;
 
@@ -5246,17 +5257,9 @@ function saveOrUpdateItem(itemDataOrPayload, username) {
     const existSku = String(data[i][0]).trim();
     if (!isNew && existSku.toLowerCase() === sku.toLowerCase()) continue; // Skip self when editing
 
-    const existBarcode = String(data[i][1] || '').trim().toLowerCase();
-    const existName = String(data[i][2] || '');
-    const existSize = String(data[i][13] || '');
-    const existColor = String(data[i][14] || '');
-
-    if (newBarcode && existBarcode && newBarcode === existBarcode) {
-      return {
-        success: false,
-        message: `មុខទំនិញនេះមានហើយនៅក្នុងបញ្ជីនេះ! លេខកូដ Barcode (${itemData.barcode}) មានស្រាប់លើទំនិញ "${existName}" មិនអាចបញ្ចូលបន្ថែមស្ទួនបានទេ។`
-      };
-    }
+    const existName = String(data[i][1] || data[i][2] || '');
+    const existColor = String(data[i][3] || data[i][4] || data[i][14] || '');
+    const existSize = String(data[i][4] || data[i][5] || data[i][13] || '');
 
     if (newNameNorm && normStr(existName) === newNameNorm && normStr(existSize) === newSizeNorm && normStr(existColor) === newColorNorm) {
       const specParts = [existSize, existColor].filter(Boolean);
@@ -5268,37 +5271,21 @@ function saveOrUpdateItem(itemDataOrPayload, username) {
     }
   }
 
-
-
   // 2. STATION ACCESS CONTROL: Users can only add/edit items belonging to their own station
   // Master catalog items (គ្រប់ស្ថានីយទាំងអស់) are company-wide and can be managed by authorized staff
   if (user && String(user).toLowerCase() !== 'admin' && String(user).toLowerCase() !== 'superadmin') {
-
     const uObj = getUserByUsernameInternal(ss, user);
-
     const isAdminOrLeader = uObj && (uObj.role === 'SuperAdmin' || uObj.role === 'Admin' || uObj.role === 'ប្រធានក្រុម');
-
     if (uObj && !isAdminOrLeader && uObj.warehouse && uObj.warehouse !== 'ALL' && uObj.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
-
       const uWh = normalizeStationLocationInternal(uObj.warehouse);
-
       if (newLoc && newLoc !== 'គ្រប់ស្ថានីយទាំងអស់' && uWh !== newLoc) {
-
         return {
-
           success: false,
-
           message: `អ្នកគ្មានសិទ្ធិកែប្រែ ឬបន្ថែមទំនិញសម្រាប់ស្ថានីយដ៏ទៃទេ! អាចធ្វើបានតែលើស្ថានីយ ${uObj.warehouse} ប៉ុណ្ណោះ`
-
         };
-
       }
-
     }
-
   }
-
-
 
   if (itemData.imageUrl && (itemData.imageUrl.startsWith('data:image/') || itemData.imageUrl.length > 500)) {
     try {
@@ -5316,62 +5303,35 @@ function saveOrUpdateItem(itemDataOrPayload, username) {
     itemData.imageUrl = '';
   }
 
-
-
-  const headers = (data[0] || []).map(h => String(h || '').trim().toLowerCase());
-  const isNewLayout = headers.indexOf('color') === 4;
-
-  let rowValues;
-  if (isNewLayout) {
-    const existingStock = (targetRow > 0 && itemData.currentStock === undefined) ? data[targetRow - 1][9] : Number(itemData.currentStock !== undefined ? itemData.currentStock : 0);
-    rowValues = [
-      sku,
-      itemData.barcode || sku,
-      itemData.name,
-      itemData.category || 'ទូទៅ',
-      itemData.color || '',
-      itemData.size || '',
-      itemData.unit || 'ដុំ',
-      itemData.packUnit || 'ប្រអប់',
-      Number(itemData.packQty || 1),
-      existingStock,
-      Number(itemData.minStock || 0),
-      itemData.zone || '-',
-      itemData.zoneNumber || '-',
-      itemData.imageUrl || '',
-      itemData.notes || '-',
-      itemData.createdBy || user || 'Admin',
-      itemData.status || 'Active',
-      new Date()
-    ];
-  } else {
-    rowValues = [
-      sku,
-      itemData.barcode || sku,
-      itemData.name,
-      itemData.category || 'ទូទៅ',
-      itemData.unit || 'ដុំ',
-      Number(itemData.costPrice || 0),
-      Number(itemData.sellingPrice || 0),
-      Number(itemData.minStock || 0),
-      itemData.location || 'គ្រប់ស្ថានីយទាំងអស់',
-      Number(itemData.currentStock !== undefined ? itemData.currentStock : 0),
-      itemData.imageUrl || '',
-      itemData.status || 'Active',
-      new Date(),
-      itemData.size || '',
-      itemData.color || '',
-      itemData.packUnit || '',
-      Number(itemData.packQty || 1),
-      itemData.zone || '-',
-      itemData.zoneNumber || '-',
-      itemData.notes || '-',
-      itemData.createdBy || user || 'Admin'
-    ];
-    if (targetRow > 0 && itemData.currentStock === undefined) {
-      rowValues[9] = data[targetRow - 1][9];
-    }
+  // AUTOMATICALLY REMOVE BARCODE COLUMN IF PRESENT IN GOOGLE SHEET
+  let headers = (data[0] || []).map(h => String(h || '').trim().toLowerCase());
+  const barcodeColIdx = headers.indexOf('barcode');
+  if (barcodeColIdx >= 0) {
+    sheet.deleteColumn(barcodeColIdx + 1);
+    data = sheet.getDataRange().getValues();
+    headers = (data[0] || []).map(h => String(h || '').trim().toLowerCase());
   }
+
+  const existingStock = (targetRow > 0 && itemData.currentStock === undefined) ? (data[targetRow - 1][8] || 0) : Number(itemData.currentStock !== undefined ? itemData.currentStock : 0);
+  const rowValues = [
+    sku,
+    itemData.name,
+    itemData.category || 'ទូទៅ',
+    itemData.color || '',
+    itemData.size || '',
+    itemData.unit || 'ដុំ',
+    itemData.packUnit || 'ប្រអប់',
+    Number(itemData.packQty || 1),
+    existingStock,
+    Number(itemData.minStock || 0),
+    itemData.zone || '-',
+    itemData.zoneNumber || '-',
+    itemData.imageUrl || '',
+    itemData.notes || '-',
+    itemData.createdBy || user || 'Admin',
+    itemData.status || 'Active',
+    new Date()
+  ];
 
   if (targetRow > 0) {
     sheet.getRange(targetRow, 1, 1, rowValues.length).setValues([rowValues]);
@@ -5446,18 +5406,32 @@ function syncAllItems(itemsListOrPayload, username) {
       sheet = ss.getSheetByName(SHEETS.ITEMS);
     }
 
+    // AUTOMATICALLY REMOVE BARCODE COLUMN FROM GOOGLE SHEET
+    const firstRowValues = sheet.getRange(1, 1, 1, Math.max(1, sheet.getLastColumn())).getValues()[0] || [];
+    const barcodeColIdx = firstRowValues.findIndex(h => String(h || '').trim().toLowerCase() === 'barcode');
+    if (barcodeColIdx >= 0) {
+      sheet.deleteColumn(barcodeColIdx + 1);
+    }
+
+    // Write clean standard 17 headers (WITHOUT Barcode)
+    const cleanHeaders = [
+      'SKU', 'ItemName', 'Category', 'Color', 'Size',
+      'Unit', 'PackUnit', 'PackQty', 'CurrentStock', 'MinStock',
+      'Zone', 'ZoneNumber', 'ImageUrl', 'Notes', 'CreatedBy', 'Status', 'UpdatedAt'
+    ];
+    sheet.getRange(1, 1, 1, cleanHeaders.length).setValues([cleanHeaders]);
+    formatHeaderRow(sheet, cleanHeaders.length, '#1e293b');
+
     const data = sheet.getDataRange().getValues();
     const existingMap = {}; // sku -> rowIndex (1-based)
     const existingNameMap = {}; // name|size|color -> rowIndex (1-based)
-    const headers = (data[0] || []).map(h => String(h || '').trim().toLowerCase());
-    const isNewLayout = headers.indexOf('color') === 4;
 
     for (let i = 1; i < data.length; i++) {
       const sku = String(data[i][0] || '').trim();
       if (sku) existingMap[sku] = i + 1;
-      const iName = String(data[i][2] || '').trim();
-      const iColor = String(isNewLayout ? data[i][4] : data[i][14] || '').trim();
-      const iSize = String(isNewLayout ? data[i][5] : data[i][13] || '').trim();
+      const iName = String(data[i][1] || '').trim();
+      const iColor = String(data[i][3] || '').trim();
+      const iSize = String(data[i][4] || '').trim();
       const nKey = (iName + '|' + iSize + '|' + iColor).toLowerCase();
       if (nKey !== '||' && !existingNameMap[nKey]) {
         existingNameMap[nKey] = i + 1;
@@ -5474,53 +5448,25 @@ function syncAllItems(itemsListOrPayload, username) {
       const sku = String(item.sku || '').trim() || ('SKU-' + Utilities.formatDate(new Date(), 'GMT+7', 'yyMMddHHmmss') + i);
       const nameKey = (String(item.name || '').trim() + '|' + String(item.size || '').trim() + '|' + String(item.color || '').trim()).toLowerCase();
 
-      let rowValues;
-      if (isNewLayout) {
-        rowValues = [
-          sku,
-          item.barcode || sku,
-          item.name || '',
-          item.category || 'ទូទៅ',
-          item.color || '',
-          item.size || '',
-          item.unit || 'ដុំ',
-          item.packUnit || 'ប្រអប់',
-          Number(item.packQty || 1),
-          Number(item.currentStock !== undefined ? item.currentStock : (item.stock || 0)),
-          Number(item.minStock || 0),
-          item.zone || '-',
-          item.zoneNumber || '-',
-          item.imageUrl || '',
-          item.notes || '-',
-          item.createdBy || user || 'Admin',
-          item.status || 'Active',
-          new Date()
-        ];
-      } else {
-        rowValues = [
-          sku,
-          item.barcode || sku,
-          item.name || '',
-          item.category || 'ទូទៅ',
-          item.unit || 'ដុំ',
-          Number(item.costPrice || 0),
-          Number(item.sellingPrice || 0),
-          Number(item.minStock || 0),
-          normalizeStationLocationInternal(item.location || 'គ្រប់ស្ថានីយទាំងអស់'),
-          Number(item.currentStock !== undefined ? item.currentStock : (item.stock || 0)),
-          item.imageUrl || '',
-          item.status || 'Active',
-          new Date(),
-          item.size || '',
-          item.color || '',
-          item.packUnit || '',
-          Number(item.packQty || 1),
-          item.zone || '-',
-          item.zoneNumber || '-',
-          item.notes || '-',
-          item.createdBy || user || 'Admin'
-        ];
-      }
+      const rowValues = [
+        sku,
+        item.name || '',
+        item.category || 'ទូទៅ',
+        item.color || '',
+        item.size || '',
+        item.unit || 'ដុំ',
+        item.packUnit || 'ប្រអប់',
+        Number(item.packQty || 1),
+        Number(item.currentStock !== undefined ? item.currentStock : (item.stock || 0)),
+        Number(item.minStock || 0),
+        item.zone || '-',
+        item.zoneNumber || '-',
+        item.imageUrl || '',
+        item.notes || '-',
+        item.createdBy || user || 'Admin',
+        item.status || 'Active',
+        new Date()
+      ];
 
       const targetRow = existingMap[sku] || existingNameMap[nameKey];
       if (targetRow) {
@@ -5536,7 +5482,7 @@ function syncAllItems(itemsListOrPayload, username) {
       sheet.getRange(sheet.getLastRow() + 1, 1, rowsToAppend.length, rowsToAppend[0].length).setValues(rowsToAppend);
     }
 
-    logActivity(user || 'System', 'Staff', 'SYNC_ALL_ITEMS', `Synced ${itemsList.length} items (${addedCount} added, ${updatedCount} updated) to Google Sheet`);
+    logActivity(user || 'System', 'Staff', 'SYNC_ALL_ITEMS', `Synced ${itemsList.length} items (${addedCount} added, ${updatedCount} updated) to Google Sheet (Without Barcode)`);
 
     return {
       success: true,
@@ -5548,6 +5494,38 @@ function syncAllItems(itemsListOrPayload, username) {
   } catch (err) {
     if (typeof Logger !== 'undefined') Logger.log('syncAllItems error: ' + err.toString());
     return { success: false, message: 'Sync បរាជ័យ: ' + err.toString() };
+  }
+}
+
+/**
+ * លុបជួរឈរ Barcode ចេញពី Google Sheet Items 100%
+ */
+function removeBarcodeColumnFromItemsSheet(optSs) {
+  try {
+    const ss = optSs || SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName(SHEETS.ITEMS);
+    if (!sheet) return { success: false, message: 'រកមិនឃើញ Sheet Items' };
+
+    const firstRowValues = sheet.getRange(1, 1, 1, Math.max(1, sheet.getLastColumn())).getValues()[0] || [];
+    const barcodeColIdx = firstRowValues.findIndex(h => String(h || '').trim().toLowerCase() === 'barcode');
+    if (barcodeColIdx >= 0) {
+      sheet.deleteColumn(barcodeColIdx + 1);
+    }
+
+    const cleanHeaders = [
+      'SKU', 'ItemName', 'Category', 'Color', 'Size',
+      'Unit', 'PackUnit', 'PackQty', 'CurrentStock', 'MinStock',
+      'Zone', 'ZoneNumber', 'ImageUrl', 'Notes', 'CreatedBy', 'Status', 'UpdatedAt'
+    ];
+    sheet.getRange(1, 1, 1, cleanHeaders.length).setValues([cleanHeaders]);
+    formatHeaderRow(sheet, cleanHeaders.length, '#1e293b');
+
+    return {
+      success: true,
+      message: 'បានលុបជួរឈរ Barcode ចេញពី Google Sheet រួចរាល់ 100%'
+    };
+  } catch (err) {
+    return { success: false, message: 'កំហុសពេលលុប Barcode: ' + err.toString() };
   }
 }
 

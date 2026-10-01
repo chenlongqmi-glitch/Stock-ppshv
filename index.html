@@ -9480,6 +9480,10 @@
         return { success: true, message: 'បានកែសម្រួលស្តុកជាក់ស្តែងជោគជ័យ!' };
       }
 
+      if (action === 'removeBarcodeColumn' || action === 'deleteBarcodeColumn') {
+        return { success: true, message: 'បានលុបជួរឈរ Barcode រួចរាល់!' };
+      }
+
       if (action === 'deleteStockTransaction' || action === 'deleteTransaction') {
         const d = payload.data || payload;
         const txId = d.txId || d.docNo;
@@ -12352,6 +12356,13 @@
           this.updateUI('offline');
         });
         this.updateUI('idle');
+
+        // Automatically clean up Barcode column from Google Sheet
+        setTimeout(() => {
+          if (navigator.onLine && (AppState.gasApiUrl || localStorage.getItem('inventory_gas_api_url'))) {
+            apiCall('removeBarcodeColumn').catch(() => {});
+          }
+        }, 1200);
       },
 
       notifyDataChanged(triggerSource = 'data_mutation') {
@@ -18026,16 +18037,18 @@
         return {
           'ល.រ': index + 1,
           'លេខកូដ (SKU)': item.sku || '',
-          'Barcode': item.barcode || '',
           'ឈ្មោះទំនិញ': item.name || '',
           'ប្រភេទ': item.category || '',
-          'ខ្នាត': item.unit || '',
-          'ថ្លៃដើម ($)': cost,
-          'ថ្លៃលក់ ($)': sell,
-          'ស្តុកអប្បបរមា': min,
+          'ពណ៌': item.color || '-',
+          'ខ្នាត/ទំហំ': item.size || '-',
+          'ឯកតា': item.unit || '',
+          'ឯកតាធំ': item.packUnit || item.unit || '',
+          'ចំនួនក្នុងឯកតាធំ': item.packQty || 1,
           'ស្តុកបច្ចុប្បន្ន': qty,
-          'តម្លៃស្តុកសរុប ($)': Number((cost * qty).toFixed(2)),
-          'ស្ថានភាព': status,
+          'ស្តុកអប្បបរមា': min,
+          'តំបន់': item.zone || '-',
+          'លេខទូ': item.zoneNumber || '-',
+          'ចំណាំ': item.notes || '-',
           'អ្នកបញ្ចូល': getUserDisplayName(item.createdBy)
         };
       });
@@ -18046,17 +18059,19 @@
       worksheet['!cols'] = [
         { wch: 6 },  // ល.រ
         { wch: 16 }, // SKU
-        { wch: 16 }, // Barcode
         { wch: 28 }, // ឈ្មោះទំនិញ
         { wch: 16 }, // ប្រភេទ
-        { wch: 10 }, // ខ្នាត
-        { wch: 14 }, // ថ្លៃដើម ($)
-        { wch: 14 }, // ថ្លៃលក់ ($)
-        { wch: 14 }, // ស្តុកអប្បបរមា
-        { wch: 18 }, // ទីតាំង/ស្ថានីយ
+        { wch: 12 }, // ពណ៌
+        { wch: 14 }, // ខ្នាត/ទំហំ
+        { wch: 10 }, // ឯកតា
+        { wch: 12 }, // ឯកតាធំ
+        { wch: 16 }, // ចំនួនក្នុងឯកតាធំ
         { wch: 16 }, // ស្តុកបច្ចុប្បន្ន
-        { wch: 18 }, // តម្លៃស្តុកសរុប ($)
-        { wch: 14 }  // ស្ថានភាព
+        { wch: 14 }, // ស្តុកអប្បបរមា
+        { wch: 16 }, // តំបន់
+        { wch: 12 }, // លេខទូ
+        { wch: 18 }, // ចំណាំ
+        { wch: 16 }  // អ្នកបញ្ចូល
       ];
 
       const workbook = XLSX.utils.book_new();
