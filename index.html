@@ -4271,10 +4271,11 @@
                 <input type="checkbox" id="chkUpdateExistingItems" checked class="rounded text-emerald-600 focus:ring-emerald-500">
                 <span>Update បើមានស្រាប់</span>
               </label>
-              <label class="inline-flex items-center space-x-1.5 cursor-pointer text-slate-700 font-semibold text-xs">
-                <input type="checkbox" id="chkAutoSyncGoogleSheet" checked class="rounded text-emerald-600 focus:ring-emerald-500">
-                <span>Sync ទៅ Google Sheet</span>
-              </label>
+              <div class="inline-flex items-center space-x-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl font-bold text-xs shadow-xs">
+                <i class="fa-solid fa-cloud-arrow-up text-emerald-600"></i>
+                <span>Auto Sync ទៅ Google Sheet</span>
+                <input type="checkbox" id="chkAutoSyncGoogleSheet" checked class="hidden">
+              </div>
             </div>
           </div>
 
@@ -12251,12 +12252,10 @@
     // Items Management
     async function syncAllItemsToCloud(silent = false) {
       const u = AppState.currentUser;
-      const isSuper = isStrictSuperAdmin();
+      const isSuper = typeof isStrictSuperAdmin === 'function' ? isStrictSuperAdmin() : false;
       const isAdmin = u && (u.role === 'Admin' || u.role === 'SuperAdmin' || String(u.username || '').toLowerCase() === 'admin' || String(u.username || '').toLowerCase() === 'superadmin' || u.role === 'Manager');
-      if (!isSuper && !isAdmin) {
-        if (!silent) {
-          Swal.fire('ការអនុញ្ញាតមិនគ្រប់គ្រាន់', 'មុខងារនេះអនុញ្ញាតសម្រាប់ Admin និង SuperAdmin', 'warning');
-        }
+      if (!isSuper && !isAdmin && !silent) {
+        Swal.fire('ការអនុញ្ញាតមិនគ្រប់គ្រាន់', 'មុខងារនេះអនុញ្ញាតសម្រាប់ Admin និង SuperAdmin', 'warning');
         return false;
       }
       try {
@@ -18351,18 +18350,36 @@
       if (!parsedExcelItemsCache || parsedExcelItemsCache.length === 0) return;
 
       const shouldUpdate = document.getElementById('chkUpdateExistingItems')?.checked ?? true;
-      const shouldSync = document.getElementById('chkAutoSyncGoogleSheet')?.checked ?? true;
-
       const validItems = parsedExcelItemsCache.filter(i => i.isValid);
       if (validItems.length === 0) {
         Swal.fire('គ្មានទិន្នន័យ', 'មិនមានទំនិញត្រឹមត្រូវសម្រាប់នាំចូលឡើយ', 'warning');
         return;
       }
 
-      const btn = document.getElementById('btnConfirmExcelImport');
-      if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>កំពុងនាំចូល...</span>';
+      // Close modal first and show unified loading state
+      closeExcelImportModal();
+
+      Swal.fire({
+        title: 'កំពុងនាំចូល & Sync ទៅ Google Sheet...',
+        html: `
+          <div class="py-2 text-center font-sans space-y-2">
+            <div class="inline-flex p-3 rounded-2xl bg-emerald-50 text-emerald-600 mb-1">
+              <i class="fa-solid fa-cloud-arrow-up fa-fade text-3xl"></i>
+            </div>
+            <p class="text-sm font-bold text-slate-800">កំពុងរក្សាទុក ${validItems.length} មុខ និង Sync ទៅ Google Sheet...</p>
+            <p class="text-xs text-slate-500">ប្រព័ន្ធកំពុងដំណើរការដោយស្វ័យប្រវត្តិ សូមមេត្តារង់ចាំបន្តិច មិនបាច់ចុចអ្វីទាំងអស់</p>
+          </div>
+        `,
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        didOpen: () => { Swal.showLoading(); }
+      });
+
+      const btnSheet = document.getElementById('btnSyncItemsToSheet');
+      if (btnSheet) {
+        btnSheet.disabled = true;
+        btnSheet.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i><span>កំពុង Auto Sync...</span>';
       }
 
       loadLocalItemsFromStorage();
@@ -18461,35 +18478,84 @@
         broadcastInventoryMutation('ITEM_IMPORT', { count: newCount + updatedCount, items: AppState.items });
       }
 
-      closeExcelImportModal();
-
-      if (btn) {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fa-solid fa-file-import"></i><span>នាំចូលទំនិញ</span>';
+      // Automatically sync to Google Sheet
+      let syncOk = false;
+      let syncMsg = '';
+      try {
+        const syncRes = await apiCall('syncAllItems', {
+          items: AppState.items,
+          user: currentUserName
+        });
+        if (syncRes && syncRes.success) {
+          syncOk = true;
+          syncMsg = syncRes.message || 'បានបញ្ជូនទិន្នន័យទៅ Google Sheets រួចរាល់';
+        } else {
+          syncMsg = syncRes ? (syncRes.message || 'Server error') : 'គ្មានការឆ្លើយតបពី Server';
+        }
+      } catch (err) {
+        console.error('Auto sync error during Excel import:', err);
+        syncMsg = err.message || String(err);
+      } finally {
+        if (btnSheet) {
+          btnSheet.disabled = false;
+          btnSheet.innerHTML = '<i class="fa-solid fa-cloud-arrow-up mr-1"></i><span>Sync ទៅ Google Sheet</span>';
+        }
       }
 
-      // Success Modal
-      Swal.fire({
-        icon: 'success',
-        title: 'នាំចូលទំនិញជោគជ័យ!',
-        html: `
-          <div class="text-left text-xs bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2 mt-2 font-sans">
-            <p class="font-bold text-slate-800 text-sm">លទ្ធផលនៃការនាំចូល Excel៖</p>
-            <div class="space-y-1.5 pt-1 border-t border-slate-200">
-              <p class="text-emerald-700 font-bold flex items-center"><i class="fa-solid fa-circle-plus mr-2 text-emerald-600"></i>ទំនិញថ្មីបន្ថែម៖ <b>${newCount} មុខ</b></p>
-              <p class="text-blue-700 font-bold flex items-center"><i class="fa-solid fa-pen-to-square mr-2 text-blue-600"></i>ទំនិញមានស្រាប់កែប្រែ៖ <b>${updatedCount} មុខ</b></p>
-              ${skippedCount > 0 ? `<p class="text-slate-500 font-medium flex items-center"><i class="fa-solid fa-forward mr-2"></i>រំលងមិនកែប្រែ៖ <b>${skippedCount} មុខ</b></p>` : ''}
+      if (syncOk) {
+        Swal.fire({
+          icon: 'success',
+          title: 'នាំចូល និង Sync ទៅ Google Sheet ជោគជ័យ!',
+          html: `
+            <div class="text-left text-xs bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2 mt-2 font-sans">
+              <div class="flex items-center space-x-2 text-emerald-700 font-bold text-sm">
+                <i class="fa-solid fa-cloud-arrow-up text-base text-emerald-600"></i>
+                <span>ទិន្នន័យបានចូល Google Sheet រួចរាល់ 100%!</span>
+              </div>
+              <div class="space-y-1.5 pt-2 border-t border-slate-200">
+                <p class="text-emerald-700 font-bold flex items-center justify-between">
+                  <span><i class="fa-solid fa-circle-plus mr-2 text-emerald-600"></i>ទំនិញថ្មីបន្ថែម៖</span>
+                  <span class="bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full font-extrabold">${newCount} មុខ</span>
+                </p>
+                <p class="text-blue-700 font-bold flex items-center justify-between">
+                  <span><i class="fa-solid fa-pen-to-square mr-2 text-blue-600"></i>ទំនិញមានស្រាប់កែប្រែ៖</span>
+                  <span class="bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-full font-extrabold">${updatedCount} មុខ</span>
+                </p>
+                ${skippedCount > 0 ? `
+                <p class="text-slate-500 font-medium flex items-center justify-between">
+                  <span><i class="fa-solid fa-forward mr-2 text-slate-400"></i>រំលងមិនកែប្រែ៖</span>
+                  <span class="bg-slate-200 text-slate-700 px-2.5 py-0.5 rounded-full font-bold">${skippedCount} មុខ</span>
+                </p>` : ''}
+                <p class="text-purple-700 font-bold flex items-center justify-between">
+                  <span><i class="fa-solid fa-table-cells mr-2 text-purple-600"></i>ទំនិញសរុបក្នុង Google Sheet៖</span>
+                  <span class="bg-purple-100 text-purple-800 px-2.5 py-0.5 rounded-full font-extrabold">${AppState.items.length} មុខ</span>
+                </p>
+              </div>
+              <p class="text-emerald-600 text-[11px] pt-1.5 border-t border-slate-200 flex items-center">
+                <i class="fa-solid fa-circle-check mr-1.5 text-emerald-500"></i>ប្រព័ន្ធបាន Sync ទៅកាន់ Google Sheet ដោយស្វ័យប្រវត្តិតាមការកំណត់
+              </p>
             </div>
-            <p class="text-slate-600 text-[11px] pt-1 border-t border-slate-200">ទិន្នន័យត្រូវបានបញ្ចូលទៅក្នុងតារាងទំនិញភ្លាមៗ។</p>
-          </div>
-        `,
-        confirmButtonText: 'យល់ព្រម',
-        confirmButtonColor: '#059669'
-      });
-
-      // Auto-Sync to Google Sheets
-      if (shouldSync) {
-        syncAllItemsToCloud(false);
+          `,
+          confirmButtonText: 'យល់ព្រម',
+          confirmButtonColor: '#059669'
+        });
+      } else {
+        if (typeof enqueueOfflineSync === 'function') {
+          enqueueOfflineSync('syncAllItems', { items: AppState.items, user: currentUserName });
+        }
+        Swal.fire({
+          icon: 'warning',
+          title: 'នាំចូលទំនិញក្នុងប្រព័ន្ធបានជោគជ័យ!',
+          html: `
+            <div class="text-left text-xs bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-2 mt-2 font-sans text-slate-700">
+              <p class="font-bold text-amber-800 text-sm">ទំនិញបានរក្សាទុកក្នុងប្រព័ន្ធរួចរាល់ (${newCount + updatedCount} មុខ)</p>
+              <p class="text-xs text-amber-700">ការ Sync ទៅ Google Sheet ជួបបញ្ហាបណ្ដោះអាសន្ន៖ ${syncMsg}</p>
+              <p class="text-[11px] text-slate-600 pt-1 border-t border-amber-200">ប្រព័ន្ធបានបញ្ចូលទៅក្នុងជួររង់ចាំ Offline Sync ដើម្បីបន្ត Sync ទៅ Google Sheet ដោយស្វ័យប្រវត្តិ។</p>
+            </div>
+          `,
+          confirmButtonText: 'យល់ព្រម',
+          confirmButtonColor: '#f59e0b'
+        });
       }
     }
 
