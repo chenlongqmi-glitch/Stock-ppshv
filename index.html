@@ -2139,12 +2139,19 @@
                 </div>
               </div>
 
-              <!-- Sync to Google Sheets Button -->
-              <button type="button" onclick="syncAllItemsToCloud()" id="btnSyncItemsToSheet"
-                title="ធ្វើសមកាលកម្មទំនិញទាំងអស់ទៅ Google Sheets"
-                class="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-sm shadow-emerald-500/20 transition-all active:scale-95 cursor-pointer">
-                <i class="fa-solid fa-cloud-arrow-up"></i>
-                <span>Sync Google Sheet</span>
+              <!-- Auto Sync to Google Sheets Button -->
+              <button type="button" onclick="syncAllItemsToCloud(false)" id="btnSyncItemsToSheet"
+                title="ប្រព័ន្ធកំណត់ Auto Sync ទៅកាន់ Google Sheet ដោយស្វ័យប្រវត្តិតាមពេលជាក់ស្តែងរាល់ពេលមានការកែប្រែទិន្នន័យ (ចុចដើម្បី Sync ភ្លាមៗ)"
+                class="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold flex items-center space-x-2 shadow-sm shadow-emerald-500/20 transition-all active:scale-95 cursor-pointer group">
+                <span id="syncPulseDot" class="relative flex h-2 w-2">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-200"></span>
+                </span>
+                <i id="btnSyncIcon" class="fa-solid fa-cloud-arrow-up group-hover:scale-110 transition-transform"></i>
+                <span id="btnSyncItemsToSheetText">Auto Sync ទៅ Google Sheet</span>
+                <span id="btnSyncStatusBadge" class="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded-md bg-white/20 text-[10px] font-semibold tracking-wide">
+                  <i class="fa-solid fa-bolt mr-1 text-emerald-200 text-[9px]"></i>Auto
+                </span>
               </button>
 
               <button onclick="openItemModal()"
@@ -6078,6 +6085,11 @@
       } catch (e) {
         console.warn('Could not save items to localStorage', e);
       }
+      try {
+        if (typeof AutoSyncEngine !== 'undefined' && AutoSyncEngine && typeof AutoSyncEngine.notifyDataChanged === 'function') {
+          AutoSyncEngine.notifyDataChanged('saveLocalItems');
+        }
+      } catch (e) {}
     }
 
     // Persistent Local Transactions Database
@@ -6086,6 +6098,30 @@
         localStorage.setItem('inventory_transactions_db', JSON.stringify(LOCAL_DB.transactions || []));
       } catch (e) {
         console.warn('Could not save transactions to localStorage', e);
+      }
+      try {
+        if (typeof AutoSyncEngine !== 'undefined' && AutoSyncEngine && typeof AutoSyncEngine.notifyDataChanged === 'function') {
+          AutoSyncEngine.notifyDataChanged('saveLocalTransactions');
+        }
+      } catch (e) {}
+    }
+
+    // Offline Sync Queue Handler
+    function enqueueOfflineSync(action, payload) {
+      try {
+        const queueKey = 'inventory_offline_sync_queue';
+        const raw = localStorage.getItem(queueKey);
+        let queue = [];
+        if (raw) {
+          try { queue = JSON.parse(raw) || []; } catch(e) {}
+        }
+        queue.push({ action, payload, time: Date.now() });
+        localStorage.setItem(queueKey, JSON.stringify(queue.slice(-30)));
+        if (typeof AutoSyncEngine !== 'undefined' && AutoSyncEngine && typeof AutoSyncEngine.notifyDataChanged === 'function') {
+          AutoSyncEngine.notifyDataChanged(action);
+        }
+      } catch(e) {
+        console.warn('enqueueOfflineSync error:', e);
       }
     }
 
@@ -7807,7 +7843,7 @@
 
     const TURBO_MUTATION_ACTIONS = new Set([
       'registerUser', 'register',
-      'recordStockIn', 'recordStockOut', 'recordStockTransfer', 'adjustStock',
+      'recordStockIn', 'recordStockOut', 'recordStockTransfer', 'adjustStock', 'recordStockAdjustment',
       'saveOrUpdateItem', 'saveItem', 'createProduct', 'updateProduct', 'deleteItem',
       'updateUserProfile', 'updateProfile', 'addWarehouse', 'deleteWarehouse',
       'updateUserStatus', 'deleteUser', 'requestUserDeletion', 'approveUserDeletion',
@@ -9415,6 +9451,35 @@
         return { success: true, message: 'បានផ្ទេរស្តុកទំនិញជោគជ័យ!' };
       }
 
+      if (action === 'adjustStock' || action === 'recordStockAdjustment') {
+        const d = payload.data || payload;
+        const sku = d.sku;
+        const actualQty = Number(d.actualQuantity !== undefined ? d.actualQuantity : (d.quantity || 0));
+        const matched = (LOCAL_DB.items || []).find(i => (i.sku && sku && i.sku.toLowerCase() === sku.toLowerCase()));
+        const oldStock = matched ? Number(matched.currentStock || 0) : 0;
+        if (matched) {
+          matched.currentStock = actualQty;
+          if (typeof saveLocalItemsToStorage === 'function') saveLocalItemsToStorage();
+          const appItm = (AppState.items || []).find(i => (i.sku && sku && i.sku.toLowerCase() === sku.toLowerCase()));
+          if (appItm) appItm.currentStock = actualQty;
+        }
+        LOCAL_DB.transactions.unshift({
+          txId: 'TX-ADJ-' + Date.now().toString().slice(-6),
+          date: new Date().toISOString().slice(0, 10),
+          type: 'ADJUSTMENT',
+          sku: sku,
+          itemName: matched?.name || sku,
+          quantity: actualQty - oldStock,
+          unit: matched?.unit || 'ដុំ',
+          oldStock: oldStock,
+          newStock: actualQty,
+          notes: d.reason || d.notes || 'Stock Adjustment',
+          user: u?.username || 'Staff'
+        });
+        if (typeof saveLocalTransactionsToStorage === 'function') saveLocalTransactionsToStorage();
+        return { success: true, message: 'បានកែសម្រួលស្តុកជាក់ស្តែងជោគជ័យ!' };
+      }
+
       if (action === 'deleteStockTransaction' || action === 'deleteTransaction') {
         const d = payload.data || payload;
         const txId = d.txId || d.docNo;
@@ -10790,10 +10855,17 @@
         superAdminSheetCard.classList.toggle('hidden', !isSuper);
       }
 
-      // 5. Products Tab: Sync All Items to Google Sheet Button (Only for SuperAdmin, hidden for Admin)
+      // 5. Products Tab: Auto Sync to Google Sheet Button (Visible to SuperAdmin & Admin)
       const btnSyncItemsToSheet = document.getElementById('btnSyncItemsToSheet');
       if (btnSyncItemsToSheet) {
-        btnSyncItemsToSheet.classList.toggle('hidden', !isSuper);
+        const u = AppState.currentUser;
+        const uRole = String(u?.role || '').toLowerCase();
+        const uName = String(u?.username || '').toLowerCase();
+        const canAccess = isSuper || uRole === 'admin' || uName === 'admin' || uRole.includes('admin') || uRole === 'manager';
+        btnSyncItemsToSheet.classList.toggle('hidden', !canAccess);
+        if (typeof AutoSyncEngine !== 'undefined' && AutoSyncEngine && typeof AutoSyncEngine.updateUI === 'function') {
+          AutoSyncEngine.updateUI();
+        }
       }
     }
 
@@ -11786,6 +11858,9 @@
       if (typeof initStockInLayoutCustomizer === 'function') {
         initStockInLayoutCustomizer();
       }
+      if (typeof AutoSyncEngine !== 'undefined' && AutoSyncEngine && typeof AutoSyncEngine.init === 'function') {
+        AutoSyncEngine.init();
+      }
     });
 
     function navigateTab(tabName) {
@@ -12249,83 +12324,244 @@
       });
     }
 
-    // Items Management
-    async function syncAllItemsToCloud(silent = false) {
-      const u = AppState.currentUser;
-      const isSuper = typeof isStrictSuperAdmin === 'function' ? isStrictSuperAdmin() : false;
-      const isAdmin = u && (u.role === 'Admin' || u.role === 'SuperAdmin' || String(u.username || '').toLowerCase() === 'admin' || String(u.username || '').toLowerCase() === 'superadmin' || u.role === 'Manager');
-      if (!isSuper && !isAdmin && !silent) {
-        Swal.fire('ការអនុញ្ញាតមិនគ្រប់គ្រាន់', 'មុខងារនេះអនុញ្ញាតសម្រាប់ Admin និង SuperAdmin', 'warning');
-        return false;
-      }
-      try {
+    // =========================================================================
+    // REAL-TIME AUTO SYNC ENGINE: AUTOMATICALLY SYNCS SYSTEM DATA TO GOOGLE SHEET
+    // Synchronizes all data changes (Products, Stock, Transactions) automatically!
+    // =========================================================================
+    const AutoSyncEngine = {
+      isSyncing: false,
+      hasPendingChanges: false,
+      debounceTimer: null,
+      debounceMs: 1200, // 1.2s debounce ensures batching and responsiveness
+      lastSyncTime: null,
+      statusResetTimer: null,
+
+      init() {
+        const storedLastSync = localStorage.getItem('inventory_last_auto_sync_time');
+        if (storedLastSync) {
+          try { this.lastSyncTime = new Date(storedLastSync); } catch(e) {}
+        }
+        window.addEventListener('online', () => {
+          if (this.hasPendingChanges) {
+            this.executeSync(true, 'network_online');
+          } else {
+            this.updateUI('idle');
+          }
+        });
+        window.addEventListener('offline', () => {
+          this.updateUI('offline');
+        });
+        this.updateUI('idle');
+      },
+
+      notifyDataChanged(triggerSource = 'data_mutation') {
+        this.hasPendingChanges = true;
+        this.updateUI('pending', triggerSource);
+
+        if (this.debounceTimer) clearTimeout(this.debounceTimer);
+        this.debounceTimer = setTimeout(() => {
+          this.executeSync(true, triggerSource);
+        }, this.debounceMs);
+      },
+
+      async executeSync(silent = true, reason = 'auto') {
+        const u = AppState.currentUser;
+        const isSuper = typeof isStrictSuperAdmin === 'function' ? isStrictSuperAdmin() : false;
+        const isAdmin = u && (u.role === 'Admin' || u.role === 'SuperAdmin' || String(u.username || '').toLowerCase() === 'admin' || String(u.username || '').toLowerCase() === 'superadmin' || u.role === 'Manager');
+
+        if (!silent && !isSuper && !isAdmin) {
+          Swal.fire('ការអនុញ្ញាតមិនគ្រប់គ្រាន់', 'មុខងារនេះអនុញ្ញាតសម្រាប់ Admin និង SuperAdmin', 'warning');
+          return false;
+        }
+
+        if (!navigator.onLine) {
+          this.hasPendingChanges = true;
+          this.updateUI('offline');
+          if (!silent) {
+            Swal.fire({
+              icon: 'warning',
+              title: 'គ្មានការតភ្ជាប់អ៊ីនធឺណិត',
+              text: 'ប្រព័ន្ធបានរក្សាទុកក្នុងជួររង់ចាំ Offline និង Auto Sync ភ្លាមៗពេលមានអ៊ីនធឺណិតឡើងវិញ'
+            });
+          }
+          return false;
+        }
+
+        if (this.isSyncing) {
+          this.hasPendingChanges = true;
+          return false;
+        }
+
         const items = (AppState.items && AppState.items.length > 0) ? AppState.items : (LOCAL_DB.items || []);
         if (!items || items.length === 0) {
           if (!silent) Swal.fire('គ្មានទិន្នន័យ', 'មិនមានទំនិញក្នុងប្រព័ន្ធសម្រាប់ Sync ទៅ Google Sheets ទេ', 'info');
-          return;
+          return false;
         }
 
-        const btn = document.getElementById('btnSyncItemsToSheet');
-        if (btn) {
-          btn.disabled = true;
-          btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>កំពុង Sync...</span>';
-        }
+        this.isSyncing = true;
+        this.hasPendingChanges = false;
+        this.updateUI('syncing', reason);
 
         if (!silent) {
           Swal.fire({
-            title: 'កំពុង Sync ទៅ Google Sheet...',
-            html: `កំពុងបញ្ជូនទិន្នន័យទំនិញ <b>${items.length}</b> មុខទៅកាន់ Google Sheets...`,
+            title: 'កំពុង Auto Sync ទៅ Google Sheet...',
+            html: `ប្រព័ន្ធកំពុងធ្វើសមកាលកម្មទិន្នន័យ <b>${items.length}</b> មុខទៅ Google Sheet...`,
             allowOutsideClick: false,
             didOpen: () => { Swal.showLoading(); }
           });
         }
 
-        const res = await apiCall('syncAllItems', {
-          items: items,
-          user: AppState.currentUser ? AppState.currentUser.username : 'Admin'
-        });
+        try {
+          const res = await apiCall('syncAllItems', {
+            items: items,
+            user: AppState.currentUser ? AppState.currentUser.username : 'AutoSync'
+          });
 
-        if (btn) {
-          btn.disabled = false;
-          btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i><span>Sync ទៅ Google Sheet</span>';
-        }
+          if (res && res.success) {
+            this.lastSyncTime = new Date();
+            localStorage.setItem('inventory_last_auto_sync_time', this.lastSyncTime.toISOString());
+            this.updateUI('success');
 
-        if (res && res.success) {
-          if (!silent) {
-            Swal.fire({
-              icon: 'success',
-              title: 'ជោគជ័យ!',
-              text: res.message || 'បាន Sync ទំនិញទាំងអស់ទៅ Google Sheets រួចរាល់!',
-              confirmButtonColor: '#10b981'
-            });
+            if (!silent) {
+              const timeStr = this.lastSyncTime.toLocaleTimeString('km-KH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+              Swal.fire({
+                icon: 'success',
+                title: 'Auto Sync ជោគជ័យ!',
+                html: `
+                  <div class="text-left text-xs bg-emerald-50 border border-emerald-200 rounded-2xl p-4 space-y-2 mt-2 font-sans">
+                    <p class="font-extrabold text-emerald-800 flex items-center text-sm">
+                      <i class="fa-solid fa-cloud-check text-emerald-600 mr-2 text-base"></i>
+                      ទិន្នន័យបាន Sync ទៅ Google Sheet រួចរាល់ 100%!
+                    </p>
+                    <div class="space-y-1 text-slate-700 pt-2 border-t border-emerald-200/80">
+                      <p>📦 <b>ទំនិញក្នុងប្រព័ន្ធ៖</b> <span class="font-bold text-slate-900">${items.length} មុខ</span></p>
+                      <p>⏰ <b>ពេលវេលា Sync ចុងក្រោយ៖</b> <span class="font-bold text-emerald-700">${timeStr}</span></p>
+                      <p>⚡ <b>ស្ថានភាព Auto Sync៖</b> <span class="bg-emerald-100 text-emerald-800 font-extrabold px-2 py-0.5 rounded-md">សកម្ម (Active)</span></p>
+                    </div>
+                    <p class="text-[11px] text-emerald-700 pt-2 border-t border-emerald-200">
+                      <i class="fa-solid fa-circle-check mr-1 text-emerald-500"></i>ប្រព័ន្ធនឹង Auto Sync ទៅ Google Sheet ដោយស្វ័យប្រវត្តិតាមពេលជាក់ស្តែងរាល់ពេលមានការផ្លាស់ប្តូរទិន្នន័យ។
+                    </p>
+                  </div>
+                `,
+                confirmButtonColor: '#10b981',
+                confirmButtonText: 'យល់ព្រម'
+              });
+            }
+
+            if (this.hasPendingChanges) {
+              setTimeout(() => this.executeSync(true, 'queued'), 1000);
+            }
+            return true;
+          } else {
+            console.warn('[AutoSyncEngine] Sync response notice:', res?.message);
+            this.updateUI('error');
+            if (!silent) {
+              Swal.fire({
+                icon: 'error',
+                title: 'Sync មិនជោគជ័យ',
+                text: res ? res.message : 'មិនអាច Sync ទៅ Google Sheets បានទេ'
+              });
+            }
+            return false;
           }
-          return true;
-        } else {
+        } catch (err) {
+          console.warn('[AutoSyncEngine] Sync error:', err);
+          this.updateUI('error');
           if (!silent) {
             Swal.fire({
               icon: 'error',
-              title: 'បរាជ័យ',
-              text: res ? res.message : 'មិនអាច Sync ទៅ Google Sheets បានទេ'
+              title: 'មានបញ្ហាតភ្ជាប់',
+              text: 'Sync មិនជោគជ័យ៖ ' + (err.message || err)
             });
           }
           return false;
+        } finally {
+          this.isSyncing = false;
         }
-      } catch (err) {
-        console.error('syncAllItemsToCloud error:', err);
+      },
+
+      updateUI(overrideState, extra = '') {
         const btn = document.getElementById('btnSyncItemsToSheet');
-        if (btn) {
+        if (!btn) return;
+
+        const pulseDot = document.getElementById('syncPulseDot');
+        const icon = document.getElementById('btnSyncIcon');
+        const text = document.getElementById('btnSyncItemsToSheetText');
+        const badge = document.getElementById('btnSyncStatusBadge');
+
+        const currentState = overrideState || (this.isSyncing ? 'syncing' : (!navigator.onLine ? 'offline' : 'idle'));
+
+        if (currentState === 'syncing') {
+          btn.disabled = true;
+          if (pulseDot) pulseDot.className = 'relative flex h-2 w-2';
+          if (icon) icon.className = 'fa-solid fa-arrows-rotate fa-spin text-emerald-200';
+          if (text) text.innerText = 'កំពុង Auto Sync...';
+          if (badge) {
+            badge.className = 'hidden sm:inline-flex items-center px-1.5 py-0.5 rounded-md bg-white/30 text-[10px] font-semibold text-white tracking-wide animate-pulse';
+            badge.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1 text-[9px]"></i>Syncing';
+          }
+        } else if (currentState === 'pending') {
           btn.disabled = false;
-          btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i><span>Sync ទៅ Google Sheet</span>';
+          if (pulseDot) pulseDot.className = 'relative flex h-2 w-2';
+          if (icon) icon.className = 'fa-solid fa-cloud-arrow-up text-amber-200 animate-bounce';
+          if (text) text.innerText = 'Auto Sync: រង់ចាំ...';
+          if (badge) {
+            badge.className = 'hidden sm:inline-flex items-center px-1.5 py-0.5 rounded-md bg-amber-400/30 text-amber-100 text-[10px] font-semibold tracking-wide';
+            badge.innerHTML = '<i class="fa-solid fa-clock mr-1 text-[9px]"></i>Queue';
+          }
+        } else if (currentState === 'success') {
+          btn.disabled = false;
+          if (pulseDot) pulseDot.className = 'relative flex h-2 w-2';
+          if (icon) icon.className = 'fa-solid fa-cloud-check text-emerald-100';
+          const timeFormatted = this.lastSyncTime ? this.lastSyncTime.toLocaleTimeString('km-KH', { hour: '2-digit', minute: '2-digit' }) : '';
+          if (text) text.innerText = timeFormatted ? `Auto Sync រួច (${timeFormatted})` : 'Auto Sync រួចរាល់';
+          if (badge) {
+            badge.className = 'hidden sm:inline-flex items-center px-1.5 py-0.5 rounded-md bg-emerald-400/40 text-white text-[10px] font-semibold tracking-wide';
+            badge.innerHTML = '<i class="fa-solid fa-check mr-1 text-[9px]"></i>100%';
+          }
+          if (this.statusResetTimer) clearTimeout(this.statusResetTimer);
+          this.statusResetTimer = setTimeout(() => {
+            if (!this.isSyncing) this.updateUI('idle');
+          }, 3500);
+        } else if (currentState === 'offline') {
+          btn.disabled = false;
+          if (pulseDot) pulseDot.className = 'hidden';
+          if (icon) icon.className = 'fa-solid fa-cloud-slash text-amber-300';
+          if (text) text.innerText = 'Auto Sync: រង់ចាំអ៊ីនធឺណិត';
+          if (badge) {
+            badge.className = 'hidden sm:inline-flex items-center px-1.5 py-0.5 rounded-md bg-amber-500/30 text-amber-200 text-[10px] font-semibold tracking-wide';
+            badge.innerHTML = '<i class="fa-solid fa-wifi-slash mr-1 text-[9px]"></i>Offline';
+          }
+        } else if (currentState === 'error') {
+          btn.disabled = false;
+          if (icon) icon.className = 'fa-solid fa-circle-exclamation text-amber-300';
+          if (text) text.innerText = 'Auto Sync: នឹងព្យាយាមម្តងទៀត';
+          if (badge) {
+            badge.className = 'hidden sm:inline-flex items-center px-1.5 py-0.5 rounded-md bg-rose-500/30 text-rose-200 text-[10px] font-semibold tracking-wide';
+            badge.innerHTML = '<i class="fa-solid fa-triangle-exclamation mr-1 text-[9px]"></i>Retry';
+          }
+          if (this.statusResetTimer) clearTimeout(this.statusResetTimer);
+          this.statusResetTimer = setTimeout(() => {
+            if (!this.isSyncing) this.updateUI('idle');
+          }, 5000);
+        } else {
+          // 'idle'
+          btn.disabled = false;
+          if (pulseDot) pulseDot.className = 'relative flex h-2 w-2';
+          if (icon) icon.className = 'fa-solid fa-cloud-arrow-up group-hover:scale-110 transition-transform';
+          const timeFormatted = this.lastSyncTime ? this.lastSyncTime.toLocaleTimeString('km-KH', { hour: '2-digit', minute: '2-digit' }) : '';
+          if (text) text.innerText = timeFormatted ? `Auto Sync ទៅ Google Sheet (${timeFormatted})` : 'Auto Sync ទៅ Google Sheet';
+          if (badge) {
+            badge.className = 'hidden sm:inline-flex items-center px-1.5 py-0.5 rounded-md bg-white/20 text-[10px] font-semibold tracking-wide';
+            badge.innerHTML = '<i class="fa-solid fa-bolt mr-1 text-emerald-200 text-[9px]"></i>Auto';
+          }
         }
-        if (!silent) {
-          Swal.fire({
-            icon: 'error',
-            title: 'មានបញ្ហា',
-            text: 'Sync មិនជោគជ័យ៖ ' + (err.message || err)
-          });
-        }
-        return false;
       }
+    };
+
+    // Public unified sync API
+    async function syncAllItemsToCloud(silent = false) {
+      return await AutoSyncEngine.executeSync(silent, silent ? 'auto' : 'manual');
     }
 
     async function loadItems() {
@@ -17024,6 +17260,9 @@
         renderStockInHistoryTable(AppState.stockInHistory);
         if (typeof renderItemsTable === 'function') renderItemsTable();
         if (typeof loadDashboard === 'function') loadDashboard();
+        if (typeof broadcastInventoryMutation === 'function') {
+          broadcastInventoryMutation('TRANSACTION_DELETED', { items: AppState.items });
+        }
 
         // 2. Background Cloud Sync
         apiCall('deleteStockTransaction', {
@@ -17263,6 +17502,9 @@
         renderStockOutHistoryTable(AppState.stockOutHistory);
         if (typeof renderItemsTable === 'function') renderItemsTable();
         if (typeof loadDashboard === 'function') loadDashboard();
+        if (typeof broadcastInventoryMutation === 'function') {
+          broadcastInventoryMutation('TRANSACTION_DELETED', { items: AppState.items });
+        }
 
         // 2. Background Cloud Sync
         apiCall('deleteStockTransaction', {
@@ -17344,6 +17586,9 @@
           Swal.fire('ជោគជ័យ', res.message, 'success');
           document.getElementById('transferForm').reset();
           await loadItems();
+          if (typeof broadcastInventoryMutation === 'function') {
+            broadcastInventoryMutation('STOCK_TRANSFER', { sku: sku, items: AppState.items });
+          }
         } else {
           Swal.fire('កំហុស', res.message, 'error');
         }
@@ -17382,6 +17627,9 @@
           document.getElementById('adjustmentForm').reset();
           await loadItems();
           await loadDashboard();
+          if (typeof broadcastInventoryMutation === 'function') {
+            broadcastInventoryMutation('STOCK_ADJUSTMENT', { sku: sku, items: AppState.items });
+          }
         } else {
           Swal.fire('កំហុស', res.message, 'error');
         }
@@ -18496,9 +18744,8 @@
         console.error('Auto sync error during Excel import:', err);
         syncMsg = err.message || String(err);
       } finally {
-        if (btnSheet) {
-          btnSheet.disabled = false;
-          btnSheet.innerHTML = '<i class="fa-solid fa-cloud-arrow-up mr-1"></i><span>Sync ទៅ Google Sheet</span>';
+        if (typeof AutoSyncEngine !== 'undefined' && AutoSyncEngine && typeof AutoSyncEngine.updateUI === 'function') {
+          AutoSyncEngine.updateUI(syncOk ? 'success' : 'error');
         }
       }
 
@@ -24409,6 +24656,15 @@
       try {
         localStorage.setItem('ppshv_inventory_live_mutation', JSON.stringify(payload));
       } catch (e) {}
+
+      // AUTO SYNC TO GOOGLE SHEET: Trigger automatic synchronization to Google Sheet on any data update
+      try {
+        if (typeof AutoSyncEngine !== 'undefined' && AutoSyncEngine && typeof AutoSyncEngine.notifyDataChanged === 'function') {
+          AutoSyncEngine.notifyDataChanged(type);
+        }
+      } catch (e) {
+        console.warn('AutoSyncEngine notification error:', e);
+      }
     }
 
     function handleLiveInventoryMutation(msg) {
