@@ -2144,7 +2144,6 @@
                 title="ប្រព័ន្ធកំណត់ Auto Sync ទៅកាន់ Google Sheet ដោយស្វ័យប្រវត្តិតាមពេលជាក់ស្តែងរាល់ពេលមានការកែប្រែទិន្នន័យ (ចុចដើម្បី Sync ភ្លាមៗ)"
                 class="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold flex items-center space-x-2 shadow-sm shadow-emerald-500/20 transition-all active:scale-95 cursor-pointer group">
                 <span id="syncPulseDot" class="relative flex h-2 w-2">
-                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
                   <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-200"></span>
                 </span>
                 <i id="btnSyncIcon" class="fa-solid fa-cloud-arrow-up group-hover:scale-110 transition-transform"></i>
@@ -6085,11 +6084,6 @@
       } catch (e) {
         console.warn('Could not save items to localStorage', e);
       }
-      try {
-        if (typeof AutoSyncEngine !== 'undefined' && AutoSyncEngine && typeof AutoSyncEngine.notifyDataChanged === 'function') {
-          AutoSyncEngine.notifyDataChanged('saveLocalItems');
-        }
-      } catch (e) {}
     }
 
     // Persistent Local Transactions Database
@@ -6099,11 +6093,6 @@
       } catch (e) {
         console.warn('Could not save transactions to localStorage', e);
       }
-      try {
-        if (typeof AutoSyncEngine !== 'undefined' && AutoSyncEngine && typeof AutoSyncEngine.notifyDataChanged === 'function') {
-          AutoSyncEngine.notifyDataChanged('saveLocalTransactions');
-        }
-      } catch (e) {}
     }
 
     // Offline Sync Queue Handler
@@ -6117,9 +6106,6 @@
         }
         queue.push({ action, payload, time: Date.now() });
         localStorage.setItem(queueKey, JSON.stringify(queue.slice(-30)));
-        if (typeof AutoSyncEngine !== 'undefined' && AutoSyncEngine && typeof AutoSyncEngine.notifyDataChanged === 'function') {
-          AutoSyncEngine.notifyDataChanged(action);
-        }
       } catch(e) {
         console.warn('enqueueOfflineSync error:', e);
       }
@@ -11676,7 +11662,8 @@
             LOCAL_DB.items = [...mergedList];
             saveLocalItemsToStorage();
 
-            if (remoteItems.length === 0 && mergedList.length > 0) {
+            if (remoteItems.length === 0 && mergedList.length > 0 && !sessionStorage.getItem('ppshv_sheet_initial_seeded')) {
+              sessionStorage.setItem('ppshv_sheet_initial_seeded', '1');
               syncAllItemsToCloud(true);
             }
 
@@ -12336,9 +12323,10 @@
       isSyncing: false,
       hasPendingChanges: false,
       debounceTimer: null,
-      debounceMs: 1200, // 1.2s debounce ensures batching and responsiveness
+      debounceMs: 2500, // 2.5s debounce ensures multiple edits batch cleanly
       lastSyncTime: null,
       statusResetTimer: null,
+      syncStartTime: 0,
 
       init() {
         const storedLastSync = localStorage.getItem('inventory_last_auto_sync_time');
@@ -12357,12 +12345,15 @@
         });
         this.updateUI('idle');
 
-        // Automatically clean up Barcode column from Google Sheet
+        // Automatically clean up Barcode column from Google Sheet once on startup
         setTimeout(() => {
           if (navigator.onLine && (AppState.gasApiUrl || localStorage.getItem('inventory_gas_api_url'))) {
-            apiCall('removeBarcodeColumn').catch(() => {});
+            if (!sessionStorage.getItem('ppshv_barcode_col_cleaned')) {
+              sessionStorage.setItem('ppshv_barcode_col_cleaned', '1');
+              apiCall('removeBarcodeColumn').catch(() => {});
+            }
           }
-        }, 1200);
+        }, 5000);
       },
 
       notifyDataChanged(triggerSource = 'data_mutation') {
@@ -12380,8 +12371,19 @@
         const isSuper = typeof isStrictSuperAdmin === 'function' ? isStrictSuperAdmin() : false;
         const isAdmin = u && (u.role === 'Admin' || u.role === 'SuperAdmin' || String(u.username || '').toLowerCase() === 'admin' || String(u.username || '').toLowerCase() === 'superadmin' || u.role === 'Manager');
 
-        if (!silent && !isSuper && !isAdmin) {
-          Swal.fire('ការអនុញ្ញាតមិនគ្រប់គ្រាន់', 'មុខងារនេះអនុញ្ញាតសម្រាប់ Admin និង SuperAdmin', 'warning');
+        // Permission check
+        if (!isSuper && !isAdmin) {
+          if (!silent) {
+            Swal.fire('ការអនុញ្ញាតមិនគ្រប់គ្រាន់', 'មុខងារនេះអនុញ្ញាតសម្រាប់ Admin និង SuperAdmin', 'warning');
+          }
+          this.hasPendingChanges = false;
+          this.updateUI('idle');
+          return false;
+        }
+
+        // CRITICAL: Silent automatic sync ONLY runs if real data was modified!
+        if (silent && !this.hasPendingChanges) {
+          this.updateUI('idle');
           return false;
         }
 
@@ -12398,19 +12400,27 @@
           return false;
         }
 
+        // Watchdog: If previous sync was running for > 35s, reset lock
         if (this.isSyncing) {
-          this.hasPendingChanges = true;
-          return false;
+          if (Date.now() - (this.syncStartTime || 0) > 35000) {
+            this.isSyncing = false;
+          } else {
+            this.hasPendingChanges = true;
+            return false;
+          }
         }
 
         const items = (AppState.items && AppState.items.length > 0) ? AppState.items : (LOCAL_DB.items || []);
         if (!items || items.length === 0) {
           if (!silent) Swal.fire('គ្មានទិន្នន័យ', 'មិនមានទំនិញក្នុងប្រព័ន្ធសម្រាប់ Sync ទៅ Google Sheets ទេ', 'info');
+          this.hasPendingChanges = false;
+          this.updateUI('idle');
           return false;
         }
 
         this.isSyncing = true;
-        this.hasPendingChanges = false;
+        this.syncStartTime = Date.now();
+        this.hasPendingChanges = false; // Reset pending changes to prevent loop
         this.updateUI('syncing', reason);
 
         if (!silent) {
@@ -12459,8 +12469,10 @@
               });
             }
 
+            // Only trigger another sync IF new changes occurred while syncing
             if (this.hasPendingChanges) {
-              setTimeout(() => this.executeSync(true, 'queued'), 1000);
+              if (this.debounceTimer) clearTimeout(this.debounceTimer);
+              this.debounceTimer = setTimeout(() => this.executeSync(true, 'queued'), 2500);
             }
             return true;
           } else {
@@ -12500,11 +12512,14 @@
         const text = document.getElementById('btnSyncItemsToSheetText');
         const badge = document.getElementById('btnSyncStatusBadge');
 
-        const currentState = overrideState || (this.isSyncing ? 'syncing' : (!navigator.onLine ? 'offline' : 'idle'));
+        const currentState = overrideState || (this.isSyncing ? 'syncing' : (this.hasPendingChanges ? 'pending' : (!navigator.onLine ? 'offline' : 'idle')));
 
         if (currentState === 'syncing') {
           btn.disabled = true;
-          if (pulseDot) pulseDot.className = 'relative flex h-2 w-2';
+          if (pulseDot) {
+            pulseDot.className = 'relative flex h-2 w-2';
+            pulseDot.innerHTML = '<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-200"></span>';
+          }
           if (icon) icon.className = 'fa-solid fa-arrows-rotate fa-spin text-emerald-200';
           if (text) text.innerText = 'កំពុង Auto Sync...';
           if (badge) {
@@ -12513,7 +12528,10 @@
           }
         } else if (currentState === 'pending') {
           btn.disabled = false;
-          if (pulseDot) pulseDot.className = 'relative flex h-2 w-2';
+          if (pulseDot) {
+            pulseDot.className = 'relative flex h-2 w-2';
+            pulseDot.innerHTML = '<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-300 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-amber-200"></span>';
+          }
           if (icon) icon.className = 'fa-solid fa-cloud-arrow-up text-amber-200 animate-bounce';
           if (text) text.innerText = 'Auto Sync: រង់ចាំ...';
           if (badge) {
@@ -12522,7 +12540,10 @@
           }
         } else if (currentState === 'success') {
           btn.disabled = false;
-          if (pulseDot) pulseDot.className = 'relative flex h-2 w-2';
+          if (pulseDot) {
+            pulseDot.className = 'relative flex h-2 w-2';
+            pulseDot.innerHTML = '<span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-300"></span>';
+          }
           if (icon) icon.className = 'fa-solid fa-cloud-check text-emerald-100';
           const timeFormatted = this.lastSyncTime ? this.lastSyncTime.toLocaleTimeString('km-KH', { hour: '2-digit', minute: '2-digit' }) : '';
           if (text) text.innerText = timeFormatted ? `Auto Sync រួច (${timeFormatted})` : 'Auto Sync រួចរាល់';
@@ -12532,7 +12553,7 @@
           }
           if (this.statusResetTimer) clearTimeout(this.statusResetTimer);
           this.statusResetTimer = setTimeout(() => {
-            if (!this.isSyncing) this.updateUI('idle');
+            if (!this.isSyncing && !this.hasPendingChanges) this.updateUI('idle');
           }, 3500);
         } else if (currentState === 'offline') {
           btn.disabled = false;
@@ -12553,12 +12574,15 @@
           }
           if (this.statusResetTimer) clearTimeout(this.statusResetTimer);
           this.statusResetTimer = setTimeout(() => {
-            if (!this.isSyncing) this.updateUI('idle');
+            if (!this.isSyncing && !this.hasPendingChanges) this.updateUI('idle');
           }, 5000);
         } else {
           // 'idle'
           btn.disabled = false;
-          if (pulseDot) pulseDot.className = 'relative flex h-2 w-2';
+          if (pulseDot) {
+            pulseDot.className = 'relative flex h-2 w-2';
+            pulseDot.innerHTML = '<span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-200"></span>';
+          }
           if (icon) icon.className = 'fa-solid fa-cloud-arrow-up group-hover:scale-110 transition-transform';
           const timeFormatted = this.lastSyncTime ? this.lastSyncTime.toLocaleTimeString('km-KH', { hour: '2-digit', minute: '2-digit' }) : '';
           if (text) text.innerText = timeFormatted ? `Auto Sync ទៅ Google Sheet (${timeFormatted})` : 'Auto Sync ទៅ Google Sheet';
@@ -12627,8 +12651,9 @@
           LOCAL_DB.items = [...mergedList];
           saveLocalItemsToStorage();
 
-          if (remoteItems.length === 0 && mergedList.length > 0) {
-            // Google Sheet is empty! Automatically seed/sync all items to Google Sheet in background
+          if (remoteItems.length === 0 && mergedList.length > 0 && !sessionStorage.getItem('ppshv_sheet_initial_seeded')) {
+            // Google Sheet is empty! Automatically seed/sync all items to Google Sheet in background (once)
+            sessionStorage.setItem('ppshv_sheet_initial_seeded', '1');
             syncAllItemsToCloud(true);
           }
 
@@ -24677,10 +24702,22 @@
         localStorage.setItem('ppshv_inventory_live_mutation', JSON.stringify(payload));
       } catch (e) {}
 
-      // AUTO SYNC TO GOOGLE SHEET: Trigger automatic synchronization to Google Sheet on any data update
+      // AUTO SYNC TO GOOGLE SHEET: Trigger automatic synchronization to Google Sheet on real inventory data updates only
       try {
-        if (typeof AutoSyncEngine !== 'undefined' && AutoSyncEngine && typeof AutoSyncEngine.notifyDataChanged === 'function') {
-          AutoSyncEngine.notifyDataChanged(type);
+        const inventoryMutationTypes = [
+          'ITEM_SAVED',
+          'ITEM_DELETED',
+          'STOCK_IN',
+          'STOCK_OUT',
+          'STOCK_TRANSFER',
+          'STOCK_ADJUSTMENT',
+          'ITEM_IMPORT',
+          'TRANSACTION_DELETED'
+        ];
+        if (inventoryMutationTypes.includes(type)) {
+          if (typeof AutoSyncEngine !== 'undefined' && AutoSyncEngine && typeof AutoSyncEngine.notifyDataChanged === 'function') {
+            AutoSyncEngine.notifyDataChanged(type);
+          }
         }
       } catch (e) {
         console.warn('AutoSyncEngine notification error:', e);
@@ -24846,11 +24883,11 @@
         applyLocalRoleSyncIfChanged();
       }, 1200);
 
-      // Turbo Auto Sync data in background real-time (Every 1.5s - ល្បឿន x300 សម្រាប់អ្នកប្រើប្រាស់ទាំងអស់)
+      // Background data sync (Every 12s - ពិនិត្យបច្ចុប្បន្នភាពពី Cloud ដោយសុវត្ថិភាព)
       autoFetchInterval = setInterval(() => {
         if (!AppState.currentUser) return;
         silentAutoRefresh();
-      }, 1500);
+      }, 12000);
 
       // Auto-revalidate instantly when user returns to tab or focuses window
       document.addEventListener('visibilitychange', () => {
