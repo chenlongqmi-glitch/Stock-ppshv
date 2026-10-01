@@ -2048,45 +2048,41 @@
         <!-- TAB 2: ITEM / PRODUCT MANAGEMENT -->
         <!-- ========================================== -->
         <div id="tabItems" class="space-y-4 hidden">
-          <!-- HEADER BANNER: បញ្ជីទំនិញទាំងអស់ (Product Inventory) -->
-          <div class="glass-card p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-xs border border-slate-200/80 bg-white flex flex-col lg:flex-row lg:items-center justify-between gap-3.5">
-            <div class="flex items-center space-x-3">
-              <div class="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center text-lg shadow-xs shrink-0">
-                <i class="fa-solid fa-boxes-stacked"></i>
+          <div
+            class="glass-card p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-3 items-center justify-between relative z-10">
+            <div class="flex flex-1 flex-wrap gap-2 w-full">
+              <div class="relative flex-1 min-w-[200px]">
+                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-slate-400 text-xs"></i>
+                <input type="search" id="itemSearchInput" name="item_search_nonce_secure"
+                  readonly
+                  inputmode="search"
+                  autocomplete="one-time-code" autocorrect="off" autocapitalize="off" spellcheck="false"
+                  data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other"
+                  onfocus="this.removeAttribute('readonly'); if (!this.dataset.userTyped && (this.value.toLowerCase() === 'superadmin' || this.value.replace(/\D/g, '').length >= 8)) { this.value = ''; filterItemsTable(); }"
+                  oninput="this.dataset.userTyped = 'true'; filterItemsTable()"
+                  onkeydown="this.dataset.userTyped = 'true';"
+                  placeholder="ស្វែងរកតាម ឈ្មោះទំនិញ, ខ្នាត, ពណ៌, ឬ SKU..."
+                  class="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none">
+                <button type="button" onclick="const el = document.getElementById('itemSearchInput'); if (el) { el.value = ''; delete el.dataset.userTyped; el.setAttribute('readonly', 'readonly'); filterItemsTable(); }" class="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 text-xs p-0.5 rounded transition" title="សម្អាតការស្វែងរក">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
               </div>
-              <div>
-                <div class="flex flex-wrap items-center gap-2">
-                  <h4 class="font-bold text-slate-800 text-sm sm:text-base">បញ្ជីទំនិញទាំងអស់ (Product Inventory)</h4>
-                  <span id="itemsTotalProductsBadge" onclick="loadItemsFromGoogleSheet(false)" title="ចុចដើម្បីទាញទិន្នន័យស្រស់ពី Google Sheet ផ្ទាល់ 100%" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-3xs cursor-pointer hover:bg-emerald-200 transition">0 មុខទំនិញ</span>
-                </div>
-                <p class="text-xs text-slate-400 mt-0.5">គ្រប់គ្រងទិន្នន័យស្តុកទំនិញ ខ្នាតដុំ-រាយ និងតាមដានប្រវត្តិប្រតិបត្តិការស្តុក</p>
-              </div>
+
+              <select id="itemCategoryFilter" onchange="filterItemsTable()"
+                class="px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none">
+                <option value="ALL">គ្រប់ប្រភេទទាំងអស់</option>
+              </select>
+
+              <select id="itemStatusFilter" onchange="filterItemsTable()"
+                class="px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none">
+                <option value="ALL">គ្រប់ស្ថានភាពស្តុក</option>
+                <option value="NORMAL">ស្តុកធម្មតា</option>
+                <option value="LOW">ស្តុកជិតអស់ (Low Stock)</option>
+                <option value="OUT">អស់ពីស្តុក (Out of Stock)</option>
+              </select>
             </div>
 
-            <!-- Action buttons: Auto Sync, Import Excel, Export, Add Item -->
-            <div class="flex items-center flex-wrap gap-2 justify-end">
-              <!-- Reload from Google Sheet Button -->
-              <button type="button" onclick="loadItemsFromGoogleSheet(false)" id="btnReloadItemsFromSheet"
-                title="ទាញយកទិន្នន័យទំនិញថ្មីចុងក្រោយពី Google Sheet ដោយផ្ទាល់ 100%"
-                class="px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold flex items-center space-x-2 shadow-sm shadow-blue-500/20 transition-all active:scale-95 cursor-pointer group">
-                <i class="fa-solid fa-arrows-rotate group-hover:rotate-180 transition-transform duration-500"></i>
-                <span>ទាញពី Google Sheet</span>
-              </button>
-
-              <!-- Auto Sync to Google Sheets Button -->
-              <button type="button" onclick="syncAllItemsToCloud(false)" id="btnSyncItemsToSheet"
-                title="ប្រព័ន្ធកំណត់ Auto Sync ទៅកាន់ Google Sheet ដោយស្វ័យប្រវត្តិតាមពេលជាក់ស្តែងរាល់ពេលមានការកែប្រែទិន្នន័យ (ចុចដើម្បី Sync ភ្លាមៗ)"
-                class="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold flex items-center space-x-2 shadow-sm shadow-emerald-500/20 transition-all active:scale-95 cursor-pointer group">
-                <span id="syncPulseDot" class="relative flex h-2 w-2">
-                  <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-200"></span>
-                </span>
-                <i id="btnSyncIcon" class="fa-solid fa-cloud-arrow-up group-hover:scale-110 transition-transform"></i>
-                <span id="btnSyncItemsToSheetText">Auto Sync ទៅ Google Sheet</span>
-                <span id="btnSyncStatusBadge" class="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded-md bg-white/20 text-[10px] font-semibold tracking-wide">
-                  <i class="fa-solid fa-bolt mr-1 text-emerald-200 text-[9px]"></i>Auto
-                </span>
-              </button>
-
+            <div class="flex items-center space-x-2 w-full md:w-auto justify-end">
               <!-- Excel Import Button -->
               <button type="button" onclick="openExcelImportModal()" id="btnImportExcel"
                 title="នាំចូលទំនិញពីឯកសារ Excel (.xlsx, .xls, .csv)"
@@ -2143,51 +2139,26 @@
                 </div>
               </div>
 
+              <!-- Auto Sync to Google Sheets Button -->
+              <button type="button" onclick="syncAllItemsToCloud(false)" id="btnSyncItemsToSheet"
+                title="ប្រព័ន្ធកំណត់ Auto Sync ទៅកាន់ Google Sheet ដោយស្វ័យប្រវត្តិតាមពេលជាក់ស្តែងរាល់ពេលមានការកែប្រែទិន្នន័យ (ចុចដើម្បី Sync ភ្លាមៗ)"
+                class="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold flex items-center space-x-2 shadow-sm shadow-emerald-500/20 transition-all active:scale-95 cursor-pointer group">
+                <span id="syncPulseDot" class="relative flex h-2 w-2">
+                  <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-200"></span>
+                </span>
+                <i id="btnSyncIcon" class="fa-solid fa-cloud-arrow-up group-hover:scale-110 transition-transform"></i>
+                <span id="btnSyncItemsToSheetText">Auto Sync ទៅ Google Sheet</span>
+                <span id="btnSyncStatusBadge" class="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded-md bg-white/20 text-[10px] font-semibold tracking-wide">
+                  <i class="fa-solid fa-bolt mr-1 text-emerald-200 text-[9px]"></i>Auto
+                </span>
+              </button>
+
               <!-- Add Product Button -->
               <button onclick="openItemModal()"
                 class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 shadow-md shadow-blue-500/20 active:scale-95 transition">
                 <i class="fa-solid fa-plus"></i>
                 <span>បន្ថែមទំនិញថ្មី</span>
               </button>
-            </div>
-          </div>
-
-          <!-- SEARCH & FILTER BAR -->
-          <div class="glass-card p-3 sm:p-4 rounded-2xl shadow-xs border border-slate-200/80 bg-white flex flex-col md:flex-row gap-3 items-center justify-between relative z-10">
-            <div class="flex flex-1 flex-wrap gap-2 w-full">
-              <div class="relative flex-1 min-w-[200px]">
-                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-slate-400 text-xs"></i>
-                <input type="search" id="itemSearchInput" name="item_search_nonce_secure"
-                  readonly
-                  inputmode="search"
-                  autocomplete="one-time-code" autocorrect="off" autocapitalize="off" spellcheck="false"
-                  data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other"
-                  onfocus="this.removeAttribute('readonly'); if (!this.dataset.userTyped && (this.value.toLowerCase() === 'superadmin' || this.value.replace(/\D/g, '').length >= 8)) { this.value = ''; filterItemsTable(); }"
-                  oninput="this.dataset.userTyped = 'true'; filterItemsTable()"
-                  onkeydown="this.dataset.userTyped = 'true';"
-                  placeholder="ស្វែងរកតាម ឈ្មោះទំនិញ, ខ្នាត, ពណ៌, ឬ SKU..."
-                  class="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none">
-                <button type="button" onclick="const el = document.getElementById('itemSearchInput'); if (el) { el.value = ''; delete el.dataset.userTyped; el.setAttribute('readonly', 'readonly'); filterItemsTable(); }" class="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 text-xs p-0.5 rounded transition" title="សម្អាតការស្វែងរក">
-                  <i class="fa-solid fa-xmark"></i>
-                </button>
-              </div>
-
-              <select id="itemCategoryFilter" onchange="filterItemsTable()"
-                class="px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none">
-                <option value="ALL">គ្រប់ប្រភេទទាំងអស់</option>
-              </select>
-
-              <select id="itemStatusFilter" onchange="filterItemsTable()"
-                class="px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none">
-                <option value="ALL">គ្រប់ស្ថានភាពស្តុក</option>
-                <option value="NORMAL">ស្តុកធម្មតា</option>
-                <option value="LOW">ស្តុកជិតអស់ (Low Stock)</option>
-                <option value="OUT">អស់ពីស្តុក (Out of Stock)</option>
-              </select>
-            </div>
-
-            <div id="itemsFilterSummaryText" class="text-xs text-slate-500 font-semibold shrink-0 pl-1">
-              <!-- Dynamically populated -->
             </div>
           </div>
 
@@ -13047,22 +13018,8 @@
         }
       }
 
-      const allTxs = (AppState.transactions && AppState.transactions.length > 0)
-        ? AppState.transactions
-        : (LOCAL_DB.transactions || []);
-
       const totalItemsCount = (AppState.items || []).length;
       const filteredCount = filtered.length;
-
-      // Update header banner badges
-      const countBadge = document.getElementById('itemsTotalProductsBadge');
-      if (countBadge) {
-        countBadge.innerText = (filteredCount !== totalItemsCount)
-          ? `${filteredCount} / ${totalItemsCount} មុខទំនិញ`
-          : `${totalItemsCount} មុខទំនិញ`;
-      }
-
-
 
       const summaryText = document.getElementById('itemsFilterSummaryText');
       if (summaryText) {
@@ -13085,12 +13042,6 @@
         const bulkStock = (pQty > 1) ? Math.floor(curStock / pQty) : 0;
         const looseRemainder = (pQty > 1) ? (curStock % pQty) : curStock;
 
-        const itemSkuLower = String(item.sku || '').toLowerCase();
-        const itemTxCount = allTxs.filter(t => {
-          const tSku = String(t.sku || t.itemCode || '').trim().toLowerCase();
-          return tSku && tSku === itemSkuLower;
-        }).length;
-
         return `
         <tr ondblclick="previewLargeImage('${escapeHtml(item.imageUrl)}', '${escapeHtml(item.name)}', '${item.sku}', '${item.barcode || '-'}', '${item.unit || 'ដុំ'}', ${item.currentStock || 0}, '${escapeHtml(getUserDisplayName(item.createdBy))}', '${escapeHtml(item.zone || '-')}')"
           title="ចុច Double-Click ពីរដង ដើម្បីមើលរូបភាពធំ និងព័ត៌មានលម្អិត"
@@ -13101,21 +13052,11 @@
           <!-- ជួរទី២: ឈ្មោះទំនិញ (Item Name & SKU) -->
           <td class="px-4 py-2.5 align-top" style="vertical-align: top;">
             <span class="font-bold text-slate-800 block text-xs md:text-sm leading-snug group-hover:text-blue-600 transition">${escapeHtml(item.name)}</span>
-            <div class="flex flex-wrap items-center gap-1.5 mt-1">
+            <div class="flex flex-wrap items-center gap-1 mt-1">
               <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200/80 text-slate-700 text-[11px] font-mono font-bold border border-slate-300/80 shadow-3xs tracking-tight select-all transition" title="លេខកូដ SKU: ${escapeHtml(item.sku || '-')}">
                 <i class="fa-solid fa-barcode text-[10px] text-slate-400 shrink-0"></i>
                 <span class="whitespace-nowrap">${escapeHtml(item.sku || '-')}</span>
               </span>
-              ${itemTxCount > 0 ? `
-              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-3xs whitespace-nowrap cursor-pointer hover:bg-emerald-200 active:scale-95 transition"
-                onclick="event.stopPropagation(); viewItemTransactionsModal('${escapeHtml(item.sku)}', '${escapeHtml(item.name)}')"
-                title="ចុចដើម្បីមើលប្រវត្តិចរន្តប្រតិបត្តិការ (${itemTxCount} ប្រតិបត្តិការ)">
-                <i class="fa-solid fa-clock-rotate-left text-[9px]"></i>
-                <span>${itemTxCount} ប្រតិបត្តិការ</span>
-              </span>` : `
-              <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium text-slate-400 bg-slate-50 border border-slate-200 whitespace-nowrap" title="មិនទាន់មានប្រតិបត្តិការ">
-                <span>0 ប្រតិបត្តិការ</span>
-              </span>`}
             </div>
           </td>
 
