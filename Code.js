@@ -929,7 +929,7 @@ function migrateAndAlignItemsSheet(optSs) {
 
   const targetHeaders = [
     'SKU', 'ItemName', 'Category', 'Color', 'Size',
-    'Unit', 'PackUnit', 'PackQty', 'CurrentStock', 'MinStock',
+    'Unit', 'PackUnit', 'PackQty', 'PackStock', 'CurrentStock', 'MinStock',
     'Zone', 'ZoneNumber', 'ImageUrl', 'Notes', 'CreatedBy', 'Status', 'UpdatedAt'
   ];
 
@@ -1251,6 +1251,7 @@ function migrateAndAlignItemsSheet(optSs) {
     }
 
     const rowUpdatedAt = r[17] instanceof Date ? r[17] : (r[12] instanceof Date ? r[12] : new Date());
+    const packStockNum = packQtyVal > 1 ? Math.floor(stockNum / packQtyVal) : stockNum;
 
     migratedRows.push([
       sku,
@@ -1261,6 +1262,7 @@ function migrateAndAlignItemsSheet(optSs) {
       rowUnit,
       packUnitVal,
       packQtyVal,
+      packStockNum,
       stockNum,
       minNum,
       zoneVal,
@@ -1276,7 +1278,7 @@ function migrateAndAlignItemsSheet(optSs) {
   // Clear sheet to eliminate old columns completely
   itemsSheet.clear();
 
-  // Write new 17 clean headers (without Barcode)
+  // Write new 18 clean headers (with PackStock, without Barcode)
   itemsSheet.getRange(1, 1, 1, targetHeaders.length).setValues([targetHeaders]);
   formatHeaderRow(itemsSheet, targetHeaders.length, '#1e293b');
 
@@ -1291,20 +1293,20 @@ function migrateAndAlignItemsSheet(optSs) {
 
   return {
     success: true,
-    message: `បានកែសម្រួលជួរឈរ Items ចំនួន ${migratedRows.length} មុខឱ្យត្រូវតាមប្រព័ន្ធ 100% (គ្មានជួរឈរ Barcode)`,
+    message: `បានកែសម្រួលជួរឈរ Items ចំនួន ${migratedRows.length} មុខឱ្យត្រូវតាមប្រព័ន្ធ 100% (មានជួរឈរ PackStock ចំនួនដុំ)`,
     count: migratedRows.length
   };
 }
 
 function seedMasterItemsInternal(itemsSheet) {
   const seedRows = [
-    ['SKU-7501', 'ប៊ិច-圆珠笔', 'សម្ភារៈការិយាល័យ-办公用品', 'ខ្មៅ', 'Pixcell', 'ដើម', 'ប្រអប់', 12, 95, 1, 'តំបន់ A (A01)', 'Z-01', 'https://lh3.googleusercontent.com/d/1CX6Nb7dj8PTSRnyfzgTMeQUooQGrRQ2E', 'សាកល្បង', 'ចាន់ តារា', 'Active', new Date()],
-    ['SKU-9050', 'ប៊ិច-圆珠笔', 'សម្ភារៈការិយាល័យ-办公用品', 'ក្រហម', 'Pixcell', 'ដើម', 'ប្រអប់', 12, 0, 1, 'តំបន់ A (A01)', 'Z-01', 'https://lh3.googleusercontent.com/d/1KpbzNdQc6eRTHCDQvIBruytYtHo6OCUx', 'សាកល្បង', 'ចាន់ ឌី', 'Active', new Date()],
-    ['SKU-9144', 'ទឹកលុប-涂改液', 'សម្ភារៈការិយាល័យ-办公用品', 'ស', 'Pixcell', 'ដើម', 'ប្រអប់', 12, 0, 1, 'តំបន់ A (A01)', 'Z-01', 'https://lh3.googleusercontent.com/d/1xfWG0wZcc9xnQBlnLa62hO1PXJO6Jznl', 'សាកល្បង', 'និត វ៉ាន់ស៊ិញ', 'Active', new Date()],
-    ['SKU-9649', 'ប៊ិច-圆珠笔', 'សម្ភារៈការិយាល័យ-办公用品', 'ខៀវ', 'Pixcell', 'ដើម', 'ប្រអប់', 12, 0, 1, 'តំបន់ A (A01)', 'Z-01', 'https://lh3.googleusercontent.com/d/1RE9PKj3VyPYaO8kOdodzt5U28lA8CGhV', 'ចំណាំសិន', 'និត វ៉ាន់ស៊ិញ', 'Active', new Date()],
-    ['SKU-2089', 'ក្រដាស់ជូតម៉ាត់-抽纸', 'សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资', 'ស', 'LM', 'ដុំ', 'យូ', 7, 0, 1, 'តំបន់ B (B01)', 'Z-01', 'https://lh3.googleusercontent.com/d/18YTR9If4CbWoUhAOYBtMtZZfLRGj_qyg', 'សាកល្បង', '陈龙', 'Active', new Date()],
-    ['SKU-9816', '母卡', 'គ្រឿងបរិក្ខារអេឡិចត្រូនិច និងអគ្គិសនី-机电设备', 'ស', 'samka', 'កញ្ចប់', 'ដុំ', 4, 0, 1, 'តំបន់ A (A01)', 'Z-01', 'https://lh3.googleusercontent.com/d/1TIBybQbnfxWcZa32Cdo5VS0wacQr-sSN', '-', 'និត វ៉ាន់ស៊ិញ', 'Active', new Date()],
-    ['SKU-2021', 'ម៉ាស៊ីនគិតលេខ-​计算机', 'សម្ភារៈការិយាល័យ-办公用品', 'ខ្មៅ', '២៣', 'គ្រឿង', 'ប្រអប់', 1, 0, 1, 'តំបន់ A (A01)', 'Z-01', 'https://lh3.googleusercontent.com/d/1Q6mLfPOJx8bKXtv0pLXj1-03fWBkIsDc', 'ម៉ាស៊ីនគិតលេខសម្រាប់រដ្ឋបាល', 'ស្រី មាស', 'Active', new Date()]
+    ['SKU-7501', 'ប៊ិច-圆珠笔', 'សម្ភារៈការិយាល័យ-办公用品', 'ខ្មៅ', 'Pixcell', 'ដើម', 'ប្រអប់', 12, 7, 95, 1, 'តំបន់ A (A01)', 'Z-01', 'https://lh3.googleusercontent.com/d/1CX6Nb7dj8PTSRnyfzgTMeQUooQGrRQ2E', 'សាកល្បង', 'ចាន់ តារា', 'Active', new Date()],
+    ['SKU-9050', 'ប៊ិច-圆珠笔', 'សម្ភារៈការិយាល័យ-办公用品', 'ក្រហម', 'Pixcell', 'ដើម', 'ប្រអប់', 12, 0, 0, 1, 'តំបន់ A (A01)', 'Z-01', 'https://lh3.googleusercontent.com/d/1KpbzNdQc6eRTHCDQvIBruytYtHo6OCUx', 'សាកល្បង', 'ចាន់ ឌី', 'Active', new Date()],
+    ['SKU-9144', 'ទឹកលុប-涂改液', 'សម្ភារៈការិយាល័យ-办公用品', 'ស', 'Pixcell', 'ដើម', 'ប្រអប់', 12, 0, 0, 1, 'តំបន់ A (A01)', 'Z-01', 'https://lh3.googleusercontent.com/d/1xfWG0wZcc9xnQBlnLa62hO1PXJO6Jznl', 'សាកល្បង', 'និត វ៉ាន់ស៊ិញ', 'Active', new Date()],
+    ['SKU-9649', 'ប៊ិច-圆珠笔', 'សម្ភារៈការិយាល័យ-办公用品', 'ខៀវ', 'Pixcell', 'ដើម', 'ប្រអប់', 12, 0, 0, 1, 'តំបន់ A (A01)', 'Z-01', 'https://lh3.googleusercontent.com/d/1RE9PKj3VyPYaO8kOdodzt5U28lA8CGhV', 'ចំណាំសិន', 'និត វ៉ាន់ស៊ិញ', 'Active', new Date()],
+    ['SKU-2089', 'ក្រដាស់ជូតម៉ាត់-抽纸', 'សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资', 'ស', 'LM', 'ដុំ', 'យូ', 7, 0, 0, 1, 'តំបន់ B (B01)', 'Z-01', 'https://lh3.googleusercontent.com/d/18YTR9If4CbWoUhAOYBtMtZZfLRGj_qyg', 'សាកល្បង', '陈龙', 'Active', new Date()],
+    ['SKU-9816', '母卡', 'គ្រឿងបរិក្ខារអេឡិចត្រូនិច និងអគ្គិសនី-机电设备', 'ស', 'samka', 'កញ្ចប់', 'ដុំ', 4, 0, 0, 1, 'តំបន់ A (A01)', 'Z-01', 'https://lh3.googleusercontent.com/d/1TIBybQbnfxWcZa32Cdo5VS0wacQr-sSN', '-', 'និត វ៉ាន់ស៊ិញ', 'Active', new Date()],
+    ['SKU-2021', 'ម៉ាស៊ីនគិតលេខ-​计算机', 'សម្ភារៈការិយាល័យ-办公用品', 'ខ្មៅ', '២៣', 'គ្រឿង', 'ប្រអប់', 1, 0, 0, 1, 'តំបន់ A (A01)', 'Z-01', 'https://lh3.googleusercontent.com/d/1Q6mLfPOJx8bKXtv0pLXj1-03fWBkIsDc', 'ម៉ាស៊ីនគិតលេខសម្រាប់រដ្ឋបាល', 'ស្រី មាស', 'Active', new Date()]
   ];
   itemsSheet.getRange(2, 1, seedRows.length, seedRows[0].length).setValues(seedRows);
 }
@@ -4878,29 +4880,43 @@ function getItemsList(userOrPayload, warehouseFilter, optSs) {
   };
 
   const idxSku = colIdx('sku', 0);
-  const idxBarcode = colIdx('barcode', 1);
-  const idxName = colIdx('itemname', 2);
-  const idxCategory = colIdx('category', 3);
-  const idxColor = colIdx('color', 4);
-  const idxSize = colIdx('size', 5);
-  const idxUnit = colIdx('unit', 6);
-  const idxPackUnit = colIdx('packunit', 7);
-  const idxPackQty = colIdx('packqty', 8);
-  const idxCurrentStock = colIdx('currentstock', 9);
-  const idxMinStock = colIdx('minstock', colIdx('minstocklevel', 10));
-  const idxZone = colIdx('zone', 11);
-  const idxZoneNumber = colIdx('zonenumber', 12);
-  const idxImageUrl = colIdx('imageurl', colIdx('image', 13));
-  const idxNotes = colIdx('notes', 14);
-  const idxCreatedBy = colIdx('createdby', 15);
-  const idxStatus = colIdx('status', 16);
-  const idxUpdatedAt = colIdx('updatedat', 17);
+  const idxBarcode = colIdx('barcode', -1);
+  const idxName = colIdx('itemname', 1);
+  const idxCategory = colIdx('category', 2);
+  const idxColor = colIdx('color', 3);
+  const idxSize = colIdx('size', 4);
+  const idxUnit = colIdx('unit', 5);
+  const idxPackUnit = colIdx('packunit', 6);
+  const idxPackQty = colIdx('packqty', 7);
+  const idxPackStock = colIdx('packstock', colIdx('bulkstock', colIdx('ចំនួនដុំ', -1)));
+  const idxCurrentStock = colIdx('currentstock', idxPackStock >= 0 ? 9 : 8);
+  const idxMinStock = colIdx('minstock', colIdx('minstocklevel', idxPackStock >= 0 ? 10 : 9));
+  const idxZone = colIdx('zone', idxPackStock >= 0 ? 11 : 10);
+  const idxZoneNumber = colIdx('zonenumber', idxPackStock >= 0 ? 12 : 11);
+  const idxImageUrl = colIdx('imageurl', colIdx('image', idxPackStock >= 0 ? 13 : 12));
+  const idxNotes = colIdx('notes', idxPackStock >= 0 ? 14 : 13);
+  const idxCreatedBy = colIdx('createdby', idxPackStock >= 0 ? 15 : 14);
+  const idxStatus = colIdx('status', idxPackStock >= 0 ? 16 : 15);
+  const idxUpdatedAt = colIdx('updatedat', idxPackStock >= 0 ? 17 : 16);
 
   const items = [];
 
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
     if (row[idxSku]) {
+      let packQtyNum = Number(row[idxPackQty] || 1);
+      if (isNaN(packQtyNum) || packQtyNum < 1) packQtyNum = 1;
+
+      let stockNum = Number(row[idxCurrentStock] || 0);
+      const packStockNum = idxPackStock >= 0 ? Number(row[idxPackStock] || 0) : -1;
+
+      // Smart sync if user typed pack stock directly into Google Sheet PackStock
+      if (packStockNum > 0 && packQtyNum > 1) {
+        if (stockNum === 0 || stockNum < packQtyNum || Math.floor(stockNum / packQtyNum) !== packStockNum) {
+          stockNum = (packStockNum * packQtyNum) + (stockNum % packQtyNum);
+        }
+      }
+
       items.push({
         sku: String(row[idxSku] || ''),
         barcode: String(row[idxBarcode] || row[idxSku] || ''),
@@ -4910,8 +4926,8 @@ function getItemsList(userOrPayload, warehouseFilter, optSs) {
         size: String(row[idxSize] || ''),
         unit: String(row[idxUnit] || 'ដុំ'),
         packUnit: String(row[idxPackUnit] || 'ប្រអប់'),
-        packQty: Number(row[idxPackQty] || 1),
-        currentStock: Number(row[idxCurrentStock] || 0),
+        packQty: packQtyNum,
+        currentStock: stockNum,
         minStock: Number(row[idxMinStock] || 0),
         zone: String(row[idxZone] || '-'),
         zoneNumber: String(row[idxZoneNumber] || '-'),
@@ -5312,7 +5328,9 @@ function saveOrUpdateItem(itemDataOrPayload, username) {
     headers = (data[0] || []).map(h => String(h || '').trim().toLowerCase());
   }
 
-  const existingStock = (targetRow > 0 && itemData.currentStock === undefined) ? (data[targetRow - 1][8] || 0) : Number(itemData.currentStock !== undefined ? itemData.currentStock : 0);
+  const pQty = Number(itemData.packQty || 1);
+  const existingStock = (targetRow > 0 && itemData.currentStock === undefined) ? (data[targetRow - 1][9] || data[targetRow - 1][8] || 0) : Number(itemData.currentStock !== undefined ? itemData.currentStock : 0);
+  const packStockVal = pQty > 1 ? Math.floor(existingStock / pQty) : existingStock;
   const rowValues = [
     sku,
     itemData.name,
@@ -5321,7 +5339,8 @@ function saveOrUpdateItem(itemDataOrPayload, username) {
     itemData.size || '',
     itemData.unit || 'ដុំ',
     itemData.packUnit || 'ប្រអប់',
-    Number(itemData.packQty || 1),
+    pQty,
+    packStockVal,
     existingStock,
     Number(itemData.minStock || 0),
     itemData.zone || '-',
@@ -5413,10 +5432,10 @@ function syncAllItems(itemsListOrPayload, username) {
       sheet.deleteColumn(barcodeColIdx + 1);
     }
 
-    // Write clean standard 17 headers (WITHOUT Barcode)
+    // Write clean standard 18 headers (with PackStock, WITHOUT Barcode)
     const cleanHeaders = [
       'SKU', 'ItemName', 'Category', 'Color', 'Size',
-      'Unit', 'PackUnit', 'PackQty', 'CurrentStock', 'MinStock',
+      'Unit', 'PackUnit', 'PackQty', 'PackStock', 'CurrentStock', 'MinStock',
       'Zone', 'ZoneNumber', 'ImageUrl', 'Notes', 'CreatedBy', 'Status', 'UpdatedAt'
     ];
     sheet.getRange(1, 1, 1, cleanHeaders.length).setValues([cleanHeaders]);
@@ -5448,6 +5467,10 @@ function syncAllItems(itemsListOrPayload, username) {
       const sku = String(item.sku || '').trim() || ('SKU-' + Utilities.formatDate(new Date(), 'GMT+7', 'yyMMddHHmmss') + i);
       const nameKey = (String(item.name || '').trim() + '|' + String(item.size || '').trim() + '|' + String(item.color || '').trim()).toLowerCase();
 
+      const pQty = Number(item.packQty || 1);
+      const totalStock = Number(item.currentStock !== undefined ? item.currentStock : (item.stock || 0));
+      const packStockVal = pQty > 1 ? Math.floor(totalStock / pQty) : totalStock;
+
       const rowValues = [
         sku,
         item.name || '',
@@ -5456,8 +5479,9 @@ function syncAllItems(itemsListOrPayload, username) {
         item.size || '',
         item.unit || 'ដុំ',
         item.packUnit || 'ប្រអប់',
-        Number(item.packQty || 1),
-        Number(item.currentStock !== undefined ? item.currentStock : (item.stock || 0)),
+        pQty,
+        packStockVal,
+        totalStock,
         Number(item.minStock || 0),
         item.zone || '-',
         item.zoneNumber || '-',
@@ -5482,7 +5506,7 @@ function syncAllItems(itemsListOrPayload, username) {
       sheet.getRange(sheet.getLastRow() + 1, 1, rowsToAppend.length, rowsToAppend[0].length).setValues(rowsToAppend);
     }
 
-    logActivity(user || 'System', 'Staff', 'SYNC_ALL_ITEMS', `Synced ${itemsList.length} items (${addedCount} added, ${updatedCount} updated) to Google Sheet (Without Barcode)`);
+    logActivity(user || 'System', 'Staff', 'SYNC_ALL_ITEMS', `Synced ${itemsList.length} items (${addedCount} added, ${updatedCount} updated) to Google Sheet (With PackStock)`);
 
     return {
       success: true,
@@ -5498,7 +5522,7 @@ function syncAllItems(itemsListOrPayload, username) {
 }
 
 /**
- * លុបជួរឈរ Barcode ចេញពី Google Sheet Items 100%
+ * លុបជួរឈរ Barcode ចេញពី Google Sheet Items 100% និងរៀបចំជួរឈរ PackStock
  */
 function removeBarcodeColumnFromItemsSheet(optSs) {
   try {
@@ -5514,7 +5538,7 @@ function removeBarcodeColumnFromItemsSheet(optSs) {
 
     const cleanHeaders = [
       'SKU', 'ItemName', 'Category', 'Color', 'Size',
-      'Unit', 'PackUnit', 'PackQty', 'CurrentStock', 'MinStock',
+      'Unit', 'PackUnit', 'PackQty', 'PackStock', 'CurrentStock', 'MinStock',
       'Zone', 'ZoneNumber', 'ImageUrl', 'Notes', 'CreatedBy', 'Status', 'UpdatedAt'
     ];
     sheet.getRange(1, 1, 1, cleanHeaders.length).setValues([cleanHeaders]);
@@ -5522,7 +5546,7 @@ function removeBarcodeColumnFromItemsSheet(optSs) {
 
     return {
       success: true,
-      message: 'បានលុបជួរឈរ Barcode ចេញពី Google Sheet រួចរាល់ 100%'
+      message: 'បានលុបជួរឈរ Barcode និងរៀបចំជួរឈរ PackStock (ចំនួនដុំ) ជោគជ័យ!'
     };
   } catch (err) {
     return { success: false, message: 'កំហុសពេលលុប Barcode: ' + err.toString() };
@@ -5935,6 +5959,12 @@ function recordStockIn(dataOrPayload, user) {
 
   const newStock = currentStock + qty;
   itemsSheet.getRange(targetRow, idxCurrentStock + 1).setValue(newStock);
+  const idxPackStock = headers.indexOf('packstock');
+  const idxPackQty = headers.indexOf('packqty');
+  if (idxPackStock >= 0) {
+    const pQty = idxPackQty >= 0 ? Number(itemsData[targetRow - 1][idxPackQty] || 1) : 1;
+    itemsSheet.getRange(targetRow, idxPackStock + 1).setValue(pQty > 1 ? Math.floor(newStock / pQty) : newStock);
+  }
   itemsSheet.getRange(targetRow, idxUpdatedAt + 1).setValue(new Date());
 
 
@@ -6103,6 +6133,12 @@ function recordStockOut(dataOrPayload, user) {
 
   const newStock = currentStock - qty;
   itemsSheet.getRange(targetRow, idxCurrentStock + 1).setValue(newStock);
+  const idxPackStock = headers.indexOf('packstock');
+  const idxPackQty = headers.indexOf('packqty');
+  if (idxPackStock >= 0) {
+    const pQty = idxPackQty >= 0 ? Number(itemsData[targetRow - 1][idxPackQty] || 1) : 1;
+    itemsSheet.getRange(targetRow, idxPackStock + 1).setValue(pQty > 1 ? Math.floor(newStock / pQty) : newStock);
+  }
   itemsSheet.getRange(targetRow, idxUpdatedAt + 1).setValue(new Date());
 
 
@@ -6382,6 +6418,12 @@ function recordStockAdjustment(dataOrPayload, user) {
 
   const diff = actualStock - systemStock;
   itemsSheet.getRange(targetRow, idxCurrentStock + 1).setValue(actualStock);
+  const idxPackStock = headers.indexOf('packstock');
+  const idxPackQty = headers.indexOf('packqty');
+  if (idxPackStock >= 0) {
+    const pQty = idxPackQty >= 0 ? Number(itemsData[targetRow - 1][idxPackQty] || 1) : 1;
+    itemsSheet.getRange(targetRow, idxPackStock + 1).setValue(pQty > 1 ? Math.floor(actualStock / pQty) : actualStock);
+  }
   itemsSheet.getRange(targetRow, idxUpdatedAt + 1).setValue(new Date());
 
 
