@@ -386,7 +386,8 @@
       }
 
       main.stock-freeze-active > #tabStockIn:not(.hidden),
-      main.stock-freeze-active > #tabStockOut:not(.hidden) {
+      main.stock-freeze-active > #tabStockOut:not(.hidden),
+      main.stock-freeze-active > #tabItems:not(.hidden) {
         display: flex !important;
         flex-direction: column !important;
         flex: 1 1 0% !important;
@@ -396,9 +397,33 @@
       }
 
       main.stock-freeze-active > #tabStockIn > *,
-      main.stock-freeze-active > #tabStockOut > * {
+      main.stock-freeze-active > #tabStockOut > *,
+      main.stock-freeze-active > #tabItems > * {
         margin-top: 0 !important;
         margin-bottom: 0 !important;
+      }
+
+      #itemsTopFreezeSection {
+        flex-shrink: 0 !important;
+        position: static !important;
+      }
+
+      #itemsTableCard {
+        flex: 1 1 0% !important;
+        min-height: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
+      }
+
+      #itemsTableScrollContainer {
+        flex: 1 1 0% !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        -webkit-overflow-scrolling: touch !important;
+        overscroll-behavior: contain !important;
       }
 
       .form-freeze-card {
@@ -470,6 +495,18 @@
         position: static !important;
       }
 
+      #itemsTopFreezeSection {
+        position: sticky;
+        top: 0;
+        z-index: 30;
+      }
+
+      #itemsTableScrollContainer {
+        max-height: calc(100vh - 280px);
+        overflow-y: auto;
+        overflow-x: hidden !important;
+      }
+
       .table-scroll-container {
         max-height: 480px;
         overflow-y: auto;
@@ -538,7 +575,7 @@
     .table-container-freeze {
       max-height: calc(100vh - 280px);
       overflow-y: auto;
-      overflow-x: auto;
+      overflow-x: hidden !important;
       position: relative;
     }
 
@@ -945,7 +982,7 @@
        .table-container-freeze {
          max-height: calc(100vh - 210px);
          -webkit-overflow-scrolling: touch;
-         overscroll-behavior-x: contain;
+         overflow-x: hidden !important;
          border-radius: 0.85rem;
        }
  
@@ -2047,163 +2084,167 @@
         <!-- ========================================== -->
         <!-- TAB 2: ITEM / PRODUCT MANAGEMENT -->
         <!-- ========================================== -->
-        <div id="tabItems" class="space-y-4 hidden">
-          <!-- HEADER BANNER: បញ្ជីទំនិញទាំងអស់ (Product Inventory) -->
-          <div class="glass-card p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-xs border border-slate-200/80 bg-white flex flex-col lg:flex-row lg:items-center justify-between gap-3.5">
-            <div class="flex items-center space-x-3">
-              <div class="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center text-lg shadow-xs shrink-0">
-                <i class="fa-solid fa-boxes-stacked"></i>
-              </div>
-              <div>
-                <div class="flex flex-wrap items-center gap-2">
-                  <h4 class="font-bold text-slate-800 text-sm sm:text-base">បញ្ជីទំនិញទាំងអស់ (Product Inventory)</h4>
-                  <span id="itemsTotalProductsBadge" onclick="loadItemsFromGoogleSheet(false)" title="ចុចដើម្បីទាញទិន្នន័យស្រស់ពី Google Sheet ផ្ទាល់ 100%" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-3xs cursor-pointer hover:bg-emerald-200 transition">0 មុខទំនិញ</span>
-                  <span id="itemsTotalTxCountBadge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-3xs cursor-pointer hover:bg-emerald-200 transition" onclick="switchTab('reports')" title="ចុចដើម្បីមើលរបាយការណ៍ប្រតិបត្តិការទាំងអស់">0 ប្រតិបត្តិការ</span>
+        <div id="tabItems" class="space-y-3 hidden flex-1 min-h-0 flex flex-col">
+          <!-- TOP FREEZE SECTION: Header Banner + Search & Filter Bar (Frozen at top) -->
+          <div id="itemsTopFreezeSection" class="shrink-0 space-y-2.5">
+            <!-- HEADER BANNER: បញ្ជីទំនិញទាំងអស់ (Product Inventory) -->
+            <div class="glass-card p-3.5 sm:p-4 rounded-2xl shadow-xs border border-slate-200/80 bg-white flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+              <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center text-lg shadow-xs shrink-0">
+                  <i class="fa-solid fa-boxes-stacked"></i>
                 </div>
-                <p class="text-xs text-slate-400 mt-0.5">គ្រប់គ្រងទិន្នន័យស្តុកទំនិញ ខ្នាតដុំ-រាយ និងតាមដានប្រវត្តិប្រតិបត្តិការស្តុក</p>
-              </div>
-            </div>
-
-            <!-- Action buttons: Auto Sync, Import Excel, Export, Add Item -->
-            <div class="flex items-center flex-wrap gap-2 justify-end">
-              <!-- Reload from Google Sheet Button -->
-              <button type="button" onclick="loadItemsFromGoogleSheet(false)" id="btnReloadItemsFromSheet"
-                title="ទាញយកទិន្នន័យទំនិញថ្មីចុងក្រោយពី Google Sheet ដោយផ្ទាល់ 100%"
-                class="px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold flex items-center space-x-2 shadow-sm shadow-blue-500/20 transition-all active:scale-95 cursor-pointer group">
-                <i class="fa-solid fa-arrows-rotate group-hover:rotate-180 transition-transform duration-500"></i>
-                <span>ទាញពី Google Sheet</span>
-              </button>
-
-              <!-- Auto Sync to Google Sheets Button (Compact Icon Button) -->
-              <button type="button" onclick="syncAllItemsToCloud(false)" id="btnSyncItemsToSheet"
-                title="ប្រព័ន្ធកំណត់ Auto Sync ទៅកាន់ Google Sheet ដោយស្វ័យប្រវត្តិតាមពេលជាក់ស្តែង (ចុចដើម្បី Sync ភ្លាមៗ)"
-                class="w-9 h-9 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl flex items-center justify-center shadow-sm shadow-emerald-500/20 transition-all active:scale-95 cursor-pointer relative group">
-                <span id="syncPulseDot" class="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
-                  <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-300 ring-2 ring-white"></span>
-                </span>
-                <i id="btnSyncIcon" class="fa-solid fa-cloud-arrow-up text-sm group-hover:scale-110 transition-transform"></i>
-                <span id="btnSyncItemsToSheetText" class="sr-only">Auto Sync ទៅ Google Sheet</span>
-                <span id="btnSyncStatusBadge" class="hidden"></span>
-              </button>
-
-              <!-- Excel Import Button -->
-              <button type="button" onclick="openExcelImportModal()" id="btnImportExcel"
-                title="នាំចូលទំនិញពីឯកសារ Excel (.xlsx, .xls, .csv)"
-                class="px-3.5 py-2 border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-xs transition-all active:scale-95 cursor-pointer">
-                <i class="fa-solid fa-file-excel text-emerald-600"></i>
-                <span>Import Excel</span>
-              </button>
-
-              <!-- Unified Export Dropdown (Export CSV, Export PDF, Export CSV and PDF) -->
-              <div class="relative inline-block text-left z-20" id="exportItemsDropdownWrapper">
-                <button type="button" onclick="toggleExportItemsDropdown(event)" id="exportItemsBtn"
-                  class="px-3.5 py-2 border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-sm transition-all">
-                  <i class="fa-solid fa-file-export text-blue-600"></i>
-                  <span>Export ទិន្នន័យ</span>
-                  <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 ml-0.5"></i>
-                </button>
-
-                <div id="exportItemsMenu"
-                  class="hidden absolute right-0 mt-2 w-60 bg-white rounded-2xl shadow-2xl border border-slate-200 py-1.5 z-30 divide-y divide-slate-100">
-                  <button type="button" onclick="handleItemsExportChoice('EXCEL')"
-                    class="w-full px-3.5 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center space-x-3 transition-colors">
-                    <div
-                      class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
-                      <i class="fa-solid fa-file-excel text-base"></i>
-                    </div>
-                    <div>
-                      <p class="font-bold text-slate-800">Export Excel (.xlsx)</p>
-                      <p class="text-[10px] text-slate-400 font-normal">ទាញយកជា File Excel (.xlsx)</p>
-                    </div>
-                  </button>
-
-                  <button type="button" onclick="handleItemsExportChoice('PDF')"
-                    class="w-full px-3.5 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-rose-50 hover:text-rose-700 flex items-center space-x-3 transition-colors">
-                    <div class="w-8 h-8 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
-                      <i class="fa-solid fa-file-pdf text-base"></i>
-                    </div>
-                    <div>
-                      <p class="font-bold text-slate-800">Export PDF</p>
-                      <p class="text-[10px] text-slate-400 font-normal">ទាញយកជាឯកសារ PDF</p>
-                    </div>
-                  </button>
-
-                  <button type="button" onclick="handleItemsExportChoice('BOTH')"
-                    class="w-full px-3.5 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-700 flex items-center space-x-3 transition-colors">
-                    <div
-                      class="w-8 h-8 rounded-xl bg-gradient-to-r from-emerald-500 to-rose-500 text-white flex items-center justify-center shrink-0 text-sm shadow-sm">
-                      <i class="fa-solid fa-file-zipper"></i>
-                    </div>
-                    <div>
-                      <p class="font-bold text-blue-700">Export Excel & PDF</p>
-                      <p class="text-[10px] text-slate-400 font-normal">ទាញយកទាំង ២ ឯកសារ</p>
-                    </div>
-                  </button>
+                <div>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <h4 class="font-bold text-slate-800 text-sm sm:text-base">បញ្ជីទំនិញទាំងអស់ (Product Inventory)</h4>
+                    <span id="itemsTotalProductsBadge" onclick="loadItemsFromGoogleSheet(false)" title="ចុចដើម្បីទាញទិន្នន័យស្រស់ពី Google Sheet ផ្ទាល់ 100%" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-3xs cursor-pointer hover:bg-emerald-200 transition">0 មុខទំនិញ</span>
+                    <span id="itemsTotalTxCountBadge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-3xs cursor-pointer hover:bg-emerald-200 transition" onclick="switchTab('reports')" title="ចុចដើម្បីមើលរបាយការណ៍ប្រតិបត្តិការទាំងអស់">0 ប្រតិបត្តិការ</span>
+                  </div>
+                  <p class="text-xs text-slate-400 mt-0.5">គ្រប់គ្រងទិន្នន័យស្តុកទំនិញ ខ្នាតដុំ-រាយ និងតាមដានប្រវត្តិប្រតិបត្តិការស្តុក</p>
                 </div>
               </div>
 
-              <!-- Add Product Button -->
-              <button onclick="openItemModal()"
-                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 shadow-md shadow-blue-500/20 active:scale-95 transition">
-                <i class="fa-solid fa-plus"></i>
-                <span>បន្ថែមទំនិញថ្មី</span>
-              </button>
-            </div>
-          </div>
+              <!-- Action buttons: Auto Sync, Import Excel, Export, Add Item -->
+              <div class="flex items-center flex-wrap gap-2 justify-end">
+                <!-- Reload from Google Sheet Button -->
+                <button type="button" onclick="loadItemsFromGoogleSheet(false)" id="btnReloadItemsFromSheet"
+                  title="ទាញយកទិន្នន័យទំនិញថ្មីចុងក្រោយពី Google Sheet ដោយផ្ទាល់ 100%"
+                  class="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-sm shadow-blue-500/20 transition-all active:scale-95 cursor-pointer group">
+                  <i class="fa-solid fa-arrows-rotate group-hover:rotate-180 transition-transform duration-500"></i>
+                  <span>ទាញពី Google Sheet</span>
+                </button>
 
-          <!-- SEARCH & FILTER BAR -->
-          <div class="glass-card p-3 sm:p-4 rounded-2xl shadow-xs border border-slate-200/80 bg-white flex flex-col md:flex-row gap-3 items-center justify-between relative z-10">
-            <div class="flex flex-1 flex-wrap gap-2 w-full">
-              <div class="relative flex-1 min-w-[200px]">
-                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-slate-400 text-xs"></i>
-                <input type="search" id="itemSearchInput" name="item_search_nonce_secure"
-                  readonly
-                  inputmode="search"
-                  autocomplete="one-time-code" autocorrect="off" autocapitalize="off" spellcheck="false"
-                  data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other"
-                  onfocus="this.removeAttribute('readonly'); if (!this.dataset.userTyped && (this.value.toLowerCase() === 'superadmin' || this.value.replace(/\D/g, '').length >= 8)) { this.value = ''; filterItemsTable(); }"
-                  oninput="this.dataset.userTyped = 'true'; filterItemsTable()"
-                  onkeydown="this.dataset.userTyped = 'true';"
-                  placeholder="ស្វែងរកតាម ឈ្មោះទំនិញ, ខ្នាត, ពណ៌, ឬ SKU..."
-                  class="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none">
-                <button type="button" onclick="const el = document.getElementById('itemSearchInput'); if (el) { el.value = ''; delete el.dataset.userTyped; el.setAttribute('readonly', 'readonly'); filterItemsTable(); }" class="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 text-xs p-0.5 rounded transition" title="សម្អាតការស្វែងរក">
-                  <i class="fa-solid fa-xmark"></i>
+                <!-- Auto Sync to Google Sheets Button (Compact Icon Button) -->
+                <button type="button" onclick="syncAllItemsToCloud(false)" id="btnSyncItemsToSheet"
+                  title="ប្រព័ន្ធកំណត់ Auto Sync ទៅកាន់ Google Sheet ដោយស្វ័យប្រវត្តិតាមពេលជាក់ស្តែង (ចុចដើម្បី Sync ភ្លាមៗ)"
+                  class="w-8 h-8 sm:w-9 sm:h-9 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl flex items-center justify-center shadow-sm shadow-emerald-500/20 transition-all active:scale-95 cursor-pointer relative group">
+                  <span id="syncPulseDot" class="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-300 ring-2 ring-white"></span>
+                  </span>
+                  <i id="btnSyncIcon" class="fa-solid fa-cloud-arrow-up text-sm group-hover:scale-110 transition-transform"></i>
+                  <span id="btnSyncItemsToSheetText" class="sr-only">Auto Sync ទៅ Google Sheet</span>
+                  <span id="btnSyncStatusBadge" class="hidden"></span>
+                </button>
+
+                <!-- Excel Import Button -->
+                <button type="button" onclick="openExcelImportModal()" id="btnImportExcel"
+                  title="នាំចូលទំនិញពីឯកសារ Excel (.xlsx, .xls, .csv)"
+                  class="px-3 py-1.5 border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-xs transition-all active:scale-95 cursor-pointer">
+                  <i class="fa-solid fa-file-excel text-emerald-600"></i>
+                  <span>Import Excel</span>
+                </button>
+
+                <!-- Unified Export Dropdown (Export CSV, Export PDF, Export CSV and PDF) -->
+                <div class="relative inline-block text-left z-20" id="exportItemsDropdownWrapper">
+                  <button type="button" onclick="toggleExportItemsDropdown(event)" id="exportItemsBtn"
+                    class="px-3 py-1.5 border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-sm transition-all">
+                    <i class="fa-solid fa-file-export text-blue-600"></i>
+                    <span>Export ទិន្នន័យ</span>
+                    <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 ml-0.5"></i>
+                  </button>
+
+                  <div id="exportItemsMenu"
+                    class="hidden absolute right-0 mt-2 w-60 bg-white rounded-2xl shadow-2xl border border-slate-200 py-1.5 z-30 divide-y divide-slate-100">
+                    <button type="button" onclick="handleItemsExportChoice('EXCEL')"
+                      class="w-full px-3.5 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center space-x-3 transition-colors">
+                      <div
+                        class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                        <i class="fa-solid fa-file-excel text-base"></i>
+                      </div>
+                      <div>
+                        <p class="font-bold text-slate-800">Export Excel (.xlsx)</p>
+                        <p class="text-[10px] text-slate-400 font-normal">ទាញយកជា File Excel (.xlsx)</p>
+                      </div>
+                    </button>
+
+                    <button type="button" onclick="handleItemsExportChoice('PDF')"
+                      class="w-full px-3.5 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-rose-50 hover:text-rose-700 flex items-center space-x-3 transition-colors">
+                      <div class="w-8 h-8 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                        <i class="fa-solid fa-file-pdf text-base"></i>
+                      </div>
+                      <div>
+                        <p class="font-bold text-slate-800">Export PDF</p>
+                        <p class="text-[10px] text-slate-400 font-normal">ទាញយកជាឯកសារ PDF</p>
+                      </div>
+                    </button>
+
+                    <button type="button" onclick="handleItemsExportChoice('BOTH')"
+                      class="w-full px-3.5 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-700 flex items-center space-x-3 transition-colors">
+                      <div
+                        class="w-8 h-8 rounded-xl bg-gradient-to-r from-emerald-500 to-rose-500 text-white flex items-center justify-center shrink-0 text-sm shadow-sm">
+                        <i class="fa-solid fa-file-zipper"></i>
+                      </div>
+                      <div>
+                        <p class="font-bold text-blue-700">Export Excel & PDF</p>
+                        <p class="text-[10px] text-slate-400 font-normal">ទាញយកទាំង ២ ឯកសារ</p>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Add Product Button -->
+                <button onclick="openItemModal()"
+                  class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 shadow-md shadow-blue-500/20 active:scale-95 transition">
+                  <i class="fa-solid fa-plus"></i>
+                  <span>បន្ថែមទំនិញថ្មី</span>
                 </button>
               </div>
-
-              <select id="itemCategoryFilter" onchange="filterItemsTable()"
-                class="px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none">
-                <option value="ALL">គ្រប់ប្រភេទទាំងអស់</option>
-              </select>
-
-              <select id="itemStatusFilter" onchange="filterItemsTable()"
-                class="px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none">
-                <option value="ALL">គ្រប់ស្ថានភាពស្តុក</option>
-                <option value="NORMAL">ស្តុកធម្មតា</option>
-                <option value="LOW">ស្តុកជិតអស់ (Low Stock)</option>
-                <option value="OUT">អស់ពីស្តុក (Out of Stock)</option>
-              </select>
             </div>
 
-            <div id="itemsFilterSummaryText" class="text-xs text-slate-500 font-semibold shrink-0 pl-1">
-              <!-- Dynamically populated -->
+            <!-- SEARCH & FILTER BAR -->
+            <div class="glass-card p-2.5 sm:p-3 rounded-2xl shadow-xs border border-slate-200/80 bg-white flex flex-col md:flex-row gap-2.5 items-center justify-between relative z-10">
+              <div class="flex flex-1 flex-wrap gap-2 w-full">
+                <div class="relative flex-1 min-w-[180px]">
+                  <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-2.5 text-slate-400 text-xs"></i>
+                  <input type="search" id="itemSearchInput" name="item_search_nonce_secure"
+                    readonly
+                    inputmode="search"
+                    autocomplete="one-time-code" autocorrect="off" autocapitalize="off" spellcheck="false"
+                    data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other"
+                    onfocus="this.removeAttribute('readonly'); if (!this.dataset.userTyped && (this.value.toLowerCase() === 'superadmin' || this.value.replace(/\D/g, '').length >= 8)) { this.value = ''; filterItemsTable(); }"
+                    oninput="this.dataset.userTyped = 'true'; filterItemsTable()"
+                    onkeydown="this.dataset.userTyped = 'true';"
+                    placeholder="ស្វែងរកតាម ឈ្មោះទំនិញ, ខ្នាត, ពណ៌, ឬ SKU..."
+                    class="w-full pl-9 pr-8 py-1.5 sm:py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none">
+                  <button type="button" onclick="const el = document.getElementById('itemSearchInput'); if (el) { el.value = ''; delete el.dataset.userTyped; el.setAttribute('readonly', 'readonly'); filterItemsTable(); }" class="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs p-0.5 rounded transition" title="សម្អាតការស្វែងរក">
+                    <i class="fa-solid fa-xmark"></i>
+                  </button>
+                </div>
+
+                <select id="itemCategoryFilter" onchange="filterItemsTable()"
+                  class="px-2.5 py-1.5 sm:py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none">
+                  <option value="ALL">គ្រប់ប្រភេទទាំងអស់</option>
+                </select>
+
+                <select id="itemStatusFilter" onchange="filterItemsTable()"
+                  class="px-2.5 py-1.5 sm:py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none">
+                  <option value="ALL">គ្រប់ស្ថានភាពស្តុក</option>
+                  <option value="NORMAL">ស្តុកធម្មតា</option>
+                  <option value="LOW">ស្តុកជិតអស់ (Low Stock)</option>
+                  <option value="OUT">អស់ពីស្តុក (Out of Stock)</option>
+                </select>
+              </div>
+
+              <div id="itemsFilterSummaryText" class="text-xs text-slate-500 font-semibold shrink-0 pl-1">
+                <!-- Dynamically populated -->
+              </div>
             </div>
           </div>
 
-          <div class="glass-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <div class="table-container-freeze custom-scrollbar">
-              <table class="w-full text-left text-xs text-slate-600 border-collapse table-freeze">
+          <!-- TABLE CARD (Fills remaining height) -->
+          <div id="itemsTableCard" class="glass-card flex-1 min-h-0 flex flex-col rounded-2xl shadow-sm border border-slate-200 overflow-hidden bg-white">
+            <div id="itemsTableScrollContainer" class="table-container-freeze custom-scrollbar flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+              <table class="w-full text-left text-xs text-slate-600 border-collapse table-freeze table-fixed">
                 <thead
-                  class="bg-slate-100 text-slate-700 font-bold border-b border-slate-200 uppercase sticky top-0 z-20 shadow-sm">
+                  class="bg-slate-100 text-slate-700 font-bold border-b border-slate-200 uppercase sticky top-0 z-20 shadow-xs">
                   <tr>
-                    <th class="px-3 py-3.5 bg-slate-100 sticky top-0 z-20 text-center w-12">ល.រ</th>
-                    <th class="px-4 py-3.5 bg-slate-100 sticky top-0 z-20 text-left">ឈ្មោះទំនិញ (NAME & SKU)</th>
-                    <th class="px-4 py-3.5 bg-slate-100 sticky top-0 z-20 text-center">រូបភាព</th>
-                    <th class="px-4 py-3.5 bg-slate-100 sticky top-0 z-20 text-center">ពណ៌ & ខ្នាត</th>
-                    <th class="px-4 py-3.5 bg-slate-100 sticky top-0 z-20 text-center">ស្តុកបច្ចុប្បន្ន (ដុំ & រាយ)</th>
-                    <th class="px-4 py-3.5 bg-slate-100 sticky top-0 z-20 text-center">សរុបទាំងអស់ជារាយ</th>
-                    <th class="px-4 py-3.5 bg-slate-100 sticky top-0 z-20 text-center">អ្នកបញ្ចូល</th>
-                    <th class="px-4 py-3.5 bg-slate-100 sticky top-0 z-20 text-center">សកម្មភាព</th>
+                    <th class="px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-11 shrink-0">ល.រ</th>
+                    <th class="px-2.5 py-3 bg-slate-100 sticky top-0 z-20 text-left w-[24%]">ឈ្មោះទំនិញ (NAME & SKU)</th>
+                    <th class="px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-14 shrink-0">រូបភាព</th>
+                    <th class="px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-[17%]">ពណ៌ & ខ្នាត</th>
+                    <th class="px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-[18%]">ស្តុកបច្ចុប្បន្ន (ដុំ & រាយ)</th>
+                    <th class="px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-[16%]">សរុបទាំងអស់ជារាយ</th>
+                    <th class="px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-[12%]">អ្នកបញ្ចូល</th>
+                    <th class="px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-16 shrink-0">សកម្មភាព</th>
                   </tr>
                 </thead>
                 <tbody id="itemsTableBody" class="divide-y divide-slate-100 font-medium">
@@ -11986,7 +12027,7 @@
         } else {
           mainContainer.classList.remove('chat-mode-active');
         }
-        if (tabName === 'stockin' || tabName === 'stockout') {
+        if (tabName === 'stockin' || tabName === 'stockout' || tabName === 'items') {
           mainContainer.classList.add('stock-freeze-active');
           mainContainer.scrollTop = 0;
         } else {
@@ -13092,42 +13133,42 @@
           title="ចុច Double-Click ពីរដង ដើម្បីមើលរូបភាពធំ និងព័ត៌មានលម្អិត"
           class="hover:bg-slate-50/70 cursor-pointer transition-colors group">
           <!-- ជួរទី១: លេខរៀង (No.) -->
-          <td class="px-3 py-3.5 text-center font-bold text-slate-500 text-xs align-middle">${idx + 1}</td>
+          <td class="px-2 py-2.5 text-center font-bold text-slate-500 text-xs align-middle">${idx + 1}</td>
 
           <!-- ជួរទី២: ឈ្មោះទំនិញ (Item Name & SKU) -->
-          <td class="px-4 py-3.5 align-middle text-left">
-            <span class="font-bold text-slate-800 block text-xs sm:text-sm leading-snug group-hover:text-blue-600 transition">${escapeHtml(item.name)}</span>
+          <td class="px-2.5 py-2.5 align-middle text-left overflow-hidden">
+            <span class="font-bold text-slate-800 block text-xs leading-snug group-hover:text-blue-600 transition line-clamp-2 break-words" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span>
             <div class="mt-1">
-              <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10.5px] font-mono font-bold border border-slate-200/90 shadow-3xs tracking-tight select-all">
-                <i class="fa-solid fa-barcode text-[10px] text-slate-400 shrink-0"></i>
-                <span>${escapeHtml(item.sku || '-')}</span>
+              <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-mono font-bold border border-slate-200/90 shadow-3xs tracking-tight select-all max-w-full truncate" title="${escapeHtml(item.sku || '-')}">
+                <i class="fa-solid fa-barcode text-[9px] text-slate-400 shrink-0"></i>
+                <span class="truncate">${escapeHtml(item.sku || '-')}</span>
               </span>
             </div>
           </td>
 
           <!-- ជួរទី៣: រូបភាព (Image) - ចុចលើរូបដើម្បីមើលរូបភាពធំ -->
-          <td class="px-4 py-3.5 text-center align-middle">
+          <td class="px-2 py-2.5 text-center align-middle">
             <div class="inline-block" onclick="event.stopPropagation(); previewLargeImage('${escapeHtml(item.imageUrl)}', '${escapeHtml(item.name)}', '${item.sku}', '${item.barcode || '-'}', '${item.unit || 'ដុំ'}', ${item.currentStock || 0}, '${escapeHtml(getUserDisplayName(item.createdBy))}', '${escapeHtml(item.zone || '-')}')" title="ចុចដើម្បីមើលរូបភាពធំ">
               <img src="${formatDriveImageUrl(item.imageUrl) || 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=150'}" 
                 loading="lazy" decoding="async"
                 onerror="handleProductImgError(this)" 
-                class="w-11 h-11 object-cover rounded-xl border border-slate-200 shadow-3xs mx-auto cursor-zoom-in hover:scale-105 transition-transform duration-200">
+                class="w-10 h-10 object-cover rounded-xl border border-slate-200 shadow-3xs mx-auto cursor-zoom-in hover:scale-105 transition-transform duration-200">
             </div>
           </td>
 
           <!-- ជួរទី៤: ពណ៌ & ខ្នាត (Color & Size) -->
-          <td class="px-3 py-3.5 text-center whitespace-nowrap align-middle">
-            <div class="inline-flex flex-col items-center justify-center gap-1.5">
+          <td class="px-2 py-2.5 text-center align-middle overflow-hidden">
+            <div class="inline-flex flex-col items-center justify-center gap-1 max-w-full">
               ${item.color ? `
-              <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 text-[10.5px] font-bold border border-amber-200 shadow-3xs whitespace-nowrap min-w-[58px]">
-                <i class="fa-solid fa-tag mr-1 text-[9px] text-amber-500"></i>
-                <span>${escapeHtml(item.color)}</span>
+              <span class="inline-flex items-center justify-center px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-700 text-[10px] font-bold border border-amber-200 shadow-3xs max-w-full truncate" title="${escapeHtml(item.color)}">
+                <i class="fa-solid fa-tag mr-1 text-[8.5px] text-amber-500 shrink-0"></i>
+                <span class="truncate">${escapeHtml(item.color)}</span>
               </span>` : ''}
 
               ${item.size ? `
-              <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 text-[10.5px] font-bold border border-blue-200 shadow-3xs whitespace-nowrap min-w-[58px]">
-                <span class="w-1.5 h-1.5 rounded-[2px] bg-blue-500 inline-block mr-1"></span>
-                <span>${escapeHtml(item.size)}</span>
+              <span class="inline-flex items-center justify-center px-1.5 py-0.5 rounded-md bg-blue-50 text-blue-600 text-[10px] font-bold border border-blue-200 shadow-3xs max-w-full truncate" title="${escapeHtml(item.size)}">
+                <span class="w-1.5 h-1.5 rounded-[2px] bg-blue-500 inline-block mr-1 shrink-0"></span>
+                <span class="truncate">${escapeHtml(item.size)}</span>
               </span>` : ''}
 
               ${(!item.color && !item.size) ? '<span class="text-slate-300 text-xs">-</span>' : ''}
@@ -13135,59 +13176,59 @@
           </td>
 
           <!-- ជួរទី៥: ស្តុកបច្ចុប្បន្ន (Current Stock: ដុំ & រាយ) -->
-          <td class="px-4 py-3.5 text-center whitespace-nowrap align-middle">
-            <div class="inline-flex flex-col items-center justify-center">
-              <div class="flex items-center justify-center gap-1.5">
+          <td class="px-2 py-2.5 text-center align-middle overflow-hidden">
+            <div class="inline-flex flex-col items-center justify-center w-full max-w-full">
+              <div class="flex items-center justify-center gap-1 w-full">
                 <!-- ចំនួនសរុបដុំ -->
-                <span class="inline-flex items-center justify-center min-w-[76px] h-7 px-2.5 rounded-lg text-xs font-bold shadow-3xs whitespace-nowrap text-center leading-none ${bulkBadgeClass}">
+                <span class="inline-flex items-center justify-center px-2 py-1 rounded-lg text-[11px] font-bold shadow-3xs text-center leading-tight truncate flex-1 min-w-0 max-w-[85px] ${bulkBadgeClass}" title="${bulkStock} ${escapeHtml(pUnit)}">
                   ${bulkStock} ${escapeHtml(pUnit)}
                 </span>
 
                 <!-- ចំនួនរាយនៅសល់ -->
-                <span class="inline-flex items-center justify-center min-w-[64px] h-7 px-2.5 rounded-lg text-xs font-bold text-slate-600 bg-slate-100/90 border border-slate-200 shadow-3xs whitespace-nowrap text-center leading-none" title="ចំនួនរាយដែលនៅសល់">
+                <span class="inline-flex items-center justify-center px-2 py-1 rounded-lg text-[11px] font-bold text-slate-600 bg-slate-100/90 border border-slate-200 shadow-3xs text-center leading-tight truncate flex-1 min-w-0 max-w-[85px]" title="ចំនួនរាយដែលនៅសល់: ${looseRemainder} ${escapeHtml(rUnit)}">
                   ${looseRemainder} ${escapeHtml(rUnit)}
                 </span>
               </div>
-              ${pUnit ? `<span class="text-[10px] text-slate-400 font-medium mt-1 text-center whitespace-nowrap block">1 ${escapeHtml(pUnit)} = ${pQty} ${escapeHtml(rUnit)}</span>` : ''}
+              ${pUnit ? `<span class="text-[9.5px] text-slate-400 font-medium mt-0.5 text-center truncate block max-w-full" title="1 ${escapeHtml(pUnit)} = ${pQty} ${escapeHtml(rUnit)}">1 ${escapeHtml(pUnit)} = ${pQty} ${escapeHtml(rUnit)}</span>` : ''}
             </div>
           </td>
 
           <!-- ជួរទី៦: សរុបទាំងអស់ជារាយ (Total All as Retail & Min Stock) -->
-          <td class="px-4 py-3.5 text-center whitespace-nowrap align-middle">
-            <div class="inline-flex flex-col items-center justify-center">
-              <!-- ប្រអប់ចំនួនស្តុក: ពណ៌បៃតង (Mint Green Pill) -->
-              <span class="inline-flex items-center justify-center min-w-[104px] h-7 px-3 rounded-full text-xs font-black shadow-3xs whitespace-nowrap text-center leading-none bg-emerald-100/70 text-emerald-800 border border-emerald-200">
+          <td class="px-2 py-2.5 text-center align-middle overflow-hidden">
+            <div class="inline-flex flex-col items-center justify-center max-w-full">
+              <!-- ប្រអប់ចំនួនស្តុក: ពណ៌បៃតង -->
+              <span class="inline-flex items-center justify-center px-2.5 py-1 rounded-full text-[11px] font-black shadow-3xs text-center leading-tight bg-emerald-100/70 text-emerald-800 border border-emerald-200 max-w-[110px] truncate" title="${curStock} ${escapeHtml(rUnit)}">
                 ${curStock} ${escapeHtml(rUnit)}
               </span>
 
-              <!-- Min: នៅក្រោមប្រអប់សរុបទាំងអស់ជារាយ (Slate Pill) -->
-              <span class="inline-flex items-center justify-center gap-1 min-w-[104px] h-6 px-2.5 rounded-full text-[10px] font-bold mt-1.5 border border-slate-200 shadow-3xs whitespace-nowrap text-center leading-none bg-slate-100/90 text-slate-600" title="កម្រិតស្តុកអប្បបរមា (Min Stock): ${minStockVal} ${escapeHtml(rUnit)}">
-                <i class="fa-solid fa-bell text-[9px] text-slate-400"></i>
-                <span>Min: ${minStockVal} ${escapeHtml(rUnit)} (${minStockPct}%)</span>
+              <!-- Min: នៅក្រោមប្រអប់សរុបទាំងអស់ជារាយ -->
+              <span class="inline-flex items-center justify-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] font-bold mt-1 border border-slate-200 shadow-3xs text-center leading-tight bg-slate-100/90 text-slate-600 max-w-[130px] truncate" title="កម្រិតស្តុកអប្បបរមា (Min Stock): ${minStockVal} ${escapeHtml(rUnit)} (${minStockPct}%)">
+                <i class="fa-solid fa-bell text-[8.5px] text-slate-400 shrink-0"></i>
+                <span class="truncate">Min: ${minStockVal} ${escapeHtml(rUnit)} (${minStockPct}%)</span>
               </span>
             </div>
           </td>
 
           <!-- ជួរទី៧: អ្នកបញ្ចូល (Created By & Date) -->
-          <td class="px-4 py-3.5 text-center align-middle">
-            <span class="text-xs font-bold text-slate-800 block">${escapeHtml(getUserDisplayName(item.createdBy))}</span>
-            <span class="text-[10px] text-slate-400 font-medium block mt-0.5">${item.createdAt ? String(item.createdAt).slice(0, 10) : '-'}</span>
+          <td class="px-2 py-2.5 text-center align-middle overflow-hidden">
+            <span class="text-xs font-bold text-slate-800 block truncate" title="${escapeHtml(getUserDisplayName(item.createdBy))}">${escapeHtml(getUserDisplayName(item.createdBy))}</span>
+            <span class="text-[10px] text-slate-400 font-medium block mt-0.5 truncate">${item.createdAt ? String(item.createdAt).slice(0, 10) : '-'}</span>
           </td>
 
           <!-- ជួរទី៨: សកម្មភាព (Actions: កែសម្រួល, លុបចេញ) -->
-          <td class="px-3 py-3.5 text-center whitespace-nowrap align-middle">
-            <div class="flex items-center justify-center space-x-1.5">
+          <td class="px-2 py-2.5 text-center align-middle shrink-0">
+            <div class="flex items-center justify-center space-x-1">
               <!-- 1. កែសម្រួល (Edit Item) -->
               <button type="button" onclick="event.stopPropagation(); openEditItemModal('${item.sku}')"
                 title="កែប្រែព័ត៌មានទំនិញ (Edit Item)"
-                class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-500 hover:text-amber-600 border border-amber-200/90 flex items-center justify-center transition shadow-3xs active:scale-95">
+                class="w-7 h-7 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-500 hover:text-amber-600 border border-amber-200/90 flex items-center justify-center transition shadow-3xs active:scale-95">
                 <svg class="w-3.5 h-3.5 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
               </button>
 
               <!-- 2. លុបចេញ (Delete Item) -->
               <button type="button" onclick="event.stopPropagation(); handleDeleteItem('${item.sku}')"
                 title="លុបទំនិញនេះចេញ (Delete Item)"
-                class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-500 hover:text-rose-600 border border-rose-200/90 flex items-center justify-center transition shadow-3xs active:scale-95">
+                class="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-500 hover:text-rose-600 border border-rose-200/90 flex items-center justify-center transition shadow-3xs active:scale-95">
                 <svg class="w-3.5 h-3.5 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
               </button>
             </div>
