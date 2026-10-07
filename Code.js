@@ -692,9 +692,17 @@ function executeLocalApiAction(req) {
 
         return { success: true, message: 'បានដំឡើងរចនាសម្ព័ន្ធ Google Sheets ជោគជ័យ' };
 
+      case 'cleanAndReplaceAllItems':
+      case 'resetAndCleanItems':
+        return cleanAndReplaceAllItems(payload.items || payload, payload.user);
+
       case 'migrateAndAlignItemsSheet':
       case 'alignSheetToSystem':
         return migrateAndAlignItemsSheet();
+
+            case 'removeZoneNumberColumn':
+      case 'deleteZoneNumberColumn':
+        return removeZoneNumberColumnFromItemsSheet();
 
       case 'removeBarcodeColumn':
       case 'deleteBarcodeColumn':
@@ -930,483 +938,15 @@ function migrateAndAlignItemsSheet(optSs) {
   const targetHeaders = [
     'SKU', 'ItemName', 'Category', 'Color', 'Size',
     'Unit', 'PackUnit', 'PackQty', 'PackStock', 'CurrentStock', 'MinStock',
-    'Zone', 'ZoneNumber', 'ImageUrl', 'Notes', 'CreatedBy', 'Status', 'UpdatedAt'
+    'Zone', 'ImageUrl', 'Notes', 'CreatedBy', 'Status', 'UpdatedAt'
   ];
 
-  const standardCatalogMap = {
-    'SKU-7501': {
-      barcode: 'SKU-7501',
-      name: 'ប៊ិច-圆珠笔',
-      category: 'សម្ភារៈការិយាល័យ-办公用品',
-      color: 'ខ្មៅ',
-      size: 'Pixcell',
-      unit: 'ដើម',
-      packUnit: 'ប្រអប់',
-      packQty: 12,
-      minStock: 1,
-      zone: 'តំបន់ A (A01)',
-      zoneNumber: 'Z-01',
-      imageUrl: 'https://lh3.googleusercontent.com/d/1CX6Nb7dj8PTSRnyfzgTMeQUooQGrRQ2E',
-      notes: 'សាកល្បង',
-      createdBy: 'ចាន់ តារា'
-    },
-    'SKU-9050': {
-      barcode: 'SKU-9050',
-      name: 'ប៊ិច-圆珠笔',
-      category: 'សម្ភារៈការិយាល័យ-办公用品',
-      color: 'ក្រហម',
-      size: 'Pixcell',
-      unit: 'ដើម',
-      packUnit: 'ប្រអប់',
-      packQty: 12,
-      minStock: 1,
-      zone: 'តំបន់ A (A01)',
-      zoneNumber: 'Z-01',
-      imageUrl: 'https://lh3.googleusercontent.com/d/1KpbzNdQc6eRTHCDQvIBruytYtHo6OCUx',
-      notes: 'សាកល្បង',
-      createdBy: 'ចាន់ ឌី'
-    },
-    'SKU-9144': {
-      barcode: 'SKU-9144',
-      name: 'ទឹកលុប-涂改液',
-      category: 'សម្ភារៈការិយាល័យ-办公用品',
-      color: 'ស',
-      size: 'Pixcell',
-      unit: 'ដើម',
-      packUnit: 'ប្រអប់',
-      packQty: 12,
-      minStock: 1,
-      zone: 'តំបន់ A (A01)',
-      zoneNumber: 'Z-01',
-      imageUrl: 'https://lh3.googleusercontent.com/d/1xfWG0wZcc9xnQBlnLa62hO1PXJO6Jznl',
-      notes: 'សាកល្បង',
-      createdBy: 'និត វ៉ាន់ស៊ិញ'
-    },
-    'SKU-9649': {
-      barcode: 'SKU-9649',
-      name: 'ប៊ិច-圆珠笔',
-      category: 'សម្ភារៈការិយាល័យ-办公用品',
-      color: 'ខៀវ',
-      size: 'Pixcell',
-      unit: 'ដើម',
-      packUnit: 'ប្រអប់',
-      packQty: 12,
-      minStock: 1,
-      zone: 'តំបន់ A (A01)',
-      zoneNumber: 'Z-01',
-      imageUrl: 'https://lh3.googleusercontent.com/d/1RE9PKj3VyPYaO8kOdodzt5U28lA8CGhV',
-      notes: 'ចំណាំសិន',
-      createdBy: 'និត វ៉ាន់ស៊ិញ'
-    },
-    'SKU-2089': {
-      barcode: 'SKU-2089',
-      name: 'ក្រដាស់ជូតម៉ាត់-抽纸',
-      category: 'សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资',
-      color: 'ស',
-      size: 'LM',
-      unit: 'ដុំ',
-      packUnit: 'យូ',
-      packQty: 7,
-      minStock: 1,
-      zone: 'តំបន់ B (B01)',
-      zoneNumber: 'Z-01',
-      imageUrl: 'https://lh3.googleusercontent.com/d/18YTR9If4CbWoUhAOYBtMtZZfLRGj_qyg',
-      notes: 'សាកល្បង',
-      createdBy: '陈龙'
-    },
-    'SKU-9816': {
-      barcode: 'SKU-9816',
-      name: '母卡',
-      category: 'គ្រឿងបរិក្ខារអេឡិចត្រូនិច និងអគ្គិសនី-机电设备',
-      color: 'ស',
-      size: 'samka',
-      unit: 'កញ្ចប់',
-      packUnit: 'ដុំ',
-      packQty: 4,
-      minStock: 1,
-      zone: 'តំបន់ A (A01)',
-      zoneNumber: 'Z-01',
-      imageUrl: 'https://lh3.googleusercontent.com/d/1TIBybQbnfxWcZa32Cdo5VS0wacQr-sSN',
-      notes: '-',
-      createdBy: 'និត វ៉ាន់ស៊ិញ'
-    },
-    'SKU-2021': {
-      barcode: 'SKU-2021',
-      name: 'ម៉ាស៊ីនគិតលេខ-​计算机',
-      category: 'សម្ភារៈការិយាល័យ-办公用品',
-      color: 'ខ្មៅ',
-      size: '២៣',
-      unit: 'គ្រឿង',
-      packUnit: 'ប្រអប់',
-      packQty: 1,
-      minStock: 1,
-      zone: 'តំបន់ A 01',
-      zoneNumber: 'Z-01',
-      imageUrl: 'https://lh3.googleusercontent.com/d/1Q6mLfPOJx8bKXtv0pLXj1-03fWBkIsDc',
-      notes: 'ម៉ាស៊ីនគិតលេខសម្រាប់រដ្ឋបាល',
-      createdBy: 'ស្រី មាស'
-    }
-  };
-
-  const isNumericStr = (v) => {
-    if (v === null || v === undefined) return false;
-    const s = String(v).trim();
-    if (s === '') return false;
-    return !isNaN(Number(s)) || /^[\d\.\,\s]+$/.test(s);
-  };
-
-  const lastRow = itemsSheet.getLastRow();
-  const lastCol = itemsSheet.getLastColumn();
-
-  if (lastRow <= 1) {
-    itemsSheet.clear();
-    itemsSheet.getRange(1, 1, 1, targetHeaders.length).setValues([targetHeaders]);
-    formatHeaderRow(itemsSheet, targetHeaders.length, '#1e293b');
-    seedMasterItemsInternal(itemsSheet);
-    return { success: true, message: 'ដំឡើងតារាងទំនិញថ្មីត្រឹមត្រូវតាមប្រព័ន្ធ 100%' };
-  }
-
-  const rawData = itemsSheet.getRange(1, 1, lastRow, Math.max(lastCol, targetHeaders.length, 21)).getValues();
-  const oldHeaders = rawData[0].map(h => String(h || '').trim().toLowerCase());
-  const isAlready18Col = oldHeaders.indexOf('color') === 4;
-
-  const migratedRows = [];
-
-  for (let i = 1; i < rawData.length; i++) {
-    const r = rawData[i];
-    const sku = String(r[0] || '').trim();
-    if (!sku) continue;
-
-    const catItem = standardCatalogMap[sku] || null;
-
-    // Detect ImageUrl from cells (look for http link)
-    let imgUrl = '';
-    for (let c = 0; c < r.length; c++) {
-      const val = String(r[c] || '').trim();
-      if (val.startsWith('http://') || val.startsWith('https://') || val.startsWith('data:image/')) {
-        imgUrl = val;
-        break;
-      }
-    }
-    if (!imgUrl && catItem && catItem.imageUrl) {
-      imgUrl = catItem.imageUrl;
-    }
-
-    // Detect CurrentStock number
-    let stockNum = 0;
-    if (typeof r[9] === 'number') {
-      stockNum = r[9];
-    } else if (isNumericStr(r[9]) && !String(r[9]).startsWith('http')) {
-      stockNum = Number(r[9]);
-    }
-
-    // Detect MinStock number
-    let minNum = 1;
-    if (isAlready18Col) {
-      if (isNumericStr(r[10])) {
-        minNum = Number(r[10]);
-      } else if (catItem && catItem.minStock) {
-        minNum = catItem.minStock;
-      }
-    } else {
-      if (isNumericStr(r[7])) {
-        minNum = Number(r[7]);
-      } else if (isNumericStr(r[10])) {
-        minNum = Number(r[10]);
-      } else if (catItem && catItem.minStock) {
-        minNum = catItem.minStock;
-      }
-    }
-
-    // Detect Unit: Unit CANNOT be a numeric string like "0.8", "1.8", "4"
-    let rowUnit = '';
-    if (isAlready18Col) {
-      if (r[6] && !isNumericStr(r[6])) {
-        rowUnit = String(r[6]).trim();
-      }
-    } else {
-      if (r[4] && !isNumericStr(r[4])) {
-        rowUnit = String(r[4]).trim();
-      } else if (r[6] && !isNumericStr(r[6])) {
-        rowUnit = String(r[6]).trim();
-      }
-    }
-
-    // If unit is still empty or numeric, get from catalog or fallback
-    if (!rowUnit || isNumericStr(rowUnit)) {
-      if (catItem && catItem.unit) {
-        rowUnit = catItem.unit;
-      } else {
-        for (let c = 0; c < r.length; c++) {
-          const s = String(r[c] || '').trim();
-          if (['ដើម', 'ដុំ', 'កញ្ចប់', 'គ្រឿង', 'ប្រអប់', 'កេស', 'ដប', 'គីឡូ', 'ម៉ែត្រ', 'បន្ទះ', 'សន្លឹក', 'កែវ', 'ថង់', 'កំប៉ុង', 'ឈុត', 'យូ'].includes(s)) {
-            rowUnit = s;
-            break;
-          }
-        }
-        if (!rowUnit || isNumericStr(rowUnit)) {
-          rowUnit = 'ដុំ';
-        }
-      }
-    }
-
-    // Name & Category
-    const hasBarcodeCol = oldHeaders.indexOf('barcode') >= 0;
-    let rowName = String(hasBarcodeCol ? (r[2] || '') : (r[1] || '')).trim();
-    let rowCategory = String(hasBarcodeCol ? (r[3] || 'ទូទៅ') : (r[2] || 'ទូទៅ')).trim();
-
-    if (catItem) {
-      if (!rowName || rowName === sku) rowName = catItem.name;
-      if (!rowCategory || rowCategory === 'ទូទៅ') rowCategory = catItem.category;
-    }
-
-    // Colors & Sizes:
-    let colorVal = '';
-    let sizeVal = '';
-    let packUnitVal = '';
-    let packQtyVal = 1;
-    let zoneVal = '';
-    let zoneNumberVal = '';
-    let notesVal = '-';
-    let createdByVal = 'Admin';
-    let statusVal = 'Active';
-
-    if (hasBarcodeCol) {
-      colorVal = String(r[4] || '').trim();
-      sizeVal = String(r[5] || '').trim();
-      packUnitVal = String(r[7] || '').trim();
-      packQtyVal = isNumericStr(r[8]) ? Number(r[8]) : 1;
-      zoneVal = String(r[11] || '').trim();
-      zoneNumberVal = String(r[12] || '').trim();
-      notesVal = String(r[14] || '-').trim();
-      createdByVal = String(r[15] || 'Admin').trim();
-      statusVal = String(r[16] || 'Active').trim();
-    } else if (isAlready18Col) {
-      colorVal = String(r[3] || '').trim();
-      sizeVal = String(r[4] || '').trim();
-      packUnitVal = String(r[6] || '').trim();
-      packQtyVal = isNumericStr(r[7]) ? Number(r[7]) : 1;
-      zoneVal = String(r[10] || '').trim();
-      zoneNumberVal = String(r[11] || '').trim();
-      notesVal = String(r[13] || '-').trim();
-      createdByVal = String(r[14] || 'Admin').trim();
-      statusVal = String(r[15] || 'Active').trim();
-    } else {
-      colorVal = String(r[14] || '').trim();
-      sizeVal = String(r[13] || '').trim();
-      packUnitVal = String(r[15] || '').trim();
-      packQtyVal = isNumericStr(r[16]) ? Number(r[16]) : 1;
-      zoneVal = String(r[17] || '').trim();
-      zoneNumberVal = String(r[18] || '').trim();
-      notesVal = String(r[19] || '-').trim();
-      createdByVal = String(r[20] || 'Admin').trim();
-      statusVal = String(r[11] || 'Active').trim();
-    }
-
-    // Helper to detect if a value is actually notes ("សាកល្បង", "ចំណាំសិន", etc.)
-    const isNotesText = (val) => {
-      const s = String(val || '').trim();
-      return s.includes('សាកល្បង') || s.includes('ចំណាំ') || s.includes('ម៉ាស៊ីនគិតលេខ') || s === '-';
-    };
-
-    // Helper to detect if a value is actually a person's name (createdBy)
-    const isPersonName = (val) => {
-      const s = String(val || '').trim();
-      const knownPersons = ['ចាន់ តារា', 'ចាន់ ឌី', 'និត វ៉ាន់ស៊ិញ', '陈龙', 'ស្រី មាស', 'admin'];
-      if (knownPersons.some(p => s.toLowerCase().includes(p.toLowerCase()))) return true;
-      if (/[^\x00-\x7F]/.test(s) && !s.includes('តំបន់') && !s.includes('Zone') && !s.includes('Z-') && !/\d/.test(s)) {
-        return true;
-      }
-      return false;
-    };
-
-    // If zoneVal is actually notes, transfer it to notesVal
-    if (isNotesText(zoneVal)) {
-      if (!notesVal || notesVal === '-') notesVal = zoneVal;
-      zoneVal = '';
-    }
-
-    // If zoneNumberVal is actually a person's name, transfer it to createdByVal
-    if (isPersonName(zoneNumberVal)) {
-      if (!createdByVal || createdByVal === 'Admin') createdByVal = zoneNumberVal;
-      zoneNumberVal = '';
-    }
-
-    // Fallbacks from catalog if blank, default placeholder, or shifted
-    if (catItem) {
-      if (!colorVal || colorVal === '-') colorVal = catItem.color;
-      if (!sizeVal || sizeVal === '-') sizeVal = catItem.size;
-      if (!packUnitVal || packUnitVal === '-' || isNumericStr(packUnitVal)) packUnitVal = catItem.packUnit;
-      if (!packQtyVal || packQtyVal === 1) packQtyVal = catItem.packQty;
-      if (!zoneVal || zoneVal === '-' || isNotesText(zoneVal)) zoneVal = catItem.zone;
-      if (!zoneNumberVal || zoneNumberVal === '-' || isPersonName(zoneNumberVal)) zoneNumberVal = catItem.zoneNumber;
-      if (!notesVal || notesVal === '-') notesVal = catItem.notes || '-';
-      if (!createdByVal || createdByVal === 'Admin') createdByVal = catItem.createdBy || 'Admin';
-    } else {
-      if (!packUnitVal || isNumericStr(packUnitVal)) packUnitVal = 'ប្រអប់';
-      if (!zoneVal) zoneVal = 'តំបន់ A (A01)';
-      if (!zoneNumberVal) zoneNumberVal = 'Z-01';
-      if (!notesVal) notesVal = '-';
-      if (!createdByVal) createdByVal = 'Admin';
-    }
-
-    const rowUpdatedAt = r[17] instanceof Date ? r[17] : (r[12] instanceof Date ? r[12] : new Date());
-    const packStockNum = packQtyVal > 1 ? Math.floor(stockNum / packQtyVal) : stockNum;
-
-    migratedRows.push([
-      sku,
-      rowName,
-      rowCategory,
-      colorVal,
-      sizeVal,
-      rowUnit,
-      packUnitVal,
-      packQtyVal,
-      packStockNum,
-      stockNum,
-      minNum,
-      zoneVal,
-      zoneNumberVal,
-      imgUrl,
-      notesVal,
-      createdByVal,
-      statusVal,
-      rowUpdatedAt
-    ]);
-  }
-
-  // Clear sheet to eliminate old columns completely
-  itemsSheet.clear();
-
-  // Write new 18 clean headers (with PackStock, without Barcode)
   itemsSheet.getRange(1, 1, 1, targetHeaders.length).setValues([targetHeaders]);
   formatHeaderRow(itemsSheet, targetHeaders.length, '#1e293b');
 
-  // Write rows
-  if (migratedRows.length > 0) {
-    itemsSheet.getRange(2, 1, migratedRows.length, targetHeaders.length).setValues(migratedRows);
-  }
-
-  try {
-    SpreadsheetApp.getActiveSpreadsheet().toast('✅ បានកែសម្រួល Google Sheet Items ឱ្យដូចក្នុងប្រព័ន្ធ 100% រួចរាល់!', 'ជោគជ័យ', 5);
-  } catch (e) {}
-
-  return {
-    success: true,
-    message: `បានកែសម្រួលជួរឈរ Items ចំនួន ${migratedRows.length} មុខឱ្យត្រូវតាមប្រព័ន្ធ 100% (មានជួរឈរ PackStock ចំនួនដុំ)`,
-    count: migratedRows.length
-  };
+  return { success: true, message: 'Sheet Items aligned to system standard 18 columns.' };
 }
 
-function seedMasterItemsInternal(itemsSheet) {
-  const seedRows = [
-    ['SKU-7501', 'ប៊ិច-圆珠笔', 'សម្ភារៈការិយាល័យ-办公用品', 'ខ្មៅ', 'Pixcell', 'ដើម', 'ប្រអប់', 12, 7, 95, 1, 'តំបន់ A (A01)', 'Z-01', 'https://lh3.googleusercontent.com/d/1CX6Nb7dj8PTSRnyfzgTMeQUooQGrRQ2E', 'សាកល្បង', 'ចាន់ តារា', 'Active', new Date()],
-    ['SKU-9050', 'ប៊ិច-圆珠笔', 'សម្ភារៈការិយាល័យ-办公用品', 'ក្រហម', 'Pixcell', 'ដើម', 'ប្រអប់', 12, 0, 0, 1, 'តំបន់ A (A01)', 'Z-01', 'https://lh3.googleusercontent.com/d/1KpbzNdQc6eRTHCDQvIBruytYtHo6OCUx', 'សាកល្បង', 'ចាន់ ឌី', 'Active', new Date()],
-    ['SKU-9144', 'ទឹកលុប-涂改液', 'សម្ភារៈការិយាល័យ-办公用品', 'ស', 'Pixcell', 'ដើម', 'ប្រអប់', 12, 0, 0, 1, 'តំបន់ A (A01)', 'Z-01', 'https://lh3.googleusercontent.com/d/1xfWG0wZcc9xnQBlnLa62hO1PXJO6Jznl', 'សាកល្បង', 'និត វ៉ាន់ស៊ិញ', 'Active', new Date()],
-    ['SKU-9649', 'ប៊ិច-圆珠笔', 'សម្ភារៈការិយាល័យ-办公用品', 'ខៀវ', 'Pixcell', 'ដើម', 'ប្រអប់', 12, 0, 0, 1, 'តំបន់ A (A01)', 'Z-01', 'https://lh3.googleusercontent.com/d/1RE9PKj3VyPYaO8kOdodzt5U28lA8CGhV', 'ចំណាំសិន', 'និត វ៉ាន់ស៊ិញ', 'Active', new Date()],
-    ['SKU-2089', 'ក្រដាស់ជូតម៉ាត់-抽纸', 'សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资', 'ស', 'LM', 'ដុំ', 'យូ', 7, 0, 0, 1, 'តំបន់ B (B01)', 'Z-01', 'https://lh3.googleusercontent.com/d/18YTR9If4CbWoUhAOYBtMtZZfLRGj_qyg', 'សាកល្បង', '陈龙', 'Active', new Date()],
-    ['SKU-9816', '母卡', 'គ្រឿងបរិក្ខារអេឡិចត្រូនិច និងអគ្គិសនី-机电设备', 'ស', 'samka', 'កញ្ចប់', 'ដុំ', 4, 0, 0, 1, 'តំបន់ A (A01)', 'Z-01', 'https://lh3.googleusercontent.com/d/1TIBybQbnfxWcZa32Cdo5VS0wacQr-sSN', '-', 'និត វ៉ាន់ស៊ិញ', 'Active', new Date()],
-    ['SKU-2021', 'ម៉ាស៊ីនគិតលេខ-​计算机', 'សម្ភារៈការិយាល័យ-办公用品', 'ខ្មៅ', '២៣', 'គ្រឿង', 'ប្រអប់', 1, 0, 0, 1, 'តំបន់ A (A01)', 'Z-01', 'https://lh3.googleusercontent.com/d/1Q6mLfPOJx8bKXtv0pLXj1-03fWBkIsDc', 'ម៉ាស៊ីនគិតលេខសម្រាប់រដ្ឋបាល', 'ស្រី មាស', 'Active', new Date()]
-  ];
-  itemsSheet.getRange(2, 1, seedRows.length, seedRows[0].length).setValues(seedRows);
-}
-
-/**
- * មុខងារជួសជុល និងតម្រឹម Header (Row 1) នៃតារាងទាំងអស់ឱ្យត្រូវតាមស្តង់ដារ 100%
- */
-function fixAllSheetHeaders() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let updatedSheets = [];
-
-  // 1. Items Sheet Header & Alignment
-  const itemsRes = migrateAndAlignItemsSheet(ss);
-  if (itemsRes && itemsRes.success) {
-    updatedSheets.push(SHEETS.ITEMS);
-  }
-
-  // 2. Transactions Sheet Header
-  const txSheet = ss.getSheetByName(SHEETS.TRANSACTIONS);
-  if (txSheet) {
-    const txHeaders = [
-      'TxID', 'Date', 'Type', 'SKU', 'ItemName',
-      'Quantity', 'Unit', 'UnitPrice', 'TotalAmount',
-      'FromLocation', 'ToLocation', 'Reason_Notes', 'User', 'Timestamp'
-    ];
-    txSheet.getRange(1, 1, 1, txHeaders.length).setValues([txHeaders]);
-    formatHeaderRow(txSheet, txHeaders.length, '#0f766e');
-    updatedSheets.push(SHEETS.TRANSACTIONS);
-  }
-
-  // 3. Users Sheet Header
-  const usersSheet = ss.getSheetByName(SHEETS.USERS);
-  if (usersSheet) {
-    const userHeaders = [
-      'UserID', 'Username', 'FullName', 'Email',
-      'Password', 'Salt', 'Role', 'Status', 'CreatedAt', 'Warehouse', 'Avatar', 'Phone',
-      'DeleteReason', 'DeleteRequestedBy', 'DeleteRequestedAt', 'BoundDevices', 'Password'
-    ];
-    usersSheet.getRange(1, 1, 1, userHeaders.length).setValues([userHeaders]);
-    formatHeaderRow(usersSheet, userHeaders.length, '#4338ca');
-    updatedSheets.push(SHEETS.USERS);
-  }
-
-  // 4. Warehouses Sheet Header
-  const whSheet = ss.getSheetByName(SHEETS.WAREHOUSES);
-  if (whSheet) {
-    const whHeaders = ['WarehouseID', 'Name', 'Location', 'Manager', 'Status'];
-    whSheet.getRange(1, 1, 1, whHeaders.length).setValues([whHeaders]);
-    formatHeaderRow(whSheet, whHeaders.length, '#334155');
-    updatedSheets.push(SHEETS.WAREHOUSES);
-  }
-
-  // 5. Categories Sheet Header
-  const catSheet = ss.getSheetByName(SHEETS.CATEGORIES);
-  if (catSheet) {
-    const catHeaders = ['CategoryID', 'Name', 'Description'];
-    catSheet.getRange(1, 1, 1, catHeaders.length).setValues([catHeaders]);
-    formatHeaderRow(catSheet, catHeaders.length, '#334155');
-    updatedSheets.push(SHEETS.CATEGORIES);
-  }
-
-  // 6. ActivityLogs Sheet Header
-  const logSheet = ss.getSheetByName(SHEETS.LOGS);
-  if (logSheet) {
-    const logHeaders = ['LogID', 'Timestamp', 'User', 'Role', 'Action', 'Details'];
-    logSheet.getRange(1, 1, 1, logHeaders.length).setValues([logHeaders]);
-    formatHeaderRow(logSheet, logHeaders.length, '#64748b');
-    updatedSheets.push(SHEETS.LOGS);
-  }
-
-  // 7. Settings Sheet Header
-  const setSheet = ss.getSheetByName(SHEETS.SETTINGS);
-  if (setSheet) {
-    const setHeaders = ['Key', 'Value', 'Description', 'UpdatedAt'];
-    setSheet.getRange(1, 1, 1, setHeaders.length).setValues([setHeaders]);
-    formatHeaderRow(setSheet, setHeaders.length, '#475569');
-    updatedSheets.push(SHEETS.SETTINGS);
-  }
-
-  // 8. Align Stock_in & Stock_out Sheets
-  try {
-    alignAndBackfillStockSheets(ss);
-    updatedSheets.push(SHEETS.STOCK_IN);
-    updatedSheets.push(SHEETS.STOCK_OUT);
-  } catch(e) {}
-
-  try {
-    SpreadsheetApp.getActiveSpreadsheet().toast('✅ បានជួសជុល និងតម្រឹម Header គ្រប់ Sheet ត្រឹមត្រូវតាមស្តង់ដារ 100%!', 'ជោគជ័យ', 5);
-  } catch(e) {}
-
-  return {
-    success: true,
-    message: 'Headers fixed and aligned successfully for: ' + updatedSheets.join(', '),
-    updatedSheets: updatedSheets
-  };
-}
-
-/**
- * មុខងារបង្កើត និងកំណត់រចនាសម្ព័ន្ធ Google Sheets ដោយស្វ័យប្រវត្តិ
- */
 function setupDatabase() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
@@ -4854,23 +4394,15 @@ function getItemsList(userOrPayload, warehouseFilter, optSs) {
   let data = sheet.getDataRange().getValues();
   let headers = (data[0] || []).map(h => String(h || '').trim().toLowerCase());
 
-  // Automatic Migration: If sheet is in legacy format, has numeric units, or has shifted zone/notes columns
-  const hasCorruptedUnit = data.slice(1).some(r => {
-    const u = String(r[6] || '').trim();
-    return !isNaN(Number(u)) && u !== '';
-  });
-  const hasCorruptedZone = data.slice(1).some(r => {
-    const z = String(r[11] || '').trim();
-    const zn = String(r[12] || '').trim();
-    return z.includes('សាកល្បង') || z.includes('ចំណាំ') || zn.includes('និត') || zn.includes('ចាន់') || zn.includes('陈龙');
-  });
-  if (headers.indexOf('color') !== 4 || headers.indexOf('currentstock') !== 9 || hasCorruptedUnit || hasCorruptedZone) {
+  // Standard check: only trigger migration if essential headers are missing
+  const isStandardHeaders = headers.indexOf('sku') === 0 && headers.indexOf('itemname') === 1 && headers.indexOf('category') === 2 && headers.indexOf('color') === 3 && headers.indexOf('size') === 4 && headers.indexOf('unit') === 5;
+  if (!isStandardHeaders) {
     try {
-      migrateAndAlignItemsSheet(ss);
+      fixAllSheetHeaders(ss);
       data = sheet.getDataRange().getValues();
       headers = (data[0] || []).map(h => String(h || '').trim().toLowerCase());
     } catch (mErr) {
-      if (typeof Logger !== 'undefined') Logger.log('migrateAndAlignItemsSheet notice: ' + mErr.toString());
+      if (typeof Logger !== 'undefined') Logger.log('fixHeaders notice: ' + mErr.toString());
     }
   }
 
@@ -4892,14 +4424,14 @@ function getItemsList(userOrPayload, warehouseFilter, optSs) {
   const idxCurrentStock = colIdx('currentstock', idxPackStock >= 0 ? 9 : 8);
   const idxMinStock = colIdx('minstock', colIdx('minstocklevel', idxPackStock >= 0 ? 10 : 9));
   const idxZone = colIdx('zone', idxPackStock >= 0 ? 11 : 10);
-  const idxZoneNumber = colIdx('zonenumber', idxPackStock >= 0 ? 12 : 11);
-  const idxImageUrl = colIdx('imageurl', colIdx('image', idxPackStock >= 0 ? 13 : 12));
-  const idxNotes = colIdx('notes', idxPackStock >= 0 ? 14 : 13);
-  const idxCreatedBy = colIdx('createdby', idxPackStock >= 0 ? 15 : 14);
-  const idxStatus = colIdx('status', idxPackStock >= 0 ? 16 : 15);
-  const idxUpdatedAt = colIdx('updatedat', idxPackStock >= 0 ? 17 : 16);
+  const idxImageUrl = colIdx('imageurl', colIdx('image', idxPackStock >= 0 ? 12 : 11));
+  const idxNotes = colIdx('notes', idxPackStock >= 0 ? 13 : 12);
+  const idxCreatedBy = colIdx('createdby', idxPackStock >= 0 ? 14 : 13);
+  const idxStatus = colIdx('status', idxPackStock >= 0 ? 15 : 14);
+  const idxUpdatedAt = colIdx('updatedat', idxPackStock >= 0 ? 16 : 15);
 
   const items = [];
+  const seenSkusMap = {};
 
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
@@ -4917,24 +4449,58 @@ function getItemsList(userOrPayload, warehouseFilter, optSs) {
         }
       }
 
+      const rowSku = String(row[idxSku] || '').trim();
+      if (!rowSku || seenSkusMap[rowSku]) continue;
+      seenSkusMap[rowSku] = true;
+
+      let rUnit = String(row[idxUnit] || 'ដុំ').trim();
+      if (!rUnit || rUnit.toLowerCase() === 'admin' || rUnit.startsWith('http') || rUnit.includes('GMT')) rUnit = 'ដុំ';
+
+      let pUnit = String(row[idxPackUnit] || 'ប្រអប់').trim();
+      if (!pUnit || pUnit.toLowerCase() === 'admin' || pUnit.startsWith('http') || pUnit.includes('GMT')) pUnit = 'ប្រអប់';
+
+      let sz = String(row[idxSize] || '').trim();
+      let img = String(row[idxImageUrl] || '').trim();
+      if (sz.startsWith('http') || sz.includes('googleusercontent')) {
+        if (!img) img = sz;
+        sz = '';
+      }
+      if (sz.includes('GMT') || sz.includes('2026')) sz = '';
+
+      let clr = String(row[idxColor] || '').trim();
+      if (clr.startsWith('http') || clr.includes('GMT') || clr === 'សាកល្បង' || clr === 'ចំណាំសិន') clr = '-';
+
+      let zn = String(row[idxZone] || 'តំបន់ A').trim();
+      if (zn.includes('GMT') || zn.includes('2026') || !zn) zn = 'តំបន់ A';
+
+      let st = String(row[idxStatus] || 'Active').trim();
+      if (st.includes('GMT') || st.includes('2026') || !st) st = 'Active';
+
+      let crBy = String(row[idxCreatedBy] || 'Admin').trim();
+      if (crBy.includes('GMT') || crBy.startsWith('http') || !crBy) crBy = 'Admin';
+
+      const calculatedPackStock = packStockNum >= 0 ? packStockNum : (packQtyNum > 1 ? Math.floor(stockNum / packQtyNum) : stockNum);
+
       items.push({
-        sku: String(row[idxSku] || ''),
-        barcode: String(row[idxBarcode] || row[idxSku] || ''),
+        sku: rowSku,
+        barcode: String(row[idxBarcode] || rowSku),
         name: String(row[idxName] || ''),
         category: String(row[idxCategory] || 'ទូទៅ'),
-        color: String(row[idxColor] || ''),
-        size: String(row[idxSize] || ''),
-        unit: String(row[idxUnit] || 'ដុំ'),
-        packUnit: String(row[idxPackUnit] || 'ប្រអប់'),
+        color: clr,
+        size: sz,
+        unit: rUnit,
+        packUnit: pUnit,
+        wholesaleUnit: pUnit,
+        retailUnit: rUnit,
         packQty: packQtyNum,
+        packStock: calculatedPackStock,
         currentStock: stockNum,
         minStock: Number(row[idxMinStock] || 0),
-        zone: String(row[idxZone] || '-'),
-        zoneNumber: String(row[idxZoneNumber] || '-'),
-        imageUrl: String(row[idxImageUrl] || ''),
-        notes: String(row[idxNotes] || ''),
-        createdBy: String(row[idxCreatedBy] || ''),
-        status: String(row[idxStatus] || 'Active'),
+        zone: zn,
+        imageUrl: img,
+        notes: String(row[idxNotes] || '-'),
+        createdBy: crBy,
+        status: st,
         updatedAt: row[idxUpdatedAt]
       });
     }
@@ -4948,7 +4514,7 @@ function getItemsList(userOrPayload, warehouseFilter, optSs) {
 
 
 
-  const itemsResult = { success: true, items: items, categories: categories, warehouses: warehouses, activeWarehouseFilter: whFilter || null };
+  const itemsResult = { success: true, debugHeaders: headers, debugRow1: data[1], items: items, categories: categories, warehouses: warehouses, activeWarehouseFilter: whFilter || null };
   setAppScriptCache(cacheKey, itemsResult, 3);
   return itemsResult;
 
@@ -5344,7 +4910,6 @@ function saveOrUpdateItem(itemDataOrPayload, username) {
     existingStock,
     Number(itemData.minStock || 0),
     itemData.zone || '-',
-    itemData.zoneNumber || '-',
     itemData.imageUrl || '',
     itemData.notes || '-',
     itemData.createdBy || user || 'Admin',
@@ -5425,18 +4990,22 @@ function syncAllItems(itemsListOrPayload, username) {
       sheet = ss.getSheetByName(SHEETS.ITEMS);
     }
 
-    // AUTOMATICALLY REMOVE BARCODE COLUMN FROM GOOGLE SHEET
+    // AUTOMATICALLY REMOVE BARCODE & ZONENUMBER COLUMNS FROM GOOGLE SHEET
     const firstRowValues = sheet.getRange(1, 1, 1, Math.max(1, sheet.getLastColumn())).getValues()[0] || [];
     const barcodeColIdx = firstRowValues.findIndex(h => String(h || '').trim().toLowerCase() === 'barcode');
     if (barcodeColIdx >= 0) {
       sheet.deleteColumn(barcodeColIdx + 1);
+    }
+    const zoneNumColIdx = firstRowValues.findIndex(h => String(h || '').trim().toLowerCase() === 'zonenumber');
+    if (zoneNumColIdx >= 0) {
+      sheet.deleteColumn(zoneNumColIdx + 1);
     }
 
     // Write clean standard 18 headers (with PackStock, WITHOUT Barcode)
     const cleanHeaders = [
       'SKU', 'ItemName', 'Category', 'Color', 'Size',
       'Unit', 'PackUnit', 'PackQty', 'PackStock', 'CurrentStock', 'MinStock',
-      'Zone', 'ZoneNumber', 'ImageUrl', 'Notes', 'CreatedBy', 'Status', 'UpdatedAt'
+      'Zone', 'ImageUrl', 'Notes', 'CreatedBy', 'Status', 'UpdatedAt'
     ];
     sheet.getRange(1, 1, 1, cleanHeaders.length).setValues([cleanHeaders]);
     formatHeaderRow(sheet, cleanHeaders.length, '#1e293b');
@@ -5484,7 +5053,6 @@ function syncAllItems(itemsListOrPayload, username) {
         totalStock,
         Number(item.minStock || 0),
         item.zone || '-',
-        item.zoneNumber || '-',
         item.imageUrl || '',
         item.notes || '-',
         item.createdBy || user || 'Admin',
@@ -5539,7 +5107,7 @@ function removeBarcodeColumnFromItemsSheet(optSs) {
     const cleanHeaders = [
       'SKU', 'ItemName', 'Category', 'Color', 'Size',
       'Unit', 'PackUnit', 'PackQty', 'PackStock', 'CurrentStock', 'MinStock',
-      'Zone', 'ZoneNumber', 'ImageUrl', 'Notes', 'CreatedBy', 'Status', 'UpdatedAt'
+      'Zone', 'ImageUrl', 'Notes', 'CreatedBy', 'Status', 'UpdatedAt'
     ];
     sheet.getRange(1, 1, 1, cleanHeaders.length).setValues([cleanHeaders]);
     formatHeaderRow(sheet, cleanHeaders.length, '#1e293b');
@@ -8379,3 +7947,140 @@ function logActivity(user, role, action, details) {
         ]
       };
     }
+
+
+/**
+ * បោសសម្អាត និងរៀបចំទិន្នន័យទំនិញទាំងអស់ក្នុង Sheet Items ឡើងវិញជាស្តង់ដារ ១០០%
+ */
+function cleanAndReplaceAllItems(itemsListOrPayload, username) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName(SHEETS.ITEMS);
+    if (!sheet) {
+      setupDatabase();
+      sheet = ss.getSheetByName(SHEETS.ITEMS);
+    }
+
+    let itemsList = itemsListOrPayload;
+    let user = username || 'Admin';
+    if (itemsListOrPayload && typeof itemsListOrPayload === 'object' && !Array.isArray(itemsListOrPayload)) {
+      itemsList = itemsListOrPayload.items || itemsListOrPayload.itemsList || [];
+      user = itemsListOrPayload.user || username || 'Admin';
+    }
+
+    if (!Array.isArray(itemsList) || itemsList.length === 0) {
+      return { success: false, message: 'គ្មានទិន្នន័យទំនិញសម្រាប់រៀបចំទេ' };
+    }
+
+    sheet.clear();
+
+    const cleanHeaders = [
+      'SKU', 'ItemName', 'Category', 'Color', 'Size',
+      'Unit', 'PackUnit', 'PackQty', 'PackStock', 'CurrentStock', 'MinStock',
+      'Zone', 'ImageUrl', 'Notes', 'CreatedBy', 'Status', 'UpdatedAt'
+    ];
+    sheet.getRange(1, 1, 1, cleanHeaders.length).setValues([cleanHeaders]);
+    formatHeaderRow(sheet, cleanHeaders.length, '#1e293b');
+
+    const rows = [];
+    const seen = {};
+
+    for (let i = 0; i < itemsList.length; i++) {
+      const it = itemsList[i];
+      if (!it || !it.sku) continue;
+      const sku = String(it.sku).trim();
+      if (seen[sku]) continue;
+      seen[sku] = true;
+
+      const pQty = Number(it.packQty || 1);
+      const stock = Number(it.currentStock !== undefined ? it.currentStock : (it.stock || 0));
+      const packStock = pQty > 1 ? Math.floor(stock / pQty) : stock;
+
+      let rUnit = String(it.unit || 'ដុំ').trim();
+      if (!rUnit || rUnit.toLowerCase() === 'admin' || rUnit.startsWith('http') || rUnit.includes('GMT')) rUnit = 'ដុំ';
+
+      let pUnit = String(it.packUnit || 'ប្រអប់').trim();
+      if (!pUnit || pUnit.toLowerCase() === 'admin' || pUnit.startsWith('http') || pUnit.includes('GMT')) pUnit = 'ប្រអប់';
+
+      let sz = String(it.size || '').trim();
+      let img = String(it.imageUrl || '').trim();
+      if (sz.startsWith('http') || sz.includes('googleusercontent')) {
+        if (!img) img = sz;
+        sz = '-';
+      }
+      if (sz.includes('GMT') || sz.includes('2026')) sz = '-';
+
+      let clr = String(it.color || '-').trim();
+      if (clr.startsWith('http') || clr.includes('GMT') || clr === 'សាកល្បង' || clr === 'ចំណាំសិន') clr = '-';
+
+      let zn = String(it.zone || 'តំបន់ A (A01)').trim();
+      if (zn.includes('GMT') || zn.includes('2026') || !zn) zn = 'តំបន់ A (A01)';
+
+      let st = String(it.status || 'Active').trim();
+      if (st.includes('GMT') || st.includes('2026') || !st) st = 'Active';
+
+      let crBy = String(it.createdBy || user || 'Admin').trim();
+      if (crBy.includes('GMT') || crBy.startsWith('http') || !crBy) crBy = 'Admin';
+
+      rows.push([
+        sku,
+        it.name || '',
+        it.category || 'សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资',
+        clr,
+        sz,
+        rUnit,
+        pUnit,
+        pQty,
+        packStock,
+        stock,
+        Number(it.minStock || 1),
+        zn,
+        img,
+        it.notes || '-',
+        crBy,
+        st,
+        new Date()
+      ]);
+    }
+
+    if (rows.length > 0) {
+      sheet.getRange(2, 1, rows.length, cleanHeaders.length).setValues(rows);
+    }
+
+    invalidateAppCache();
+    setGlobalDataVersion();
+
+    return {
+      success: true,
+      message: 'បានបោសសម្អាត និងរៀបចំទិន្នន័យទំនិញស្តង់ដារចំនួន ' + rows.length + ' មុខទំនិញជោគជ័យ!',
+      count: rows.length
+    };
+  } catch (err) {
+    return { success: false, message: 'Clean error: ' + err.toString() };
+  }
+}
+
+
+/**
+ * លុបជួរឈរ ZoneNumber ចេញពី Items Sheet ទាំងស្រុង
+ */
+function removeZoneNumberColumnFromItemsSheet(optSs) {
+  try {
+    const ss = optSs || SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(SHEETS.ITEMS);
+    if (!sheet || sheet.getLastRow() === 0) return { success: true, message: 'Sheet Items ទទេ' };
+    
+    const lastCol = Math.max(1, sheet.getLastColumn());
+    const firstRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0] || [];
+    const zNumIdx = firstRow.findIndex(h => String(h || '').trim().toLowerCase() === 'zonenumber');
+    
+    if (zNumIdx >= 0) {
+      sheet.deleteColumn(zNumIdx + 1);
+      return { success: true, message: 'បានលុបជួរឈរ ZoneNumber ចេញពី Items Sheet ជោគជ័យ!' };
+    }
+    return { success: true, message: 'ជួរឈរ ZoneNumber ត្រូវបានលុបរួចរាល់ហើយ' };
+  } catch (err) {
+    if (typeof Logger !== 'undefined') Logger.log('removeZoneNumber error: ' + err.toString());
+    return { success: false, message: 'កំហុសពេលលុប ZoneNumber: ' + err.toString() };
+  }
+}
