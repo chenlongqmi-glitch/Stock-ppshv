@@ -684,6 +684,18 @@ function executeLocalApiAction(req) {
         return { success: true, repaired: repaired };
       }
 
+      case 'getRawStockInData': {
+        const ss = SpreadsheetApp.getActiveSpreadsheet();
+        const s = ss.getSheetByName(SHEETS.STOCK_IN);
+        if (!s) return { success: false, message: 'Stock_in not found' };
+        const vals = s.getDataRange().getValues();
+        return { success: true, rows: vals };
+      }
+
+      case 'standardizeStockInSheet': {
+        return standardizeAndFormatStockInSheet();
+      }
+
       case 'checkDriveFiles': {
         try {
           const folder = DriveApp.getFolderById('1_pn3xY4G0wnaqLcT44VGPEz9W1_4E_Qm');
@@ -8140,4 +8152,185 @@ function removeZoneNumberColumnFromItemsSheet(optSs) {
     if (typeof Logger !== 'undefined') Logger.log('removeZoneNumber error: ' + err.toString());
     return { success: false, message: 'កំហុសពេលលុប ZoneNumber: ' + err.toString() };
   }
+}
+
+function standardizeAndFormatStockInSheet(optSs) {
+  const ss = optSs || SpreadsheetApp.getActiveSpreadsheet();
+  let stockInSheet = ss.getSheetByName(SHEETS.STOCK_IN);
+  if (!stockInSheet) {
+    stockInSheet = ss.insertSheet(SHEETS.STOCK_IN);
+  }
+
+  const stockInHeaders = [
+    'DocNo', 'Date', 'SKU', 'ItemName', 'Size', 'Color', 'Zone',
+    'Quantity', 'Unit', 'OldStock (ស្តុកចាស់)', 'NewStock (ស្តុកថ្មី)', 'StockMovement (ស្តុកចាស់ ➔ ថ្មី)',
+    'UnitPrice', 'TotalAmount', 'Warehouse', 'ReceivedBy',
+    'Notes', 'User', 'Timestamp'
+  ];
+
+  // Clean, standardized data rows
+  const cleanRows = [
+    [
+      'DOC-IN-20260928-1178', '2026-09-28', 'SKU-7501', 'ប៊ិច-圆珠笔', 'Pixcell', 'ខ្មៅ', 'C03',
+      34, 'ដើម', '0 ដើម', '34 ដើម', '0 ដើម ➔ 34 ដើម',
+      0.50, 17.00, 'គ្រប់ស្ថានីយទាំងអស់', '陈龙', '[ចូល: 2 ប្រអប់ + 10 ដើម = 34 ដើម]', '陈龙', '2026-09-28 20:39:03'
+    ],
+    [
+      'DOC-IN-20260929-6058', '2026-09-29', 'SKU-7501', 'ប៊ិច-圆珠笔', 'Pixcell', 'ខ្មៅ', 'F04',
+      61, 'ដើម', '0 ដើម', '61 ដើម', '0 ដើម ➔ 61 ដើម',
+      0.50, 30.50, 'គ្រប់ស្ថានីយទាំងអស់', '陈龙', '[ចូល: 5 ប្រអប់ + 1 ដើម = 61 ដើម]', '陈龙', '2026-09-29 06:40:18'
+    ],
+    [
+      'DOC-IN-20260929-5181', '2026-09-29', 'SKU-2021', 'ម៉ាស៊ីនគិតលេខ-计算器', '២៣', 'ខ្មៅ', 'E02',
+      1, 'គ្រឿង', '0 គ្រឿង', '1 គ្រឿង', '0 គ្រឿង ➔ 1 គ្រឿង',
+      5.00, 5.00, '1-K3 ស្ថានីយ (ភ្នំពេញ)', '陈龙', '-', '陈龙', '2026-09-29 07:07:25'
+    ],
+    [
+      'DOC-IN-20260929-4949', '2026-09-29', 'SKU-2089', 'ក្រដាសជូតមាត់-抽纸', 'LM', 'ស', 'A03',
+      5, 'ដុំ', '0 ដុំ', '5 ដុំ', '0 ដុំ ➔ 5 ដុំ',
+      1.20, 6.00, 'គ្រប់ស្ថានីយទាំងអស់', '陈龙', '-', '陈龙', '2026-09-29 09:58:24'
+    ],
+    [
+      'DOC-IN-20260929-7810', '2026-09-29', 'SKU-2021', 'ម៉ាស៊ីនគិតលេខ-计算器', '២៣', 'ខ្មៅ', 'A03',
+      1, 'គ្រឿង', '0 គ្រឿង', '1 គ្រឿង', '0 គ្រឿង ➔ 1 គ្រឿង',
+      5.00, 5.00, 'គ្រប់ស្ថានីយទាំងអស់', '陈龙', '-', '陈龙', '2026-09-29 13:02:21'
+    ],
+    [
+      'DOC-IN-20260929-8412', '2026-09-29', 'SKU-2021', 'ម៉ាស៊ីនគិតលេខ-计算器', '២៣', 'ខ្មៅ', 'A03',
+      1, 'គ្រឿង', '0 គ្រឿង', '1 គ្រឿង', '0 គ្រឿង ➔ 1 គ្រឿង',
+      5.00, 5.00, 'គ្រប់ស្ថានីយទាំងអស់', '陈龙', '-', '陈龙', '2026-09-29 13:24:16'
+    ],
+    [
+      'DOC-IN-20260930-1203', '2026-09-30', 'SKU-9816', 'កាត-母卡', 'Simcard', 'ស', 'A02',
+      4, 'សន្លឹក', '0 សន្លឹក', '4 សន្លឹក', '0 សន្លឹក ➔ 4 សន្លឹក',
+      2.50, 10.00, 'គ្រប់ស្ថានីយទាំងអស់', '陈龙', '[ចូលជាដុំ: 1 កញ្ចប់ = 4 សន្លឹក]', '陈龙', '2026-09-30 19:52:19'
+    ],
+    [
+      'DOC-IN-20261007-2298', '2026-10-07', 'SKU-3037', 'ស្រោមដៃ-手套', 'M', 'ស', 'A02',
+      42, 'គូ', '0 គូ', '42 គូ', '0 គូ ➔ 42 គូ',
+      1.00, 42.00, 'គ្រប់ស្ថានីយទាំងអស់', '陈龙', '[ចូលជាដុំ: 7 ប្រអប់ = 42 គូ]', '陈龙', '2026-10-07 21:26:33'
+    ],
+    [
+      'DOC-IN-20261007-3624', '2026-10-07', 'SKU-3037', 'ស្រោមដៃ-手套', 'M', 'ស', 'A02',
+      3, 'គូ', '42 គូ', '45 គូ', '42 គូ ➔ 45 គូ',
+      1.00, 3.00, '中心库房 (ឃ្លាំងស្តុកនៅបុងសឹង)', '陈龙', '[ចូលជារាយ: 3 គូ]', '陈龙', '2026-10-07 21:34:42'
+    ]
+  ];
+
+  // Clear existing content and formats
+  stockInSheet.clear();
+
+  // Set Headers
+  stockInSheet.getRange(1, 1, 1, stockInHeaders.length).setValues([stockInHeaders]);
+  formatHeaderRow(stockInSheet, stockInHeaders.length, '#047857');
+  stockInSheet.setRowHeight(1, 38);
+
+  // Set Values
+  stockInSheet.getRange(2, 1, cleanRows.length, stockInHeaders.length).setValues(cleanRows);
+
+  const totalRows = cleanRows.length;
+  const numCols = stockInHeaders.length;
+
+  // Format entire data range
+  const dataRange = stockInSheet.getRange(2, 1, totalRows, numCols);
+  dataRange.setFontFamily('Siemreap')
+           .setFontSize(10)
+           .setVerticalAlignment('middle');
+
+  // Set row heights
+  for (let r = 2; r <= totalRows + 1; r++) {
+    stockInSheet.setRowHeight(r, 28);
+  }
+
+  // Zebra striping backgrounds
+  for (let r = 0; r < totalRows; r++) {
+    const rowRange = stockInSheet.getRange(r + 2, 1, 1, numCols);
+    rowRange.setBackground(r % 2 === 0 ? '#ffffff' : '#f8fafc');
+  }
+
+  // Alignments per column
+  stockInSheet.getRange(2, 1, totalRows, 1).setHorizontalAlignment('center'); // DocNo
+  stockInSheet.getRange(2, 2, totalRows, 1).setHorizontalAlignment('center'); // Date
+  stockInSheet.getRange(2, 3, totalRows, 1).setHorizontalAlignment('center').setFontWeight('bold'); // SKU
+  stockInSheet.getRange(2, 4, totalRows, 1).setHorizontalAlignment('left').setFontWeight('bold'); // ItemName
+  stockInSheet.getRange(2, 5, totalRows, 1).setHorizontalAlignment('center'); // Size
+  stockInSheet.getRange(2, 6, totalRows, 1).setHorizontalAlignment('center'); // Color
+  stockInSheet.getRange(2, 7, totalRows, 1).setHorizontalAlignment('center').setFontWeight('bold').setFontColor('#4338ca'); // Zone
+  stockInSheet.getRange(2, 8, totalRows, 1).setHorizontalAlignment('center').setFontWeight('bold'); // Quantity
+  stockInSheet.getRange(2, 9, totalRows, 1).setHorizontalAlignment('center'); // Unit
+  stockInSheet.getRange(2, 10, totalRows, 1).setHorizontalAlignment('center'); // OldStock
+  stockInSheet.getRange(2, 11, totalRows, 1).setHorizontalAlignment('center').setFontWeight('bold').setFontColor('#047857'); // NewStock
+  stockInSheet.getRange(2, 12, totalRows, 1).setHorizontalAlignment('center'); // StockMovement
+  stockInSheet.getRange(2, 13, totalRows, 1).setHorizontalAlignment('right');
+  stockInSheet.getRange(2, 14, totalRows, 1).setHorizontalAlignment('right').setFontWeight('bold');
+  stockInSheet.getRange(2, 15, totalRows, 1).setHorizontalAlignment('left'); // Warehouse
+  stockInSheet.getRange(2, 16, totalRows, 1).setHorizontalAlignment('center'); // ReceivedBy
+  stockInSheet.getRange(2, 17, totalRows, 1).setHorizontalAlignment('left'); // Notes
+  stockInSheet.getRange(2, 18, totalRows, 1).setHorizontalAlignment('center'); // User
+  stockInSheet.getRange(2, 19, totalRows, 1).setHorizontalAlignment('center'); // Timestamp
+
+  // Borders
+  stockInSheet.getRange(1, 1, totalRows + 1, numCols).setBorder(
+    true, true, true, true, true, true, '#cbd5e1', SpreadsheetApp.BorderStyle.SOLID
+  );
+
+  // Column widths
+  const colWidths = [
+    185, // 1: DocNo
+    110, // 2: Date
+    110, // 3: SKU
+    190, // 4: ItemName
+    80,  // 5: Size
+    80,  // 6: Color
+    80,  // 7: Zone
+    90,  // 8: Quantity
+    80,  // 9: Unit
+    110, // 10: OldStock
+    110, // 11: NewStock
+    160, // 12: StockMovement
+    100, // 13: UnitPrice
+    110, // 14: TotalAmount
+    200, // 15: Warehouse
+    110, // 16: ReceivedBy
+    260, // 17: Notes
+    100, // 18: User
+    160  // 19: Timestamp
+  ];
+  for (let c = 0; c < colWidths.length; c++) {
+    stockInSheet.setColumnWidth(c + 1, colWidths[c]);
+  }
+
+  // Freeze Header & Enable Gridlines
+  stockInSheet.setFrozenRows(1);
+  stockInSheet.setHiddenGridlines(false);
+
+  // Set Filter
+  try {
+    const existingFilter = stockInSheet.getFilter();
+    if (existingFilter) existingFilter.remove();
+    stockInSheet.getRange(1, 1, totalRows + 1, numCols).createFilter();
+  } catch(e) {}
+
+  // Also sync Transactions sheet row for DOC-IN-20261007-3624 so both sheets are 100% in sync
+  const txSheet = ss.getSheetByName(SHEETS.TRANSACTIONS);
+  if (txSheet && txSheet.getLastRow() > 1) {
+    const txVals = txSheet.getDataRange().getValues();
+    for (let i = 1; i < txVals.length; i++) {
+      const rTx = String(txVals[i][0] || '').trim();
+      const rNotes = String(txVals[i][11] || '');
+      if (rTx === 'DOC-IN-20261007-3624' || rNotes.includes('DOC-IN-20261007-3624')) {
+        txSheet.getRange(i + 1, 6).setValue(3);
+        txSheet.getRange(i + 1, 11).setValue('中心库房 (ឃ្លាំងស្តុកនៅបុងសឹង)');
+        txSheet.getRange(i + 1, 12).setValue('[ឯកសារ: DOC-IN-20261007-3624] [អ្នកទទួល: 陈龙] [ខ្នាត: M] [ពណ៌: ស] [តំបន់: A02] [ស្តុក: 42 គូ ➔ 45 គូ] [ចូលជារាយ: 3 គូ]');
+      }
+      if (rTx === 'DOC-IN-20260929-5181' || rNotes.includes('DOC-IN-20260929-5181')) {
+        txSheet.getRange(i + 1, 11).setValue('1-K3 ស្ថានីយ (ភ្នំពេញ)');
+      }
+    }
+  }
+
+  // Clear cache
+  CacheService.getScriptCache().removeAll(['TX_SHEETS_SYNC_ALL', 'TX_SHEETS_SYNC_STOCK_IN']);
+
+  return { success: true, message: 'Stock_in sheet standardized and formatted successfully!' };
 }
