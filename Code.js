@@ -664,6 +664,41 @@ function executeLocalApiAction(req) {
       case 'getInitialAppData':
         return getBootstrapData(payload);
 
+      case 'repairItemImagesAndStocks': {
+        const ss = SpreadsheetApp.getActiveSpreadsheet();
+        const itemsSheet = ss.getSheetByName(SHEETS.ITEMS);
+        let repaired = 0;
+        if (itemsSheet) {
+          const data = itemsSheet.getDataRange().getValues();
+          for (let i = 1; i < data.length; i++) {
+            const rSku = String(data[i][0]).trim();
+            const rImg = String(data[i][12] || '').trim();
+            if (rSku === 'SKU-3037' || rImg.includes('GMT') || rImg.includes('2026')) {
+              itemsSheet.getRange(i + 1, 13).setValue('https://lh3.googleusercontent.com/d/1Yo9HGMr3NkbOIieI8ccxhgaaPNNksPs9');
+              repaired++;
+            }
+          }
+        }
+        // Clear caches
+        CacheService.getScriptCache().removeAll(['ITEMS_ALL']);
+        return { success: true, repaired: repaired };
+      }
+
+      case 'checkDriveFiles': {
+        try {
+          const folder = DriveApp.getFolderById('1_pn3xY4G0wnaqLcT44VGPEz9W1_4E_Qm');
+          const files = folder.getFiles();
+          const list = [];
+          while (files.hasNext()) {
+            const f = files.next();
+            list.push({ id: f.getId(), name: f.getName(), created: f.getDateCreated().toISOString() });
+          }
+          return { success: true, files: list };
+        } catch(e) {
+          return { success: false, error: e.toString() };
+        }
+      }
+
       case 'getItemsList':
 
       case 'getItems':
@@ -4466,6 +4501,11 @@ function getItemsList(userOrPayload, warehouseFilter, optSs) {
         sz = '';
       }
       if (sz.includes('GMT') || sz.includes('2026')) sz = '';
+      if (rowSku === 'SKU-3037' && (!img || img.includes('GMT') || img.includes('2026') || !img.startsWith('http'))) {
+        img = 'https://lh3.googleusercontent.com/d/1Yo9HGMr3NkbOIieI8ccxhgaaPNNksPs9';
+      } else if (img && (img.includes('GMT') || img.includes('2026') || !img.startsWith('http'))) {
+        img = '';
+      }
 
       let clr = String(row[idxColor] || '').trim();
       if (clr.startsWith('http') || clr.includes('GMT') || clr === 'សាកល្បង' || clr === 'ចំណាំសិន') clr = '-';
@@ -5884,7 +5924,7 @@ function recordStockTransfer(dataOrPayload, user) {
 
   itemsSheet.getRange(targetRow, 9).setValue(toLoc);
 
-  itemsSheet.getRange(targetRow, 13).setValue(new Date());
+  itemsSheet.getRange(targetRow, 17).setValue(new Date());
 
 
 
@@ -6501,7 +6541,7 @@ function deleteStockTransaction(payloadOrData, user) {
             newStock = curStock + qty;
           }
           itemsSheet.getRange(i + 1, 10).setValue(newStock);
-          itemsSheet.getRange(i + 1, 13).setValue(new Date());
+          itemsSheet.getRange(i + 1, 17).setValue(new Date());
           break;
         }
       }
@@ -6562,22 +6602,29 @@ function updateStockTransaction(payloadOrData, user) {
   const newQty = Number(data.newQuantity !== undefined ? data.newQuantity : (data.quantity || 0));
   const qtyDiff = newQty - oldQty;
 
-  // 1. Adjust Stock in Items sheet if quantity changed
-  if (sku && qtyDiff !== 0) {
+  // 1. Adjust Stock in Items sheet if quantity changed (and auto-heal image column)
+  if (sku) {
     const itemsSheet = ss.getSheetByName(SHEETS.ITEMS);
     if (itemsSheet) {
       const itemsData = itemsSheet.getDataRange().getValues();
       for (let i = 1; i < itemsData.length; i++) {
         if (String(itemsData[i][0]).trim() === sku || String(itemsData[i][1]).trim() === sku) {
-          const curStock = Number(itemsData[i][9] || 0);
-          let newStock = curStock;
-          if (txType === 'STOCK_IN') {
-            newStock = curStock + qtyDiff;
-          } else if (txType === 'STOCK_OUT') {
-            newStock = Math.max(0, curStock - qtyDiff);
+          if (qtyDiff !== 0) {
+            const curStock = Number(itemsData[i][9] || 0);
+            let newStock = curStock;
+            if (txType === 'STOCK_IN') {
+              newStock = curStock + qtyDiff;
+            } else if (txType === 'STOCK_OUT') {
+              newStock = Math.max(0, curStock - qtyDiff);
+            }
+            itemsSheet.getRange(i + 1, 10).setValue(newStock);
           }
-          itemsSheet.getRange(i + 1, 10).setValue(newStock);
-          itemsSheet.getRange(i + 1, 13).setValue(new Date());
+          // Column 17 is UpdatedAt (Column 13 is ImageUrl!)
+          itemsSheet.getRange(i + 1, 17).setValue(new Date());
+          const curImg = String(itemsData[i][12] || '').trim();
+          if (sku === 'SKU-3037' && (curImg.includes('GMT') || curImg.includes('2026') || !curImg.startsWith('http'))) {
+            itemsSheet.getRange(i + 1, 13).setValue('https://lh3.googleusercontent.com/d/1Yo9HGMr3NkbOIieI8ccxhgaaPNNksPs9');
+          }
           break;
         }
       }
@@ -6596,6 +6643,7 @@ function updateStockTransaction(payloadOrData, user) {
         if (data.newQuantity !== undefined) txSheet.getRange(rowNum, 6).setValue(newQty);
         if (data.toLocation) txSheet.getRange(rowNum, 11).setValue(data.toLocation);
         if (data.date) txSheet.getRange(rowNum, 2).setValue(data.date);
+        if (data.notes) txSheet.getRange(rowNum, 12).setValue(data.notes);
         break;
       }
     }
@@ -6625,17 +6673,26 @@ function updateStockTransaction(payloadOrData, user) {
           if (data.color !== undefined) targetSheet.getRange(rowNum, 6).setValue(data.color);
           if (data.zone !== undefined) targetSheet.getRange(rowNum, 7).setValue(data.zone);
           if (data.newQuantity !== undefined) targetSheet.getRange(rowNum, 8).setValue(newQty);
-          if (data.toLocation) targetSheet.getRange(rowNum, 12).setValue(data.toLocation);
-          if (data.receivedBy) targetSheet.getRange(rowNum, 13).setValue(data.receivedBy);
-          if (data.notes !== undefined) targetSheet.getRange(rowNum, 14).setValue(data.notes);
+          if (data.oldStock !== undefined) targetSheet.getRange(rowNum, 10).setValue(data.oldStock);
+          if (data.newStock !== undefined) targetSheet.getRange(rowNum, 11).setValue(data.newStock);
+          if (data.stockMovement !== undefined) targetSheet.getRange(rowNum, 12).setValue(data.stockMovement);
+          if (data.toLocation) targetSheet.getRange(rowNum, 15).setValue(data.toLocation);
+          if (data.receivedBy) targetSheet.getRange(rowNum, 16).setValue(data.receivedBy);
+          if (data.notes !== undefined) targetSheet.getRange(rowNum, 17).setValue(data.notes);
         } else {
           if (data.docNo) targetSheet.getRange(rowNum, 1).setValue(data.docNo);
           if (data.date) targetSheet.getRange(rowNum, 2).setValue(data.date);
+          if (data.size !== undefined) targetSheet.getRange(rowNum, 5).setValue(data.size);
+          if (data.color !== undefined) targetSheet.getRange(rowNum, 6).setValue(data.color);
+          if (data.zone !== undefined) targetSheet.getRange(rowNum, 7).setValue(data.zone);
           if (data.newQuantity !== undefined) targetSheet.getRange(rowNum, 8).setValue(newQty);
-          if (data.toLocation) targetSheet.getRange(rowNum, 13).setValue(data.toLocation);
-          if (data.issuer) targetSheet.getRange(rowNum, 14).setValue(data.issuer);
-          if (data.reason !== undefined) targetSheet.getRange(rowNum, 15).setValue(data.reason);
-          if (data.notes !== undefined) targetSheet.getRange(rowNum, 16).setValue(data.notes);
+          if (data.oldStock !== undefined) targetSheet.getRange(rowNum, 10).setValue(data.oldStock);
+          if (data.newStock !== undefined) targetSheet.getRange(rowNum, 11).setValue(data.newStock);
+          if (data.stockMovement !== undefined) targetSheet.getRange(rowNum, 12).setValue(data.stockMovement);
+          if (data.toLocation) targetSheet.getRange(rowNum, 16).setValue(data.toLocation);
+          if (data.issuer) targetSheet.getRange(rowNum, 17).setValue(data.issuer);
+          if (data.reason !== undefined) targetSheet.getRange(rowNum, 18).setValue(data.reason);
+          if (data.notes !== undefined) targetSheet.getRange(rowNum, 19).setValue(data.notes);
         }
         break;
       }
