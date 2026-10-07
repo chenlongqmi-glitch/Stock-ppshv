@@ -14171,6 +14171,8 @@
 
     let stockInZoneActiveFilterLetter = '';
     let stockInZoneDropdownEl = null;
+    let currentZonePickerTargetInputId = 'stockInZone';
+    let currentZonePickerTargetChevronId = 'stockInZoneChevron';
 
     function ensureStockInZoneDropdown() {
       if (stockInZoneDropdownEl && document.body.contains(stockInZoneDropdownEl)) {
@@ -14178,15 +14180,16 @@
       }
       stockInZoneDropdownEl = document.createElement('div');
       stockInZoneDropdownEl.id = 'stockInZoneDropdown';
-      stockInZoneDropdownEl.className = 'fixed bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-2xl shadow-2xl z-[9999] p-3 w-[340px] max-w-[95vw] transition-all duration-150 font-sans hidden animate-in fade-in zoom-in-95';
+      stockInZoneDropdownEl.className = 'fixed bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-2xl shadow-2xl z-[99999] p-3 w-[340px] max-w-[95vw] transition-all duration-150 font-sans hidden animate-in fade-in zoom-in-95';
       stockInZoneDropdownEl.style.fontFamily = "'Kantumruy Pro', 'Battambang', sans-serif";
+      stockInZoneDropdownEl.style.zIndex = '99999';
       document.body.appendChild(stockInZoneDropdownEl);
       return stockInZoneDropdownEl;
     }
 
     function renderStockInZoneDropdownContent() {
       const dropdown = ensureStockInZoneDropdown();
-      const inputEl = document.getElementById('stockInZone');
+      const inputEl = document.getElementById(currentZonePickerTargetInputId) || document.getElementById('stockInZone');
       const searchVal = (inputEl?.value || '').trim().toUpperCase();
 
       // Filter zones based on active letter tab OR search query
@@ -14251,7 +14254,7 @@
     }
 
     function positionStockInZoneDropdown() {
-      const inputEl = document.getElementById('stockInZone');
+      const inputEl = document.getElementById(currentZonePickerTargetInputId) || document.getElementById('stockInZone');
       const dropdown = ensureStockInZoneDropdown();
       if (!inputEl || !dropdown) return;
 
@@ -14277,18 +14280,32 @@
       dropdown.style.left = `${left}px`;
     }
 
-    function openStockInZoneDropdown() {
+    function openStockInZoneDropdown(targetInputId, targetChevronId) {
+      if (targetInputId) {
+        currentZonePickerTargetInputId = targetInputId;
+      } else {
+        currentZonePickerTargetInputId = 'stockInZone';
+      }
+
+      if (targetChevronId !== undefined) {
+        currentZonePickerTargetChevronId = targetChevronId;
+      } else {
+        currentZonePickerTargetChevronId = (currentZonePickerTargetInputId === 'stockInZone') ? 'stockInZoneChevron' : '';
+      }
+
       const dropdown = ensureStockInZoneDropdown();
       renderStockInZoneDropdownContent();
       dropdown.classList.remove('hidden');
       positionStockInZoneDropdown();
 
-      const chevron = document.getElementById('stockInZoneChevron');
-      if (chevron) chevron.style.transform = 'rotate(180deg)';
+      if (currentZonePickerTargetChevronId) {
+        const chevron = document.getElementById(currentZonePickerTargetChevronId);
+        if (chevron) chevron.style.transform = 'rotate(180deg)';
+      }
 
-      const inputEl = document.getElementById('stockInZone');
+      const inputEl = document.getElementById(currentZonePickerTargetInputId);
       const clearBtn = document.getElementById('stockInZoneClearBtn');
-      if (clearBtn && inputEl) {
+      if (clearBtn && inputEl && currentZonePickerTargetInputId === 'stockInZone') {
         if (inputEl.value.trim()) clearBtn.classList.remove('hidden');
         else clearBtn.classList.add('hidden');
       }
@@ -14298,21 +14315,26 @@
       if (stockInZoneDropdownEl) {
         stockInZoneDropdownEl.classList.add('hidden');
       }
-      const chevron = document.getElementById('stockInZoneChevron');
-      if (chevron) chevron.style.transform = '';
+      if (currentZonePickerTargetChevronId) {
+        const chevron = document.getElementById(currentZonePickerTargetChevronId);
+        if (chevron) chevron.style.transform = '';
+      }
     }
 
-    function toggleStockInZoneDropdown(e) {
+    function toggleStockInZoneDropdown(e, targetInputId, targetChevronId) {
       if (e) {
         e.preventDefault();
         e.stopPropagation();
       }
+      if (targetInputId) currentZonePickerTargetInputId = targetInputId;
+      if (targetChevronId !== undefined) currentZonePickerTargetChevronId = targetChevronId;
+
       if (stockInZoneDropdownEl && !stockInZoneDropdownEl.classList.contains('hidden')) {
         closeStockInZoneDropdown();
       } else {
-        const inputEl = document.getElementById('stockInZone');
+        const inputEl = document.getElementById(currentZonePickerTargetInputId || 'stockInZone');
         if (inputEl) inputEl.focus();
-        openStockInZoneDropdown();
+        openStockInZoneDropdown(targetInputId, targetChevronId);
       }
     }
 
@@ -14322,14 +14344,17 @@
     }
 
     function selectStockInZone(zoneCode) {
-      const inputEl = document.getElementById('stockInZone');
+      const targetId = currentZonePickerTargetInputId || 'stockInZone';
+      const inputEl = document.getElementById(targetId);
       if (inputEl) {
         inputEl.value = zoneCode;
         inputEl.dispatchEvent(new Event('input', { bubbles: true }));
         inputEl.dispatchEvent(new Event('change', { bubbles: true }));
       }
-      const clearBtn = document.getElementById('stockInZoneClearBtn');
-      if (clearBtn) clearBtn.classList.remove('hidden');
+      if (targetId === 'stockInZone') {
+        const clearBtn = document.getElementById('stockInZoneClearBtn');
+        if (clearBtn) clearBtn.classList.remove('hidden');
+      }
 
       closeStockInZoneDropdown();
     }
@@ -14339,36 +14364,41 @@
         e.preventDefault();
         e.stopPropagation();
       }
-      const inputEl = document.getElementById('stockInZone');
+      const targetId = currentZonePickerTargetInputId || 'stockInZone';
+      const inputEl = document.getElementById(targetId);
       if (inputEl) {
         inputEl.value = '';
         inputEl.focus();
         inputEl.dispatchEvent(new Event('input', { bubbles: true }));
         inputEl.dispatchEvent(new Event('change', { bubbles: true }));
       }
-      const clearBtn = document.getElementById('stockInZoneClearBtn');
-      if (clearBtn) clearBtn.classList.add('hidden');
+      if (targetId === 'stockInZone') {
+        const clearBtn = document.getElementById('stockInZoneClearBtn');
+        if (clearBtn) clearBtn.classList.add('hidden');
+      }
 
       stockInZoneActiveFilterLetter = '';
       renderStockInZoneDropdownContent();
     }
 
     function handleStockInZoneInput(val) {
-      const clearBtn = document.getElementById('stockInZoneClearBtn');
-      if (clearBtn) {
-        if (val.trim()) clearBtn.classList.remove('hidden');
-        else clearBtn.classList.add('hidden');
+      if (currentZonePickerTargetInputId === 'stockInZone') {
+        const clearBtn = document.getElementById('stockInZoneClearBtn');
+        if (clearBtn) {
+          if (val.trim()) clearBtn.classList.remove('hidden');
+          else clearBtn.classList.add('hidden');
+        }
       }
 
       // If user typed a single letter A-J, filter to that letter
-      const upper = val.trim().toUpperCase();
+      const upper = (val || '').trim().toUpperCase();
       if (upper.length === 1 && STOCK_ZONE_LETTERS.includes(upper)) {
         stockInZoneActiveFilterLetter = upper;
       } else {
         stockInZoneActiveFilterLetter = '';
       }
 
-      openStockInZoneDropdown();
+      openStockInZoneDropdown(currentZonePickerTargetInputId, currentZonePickerTargetChevronId);
     }
 
     function handleStockInZoneKeydown(e) {
@@ -14378,7 +14408,8 @@
       }
       if (e.key === 'Enter') {
         e.preventDefault();
-        const inputVal = (document.getElementById('stockInZone')?.value || '').trim().toUpperCase();
+        const targetId = currentZonePickerTargetInputId || 'stockInZone';
+        const inputVal = (document.getElementById(targetId)?.value || '').trim().toUpperCase();
         // Exact match or first match
         const match = ALL_STOCK_ZONES.find(z => z === inputVal) || ALL_STOCK_ZONES.find(z => z.includes(inputVal));
         if (match) {
@@ -14392,8 +14423,13 @@
     // Close on click outside or window resize
     document.addEventListener('mousedown', function(e) {
       if (!stockInZoneDropdownEl || stockInZoneDropdownEl.classList.contains('hidden')) return;
+      const targetInput = document.getElementById(currentZonePickerTargetInputId);
       const zoneField = document.getElementById('stockInField_zone');
-      if (stockInZoneDropdownEl.contains(e.target) || (zoneField && zoneField.contains(e.target))) {
+      const swalZoneContainer = document.getElementById('swalZoneContainer');
+      if (stockInZoneDropdownEl.contains(e.target) || 
+          (targetInput && (targetInput === e.target || targetInput.contains(e.target))) ||
+          (zoneField && zoneField.contains(e.target)) ||
+          (swalZoneContainer && swalZoneContainer.contains(e.target))) {
         return;
       }
       closeStockInZoneDropdown();
@@ -14404,6 +14440,12 @@
         positionStockInZoneDropdown();
       }
     });
+
+    window.openStockInZoneDropdown = openStockInZoneDropdown;
+    window.closeStockInZoneDropdown = closeStockInZoneDropdown;
+    window.toggleStockInZoneDropdown = toggleStockInZoneDropdown;
+    window.selectStockInZone = selectStockInZone;
+    window.setStockInZoneFilterLetter = setStockInZoneFilterLetter;
 
     function clearAllItemModalErrors() {
       const fieldIds = ['modalName', 'modalCategory', 'modalSize', 'modalColor', 'modalUnit', 'modalPackUnit', 'modalPackQty', 'modalNotes', 'imageUploadBox'];
@@ -17402,8 +17444,71 @@
       const curZone = escapeHtml(tx.zone || '');
       const curReceiver = escapeHtml(tx.receivedBy || tx.user || '');
       const curLocation = escapeHtml(tx.toLocation || tx.location || '1-K3 ស្ថានីយ (ភ្នំពេញ)');
-      const curUnit = escapeHtml(tx.unit || item?.unit || 'ដុំ');
+
+      const pQty = Math.max(1, Number(tx.packQty || item?.packQty || 1));
+      const pUnit = (tx.packUnit || item?.packUnit || 'ប្រអប់').trim();
+      const rUnit = (tx.unit || item?.unit || 'គូ').trim() || 'គូ';
       const curNotes = escapeHtml(cleanDisplayNote(tx.notes || ''));
+
+      // Determine initial bulk & retail quantities
+      let initialBulk = 0;
+      let initialRetail = 0;
+      if (tx.bulkQty !== undefined && tx.retailQty !== undefined && tx.bulkQty !== null && tx.retailQty !== null) {
+        initialBulk = Number(tx.bulkQty);
+        initialRetail = Number(tx.retailQty);
+      } else if (tx.notes) {
+        const cMatch = tx.notes.match(/\[(?:ចូល|ចេញ):\s*(\d+)\s*[^\+\d]+\+\s*(\d+)/);
+        const bMatch = tx.notes.match(/\[(?:ចូល|ចេញ)ជាដុំ:\s*(\d+)/);
+        const rMatch = tx.notes.match(/\[(?:ចូល|ចេញ)ជារាយ:\s*(\d+)/);
+        if (cMatch) {
+          initialBulk = Number(cMatch[1]);
+          initialRetail = Number(cMatch[2]);
+        } else if (bMatch) {
+          initialBulk = Number(bMatch[1]);
+          initialRetail = 0;
+        } else if (rMatch) {
+          initialBulk = 0;
+          initialRetail = Number(rMatch[1]);
+        } else if (pQty > 1) {
+          initialBulk = Math.floor(curQty / pQty);
+          initialRetail = curQty % pQty;
+        } else {
+          initialBulk = 0;
+          initialRetail = curQty;
+        }
+      } else if (pQty > 1) {
+        initialBulk = Math.floor(curQty / pQty);
+        initialRetail = curQty % pQty;
+      } else {
+        initialBulk = 0;
+        initialRetail = curQty;
+      }
+
+      if (initialBulk === 0 && initialRetail === 0 && curQty > 0) {
+        if (pQty > 1) {
+          initialBulk = Math.floor(curQty / pQty);
+          initialRetail = curQty % pQty;
+        } else {
+          initialRetail = curQty;
+        }
+      }
+
+      // Expose recalculate function for live modal updates
+      window.recalcSwalEditStockInTotal = function() {
+        const b = parseFloat(document.getElementById('swalEditQtyBulk')?.value) || 0;
+        const r = parseFloat(document.getElementById('swalEditQtyRetail')?.value) || 0;
+        const total = (b * pQty) + r;
+        const sumEl = document.getElementById('swalEditTotalSummary');
+        if (sumEl) {
+          let str = `${total} ${rUnit}`;
+          if (b > 0 && r > 0) {
+            str += ` (${b} ${pUnit} + ${r} ${rUnit})`;
+          } else if (b > 0) {
+            str += ` (${b} ${pUnit})`;
+          }
+          sumEl.textContent = str;
+        }
+      };
 
       const whList = AppState.warehouses && AppState.warehouses.length > 0 ? AppState.warehouses : [
         { name: '1-K3 ស្ថានីយ (ភ្នំពេញ)' }, { name: '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)' },
@@ -17438,16 +17543,57 @@
               </div>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              <div>
-                <label class="block text-xs font-bold text-slate-700 mb-1">ចំនួនចូលស្តុក (${curUnit}) *</label>
-                <input id="swalEditQty" type="number" step="any" min="0.01" value="${curQty}" class="w-full h-9 px-3 bg-white border-2 border-emerald-400 rounded-lg text-sm font-bold text-emerald-800 outline-none focus:ring-2 focus:ring-emerald-600">
+            <div class="space-y-1.5">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <!-- ចំនួនចូលស្តុក: ជាដុំ និងជារាយ -->
+                <div>
+                  <div class="flex items-center justify-between mb-1">
+                    <label class="text-xs font-bold text-slate-700 flex items-center gap-1">
+                      <i class="fa-solid fa-boxes-stacked text-emerald-600 text-xs"></i>
+                      <span>ចំនួនចូលស្តុក *</span>
+                    </label>
+                    ${pQty > 1 ? `<span class="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200" title="1 ${escapeHtml(pUnit)} = ${pQty} ${escapeHtml(rUnit)}">1 ${escapeHtml(pUnit)} = ${pQty} ${escapeHtml(rUnit)}</span>` : ''}
+                  </div>
+                  <div class="grid grid-cols-2 gap-2">
+                    <div>
+                      <span class="block text-[10.5px] font-bold text-emerald-800 mb-0.5">ជាដុំ (${escapeHtml(pUnit)})</span>
+                      <input id="swalEditQtyBulk" type="number" min="0" step="any" value="${initialBulk}"
+                        oninput="recalcSwalEditStockInTotal()"
+                        class="w-full h-9 px-2 text-center bg-white border-2 border-emerald-400 rounded-lg text-sm font-black text-emerald-800 outline-none focus:ring-2 focus:ring-emerald-600">
+                    </div>
+                    <div>
+                      <span class="block text-[10.5px] font-bold text-slate-700 mb-0.5">ជារាយ (${escapeHtml(rUnit)})</span>
+                      <input id="swalEditQtyRetail" type="number" min="0" step="any" value="${initialRetail}"
+                        oninput="recalcSwalEditStockInTotal()"
+                        class="w-full h-9 px-2 text-center bg-white border-2 border-slate-300 rounded-lg text-sm font-black text-slate-800 outline-none focus:ring-2 focus:ring-emerald-600">
+                    </div>
+                  </div>
+                </div>
+
+                <!-- ទីតាំងឃ្លាំងទទួល -->
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
+                    <i class="fa-solid fa-warehouse text-slate-500 text-xs"></i>
+                    <span>ទីតាំងឃ្លាំងទទួល</span>
+                  </label>
+                  <select id="swalEditLocation" class="w-full h-9 px-2 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500 mt-5.5 sm:mt-5.5">
+                    ${whOptions}
+                  </select>
+                </div>
               </div>
-              <div>
-                <label class="block text-xs font-bold text-slate-700 mb-1">ទីតាំងឃ្លាំងទទួល</label>
-                <select id="swalEditLocation" class="w-full h-9 px-2 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500">
-                  ${whOptions}
-                </select>
+
+              <!-- Live Total Summary Badge -->
+              <div class="flex items-center justify-between px-3 py-1.5 bg-emerald-50/90 border border-emerald-200 rounded-xl text-xs shadow-3xs">
+                <span class="text-slate-600 font-semibold flex items-center gap-1.5">
+                  <i class="fa-solid fa-calculator text-emerald-600 text-xs"></i>
+                  <span>សរុបចូលស្តុកទាំងអស់:</span>
+                  <span id="swalEditTotalSummary" class="font-black text-emerald-800 text-sm font-mono ml-1">
+                    ${(initialBulk * pQty) + initialRetail} ${escapeHtml(rUnit)}${initialBulk > 0 && initialRetail > 0 ? ` (${initialBulk} ${escapeHtml(pUnit)} + ${initialRetail} ${escapeHtml(rUnit)})` : (initialBulk > 0 ? ` (${initialBulk} ${escapeHtml(pUnit)})` : '')}
+                  </span>
+                </span>
+                <span class="text-[10px] font-bold text-emerald-700 bg-white px-2 py-0.5 rounded border border-emerald-200">
+                  សរុបជារាយ
+                </span>
               </div>
             </div>
 
@@ -17460,9 +17606,28 @@
                 <label class="block text-xs font-bold text-slate-700 mb-1">ពណ៌</label>
                 <input id="swalEditColor" type="text" value="${curColor}" placeholder="ឧ. ខ្មៅ" class="w-full h-8 px-2.5 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500">
               </div>
-              <div>
-                <label class="block text-xs font-bold text-slate-700 mb-1">តំបន់</label>
-                <input id="swalEditZone" type="text" value="${curZone}" placeholder="ឧ. តំបន់ A" class="w-full h-8 px-2.5 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-indigo-700">
+              <div id="swalZoneContainer" class="relative">
+                <div class="flex items-center justify-between mb-1">
+                  <label class="block text-xs font-bold text-slate-700">តំបន់</label>
+                  <button type="button" onclick="openStockInZoneDropdown('swalEditZone', 'swalEditZoneChevron')" class="text-[10px] text-emerald-700 hover:text-emerald-900 font-extrabold flex items-center gap-0.5">
+                    <i class="fa-solid fa-location-dot text-rose-500 text-[10px]"></i>
+                    <span>រើស Zone</span>
+                  </button>
+                </div>
+                <div class="relative">
+                  <i class="fa-solid fa-location-dot absolute left-2.5 top-2 text-rose-500 text-xs pointer-events-none"></i>
+                  <input id="swalEditZone" type="text" value="${curZone}" placeholder="រើស ឬកែ Zone..."
+                    autocomplete="off"
+                    onclick="openStockInZoneDropdown('swalEditZone', 'swalEditZoneChevron')"
+                    onfocus="openStockInZoneDropdown('swalEditZone', 'swalEditZoneChevron')"
+                    oninput="currentZonePickerTargetInputId='swalEditZone'; currentZonePickerTargetChevronId='swalEditZoneChevron'; handleStockInZoneInput(this.value)"
+                    onkeydown="if(event.key==='Escape') closeStockInZoneDropdown();"
+                    class="w-full h-8 pl-8 pr-7 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-indigo-700 cursor-pointer shadow-3xs hover:border-emerald-400">
+                  <button type="button" onclick="openStockInZoneDropdown('swalEditZone', 'swalEditZoneChevron')"
+                    class="absolute right-1 top-1 p-1 text-slate-400 hover:text-emerald-600 text-xs transition">
+                    <i class="fa-solid fa-chevron-down text-[10px] transition-transform duration-200" id="swalEditZoneChevron"></i>
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -17483,14 +17648,28 @@
         confirmButtonText: '<i class="fa-solid fa-check mr-1"></i> រក្សាទុកការកែប្រែ',
         cancelButtonText: 'បោះបង់',
         focusConfirm: false,
+        didOpen: () => {
+          const zInput = document.getElementById('swalEditZone');
+          if (zInput) {
+            zInput.addEventListener('focus', () => openStockInZoneDropdown('swalEditZone', 'swalEditZoneChevron'));
+            zInput.addEventListener('click', () => openStockInZoneDropdown('swalEditZone', 'swalEditZoneChevron'));
+          }
+        },
+        willClose: () => {
+          closeStockInZoneDropdown();
+        },
         preConfirm: () => {
-          const newQty = parseFloat(document.getElementById('swalEditQty')?.value);
+          const b = parseFloat(document.getElementById('swalEditQtyBulk')?.value) || 0;
+          const r = parseFloat(document.getElementById('swalEditQtyRetail')?.value) || 0;
+          const newQty = (b * pQty) + r;
           if (isNaN(newQty) || newQty <= 0) {
-            Swal.showValidationMessage('សូមបញ្ចូលចំនួនចូលស្តុកឱ្យធំជាង 0!');
+            Swal.showValidationMessage('សូមបញ្ចូលចំនួនចូលស្តុកឱ្យធំជាង 0 (ជាដុំ ឬជារាយ)!');
             return false;
           }
           return {
             newQty: newQty,
+            bulkQty: b,
+            retailQty: r,
             docNo: document.getElementById('swalEditDocNo')?.value.trim(),
             date: document.getElementById('swalEditDate')?.value,
             location: document.getElementById('swalEditLocation')?.value,
@@ -17509,9 +17688,8 @@
 
         // 1. Optimistic updates
         tx.quantity = v.newQty;
-        const curPQty = Number(tx.packQty || item?.packQty || 1);
-        tx.bulkQty = (curPQty > 1) ? Math.floor(v.newQty / curPQty) : 0;
-        tx.retailQty = (curPQty > 1) ? (v.newQty % curPQty) : v.newQty;
+        tx.bulkQty = v.bulkQty;
+        tx.retailQty = v.retailQty;
         if (v.docNo) tx.docNo = v.docNo;
         if (v.date) tx.date = v.date;
         tx.toLocation = v.location;
@@ -17520,7 +17698,19 @@
         tx.color = v.color;
         tx.zone = v.zone;
         tx.receivedBy = v.receiver;
-        tx.notes = v.notes || '-';
+
+        // Update notes with modeNote bracket
+        let baseNotes = cleanDisplayNote(v.notes || '');
+        if (!baseNotes || baseNotes === '-') baseNotes = '';
+        let modeNote = '';
+        if (v.bulkQty > 0 && v.retailQty > 0) {
+          modeNote = ` [ចូល: ${v.bulkQty} ${pUnit} + ${v.retailQty} ${rUnit} = ${v.newQty} ${rUnit}]`;
+        } else if (v.bulkQty > 0) {
+          modeNote = ` [ចូលជាដុំ: ${v.bulkQty} ${pUnit} = ${v.newQty} ${rUnit}]`;
+        } else if (v.retailQty > 0) {
+          modeNote = ` [ចូលជារាយ: ${v.retailQty} ${rUnit}]`;
+        }
+        tx.notes = (baseNotes ? baseNotes + modeNote : (modeNote ? modeNote.trim() : '-')).trim();
 
         if (qtyDiff !== 0) {
           const itm = (AppState.items || []).find(i => (i.sku && tx.sku && i.sku.toLowerCase() === tx.sku.toLowerCase()));
@@ -17544,13 +17734,15 @@
             sku: tx.sku,
             oldQuantity: oldQty,
             newQuantity: v.newQty,
+            bulkQty: v.bulkQty,
+            retailQty: v.retailQty,
             date: v.date,
             size: v.size,
             color: v.color,
             zone: v.zone,
             toLocation: v.location,
             receivedBy: v.receiver,
-            notes: v.notes
+            notes: tx.notes
           }
         }).then(r => {
           if (!r || !r.success) console.warn('Update stock in cloud warning:', r?.message);
@@ -17659,8 +17851,70 @@
       const curReason = escapeHtml(tx.reason || '');
       const curIssuer = escapeHtml(tx.issuer || tx.user || '');
       const curLocation = escapeHtml(tx.toLocation || tx.location || 'អតិថិជន/ដកប្រើប្រាស់');
-      const curUnit = escapeHtml(tx.unit || item?.unit || 'ដុំ');
+
+      const pQty = Math.max(1, Number(tx.packQty || item?.packQty || 1));
+      const pUnit = (tx.packUnit || item?.packUnit || 'ប្រអប់').trim();
+      const rUnit = (tx.unit || item?.unit || 'គូ').trim() || 'គូ';
       const curNotes = escapeHtml(cleanDisplayNote(tx.notes || ''));
+
+      // Determine initial bulk & retail quantities
+      let initialBulk = 0;
+      let initialRetail = 0;
+      if (tx.bulkQty !== undefined && tx.retailQty !== undefined && tx.bulkQty !== null && tx.retailQty !== null) {
+        initialBulk = Number(tx.bulkQty);
+        initialRetail = Number(tx.retailQty);
+      } else if (tx.notes) {
+        const cMatch = tx.notes.match(/\[(?:ចូល|ចេញ):\s*(\d+)\s*[^\+\d]+\+\s*(\d+)/);
+        const bMatch = tx.notes.match(/\[(?:ចូល|ចេញ)ជាដុំ:\s*(\d+)/);
+        const rMatch = tx.notes.match(/\[(?:ចូល|ចេញ)ជារាយ:\s*(\d+)/);
+        if (cMatch) {
+          initialBulk = Number(cMatch[1]);
+          initialRetail = Number(cMatch[2]);
+        } else if (bMatch) {
+          initialBulk = Number(bMatch[1]);
+          initialRetail = 0;
+        } else if (rMatch) {
+          initialBulk = 0;
+          initialRetail = Number(rMatch[1]);
+        } else if (pQty > 1) {
+          initialBulk = Math.floor(curQty / pQty);
+          initialRetail = curQty % pQty;
+        } else {
+          initialBulk = 0;
+          initialRetail = curQty;
+        }
+      } else if (pQty > 1) {
+        initialBulk = Math.floor(curQty / pQty);
+        initialRetail = curQty % pQty;
+      } else {
+        initialBulk = 0;
+        initialRetail = curQty;
+      }
+
+      if (initialBulk === 0 && initialRetail === 0 && curQty > 0) {
+        if (pQty > 1) {
+          initialBulk = Math.floor(curQty / pQty);
+          initialRetail = curQty % pQty;
+        } else {
+          initialRetail = curQty;
+        }
+      }
+
+      window.recalcSwalEditStockOutTotal = function() {
+        const b = parseFloat(document.getElementById('swalEditOutQtyBulk')?.value) || 0;
+        const r = parseFloat(document.getElementById('swalEditOutQtyRetail')?.value) || 0;
+        const total = (b * pQty) + r;
+        const sumEl = document.getElementById('swalEditOutTotalSummary');
+        if (sumEl) {
+          let str = `${total} ${rUnit}`;
+          if (b > 0 && r > 0) {
+            str += ` (${b} ${pUnit} + ${r} ${rUnit})`;
+          } else if (b > 0) {
+            str += ` (${b} ${pUnit})`;
+          }
+          sumEl.textContent = str;
+        }
+      };
 
       const whList = AppState.warehouses && AppState.warehouses.length > 0 ? AppState.warehouses : [
         { name: '1-K3 ស្ថានីយ (ភ្នំពេញ)' }, { name: '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)' },
@@ -17696,16 +17950,57 @@
               </div>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              <div>
-                <label class="block text-xs font-bold text-slate-700 mb-1">ចំនួនបើកចេញ (${curUnit}) *</label>
-                <input id="swalEditOutQty" type="number" step="any" min="0.01" value="${curQty}" class="w-full h-9 px-3 bg-white border-2 border-amber-400 rounded-lg text-sm font-bold text-amber-900 outline-none focus:ring-2 focus:ring-amber-600">
+            <div class="space-y-1.5">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <!-- ចំនួនបើកចេញ: ជាដុំ និងជារាយ -->
+                <div>
+                  <div class="flex items-center justify-between mb-1">
+                    <label class="text-xs font-bold text-slate-700 flex items-center gap-1">
+                      <i class="fa-solid fa-boxes-stacked text-amber-600 text-xs"></i>
+                      <span>ចំនួនបើកចេញ *</span>
+                    </label>
+                    ${pQty > 1 ? `<span class="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200" title="1 ${escapeHtml(pUnit)} = ${pQty} ${escapeHtml(rUnit)}">1 ${escapeHtml(pUnit)} = ${pQty} ${escapeHtml(rUnit)}</span>` : ''}
+                  </div>
+                  <div class="grid grid-cols-2 gap-2">
+                    <div>
+                      <span class="block text-[10.5px] font-bold text-amber-900 mb-0.5">ជាដុំ (${escapeHtml(pUnit)})</span>
+                      <input id="swalEditOutQtyBulk" type="number" min="0" step="any" value="${initialBulk}"
+                        oninput="recalcSwalEditStockOutTotal()"
+                        class="w-full h-9 px-2 text-center bg-white border-2 border-amber-400 rounded-lg text-sm font-black text-amber-900 outline-none focus:ring-2 focus:ring-amber-600">
+                    </div>
+                    <div>
+                      <span class="block text-[10.5px] font-bold text-slate-700 mb-0.5">ជារាយ (${escapeHtml(rUnit)})</span>
+                      <input id="swalEditOutQtyRetail" type="number" min="0" step="any" value="${initialRetail}"
+                        oninput="recalcSwalEditStockOutTotal()"
+                        class="w-full h-9 px-2 text-center bg-white border-2 border-slate-300 rounded-lg text-sm font-black text-slate-800 outline-none focus:ring-2 focus:ring-amber-600">
+                    </div>
+                  </div>
+                </div>
+
+                <!-- គោលដៅ / ឃ្លាំង -->
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
+                    <i class="fa-solid fa-warehouse text-slate-500 text-xs"></i>
+                    <span>គោលដៅ / ឃ្លាំង</span>
+                  </label>
+                  <select id="swalEditOutLocation" class="w-full h-9 px-2 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-amber-500 mt-5.5 sm:mt-5.5">
+                    ${whOptions}
+                  </select>
+                </div>
               </div>
-              <div>
-                <label class="block text-xs font-bold text-slate-700 mb-1">គោលដៅ / ឃ្លាំង</label>
-                <select id="swalEditOutLocation" class="w-full h-9 px-2 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-amber-500">
-                  ${whOptions}
-                </select>
+
+              <!-- Live Total Summary Badge -->
+              <div class="flex items-center justify-between px-3 py-1.5 bg-amber-50/90 border border-amber-200 rounded-xl text-xs shadow-3xs">
+                <span class="text-slate-600 font-semibold flex items-center gap-1.5">
+                  <i class="fa-solid fa-calculator text-amber-600 text-xs"></i>
+                  <span>សរុបបើកចេញទាំងអស់:</span>
+                  <span id="swalEditOutTotalSummary" class="font-black text-amber-900 text-sm font-mono ml-1">
+                    ${(initialBulk * pQty) + initialRetail} ${escapeHtml(rUnit)}${initialBulk > 0 && initialRetail > 0 ? ` (${initialBulk} ${escapeHtml(pUnit)} + ${initialRetail} ${escapeHtml(rUnit)})` : (initialBulk > 0 ? ` (${initialBulk} ${escapeHtml(pUnit)})` : '')}
+                  </span>
+                </span>
+                <span class="text-[10px] font-bold text-amber-800 bg-white px-2 py-0.5 rounded border border-amber-200">
+                  សរុបជារាយ
+                </span>
               </div>
             </div>
 
@@ -17733,13 +18028,17 @@
         cancelButtonText: 'បោះបង់',
         focusConfirm: false,
         preConfirm: () => {
-          const newQty = parseFloat(document.getElementById('swalEditOutQty')?.value);
+          const b = parseFloat(document.getElementById('swalEditOutQtyBulk')?.value) || 0;
+          const r = parseFloat(document.getElementById('swalEditOutQtyRetail')?.value) || 0;
+          const newQty = (b * pQty) + r;
           if (isNaN(newQty) || newQty <= 0) {
-            Swal.showValidationMessage('សូមបញ្ចូលចំនួនបើកចេញឱ្យធំជាង 0!');
+            Swal.showValidationMessage('សូមបញ្ចូលចំនួនបើកចេញឱ្យធំជាង 0 (ជាដុំ ឬជារាយ)!');
             return false;
           }
           return {
             newQty: newQty,
+            bulkQty: b,
+            retailQty: r,
             docNo: document.getElementById('swalEditOutDocNo')?.value.trim(),
             date: document.getElementById('swalEditOutDate')?.value,
             location: document.getElementById('swalEditOutLocation')?.value,
@@ -17756,15 +18055,26 @@
 
         // 1. Optimistic updates
         tx.quantity = v.newQty;
-        const curPQty = Number(tx.packQty || (AppState.items || []).find(i => (i.sku && tx.sku && i.sku.toLowerCase() === tx.sku.toLowerCase()))?.packQty || 1);
-        tx.bulkQty = (curPQty > 1) ? Math.floor(v.newQty / curPQty) : 0;
-        tx.retailQty = (curPQty > 1) ? (v.newQty % curPQty) : v.newQty;
+        tx.bulkQty = v.bulkQty;
+        tx.retailQty = v.retailQty;
         if (v.docNo) tx.docNo = v.docNo;
         if (v.date) tx.date = v.date;
         tx.toLocation = v.location;
         tx.issuer = v.issuer;
         tx.reason = v.reason;
-        tx.notes = v.notes || '-';
+
+        // Update notes with modeNote bracket
+        let baseNotes = cleanDisplayNote(v.notes || '');
+        if (!baseNotes || baseNotes === '-') baseNotes = '';
+        let modeNote = '';
+        if (v.bulkQty > 0 && v.retailQty > 0) {
+          modeNote = ` [ចេញ: ${v.bulkQty} ${pUnit} + ${v.retailQty} ${rUnit} = ${v.newQty} ${rUnit}]`;
+        } else if (v.bulkQty > 0) {
+          modeNote = ` [ចេញជាដុំ: ${v.bulkQty} ${pUnit} = ${v.newQty} ${rUnit}]`;
+        } else if (v.retailQty > 0) {
+          modeNote = ` [ចេញជារាយ: ${v.retailQty} ${rUnit}]`;
+        }
+        tx.notes = (baseNotes ? baseNotes + modeNote : (modeNote ? modeNote.trim() : '-')).trim();
 
         if (qtyDiff !== 0) {
           const itm = (AppState.items || []).find(i => (i.sku && tx.sku && i.sku.toLowerCase() === tx.sku.toLowerCase()));
@@ -17788,11 +18098,13 @@
             sku: tx.sku,
             oldQuantity: oldQty,
             newQuantity: v.newQty,
+            bulkQty: v.bulkQty,
+            retailQty: v.retailQty,
             date: v.date,
             toLocation: v.location,
             issuer: v.issuer,
             reason: v.reason,
-            notes: v.notes
+            notes: tx.notes
           }
         }).then(r => {
           if (!r || !r.success) console.warn('Update stock out cloud warning:', r?.message);
