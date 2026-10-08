@@ -2268,9 +2268,10 @@
                     <th class="px-2.5 py-3 bg-slate-100 sticky top-0 z-20 text-left w-[20%]">ឈ្មោះទំនិញ (NAME & SKU)</th>
                     <th class="px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-14 shrink-0">រូបភាព</th>
                     <th class="px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-[9%]">ពណ៌ & ខ្នាត</th>
-                    <th class="px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-[16%]">តំបន់ស្តុក (Zone)</th>
-                    <th class="px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-[17%]">ស្តុកបច្ចុប្បន្ន (ដុំ & រាយ)</th>
-                    <th class="px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-[15%]">សរុបទាំងអស់ជារាយ</th>
+                    <th class="px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-[13%]">តំបន់ស្តុក (Zone)</th>
+                    <th id="stationStockHeaderCell" class="px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-[15%]">ស្តុកតាមស្ថានីយ (ដុំ & រាយ)</th>
+                    <th class="px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-[15%]">ស្តុកសរុប (ដុំ & រាយ)</th>
+                    <th class="px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-[13%]">សរុបទាំងអស់ជារាយ</th>
                     <th class="px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-[11%]">អ្នកបញ្ចូល</th>
                     <th class="px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-16 shrink-0">សកម្មភាព</th>
                   </tr>
@@ -6111,6 +6112,9 @@
       const n2 = normalizeWarehouseName(wh2);
       if (!n1 || !n2) return false;
       if (n1 === n2 || n1.includes(n2) || n2.includes(n1)) return true;
+      const c1 = n1.match(/[\u4e00-\u9fa5]+/);
+      const c2 = n2.match(/[\u4e00-\u9fa5]+/);
+      if (c1 && c2 && c1[0] === c2[0]) return true;
       const m1 = n1.match(/^(\d+-[a-z0-9]+|\d+)/);
       const m2 = n2.match(/^(\d+-[a-z0-9]+|\d+)/);
       if (m1 && m2 && m1[1] === m2[1]) return true;
@@ -13439,7 +13443,124 @@
       }
     }
 
-        function getFilteredItemsList() {
+            function getItemStationStock(item, targetWh) {
+      if (!item) return { bulk: 0, loose: 0, total: 0, hasStationTx: false, hasExactStationTx: false, isGeneralStock: false, breakdowns: [], pUnit: 'ប្រអប់', rUnit: 'ដើម' };
+      const sku = String(item.sku || '').trim().toLowerCase();
+      const pQty = Number(item.packQty || 1);
+      const pUnit = (item.packUnit || '').trim() || 'ប្រអប់';
+      const rUnit = (item.unit || '').trim() || 'ដើម';
+
+      let allTxList = [];
+      if (Array.isArray(AppState.stockInHistory)) allTxList = allTxList.concat(AppState.stockInHistory);
+      if (Array.isArray(AppState.stockOutHistory)) allTxList = allTxList.concat(AppState.stockOutHistory);
+      if (Array.isArray(AppState.transactions)) allTxList = allTxList.concat(AppState.transactions);
+      if (Array.isArray(LOCAL_DB.transactions)) allTxList = allTxList.concat(LOCAL_DB.transactions);
+      try {
+        const s1 = localStorage.getItem('inventory_stock_in_history_db');
+        if (s1) { const p1 = JSON.parse(s1); if (Array.isArray(p1)) allTxList = allTxList.concat(p1); }
+      } catch(e) {}
+      try {
+        const s2 = localStorage.getItem('inventory_stock_out_history_db');
+        if (s2) { const p2 = JSON.parse(s2); if (Array.isArray(p2)) allTxList = allTxList.concat(p2); }
+      } catch(e) {}
+      try {
+        const s3 = localStorage.getItem('inventory_transactions_db');
+        if (s3) { const p3 = JSON.parse(s3); if (Array.isArray(p3)) allTxList = allTxList.concat(p3); }
+      } catch(e) {}
+
+      const seenTx = new Set();
+      let stationIn = 0, stationOut = 0;
+      let generalIn = 0, generalOut = 0;
+      let hasExactStationTx = false;
+      let hasGeneralTx = false;
+      const whNetMap = {};
+
+      allTxList.forEach(t => {
+        if (!t) return;
+        const key = t.txId || t.docNo || (String(t.sku) + '_' + String(t.date) + '_' + String(t.quantity) + '_' + String(t.type));
+        if (seenTx.has(key)) return;
+        seenTx.add(key);
+
+        const tSku = String(t.sku || '').trim().toLowerCase();
+        if (tSku !== sku) return;
+
+        const q = Number(t.quantity || 0);
+        const isStockIn = (t.type === 'STOCK_IN') || (!t.type && (t.inBulkStock !== undefined || t.inLooseStock !== undefined || t.docNo?.startsWith('DOC-IN') || t.docNo?.startsWith('TX-IN') || t.notes?.includes('ចូលស្តុក')));
+        const isStockOut = (t.type === 'STOCK_OUT') || (!t.type && (t.outBulkStock !== undefined || t.outLooseStock !== undefined || t.docNo?.startsWith('DOC-OUT') || t.docNo?.startsWith('TX-OUT') || t.notes?.includes('ចេញ') || t.notes?.includes('បើក')));
+
+        if (isStockIn) {
+          const toWh = t.toLocation || t.location || t.warehouse || '';
+          if (toWh) {
+            whNetMap[toWh] = (whNetMap[toWh] || 0) + q;
+            if (targetWh && targetWh !== 'ALL') {
+              if (typeof isSameWarehouse === 'function' && isSameWarehouse(toWh, targetWh)) {
+                stationIn += q;
+                hasExactStationTx = true;
+              } else if (toWh === 'គ្រប់ស្ថានីយទាំងអស់' || toWh === 'ALL') {
+                generalIn += q;
+                hasGeneralTx = true;
+              }
+            }
+          }
+        } else if (isStockOut) {
+          const fromWh = t.fromLocation || t.location || t.warehouse || '';
+          if (fromWh) {
+            whNetMap[fromWh] = (whNetMap[fromWh] || 0) - q;
+            if (targetWh && targetWh !== 'ALL') {
+              if (typeof isSameWarehouse === 'function' && isSameWarehouse(fromWh, targetWh)) {
+                stationOut += q;
+              } else if (fromWh === 'គ្រប់ស្ថានីយទាំងអស់' || fromWh === 'ALL') {
+                generalOut += q;
+              }
+            }
+          }
+        }
+      });
+
+      let effectiveTotal = 0;
+      let hasStationTx = false;
+      let isGeneralStock = false;
+
+      if (targetWh && targetWh !== 'ALL') {
+        if (hasExactStationTx || stationIn > 0) {
+          effectiveTotal = Math.max(0, stationIn - stationOut);
+          hasStationTx = true;
+        } else if (hasGeneralTx || generalIn > 0) {
+          effectiveTotal = Math.max(0, generalIn - generalOut);
+          hasStationTx = true;
+          isGeneralStock = true;
+        }
+      } else {
+        effectiveTotal = Math.max(0, Number(item.currentStock || 0));
+        hasStationTx = true;
+      }
+
+      const bulk = pQty > 1 ? Math.floor(effectiveTotal / pQty) : 0;
+      const loose = pQty > 1 ? (effectiveTotal % pQty) : effectiveTotal;
+
+      const breakdowns = [];
+      for (const whKey in whNetMap) {
+        const nQty = Math.max(0, whNetMap[whKey]);
+        if (nQty > 0) {
+          const shortWh = whKey.split(' ')[0] || whKey;
+          breakdowns.push({ warehouse: whKey, shortWh, total: nQty });
+        }
+      }
+
+      return {
+        bulk,
+        loose,
+        total: effectiveTotal,
+        hasStationTx,
+        hasExactStationTx,
+        isGeneralStock,
+        breakdowns,
+        pUnit,
+        rUnit
+      };
+    }
+
+    function getFilteredItemsList() {
       const u = AppState.currentUser;
       const isSuperAdmin = (u && (u.role === 'SuperAdmin' || String(u.username).toLowerCase() === 'superadmin' || u.userId === 'USR-SA'));
       const isAdmin = isSuperAdmin || (u && (u.role === 'Admin' || String(u.username).toLowerCase() === 'admin' || String(u.username).toLowerCase() === 'singvan327@gmail.com'));
@@ -13452,47 +13573,6 @@
         activeWhFilter = u?.warehouse || '';
       }
 
-      let stockedSkusInTargetWh = null;
-      if (activeWhFilter && activeWhFilter !== 'ALL') {
-        stockedSkusInTargetWh = new Set();
-        let allTxList = [];
-        if (Array.isArray(AppState.stockInHistory)) allTxList = allTxList.concat(AppState.stockInHistory);
-        if (Array.isArray(AppState.transactions)) allTxList = allTxList.concat(AppState.transactions);
-        if (Array.isArray(LOCAL_DB.transactions)) allTxList = allTxList.concat(LOCAL_DB.transactions);
-        try {
-          const s1 = localStorage.getItem('inventory_stock_in_history_db');
-          if (s1) {
-            const p1 = JSON.parse(s1);
-            if (Array.isArray(p1)) allTxList = allTxList.concat(p1);
-          }
-        } catch(e) {}
-        try {
-          const s2 = localStorage.getItem('inventory_transactions_db');
-          if (s2) {
-            const p2 = JSON.parse(s2);
-            if (Array.isArray(p2)) allTxList = allTxList.concat(p2);
-          }
-        } catch(e) {}
-
-        allTxList.forEach(t => {
-          if (!t) return;
-          const isStockIn = (t.type === 'STOCK_IN') || (!t.type && (t.inBulkStock !== undefined || t.inLooseStock !== undefined || t.docNo?.startsWith('DOC-IN') || t.docNo?.startsWith('TX-IN') || t.notes?.includes('ចូលស្តុក')));
-          if (!isStockIn) return;
-
-          const tWh = t.toLocation || t.location || t.warehouse || '';
-          if (!tWh) return;
-
-          const isMatch = (typeof isSameWarehouse === 'function')
-            ? (isSameWarehouse(tWh, activeWhFilter) || tWh === 'គ្រប់ស្ថានីយទាំងអស់' || tWh === 'ALL')
-            : (tWh.includes(activeWhFilter) || activeWhFilter.includes(tWh) || tWh === 'គ្រប់ស្ថានីយទាំងអស់' || tWh === 'ALL');
-
-          if (isMatch) {
-            if (t.sku) stockedSkusInTargetWh.add(String(t.sku).trim().toLowerCase());
-            if (t.itemName) stockedSkusInTargetWh.add(String(t.itemName).trim().toLowerCase());
-          }
-        });
-      }
-
       const searchEl = document.getElementById('itemSearchInput');
       let rawSearch = (searchEl?.value || '').trim();
       let search = rawSearch.toLowerCase().trim();
@@ -13501,25 +13581,19 @@
 
       return (AppState.items || []).filter(item => {
         // ច្រោះតាមស្ថានីយ (សម្រាប់ស្ថានីយផ្ទាល់ខ្លួន ឬតាមការជ្រើសរើសរបស់ Admin)
-        if (stockedSkusInTargetWh !== null) {
-          const iSku = String(item.sku || '').trim().toLowerCase();
-          const iName = String(item.name || '').trim().toLowerCase();
+        if (activeWhFilter && activeWhFilter !== 'ALL') {
+          const st = getItemStationStock(item, activeWhFilter);
           const itemLoc = item.toLocation || item.location || item.warehouse || '';
+          const isAssigned = itemLoc && (typeof isSameWarehouse === 'function') && isSameWarehouse(itemLoc, activeWhFilter);
+          const isWhBreakdown = Array.isArray(item.warehouses) && item.warehouses.some(w => (typeof isSameWarehouse === 'function') && isSameWarehouse(w, activeWhFilter));
 
-          const isStockedInWh = stockedSkusInTargetWh.has(iSku) || stockedSkusInTargetWh.has(iName);
-          const isItemAssignedToWh = itemLoc && (
-            (typeof isSameWarehouse === 'function')
-              ? (isSameWarehouse(itemLoc, activeWhFilter) || itemLoc === 'គ្រប់ស្ថានីយទាំងអស់' || itemLoc === 'ALL')
-              : (itemLoc.includes(activeWhFilter) || itemLoc === 'គ្រប់ស្ថានីយទាំងអស់' || itemLoc === 'ALL')
-          );
-          const isItemInWhBreakdown = Array.isArray(item.warehouses) && item.warehouses.some(w =>
-            (typeof isSameWarehouse === 'function')
-              ? (isSameWarehouse(w, activeWhFilter) || w === 'គ្រប់ស្ថានីយទាំងអស់' || w === 'ALL')
-              : (w.includes(activeWhFilter) || w === 'គ្រប់ស្ថានីយទាំងអស់' || w === 'ALL')
-          );
-
-          if (!isStockedInWh && !isItemAssignedToWh && !isItemInWhBreakdown) {
+          // ត្រូវមានប្រតិបត្តិការស្តុកក្នុងស្ថានីយនេះ ឬកំណត់ស្ថានីយនេះ
+          if (!st.hasStationTx && !isAssigned && !isWhBreakdown) {
             return false; // ទំនិញក្រៅពីស្ថានីយ៍របស់ខ្លួនមិនអាចមើលឃើញទេ
+          }
+          // ប្រសិនបើស្តុកស្ថានីយនេះស្មើ 0 ហើយគ្មានប្រតិបត្តិការផ្ទាល់ក្នុងស្ថានីយនេះទេ មិនត្រូវបង្ហាញទេ
+          if (st.total <= 0 && !st.hasExactStationTx && !isAssigned) {
+            return false;
           }
         }
 
@@ -13629,6 +13703,16 @@
         ? AppState.transactions
         : (LOCAL_DB.transactions || []);
 
+            const stHeaderCell = document.getElementById('stationStockHeaderCell');
+      if (stHeaderCell) {
+        if (activeWhFilter && activeWhFilter !== 'ALL') {
+          const shortWh = activeWhFilter.split(' ')[0] || activeWhFilter;
+          stHeaderCell.innerHTML = `ស្តុក ${escapeHtml(shortWh)} (ដុំ & រាយ)`;
+        } else {
+          stHeaderCell.innerHTML = 'ស្តុកតាមស្ថានីយ (ដុំ & រាយ)';
+        }
+      }
+
       const totalItemsCount = (AppState.items || []).length;
       const filteredCount = filtered.length;
 
@@ -13664,7 +13748,7 @@
       }
 
       if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-10 text-slate-400">រកមិនឃើញទិន្នន័យទំនិញដែលត្រូវគ្នាទេ</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center py-10 text-slate-400">រកមិនឃើញទិន្នន័យទំនិញដែលត្រូវគ្នាទេ</td></tr>';
         return;
       }
 
@@ -13748,12 +13832,55 @@
             </div>
           </td>
 
-          <!-- ជួរទី៥: តំបន់ស្តុក (Zone / Location) - សម្រាប់មុខទំនិញដែលមានចាប់ពី ២ តំបន់ឡើងទៅ បង្ហាញទិន្នន័យក្នុងមួយតំបន់មានចំនួនប៉ុន្មាន -->
+                    <!-- ជួរទី៥: តំបន់ស្តុក (Zone / Location) - សម្រាប់មុខទំនិញដែលមានចាប់ពី ២ តំបន់ឡើងទៅ បង្ហាញទិន្នន័យក្នុងមួយតំបន់មានចំនួនប៉ុន្មាន -->
           <td class="px-2 py-2.5 text-center align-middle overflow-hidden">
             ${renderItemZoneCell(item, rUnit)}
           </td>
 
-          <!-- ជួរទី៦: ស្តុកបច្ចុប្បន្ន (Current Stock: ដុំ & រាយ) -->
+          <!-- ជួរទី៦: ស្តុកតាមស្ថានីយ (Station Stock: ដុំ & រាយ) - ថែមមួយជួរទៀតតាមសំណូមពរ -->
+          <td class="px-2 py-2.5 text-center align-middle overflow-hidden">
+            ${(function() {
+              const stStock = (typeof getItemStationStock === 'function') ? getItemStationStock(item, activeWhFilter) : { bulk: 0, loose: 0, total: 0, breakdowns: [] };
+              if (activeWhFilter && activeWhFilter !== 'ALL') {
+                return (pQty > 1) ? `
+                  <div class="inline-flex flex-col items-center justify-center gap-1 w-[72px] sm:w-[78px] mx-auto">
+                    <!-- ចំនួនដុំ/ប្រអប់ (ខាងលើ) -->
+                    <span class="inline-flex items-center justify-center w-full px-1.5 py-0.5 rounded-lg text-[10.5px] font-bold shadow-3xs truncate ${stStock.total === 0 ? 'bg-rose-50 text-rose-500 border border-rose-200' : 'bg-blue-50 text-blue-800 border border-blue-300'}" title="ស្តុកស្ថានីយ (ដុំ): ${stStock.bulk} ${escapeHtml(pUnit)}">
+                      ${stStock.bulk} ${escapeHtml(pUnit)}
+                    </span>
+                    <!-- ចំនួនរាយ/ដើម (ខាងក្រោម) -->
+                    <span class="inline-flex items-center justify-center w-full px-1.5 py-0.5 rounded-lg text-[10.5px] font-bold shadow-3xs truncate ${stStock.total === 0 ? 'bg-rose-50 text-rose-500 border border-rose-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}" title="ស្តុកស្ថានីយ (រាយ): ${stStock.loose} ${escapeHtml(rUnit)} (សរុប: ${stStock.total} ${escapeHtml(rUnit)})">
+                      ${stStock.loose} ${escapeHtml(rUnit)}
+                    </span>
+                  </div>
+                ` : `
+                  <div class="inline-flex flex-col items-center justify-center w-[72px] sm:w-[78px] mx-auto">
+                    <span class="inline-flex items-center justify-center w-full px-1.5 py-1 rounded-lg text-[10.5px] font-bold shadow-3xs truncate ${stStock.total === 0 ? 'bg-rose-50 text-rose-500 border border-rose-200' : 'bg-blue-50 text-blue-800 border border-blue-300'}" title="ស្តុកស្ថានីយ: ${stStock.total} ${escapeHtml(rUnit)}">
+                      ${stStock.total} ${escapeHtml(rUnit)}
+                    </span>
+                  </div>
+                `;
+              } else {
+                if (stStock.breakdowns && stStock.breakdowns.length > 0) {
+                  return `
+                    <div class="flex flex-col items-center gap-1 w-full max-w-[125px] mx-auto">
+                      ${stStock.breakdowns.slice(0, 2).map(sb => `
+                        <span class="inline-flex items-center justify-between w-full px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-blue-50/80 text-blue-800 border border-blue-200/90 shadow-3xs truncate" title="${escapeHtml(sb.warehouse)}: ${sb.total} ${escapeHtml(rUnit)}">
+                          <span class="truncate">📍 ${escapeHtml(sb.shortWh)}</span>
+                          <span class="ml-1 font-mono">${sb.total}</span>
+                        </span>
+                      `).join('')}
+                      ${stStock.breakdowns.length > 2 ? `<span class="text-[9px] text-slate-400 font-medium">+${stStock.breakdowns.length - 2} ស្ថានីយ</span>` : ''}
+                    </div>
+                  `;
+                } else {
+                  return `<span class="text-slate-300 text-xs">-</span>`;
+                }
+              }
+            })()}
+          </td>
+
+          <!-- ជួរទី៧: ស្តុកសរុប (Current Total Stock: ដុំ & រាយ) -->
           <td class="px-2 py-2.5 text-center align-middle overflow-hidden">
             <div class="inline-flex flex-col items-start justify-center">
               <div class="flex items-center justify-center gap-1">
@@ -19702,8 +19829,9 @@
           status = 'ជិតអស់';
         }
 
-        const packRate = Number(item.packQty || 1);
+                const packRate = Number(item.packQty || 1);
         const packStock = packRate > 1 ? Math.floor(qty / packRate) : qty;
+        const stStock = (typeof getItemStationStock === 'function') ? getItemStationStock(item) : { bulk: 0, loose: 0, total: 0 };
 
         return {
           'ល.រ': index + 1,
@@ -19715,6 +19843,9 @@
           'ឯកតា': item.unit || '',
           'ឯកតាធំ': item.packUnit || item.unit || '',
           'ចំនួនក្នុងឯកតាធំ': item.packQty || 1,
+          'ស្តុកតាមស្ថានីយ (ដុំ)': stStock.bulk,
+          'ស្តុកតាមស្ថានីយ (រាយ)': stStock.loose,
+          'ស្តុកតាមស្ថានីយ (សរុប)': stStock.total,
           'ស្តុកដុំ/កេស': packStock,
           'ស្តុកបច្ចុប្បន្ន (រាយ)': qty,
           'ស្តុកអប្បបរមា': min,
