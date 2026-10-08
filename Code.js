@@ -4487,6 +4487,8 @@ function getItemsList(userOrPayload, warehouseFilter, optSs) {
       const sZoneIdx = sHeaders.indexOf('zone') >= 0 ? sHeaders.indexOf('zone') : 6;
       const sNotesIdx = sHeaders.indexOf('notes') >= 0 ? sHeaders.indexOf('notes') : 14;
 
+      const sWhIdx = sHeaders.indexOf('warehouse') >= 0 ? sHeaders.indexOf('warehouse') : sHeaders.findIndex(h => h.includes('warehouse') || h.includes('ឃ្លាំង') || h.includes('ស្ថានីយ'));
+
       for (let r = 1; r < sInData.length; r++) {
         const rSku = String(sInData[r][sSkuIdx] || '').trim();
         if (!rSku) continue;
@@ -4499,10 +4501,15 @@ function getItemsList(userOrPayload, warehouseFilter, optSs) {
         }
         if (!rZone || rZone === '-' || rZone === 'គ្មាន') rZone = 'ទូទៅ';
 
+        const rWh = (sWhIdx >= 0) ? String(sInData[r][sWhIdx] || '').trim() : '';
+
         const skuKey = rSku.toLowerCase();
-        if (!itemZoneMap[skuKey]) itemZoneMap[skuKey] = { zones: {}, totalIn: 0, totalOut: 0 };
+        if (!itemZoneMap[skuKey]) itemZoneMap[skuKey] = { zones: {}, warehouses: [], totalIn: 0, totalOut: 0 };
         itemZoneMap[skuKey].totalIn += rQty;
         itemZoneMap[skuKey].zones[rZone] = (itemZoneMap[skuKey].zones[rZone] || 0) + rQty;
+        if (rWh && !itemZoneMap[skuKey].warehouses.includes(rWh)) {
+          itemZoneMap[skuKey].warehouses.push(rWh);
+        }
       }
     }
 
@@ -4649,6 +4656,7 @@ function getItemsList(userOrPayload, warehouseFilter, optSs) {
         zone: zn,
         zoneBreakdown: itemZoneBreakdown,
         zones: itemZonesList,
+        warehouses: (zInfo && zInfo.warehouses) ? zInfo.warehouses : [],
         imageUrl: img,
         notes: String(row[idxNotes] || '-'),
         createdBy: crBy,

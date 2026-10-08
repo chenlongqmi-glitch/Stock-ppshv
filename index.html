@@ -2217,6 +2217,26 @@
                   </button>
                 </div>
 
+                <!-- Dropdown ជ្រើសរើសស្ថានីយដើម្បីច្រោះទិន្នន័យ (សម្រាប់តែ SuperAdmin និង Admin) -->
+                <div id="itemWarehouseFilterContainer" class="hidden shrink-0">
+                  <select id="itemWarehouseFilter" onchange="handleItemWarehouseFilterChange(this.value)"
+                    class="px-2.5 py-1.5 sm:py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none font-bold text-blue-900 cursor-pointer shadow-3xs max-w-[170px] sm:max-w-[210px] truncate"
+                    title="ជ្រើសរើសស្ថានីយដើម្បីច្រោះទិន្នន័យ (Admin Only)">
+                    <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>
+                    <option value="1-K3 ស្ថានីយ (ភ្នំពេញ)">1-K3 ស្ថានីយ (ភ្នំពេញ)</option>
+                    <option value="2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)">2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)</option>
+                    <option value="3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)">3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)</option>
+                    <option value="4-K76 ស្ថានីយ (ត្រែងត្រយឹង)">4-K76 ស្ថានីយ (ត្រែងត្រយឹង)</option>
+                    <option value="5-K114 ស្ថានីយ (កំពង់សីលា)">5-K114 ស្ថានីយ (កំពង់សីលា)</option>
+                    <option value="6-K135 ស្ថានីយ (ស្រែអំបិល)">6-K135 ស្ថានីយ (ស្រែអំបិល)</option>
+                    <option value="7-K172 ស្ថានីយ (ស្ទឹងហាវ)">7-K172 ស្ថានីយ (ស្ទឹងហាវ)</option>
+                    <option value="8-K182 ស្ថានីយ (ព្រះសីហនុ)">8-K182 ស្ថានីយ (ព្រះសីហនុ)</option>
+                    <option value="中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)">中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)</option>
+                    <option value="机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)">机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
+                    <option value="综合办 (ផ្នែកកិច្ចការទូទៅ)">综合办 (ផ្នែកកិច្ចការទូទៅ)</option>
+                  </select>
+                </div>
+
                 <select id="itemCategoryFilter" onchange="filterItemsTable()"
                   class="px-2.5 py-1.5 sm:py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none">
                   <option value="ALL">គ្រប់ប្រភេទទាំងអស់</option>
@@ -11624,9 +11644,27 @@
       if (sessionWarehouseName) {
         sessionWarehouseName.innerText = (whValue === 'ALL') ? '🏢 គ្រប់ស្ថានីយទាំងអស់ (Admin Only)' : `📍 ${whValue} (Admin Switch)`;
       }
+      const itemWhSelect = document.getElementById('itemWarehouseFilter');
+      if (itemWhSelect && itemWhSelect.value !== whValue) {
+        itemWhSelect.value = whValue;
+      }
       loadDashboard();
       loadItems();
       if (AppState.currentTab === 'reports') loadReportTransactions();
+    }
+
+    function handleItemWarehouseFilterChange(whValue) {
+      AppState.selectedAdminWarehouseFilter = whValue;
+      sessionStorage.setItem('inventory_wh_filter', whValue);
+      const globalSelect = document.getElementById('globalWarehouseSelector');
+      if (globalSelect && globalSelect.value !== whValue) {
+        globalSelect.value = whValue;
+      }
+      const sessionWarehouseName = document.getElementById('activeSessionWarehouseName');
+      if (sessionWarehouseName) {
+        sessionWarehouseName.innerText = (whValue === 'ALL') ? '🏢 គ្រប់ស្ថានីយទាំងអស់ (Admin Only)' : `📍 ${whValue} (Admin Switch)`;
+      }
+      filterItemsTable();
     }
 
     function togglePasswordVisibility(fieldOrId, btn) {
@@ -13401,6 +13439,112 @@
       }
     }
 
+        function getFilteredItemsList() {
+      const u = AppState.currentUser;
+      const isSuperAdmin = (u && (u.role === 'SuperAdmin' || String(u.username).toLowerCase() === 'superadmin' || u.userId === 'USR-SA'));
+      const isAdmin = isSuperAdmin || (u && (u.role === 'Admin' || String(u.username).toLowerCase() === 'admin' || String(u.username).toLowerCase() === 'singvan327@gmail.com'));
+
+      let activeWhFilter = 'ALL';
+      if (isAdmin) {
+        activeWhFilter = document.getElementById('itemWarehouseFilter')?.value || AppState.selectedAdminWarehouseFilter || 'ALL';
+      } else {
+        // អ្នកប្រើប្រាស់តាមស្ថានីយ: មើលឃើញតែមុខទំនិញក្នុងស្ថានីយរបស់ខ្លួនឯងប៉ុណ្ណោះ!
+        activeWhFilter = u?.warehouse || '';
+      }
+
+      let stockedSkusInTargetWh = null;
+      if (activeWhFilter && activeWhFilter !== 'ALL') {
+        stockedSkusInTargetWh = new Set();
+        let allTxList = [];
+        if (Array.isArray(AppState.stockInHistory)) allTxList = allTxList.concat(AppState.stockInHistory);
+        if (Array.isArray(AppState.transactions)) allTxList = allTxList.concat(AppState.transactions);
+        if (Array.isArray(LOCAL_DB.transactions)) allTxList = allTxList.concat(LOCAL_DB.transactions);
+        try {
+          const s1 = localStorage.getItem('inventory_stock_in_history_db');
+          if (s1) {
+            const p1 = JSON.parse(s1);
+            if (Array.isArray(p1)) allTxList = allTxList.concat(p1);
+          }
+        } catch(e) {}
+        try {
+          const s2 = localStorage.getItem('inventory_transactions_db');
+          if (s2) {
+            const p2 = JSON.parse(s2);
+            if (Array.isArray(p2)) allTxList = allTxList.concat(p2);
+          }
+        } catch(e) {}
+
+        allTxList.forEach(t => {
+          if (!t) return;
+          const isStockIn = (t.type === 'STOCK_IN') || (!t.type && (t.inBulkStock !== undefined || t.inLooseStock !== undefined || t.docNo?.startsWith('DOC-IN') || t.docNo?.startsWith('TX-IN') || t.notes?.includes('ចូលស្តុក')));
+          if (!isStockIn) return;
+
+          const tWh = t.toLocation || t.location || t.warehouse || '';
+          if (!tWh) return;
+
+          const isMatch = (typeof isSameWarehouse === 'function')
+            ? (isSameWarehouse(tWh, activeWhFilter) || tWh === 'គ្រប់ស្ថានីយទាំងអស់' || tWh === 'ALL')
+            : (tWh.includes(activeWhFilter) || activeWhFilter.includes(tWh) || tWh === 'គ្រប់ស្ថានីយទាំងអស់' || tWh === 'ALL');
+
+          if (isMatch) {
+            if (t.sku) stockedSkusInTargetWh.add(String(t.sku).trim().toLowerCase());
+            if (t.itemName) stockedSkusInTargetWh.add(String(t.itemName).trim().toLowerCase());
+          }
+        });
+      }
+
+      const searchEl = document.getElementById('itemSearchInput');
+      let rawSearch = (searchEl?.value || '').trim();
+      let search = rawSearch.toLowerCase().trim();
+      const catFilter = document.getElementById('itemCategoryFilter')?.value || 'ALL';
+      const statusFilter = document.getElementById('itemStatusFilter')?.value || 'ALL';
+
+      return (AppState.items || []).filter(item => {
+        // ច្រោះតាមស្ថានីយ (សម្រាប់ស្ថានីយផ្ទាល់ខ្លួន ឬតាមការជ្រើសរើសរបស់ Admin)
+        if (stockedSkusInTargetWh !== null) {
+          const iSku = String(item.sku || '').trim().toLowerCase();
+          const iName = String(item.name || '').trim().toLowerCase();
+          const itemLoc = item.toLocation || item.location || item.warehouse || '';
+
+          const isStockedInWh = stockedSkusInTargetWh.has(iSku) || stockedSkusInTargetWh.has(iName);
+          const isItemAssignedToWh = itemLoc && (
+            (typeof isSameWarehouse === 'function')
+              ? (isSameWarehouse(itemLoc, activeWhFilter) || itemLoc === 'គ្រប់ស្ថានីយទាំងអស់' || itemLoc === 'ALL')
+              : (itemLoc.includes(activeWhFilter) || itemLoc === 'គ្រប់ស្ថានីយទាំងអស់' || itemLoc === 'ALL')
+          );
+          const isItemInWhBreakdown = Array.isArray(item.warehouses) && item.warehouses.some(w =>
+            (typeof isSameWarehouse === 'function')
+              ? (isSameWarehouse(w, activeWhFilter) || w === 'គ្រប់ស្ថានីយទាំងអស់' || w === 'ALL')
+              : (w.includes(activeWhFilter) || w === 'គ្រប់ស្ថានីយទាំងអស់' || w === 'ALL')
+          );
+
+          if (!isStockedInWh && !isItemAssignedToWh && !isItemInWhBreakdown) {
+            return false; // ទំនិញក្រៅពីស្ថានីយ៍របស់ខ្លួនមិនអាចមើលឃើញទេ
+          }
+        }
+
+        if (search) {
+          const itemZones = (typeof getItemZoneBreakdown === 'function') ? getItemZoneBreakdown(item) : [];
+          const matchZone = (item.zone && item.zone.toLowerCase().includes(search)) ||
+            itemZones.some(z => z.zone && z.zone.toLowerCase().includes(search));
+          const match = (item.sku && item.sku.toLowerCase().includes(search)) ||
+            (item.barcode && item.barcode.toLowerCase().includes(search)) ||
+            (item.name && item.name.toLowerCase().includes(search)) ||
+            (item.size && item.size.toLowerCase().includes(search)) ||
+            (item.color && item.color.toLowerCase().includes(search)) ||
+            matchZone ||
+            (item.notes && item.notes.toLowerCase().includes(search)) ||
+            (item.createdBy && item.createdBy.toLowerCase().includes(search));
+          if (!match) return false;
+        }
+        if (catFilter !== 'ALL' && item.category !== catFilter) return false;
+        if (statusFilter === 'LOW' && (item.currentStock > item.minStock || item.currentStock === 0)) return false;
+        if (statusFilter === 'OUT' && item.currentStock !== 0) return false;
+        if (statusFilter === 'NORMAL' && item.currentStock <= item.minStock) return false;
+        return true;
+      });
+    }
+
     function renderItemsTable() {
       const tbody = document.getElementById('itemsTableBody');
       if (!tbody) return;
@@ -13446,11 +13590,100 @@
         syncItemStockFromHistory(LOCAL_DB.items);
       }
 
+      const u = AppState.currentUser;
+      const isSuperAdmin = (u && (u.role === 'SuperAdmin' || String(u.username).toLowerCase() === 'superadmin' || u.userId === 'USR-SA'));
+      const isAdmin = isSuperAdmin || (u && (u.role === 'Admin' || String(u.username).toLowerCase() === 'admin' || String(u.username).toLowerCase() === 'singvan327@gmail.com'));
+
+      // 1. បង្ហាញ dropdown ជ្រើសរើសស្ថានីយសម្រាប់តែ SuperAdmin និង Admin តែប៉ុណ្ណោះ
+      const whFilterContainer = document.getElementById('itemWarehouseFilterContainer');
+      const whFilterSelect = document.getElementById('itemWarehouseFilter');
+      if (whFilterContainer) {
+        if (isAdmin) {
+          whFilterContainer.classList.remove('hidden');
+        } else {
+          whFilterContainer.classList.add('hidden');
+        }
+      }
+
+      // 2. កំណត់ស្ថានីយដែលត្រូវច្រោះ (Admin អាចរើសបាន, អ្នកប្រើប្រាស់តាមស្ថានីយជាប់ស្ថានីយខ្លួនឯង)
+      let activeWhFilter = 'ALL';
+      if (isAdmin) {
+        activeWhFilter = whFilterSelect?.value || AppState.selectedAdminWarehouseFilter || 'ALL';
+      } else {
+        // អ្នកប្រើប្រាស់តាមស្ថានីយ: មើលឃើញតែមុខទំនិញក្នុងស្ថានីយរបស់ខ្លួនឯងប៉ុណ្ណោះ!
+        activeWhFilter = u?.warehouse || '';
+      }
+
+      // 3. ប្រមូលបញ្ជីមុខទំនិញ (SKUs) ដែលបានធ្វើការបញ្ចូលក្នុងស្តុក (Stock In) ក្នុងស្ថានីយនេះ
+      let stockedSkusInTargetWh = null;
+      if (activeWhFilter && activeWhFilter !== 'ALL') {
+        stockedSkusInTargetWh = new Set();
+        let allTxList = [];
+        if (Array.isArray(AppState.stockInHistory)) allTxList = allTxList.concat(AppState.stockInHistory);
+        if (Array.isArray(AppState.transactions)) allTxList = allTxList.concat(AppState.transactions);
+        if (Array.isArray(LOCAL_DB.transactions)) allTxList = allTxList.concat(LOCAL_DB.transactions);
+        try {
+          const s1 = localStorage.getItem('inventory_stock_in_history_db');
+          if (s1) {
+            const p1 = JSON.parse(s1);
+            if (Array.isArray(p1)) allTxList = allTxList.concat(p1);
+          }
+        } catch(e) {}
+        try {
+          const s2 = localStorage.getItem('inventory_transactions_db');
+          if (s2) {
+            const p2 = JSON.parse(s2);
+            if (Array.isArray(p2)) allTxList = allTxList.concat(p2);
+          }
+        } catch(e) {}
+
+        allTxList.forEach(t => {
+          if (!t) return;
+          const isStockIn = (t.type === 'STOCK_IN') || (!t.type && (t.inBulkStock !== undefined || t.inLooseStock !== undefined || t.docNo?.startsWith('DOC-IN') || t.docNo?.startsWith('TX-IN') || t.notes?.includes('ចូលស្តុក')));
+          if (!isStockIn) return;
+
+          const tWh = t.toLocation || t.location || t.warehouse || '';
+          if (!tWh) return;
+
+          const isMatch = (typeof isSameWarehouse === 'function')
+            ? (isSameWarehouse(tWh, activeWhFilter) || tWh === 'គ្រប់ស្ថានីយទាំងអស់' || tWh === 'ALL')
+            : (tWh.includes(activeWhFilter) || activeWhFilter.includes(tWh) || tWh === 'គ្រប់ស្ថានីយទាំងអស់' || tWh === 'ALL');
+
+          if (isMatch) {
+            if (t.sku) stockedSkusInTargetWh.add(String(t.sku).trim().toLowerCase());
+            if (t.itemName) stockedSkusInTargetWh.add(String(t.itemName).trim().toLowerCase());
+          }
+        });
+      }
+
       let search = rawSearch.toLowerCase().trim();
       const catFilter = document.getElementById('itemCategoryFilter')?.value || 'ALL';
       const statusFilter = document.getElementById('itemStatusFilter')?.value || 'ALL';
 
       let filtered = (AppState.items || []).filter(item => {
+        // ច្រោះតាមស្ថានីយ (សម្រាប់ស្ថានីយផ្ទាល់ខ្លួន ឬតាមការជ្រើសរើសរបស់ Admin)
+        if (stockedSkusInTargetWh !== null) {
+          const iSku = String(item.sku || '').trim().toLowerCase();
+          const iName = String(item.name || '').trim().toLowerCase();
+          const itemLoc = item.toLocation || item.location || item.warehouse || '';
+
+          const isStockedInWh = stockedSkusInTargetWh.has(iSku) || stockedSkusInTargetWh.has(iName);
+          const isItemAssignedToWh = itemLoc && (
+            (typeof isSameWarehouse === 'function')
+              ? (isSameWarehouse(itemLoc, activeWhFilter) || itemLoc === 'គ្រប់ស្ថានីយទាំងអស់' || itemLoc === 'ALL')
+              : (itemLoc.includes(activeWhFilter) || itemLoc === 'គ្រប់ស្ថានីយទាំងអស់' || itemLoc === 'ALL')
+          );
+          const isItemInWhBreakdown = Array.isArray(item.warehouses) && item.warehouses.some(w =>
+            (typeof isSameWarehouse === 'function')
+              ? (isSameWarehouse(w, activeWhFilter) || w === 'គ្រប់ស្ថានីយទាំងអស់' || w === 'ALL')
+              : (w.includes(activeWhFilter) || w === 'គ្រប់ស្ថានីយទាំងអស់' || w === 'ALL')
+          );
+
+          if (!isStockedInWh && !isItemAssignedToWh && !isItemInWhBreakdown) {
+            return false; // ទំនិញក្រៅពីស្ថានីយ៍របស់ខ្លួនមិនអាចមើលឃើញទេ
+          }
+        }
+
         if (search) {
           const itemZones = (typeof getItemZoneBreakdown === 'function') ? getItemZoneBreakdown(item) : [];
           const matchZone = (item.zone && item.zone.toLowerCase().includes(search)) ||
@@ -13505,9 +13738,15 @@
 
       const summaryText = document.getElementById('itemsFilterSummaryText');
       if (summaryText) {
-        summaryText.innerHTML = (filteredCount !== totalItemsCount)
-          ? `<span class="text-blue-600 font-bold">បង្ហាញ ${filteredCount}</span> ក្នុងចំណោម ${totalItemsCount} មុខ`
-          : `សរុប <span class="font-bold text-slate-800">${totalItemsCount}</span> មុខទំនិញ`;
+        if (!isAdmin && activeWhFilter) {
+          summaryText.innerHTML = `ស្ថានីយ: <span class="font-bold text-blue-700">${escapeHtml(activeWhFilter)}</span> (${filteredCount} មុខ)`;
+        } else if (activeWhFilter !== 'ALL') {
+          summaryText.innerHTML = `<span class="text-blue-600 font-bold">បង្ហាញ ${filteredCount}</span> ក្នុងចំណោម ${totalItemsCount} មុខ (${escapeHtml(activeWhFilter)})`;
+        } else {
+          summaryText.innerHTML = (filteredCount !== totalItemsCount)
+            ? `<span class="text-blue-600 font-bold">បង្ហាញ ${filteredCount}</span> ក្នុងចំណោម ${totalItemsCount} មុខ`
+            : `សរុប <span class="font-bold text-slate-800">${totalItemsCount}</span> មុខទំនិញ`;
+        }
       }
 
       if (filtered.length === 0) {
@@ -19483,26 +19722,12 @@
         return;
       }
 
-      const search = (document.getElementById('itemSearchInput')?.value || '').toLowerCase().trim();
-      const catFilter = document.getElementById('itemCategoryFilter')?.value || 'ALL';
-      const statusFilter = document.getElementById('itemStatusFilter')?.value || 'ALL';
-
-      let itemsToExport = AppState.items.filter(item => {
-        if (search) {
-          const match = (item.sku || '').toLowerCase().includes(search) ||
-            (item.barcode || '').toLowerCase().includes(search) ||
-            (item.name || '').toLowerCase().includes(search);
-          if (!match) return false;
-        }
-        if (catFilter !== 'ALL' && item.category !== catFilter) return false;
-        if (statusFilter === 'LOW' && (Number(item.currentStock) > Number(item.minStock) || Number(item.currentStock) === 0)) return false;
-        if (statusFilter === 'OUT' && Number(item.currentStock) !== 0) return false;
-        if (statusFilter === 'NORMAL' && Number(item.currentStock) <= Number(item.minStock)) return false;
-        return true;
-      });
+      let itemsToExport = (typeof getFilteredItemsList === 'function')
+        ? getFilteredItemsList()
+        : (AppState.items || []);
 
       if (itemsToExport.length === 0) {
-        itemsToExport = AppState.items;
+        itemsToExport = AppState.items || [];
       }
 
       const rows = itemsToExport.map((item, index) => {
@@ -20257,26 +20482,12 @@
         return;
       }
 
-      const search = (document.getElementById('itemSearchInput')?.value || '').toLowerCase().trim();
-      const catFilter = document.getElementById('itemCategoryFilter')?.value || 'ALL';
-      const statusFilter = document.getElementById('itemStatusFilter')?.value || 'ALL';
-
-      let itemsToExport = AppState.items.filter(item => {
-        if (search) {
-          const match = item.sku.toLowerCase().includes(search) ||
-            item.barcode.toLowerCase().includes(search) ||
-            item.name.toLowerCase().includes(search);
-          if (!match) return false;
-        }
-        if (catFilter !== 'ALL' && item.category !== catFilter) return false;
-        if (statusFilter === 'LOW' && (item.currentStock > item.minStock || item.currentStock === 0)) return false;
-        if (statusFilter === 'OUT' && item.currentStock !== 0) return false;
-        if (statusFilter === 'NORMAL' && item.currentStock <= item.minStock) return false;
-        return true;
-      });
+      let itemsToExport = (typeof getFilteredItemsList === 'function')
+        ? getFilteredItemsList()
+        : (AppState.items || []);
 
       if (itemsToExport.length === 0) {
-        itemsToExport = AppState.items;
+        itemsToExport = AppState.items || [];
       }
 
       const totalItems = itemsToExport.length;
