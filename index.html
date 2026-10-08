@@ -1385,14 +1385,14 @@
               <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">ស្ថានីយដែលត្រូវគ្រប់គ្រង *</label>
               <select id="regWarehouse"
                 class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none font-medium text-slate-700">
-                <option value="K3 ស្ថានីយ (ភ្នំពេញ) 01">K3 ស្ថានីយ (ភ្នំពេញ) 01</option>
-                <option value="K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02">K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02</option>
-                <option value="K43 ស្ថានីយ (កំពង់ស្ពឺ លិច) 03">K43 ស្ថានីយ (កំពង់ស្ពឺ លិច) 03</option>
-                <option value="K76 ស្ថានីយ (ត្រែងត្រយឹង) 04">K76 ស្ថានីយ (ត្រែងត្រយឹង) 04</option>
-                <option value="K114 ស្ថានីយ (កំពង់សីលា) 05">K114 ស្ថានីយ (កំពង់សីលា) 05</option>
-                <option value="K135 ស្ថានីយ (ស្រែអំបិល) 06">K135 ស្ថានីយ (ស្រែអំបិល) 06</option>
-                <option value="K172 ស្ថានីយ (ស្ទឹងហាវ) 07">K172 ស្ថានីយ (ស្ទឹងហាវ) 07</option>
-                <option value="K182 ស្ថានីយ (ព្រះសីហនុ) 08">K182 ស្ថានីយ (ព្រះសីហនុ) 08</option>
+                <option value="1-K3 ស្ថានីយ (ភ្នំពេញ)">1-K3 ស្ថានីយ (ភ្នំពេញ)</option>
+                <option value="2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)">2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)</option>
+                <option value="3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)">3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)</option>
+                <option value="4-K76 ស្ថានីយ (ត្រែងត្រយឹង)">4-K76 ស្ថានីយ (ត្រែងត្រយឹង)</option>
+                <option value="5-K114 ស្ថានីយ (កំពង់សីលា)">5-K114 ស្ថានីយ (កំពង់សីលា)</option>
+                <option value="6-K135 ស្ថានីយ (ស្រែអំបិល)">6-K135 ស្ថានីយ (ស្រែអំបិល)</option>
+                <option value="7-K172 ស្ថានីយ (ស្ទឹងហាវ)">7-K172 ស្ថានីយ (ស្ទឹងហាវ)</option>
+                <option value="8-K182 ស្ថានីយ (ព្រះសីហនុ)">8-K182 ស្ថានីយ (ព្រះសីហនុ)</option>
                 <option value="中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)">中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)</option>
                 <option value="机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)">机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
                 <option value="综合办 (ផ្នែកកិច្ចការទូទៅ)">综合办 (ផ្នែកកិច្ចការទូទៅ)</option>
@@ -1793,8 +1793,15 @@
                   roleEl.className = rClass;
                 }
                 var whEl = document.getElementById('activeSessionWarehouseName');
-                if (whEl && u.warehouse) {
-                  whEl.innerText = (u.warehouse === 'ALL') ? 'គ្រប់ស្ថានីយទាំងអស់' : u.warehouse;
+                if (whEl) {
+                  var curSavedWh = sessionStorage.getItem('inventory_wh_filter');
+                  if (isSA || u.role === 'Admin') {
+                    if (curSavedWh === 'ALL') whEl.innerText = '🏢 គ្រប់ស្ថានីយទាំងអស់';
+                    else if (curSavedWh && curSavedWh !== '中心库房 & 机电') whEl.innerText = '📍 ' + curSavedWh;
+                    else whEl.innerText = '🏢 中心库房 & 机电';
+                  } else if (u.warehouse) {
+                    whEl.innerText = (u.warehouse === 'ALL') ? 'គ្រប់ស្ថានីយទាំងអស់' : u.warehouse;
+                  }
                 }
                 var avatarEl = document.getElementById('activeSessionAvatar');
                 var mobAvatar = document.getElementById('headerMobileAvatar');
@@ -1845,14 +1852,14 @@
               class="bg-transparent font-bold text-blue-900 outline-none cursor-pointer text-[11px] sm:text-xs truncate w-full">
               <option value="中心库房 & 机电" selected>🏢 中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង) & 机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
               <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>
-              <option value="K3 ស្ថានីយ (ភ្នំពេញ) 01">📍 K3 ស្ថានីយ (ភ្នំពេញ) 01</option>
-              <option value="K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02">📍 K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02</option>
-              <option value="K43 ស្ថានីយ (កំពង់ស្ពឺ លិច) 03">📍 K43 ស្ថានីយ (កំពង់ស្ពឺ លិច) 03</option>
-              <option value="K76 ស្ថានីយ (ត្រែងត្រយឹង) 04">📍 K76 ស្ថានីយ (ត្រែងត្រយឹង) 04</option>
-              <option value="K114 ស្ថានីយ (កំពង់សីលា) 05">📍 K114 ស្ថានីយ (កំពង់សីលា) 05</option>
-              <option value="K135 ស្ថានីយ (ស្រែអំបិល) 06">📍 K135 ស្ថានីយ (ស្រែអំបិល) 06</option>
-              <option value="K172 ស្ថានីយ (ស្ទឹងហាវ) 07">📍 K172 ស្ថានីយ (ស្ទឹងហាវ) 07</option>
-              <option value="K182 ស្ថានីយ (ព្រះសីហនុ) 08">📍 K182 ស្ថានីយ (ព្រះសីហនុ) 08</option>
+              <option value="1-K3 ស្ថានីយ (ភ្នំពេញ)">📍 1-K3 ស្ថានីយ (ភ្នំពេញ)</option>
+              <option value="2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)">📍 2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)</option>
+              <option value="3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)">📍 3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)</option>
+              <option value="4-K76 ស្ថានីយ (ត្រែងត្រយឹង)">📍 4-K76 ស្ថានីយ (ត្រែងត្រយឹង)</option>
+              <option value="5-K114 ស្ថានីយ (កំពង់សីលា)">📍 5-K114 ស្ថានីយ (កំពង់សីលា)</option>
+              <option value="6-K135 ស្ថានីយ (ស្រែអំបិល)">📍 6-K135 ស្ថានីយ (ស្រែអំបិល)</option>
+              <option value="7-K172 ស្ថានីយ (ស្ទឹងហាវ)">📍 7-K172 ស្ថានីយ (ស្ទឹងហាវ)</option>
+              <option value="8-K182 ស្ថានីយ (ព្រះសីហនុ)">📍 8-K182 ស្ថានីយ (ព្រះសីហនុ)</option>
               <option value="中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)">📍 中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)</option>
               <option value="机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)">📍 机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
               <option value="综合办 (ផ្នែកកិច្ចការទូទៅ)">📍 综合办 (ផ្នែកកិច្ចការទូទៅ)</option>
@@ -1883,7 +1890,7 @@
           <div id="userWarehouseBadgeContainer"
             class="hidden flex items-center space-x-1.5 bg-emerald-50 border border-emerald-200 rounded-xl px-2.5 sm:px-3 py-1.5 text-xs text-emerald-800 font-bold shadow-sm max-w-[130px] sm:max-w-none truncate">
             <i class="fa-solid fa-location-dot text-emerald-600 shrink-0"></i>
-            <span id="userWarehouseName" class="truncate">K3 ស្ថានីយ (ភ្នំពេញ) 01</span>
+            <span id="userWarehouseName" class="truncate">1-K3 ស្ថានីយ (ភ្នំពេញ)</span>
           </div>
 
           <button onclick="openScannerModal()" title="ស្កេន Barcode"
@@ -2995,18 +3002,7 @@
                     </label>
                     <select id="stockOutToLocation" required
                       class="w-full h-11 px-3 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-amber-500 focus:bg-white outline-none transition shadow-2xs">
-                      <option value="K3 ស្ថានីយ (ភ្នំពេញ) 01">K3 ស្ថានីយ (ភ្នំពេញ) 01</option>
-                      <option value="K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02">K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02</option>
-                      <option value="K43 ស្ថានីយ (កំពង់ស្ពឺ លិច) 03">K43 ស្ថានីយ (កំពង់ស្ពឺ លិច) 03</option>
-                      <option value="K76 ស្ថានីយ (ត្រែងត្រយឹង) 04">K76 ស្ថានីយ (ត្រែងត្រយឹង) 04</option>
-                      <option value="K114 ស្ថានីយ (កំពង់សីលា) 05">K114 ស្ថានីយ (កំពង់សីលា) 05</option>
-                      <option value="K135 ស្ថានីយ (ស្រែអំបិល) 06">K135 ស្ថានីយ (ស្រែអំបិល) 06</option>
-                      <option value="K172 ស្ថានីយ (ស្ទឹងហាវ) 07">K172 ស្ថានីយ (ស្ទឹងហាវ) 07</option>
-                      <option value="K182 ស្ថានីយ (ព្រះសីហនុ) 08">K182 ស្ថានីយ (ព្រះសីហនុ) 08</option>
-                      <option value="中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)">中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)</option>
-                      <option value="机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)">机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
-                      <option value="综合办 (ផ្នែកកិច្ចការទូទៅ)">综合办 (ផ្នែកកិច្ចការទូទៅ)</option>
-                      <option value="អតិថិជនក្រៅ (External Customer)">អតិថិជនក្រៅ (External Customer)</option>
+                      <option value="" disabled selected>-- ជ្រើសរើសទីតាំង --</option>
                     </select>
                   </div>
 
@@ -3152,14 +3148,14 @@
                     *</label>
                   <select id="transferFromLocation" required
                     class="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm outline-none">
-                    <option value="K3 ស្ថានីយ (ភ្នំពេញ) 01">K3 ស្ថានីយ (ភ្នំពេញ) 01</option>
-                    <option value="K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02">K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02</option>
-                    <option value="K43 ស្ថានីយ (កំពង់ស្ពឺ លិច) 03">K43 ស្ថានីយ (កំពង់ស្ពឺ លិច) 03</option>
-                    <option value="K76 ស្ថានីយ (ត្រែងត្រយឹង) 04">K76 ស្ថានីយ (ត្រែងត្រយឹង) 04</option>
-                    <option value="K114 ស្ថានីយ (កំពង់សីលា) 05">K114 ស្ថានីយ (កំពង់សីលា) 05</option>
-                    <option value="K135 ស្ថានីយ (ស្រែអំបិល) 06">K135 ស្ថានីយ (ស្រែអំបិល) 06</option>
-                    <option value="K172 ស្ថានីយ (ស្ទឹងហាវ) 07">K172 ស្ថានីយ (ស្ទឹងហាវ) 07</option>
-                    <option value="K182 ស្ថានីយ (ព្រះសីហនុ) 08">K182 ស្ថានីយ (ព្រះសីហនុ) 08</option>
+                    <option value="1-K3 ស្ថានីយ (ភ្នំពេញ)">1-K3 ស្ថានីយ (ភ្នំពេញ)</option>
+                    <option value="2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)">2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)</option>
+                    <option value="3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)">3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)</option>
+                    <option value="4-K76 ស្ថានីយ (ត្រែងត្រយឹង)">4-K76 ស្ថានីយ (ត្រែងត្រយឹង)</option>
+                    <option value="5-K114 ស្ថានីយ (កំពង់សីលា)">5-K114 ស្ថានីយ (កំពង់សីលា)</option>
+                    <option value="6-K135 ស្ថានីយ (ស្រែអំបិល)">6-K135 ស្ថានីយ (ស្រែអំបិល)</option>
+                    <option value="7-K172 ស្ថានីយ (ស្ទឹងហាវ)">7-K172 ស្ថានីយ (ស្ទឹងហាវ)</option>
+                    <option value="8-K182 ស្ថានីយ (ព្រះសីហនុ)">8-K182 ស្ថានីយ (ព្រះសីហនុ)</option>
                     <option value="中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)">中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)</option>
                     <option value="机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)">机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
                     <option value="综合办 (ផ្នែកកិច្ចការទូទៅ)">综合办 (ផ្នែកកិច្ចការទូទៅ)</option>
@@ -3170,14 +3166,14 @@
                     *</label>
                   <select id="transferToLocation" required
                     class="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm outline-none">
-                    <option value="K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02">K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02</option>
-                    <option value="K3 ស្ថានីយ (ភ្នំពេញ) 01">K3 ស្ថានីយ (ភ្នំពេញ) 01</option>
-                    <option value="K43 ស្ថានីយ (កំពង់ស្ពឺ លិច) 03">K43 ស្ថានីយ (កំពង់ស្ពឺ លិច) 03</option>
-                    <option value="K76 ស្ថានីយ (ត្រែងត្រយឹង) 04">K76 ស្ថានីយ (ត្រែងត្រយឹង) 04</option>
-                    <option value="K114 ស្ថានីយ (កំពង់សីលា) 05">K114 ស្ថានីយ (កំពង់សីលា) 05</option>
-                    <option value="K135 ស្ថានីយ (ស្រែអំបិល) 06">K135 ស្ថានីយ (ស្រែអំបិល) 06</option>
-                    <option value="K172 ស្ថានីយ (ស្ទឹងហាវ) 07">K172 ស្ថានីយ (ស្ទឹងហាវ) 07</option>
-                    <option value="K182 ស្ថានីយ (ព្រះសីហនុ) 08">K182 ស្ថានីយ (ព្រះសីហនុ) 08</option>
+                    <option value="2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)">2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)</option>
+                    <option value="1-K3 ស្ថានីយ (ភ្នំពេញ)">1-K3 ស្ថានីយ (ភ្នំពេញ)</option>
+                    <option value="3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)">3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)</option>
+                    <option value="4-K76 ស្ថានីយ (ត្រែងត្រយឹង)">4-K76 ស្ថានីយ (ត្រែងត្រយឹង)</option>
+                    <option value="5-K114 ស្ថានីយ (កំពង់សីលា)">5-K114 ស្ថានីយ (កំពង់សីលា)</option>
+                    <option value="6-K135 ស្ថានីយ (ស្រែអំបិល)">6-K135 ស្ថានីយ (ស្រែអំបិល)</option>
+                    <option value="7-K172 ស្ថានីយ (ស្ទឹងហាវ)">7-K172 ស្ថានីយ (ស្ទឹងហាវ)</option>
+                    <option value="8-K182 ស្ថានីយ (ព្រះសីហនុ)">8-K182 ស្ថានីយ (ព្រះសីហនុ)</option>
                     <option value="中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)">中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)</option>
                     <option value="机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)">机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
                     <option value="综合办 (ផ្នែកកិច្ចការទូទៅ)">综合办 (ផ្នែកកិច្ចការទូទៅ)</option>
@@ -4948,14 +4944,14 @@
             <label id="addWarehouseLabel" class="block text-xs font-semibold text-slate-700 uppercase mb-1">ស្ថានីយដែលត្រូវគ្រប់គ្រង *</label>
             <select id="addWarehouse" onchange="clearAddUserFieldError('Warehouse')"
               class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 transition-all">
-              <option value="K3 ស្ថានីយ (ភ្នំពេញ) 01">📍 K3 ស្ថានីយ (ភ្នំពេញ) 01</option>
-              <option value="K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02">📍 K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02</option>
-              <option value="K43 ស្ថានីយ (កំពង់ស្ពឺ លិច) 03">📍 K43 ស្ថានីយ (កំពង់ស្ពឺ លិច) 03</option>
-              <option value="K76 ស្ថានីយ (ត្រែងត្រយឹង) 04">📍 K76 ស្ថានីយ (ត្រែងត្រយឹង) 04</option>
-              <option value="K114 ស្ថានីយ (កំពង់សីលា) 05">📍 K114 ស្ថានីយ (កំពង់សីលា) 05</option>
-              <option value="K135 ស្ថានីយ (ស្រែអំបិល) 06">📍 K135 ស្ថានីយ (ស្រែអំបិល) 06</option>
-              <option value="K172 ស្ថានីយ (ស្ទឹងហាវ) 07">📍 K172 ស្ថានីយ (ស្ទឹងហាវ) 07</option>
-              <option value="K182 ស្ថានីយ (ព្រះសីហនុ) 08">📍 K182 ស្ថានីយ (ព្រះសីហនុ) 08</option>
+              <option value="1-K3 ស្ថានីយ (ភ្នំពេញ)">📍 1-K3 ស្ថានីយ (ភ្នំពេញ)</option>
+              <option value="2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)">📍 2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)</option>
+              <option value="3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)">📍 3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)</option>
+              <option value="4-K76 ស្ថានីយ (ត្រែងត្រយឹង)">📍 4-K76 ស្ថានីយ (ត្រែងត្រយឹង)</option>
+              <option value="5-K114 ស្ថានីយ (កំពង់សីលា)">📍 5-K114 ស្ថានីយ (កំពង់សីលា)</option>
+              <option value="6-K135 ស្ថានីយ (ស្រែអំបិល)">📍 6-K135 ស្ថានីយ (ស្រែអំបិល)</option>
+              <option value="7-K172 ស្ថានីយ (ស្ទឹងហាវ)">📍 7-K172 ស្ថានីយ (ស្ទឹងហាវ)</option>
+              <option value="8-K182 ស្ថានីយ (ព្រះសីហនុ)">📍 8-K182 ស្ថានីយ (ព្រះសីហនុ)</option>
               <option value="中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)">📍 中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)</option>
               <option value="机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)">📍 机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
               <option value="综合办 (ផ្នែកកិច្ចការទូទៅ)">📍 综合办 (ផ្នែកកិច្ចការទូទៅ)</option>
@@ -5960,14 +5956,14 @@
   <!-- ========================================== -->
   <script>
     const TOLL_STATIONS_LIST = [
-      { id: 'K3', name: 'K3 ស្ថានីយ (ភ្នំពេញ) 01', shortName: 'K3', badge: 'K3', icon: '🛣️' },
-      { id: 'K26', name: 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02', shortName: 'K26', badge: 'K26', icon: '🛣️' },
-      { id: 'K43', name: 'K43 ស្ថានីយ (កំពង់ស្ពឺ លិច) 03', shortName: 'K43', badge: 'K43', icon: '🛣️' },
-      { id: 'K76', name: 'K76 ស្ថានីយ (ត្រែងត្រយឹង) 04', shortName: 'K76', badge: 'K76', icon: '🛣️' },
-      { id: 'K114', name: 'K114 ស្ថានីយ (កំពង់សីលា) 05', shortName: 'K114', badge: 'K114', icon: '🛣️' },
-      { id: 'K135', name: 'K135 ស្ថានីយ (ស្រែអំបិល) 06', shortName: 'K135', badge: 'K135', icon: '🛣️' },
-      { id: 'K172', name: 'K172 ស្ថានីយ (ស្ទឹងហាវ) 07', shortName: 'K172', badge: 'K172', icon: '🛣️' },
-      { id: 'K182', name: 'K182 ស្ថានីយ (ព្រះសីហនុ) 08', shortName: 'K182', badge: 'K182', icon: '🛣️' }
+      { id: 'K3', name: '1-K3 ស្ថានីយ (ភ្នំពេញ)', shortName: '1-K3', badge: 'K3', icon: '🛣️' },
+      { id: 'K26', name: '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)', shortName: '2-K26', badge: 'K26', icon: '🛣️' },
+      { id: 'K43', name: '3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)', shortName: '3-K43', badge: 'K43', icon: '🛣️' },
+      { id: 'K76', name: '4-K76 ស្ថានីយ (ត្រែងត្រយឹង)', shortName: '4-K76', badge: 'K76', icon: '🛣️' },
+      { id: 'K114', name: '5-K114 ស្ថានីយ (កំពង់សីលា)', shortName: '5-K114', badge: 'K114', icon: '🛣️' },
+      { id: 'K135', name: '6-K135 ស្ថានីយ (ស្រែអំបិល)', shortName: '6-K135', badge: 'K135', icon: '🛣️' },
+      { id: 'K172', name: '7-K172 ស្ថានីយ (ស្ទឹងហាវ)', shortName: '7-K172', badge: 'K172', icon: '🛣️' },
+      { id: 'K182', name: '8-K182 ស្ថានីយ (ព្រះសីហនុ)', shortName: '8-K182', badge: 'K182', icon: '🛣️' }
     ];
 
     let currentStockOutMode = 'SINGLE'; // 'SINGLE' or 'MULTI'
@@ -5976,14 +5972,14 @@
     let pendingDispatchesStationFilter = 'ALL';
 
     const WAREHOUSES_LIST = [
-      'K3 ស្ថានីយ (ភ្នំពេញ) 01',
-      'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
-      'K43 ស្ថានីយ (កំពង់ស្ពឺ លិច) 03',
-      'K76 ស្ថានីយ (ត្រែងត្រយឹង) 04',
-      'K114 ស្ថានីយ (កំពង់សីលា) 05',
-      'K135 ស្ថានីយ (ស្រែអំបិល) 06',
-      'K172 ស្ថានីយ (ស្ទឹងហាវ) 07',
-      'K182 ស្ថានីយ (ព្រះសីហនុ) 08',
+      '1-K3 ស្ថានីយ (ភ្នំពេញ)',
+      '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)',
+      '3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)',
+      '4-K76 ស្ថានីយ (ត្រែងត្រយឹង)',
+      '5-K114 ស្ថានីយ (កំពង់សីលា)',
+      '6-K135 ស្ថានីយ (ស្រែអំបិល)',
+      '7-K172 ស្ថានីយ (ស្ទឹងហាវ)',
+      '8-K182 ស្ថានីយ (ព្រះសីហនុ)',
       '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
       '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)',
       '综合办 (ផ្នែកកិច្ចការទូទៅ)'
@@ -6469,28 +6465,28 @@
       if (isAdminComboWarehouse(s)) return ADMIN_DEFAULT_COMBO_WH;
 
       if (sLower.includes('k3') || s.includes('ភ្នំពេញ') || sLower === 'wh-01' || s.includes('ឃ្លាំងទី ០១') || s.includes('សែនសុខ')) {
-        return 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
+        return '1-K3 ស្ថានីយ (ភ្នំពេញ)';
       }
       if (sLower.includes('k26') || s.includes('កំពង់ស្ពឺ កើត') || sLower === 'wh-02' || s.includes('ឃ្លាំងទី ០២') || s.includes('ទួលគោក')) {
-        return 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02';
+        return '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)';
       }
       if (sLower.includes('k43') || s.includes('កំពង់ស្ពឺ លិច') || sLower === 'wh-03' || s.includes('ឃ្លាំងទី ០៣') || s.includes('សៀមរាប')) {
-        return 'K43 ស្ថានីយ (កំពង់ស្ពឺ លិច) 03';
+        return '3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)';
       }
       if (sLower.includes('k76') || s.includes('ត្រែងត្រយឹង') || s.includes('ព្រែកក្តួច') || sLower === 'wh-04' || s.includes('ឃ្លាំងទី ០៤') || s.includes('បាត់ដំបង')) {
-        return 'K76 ស្ថានីយ (ត្រែងត្រយឹង) 04';
+        return '4-K76 ស្ថានីយ (ត្រែងត្រយឹង)';
       }
       if (sLower.includes('k114') || sLower.includes('k113') || s.includes('កំពង់សីលា') || sLower === 'wh-05' || s.includes('ឃ្លាំងទី ០៥')) {
-        return 'K114 ស្ថានីយ (កំពង់សីលា) 05';
+        return '5-K114 ស្ថានីយ (កំពង់សីលា)';
       }
       if (sLower.includes('k135') || s.includes('ស្រែអំបិល') || sLower === 'wh-06' || s.includes('ឃ្លាំងទី ០៦')) {
-        return 'K135 ស្ថានីយ (ស្រែអំបិល) 06';
+        return '6-K135 ស្ថានីយ (ស្រែអំបិល)';
       }
       if (sLower.includes('k172') || s.includes('ស្ទឹងហាវ') || sLower === 'wh-07' || s.includes('ឃ្លាំងទី ០៧')) {
-        return 'K172 ស្ថានីយ (ស្ទឹងហាវ) 07';
+        return '7-K172 ស្ថានីយ (ស្ទឹងហាវ)';
       }
       if (sLower.includes('k182') || s.includes('ព្រះសីហនុ') || sLower === 'wh-08' || s.includes('ឃ្លាំងទី ០៨')) {
-        return 'K182 ស្ថានីយ (ព្រះសីហនុ) 08';
+        return '8-K182 ស្ថានីយ (ព្រះសីហនុ)';
       }
       if (s.includes('中心库房') || sLower === 'wh-hq' || s.includes('ចុងស៊ីង') || s.includes('បុងសឹង')) {
         return '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
@@ -10331,6 +10327,18 @@ function saveLocalUsersToStorage() {
         }));
       } catch (e) {}
 
+      // 0. Ensure default warehouse filter is strictly set before rendering view
+      const isSuperAdmin = isUserSuperAdmin(user);
+      const isAdmin = isUserAdmin(user);
+      if (isSuperAdmin || isAdmin) {
+        AppState.selectedAdminWarehouseFilter = ADMIN_DEFAULT_COMBO_WH;
+        sessionStorage.setItem('inventory_wh_filter', ADMIN_DEFAULT_COMBO_WH);
+      } else {
+        const canonicalUserWh = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(user.warehouse) : user.warehouse) || '';
+        AppState.selectedAdminWarehouseFilter = canonicalUserWh;
+        sessionStorage.setItem('inventory_wh_filter', canonicalUserWh);
+      }
+
       // 1. Instant Screen Transition (< 10ms)
       showAppView();
 
@@ -10342,19 +10350,7 @@ function saveLocalUsersToStorage() {
       if (typeof renderItemsTable === 'function') renderItemsTable();
       if (typeof populateItemSelectDropdowns === 'function') populateItemSelectDropdowns();
 
-      // 3. Pleasant auto-dismissing toast (1.1s, non-blocking)
-      const isSuperAdmin = isUserSuperAdmin(user);
-      const isAdmin = isUserAdmin(user);
-
-      // Set default warehouse to Central Warehouse & Electromechanical for SuperAdmin & Admin on login
-      if (isSuperAdmin || isAdmin) {
-        AppState.selectedAdminWarehouseFilter = ADMIN_DEFAULT_COMBO_WH;
-        sessionStorage.setItem('inventory_wh_filter', ADMIN_DEFAULT_COMBO_WH);
-        const globalSel = document.getElementById('globalWarehouseSelector');
-        if (globalSel) globalSel.value = ADMIN_DEFAULT_COMBO_WH;
-      }
-
-      // Reset any alert dismissal suppression on fresh login so Super Admin / Admin is ALWAYS proactively alerted
+      // 3. Reset any alert dismissal suppression on fresh login so Super Admin / Admin is ALWAYS proactively alerted
       if (isSuperAdmin) {
         sessionStorage.removeItem('deletion_alert_dismissed_until');
         sessionStorage.removeItem('last_seen_deletion_signature');
@@ -16670,8 +16666,15 @@ function saveLocalUsersToStorage() {
     function applyUserWarehouseToStockInLocation(targetEl) {
       const locEl = targetEl || document.getElementById('stockInLocation');
       if (!locEl) return;
-      const u = AppState.currentUser || {};
-      const isPrivileged = isUserPrivilegedAdmin(u);
+      let u = AppState.currentUser;
+      if (!u || !u.username) {
+        try {
+          const r = sessionStorage.getItem('inventory_user');
+          if (r) u = JSON.parse(r);
+        } catch(e) {}
+      }
+      u = u || {};
+      const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(u) : false;
 
       if (isPrivileged) {
         // សម្រាប់ account super admin និង admin បង្ហាញតែប៉ុននេះបានហើយ (中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង) )និង(机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន))
@@ -17359,11 +17362,18 @@ function saveLocalUsersToStorage() {
     function applyUserWarehouseToStockOutLocation(targetEl) {
       const soTo = targetEl || document.getElementById('stockOutToLocation');
       if (!soTo) return;
-      const u = AppState.currentUser || {};
-      const isPrivileged = isUserPrivilegedAdmin(u);
+      let u = AppState.currentUser;
+      if (!u || !u.username) {
+        try {
+          const r = sessionStorage.getItem('inventory_user');
+          if (r) u = JSON.parse(r);
+        } catch(e) {}
+      }
+      u = u || {};
+      const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(u) : false;
       const currentList = (typeof getWarehouseNamesList === 'function') ? getWarehouseNamesList() : WAREHOUSES_LIST;
 
-      if (!u || !u.username || isPrivileged) {
+      if (isPrivileged) {
         soTo.disabled = false;
         soTo.classList.remove('pointer-events-none', 'bg-slate-100', 'cursor-not-allowed');
         let curVal = soTo.value ? (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(soTo.value) : soTo.value) : '';
@@ -17376,6 +17386,12 @@ function saveLocalUsersToStorage() {
         } else {
           soTo.value = currentList[0];
         }
+
+        // Show mode switcher for privileged admin
+        const modeSwitcher = document.getElementById('btnStockOutModeMulti')?.parentElement;
+        if (modeSwitcher) modeSwitcher.classList.remove('hidden');
+        const multiBtn = document.getElementById('btnStockOutModeMulti');
+        if (multiBtn) multiBtn.style.display = '';
         return;
       }
 
@@ -17386,10 +17402,13 @@ function saveLocalUsersToStorage() {
       soTo.disabled = true;
       soTo.classList.add('pointer-events-none', 'bg-slate-100', 'cursor-not-allowed');
 
-      // Also ensure multi-station batch dispatch button is hidden for station users
+      // Also ensure multi-station batch dispatch button is completely hidden for station users
       const modeSwitcher = document.getElementById('btnStockOutModeMulti')?.parentElement;
-      if (modeSwitcher) {
-        modeSwitcher.classList.add('hidden');
+      if (modeSwitcher) modeSwitcher.classList.add('hidden');
+      const multiBtn = document.getElementById('btnStockOutModeMulti');
+      if (multiBtn) multiBtn.style.display = 'none';
+      if (typeof setStockOutMode === 'function') {
+        setStockOutMode('SINGLE');
       }
     }
     window.applyUserWarehouseToStockOutLocation = applyUserWarehouseToStockOutLocation;
@@ -18151,6 +18170,7 @@ function saveLocalUsersToStorage() {
       updateStockOutImagePreview(null);
       if (typeof clearAllMultiStationQtys === 'function') clearAllMultiStationQtys();
       generateStockOutDocNo();
+      applyUserWarehouseToStockOutLocation();
     }
 
 
@@ -18167,6 +18187,11 @@ function saveLocalUsersToStorage() {
     }
 
     function setStockOutMode(mode) {
+      const curU = AppState.currentUser || (function(){ try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch(e){ return null; } })() || {};
+      const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : false;
+      if (!isPrivileged) {
+        mode = 'SINGLE';
+      }
       currentStockOutMode = (mode === 'MULTI') ? 'MULTI' : 'SINGLE';
       const btnSingle = document.getElementById('btnStockOutModeSingle');
       const btnMulti = document.getElementById('btnStockOutModeMulti');
@@ -19375,7 +19400,12 @@ function saveLocalUsersToStorage() {
       const oldStock = Number(document.getElementById('stockOutOldStockValue')?.value || 0);
       const remainingStock = oldStock - qty;
       const unitPrice = Number(document.getElementById('stockOutUnitPrice')?.value || 0);
-      const toLocation = document.getElementById('stockOutToLocation')?.value || '1-K3 ស្ថានីយ (ភ្នំពេញ)';
+      let toLocation = document.getElementById('stockOutToLocation')?.value || '1-K3 ស្ថានីយ (ភ្នំពេញ)';
+      const curU = AppState.currentUser || (function(){ try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch(e){ return null; } })() || {};
+      const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : false;
+      if (!isPrivileged) {
+        toLocation = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(curU.warehouse) : curU.warehouse) || toLocation;
+      }
       const issuer = AppState.currentUser?.fullName || AppState.currentUser?.username || document.getElementById('stockOutIssuer')?.value.trim() || 'Admin';
       const reason = document.getElementById('stockOutReason')?.value || 'ដកប្រើប្រាស់ផ្ទៃក្នុង (Internal Use)';
       const rawNotes = document.getElementById('stockOutNotes')?.value.trim();
@@ -23883,7 +23913,7 @@ function saveLocalUsersToStorage() {
               </div>
             </td>
             <td class="px-4 py-3 text-slate-700 font-semibold text-xs whitespace-nowrap">
-              ${u.warehouse === 'ALL' ? (isUserSuperAdmin ? '<span class="text-amber-600 font-bold">🏢 គ្រប់ស្ថានីយទាំងអស់ (SuperAdmin)</span>' : '<span class="text-purple-600 font-bold">🏢 គ្រប់ស្ថានីយទាំងអស់ (Admin)</span>') : `📍 ${u.warehouse || '-'}`}
+              ${u.warehouse === 'ALL' ? (isUserSuperAdmin ? '<span class="text-amber-600 font-bold">🏢 គ្រប់ស្ថានីយទាំងអស់ (SuperAdmin)</span>' : '<span class="text-purple-600 font-bold">🏢 គ្រប់ស្ថានីយទាំងអស់ (Admin)</span>') : `📍 ${(typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(u.warehouse) : u.warehouse) || '-'}`}
             </td>
             <td class="px-3 py-3 text-center whitespace-nowrap">${deviceBadgesHtml}</td>
             <td class="px-4 py-3 text-center whitespace-nowrap">${statusBadgeHtml}</td>
@@ -23923,7 +23953,7 @@ function saveLocalUsersToStorage() {
               <div class="flex items-center justify-between gap-2">
                 <span class="text-slate-400 font-medium shrink-0 flex items-center"><i class="fa-solid fa-warehouse mr-1.5 text-blue-500 text-[11px]"></i>ឃ្លាំង</span>
                 <span class="font-bold text-slate-800 text-right truncate">
-                  ${u.warehouse === 'ALL' ? (isUserSuperAdmin ? '<span class="text-amber-600">🏢 គ្រប់ស្ថានីយ (SuperAdmin)</span>' : '<span class="text-purple-600">🏢 គ្រប់ស្ថានីយ (Admin)</span>') : `📍 ${u.warehouse || '-'}`}
+                  ${u.warehouse === 'ALL' ? (isUserSuperAdmin ? '<span class="text-amber-600">🏢 គ្រប់ស្ថានីយ (SuperAdmin)</span>' : '<span class="text-purple-600">🏢 គ្រប់ស្ថានីយ (Admin)</span>') : `📍 ${(typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(u.warehouse) : u.warehouse) || '-'}`}
                 </span>
               </div>
 
@@ -27727,12 +27757,16 @@ function saveLocalUsersToStorage() {
         const res = await apiCall('getWarehousesDetailed');
         let list = [];
         if (res && res.success && res.warehousesDetailed && res.warehousesDetailed.length > 0) {
-          list = res.warehousesDetailed;
-          AppState.warehouses = res.warehouses || list.map(w => w.name);
+          list = res.warehousesDetailed.map(w => ({
+            ...w,
+            name: (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(w.name || w.location || '') : (w.name || '')
+          }));
+          const rawWhs = res.warehouses || list.map(w => w.name);
+          AppState.warehouses = Array.from(new Set(rawWhs.map(w => (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(w) : w).filter(Boolean)));
         } else {
           list = WAREHOUSES_LIST.map((wh, idx) => ({
             id: `WH-${String(idx + 1).padStart(2, '0')}`,
-            name: wh,
+            name: (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(wh) : wh,
             location: wh.split('-')[1]?.trim() || wh,
             manager: 'អ្នកគ្រប់គ្រង',
             status: 'Active'
@@ -27870,14 +27904,14 @@ function saveLocalUsersToStorage() {
 
     function getWarehouseNamesList() {
       const canonicalDefaults = [
-        'K3 ស្ថានីយ (ភ្នំពេញ) 01',
-        'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
-        'K43 ស្ថានីយ (កំពង់ស្ពឺ លិច) 03',
-        'K76 ស្ថានីយ (ត្រែងត្រយឹង) 04',
-        'K114 ស្ថានីយ (កំពង់សីលា) 05',
-        'K135 ស្ថានីយ (ស្រែអំបិល) 06',
-        'K172 ស្ថានីយ (ស្ទឹងហាវ) 07',
-        'K182 ស្ថានីយ (ព្រះសីហនុ) 08',
+        '1-K3 ស្ថានីយ (ភ្នំពេញ)',
+        '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)',
+        '3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)',
+        '4-K76 ស្ថានីយ (ត្រែងត្រយឹង)',
+        '5-K114 ស្ថានីយ (កំពង់សីលា)',
+        '6-K135 ស្ថានីយ (ស្រែអំបិល)',
+        '7-K172 ស្ថានីយ (ស្ទឹងហាវ)',
+        '8-K182 ស្ថានីយ (ព្រះសីហនុ)',
         '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
         '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)',
         '综合办 (ផ្នែកកិច្ចការទូទៅ)'
@@ -27887,11 +27921,11 @@ function saveLocalUsersToStorage() {
         ? AppState.warehouses
         : ((LOCAL_DB.warehousesDetailed && LOCAL_DB.warehousesDetailed.length > 0)
           ? LOCAL_DB.warehousesDetailed
-          : WAREHOUSES_LIST);
+          : (typeof WAREHOUSES_LIST !== 'undefined' ? WAREHOUSES_LIST : []));
 
       const list = [...canonicalDefaults];
 
-      // Safely append any extra custom warehouses added by admin
+      // Safely append any extra custom warehouses, running each through toCanonicalWarehouseName
       (candidates || []).forEach(item => {
         let name = '';
         if (typeof item === 'string') {
@@ -27956,7 +27990,7 @@ function saveLocalUsersToStorage() {
         if (globalSel) {
           globalSel.disabled = false;
           globalSel.classList.remove('pointer-events-none', 'cursor-not-allowed');
-          let curVal = globalSel.value || AppState.selectedAdminWarehouseFilter || ADMIN_DEFAULT_COMBO_WH;
+          let curVal = AppState.selectedAdminWarehouseFilter || globalSel.value || ADMIN_DEFAULT_COMBO_WH;
           if (curVal !== ADMIN_DEFAULT_COMBO_WH && curVal !== 'ALL' && typeof toCanonicalWarehouseName === 'function') {
             curVal = toCanonicalWarehouseName(curVal);
           }
