@@ -1839,14 +1839,23 @@
 
           <!-- Admin Global Warehouse Selector Filter -->
           <div id="adminWarehouseFilterContainer"
-            class="flex items-center space-x-1 bg-blue-50 border border-blue-200 rounded-xl px-1.5 sm:px-2.5 py-1 sm:py-1.5 text-xs shadow-sm max-w-[95px] xs:max-w-[135px] sm:max-w-[190px] md:max-w-none shrink-0">
+            class="flex items-center space-x-1.5 bg-blue-50 border border-blue-200 rounded-xl px-2 sm:px-2.5 py-1 sm:py-1.5 text-xs shadow-sm max-w-[170px] sm:max-w-[260px] md:max-w-none shrink-0 cursor-pointer">
             <i class="fa-solid fa-warehouse text-blue-600 shrink-0 text-[11px] sm:text-xs"></i>
             <select id="globalWarehouseSelector" onchange="handleGlobalWarehouseChange(this.value)"
               class="bg-transparent font-bold text-blue-900 outline-none cursor-pointer text-[11px] sm:text-xs truncate w-full">
               <option value="中心库房 & 机电" selected>🏢 中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង) & 机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
               <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>
+              <option value="1-K3 ស្ថានីយ (ភ្នំពេញ)">📍 1-K3 ស្ថានីយ (ភ្នំពេញ)</option>
+              <option value="2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)">📍 2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)</option>
+              <option value="3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)">📍 3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)</option>
+              <option value="4-K76 ស្ថានីយ (ត្រែងត្រយឹង)">📍 4-K76 ស្ថានីយ (ត្រែងត្រយឹង)</option>
+              <option value="5-K114 ស្ថានីយ (កំពង់សីលា)">📍 5-K114 ស្ថានីយ (កំពង់សីលា)</option>
+              <option value="6-K135 ស្ថានីយ (ស្រែអំបិល)">📍 6-K135 ស្ថានីយ (ស្រែអំបិល)</option>
+              <option value="7-K172 ស្ថានីយ (ស្ទឹងហាវ)">📍 7-K172 ស្ថានីយ (ស្ទឹងហាវ)</option>
+              <option value="8-K182 ស្ថានីយ (ព្រះសីហនុ)">📍 8-K182 ស្ថានីយ (ព្រះសីហនុ)</option>
               <option value="中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)">📍 中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)</option>
               <option value="机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)">📍 机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
+              <option value="综合办 (ផ្នែកកិច្ចការទូទៅ)">📍 综合办 (ផ្នែកកិច្ចការទូទៅ)</option>
             </select>
           </div>
 
@@ -12103,18 +12112,16 @@ function saveLocalUsersToStorage() {
     }
 
     function handleGlobalWarehouseChange(whValue) {
-      if (!isUserPrivilegedAdmin(AppState.currentUser)) {
-        return;
-      }
+      if (!whValue) return;
       AppState.selectedAdminWarehouseFilter = whValue;
       sessionStorage.setItem('inventory_wh_filter', whValue);
       const sessionWarehouseName = document.getElementById('activeSessionWarehouseName');
       if (sessionWarehouseName) {
         const u = AppState.currentUser || {};
-        const isSuperAdmin = isUserSuperAdmin(u);
+        const isSuperAdmin = (typeof isUserSuperAdmin === 'function') ? isUserSuperAdmin(u) : false;
         if (whValue === 'ALL') {
           sessionWarehouseName.innerText = '🏢 គ្រប់ស្ថានីយទាំងអស់';
-        } else if (isAdminComboWarehouse(whValue)) {
+        } else if (typeof isAdminComboWarehouse === 'function' && isAdminComboWarehouse(whValue)) {
           sessionWarehouseName.innerText = '🏢 中心库房 & 机电 (ឃ្លាំងចុងស៊ីង & អគ្គិសនី)';
         } else {
           sessionWarehouseName.innerText = `📍 ${whValue} (${isSuperAdmin ? 'SuperAdmin' : 'Admin'} Switch)`;
@@ -12124,7 +12131,7 @@ function saveLocalUsersToStorage() {
       if (itemWhSelect && itemWhSelect.value !== whValue) {
         itemWhSelect.value = whValue;
       }
-      loadDashboard();
+      if (typeof loadDashboard === 'function') loadDashboard();
       if (typeof renderItemsTable === 'function') renderItemsTable();
       if (typeof filterStockInHistoryTable === 'function') filterStockInHistoryTable();
       if (typeof filterStockOutHistoryTable === 'function') filterStockOutHistoryTable();
@@ -17238,7 +17245,7 @@ function saveLocalUsersToStorage() {
       const isPrivileged = isUserPrivilegedAdmin(u);
       const currentList = (typeof getWarehouseNamesList === 'function') ? getWarehouseNamesList() : WAREHOUSES_LIST;
 
-      if (isPrivileged) {
+      if (!u || !u.username || isPrivileged) {
         soTo.disabled = false;
         soTo.classList.remove('pointer-events-none', 'bg-slate-100', 'cursor-not-allowed');
         let curVal = soTo.value ? (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(soTo.value) : soTo.value) : '';
@@ -27793,36 +27800,26 @@ function saveLocalUsersToStorage() {
       const isAdmin = isUserAdmin(u);
       const isPrivilegedAdmin = isUserPrivilegedAdmin(u);
 
-      // 1. Global Top Warehouse Selector - មុខងារច្រោះយកទិន្នន័យតាមស្ថានីយ ប្រើប្រាស់បានសម្រាប់តែ Account super admin និង admin ប៉ុណ្ណោះ
+      // 1. Global Top Warehouse Selector - បង្ហាញជម្រើស Combo (中心库房 & 机电) និង គ្រប់ស្ថានីយទាំងអស់សម្រាប់ Admin និង SuperAdmin
       const globalSel = document.getElementById('globalWarehouseSelector');
       if (globalSel) {
-        if (isPrivilegedAdmin) {
-          globalSel.disabled = false;
-          globalSel.classList.remove('pointer-events-none', 'cursor-not-allowed');
-          let curVal = globalSel.value || AppState.selectedAdminWarehouseFilter || ADMIN_DEFAULT_COMBO_WH;
-          if (curVal !== ADMIN_DEFAULT_COMBO_WH && curVal !== 'ALL' && typeof toCanonicalWarehouseName === 'function') {
-            curVal = toCanonicalWarehouseName(curVal);
-          }
-          globalSel.innerHTML = `
-            <option value="${escapeHtml(ADMIN_DEFAULT_COMBO_WH)}">🏢 中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង) & 机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
-            <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>
-            ${currentList.map(w => `<option value="${escapeHtml(w)}">📍 ${escapeHtml(w)}</option>`).join('')}
-          `;
-          if (curVal === ADMIN_DEFAULT_COMBO_WH || curVal === 'ALL' || currentList.includes(curVal)) {
-            globalSel.value = curVal;
-            AppState.selectedAdminWarehouseFilter = curVal;
-          } else {
-            globalSel.value = ADMIN_DEFAULT_COMBO_WH;
-            AppState.selectedAdminWarehouseFilter = ADMIN_DEFAULT_COMBO_WH;
-          }
+        globalSel.disabled = false;
+        globalSel.classList.remove('pointer-events-none', 'cursor-not-allowed');
+        let curVal = globalSel.value || AppState.selectedAdminWarehouseFilter || ADMIN_DEFAULT_COMBO_WH;
+        if (curVal !== ADMIN_DEFAULT_COMBO_WH && curVal !== 'ALL' && typeof toCanonicalWarehouseName === 'function') {
+          curVal = toCanonicalWarehouseName(curVal);
+        }
+        globalSel.innerHTML = `
+          <option value="${escapeHtml(ADMIN_DEFAULT_COMBO_WH)}">🏢 中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង) & 机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
+          <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>
+          ${currentList.map(w => `<option value="${escapeHtml(w)}">📍 ${escapeHtml(w)}</option>`).join('')}
+        `;
+        if (curVal === ADMIN_DEFAULT_COMBO_WH || curVal === 'ALL' || currentList.includes(curVal)) {
+          globalSel.value = curVal;
+          AppState.selectedAdminWarehouseFilter = curVal;
         } else {
-          // សម្រាប់អ្នកប្រើប្រាស់ផ្សេងៗគឺមិនអាចផ្លាស់ប្ដូរស្ថានីយបានទេ: កំណត់ជាប់ទៅតាមស្ថានីយផ្ទាល់ខ្លួន
-          const userWh = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(u.warehouse) : u.warehouse) || '1-K3 ស្ថានីយ (ភ្នំពេញ)';
-          globalSel.innerHTML = `<option value="${escapeHtml(userWh)}" selected>📍 ${escapeHtml(userWh)}</option>`;
-          globalSel.value = userWh;
-          globalSel.disabled = true;
-          globalSel.classList.add('pointer-events-none', 'cursor-not-allowed');
-          AppState.selectedAdminWarehouseFilter = userWh;
+          globalSel.value = ADMIN_DEFAULT_COMBO_WH;
+          AppState.selectedAdminWarehouseFilter = ADMIN_DEFAULT_COMBO_WH;
         }
       }
 
