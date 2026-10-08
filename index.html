@@ -1874,12 +1874,15 @@
             <span id="currentDateDisplay" class="text-[11px] font-medium text-slate-600 font-sans"></span>
           </div>
 
-          <!-- Admin Global Warehouse Selector Filter (Visible ONLY for SuperAdmin and Admin) -->
+          <!-- Admin Global Warehouse Selector Filter (Visible for SuperAdmin and Admin) -->
           <div id="adminWarehouseFilterContainer"
-            class="hidden items-center space-x-1.5 bg-blue-50 border border-blue-200 rounded-xl px-2 sm:px-2.5 py-1 sm:py-1.5 text-xs shadow-sm max-w-[170px] sm:max-w-[260px] md:max-w-none shrink-0 cursor-pointer" style="display: none !important;">
-            <i class="fa-solid fa-warehouse text-blue-600 shrink-0 text-[11px] sm:text-xs"></i>
+            class="flex items-center space-x-1.5 bg-gradient-to-r from-blue-50 via-indigo-50 to-blue-50 border border-blue-200 hover:border-blue-300 rounded-xl px-2.5 sm:px-3 py-1.5 text-xs shadow-xs shrink-0 cursor-pointer transition">
+            <div class="flex items-center space-x-1 text-blue-700 font-bold shrink-0">
+              <i class="fa-solid fa-warehouse text-blue-600 text-xs"></i>
+              <span class="hidden md:inline text-[11px]">ឃ្លាំង:</span>
+            </div>
             <select id="globalWarehouseSelector" onchange="handleGlobalWarehouseChange(this.value)"
-              class="bg-transparent font-bold text-blue-900 outline-none cursor-pointer text-[11px] sm:text-xs truncate w-full">
+              class="bg-transparent font-bold text-blue-950 outline-none cursor-pointer text-xs truncate max-w-[190px] sm:max-w-[260px] lg:max-w-[320px]">
               <option value="中心库房 & 机电" selected>🏢 中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង) & 机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
               <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>
               <option value="1-K3 ស្ថានីយ (ភ្នំពេញ)">📍 1-K3 ស្ថានីយ (ភ្នំពេញ)</option>
@@ -1896,6 +1899,20 @@
             </select>
           </div>
 
+          <!-- Add / Manage Warehouse Button for Admin -->
+          <button id="addWarehouseTopBtn" onclick="navigateTab('warehouses')" title="គ្រប់គ្រងស្ថានីយ (សម្រាប់ Admin & SuperAdmin)"
+            class="flex px-3 py-1.5 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-xl text-xs font-bold items-center space-x-1.5 shadow-xs transition hover:scale-105 active:scale-95 shrink-0">
+            <i class="fa-solid fa-warehouse text-xs"></i>
+            <span class="hidden sm:inline">គ្រប់គ្រងស្ថានីយ</span>
+          </button>
+
+          <!-- Non-Admin Fixed Assigned Warehouse Badge -->
+          <div id="userWarehouseBadgeContainer"
+            class="hidden items-center space-x-1.5 bg-emerald-50 border border-emerald-200 rounded-xl px-2.5 sm:px-3 py-1.5 text-xs text-emerald-800 font-bold shadow-sm max-w-[130px] sm:max-w-none truncate">
+            <i class="fa-solid fa-location-dot text-emerald-600 shrink-0"></i>
+            <span id="userWarehouseName" class="truncate">1-K3 ស្ថានីយ (ភ្នំពេញ)</span>
+          </div>
+
           <!-- Multi-Monitor Adaptive Scaling Widget -->
           <div id="monitorScaleWidget"
             class="hidden sm:flex items-center space-x-1.5 bg-slate-100 hover:bg-slate-200/90 border border-slate-200 rounded-xl px-2.5 py-1.5 text-slate-700 transition shadow-2xs"
@@ -1907,20 +1924,6 @@
               <button type="button" onclick="resetAppZoom()" id="autoScaleBtn" class="px-1.5 h-5 flex items-center justify-center rounded-md bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-black transition active:scale-95" title="កំណត់ទំហំស្វ័យប្រវត្តិតាមអេក្រង់ (Auto Scale)">Auto</button>
               <button type="button" onclick="adjustAppZoom(0.05)" class="w-5 h-5 flex items-center justify-center rounded-md hover:bg-white text-slate-700 hover:text-blue-600 text-xs font-black transition active:scale-90" title="ពង្រីក UI (+5%)">+</button>
             </div>
-          </div>
-
-          <!-- Add / Manage Warehouse Button for Admin -->
-          <button id="addWarehouseTopBtn" onclick="navigateTab('warehouses')" title="គ្រប់គ្រងស្ថានីយ (សម្រាប់ Admin & SuperAdmin)"
-            class="hidden px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold items-center space-x-1.5 shadow-sm transition hover:scale-105 active:scale-95">
-            <i class="fa-solid fa-warehouse text-xs"></i>
-            <span>គ្រប់គ្រងស្ថានីយ</span>
-          </button>
-
-          <!-- Non-Admin Fixed Assigned Warehouse Badge -->
-          <div id="userWarehouseBadgeContainer"
-            class="hidden flex items-center space-x-1.5 bg-emerald-50 border border-emerald-200 rounded-xl px-2.5 sm:px-3 py-1.5 text-xs text-emerald-800 font-bold shadow-sm max-w-[130px] sm:max-w-none truncate">
-            <i class="fa-solid fa-location-dot text-emerald-600 shrink-0"></i>
-            <span id="userWarehouseName" class="truncate">1-K3 ស្ថានីយ (ភ្នំពេញ)</span>
           </div>
 
           <button onclick="openScannerModal()" title="ស្កេន Barcode"
@@ -8447,7 +8450,7 @@ function saveLocalUsersToStorage() {
 
         // 1. Initial Landing Tab: Default to 'dashboard' so the beautiful Dashboard UI is always preserved
         const hashTab = window.location.hash.replace('#', '');
-        const validTabs = ['dashboard', 'items', 'stockin', 'stockout', 'transfer', 'reports', 'requests', 'chat', 'users', 'settings'];
+        const validTabs = ['dashboard', 'items', 'stockin', 'incoming', 'stockout', 'transfer', 'reports', 'requests', 'chat', 'users', 'warehouses', 'settings'];
         const targetTab = (hashTab && validTabs.includes(hashTab)) ? hashTab : 'dashboard';
         navigateTab(targetTab);
 
@@ -11956,15 +11959,18 @@ function saveLocalUsersToStorage() {
         if (whLabel) whLabel.innerText = isSuperAdmin ? 'អភិបាលកំពូល (SuperAdmin)' : 'គ្រប់គ្រងគ្រប់ស្ថានីយ';
         if (adminWhContainer) {
           adminWhContainer.classList.remove('hidden');
-          adminWhContainer.style.setProperty('display', 'flex', 'important');
+          adminWhContainer.classList.add('flex');
+          adminWhContainer.style.removeProperty('display');
         }
         if (addWhBtn) {
           addWhBtn.classList.remove('hidden');
-          addWhBtn.style.setProperty('display', 'flex', 'important');
+          addWhBtn.classList.add('flex');
+          addWhBtn.style.removeProperty('display');
         }
         if (userWhContainer) {
           userWhContainer.classList.add('hidden');
-          userWhContainer.style.setProperty('display', 'none', 'important');
+          userWhContainer.classList.remove('flex');
+          userWhContainer.style.removeProperty('display');
         }
         const globalSel = document.getElementById('globalWarehouseSelector');
         if (globalSel) {
@@ -11978,15 +11984,16 @@ function saveLocalUsersToStorage() {
         }
         if (adminWhContainer) {
           adminWhContainer.classList.add('hidden');
-          adminWhContainer.style.setProperty('display', 'none', 'important');
+          adminWhContainer.classList.remove('flex');
         }
         if (addWhBtn) {
           addWhBtn.classList.add('hidden');
-          addWhBtn.style.setProperty('display', 'none', 'important');
+          addWhBtn.classList.remove('flex');
         }
         if (userWhContainer) {
           userWhContainer.classList.remove('hidden');
-          userWhContainer.style.setProperty('display', 'flex', 'important');
+          userWhContainer.classList.add('flex');
+          userWhContainer.style.removeProperty('display');
           if (userWhName) userWhName.innerText = canonicalWh;
         }
 
@@ -12936,9 +12943,9 @@ function saveLocalUsersToStorage() {
       }
 
       const u = AppState.currentUser;
-      const isSuperAdmin = (u && (u.role === 'SuperAdmin' || String(u.username).toLowerCase() === 'superadmin'));
-      const isAdmin = !isSuperAdmin && (u && (u.role === 'Admin' || String(u.username).toLowerCase() === 'admin'));
-      const isStationManager = (u && (u.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || u.role === 'អ្នកគ្រប់គ្រង'));
+      const isSuperAdmin = (typeof isUserSuperAdmin === 'function') ? isUserSuperAdmin(u) : (u && (u.role === 'SuperAdmin' || String(u.username).toLowerCase() === 'superadmin'));
+      const isAdmin = !isSuperAdmin && ((typeof isUserAdmin === 'function') ? isUserAdmin(u) : (u && (u.role === 'Admin' || String(u.username).toLowerCase() === 'admin')));
+      const isStationManager = !isSuperAdmin && !isAdmin && (u && (u.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || u.role === 'អ្នកគ្រប់គ្រង'));
       const canAccessUsers = isSuperAdmin || isAdmin || isStationManager;
       const canAccessSettings = isSuperAdmin || isAdmin;
       const canAccessWarehouses = isSuperAdmin || isAdmin;
@@ -28641,10 +28648,11 @@ function saveLocalUsersToStorage() {
       if (addWhBtn) {
         if (isPrivilegedAdmin) {
           addWhBtn.classList.remove('hidden');
-          addWhBtn.style.setProperty('display', 'flex', 'important');
+          addWhBtn.classList.add('flex');
+          addWhBtn.style.removeProperty('display');
         } else {
           addWhBtn.classList.add('hidden');
-          addWhBtn.style.setProperty('display', 'none', 'important');
+          addWhBtn.classList.remove('flex');
         }
       }
 
@@ -28652,11 +28660,12 @@ function saveLocalUsersToStorage() {
         // NON-ADMIN: Strictly forbid switching stations. Hide admin filter and show assigned badge.
         if (adminWhContainer) {
           adminWhContainer.classList.add('hidden');
-          adminWhContainer.style.setProperty('display', 'none', 'important');
+          adminWhContainer.classList.remove('flex');
         }
         if (userWhContainer) {
           userWhContainer.classList.remove('hidden');
-          userWhContainer.style.setProperty('display', 'flex', 'important');
+          userWhContainer.classList.add('flex');
+          userWhContainer.style.removeProperty('display');
           if (userWhName) {
             userWhName.innerText = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(u.warehouse) : u.warehouse) || 'ស្ថានីយផ្ទាល់ខ្លួន';
           }
@@ -28672,11 +28681,12 @@ function saveLocalUsersToStorage() {
         // SUPERADMIN & ADMIN: Show station filter selector
         if (adminWhContainer) {
           adminWhContainer.classList.remove('hidden');
-          adminWhContainer.style.setProperty('display', 'flex', 'important');
+          adminWhContainer.classList.add('flex');
+          adminWhContainer.style.removeProperty('display');
         }
         if (userWhContainer) {
           userWhContainer.classList.add('hidden');
-          userWhContainer.style.setProperty('display', 'none', 'important');
+          userWhContainer.classList.remove('flex');
         }
         if (globalSel) {
           globalSel.disabled = false;
