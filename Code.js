@@ -590,7 +590,7 @@ function executeLocalApiAction(req) {
       'updateUserStatus': true, 'deleteUser': true, 'requestUserDeletion': true, 'approveUserDeletion': true, 'rejectUserDeletion': true,
       'updateUserProfile': true, 'updateProfile': true, 'resetPasswordWithOtp': true,
       'createProductRequest': true, 'updateProductRequestStatus': true, 'deleteProductRequest': true,
-      'saveSystemSettings': true, 'saveSettings': true, 'addWarehouse': true, 'deleteWarehouse': true,
+      'saveSystemSettings': true, 'saveSettings': true, 'addWarehouse': true, 'deleteWarehouse': true, 'updateWarehouse': true,
       'resetUserDevice': true, 'disconnectDevice': true, 'resetDevice': true, 'sendChatMessage': true,
       'updateStockTransaction': true, 'updateTransaction': true, 'deleteStockTransaction': true, 'deleteTransaction': true
     };
@@ -899,6 +899,10 @@ function executeLocalApiAction(req) {
       case 'deleteWarehouse':
 
         return deleteWarehouse(payload, payload.user);
+
+      case 'updateWarehouse':
+
+        return updateWarehouse(payload, payload.user);
 
       case 'deleteUser':
         return deleteUser(payload.userId || payload.username || payload.id, payload.adminUser || payload.user, payload.reason || payload.deleteReason);
@@ -5665,6 +5669,49 @@ function deleteWarehouse(payload, user) {
 
   return { success: false, message: 'រកមិនឃើញឃ្លាំងនេះទេ!' };
 
+}
+
+
+
+function updateWarehouse(payload, user) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SHEETS.WAREHOUSES);
+  if (!sheet) return { success: false, message: 'រកមិនឃើញ Sheet Warehouses ទេ' };
+
+  const targetId = String(payload.id || '').trim();
+  const targetName = String(payload.oldName || payload.name || '').trim();
+  const newName = String(payload.name || '').trim();
+  const location = String(payload.location || '').trim();
+  const manager = String(payload.manager || '').trim();
+  const status = String(payload.status || 'Active').trim();
+
+  if (!newName && !targetId && !targetName) {
+    return { success: false, message: 'សូមបញ្ចូលទិន្នន័យស្ថានីយដែលត្រូវកែប្រែ' };
+  }
+
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    const rowId = String(data[i][0] || '').trim();
+    const rowName = String(data[i][1] || '').trim();
+    if ((targetId && rowId === targetId) || (targetName && rowName.toLowerCase() === targetName.toLowerCase())) {
+      if (newName) sheet.getRange(i + 1, 2).setValue(newName);
+      if (location !== undefined) sheet.getRange(i + 1, 3).setValue(location);
+      if (manager !== undefined) sheet.getRange(i + 1, 4).setValue(manager);
+      if (status !== undefined) sheet.getRange(i + 1, 5).setValue(status);
+
+      logActivity('WAREHOUSE', (user ? user.username : 'Admin'), 'UPDATE_WAREHOUSE', `កែប្រែព័ត៌មានស្ថានីយ: ${newName || rowName} (${location})`);
+      invalidateAppCache();
+
+      return {
+        success: true,
+        message: `បានកែប្រែព័ត៌មានស្ថានីយ ${newName || rowName} ដោយជោគជ័យ!`,
+        warehouses: getWarehousesListInternal(ss),
+        warehousesDetailed: getWarehousesDetailed(ss)
+      };
+    }
+  }
+
+  return { success: false, message: 'រកមិនឃើញស្ថានីយដែលត្រូវកែប្រែទេ' };
 }
 
 

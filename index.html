@@ -25,13 +25,15 @@
             var tabMap = {
               'items': 'tabItems',
               'stockin': 'tabStockIn',
+              'incoming': 'tabIncoming',
               'stockout': 'tabStockOut',
               'transfer': 'tabTransfer',
               'reports': 'tabReports',
               'requests': 'tabRequests',
               'chat': 'tabChat',
               'users': 'tabUsers',
-              'settings': 'tabSettings'
+              'settings': 'tabSettings',
+              'warehouses': 'tabWarehouses'
             };
             if (savedTab && savedTab !== 'dashboard' && tabMap[savedTab]) {
               var targetTabId = tabMap[savedTab];
@@ -1619,6 +1621,20 @@
             class="hidden px-2 py-0.5 rounded-full text-[9px] font-bold bg-violet-500 text-white animate-pulse shadow">0</span>
         </a>
 
+        <!-- ADMIN & SUPERADMIN EXCLUSIVE: គ្រប់គ្រងស្ថានីយ -->
+        <div id="navAdminSectionDivider" class="hidden pt-3 pb-1 px-3.5 text-[11px] font-bold text-amber-200/80 uppercase tracking-wider">
+          ការគ្រប់គ្រង (Admin Only)
+        </div>
+
+        <a href="#warehouses" onclick="navigateTab('warehouses')" id="navWarehouses"
+          class="hidden nav-link flex items-center justify-between px-3.5 py-2.5 rounded-xl hover:bg-white/15 hover:text-white transition-all text-amber-200 font-medium">
+          <div class="flex items-center">
+            <i class="fa-solid fa-warehouse w-6 text-center text-amber-300"></i>
+            <span class="ml-2">គ្រប់គ្រងស្ថានីយ</span>
+          </div>
+          <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-400/20 text-amber-200 border border-amber-300/30">Admin</span>
+        </a>
+
       </nav>
     </aside>
 
@@ -1894,10 +1910,10 @@
           </div>
 
           <!-- Add / Manage Warehouse Button for Admin -->
-          <button id="addWarehouseTopBtn" onclick="openWarehouseModal()" title="គ្រប់គ្រង & បន្ថែមឃ្លាំងថ្មី"
-            class="hidden px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold items-center space-x-1.5 shadow-sm transition">
-            <i class="fa-solid fa-plus text-[10px]"></i>
-            <span>បន្ថែមឃ្លាំង</span>
+          <button id="addWarehouseTopBtn" onclick="navigateTab('warehouses')" title="គ្រប់គ្រងស្ថានីយ (សម្រាប់ Admin & SuperAdmin)"
+            class="hidden px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold items-center space-x-1.5 shadow-sm transition hover:scale-105 active:scale-95">
+            <i class="fa-solid fa-warehouse text-xs"></i>
+            <span>គ្រប់គ្រងស្ថានីយ</span>
           </button>
 
           <!-- Non-Admin Fixed Assigned Warehouse Badge -->
@@ -2020,6 +2036,21 @@
                   <div class="flex-1 min-w-0">
                     <div class="font-bold text-xs text-slate-800 group-hover:text-blue-900">Profile</div>
                     <p class="text-[10px] text-slate-400 group-hover:text-blue-700/80 truncate">កែប្រែព័ត៌មានផ្ទាល់ខ្លួន លេខទូរស័ព្ទ និងរូបថត</p>
+                  </div>
+                </button>
+
+                <!-- 2.5 គ្រប់គ្រងស្ថានីយ (Station Management for SuperAdmin & Admin) -->
+                <button type="button" id="topMenuManageWarehousesBtn" onclick="closeSettingsDropdown(); navigateTab('warehouses');"
+                  class="hidden w-full text-left p-2.5 rounded-xl hover:bg-amber-50/80 text-slate-700 hover:text-amber-900 transition flex items-center space-x-3 group border border-transparent hover:border-amber-200">
+                  <div class="w-8 h-8 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white flex items-center justify-center text-sm group-hover:scale-105 group-hover:shadow-md transition shadow-sm shrink-0">
+                    <i class="fa-solid fa-warehouse"></i>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="font-bold text-xs text-slate-800 group-hover:text-amber-900 flex items-center justify-between">
+                      <span>គ្រប់គ្រងស្ថានីយ</span>
+                      <span class="text-[9px] px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 font-semibold">Admin</span>
+                    </div>
+                    <p class="text-[10px] text-slate-400 group-hover:text-amber-700/80 truncate">មើលបញ្ជី បន្ថែម កែប្រែ និងលុបស្ថានីយទាំងអស់</p>
                   </div>
                 </button>
 
@@ -3807,6 +3838,166 @@
                 </button>
               </form>
 
+            </div>
+          </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- TAB 11: WAREHOUSES & STATIONS MANAGEMENT (ADMIN ONLY) -->
+        <!-- ========================================== -->
+        <div id="tabWarehouses" class="space-y-6 hidden">
+          <!-- Hero Header Card -->
+          <div class="relative overflow-hidden rounded-3xl p-6 sm:p-7 bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 text-white shadow-xl border border-indigo-500/20">
+            <div class="absolute -right-12 -top-12 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+            <div class="absolute right-1/3 -bottom-12 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+            
+            <div class="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+              <div class="flex items-start sm:items-center space-x-4">
+                <div class="w-13 h-13 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-tr from-amber-500 via-orange-500 to-indigo-600 text-white flex items-center justify-center text-2xl sm:text-3xl shadow-lg shadow-indigo-950/60 shrink-0 border border-white/20">
+                  <i class="fa-solid fa-warehouse"></i>
+                </div>
+                <div>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <h2 class="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
+                      <span>គ្រប់គ្រងស្ថានីយ និងឃ្លាំងស្តុក</span>
+                    </h2>
+                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-amber-400/20 text-amber-300 border border-amber-300/30">
+                      Admin & SuperAdmin
+                    </span>
+                  </div>
+                  <p class="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl leading-relaxed">
+                    ផ្ទាំងគ្រប់គ្រងស្ថានីយបង់ប្រាក់តាមបណ្តោយផ្លូវល្បឿនលឿន (K3 - K182) និងឃ្លាំងកណ្តាល។ អាចពិនិត្យស្តុក បុគ្គលិក កែប្រែព័ត៌មាន ឬបន្ថែមស្ថានីយថ្មី។
+                  </p>
+                </div>
+              </div>
+
+              <!-- Top Action Buttons -->
+              <div class="flex flex-wrap items-center gap-2.5 sm:self-auto self-start shrink-0">
+                <button type="button" onclick="loadWarehousesManagementView(true)" id="whSyncBtn"
+                  class="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition flex items-center space-x-2 border border-white/10 hover:scale-105 active:scale-95 shadow">
+                  <i class="fa-solid fa-rotate text-xs"></i>
+                  <span>ធ្វើសមកាលកម្ម (Sync)</span>
+                </button>
+                <button type="button" onclick="openWarehouseModal()"
+                  class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white text-xs font-bold transition flex items-center space-x-2 shadow-lg shadow-orange-950/40 hover:scale-105 active:scale-95 border border-white/20">
+                  <i class="fa-solid fa-plus text-xs"></i>
+                  <span>+ បន្ថែមស្ថានីយថ្មី</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- KPI Summary Cards -->
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <!-- Total Warehouses & Stations -->
+            <div class="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm flex items-center space-x-3.5">
+              <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl shrink-0">
+                <i class="fa-solid fa-building"></i>
+              </div>
+              <div class="min-w-0">
+                <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">សរុបស្ថានីយ & ឃ្លាំង</div>
+                <div class="text-xl sm:text-2xl font-black text-slate-800" id="whKpiTotal">11</div>
+                <div class="text-[10px] text-blue-600 font-semibold mt-0.5 truncate">ស្ថានីយទាំងអស់ក្នុងប្រព័ន្ធ</div>
+              </div>
+            </div>
+
+            <!-- Toll Stations -->
+            <div class="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm flex items-center space-x-3.5">
+              <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl shrink-0">
+                <i class="fa-solid fa-road"></i>
+              </div>
+              <div class="min-w-0">
+                <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">ស្ថានីយផ្លូវល្បឿនលឿន</div>
+                <div class="text-xl sm:text-2xl font-black text-slate-800" id="whKpiToll">8</div>
+                <div class="text-[10px] text-amber-600 font-semibold mt-0.5 truncate">1-K3 ដល់ 8-K182</div>
+              </div>
+            </div>
+
+            <!-- HQ & Central Warehouses -->
+            <div class="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm flex items-center space-x-3.5">
+              <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl shrink-0">
+                <i class="fa-solid fa-boxes-stacked"></i>
+              </div>
+              <div class="min-w-0">
+                <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">ឃ្លាំងកណ្តាល & ការិយាល័យ</div>
+                <div class="text-xl sm:text-2xl font-black text-slate-800" id="whKpiHq">3</div>
+                <div class="text-[10px] text-indigo-600 font-semibold mt-0.5 truncate">中心库房 / 机电 / 综合办</div>
+              </div>
+            </div>
+
+            <!-- Total Users Assigned -->
+            <div class="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/80 shadow-sm flex items-center space-x-3.5">
+              <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl shrink-0">
+                <i class="fa-solid fa-users"></i>
+              </div>
+              <div class="min-w-0">
+                <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">បុគ្គលិកកំពុងកាន់កាប់</div>
+                <div class="text-xl sm:text-2xl font-black text-slate-800" id="whKpiUsers">0</div>
+                <div class="text-[10px] text-emerald-600 font-semibold mt-0.5 truncate">គណនីបម្រើការងារតាមឃ្លាំង</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Filter, Search and View Toolbar -->
+          <div class="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <!-- Search Input -->
+            <div class="relative flex-1 max-w-md">
+              <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+              <input type="text" id="whSearchInput" oninput="filterWarehousesManagementList()"
+                placeholder="ស្វែងរកតាមឈ្មោះស្ថានីយ កូដសម្គាល់ ឬទីតាំង..."
+                class="w-full pl-9 pr-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition" />
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+              <!-- Category Tabs -->
+              <div class="inline-flex p-1 bg-slate-100 rounded-xl text-xs font-bold text-slate-600">
+                <button type="button" onclick="whFilterCategory('all')" id="whFilterTabAll"
+                  class="wh-filter-tab px-3 py-1.5 rounded-lg bg-white text-indigo-700 shadow-sm font-bold transition">ទាំងអស់</button>
+                <button type="button" onclick="whFilterCategory('toll')" id="whFilterTabToll"
+                  class="wh-filter-tab px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition">ស្ថានីយ (Toll)</button>
+                <button type="button" onclick="whFilterCategory('hq')" id="whFilterTabHq"
+                  class="wh-filter-tab px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition">ឃ្លាំងកណ្តាល (HQ)</button>
+              </div>
+
+              <!-- View Switcher (Grid vs Table) -->
+              <div class="inline-flex p-1 bg-slate-100 rounded-xl text-xs">
+                <button type="button" onclick="setWhViewMode('grid')" id="whViewBtnGrid"
+                  class="px-2.5 py-1.5 rounded-lg bg-white text-indigo-700 shadow-sm font-bold transition" title="Card View">
+                  <i class="fa-solid fa-table-cells-large"></i>
+                </button>
+                <button type="button" onclick="setWhViewMode('table')" id="whViewBtnTable"
+                  class="px-2.5 py-1.5 rounded-lg text-slate-500 hover:text-slate-800 transition" title="Table View">
+                  <i class="fa-solid fa-table-list"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Grid Cards View -->
+          <div id="whCardsGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            <!-- Rendered by JS -->
+          </div>
+
+          <!-- Table List View (Hidden by default, toggleable) -->
+          <div id="whTableView" class="hidden bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-xs sm:text-sm text-left">
+                <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase text-[10px] font-black tracking-wider">
+                  <tr>
+                    <th class="px-4 py-3 text-center w-12">#</th>
+                    <th class="px-4 py-3">ឈ្មោះស្ថានីយ / ឃ្លាំង</th>
+                    <th class="px-4 py-3">កូដសម្គាល់</th>
+                    <th class="px-4 py-3">ទីតាំង / ខេត្ត-ក្រុង</th>
+                    <th class="px-4 py-3">អ្នកទទួលខុសត្រូវ</th>
+                    <th class="px-4 py-3 text-center">ស្ថានភាព</th>
+                    <th class="px-4 py-3 text-center">បុគ្គលិក / ស្តុក</th>
+                    <th class="px-4 py-3 text-right">សកម្មភាព</th>
+                  </tr>
+                </thead>
+                <tbody id="whTableListBody" class="divide-y divide-slate-100">
+                  <!-- Rendered by JS -->
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -5720,43 +5911,53 @@
         <!-- Add New Warehouse Form Card -->
         <div class="bg-gradient-to-br from-blue-50/60 to-indigo-50/40 p-4 rounded-2xl border border-blue-100 shadow-sm">
           <h4 class="font-bold text-xs text-blue-900 uppercase mb-3 flex items-center">
-            <i class="fa-solid fa-circle-plus mr-1.5 text-blue-600"></i>បន្ថែមឃ្លាំងថ្មីទៅក្នុងប្រព័ន្ធ
+            <i class="fa-solid fa-circle-plus mr-1.5 text-blue-600" id="whFormModeIcon"></i><span id="whFormModeLabel">បន្ថែមឃ្លាំងថ្មីទៅក្នុងប្រព័ន្ធ</span>
           </h4>
           <form id="warehouseForm" onsubmit="handleSaveWarehouse(event)" class="space-y-3">
+            <input type="hidden" id="whOriginalName" value="" />
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">ឈ្មោះឃ្លាំង (Warehouse Name)
+                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">ឈ្មោះឃ្លាំង / ស្ថានីយ (Name)
                   *</label>
-                <input type="text" id="whInputName" required placeholder="ឧ. ឃ្លាំងទី ១២ - ស្ទឹងត្រែង"
+                <input type="text" id="whInputName" required placeholder="ឧ. 1-K3 ស្ថានីយ (ភ្នំពេញ)"
                   class="w-full h-11 px-3.5 bg-white border border-slate-300 rounded-xl text-xs md:text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500 text-slate-800">
               </div>
               <div>
                 <label class="block text-xs font-bold text-slate-700 uppercase mb-1">លេខកូដឃ្លាំង (Code / ID)</label>
-                <input type="text" id="whInputId" placeholder="ឧ. WH-12"
+                <input type="text" id="whInputId" placeholder="ឧ. WH-01, K3..."
                   class="w-full h-11 px-3.5 bg-white border border-slate-300 rounded-xl text-xs md:text-sm font-mono font-bold text-blue-700 outline-none focus:ring-2 focus:ring-blue-500">
               </div>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">ទីតាំង / ខេត្ត-ក្រុង
-                  (Location)</label>
-                <input type="text" id="whInputLocation" placeholder="ឧ. ក្រុងស្ទឹងត្រែង, ខេត្តស្ទឹងត្រែង"
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div class="sm:col-span-1">
+                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">ទីតាំង (Location)</label>
+                <input type="text" id="whInputLocation" placeholder="ឧ. រាជធានីភ្នំពេញ"
                   class="w-full h-11 px-3.5 bg-white border border-slate-300 rounded-xl text-xs md:text-sm outline-none focus:ring-2 focus:ring-blue-500 text-slate-700">
               </div>
-              <div>
-                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">អ្នកគ្រប់គ្រង / លេខទូរស័ព្ទ
-                  (Manager)</label>
-                <input type="text" id="whInputManager" placeholder="ឧ. លោក សុខនី (012 345 678)"
+              <div class="sm:col-span-1">
+                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">អ្នកគ្រប់គ្រង (Manager)</label>
+                <input type="text" id="whInputManager" placeholder="ឧ. លោក សុខនី"
                   class="w-full h-11 px-3.5 bg-white border border-slate-300 rounded-xl text-xs md:text-sm outline-none focus:ring-2 focus:ring-blue-500 text-slate-700">
+              </div>
+              <div class="sm:col-span-1">
+                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">ស្ថានភាព (Status)</label>
+                <select id="whInputStatus" class="w-full h-11 px-3.5 bg-white border border-slate-300 rounded-xl text-xs md:text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500 text-slate-800">
+                  <option value="Active">🟢 ដំណើរការ (Active)</option>
+                  <option value="Inactive">🔴 ផ្អាក (Inactive)</option>
+                </select>
               </div>
             </div>
 
-            <div class="pt-1 flex justify-end">
+            <div class="pt-1 flex items-center justify-end space-x-2">
+              <button type="button" id="cancelWhEditBtn" onclick="resetWhModalForm()"
+                class="hidden px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition">
+                បោះបង់ការកែប្រែ
+              </button>
               <button type="submit" id="saveWhSubmitBtn"
                 class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 transition flex items-center space-x-1.5">
-                <i class="fa-solid fa-plus"></i>
-                <span>រក្សាទុកឃ្លាំងថ្មី</span>
+                <i class="fa-solid fa-plus" id="saveWhSubmitBtnIcon"></i>
+                <span id="saveWhSubmitBtnText">រក្សាទុកឃ្លាំងថ្មី</span>
               </button>
             </div>
           </form>
@@ -11599,6 +11800,18 @@ function saveLocalUsersToStorage() {
       if (menuSettingsTelegramBtn) {
         menuSettingsTelegramBtn.classList.toggle('hidden', !canAccessSettings);
       }
+
+      // 5. Settings Dropdown: Manage Warehouses & Stations item (Hidden for non-Admins)
+      const topMenuManageWarehousesBtn = document.getElementById('topMenuManageWarehousesBtn');
+      if (topMenuManageWarehousesBtn) {
+        topMenuManageWarehousesBtn.classList.toggle('hidden', !canAccessSettings);
+      }
+
+      // 6. Sidebar: Manage Warehouses & Divider
+      const navWarehouses = document.getElementById('navWarehouses');
+      const navAdminSectionDivider = document.getElementById('navAdminSectionDivider');
+      if (navWarehouses) navWarehouses.classList.toggle('hidden', !canAccessSettings);
+      if (navAdminSectionDivider) navAdminSectionDivider.classList.toggle('hidden', !canAccessSettings);
     }
 
     function showAppView() {
@@ -12728,11 +12941,15 @@ function saveLocalUsersToStorage() {
       const isStationManager = (u && (u.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || u.role === 'អ្នកគ្រប់គ្រង'));
       const canAccessUsers = isSuperAdmin || isAdmin || isStationManager;
       const canAccessSettings = isSuperAdmin || isAdmin;
+      const canAccessWarehouses = isSuperAdmin || isAdmin;
 
       if (!canAccessUsers && tabName === 'users') {
         tabName = 'dashboard';
       }
       if (!canAccessSettings && tabName === 'settings') {
+        tabName = 'dashboard';
+      }
+      if (!canAccessWarehouses && tabName === 'warehouses') {
         tabName = 'dashboard';
       }
 
@@ -12753,6 +12970,8 @@ function saveLocalUsersToStorage() {
       document.getElementById('tabRequests').classList.toggle('hidden', tabName !== 'requests');
       document.getElementById('tabChat').classList.toggle('hidden', tabName !== 'chat');
       document.getElementById('tabUsers').classList.toggle('hidden', tabName !== 'users');
+      const tabWarehousesEl = document.getElementById('tabWarehouses');
+      if (tabWarehousesEl) tabWarehousesEl.classList.toggle('hidden', tabName !== 'warehouses');
       document.getElementById('tabSettings').classList.toggle('hidden', tabName !== 'settings');
 
       const mainContainer = document.querySelector('main');
@@ -12767,6 +12986,12 @@ function saveLocalUsersToStorage() {
           mainContainer.scrollTop = 0;
         } else {
           mainContainer.classList.remove('stock-freeze-active');
+        }
+      }
+
+      if (tabName === 'warehouses') {
+        if (typeof loadWarehousesManagementView === 'function') {
+          loadWarehousesManagementView();
         }
       }
 
@@ -12824,6 +13049,11 @@ function saveLocalUsersToStorage() {
           inactiveClass: 'text-blue-100/90 hover:bg-white/15 hover:text-white',
           layoutClass: 'flex items-center justify-between',
           activeBg: 'bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500'
+        },
+        'warehouses': {
+          inactiveClass: 'text-amber-200 hover:bg-white/15 hover:text-white font-medium',
+          layoutClass: 'flex items-center justify-between',
+          activeBg: 'bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700'
         },
         'settings': {
           inactiveClass: 'text-blue-100/90 hover:bg-white/15 hover:text-white',
@@ -27750,21 +27980,408 @@ function saveLocalUsersToStorage() {
 
 
     // ==========================================
-    // WAREHOUSE MANAGEMENT & SYNC LOGIC
+    // WAREHOUSE & TOLL STATION MANAGEMENT
     // ==========================================
-    async function openWarehouseModal() {
-      const modal = document.getElementById('warehouseModal');
-      if (modal) modal.classList.remove('hidden');
-      document.getElementById('warehouseForm')?.reset();
+    let whCurrentCategory = 'all';
+    let whCurrentViewMode = 'grid';
+    let whManagementDetailedList = [];
+
+    function resetWhModalForm() {
+      const form = document.getElementById('warehouseForm');
+      if (form) form.reset();
+      const origInp = document.getElementById('whOriginalName');
+      if (origInp) origInp.value = '';
+      const modeLabel = document.getElementById('whFormModeLabel');
+      if (modeLabel) modeLabel.innerText = 'បន្ថែមឃ្លាំងថ្មីទៅក្នុងប្រព័ន្ធ';
+      const modeIcon = document.getElementById('whFormModeIcon');
+      if (modeIcon) {
+        modeIcon.className = 'fa-solid fa-circle-plus mr-1.5 text-blue-600';
+      }
+      const submitText = document.getElementById('saveWhSubmitBtnText');
+      if (submitText) submitText.innerText = 'រក្សាទុកឃ្លាំងថ្មី';
+      const submitIcon = document.getElementById('saveWhSubmitBtnIcon');
+      if (submitIcon) {
+        submitIcon.className = 'fa-solid fa-plus';
+      }
+      const cancelBtn = document.getElementById('cancelWhEditBtn');
+      if (cancelBtn) cancelBtn.classList.add('hidden');
       const count = (AppState.warehouses?.length || WAREHOUSES_LIST.length);
       const idInput = document.getElementById('whInputId');
       if (idInput) idInput.value = `WH-${String(count + 1).padStart(2, '0')}`;
+    }
+
+    async function openWarehouseModal(whData = null) {
+      const modal = document.getElementById('warehouseModal');
+      if (modal) modal.classList.remove('hidden');
+
+      if (whData) {
+        // Edit Mode
+        const data = (typeof whData === 'string') 
+          ? (whManagementDetailedList.find(w => w.name === whData) || { name: whData })
+          : whData;
+        const origInp = document.getElementById('whOriginalName');
+        if (origInp) origInp.value = data.name || '';
+        const nameInp = document.getElementById('whInputName');
+        if (nameInp) nameInp.value = data.name || '';
+        const idInp = document.getElementById('whInputId');
+        if (idInp) idInp.value = data.id || '';
+        const locInp = document.getElementById('whInputLocation');
+        if (locInp) locInp.value = data.location || '';
+        const mgrInp = document.getElementById('whInputManager');
+        if (mgrInp) mgrInp.value = data.manager || '';
+        const stInp = document.getElementById('whInputStatus');
+        if (stInp) stInp.value = data.status || 'Active';
+
+        const modeLabel = document.getElementById('whFormModeLabel');
+        if (modeLabel) modeLabel.innerText = `កែប្រែព័ត៌មានស្ថានីយ: ${data.name || ''}`;
+        const modeIcon = document.getElementById('whFormModeIcon');
+        if (modeIcon) modeIcon.className = 'fa-solid fa-pen-to-square mr-1.5 text-amber-500';
+        const submitText = document.getElementById('saveWhSubmitBtnText');
+        if (submitText) submitText.innerText = 'រក្សាទុកការកែប្រែ';
+        const submitIcon = document.getElementById('saveWhSubmitBtnIcon');
+        if (submitIcon) submitIcon.className = 'fa-solid fa-check';
+        const cancelBtn = document.getElementById('cancelWhEditBtn');
+        if (cancelBtn) cancelBtn.classList.remove('hidden');
+      } else {
+        // Create Mode
+        resetWhModalForm();
+      }
       await renderWarehousesTable();
     }
 
     function closeWarehouseModal() {
       const modal = document.getElementById('warehouseModal');
       if (modal) modal.classList.add('hidden');
+      resetWhModalForm();
+    }
+
+    function openEditWarehouseModal(nameOrObj) {
+      let target = null;
+      if (typeof nameOrObj === 'object' && nameOrObj) {
+        target = nameOrObj;
+      } else {
+        const cName = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(nameOrObj) : nameOrObj;
+        target = (whManagementDetailedList || []).find(w => w.name === cName || w.name === nameOrObj) || { name: cName };
+      }
+      openWarehouseModal(target);
+    }
+
+    function isStationToll(name) {
+      if (!name) return false;
+      const clean = String(name).trim();
+      return /^[1-8]-K\d+/.test(clean) || /^K\d+/.test(clean) || clean.includes('ស្ថានីយ') || clean.includes('Station');
+    }
+
+    async function loadWarehousesManagementView(forceSync = false) {
+      const syncIcon = document.getElementById('whSyncIcon');
+      if (syncIcon) syncIcon.classList.add('fa-spin');
+
+      try {
+        let detailed = [];
+        if (!forceSync && LOCAL_DB.warehousesDetailed && LOCAL_DB.warehousesDetailed.length > 0) {
+          detailed = LOCAL_DB.warehousesDetailed;
+        } else {
+          const res = await apiCall('getWarehousesDetailed');
+          if (res && res.success && res.warehousesDetailed && res.warehousesDetailed.length > 0) {
+            detailed = res.warehousesDetailed;
+            LOCAL_DB.warehousesDetailed = detailed;
+            try { localStorage.setItem('inventory_warehouses_detailed', JSON.stringify(detailed)); } catch(e){}
+            if (res.warehouses && res.warehouses.length > 0) {
+              AppState.warehouses = Array.from(new Set(res.warehouses.map(w => (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(w) : w).filter(Boolean)));
+            }
+          }
+        }
+
+        // If still empty, fall back to canonical defaults
+        if (!detailed || detailed.length === 0) {
+          const names = getWarehouseNamesList();
+          detailed = names.map((name, idx) => ({
+            id: `WH-${String(idx + 1).padStart(2, '0')}`,
+            name: name,
+            location: name.includes('(') ? name.replace(/^.*?\((.*?)\).*$/, '$1') : (name.split('-')[1]?.trim() || name),
+            manager: 'អ្នកគ្រប់គ្រង',
+            status: 'Active'
+          }));
+        }
+
+        // Standardize canonical names
+        whManagementDetailedList = detailed.map((w, idx) => {
+          const canonName = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(w.name || w.location || '') : (w.name || '');
+          return {
+            id: w.id || `WH-${String(idx + 1).padStart(2, '0')}`,
+            name: canonName,
+            location: w.location || (canonName.includes('(') ? canonName.replace(/^.*?\((.*?)\).*$/, '$1') : canonName),
+            manager: w.manager || 'អ្នកគ្រប់គ្រង',
+            status: w.status || 'Active'
+          };
+        });
+
+        // Compute KPI metrics
+        const totalCount = whManagementDetailedList.length;
+        const tollCount = whManagementDetailedList.filter(w => isStationToll(w.name)).length;
+        const hqCount = totalCount - tollCount;
+        const allUsers = (AppState.users || LOCAL_DB.users || []);
+        const assignedUsersCount = allUsers.filter(u => u && u.warehouse && u.warehouse !== 'ALL' && u.status !== 'Rejected').length;
+
+        const elTotal = document.getElementById('whKpiTotal');
+        const elToll = document.getElementById('whKpiToll');
+        const elHq = document.getElementById('whKpiHq');
+        const elUsers = document.getElementById('whKpiUsers');
+        if (elTotal) elTotal.innerText = totalCount;
+        if (elToll) elToll.innerText = tollCount;
+        if (elHq) elHq.innerText = hqCount;
+        if (elUsers) elUsers.innerText = assignedUsersCount;
+
+        renderWarehousesManagement();
+        await renderWarehousesTable();
+      } catch (err) {
+        console.warn('[Warehouses] Load failed:', err);
+      } finally {
+        if (syncIcon) syncIcon.classList.remove('fa-spin');
+      }
+    }
+
+    function whFilterCategory(cat) {
+      whCurrentCategory = cat;
+      const tabs = [
+        { id: 'whFilterTabAll', active: cat === 'all' },
+        { id: 'whFilterTabToll', active: cat === 'toll' },
+        { id: 'whFilterTabHq', active: cat === 'hq' }
+      ];
+      tabs.forEach(t => {
+        const btn = document.getElementById(t.id);
+        if (btn) {
+          if (t.active) {
+            btn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-blue-700 shadow-sm border border-blue-200 transition';
+          } else {
+            btn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold text-slate-500 hover:text-slate-800 transition';
+          }
+        }
+      });
+      renderWarehousesManagement();
+    }
+
+    function setWhViewMode(mode) {
+      whCurrentViewMode = mode;
+      const grid = document.getElementById('whCardsGrid');
+      const table = document.getElementById('whTableView');
+      const btnGrid = document.getElementById('whViewBtnGrid');
+      const btnTable = document.getElementById('whViewBtnTable');
+
+      if (mode === 'grid') {
+        if (grid) grid.classList.remove('hidden');
+        if (table) table.classList.add('hidden');
+        if (btnGrid) btnGrid.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-600 text-white shadow-sm';
+        if (btnTable) btnTable.className = 'px-2.5 py-1 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900';
+      } else {
+        if (grid) grid.classList.add('hidden');
+        if (table) table.classList.remove('hidden');
+        if (btnGrid) btnGrid.className = 'px-2.5 py-1 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900';
+        if (btnTable) btnTable.className = 'px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-600 text-white shadow-sm';
+      }
+    }
+
+    function filterWarehousesManagementList() {
+      renderWarehousesManagement();
+    }
+
+    function renderWarehousesManagement() {
+      const grid = document.getElementById('whCardsGrid');
+      const tbody = document.getElementById('whTableListBody');
+      const searchVal = String(document.getElementById('whSearchInput')?.value || '').trim().toLowerCase();
+
+      let list = [...whManagementDetailedList];
+
+      // Category filter
+      if (whCurrentCategory === 'toll') {
+        list = list.filter(w => isStationToll(w.name));
+      } else if (whCurrentCategory === 'hq') {
+        list = list.filter(w => !isStationToll(w.name));
+      }
+
+      // Search filter
+      if (searchVal) {
+        list = list.filter(w => 
+          String(w.name || '').toLowerCase().includes(searchVal) ||
+          String(w.id || '').toLowerCase().includes(searchVal) ||
+          String(w.location || '').toLowerCase().includes(searchVal) ||
+          String(w.manager || '').toLowerCase().includes(searchVal)
+        );
+      }
+
+      const allUsers = (AppState.users || LOCAL_DB.users || []);
+      const allItems = (AppState.items || []);
+
+      // 1. RENDER GRID CARDS
+      if (grid) {
+        if (list.length === 0) {
+          grid.innerHTML = `
+            <div class="col-span-full py-12 text-center bg-white rounded-3xl border border-slate-200">
+              <i class="fa-solid fa-warehouse text-4xl text-slate-300 mb-3"></i>
+              <p class="text-sm font-bold text-slate-600">រកមិនឃើញស្ថានីយ ឬ ឃ្លាំងត្រូវនឹងការស្វែងរកទេ</p>
+              <button onclick="document.getElementById('whSearchInput').value=''; filterWarehousesManagementList()" class="mt-3 px-4 py-2 bg-blue-50 text-blue-700 text-xs font-bold rounded-xl hover:bg-blue-100 transition">
+                បង្ហាញទាំងអស់ឡើងវិញ
+              </button>
+            </div>
+          `;
+        } else {
+          grid.innerHTML = list.map((w, idx) => {
+            const isToll = isStationToll(w.name);
+            const canon = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(w.name) : w.name;
+            const staffCount = allUsers.filter(u => u && (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(u.warehouse) : u.warehouse) === canon && u.status !== 'Rejected').length;
+            const itemsCount = allItems.filter(it => it && (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(it.warehouse) : it.warehouse) === canon).length;
+
+            const iconClass = isToll ? 'fa-solid fa-road text-amber-600' : 'fa-solid fa-building-circle-check text-indigo-600';
+            const iconBg = isToll ? 'bg-amber-50 border-amber-200' : 'bg-indigo-50 border-indigo-200';
+            const badgeLabel = isToll ? 'ស្ថានីយគិតលុយ (Toll)' : 'ឃ្លាំងកណ្តាល / ផ្នែក (HQ)';
+            const badgeClass = isToll ? 'bg-amber-100/70 text-amber-800 border-amber-200' : 'bg-indigo-100/70 text-indigo-800 border-indigo-200';
+
+            return `
+              <div class="bg-white rounded-3xl p-5 border border-slate-200/90 hover:border-blue-400 hover:shadow-xl transition-all duration-300 flex flex-col justify-between group relative overflow-hidden">
+                <!-- Top Accent Line -->
+                <div class="absolute top-0 left-0 right-0 h-1.5 ${isToll ? 'bg-gradient-to-r from-amber-400 to-orange-500' : 'bg-gradient-to-r from-blue-500 to-indigo-600'}"></div>
+                
+                <div>
+                  <!-- Header -->
+                  <div class="flex items-start justify-between mb-3.5">
+                    <div class="flex items-center space-x-3">
+                      <div class="w-12 h-12 rounded-2xl ${iconBg} border flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition">
+                        <i class="${iconClass} text-lg"></i>
+                      </div>
+                      <div>
+                        <div class="flex items-center space-x-2 mb-0.5">
+                          <span class="px-2 py-0.5 rounded-md font-mono font-bold text-[10px] bg-slate-100 text-slate-700 border border-slate-200">${escapeHtml(w.id || 'WH')}</span>
+                          <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border ${badgeClass}">${badgeLabel}</span>
+                        </div>
+                        <h4 class="font-black text-slate-800 text-sm md:text-base leading-snug group-hover:text-blue-600 transition">${escapeHtml(w.name)}</h4>
+                      </div>
+                    </div>
+                    <span class="px-2.5 py-1 rounded-full text-[10px] font-bold ${w.status === 'Active' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-600 border border-slate-200'}">
+                      <i class="fa-solid fa-circle text-[8px] mr-1 ${w.status === 'Active' ? 'text-emerald-500 animate-pulse' : 'text-slate-400'}"></i>${w.status || 'Active'}
+                    </span>
+                  </div>
+
+                  <!-- Details Grid -->
+                  <div class="space-y-2 py-2 border-y border-slate-100 text-xs text-slate-600">
+                    <div class="flex items-center justify-between">
+                      <span class="text-slate-400 flex items-center"><i class="fa-solid fa-location-dot w-4 mr-1 text-slate-400"></i>ទីតាំង:</span>
+                      <span class="font-bold text-slate-700 truncate max-w-[170px]" title="${escapeHtml(w.location || '-')}">${escapeHtml(w.location || '-')}</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                      <span class="text-slate-400 flex items-center"><i class="fa-solid fa-user-tie w-4 mr-1 text-slate-400"></i>អ្នកគ្រប់គ្រង:</span>
+                      <span class="font-bold text-slate-700 truncate max-w-[170px]">${escapeHtml(w.manager || '-')}</span>
+                    </div>
+                  </div>
+
+                  <!-- Stats Pills -->
+                  <div class="grid grid-cols-2 gap-2 my-3">
+                    <button type="button" onclick="quickFilterStationStaff('${escapeHtml(w.name)}')" class="p-2.5 rounded-2xl bg-slate-50 hover:bg-blue-50 border border-slate-100 hover:border-blue-200 transition text-left group/pill">
+                      <div class="text-[10px] text-slate-400 font-medium">បុគ្គលិកប្រចាំការ</div>
+                      <div class="text-base font-black text-slate-800 group-hover/pill:text-blue-600 flex items-center space-x-1">
+                        <i class="fa-solid fa-users text-xs text-blue-500"></i>
+                        <span>${staffCount} នាក់</span>
+                      </div>
+                    </button>
+                    <button type="button" onclick="quickFilterStationStock('${escapeHtml(w.name)}')" class="p-2.5 rounded-2xl bg-slate-50 hover:bg-emerald-50 border border-slate-100 hover:border-emerald-200 transition text-left group/pill">
+                      <div class="text-[10px] text-slate-400 font-medium">មុខទំនិញក្នុងស្តុក</div>
+                      <div class="text-base font-black text-slate-800 group-hover/pill:text-emerald-600 flex items-center space-x-1">
+                        <i class="fa-solid fa-boxes-stacked text-xs text-emerald-500"></i>
+                        <span>${itemsCount} មុខ</span>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Footer Quick Actions -->
+                <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <div class="flex items-center space-x-1.5">
+                    <button type="button" onclick="quickFilterStationStock('${escapeHtml(w.name)}')"
+                      class="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white rounded-xl text-xs font-bold transition flex items-center space-x-1"
+                      title="ពិនិត្យមើលស្តុកទំនិញនៅស្ថានីយនេះ">
+                      <i class="fa-solid fa-boxes-stacked text-[11px]"></i>
+                      <span>ស្តុក</span>
+                    </button>
+                    <button type="button" onclick="quickFilterStationStaff('${escapeHtml(w.name)}')"
+                      class="px-2.5 py-1.5 bg-slate-100 hover:bg-indigo-600 text-slate-700 hover:text-white rounded-xl text-xs font-bold transition flex items-center space-x-1"
+                      title="ពិនិត្យមើលបុគ្គលិកនៅស្ថានីយនេះ">
+                      <i class="fa-solid fa-users text-[11px]"></i>
+                      <span>បុគ្គលិក</span>
+                    </button>
+                  </div>
+
+                  <div class="flex items-center space-x-1">
+                    <button type="button" onclick="openEditWarehouseModal('${escapeHtml(w.name)}')"
+                      class="p-2 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition"
+                      title="កែប្រែព័ត៌មានស្ថានីយ">
+                      <i class="fa-solid fa-pen-to-square text-xs"></i>
+                    </button>
+                    <button type="button" onclick="handleDeleteWarehouse('${escapeHtml(w.name)}', '${escapeHtml(w.id)}')"
+                      class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition"
+                      title="លុបស្ថានីយ">
+                      <i class="fa-solid fa-trash-can text-xs"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+      }
+
+      // 2. RENDER TABLE VIEW
+      if (tbody) {
+        if (list.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-slate-400">មិនមានទិន្នន័យត្រូវបង្ហាញទេ</td></tr>`;
+        } else {
+          tbody.innerHTML = list.map((w, idx) => {
+            const canon = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(w.name) : w.name;
+            const staffCount = allUsers.filter(u => u && (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(u.warehouse) : u.warehouse) === canon && u.status !== 'Rejected').length;
+            const itemsCount = allItems.filter(it => it && (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(it.warehouse) : it.warehouse) === canon).length;
+
+            return `
+              <tr class="hover:bg-blue-50/40 transition">
+                <td class="px-4 py-3 text-center font-bold text-slate-400 text-xs">${idx + 1}</td>
+                <td class="px-4 py-3">
+                  <div class="flex items-center space-x-2">
+                    <span class="px-2 py-0.5 bg-slate-100 text-slate-700 font-mono font-bold text-xs rounded border border-slate-200">${escapeHtml(w.id || 'WH')}</span>
+                    <span class="font-bold text-slate-800 text-sm">${escapeHtml(w.name)}</span>
+                  </div>
+                </td>
+                <td class="px-4 py-3 text-xs text-slate-600">${escapeHtml(w.location || '-')}</td>
+                <td class="px-4 py-3 text-xs text-slate-700 font-semibold">${escapeHtml(w.manager || '-')}</td>
+                <td class="px-4 py-3 text-center">
+                  <div class="inline-flex items-center space-x-2 text-xs font-bold">
+                    <button type="button" onclick="quickFilterStationStaff('${escapeHtml(w.name)}')" class="px-2 py-0.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg transition" title="មើលបុគ្គលិក">
+                      <i class="fa-solid fa-users text-[10px] mr-1"></i>${staffCount}
+                    </button>
+                    <button type="button" onclick="quickFilterStationStock('${escapeHtml(w.name)}')" class="px-2 py-0.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg transition" title="មើលស្តុក">
+                      <i class="fa-solid fa-boxes-stacked text-[10px] mr-1"></i>${itemsCount}
+                    </button>
+                  </div>
+                </td>
+                <td class="px-4 py-3 text-center">
+                  <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold ${w.status === 'Active' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}">
+                    ${w.status || 'Active'}
+                  </span>
+                </td>
+                <td class="px-4 py-3 text-center">
+                  <div class="flex items-center justify-center space-x-1">
+                    <button type="button" onclick="quickFilterStationStock('${escapeHtml(w.name)}')" class="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition" title="ពិនិត្យស្តុក">
+                      <i class="fa-solid fa-boxes-stacked text-xs"></i>
+                    </button>
+                    <button type="button" onclick="openEditWarehouseModal('${escapeHtml(w.name)}')" class="p-1.5 text-amber-600 hover:bg-amber-100 rounded-lg transition" title="កែប្រែ">
+                      <i class="fa-solid fa-pen-to-square text-xs"></i>
+                    </button>
+                    <button type="button" onclick="handleDeleteWarehouse('${escapeHtml(w.name)}', '${escapeHtml(w.id)}')" class="p-1.5 text-rose-500 hover:bg-rose-100 rounded-lg transition" title="លុប">
+                      <i class="fa-solid fa-trash-can text-xs"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            `;
+          }).join('');
+        }
+      }
     }
 
     async function renderWarehousesTable() {
@@ -27772,72 +28389,61 @@ function saveLocalUsersToStorage() {
       const countEl = document.getElementById('whTotalCount');
       if (!tbody) return;
 
-      tbody.innerHTML = `<tr><td colspan="6" class="text-center py-6 text-slate-400">កំពុងទាញយកទិន្នន័យឃ្លាំង...</td></tr>`;
+      const list = whManagementDetailedList.length > 0 ? whManagementDetailedList : (WAREHOUSES_LIST.map((wh, idx) => ({
+        id: `WH-${String(idx + 1).padStart(2, '0')}`,
+        name: (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(wh) : wh,
+        location: wh.split('-')[1]?.trim() || wh,
+        manager: 'អ្នកគ្រប់គ្រង',
+        status: 'Active'
+      })));
 
-      try {
-        const res = await apiCall('getWarehousesDetailed');
-        let list = [];
-        if (res && res.success && res.warehousesDetailed && res.warehousesDetailed.length > 0) {
-          list = res.warehousesDetailed.map(w => ({
-            ...w,
-            name: (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(w.name || w.location || '') : (w.name || '')
-          }));
-          const rawWhs = res.warehouses || list.map(w => w.name);
-          AppState.warehouses = Array.from(new Set(rawWhs.map(w => (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(w) : w).filter(Boolean)));
-        } else {
-          list = WAREHOUSES_LIST.map((wh, idx) => ({
-            id: `WH-${String(idx + 1).padStart(2, '0')}`,
-            name: (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(wh) : wh,
-            location: wh.split('-')[1]?.trim() || wh,
-            manager: 'អ្នកគ្រប់គ្រង',
-            status: 'Active'
-          }));
-        }
+      if (countEl) countEl.innerText = list.length;
 
-        if (countEl) countEl.innerText = list.length;
+      if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center py-6 text-slate-400">មិនទាន់មានឃ្លាំងក្នុងប្រព័ន្ធទេ</td></tr>`;
+        return;
+      }
 
-        if (list.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="6" class="text-center py-6 text-slate-400">មិនទាន់មានឃ្លាំងក្នុងប្រព័ន្ធទេ</td></tr>`;
-          return;
-        }
-
-        tbody.innerHTML = list.map((w, idx) => `
-          <tr class="hover:bg-slate-50 transition">
-            <td class="px-3 py-2.5 text-center font-bold text-slate-400">${idx + 1}</td>
-            <td class="px-3 py-2.5">
-              <div class="flex items-center space-x-2">
-                <span class="px-1.5 py-0.5 bg-blue-50 text-blue-700 font-mono font-bold text-[10px] rounded border border-blue-200">${w.id || 'WH'}</span>
-                <span class="font-bold text-slate-800">${escapeHtml(w.name)}</span>
-              </div>
-            </td>
-            <td class="px-3 py-2.5 text-slate-600">${escapeHtml(w.location || '-')}</td>
-            <td class="px-3 py-2.5 text-slate-600">${escapeHtml(w.manager || '-')}</td>
-            <td class="px-3 py-2.5 text-center">
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${w.status === 'Active' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}">
-                ${w.status || 'Active'}
-              </span>
-            </td>
-            <td class="px-3 py-2.5 text-center">
+      tbody.innerHTML = list.map((w, idx) => `
+        <tr class="hover:bg-slate-50 transition">
+          <td class="px-3 py-2.5 text-center font-bold text-slate-400">${idx + 1}</td>
+          <td class="px-3 py-2.5">
+            <div class="flex items-center space-x-2">
+              <span class="px-1.5 py-0.5 bg-blue-50 text-blue-700 font-mono font-bold text-[10px] rounded border border-blue-200">${w.id || 'WH'}</span>
+              <span class="font-bold text-slate-800">${escapeHtml(w.name)}</span>
+            </div>
+          </td>
+          <td class="px-3 py-2.5 text-slate-600">${escapeHtml(w.location || '-')}</td>
+          <td class="px-3 py-2.5 text-slate-600">${escapeHtml(w.manager || '-')}</td>
+          <td class="px-3 py-2.5 text-center">
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${w.status === 'Active' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}">
+              ${w.status || 'Active'}
+            </span>
+          </td>
+          <td class="px-3 py-2.5 text-center">
+            <div class="flex items-center justify-center space-x-1">
+              <button type="button" onclick="openEditWarehouseModal('${escapeHtml(w.name)}')"
+                class="p-1.5 text-amber-500 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition" title="កែប្រែ">
+                <i class="fa-solid fa-pen-to-square text-xs"></i>
+              </button>
               <button type="button" onclick="handleDeleteWarehouse('${escapeHtml(w.name)}', '${escapeHtml(w.id)}')"
-                class="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition" title="លុបឃ្លាំង">
+                class="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition" title="លុប">
                 <i class="fa-solid fa-trash-can text-xs"></i>
               </button>
-            </td>
-          </tr>
-        `).join('');
-
-        refreshAllWarehouseDropdowns();
-      } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="6" class="text-center py-6 text-rose-500">បរាជ័យទាញយកទិន្នន័យ: ${err.message}</td></tr>`;
-      }
+            </div>
+          </td>
+        </tr>
+      `).join('');
     }
 
     async function handleSaveWarehouse(e) {
       e.preventDefault();
+      const origName = document.getElementById('whOriginalName')?.value.trim();
       const name = document.getElementById('whInputName')?.value.trim();
       const id = document.getElementById('whInputId')?.value.trim();
       const location = document.getElementById('whInputLocation')?.value.trim();
       const manager = document.getElementById('whInputManager')?.value.trim();
+      const status = document.getElementById('whInputStatus')?.value.trim() || 'Active';
 
       if (!name) {
         Swal.fire('សូមបញ្ចូលឈ្មោះឃ្លាំង', 'ឈ្មោះឃ្លាំងមិនអាចទទេបានទេ', 'warning');
@@ -27850,31 +28456,63 @@ function saveLocalUsersToStorage() {
         btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i><span>កំពុងរក្សាទុក...</span>`;
       }
 
+      const isEditing = Boolean(origName);
+
       try {
-        const res = await apiCall('addWarehouse', {
+        const action = isEditing ? 'updateWarehouse' : 'addWarehouse';
+        const payload = isEditing ? {
+          oldName: origName,
+          id: id,
+          name: name,
+          location: location,
+          manager: manager,
+          status: status,
+          user: AppState.currentUser
+        } : {
           id: id || `WH-${String((AppState.warehouses?.length || 11) + 1).padStart(2, '0')}`,
           name: name,
           location: location,
           manager: manager,
-          status: 'Active',
+          status: status,
           user: AppState.currentUser
-        });
+        };
+
+        const res = await apiCall(action, payload);
 
         if (res.success) {
-          Swal.fire('ជោគជ័យ 🎉', res.message || `បានបន្ថែម ${name} ដោយជោគជ័យ!`, 'success');
-          document.getElementById('warehouseForm')?.reset();
+          Swal.fire('ជោគជ័យ 🎉', res.message || `បានរក្សាទុក ${name} ដោយជោគជ័យ!`, 'success');
+          resetWhModalForm();
+
+          // Refresh memory
           if (res.warehouses) {
-            AppState.warehouses = res.warehouses;
+            AppState.warehouses = res.warehouses.map(w => (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(w) : w);
             WAREHOUSES_LIST.length = 0;
-            WAREHOUSES_LIST.push(...res.warehouses);
-          } else if (!WAREHOUSES_LIST.includes(name)) {
-            WAREHOUSES_LIST.push(name);
+            WAREHOUSES_LIST.push(...AppState.warehouses);
+          } else {
+            const cName = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(name) : name;
+            if (isEditing) {
+              const oldC = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(origName) : origName;
+              const idx = WAREHOUSES_LIST.indexOf(oldC);
+              if (idx !== -1) WAREHOUSES_LIST[idx] = cName;
+            } else if (!WAREHOUSES_LIST.includes(cName)) {
+              WAREHOUSES_LIST.push(cName);
+            }
             AppState.warehouses = WAREHOUSES_LIST;
           }
-          await renderWarehousesTable();
+
+          if (res.warehousesDetailed) {
+            whManagementDetailedList = res.warehousesDetailed;
+            LOCAL_DB.warehousesDetailed = whManagementDetailedList;
+          } else {
+            await loadWarehousesManagementView(true);
+          }
+
           refreshAllWarehouseDropdowns();
+          renderWarehousesManagement();
+          await renderWarehousesTable();
+          closeWarehouseModal();
         } else {
-          Swal.fire('មិនអាចបន្ថែមបាន', res.message, 'warning');
+          Swal.fire('មិនអាចរក្សាទុកបាន', res.message, 'warning');
         }
       } catch (err) {
         Swal.fire('កំហុស', err.toString(), 'error');
@@ -27913,7 +28551,7 @@ function saveLocalUsersToStorage() {
             if (idx >= 0) WAREHOUSES_LIST.splice(idx, 1);
             AppState.warehouses = WAREHOUSES_LIST;
           }
-          await renderWarehousesTable();
+          await loadWarehousesManagementView(true);
           refreshAllWarehouseDropdowns();
         } else {
           Swal.fire('កំហុស', res.message, 'warning');
@@ -27921,6 +28559,28 @@ function saveLocalUsersToStorage() {
       } catch (err) {
         Swal.fire('Error', err.toString(), 'error');
       }
+    }
+
+    function quickFilterStationStock(whName) {
+      const canon = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(whName) : whName;
+      const sel = document.getElementById('globalWarehouseSelector');
+      if (sel) {
+        sel.value = canon;
+        AppState.selectedAdminWarehouseFilter = canon;
+      }
+      navigateTab('items');
+    }
+
+    function quickFilterStationStaff(whName) {
+      const canon = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(whName) : whName;
+      navigateTab('users');
+      setTimeout(() => {
+        const uInp = document.getElementById('userSearchInput');
+        if (uInp) {
+          uInp.value = canon;
+          if (typeof filterUsersList === 'function') filterUsersList();
+        }
+      }, 50);
     }
 
     function getWarehouseNamesList() {
