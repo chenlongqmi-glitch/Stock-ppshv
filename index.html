@@ -1780,6 +1780,7 @@
             <i class="fa-solid fa-warehouse text-blue-600 shrink-0 text-[11px] sm:text-xs"></i>
             <select id="globalWarehouseSelector" onchange="handleGlobalWarehouseChange(this.value)"
               class="bg-transparent font-bold text-blue-900 outline-none cursor-pointer text-[11px] sm:text-xs truncate w-full">
+              <option value="中心库房 & 机电" selected>🏢 中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង) & 机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
               <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>
               <option value="中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)">📍 中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)</option>
               <option value="机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)">📍 机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
@@ -2254,16 +2255,7 @@
                   </button>
                 </div>
 
-                <!-- Dropdown ជ្រើសរើសស្ថានីយដើម្បីច្រោះទិន្នន័យ (សម្រាប់តែ SuperAdmin និង Admin) -->
-                <div id="itemWarehouseFilterContainer" class="hidden shrink-0">
-                  <select id="itemWarehouseFilter" onchange="handleItemWarehouseFilterChange(this.value)"
-                    class="px-2.5 py-1.5 sm:py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none font-bold text-blue-900 cursor-pointer shadow-3xs max-w-[170px] sm:max-w-[210px] truncate"
-                    title="ជ្រើសរើសស្ថានីយដើម្បីច្រោះទិន្នន័យ (Admin Only)">
-                    <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>
-                    <option value="中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)">中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)</option>
-                    <option value="机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)">机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
-                  </select>
-                </div>
+
 
                 <select id="itemCategoryFilter" onchange="filterItemsTable()"
                   class="px-2.5 py-1.5 sm:py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none">
@@ -5676,6 +5668,9 @@
       '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)'
     ];
 
+    const ADMIN_DEFAULT_COMBO_WH = '中心库房 & 机电';
+    window.ADMIN_DEFAULT_COMBO_WH = ADMIN_DEFAULT_COMBO_WH;
+
     const DEFAULT_TG_BOT_TOKEN = '8292690919:AAFVJciyoebmTKPxg5rYsyMv56Ol2jzpibY';
     const DEFAULT_TG_CHAT_ID = '1197248107';
 
@@ -5807,7 +5802,7 @@
       items: [],
       categories: [],
       warehouses: WAREHOUSES_LIST,
-      selectedAdminWarehouseFilter: 'ALL',
+      selectedAdminWarehouseFilter: '中心库房 & 机电',
       dashboardStats: null,
       transactions: [],
       currentTab: 'dashboard',
@@ -6140,6 +6135,23 @@
       return false;
     }
 
+    function isAdminComboWarehouse(wh) {
+      if (!wh) return false;
+      const s = String(wh).trim();
+      return s === ADMIN_DEFAULT_COMBO_WH || s === 'ADMIN_DEFAULT_COMBO' || s === 'COMBO_CENTRAL_ME' || s.includes('中心库房 & 机电') || (s.includes('中心库房') && s.includes('机电'));
+    }
+    window.isAdminComboWarehouse = isAdminComboWarehouse;
+
+    function matchesTargetWarehouse(loc, targetWh) {
+      if (!targetWh || targetWh === 'ALL' || targetWh === '🏢 គ្រប់ស្ថានីយទាំងអស់' || targetWh === 'គ្រប់ឃ្លាំង') return true;
+      if (!loc) return false;
+      if (isAdminComboWarehouse(targetWh)) {
+        return ADMIN_ALLOWED_WAREHOUSES.some(aw => (typeof isSameWarehouse === 'function') ? isSameWarehouse(loc, aw) : loc === aw);
+      }
+      return (typeof isSameWarehouse === 'function') ? isSameWarehouse(loc, targetWh) : (loc === targetWh);
+    }
+    window.matchesTargetWarehouse = matchesTargetWarehouse;
+
     function getEffectiveStationFilter() {
       const u = AppState.currentUser || {};
       const uRoleLower = String(u.role || '').trim().toLowerCase();
@@ -6147,7 +6159,7 @@
       const isSuperAdmin = (uRoleLower === 'superadmin' || uNameLower === 'superadmin' || u.userId === 'USR-SA');
       const isAdmin = !isSuperAdmin && (uRoleLower === 'admin' || uRoleLower.includes('admin') || uNameLower === 'admin' || String(u.username).toLowerCase() === 'singvan327@gmail.com' || (String(u.role || '').includes('គ្រប់គ្រង') && !String(u.role || '').includes('ស្ថានីយ')));
       if (isSuperAdmin || isAdmin) {
-        return AppState.selectedAdminWarehouseFilter || 'ALL';
+        return AppState.selectedAdminWarehouseFilter || ADMIN_DEFAULT_COMBO_WH;
       }
       return u.warehouse || '';
     }
@@ -7689,6 +7701,10 @@ function saveLocalUsersToStorage() {
         AppState.selectedAdminWarehouseFilter = savedWhFilter;
         const selector = document.getElementById('globalWarehouseSelector');
         if (selector) selector.value = savedWhFilter;
+      } else {
+        AppState.selectedAdminWarehouseFilter = ADMIN_DEFAULT_COMBO_WH;
+        const selector = document.getElementById('globalWarehouseSelector');
+        if (selector) selector.value = ADMIN_DEFAULT_COMBO_WH;
       }
 
       // Auto-inject SuperAdmin Telegram credentials if missing or empty
@@ -7789,6 +7805,8 @@ function saveLocalUsersToStorage() {
         const savedWh = sessionStorage.getItem('inventory_wh_filter');
         if (savedWh) {
           AppState.selectedAdminWarehouseFilter = savedWh;
+        } else {
+          AppState.selectedAdminWarehouseFilter = ADMIN_DEFAULT_COMBO_WH;
         }
 
         // 3. Render session view and load data
@@ -9890,6 +9908,14 @@ function saveLocalUsersToStorage() {
       const isSuperAdmin = (user.role === 'SuperAdmin' || String(user.username).toLowerCase() === 'superadmin');
       const isAdmin = !isSuperAdmin && (user.role === 'Admin' || String(user.username).toLowerCase() === 'admin');
 
+      // Set default warehouse to Central Warehouse & Electromechanical for SuperAdmin & Admin on login
+      if (isSuperAdmin || isAdmin) {
+        AppState.selectedAdminWarehouseFilter = ADMIN_DEFAULT_COMBO_WH;
+        sessionStorage.setItem('inventory_wh_filter', ADMIN_DEFAULT_COMBO_WH);
+        const globalSel = document.getElementById('globalWarehouseSelector');
+        if (globalSel) globalSel.value = ADMIN_DEFAULT_COMBO_WH;
+      }
+
       // Reset any alert dismissal suppression on fresh login so Super Admin / Admin is ALWAYS proactively alerted
       if (isSuperAdmin) {
         sessionStorage.removeItem('deletion_alert_dismissed_until');
@@ -11212,10 +11238,14 @@ function saveLocalUsersToStorage() {
       const sessionWarehouseName = document.getElementById('activeSessionWarehouseName');
       if (sessionWarehouseName) {
         if (isPrivilegedAdmin) {
-          if (AppState.selectedAdminWarehouseFilter && AppState.selectedAdminWarehouseFilter !== 'ALL') {
+          if (AppState.selectedAdminWarehouseFilter === 'ALL') {
+            sessionWarehouseName.innerText = '🏢 គ្រប់ស្ថានីយទាំងអស់';
+          } else if (isAdminComboWarehouse(AppState.selectedAdminWarehouseFilter)) {
+            sessionWarehouseName.innerText = '🏢 中心库房 & 机电 (ឃ្លាំងចុងស៊ីង & អគ្គិសនី)';
+          } else if (AppState.selectedAdminWarehouseFilter) {
             sessionWarehouseName.innerText = `📍 ${AppState.selectedAdminWarehouseFilter} (${isSuperAdmin ? 'SuperAdmin' : 'Admin'} Switch)`;
           } else {
-            sessionWarehouseName.innerText = '🏢 គ្រប់ស្ថានីយទាំងអស់';
+            sessionWarehouseName.innerText = '🏢 中心库房 & 机电 (ឃ្លាំងចុងស៊ីង & អគ្គិសនី)';
           }
         } else {
           sessionWarehouseName.innerText = `📍 ${u.warehouse || WAREHOUSES_LIST[0]}`;
@@ -11353,7 +11383,7 @@ function saveLocalUsersToStorage() {
         if (targetUser.warehouse && targetUser.warehouse !== 'ALL') {
           AppState.selectedAdminWarehouseFilter = targetUser.warehouse;
         } else {
-          AppState.selectedAdminWarehouseFilter = 'ALL';
+          AppState.selectedAdminWarehouseFilter = ADMIN_DEFAULT_COMBO_WH;
         }
 
         closeSwitchUserModal();
@@ -11403,7 +11433,7 @@ function saveLocalUsersToStorage() {
         const originalUser = JSON.parse(savedSuperAdminStr);
         sessionStorage.removeItem('inventory_superadmin_session');
         AppState.currentUser = originalUser;
-        AppState.selectedAdminWarehouseFilter = 'ALL';
+        AppState.selectedAdminWarehouseFilter = ADMIN_DEFAULT_COMBO_WH;
         showAppView();
 
         Swal.fire({
@@ -11685,11 +11715,11 @@ function saveLocalUsersToStorage() {
       const sessionWarehouseName = document.getElementById('activeSessionWarehouseName');
       if (sessionWarehouseName) {
         const u = AppState.currentUser || {};
-        const uRoleLower = String(u.role || '').trim().toLowerCase();
-        const uNameLower = String(u.username || '').trim().toLowerCase();
         const isSuperAdmin = isUserSuperAdmin(u);
         if (whValue === 'ALL') {
           sessionWarehouseName.innerText = '🏢 គ្រប់ស្ថានីយទាំងអស់';
+        } else if (isAdminComboWarehouse(whValue)) {
+          sessionWarehouseName.innerText = '🏢 中心库房 & 机电 (ឃ្លាំងចុងស៊ីង & អគ្គិសនី)';
         } else {
           sessionWarehouseName.innerText = `📍 ${whValue} (${isSuperAdmin ? 'SuperAdmin' : 'Admin'} Switch)`;
         }
@@ -12483,9 +12513,9 @@ function saveLocalUsersToStorage() {
           AppState.items.forEach(item => {
             const st = (typeof getItemStationStock === 'function') ? getItemStationStock(item, activeWh) : { total: Number(item.currentStock || 0), bulk: 0, loose: 0 };
             const itemLoc = item.toLocation || item.location || item.warehouse || '';
-            const isAssigned = itemLoc && (typeof isSameWarehouse === 'function') && isSameWarehouse(itemLoc, activeWh);
-            const isWhBreakdown = Array.isArray(item.warehouses) && item.warehouses.some(w => (typeof isSameWarehouse === 'function') && isSameWarehouse(w, activeWh));
-            const hasBreakdownInWh = (st.breakdowns || []).some(b => (typeof isSameWarehouse === 'function' ? isSameWarehouse(b.warehouse, activeWh) : b.warehouse === activeWh) && b.total > 0);
+            const isAssigned = itemLoc && (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(itemLoc, activeWh) : isSameWarehouse(itemLoc, activeWh));
+            const isWhBreakdown = Array.isArray(item.warehouses) && item.warehouses.some(w => (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(w, activeWh) : isSameWarehouse(w, activeWh)));
+            const hasBreakdownInWh = (st.breakdowns || []).some(b => (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(b.warehouse, activeWh) : b.warehouse === activeWh) && b.total > 0);
 
             let belongsToStation = false;
             if (st.breakdowns && st.breakdowns.length > 0) {
@@ -13616,7 +13646,7 @@ function saveLocalUsersToStorage() {
           if (toWh) {
             whNetMap[toWh] = (whNetMap[toWh] || 0) + q;
             if (targetWh && targetWh !== 'ALL') {
-              if (typeof isSameWarehouse === 'function' && isSameWarehouse(toWh, targetWh)) {
+              if (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(toWh, targetWh) : isSameWarehouse(toWh, targetWh)) {
                 stationIn += q;
                 hasExactStationTx = true;
               } else if (toWh === 'គ្រប់ស្ថានីយទាំងអស់' || toWh === 'ALL') {
@@ -13630,7 +13660,7 @@ function saveLocalUsersToStorage() {
           if (fromWh) {
             whNetMap[fromWh] = (whNetMap[fromWh] || 0) - q;
             if (targetWh && targetWh !== 'ALL') {
-              if (typeof isSameWarehouse === 'function' && isSameWarehouse(fromWh, targetWh)) {
+              if (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(fromWh, targetWh) : isSameWarehouse(fromWh, targetWh)) {
                 stationOut += q;
               } else if (fromWh === 'គ្រប់ស្ថានីយទាំងអស់' || fromWh === 'ALL') {
                 generalOut += q;
@@ -13652,6 +13682,13 @@ function saveLocalUsersToStorage() {
           effectiveTotal = Math.max(0, generalIn - generalOut);
           hasStationTx = true;
           isGeneralStock = true;
+        } else {
+          const primaryWh = item.toLocation || item.location || item.warehouse || '';
+          const hasBreakdownInTarget = (breakdowns || []).some(b => (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(b.warehouse, targetWh) : isSameWarehouse(b.warehouse, targetWh)) && b.total > 0);
+          if ((typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(primaryWh, targetWh) : isSameWarehouse(primaryWh, targetWh)) || hasBreakdownInTarget) {
+            effectiveTotal = Math.max(0, Number(item.currentStock || 0));
+            hasStationTx = true;
+          }
         }
       } else {
         effectiveTotal = Math.max(0, Number(item.currentStock || 0));
@@ -13705,7 +13742,7 @@ function saveLocalUsersToStorage() {
 
       let activeWhFilter = 'ALL';
       if (isPrivilegedAdmin) {
-        activeWhFilter = document.getElementById('itemWarehouseFilter')?.value || AppState.selectedAdminWarehouseFilter || 'ALL';
+        activeWhFilter = AppState.selectedAdminWarehouseFilter || ADMIN_DEFAULT_COMBO_WH;
       } else {
         // អ្នកប្រើប្រាស់តាមស្ថានីយ: មើលឃើញតែមុខទំនិញក្នុងស្ថានីយរបស់ខ្លួនឯងប៉ុណ្ណោះ!
         activeWhFilter = u?.warehouse || '';
@@ -13722,10 +13759,10 @@ function saveLocalUsersToStorage() {
         if (activeWhFilter && activeWhFilter !== 'ALL') {
           const st = (typeof getItemStationStock === 'function') ? getItemStationStock(item, activeWhFilter) : { total: 0, breakdowns: [] };
           const itemLoc = item.toLocation || item.location || item.warehouse || '';
-          const isAssigned = itemLoc && (typeof isSameWarehouse === 'function') && isSameWarehouse(itemLoc, activeWhFilter);
-          const isWhBreakdown = Array.isArray(item.warehouses) && item.warehouses.some(w => (typeof isSameWarehouse === 'function') && isSameWarehouse(w, activeWhFilter));
+          const isAssigned = itemLoc && (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(itemLoc, activeWhFilter) : isSameWarehouse(itemLoc, activeWhFilter));
+          const isWhBreakdown = Array.isArray(item.warehouses) && item.warehouses.some(w => (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(w, activeWhFilter) : isSameWarehouse(w, activeWhFilter)));
 
-          const hasBreakdownInWh = (st.breakdowns || []).some(b => (typeof isSameWarehouse === 'function' ? isSameWarehouse(b.warehouse, activeWhFilter) : b.warehouse === activeWhFilter) && b.total > 0);
+          const hasBreakdownInWh = (st.breakdowns || []).some(b => (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(b.warehouse, activeWhFilter) : b.warehouse === activeWhFilter) && b.total > 0);
 
           if (st.breakdowns && st.breakdowns.length > 0) {
             if (!hasBreakdownInWh) return false;
@@ -13807,21 +13844,14 @@ function saveLocalUsersToStorage() {
       const isAdmin = isUserAdmin(u);
       const isPrivilegedAdmin = isUserPrivilegedAdmin(u);
 
-      // 1. បង្ហាញ dropdown ជ្រើសរើសស្ថានីយសម្រាប់តែ SuperAdmin និង Admin តែប៉ុណ្ណោះ
+      // 1. Image 2 removed: station filter is handled globally via header
       const whFilterContainer = document.getElementById('itemWarehouseFilterContainer');
-      const whFilterSelect = document.getElementById('itemWarehouseFilter');
-      if (whFilterContainer) {
-        if (isPrivilegedAdmin) {
-          whFilterContainer.classList.remove('hidden');
-        } else {
-          whFilterContainer.classList.add('hidden');
-        }
-      }
+      if (whFilterContainer) whFilterContainer.classList.add('hidden');
 
-      // 2. កំណត់ស្ថានីយដែលត្រូវច្រោះ (Admin/SuperAdmin អាចរើសបានគ្រប់ស្ថានីយ, អ្នកប្រើប្រាស់តាមស្ថានីយជាប់ស្ថានីយខ្លួនឯង)
+      // 2. កំណត់ស្ថានីយដែលត្រូវច្រោះ (Admin/SuperAdmin តាមរយៈ Top Bar Selector, អ្នកប្រើប្រាស់តាមស្ថានីយជាប់ស្ថានីយខ្លួនឯង)
       let activeWhFilter = 'ALL';
       if (isPrivilegedAdmin) {
-        activeWhFilter = whFilterSelect?.value || AppState.selectedAdminWarehouseFilter || 'ALL';
+        activeWhFilter = AppState.selectedAdminWarehouseFilter || ADMIN_DEFAULT_COMBO_WH;
       } else {
         // អ្នកប្រើប្រាស់តាមស្ថានីយ: មើលឃើញតែមុខទំនិញក្នុងស្ថានីយរបស់ខ្លួនឯងប៉ុណ្ណោះ!
         activeWhFilter = u?.warehouse || '';
@@ -13972,8 +14002,8 @@ function saveLocalUsersToStorage() {
           <td class="px-2 py-2.5 text-center align-middle overflow-hidden">
             ${(function() {
               if (activeWhFilter && activeWhFilter !== 'ALL') {
-                // ករណីច្រោះយកស្ថានីយជាក់លាក់: បង្ហាញតែទិន្នន័យស្តុករបស់ស្ថានីយដែលបានច្រោះនោះប៉ុណ្ណោះ (ដាច់ខាតមិនបង្ហាញស្ថានីយផ្សេងឡើយ)
-                const targetBks = (stStock.breakdowns || []).filter(sb => (typeof isSameWarehouse === 'function' ? isSameWarehouse(sb.warehouse, activeWhFilter) : sb.warehouse === activeWhFilter));
+                // ករណីច្រោះយកស្ថានីយជាក់លាក់ ឬ Combo: បង្ហាញតែទិន្នន័យស្តុករបស់ស្ថានីយដែលត្រូវគ្នានោះប៉ុណ្ណោះ
+                const targetBks = (stStock.breakdowns || []).filter(sb => (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(sb.warehouse, activeWhFilter) : isSameWarehouse(sb.warehouse, activeWhFilter)));
                 let stationTotal = 0;
                 targetBks.forEach(sb => { stationTotal += Number(sb.total || 0); });
                 if (stationTotal === 0 && stStock.total > 0) {
@@ -13981,15 +14011,28 @@ function saveLocalUsersToStorage() {
                 }
 
                 if (stationTotal > 0) {
-                  const shortWh = (targetBks[0]?.shortWh) || (activeWhFilter.split(' ')[0] || activeWhFilter);
-                  return `
-                    <div class="flex flex-col items-center gap-1 w-full max-w-[125px] mx-auto">
-                      <span class="inline-flex items-center justify-between w-full px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-blue-50/80 text-blue-800 border border-blue-200/90 shadow-3xs truncate" title="${escapeHtml(activeWhFilter)}: ${stationTotal} ${escapeHtml(rUnit)}">
-                        <span class="truncate">📍 ${escapeHtml(shortWh)}</span>
-                        <span class="ml-1 font-mono">${stationTotal}</span>
-                      </span>
-                    </div>
-                  `;
+                  if (targetBks.length > 1) {
+                    return `
+                      <div class="flex flex-col items-center gap-1 w-full max-w-[125px] mx-auto">
+                        ${targetBks.map(sb => `
+                          <span class="inline-flex items-center justify-between w-full px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-blue-50/80 text-blue-800 border border-blue-200/90 shadow-3xs truncate" title="${escapeHtml(sb.warehouse)}: ${sb.total} ${escapeHtml(rUnit)}">
+                            <span class="truncate">📍 ${escapeHtml(sb.shortWh)}</span>
+                            <span class="ml-1 font-mono">${sb.total}</span>
+                          </span>
+                        `).join('')}
+                      </div>
+                    `;
+                  } else {
+                    const shortWh = (targetBks[0]?.shortWh) || (activeWhFilter.split(' ')[0] || activeWhFilter);
+                    return `
+                      <div class="flex flex-col items-center gap-1 w-full max-w-[125px] mx-auto">
+                        <span class="inline-flex items-center justify-between w-full px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-blue-50/80 text-blue-800 border border-blue-200/90 shadow-3xs truncate" title="${escapeHtml(targetBks[0]?.warehouse || activeWhFilter)}: ${stationTotal} ${escapeHtml(rUnit)}">
+                          <span class="truncate">📍 ${escapeHtml(shortWh)}</span>
+                          <span class="ml-1 font-mono">${stationTotal}</span>
+                        </span>
+                      </div>
+                    `;
+                  }
                 } else {
                   return `<span class="text-slate-300 text-xs">-</span>`;
                 }
@@ -16094,7 +16137,9 @@ function saveLocalUsersToStorage() {
         locEl.innerHTML = currentList.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('');
 
         let targetWh = '';
-        if (AppState.selectedAdminWarehouseFilter && AppState.selectedAdminWarehouseFilter !== 'ALL' && currentList.includes(AppState.selectedAdminWarehouseFilter)) {
+        if (typeof isAdminComboWarehouse === 'function' && isAdminComboWarehouse(AppState.selectedAdminWarehouseFilter)) {
+          targetWh = ADMIN_ALLOWED_WAREHOUSES[0] || currentList[0];
+        } else if (AppState.selectedAdminWarehouseFilter && AppState.selectedAdminWarehouseFilter !== 'ALL' && currentList.includes(AppState.selectedAdminWarehouseFilter)) {
           targetWh = AppState.selectedAdminWarehouseFilter;
         } else if (curVal && currentList.includes(curVal)) {
           targetWh = curVal;
@@ -17811,7 +17856,7 @@ function saveLocalUsersToStorage() {
       const activeWh = (typeof getEffectiveStationFilter === 'function') ? getEffectiveStationFilter() : 'ALL';
       let baseList = AppState.stockInHistory || [];
       if (activeWh && activeWh !== 'ALL') {
-        baseList = baseList.filter(t => (typeof isSameWarehouse === 'function') ? isSameWarehouse(t.toLocation || t.location || t.warehouse || '', activeWh) : true);
+        baseList = baseList.filter(t => (typeof matchesTargetWarehouse === 'function') ? matchesTargetWarehouse(t.toLocation || t.location || t.warehouse || '', activeWh) : isSameWarehouse(t.toLocation || t.location || t.warehouse || '', activeWh));
       }
       const sInp = document.getElementById('stockInHistorySearch');
       let q = (sInp?.value || '').trim().toLowerCase();
@@ -18312,7 +18357,7 @@ function saveLocalUsersToStorage() {
           const fromL = t.fromLocation || '';
           const toL = t.toLocation || '';
           const loc = t.location || t.warehouse || '';
-          return (typeof isSameWarehouse === 'function') ? (isSameWarehouse(fromL, activeWh) || isSameWarehouse(toL, activeWh) || isSameWarehouse(loc, activeWh)) : true;
+          return (typeof matchesTargetWarehouse === 'function') ? (matchesTargetWarehouse(fromL, activeWh) || matchesTargetWarehouse(toL, activeWh) || matchesTargetWarehouse(loc, activeWh)) : (isSameWarehouse(fromL, activeWh) || isSameWarehouse(toL, activeWh) || isSameWarehouse(loc, activeWh));
         });
       }
       const sInp = document.getElementById('stockOutHistorySearch');
@@ -18347,7 +18392,7 @@ function saveLocalUsersToStorage() {
           const fromL = t.fromLocation || '';
           const toL = t.toLocation || '';
           const loc = t.location || t.warehouse || '';
-          return (typeof isSameWarehouse === 'function') ? (isSameWarehouse(fromL, activeWh) || isSameWarehouse(toL, activeWh) || isSameWarehouse(loc, activeWh)) : true;
+          return (typeof matchesTargetWarehouse === 'function') ? (matchesTargetWarehouse(fromL, activeWh) || matchesTargetWarehouse(toL, activeWh) || matchesTargetWarehouse(loc, activeWh)) : (isSameWarehouse(fromL, activeWh) || isSameWarehouse(toL, activeWh) || isSameWarehouse(loc, activeWh));
         });
       }
       const tbody = document.getElementById('stockOutHistoryTableBody');
@@ -19827,14 +19872,14 @@ function saveLocalUsersToStorage() {
         if (res && res.success && Array.isArray(res.transactions)) {
           let txs = res.transactions || [];
           if (activeWh && activeWh !== 'ALL') {
-            txs = txs.filter(t => (typeof isSameWarehouse === 'function') ? (isSameWarehouse(t.toLocation, activeWh) || isSameWarehouse(t.fromLocation, activeWh) || isSameWarehouse(t.location, activeWh)) : true);
+            txs = txs.filter(t => (typeof matchesTargetWarehouse === 'function') ? (matchesTargetWarehouse(t.toLocation, activeWh) || matchesTargetWarehouse(t.fromLocation, activeWh) || matchesTargetWarehouse(t.location, activeWh)) : true);
           }
           AppState.transactions = txs;
           renderReportTable(AppState.transactions);
         } else if (AppState.transactions && AppState.transactions.length > 0) {
           let txs = AppState.transactions;
           if (activeWh && activeWh !== 'ALL') {
-            txs = txs.filter(t => (typeof isSameWarehouse === 'function') ? (isSameWarehouse(t.toLocation, activeWh) || isSameWarehouse(t.fromLocation, activeWh) || isSameWarehouse(t.location, activeWh)) : true);
+            txs = txs.filter(t => (typeof matchesTargetWarehouse === 'function') ? (matchesTargetWarehouse(t.toLocation, activeWh) || matchesTargetWarehouse(t.fromLocation, activeWh) || matchesTargetWarehouse(t.location, activeWh)) : true);
           }
           renderReportTable(txs);
         }
@@ -19847,7 +19892,7 @@ function saveLocalUsersToStorage() {
       const activeWh = (typeof getEffectiveStationFilter === 'function') ? getEffectiveStationFilter() : 'ALL';
       let txs = rawTxs || AppState.transactions || [];
       if (activeWh && activeWh !== 'ALL') {
-        txs = txs.filter(t => (typeof isSameWarehouse === 'function') ? (isSameWarehouse(t.toLocation, activeWh) || isSameWarehouse(t.fromLocation, activeWh) || isSameWarehouse(t.location, activeWh)) : true);
+        txs = txs.filter(t => (typeof matchesTargetWarehouse === 'function') ? (matchesTargetWarehouse(t.toLocation, activeWh) || matchesTargetWarehouse(t.fromLocation, activeWh) || matchesTargetWarehouse(t.location, activeWh)) : true);
       }
       const tbody = document.getElementById('reportsTableBody');
       if (!txs || txs.length === 0) {
@@ -19998,7 +20043,7 @@ function saveLocalUsersToStorage() {
         const u = AppState.currentUser;
         const isSuperAdmin = isUserSuperAdmin(u);
         const isAdminUser = isUserPrivilegedAdmin(u);
-        const exportWhFilter = document.getElementById('itemWarehouseFilter')?.value || AppState.selectedAdminWarehouseFilter || 'ALL';
+        const exportWhFilter = AppState.selectedAdminWarehouseFilter || ADMIN_DEFAULT_COMBO_WH;
         const stStock = (isAdminUser && typeof getItemStationStock === 'function') ? getItemStationStock(item, exportWhFilter) : null;
 
         const rowData = {
@@ -26071,36 +26116,27 @@ function saveLocalUsersToStorage() {
       const isAdmin = isUserAdmin(u);
       const isPrivilegedAdmin = isUserPrivilegedAdmin(u);
 
-      // 1. Global Top Warehouse Selector - បង្ហាញគ្រប់ស្ថានីយទាំងអស់សម្រាប់ទាំង Admin និង SuperAdmin
+      // 1. Global Top Warehouse Selector - បង្ហាញជម្រើស Combo (中心库房 & 机电) និង គ្រប់ស្ថានីយទាំងអស់សម្រាប់ Admin និង SuperAdmin
       const globalSel = document.getElementById('globalWarehouseSelector');
       if (globalSel) {
-        const curVal = globalSel.value || AppState.selectedAdminWarehouseFilter || 'ALL';
+        const curVal = globalSel.value || AppState.selectedAdminWarehouseFilter || ADMIN_DEFAULT_COMBO_WH;
         globalSel.innerHTML = `
+          <option value="${escapeHtml(ADMIN_DEFAULT_COMBO_WH)}">🏢 中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង) & 机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
           <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>
           ${currentList.map(w => `<option value="${escapeHtml(w)}">📍 ${escapeHtml(w)}</option>`).join('')}
         `;
-        if (currentList.includes(curVal) || curVal === 'ALL') {
+        if (curVal === ADMIN_DEFAULT_COMBO_WH || curVal === 'ALL' || currentList.includes(curVal)) {
           globalSel.value = curVal;
         } else {
-          globalSel.value = 'ALL';
-          AppState.selectedAdminWarehouseFilter = 'ALL';
+          globalSel.value = ADMIN_DEFAULT_COMBO_WH;
+          AppState.selectedAdminWarehouseFilter = ADMIN_DEFAULT_COMBO_WH;
         }
       }
 
-      // 1.1 Item Warehouse Filter Dropdown (#itemWarehouseFilter) - បង្ហាញគ្រប់ស្ថានីយទាំងអស់សម្រាប់ទាំង Admin និង SuperAdmin
+      // 1.1 Item Warehouse Filter Dropdown (#itemWarehouseFilter) - Safe fallback if element exists
       const itemWhSelect = document.getElementById('itemWarehouseFilter');
       if (itemWhSelect) {
-        const curVal = itemWhSelect.value || AppState.selectedAdminWarehouseFilter || 'ALL';
-        itemWhSelect.innerHTML = `
-          <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>
-          ${currentList.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('')}
-        `;
-        if (currentList.includes(curVal) || curVal === 'ALL') {
-          itemWhSelect.value = curVal;
-        } else {
-          itemWhSelect.value = 'ALL';
-          AppState.selectedAdminWarehouseFilter = 'ALL';
-        }
+        itemWhSelect.innerHTML = `<option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>`;
       }
 
       // 2. User Registration Modal Warehouse Selector (Image 2)
@@ -27549,7 +27585,7 @@ function saveLocalUsersToStorage() {
         filtered = filtered.filter(r => r.status === statusFilter);
       }
       if (whFilter !== 'ALL') {
-        filtered = filtered.filter(r => r.warehouse === whFilter);
+        filtered = filtered.filter(r => (typeof matchesTargetWarehouse === 'function') ? matchesTargetWarehouse(r.warehouse, whFilter) : (r.warehouse === whFilter));
       }
       if (q) {
         filtered = filtered.filter(r =>

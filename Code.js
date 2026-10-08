@@ -2725,6 +2725,21 @@ function isSameWarehouseGAS(wh1, wh2) {
   return false;
 }
 
+function isComboWarehouseGAS(wh) {
+  if (!wh) return false;
+  var s = String(wh).trim();
+  return s === '中心库房 & 机电' || (s.indexOf('中心库房') !== -1 && s.indexOf('机电') !== -1);
+}
+
+function matchesTargetWarehouseGAS(loc, targetWh) {
+  if (!targetWh || targetWh === 'ALL' || targetWh === 'គ្រប់ឃ្លាំង' || targetWh === 'គ្រប់ស្ថានីយទាំងអស់') return true;
+  if (!loc) return false;
+  if (isComboWarehouseGAS(targetWh)) {
+    return loc.indexOf('中心库房') !== -1 || loc.indexOf('机电') !== -1 || loc === 'គ្រប់ស្ថានីយទាំងអស់' || loc === 'ALL';
+  }
+  return isSameWarehouseGAS(loc, targetWh);
+}
+
 function getUsersList(userOrPayload) {
 
   let actor = userOrPayload;
@@ -7356,7 +7371,7 @@ function getDashboardStats(userOrPayload, warehouseFilter, optSs) {
     if (!row[0]) continue;
     const loc = idxLocation >= 0 ? String(row[idxLocation] || '').trim() : 'គ្រប់ស្ថានីយទាំងអស់';
     if (targetWarehouse && targetWarehouse !== 'ALL' && targetWarehouse !== 'គ្រប់ឃ្លាំង' && targetWarehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
-      if (loc && loc !== targetWarehouse && !loc.includes(targetWarehouse) && !targetWarehouse.includes(loc) && loc !== 'គ្រប់ស្ថានីយទាំងអស់' && loc !== 'ALL') {
+      if (!matchesTargetWarehouseGAS(loc, targetWarehouse)) {
         continue;
       }
     }
@@ -7421,7 +7436,7 @@ function getDashboardStats(userOrPayload, warehouseFilter, optSs) {
 
       const fromLoc = String(row[9] || '');
 
-      if (targetWarehouse && fromLoc !== targetWarehouse) continue;
+      if (targetWarehouse && !matchesTargetWarehouseGAS(fromLoc, targetWarehouse)) continue;
 
 
 
