@@ -1093,14 +1093,14 @@ function setupDatabase() {
 
 
 
-    whSheet.appendRow(['WH-01', '1-K3 ស្ថានីយ (ភ្នំពេញ)', 'ភ្នំពេញ', 'លោក សុខា', 'Active']);
-    whSheet.appendRow(['WH-02', '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)', 'កំពង់ស្ពឺ កើត', 'កញ្ញា រតនា', 'Active']);
-    whSheet.appendRow(['WH-03', '3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)', 'កំពង់ស្ពឺ លិច', 'លោក ចាន់ណា', 'Active']);
-    whSheet.appendRow(['WH-04', '4-K76 ស្ថានីយ (ត្រែងត្រយឹង)', 'ត្រែងត្រយឹង', 'លោក វិបុល', 'Active']);
-    whSheet.appendRow(['WH-05', '5-K114 ស្ថានីយ (កំពង់សីលា)', 'កំពង់សីលា', 'អ្នកស្រី ធីតា', 'Active']);
-    whSheet.appendRow(['WH-06', '6-K135 ស្ថានីយ (ស្រែអំបិល)', 'ស្រែអំបិល', 'លោក សម្បត្តិ', 'Active']);
-    whSheet.appendRow(['WH-07', '7-K172 ស្ថានីយ (ស្ទឹងហាវ)', 'ស្ទឹងហាវ', 'កញ្ញា ម៉ាលី', 'Active']);
-    whSheet.appendRow(['WH-08', '8-K182 ស្ថានីយ (ព្រះសីហនុ)', 'ព្រះសីហនុ', 'លោក ពិសិដ្ឋ', 'Active']);
+    whSheet.appendRow(['WH-01', 'K3 ស្ថានីយ (ភ្នំពេញ) 01', 'ភ្នំពេញ', 'លោក សុខា', 'Active']);
+    whSheet.appendRow(['WH-02', 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02', 'កំពង់ស្ពឺ កើត', 'កញ្ញា រតនា', 'Active']);
+    whSheet.appendRow(['WH-03', 'K43 ស្ថានីយ (កំពង់ស្ពឺ លិច) 03', 'កំពង់ស្ពឺ លិច', 'លោក ចាន់ណា', 'Active']);
+    whSheet.appendRow(['WH-04', 'K76 ស្ថានីយ (ត្រែងត្រយឹង) 04', 'ត្រែងត្រយឹង', 'លោក វិបុល', 'Active']);
+    whSheet.appendRow(['WH-05', 'K114 ស្ថានីយ (កំពង់សីលា) 05', 'កំពង់សីលា', 'អ្នកស្រី ធីតា', 'Active']);
+    whSheet.appendRow(['WH-06', 'K135 ស្ថានីយ (ស្រែអំបិល) 06', 'ស្រែអំបិល', 'លោក សម្បត្តិ', 'Active']);
+    whSheet.appendRow(['WH-07', 'K172 ស្ថានីយ (ស្ទឹងហាវ) 07', 'ស្ទឹងហាវ', 'កញ្ញា ម៉ាលី', 'Active']);
+    whSheet.appendRow(['WH-08', 'K182 ស្ថានីយ (ព្រះសីហនុ) 08', 'ព្រះសីហនុ', 'លោក ពិសិដ្ឋ', 'Active']);
     whSheet.appendRow(['WH-09', '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)', 'ចុងស៊ីង', 'លោក សារ៉ាត់', 'Active']);
     whSheet.appendRow(['WH-10', '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)', '机电', 'អ្នកស្រី សុភា', 'Active']);
 
@@ -1852,7 +1852,7 @@ function loginUser(usernameOrData, password, extraDeviceInfo) {
           email: String(row[3]),
           role: String(row[6]),
           status: String(row[7] || 'Active'),
-          warehouse: String(row[9] || (String(row[6]) === 'Admin' || String(row[6]) === 'SuperAdmin' ? 'ALL' : '1-K3 ស្ថានីយ (ភ្នំពេញ)')),
+          warehouse: String(row[9] || (String(row[6]) === 'Admin' || String(row[6]) === 'SuperAdmin' ? 'ALL' : 'K3 ស្ថានីយ (ភ្នំពេញ) 01')),
           avatar: String(row[10] || ''),
           phone: String(row[11] || ''),
           boundDevices: boundDevices,
@@ -2720,28 +2720,28 @@ function toCanonicalWarehouseNameGAS(wh) {
   if (s === 'ADMIN_COMBO' || s === '中心库房 & 机电' || (s.indexOf('中心库房') !== -1 && s.indexOf('机电') !== -1)) return '中心库房 & 机电';
 
   if (sLower.indexOf('k3') !== -1 || s.indexOf('ភ្នំពេញ') !== -1 || sLower === 'wh-01' || s.indexOf('ឃ្លាំងទី ០១') !== -1 || s.indexOf('សែនសុខ') !== -1) {
-    return '1-K3 ស្ថានីយ (ភ្នំពេញ)';
+    return 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
   }
   if (sLower.indexOf('k26') !== -1 || s.indexOf('កំពង់ស្ពឺ កើត') !== -1 || sLower === 'wh-02' || s.indexOf('ឃ្លាំងទី ០២') !== -1 || s.indexOf('ទួលគោក') !== -1) {
-    return '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)';
+    return 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02';
   }
   if (sLower.indexOf('k43') !== -1 || s.indexOf('កំពង់ស្ពឺ លិច') !== -1 || sLower === 'wh-03' || s.indexOf('ឃ្លាំងទី ០៣') !== -1 || s.indexOf('សៀមរាប') !== -1) {
-    return '3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)';
+    return 'K43 ស្ថានីយ (កំពង់ស្ពឺ លិច) 03';
   }
   if (sLower.indexOf('k76') !== -1 || s.indexOf('ត្រែងត្រយឹង') !== -1 || s.indexOf('ព្រែកក្តួច') !== -1 || sLower === 'wh-04' || s.indexOf('ឃ្លាំងទី ០៤') !== -1 || s.indexOf('បាត់ដំបង') !== -1) {
-    return '4-K76 ស្ថានីយ (ត្រែងត្រយឹង)';
+    return 'K76 ស្ថានីយ (ត្រែងត្រយឹង) 04';
   }
   if (sLower.indexOf('k114') !== -1 || sLower.indexOf('k113') !== -1 || s.indexOf('កំពង់សីលា') !== -1 || sLower === 'wh-05' || s.indexOf('ឃ្លាំងទី ០៥') !== -1) {
-    return '5-K114 ស្ថានីយ (កំពង់សីលា)';
+    return 'K114 ស្ថានីយ (កំពង់សីលា) 05';
   }
   if (sLower.indexOf('k135') !== -1 || s.indexOf('ស្រែអំបិល') !== -1 || sLower === 'wh-06' || s.indexOf('ឃ្លាំងទី ០៦') !== -1) {
-    return '6-K135 ស្ថានីយ (ស្រែអំបិល)';
+    return 'K135 ស្ថានីយ (ស្រែអំបិល) 06';
   }
   if (sLower.indexOf('k172') !== -1 || s.indexOf('ស្ទឹងហាវ') !== -1 || sLower === 'wh-07' || s.indexOf('ឃ្លាំងទី ០៧') !== -1) {
-    return '7-K172 ស្ថានីយ (ស្ទឹងហាវ)';
+    return 'K172 ស្ថានីយ (ស្ទឹងហាវ) 07';
   }
   if (sLower.indexOf('k182') !== -1 || s.indexOf('ព្រះសីហនុ') !== -1 || sLower === 'wh-08' || s.indexOf('ឃ្លាំងទី ០៨') !== -1) {
-    return '8-K182 ស្ថានីយ (ព្រះសីហនុ)';
+    return 'K182 ស្ថានីយ (ព្រះសីហនុ) 08';
   }
   if (s.indexOf('中心库房') !== -1 || sLower === 'wh-hq' || s.indexOf('ចុងស៊ីង') !== -1 || s.indexOf('បុងសឹង') !== -1) {
     return '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
@@ -2771,8 +2771,8 @@ function isSameWarehouseGAS(wh1, wh2) {
   var n1 = String(wh1).replace(/^[📍🏢\s]+/, '').trim().toLowerCase();
   var n2 = String(wh2).replace(/^[📍🏢\s]+/, '').trim().toLowerCase();
   if (n1 === n2 || n1.indexOf(n2) !== -1 || n2.indexOf(n1) !== -1) return true;
-  var m1 = n1.match(/^(\d+-[a-z0-9]+|\d+)/);
-  var m2 = n2.match(/^(\d+-[a-z0-9]+|\d+)/);
+  var m1 = n1.match(/k(\d+)/i) || n1.match(/^(\d+-[a-z0-9]+|\d+)/);
+  var m2 = n2.match(/k(\d+)/i) || n2.match(/^(\d+-[a-z0-9]+|\d+)/);
   if (m1 && m2 && m1[1] === m2[1]) return true;
   return false;
 }
@@ -2860,7 +2860,7 @@ function getUsersList(userOrPayload) {
         role: data[i][6],
         status: data[i][7],
         createdAt: data[i][8],
-        warehouse: data[i][9] || (data[i][6] === 'Admin' || data[i][6] === 'SuperAdmin' ? 'ALL' : '1-K3 ស្ថានីយ (ភ្នំពេញ)'),
+        warehouse: data[i][9] || (data[i][6] === 'Admin' || data[i][6] === 'SuperAdmin' ? 'ALL' : 'K3 ស្ថានីយ (ភ្នំពេញ) 01'),
         avatar: data[i][10] || '',
         phone: data[i][11] || '',
         deleteReason: data[i][12] || '',
@@ -4756,7 +4756,7 @@ function getItemsList(userOrPayload, warehouseFilter, optSs) {
  */
 
 function normalizeStationLocationInternal(loc) {
-  if (!loc) return '1-K3 ស្ថានីយ (ភ្នំពេញ)';
+  if (!loc) return 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
   return toCanonicalWarehouseNameGAS(loc);
 }
 
@@ -5037,7 +5037,7 @@ function saveOrUpdateItem(itemDataOrPayload, username) {
   const newNameNorm = normStr(itemData.name);
   const newSizeNorm = normStr(itemData.size);
   const newColorNorm = normStr(itemData.color);
-  const newLoc = normalizeStationLocationInternal(itemData.location || '1-K3 ស្ថានីយ (ភ្នំពេញ)');
+  const newLoc = normalizeStationLocationInternal(itemData.location || 'K3 ស្ថានីយ (ភ្នំពេញ) 01');
   itemData.location = newLoc;
 
   // 1. DUPLICATE CHECK: Prevent duplicate item based on (Name + Size + Color)
@@ -5153,7 +5153,7 @@ function saveOrUpdateItem(itemDataOrPayload, username) {
 
         fromLocation: 'Initial Balance',
 
-        toLocation: itemData.location || '1-K3 ស្ថានីយ (ភ្នំពេញ)',
+        toLocation: itemData.location || 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
 
         notes: 'Initial Stock on Creation',
 
@@ -5437,14 +5437,14 @@ function getWarehousesListInternal(ss) {
   if (!ss) ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(SHEETS.WAREHOUSES);
   const defaultList = [
-    '1-K3 ស្ថានីយ (ភ្នំពេញ)',
-    '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)',
-    '3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)',
-    '4-K76 ស្ថានីយ (ត្រែងត្រយឹង)',
-    '5-K114 ស្ថានីយ (កំពង់សីលា)',
-    '6-K135 ស្ថានីយ (ស្រែអំបិល)',
-    '7-K172 ស្ថានីយ (ស្ទឹងហាវ)',
-    '8-K182 ស្ថានីយ (ព្រះសីហនុ)',
+    'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+    'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+    'K43 ស្ថានីយ (កំពង់ស្ពឺ លិច) 03',
+    'K76 ស្ថានីយ (ត្រែងត្រយឹង) 04',
+    'K114 ស្ថានីយ (កំពង់សីលា) 05',
+    'K135 ស្ថានីយ (ស្រែអំបិល) 06',
+    'K172 ស្ថានីយ (ស្ទឹងហាវ) 07',
+    'K182 ស្ថានីយ (ព្រះសីហនុ) 08',
     '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
     '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)',
     '综合办 (ផ្នែកកិច្ចការទូទៅ)'
@@ -5486,14 +5486,14 @@ function getWarehousesDetailed(ss) {
   if (!ss) ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(SHEETS.WAREHOUSES);
   const defaultDetailed = [
-    { id: 'WH-01', name: '1-K3 ស្ថានីយ (ភ្នំពេញ)', location: 'ភ្នំពេញ', manager: 'លោក សុខា', status: 'Active' },
-    { id: 'WH-02', name: '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)', location: 'កំពង់ស្ពឺ កើត', manager: 'កញ្ញា រតនា', status: 'Active' },
-    { id: 'WH-03', name: '3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)', location: 'កំពង់ស្ពឺ លិច', manager: 'លោក ចាន់ណា', status: 'Active' },
-    { id: 'WH-04', name: '4-K76 ស្ថានីយ (ត្រែងត្រយឹង)', location: 'ត្រែងត្រយឹង', manager: 'លោក វិបុល', status: 'Active' },
-    { id: 'WH-05', name: '5-K114 ស្ថានីយ (កំពង់សីលា)', location: 'កំពង់សីលា', manager: 'អ្នកស្រី ធីតា', status: 'Active' },
-    { id: 'WH-06', name: '6-K135 ស្ថានីយ (ស្រែអំបិល)', location: 'ស្រែអំបិល', manager: 'លោក សម្បត្តិ', status: 'Active' },
-    { id: 'WH-07', name: '7-K172 ស្ថានីយ (ស្ទឹងហាវ)', location: 'ស្ទឹងហាវ', manager: 'កញ្ញា ម៉ាលី', status: 'Active' },
-    { id: 'WH-08', name: '8-K182 ស្ថានីយ (ព្រះសីហនុ)', location: 'ព្រះសីហនុ', manager: 'លោក ពិសិដ្ឋ', status: 'Active' },
+    { id: 'WH-01', name: 'K3 ស្ថានីយ (ភ្នំពេញ) 01', location: 'ភ្នំពេញ', manager: 'លោក សុខា', status: 'Active' },
+    { id: 'WH-02', name: 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02', location: 'កំពង់ស្ពឺ កើត', manager: 'កញ្ញា រតនា', status: 'Active' },
+    { id: 'WH-03', name: 'K43 ស្ថានីយ (កំពង់ស្ពឺ លិច) 03', location: 'កំពង់ស្ពឺ លិច', manager: 'លោក ចាន់ណា', status: 'Active' },
+    { id: 'WH-04', name: 'K76 ស្ថានីយ (ត្រែងត្រយឹង) 04', location: 'ត្រែងត្រយឹង', manager: 'លោក វិបុល', status: 'Active' },
+    { id: 'WH-05', name: 'K114 ស្ថានីយ (កំពង់សីលា) 05', location: 'កំពង់សីលា', manager: 'អ្នកស្រី ធីតា', status: 'Active' },
+    { id: 'WH-06', name: 'K135 ស្ថានីយ (ស្រែអំបិល) 06', location: 'ស្រែអំបិល', manager: 'លោក សម្បត្តិ', status: 'Active' },
+    { id: 'WH-07', name: 'K172 ស្ថានីយ (ស្ទឹងហាវ) 07', location: 'ស្ទឹងហាវ', manager: 'កញ្ញា ម៉ាលី', status: 'Active' },
+    { id: 'WH-08', name: 'K182 ស្ថានីយ (ព្រះសីហនុ) 08', location: 'ព្រះសីហនុ', manager: 'លោក ពិសិដ្ឋ', status: 'Active' },
     { id: 'WH-09', name: '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)', location: 'ចុងស៊ីង', manager: 'លោក សារ៉ាត់', status: 'Active' },
     { id: 'WH-10', name: '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)', location: '机电', manager: 'អ្នកស្រី សុភា', status: 'Active' },
     { id: 'WH-11', name: '综合办 (ផ្នែកកិច្ចការទូទៅ)', location: '综合办', manager: 'លោក វណ្ណា', status: 'Active' }
@@ -8475,7 +8475,7 @@ function standardizeAndFormatStockInSheet(optSs) {
     [
       'DOC-IN-20260929-5181', '2026-09-29', 'SKU-2021', 'ម៉ាស៊ីនគិតលេខ-计算器', '២៣', 'ខ្មៅ', 'E02',
       1, 'គ្រឿង', '0 គ្រឿង', '1 គ្រឿង', '0 គ្រឿង ➔ 1 គ្រឿង',
-      '1-K3 ស្ថានីយ (ភ្នំពេញ)', '陈龙', '-', '陈龙', '2026-09-29 07:07:25'
+      'K3 ស្ថានីយ (ភ្នំពេញ) 01', '陈龙', '-', '陈龙', '2026-09-29 07:07:25'
     ],
     [
       'DOC-IN-20260929-4949', '2026-09-29', 'SKU-2089', 'ក្រដាសជូតមាត់-抽纸', 'LM', 'ស', 'A03',
