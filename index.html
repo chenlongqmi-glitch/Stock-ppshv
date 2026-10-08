@@ -1568,6 +1568,17 @@
           <span class="ml-2">ស្តុកចូល (Stock In)</span>
         </a>
 
+        <!-- ទទួលទំនិញពី Admin (Incoming Dispatches from Admin) -->
+        <a href="#incoming" onclick="navigateTab('incoming')" id="navIncomingDispatches"
+          class="nav-link flex items-center justify-between px-3.5 py-2.5 rounded-xl hover:bg-white/15 hover:text-white transition-all text-cyan-300">
+          <div class="flex items-center">
+            <i class="fa-solid fa-truck-ramp-box w-6 text-center"></i>
+            <span class="ml-2" id="navIncomingDispatchesText">ទទួលទំនិញពី Admin</span>
+          </div>
+          <span id="incomingPendingBadge"
+            class="hidden px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500 text-white animate-pulse shadow">0</span>
+        </a>
+
         <a href="#stockout" onclick="navigateTab('stockout')"
           class="nav-link flex items-center px-3.5 py-2.5 rounded-xl hover:bg-white/15 hover:text-white transition-all text-amber-300">
           <i class="fa-solid fa-circle-arrow-up w-6 text-center"></i>
@@ -2053,6 +2064,9 @@
           <!-- SuperAdmin Pending User Deletion Alert Banner -->
           <div id="dashSuperAdminPendingDeletionsAlert"></div>
 
+          <!-- Station Pending Incoming Goods Alert Banner -->
+          <div id="dashStationPendingDispatchesAlert" class="hidden"></div>
+
           <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5">
             <div
               class="glass-card p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
@@ -2361,9 +2375,6 @@
         <!-- TAB 3: STOCK IN (ស្តុកចូល) -->
         <!-- ========================================== -->
         <div id="tabStockIn" class="w-full space-y-4 hidden">
-          <!-- CARD: ទំនិញរង់ចាំទទួលចូលស្តុកពី ADMIN (PENDING INCOMING DISPATCHES) -->
-          <div id="pendingIncomingDispatchesCard" class="w-full"></div>
-
           <div id="stockInFormCard" class="glass-card form-freeze-card p-3 sm:p-4 lg:p-4 rounded-2xl sm:rounded-3xl shadow-sm border-2 border-emerald-300/80 bg-gradient-to-br from-emerald-50/30 via-white to-teal-50/20">
 
             <form id="stockInForm" onsubmit="handleStockInSubmit(event)" class="space-y-3">
@@ -2720,6 +2731,13 @@
               </table>
             </div>
           </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- TAB: INCOMING GOODS FROM ADMIN (ទទួលទំនិញពី ADMIN) -->
+        <!-- ========================================== -->
+        <div id="tabIncoming" class="w-full space-y-4 hidden">
+          <div id="pendingIncomingDispatchesCard" class="w-full"></div>
         </div>
 
         <!-- ========================================== -->
@@ -11671,6 +11689,9 @@ function saveLocalUsersToStorage() {
       if (typeof checkCurrentUserLiveRoleSync === 'function') {
         setTimeout(checkCurrentUserLiveRoleSync, 600);
       }
+      if (typeof updateIncomingDispatchesBadge === 'function') {
+        updateIncomingDispatchesBadge();
+      }
     }
 
     // ==========================================
@@ -12064,7 +12085,8 @@ function saveLocalUsersToStorage() {
       if (typeof renderItemsTable === 'function') renderItemsTable();
       if (typeof filterStockInHistoryTable === 'function') filterStockInHistoryTable();
       if (typeof filterStockOutHistoryTable === 'function') filterStockOutHistoryTable();
-      if (typeof renderPendingIncomingDispatches === 'function') renderPendingIncomingDispatches();
+      if (AppState.currentTab === 'incoming' && typeof renderPendingIncomingDispatches === 'function') renderPendingIncomingDispatches();
+      if (typeof updateIncomingDispatchesBadge === 'function') updateIncomingDispatchesBadge();
       if (AppState.currentTab === 'reports' && typeof loadReportTransactions === 'function') loadReportTransactions();
       if (AppState.currentTab === 'requests' && typeof filterProductRequests === 'function') filterProductRequests();
       if (typeof applyUserWarehouseToStockInLocation === 'function') applyUserWarehouseToStockInLocation();
@@ -12581,6 +12603,8 @@ function saveLocalUsersToStorage() {
       document.getElementById('tabDashboard').classList.toggle('hidden', tabName !== 'dashboard');
       document.getElementById('tabItems').classList.toggle('hidden', tabName !== 'items');
       document.getElementById('tabStockIn').classList.toggle('hidden', tabName !== 'stockin');
+      const tabIncomingEl = document.getElementById('tabIncoming');
+      if (tabIncomingEl) tabIncomingEl.classList.toggle('hidden', tabName !== 'incoming');
       document.getElementById('tabStockOut').classList.toggle('hidden', tabName !== 'stockout');
       document.getElementById('tabTransfer').classList.toggle('hidden', tabName !== 'transfer');
       document.getElementById('tabReports').classList.toggle('hidden', tabName !== 'reports');
@@ -12596,7 +12620,7 @@ function saveLocalUsersToStorage() {
         } else {
           mainContainer.classList.remove('chat-mode-active');
         }
-        if (tabName === 'stockin' || tabName === 'stockout' || tabName === 'items') {
+        if (tabName === 'stockin' || tabName === 'stockout' || tabName === 'items' || tabName === 'incoming') {
           mainContainer.classList.add('stock-freeze-active');
           mainContainer.scrollTop = 0;
         } else {
@@ -12623,6 +12647,11 @@ function saveLocalUsersToStorage() {
           inactiveClass: 'text-emerald-300 hover:bg-white/15 hover:text-white font-medium',
           layoutClass: 'flex items-center',
           activeBg: 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700'
+        },
+        'incoming': {
+          inactiveClass: 'text-cyan-300 hover:bg-white/15 hover:text-white font-medium',
+          layoutClass: 'flex items-center justify-between',
+          activeBg: 'bg-gradient-to-r from-teal-600 via-cyan-600 to-emerald-600'
         },
         'stockout': {
           inactiveClass: 'text-amber-300 hover:bg-white/15 hover:text-white font-medium',
@@ -12704,6 +12733,7 @@ function saveLocalUsersToStorage() {
         dashboard: 'ផ្ទាំងគ្រប់គ្រងទូទៅ (Live Dashboard)',
         items: 'បញ្ជីទំនិញទាំងអស់ (Product Inventory)',
         stockin: 'កត់ត្រាទំនិញចូលស្តុក (Stock In)',
+        incoming: isPrivilegedAdmin ? 'តាមដានការទទួលទំនិញតាមស្ថានីយ (Station Dispatches Tracker)' : 'ទទួលទំនិញចូលស្តុកពី Admin (Incoming Dispatches)',
         stockout: 'កត់ត្រាទំនិញចេញពីស្តុក (Stock Out)',
         transfer: 'ផ្ទេរស្តុក និង កែតម្រូវទិន្នន័យ (Transfer & Adjust)',
         reports: 'របាយការណ៍ចរន្តស្តុក (Movement Ledger)',
@@ -12716,6 +12746,7 @@ function saveLocalUsersToStorage() {
         dashboard: 'ទិដ្ឋភាពទូទៅនៃស្តុក ចលនាទំនិញ និងស្ថិតិសំខាន់ៗ',
         items: 'គ្រប់គ្រងបញ្ជីទំនិញ តម្លៃ ខ្នាត និងស្តុកជាក់ស្តែង',
         stockin: 'កត់ត្រាការទិញចូលពី Supplier ឬទទួលទំនិញថ្មីចូលក្នុងឃ្លាំង',
+        incoming: isPrivilegedAdmin ? 'តាមដានស្ថានភាពទំនិញដែលបានបើកចេញពី Admin ទៅកាន់បណ្តាស្ថានីយនីមួយៗ' : `ផ្ទៀងផ្ទាត់ និងទទួលទំនិញដែល Admin បានបើកមកកាន់ ${u?.warehouse || 'ស្ថានីយ'}`,
         stockout: 'កត់ត្រាការបើកទំនិញចេញ ការផ្ទេរទៅស្ថានីយ ឬការដកប្រើប្រាស់',
         transfer: 'ផ្ទេរទំនិញរវាងឃ្លាំង ឬស្ថានីយ និងកែសម្រួលទិន្នន័យស្តុក',
         reports: 'របាយការណ៍ចរន្តស្តុក ប្រវត្តិប្រតិបត្តិការ និងការវិភាគ',
@@ -12728,6 +12759,7 @@ function saveLocalUsersToStorage() {
         dashboard: '<div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center text-sm sm:text-base shadow-sm shadow-blue-500/20 shrink-0"><i class="fa-solid fa-chart-pie"></i></div>',
         items: '<div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 text-white flex items-center justify-center text-sm sm:text-base shadow-sm shadow-sky-500/20 shrink-0"><i class="fa-solid fa-boxes-stacked"></i></div>',
         stockin: '<div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center text-sm sm:text-base shadow-sm shadow-emerald-500/20 shrink-0"><i class="fa-solid fa-circle-arrow-down"></i></div>',
+        incoming: '<div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-teal-500 via-cyan-500 to-emerald-600 text-white flex items-center justify-center text-sm sm:text-base shadow-sm shadow-cyan-500/20 shrink-0"><i class="fa-solid fa-truck-ramp-box"></i></div>',
         stockout: '<div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 text-white flex items-center justify-center text-sm sm:text-base shadow-sm shadow-amber-500/20 shrink-0"><i class="fa-solid fa-circle-arrow-up"></i></div>',
         transfer: '<div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 text-white flex items-center justify-center text-sm sm:text-base shadow-sm shadow-purple-500/20 shrink-0"><i class="fa-solid fa-arrow-right-arrow-left"></i></div>',
         reports: '<div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white flex items-center justify-center text-sm sm:text-base shadow-sm shadow-indigo-500/20 shrink-0"><i class="fa-solid fa-file-invoice"></i></div>',
@@ -12753,6 +12785,7 @@ function saveLocalUsersToStorage() {
         initStockInForm();
         loadStockInHistory();
         initStockInLayoutCustomizer();
+      } else if (tabName === 'incoming') {
         if (typeof renderPendingIncomingDispatches === 'function') renderPendingIncomingDispatches();
       } else if (tabName === 'stockout') {
         populateItemSelectDropdowns();
@@ -12832,6 +12865,7 @@ function saveLocalUsersToStorage() {
 
     // Dashboard Functions
     async function loadDashboard() {
+      if (typeof updateIncomingDispatchesBadge === 'function') updateIncomingDispatchesBadge();
       const activeWh = (typeof getEffectiveStationFilter === 'function') ? getEffectiveStationFilter() : (AppState.selectedAdminWarehouseFilter || 'ALL');
 
       // Instant local render from memory (< 1ms)
@@ -18603,13 +18637,15 @@ function saveLocalUsersToStorage() {
               </div>
               <div>
                 <div class="flex items-center gap-2">
-                  <h4 class="font-black text-slate-800 text-sm sm:text-base">📦 បញ្ជីទំនិញរង់ចាំទទួលចូលស្តុកពី Admin (Pending Incoming Dispatches)</h4>
+                  <h4 class="font-black text-slate-800 text-sm sm:text-base">
+                    ${!isPrivileged ? '📦 បញ្ជីទំនិញរង់ចាំទទួលចូលស្តុកពី Admin (Pending Incoming Dispatches)' : '📦 បញ្ជីតាមដានការទទួលទំនិញតាមស្ថានីយ (Station Dispatches Tracker)'}
+                  </h4>
                   <span id="pendingDispatchesBadge" class="px-2.5 py-0.5 rounded-full text-xs font-black ${pendingCount > 0 ? 'bg-amber-500 text-white animate-pulse' : 'bg-slate-200 text-slate-600'} shadow-2xs font-mono">
                     ${pendingCount} មុខទំនិញ
                   </span>
                 </div>
                 <p class="text-xs text-slate-500 font-khmer">
-                  ${!isPrivileged ? `ទំនិញដែលបានបើកចេញពី Admin មកកាន់ <b>${escapeHtml(userWarehouse || 'ស្ថានីយ')}</b> (ផ្ទៀងផ្ទាត់ និងបញ្ចូលស្តុក)` : 'ទំនិញដែលបានបើកចេញពី Admin ទៅកាន់បណ្តាស្ថានីយទាំងអស់ (Admin Master View)'}
+                  ${!isPrivileged ? `ទំនិញដែលបានបើកចេញពី Admin មកកាន់ <b>${escapeHtml(userWarehouse || 'ស្ថានីយ')}</b> (សូមពិនិត្យចំនួន និងចុចទទួលចូលស្តុក)` : 'ទំនិញដែលបានបើកចេញពី Admin ទៅកាន់បណ្តាស្ថានីយទាំងអស់ (Admin Master View)'}
                 </p>
               </div>
             </div>
@@ -18766,7 +18802,75 @@ function saveLocalUsersToStorage() {
           </div>
         </div>
       `;
+
+      if (typeof updateIncomingDispatchesBadge === 'function') updateIncomingDispatchesBadge();
     }
+
+    function updateIncomingDispatchesBadge() {
+      loadLocalDispatchesFromStorage();
+      const allDispatches = LOCAL_DB.dispatches || [];
+      const u = AppState.currentUser || {};
+      const isSuperAdmin = isUserSuperAdmin(u);
+      const isAdmin = isUserAdmin(u);
+      const isPrivileged = isSuperAdmin || isAdmin;
+      const userWarehouse = u.warehouse || '';
+
+      const navText = document.getElementById('navIncomingDispatchesText');
+      if (navText) {
+        navText.innerText = isPrivileged ? 'តាមដានការទទួលតាមស្ថានីយ' : 'ទទួលទំនិញពី Admin';
+      }
+
+      let pendingCount = 0;
+      if (isPrivileged) {
+        const activeWh = AppState.selectedAdminWarehouseFilter || 'ALL';
+        if (activeWh && activeWh !== 'ALL' && !isAdminComboWarehouse(activeWh)) {
+          pendingCount = allDispatches.filter(d => d.status === 'PENDING' && (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(d.toLocation, activeWh) : isSameWarehouse(d.toLocation, activeWh))).length;
+        } else {
+          pendingCount = allDispatches.filter(d => d.status === 'PENDING').length;
+        }
+      } else {
+        pendingCount = allDispatches.filter(d => d.status === 'PENDING' && (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(d.toLocation, userWarehouse) : isSameWarehouse(d.toLocation, userWarehouse))).length;
+      }
+
+      const badge = document.getElementById('incomingPendingBadge');
+      if (badge) {
+        badge.innerText = pendingCount;
+        badge.classList.toggle('hidden', pendingCount === 0);
+      }
+
+      const dashAlert = document.getElementById('dashStationPendingDispatchesAlert');
+      if (dashAlert) {
+        if (!isPrivileged && pendingCount > 0) {
+          dashAlert.innerHTML = `
+            <div class="p-3.5 sm:p-4 bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/5 border-2 border-amber-400/80 rounded-2xl sm:rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs animate-in fade-in">
+              <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 text-white flex items-center justify-center text-lg shadow-sm shadow-amber-500/30 shrink-0">
+                  <i class="fa-solid fa-truck-ramp-box animate-pulse"></i>
+                </div>
+                <div>
+                  <h4 class="font-bold text-amber-950 text-xs sm:text-sm flex items-center gap-1.5 flex-wrap">
+                    <span>🔔 ស្ថានីយរបស់អ្នកមាន</span>
+                    <span class="px-2 py-0.5 rounded-full bg-amber-500 text-white font-mono text-xs font-black shadow-2xs">${pendingCount} មុខទំនិញ</span>
+                    <span>កំពុងរង់ចាំទទួលចូលស្តុកពី Admin!</span>
+                  </h4>
+                  <p class="text-[11px] text-amber-800/90 mt-0.5 font-khmer">ទំនិញត្រូវបានបើកចេញពីឃ្លាំងកណ្តាល សូមចុចពិនិត្យផ្ទៀងផ្ទាត់ និងទទួលចូលស្តុកជាក់ស្តែង។</p>
+                </div>
+              </div>
+              <button type="button" onclick="navigateTab('incoming')"
+                class="px-4 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center space-x-1.5 shrink-0 cursor-pointer">
+                <i class="fa-solid fa-boxes-packing text-xs"></i>
+                <span>ពិនិត្យ & ទទួលចូលស្តុកឥឡូវ ❯</span>
+              </button>
+            </div>
+          `;
+          dashAlert.classList.remove('hidden');
+        } else {
+          dashAlert.innerHTML = '';
+          dashAlert.classList.add('hidden');
+        }
+      }
+    }
+    window.updateIncomingDispatchesBadge = updateIncomingDispatchesBadge;
 
     function openStationReceptionModal(dispatchId) {
       loadLocalDispatchesFromStorage();
@@ -19029,7 +19133,7 @@ function saveLocalUsersToStorage() {
           position: 'top-end',
           icon: 'info',
           title: `<b>📦 មាន ${pendingList.length} មុខទំនិញរង់ចាំទទួល</b>`,
-          html: `<p class="text-xs">ទំនិញផ្ញើមកពី Admin ចូលក្នុង ${escapeHtml(myWh)}</p><button onclick="navigateTab('stockin'); Swal.close();" class="mt-1 px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-[10px] font-bold cursor-pointer">ចុចទទួលឥឡូវ ❯</button>`,
+          html: `<p class="text-xs">ទំនិញផ្ញើមកពី Admin ចូលក្នុង ${escapeHtml(myWh)}</p><button onclick="navigateTab('incoming'); Swal.close();" class="mt-1 px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-[10px] font-bold cursor-pointer">ចុចទទួលឥឡូវ ❯</button>`,
           showConfirmButton: false,
           timer: 8000,
           timerProgressBar: true
@@ -28807,6 +28911,8 @@ function saveLocalUsersToStorage() {
               openSuperAdminDeletionReviewModal(targetUserId || '', targetUsername || '');
             }
           }
+        } else if (type === 'INCOMING_DISPATCH') {
+          navigateTab('incoming');
         } else if (type === 'STOCK_IN') {
           navigateTab('stockin');
         } else if (type === 'STOCK_OUT') {
@@ -28829,6 +28935,18 @@ function saveLocalUsersToStorage() {
       const pendingDeletions = (LOCAL_DB.users || []).filter(u => u.status === 'Pending_Deletion');
       const currentSig = pendingDeletions.map(u => `${u.userId || u.username}:${u.deleteReason || ''}`).sort().join('|');
 
+      const u = AppState.currentUser || {};
+      const isSuperAdmin = isUserSuperAdmin(u);
+      const isAdmin = isUserAdmin(u);
+      const isPrivileged = isSuperAdmin || isAdmin;
+      const myWh = u.warehouse || '';
+      loadLocalDispatchesFromStorage();
+      const stationPendingDispatches = (LOCAL_DB.dispatches || []).filter(d => {
+        if (d.status !== 'PENDING') return false;
+        if (isPrivileged) return true;
+        return (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(d.toLocation, myWh) : isSameWarehouse(d.toLocation, myWh));
+      });
+
       const filteredList = notificationsList.filter(n => {
         // If SuperAdmin has viewed/acknowledged, do not show deletion request in drawer!
         if (isActorSuperAdmin && n.type === 'USER_DELETION_REQUEST') {
@@ -28837,6 +28955,19 @@ function saveLocalUsersToStorage() {
         if (n.type === 'USER_DELETION_REQUEST' && !isActorSuperAdmin) return false;
         return true;
       });
+
+      if (stationPendingDispatches.length > 0) {
+        filteredList.unshift({
+          type: 'INCOMING_DISPATCH',
+          title: `📦 ទំនិញរង់ចាំទទួលចូលស្តុក (${stationPendingDispatches.length} មុខ)`,
+          message: isPrivileged 
+            ? `មានទំនិញ ${stationPendingDispatches.length} មុខកំពុងរង់ចាំស្ថានីយនានាទទួលចូលស្តុក`
+            : `Admin បានបើកទំនិញ ${stationPendingDispatches.length} មុខមកកាន់ ${myWh} សូមចុចទទួលចូលស្តុក`,
+          time: 'ថ្មីៗ',
+          warehouse: isPrivileged ? 'ពហុស្ថានីយ' : myWh,
+          user: 'Admin Dispatch'
+        });
+      }
 
       const listEl = document.getElementById('notifList');
       const badge = document.getElementById('notifBadge');
@@ -28858,6 +28989,7 @@ function saveLocalUsersToStorage() {
         const clickHandler = `onclick="handleNotificationItemClick('${safeType}', '${safeUserId}', '${safeUsername}')"`;
 
         const dotColor = (n.type === 'USER_DELETION_REQUEST') ? 'bg-rose-600 animate-ping' :
+          (n.type === 'INCOMING_DISPATCH') ? 'bg-amber-500 animate-pulse' :
           (n.type === 'USER_DELETION_APPROVED') ? 'bg-emerald-500' :
           (n.type === 'USER_DELETION_REJECTED') ? 'bg-slate-500' :
           (n.type === 'STOCK_OUT') ? 'bg-amber-500' :
@@ -28865,6 +28997,7 @@ function saveLocalUsersToStorage() {
           (n.type === 'USER_REGISTRATION') ? 'bg-amber-500 animate-pulse' : 'bg-blue-500';
 
         const actionText = (n.type === 'USER_REGISTRATION') ? 'ចុចពិនិត្យ & អនុម័ត ❯' :
+          (n.type === 'INCOMING_DISPATCH') ? 'ចុចទទួលចូលស្តុក ❯' :
           (n.type === 'USER_DELETION_REQUEST') ? (isActorSuperAdmin ? 'ចុចមើលព័ត៌មានលម្អិត ❯' : 'ចុចត្រួតពិនិត្យ ❯') :
           (n.type === 'STOCK_IN') ? 'ចុចមើលស្តុកចូល ❯' :
           (n.type === 'STOCK_OUT') ? 'ចុចមើលស្តុកចេញ ❯' :
