@@ -4475,6 +4475,79 @@ function getItemsList(userOrPayload, warehouseFilter, optSs) {
   const idxStatus = colIdx('status', idxPackStock >= 0 ? 15 : 14);
   const idxUpdatedAt = colIdx('updatedat', idxPackStock >= 0 ? 16 : 15);
 
+  // Pre-calculate Zone breakdowns and net transaction quantities from Stock_in & Stock_out sheets
+  const itemZoneMap = {}; // skuLower -> { zones: { A02: 42, A08: 3 }, totalIn: 45, totalOut: 0 }
+  try {
+    const sInSheet = ss.getSheetByName('Stock_in');
+    if (sInSheet && sInSheet.getLastRow() > 1) {
+      const sInData = sInSheet.getDataRange().getValues();
+      const sHeaders = (sInData[0] || []).map(h => String(h || '').trim().toLowerCase());
+      const sSkuIdx = sHeaders.indexOf('sku') >= 0 ? sHeaders.indexOf('sku') : 2;
+      const sQtyIdx = sHeaders.indexOf('quantity') >= 0 ? sHeaders.indexOf('quantity') : 7;
+      const sZoneIdx = sHeaders.indexOf('zone') >= 0 ? sHeaders.indexOf('zone') : 6;
+      const sNotesIdx = sHeaders.indexOf('notes') >= 0 ? sHeaders.indexOf('notes') : 14;
+
+      for (let r = 1; r < sInData.length; r++) {
+        const rSku = String(sInData[r][sSkuIdx] || '').trim();
+        if (!rSku) continue;
+        const rQty = Number(sInData[r][sQtyIdx] || 0);
+        let rZone = String(sInData[r][sZoneIdx] || '').trim();
+        if (!rZone || rZone === '-' || rZone === 'គ្មាន') {
+          const notesStr = String(sInData[r][sNotesIdx] || '');
+          const m = notesStr.match(/\[(?:តំបន់|Zone):\s*([^\]]+)\]/i);
+          if (m && m[1]) rZone = m[1].trim();
+        }
+        if (!rZone || rZone === '-' || rZone === 'គ្មាន') rZone = 'ទូទៅ';
+
+        const skuKey = rSku.toLowerCase();
+        if (!itemZoneMap[skuKey]) itemZoneMap[skuKey] = { zones: {}, totalIn: 0, totalOut: 0 };
+        itemZoneMap[skuKey].totalIn += rQty;
+        itemZoneMap[skuKey].zones[rZone] = (itemZoneMap[skuKey].zones[rZone] || 0) + rQty;
+      }
+    }
+
+    const sOutSheet = ss.getSheetByName('Stock_out');
+    if (sOutSheet && sOutSheet.getLastRow() > 1) {
+      const sOutData = sOutSheet.getDataRange().getValues();
+      const sOutHeaders = (sOutData[0] || []).map(h => String(h || '').trim().toLowerCase());
+      const soSkuIdx = sOutHeaders.indexOf('sku') >= 0 ? sOutHeaders.indexOf('sku') : 2;
+      const soQtyIdx = sOutHeaders.indexOf('quantity') >= 0 ? sOutHeaders.indexOf('quantity') : 7;
+      const soZoneIdx = sOutHeaders.indexOf('zone') >= 0 ? sOutHeaders.indexOf('zone') : 6;
+      const soNotesIdx = sOutHeaders.indexOf('notes') >= 0 ? sOutHeaders.indexOf('notes') : 14;
+
+      for (let r = 1; r < sOutData.length; r++) {
+        const rSku = String(sOutData[r][soSkuIdx] || '').trim();
+        if (!rSku) continue;
+        const rQty = Number(sOutData[r][soQtyIdx] || 0);
+        let rZone = String(sOutData[r][soZoneIdx] || '').trim();
+        if (!rZone || rZone === '-' || rZone === 'គ្មាន') {
+          const notesStr = String(sOutData[r][soNotesIdx] || '');
+          const m = notesStr.match(/\[(?:តំបន់|Zone):\s*([^\]]+)\]/i);
+          if (m && m[1]) rZone = m[1].trim();
+        }
+
+        const skuKey = rSku.toLowerCase();
+        if (itemZoneMap[skuKey]) {
+          itemZoneMap[skuKey].totalOut += rQty;
+          if (rZone && itemZoneMap[skuKey].zones[rZone] !== undefined) {
+            itemZoneMap[skuKey].zones[rZone] = Math.max(0, itemZoneMap[skuKey].zones[rZone] - rQty);
+          } else {
+            let topZ = null, maxQ = -1;
+            for (const zk in itemZoneMap[skuKey].zones) {
+              if (itemZoneMap[skuKey].zones[zk] > maxQ) {
+                maxQ = itemZoneMap[skuKey].zones[zk];
+                topZ = zk;
+              }
+            }
+            if (topZ) itemZoneMap[skuKey].zones[topZ] = Math.max(0, itemZoneMap[skuKey].zones[topZ] - rQty);
+          }
+        }
+      }
+    }
+  } catch (zErr) {
+    if (typeof Logger !== 'undefined') Logger.log('itemZoneMap error: ' + zErr.toString());
+  }
+
   const items = [];
   const seenSkusMap = {};
 
@@ -4529,6 +4602,33 @@ function getItemsList(userOrPayload, warehouseFilter, optSs) {
       let crBy = String(row[idxCreatedBy] || 'Admin').trim();
       if (crBy.includes('GMT') || crBy.startsWith('http') || !crBy) crBy = 'Admin';
 
+      const zInfo = itemZoneMap[rowSku.toLowerCase()];
+      let itemZoneBreakdown = [];
+      let itemZonesList = [];
+      if (zInfo) {
+        for (const zk in zInfo.zones) {
+          if (zInfo.zones[zk] > 0) {
+            itemZoneBreakdown.push({
+              zone: zk,
+              quantity: zInfo.zones[zk],
+              unit: rUnit,
+              formatted: zk + ': ' + zInfo.zones[zk] + ' ' + rUnit
+            });
+            itemZonesList.push(zk);
+          }
+        }
+        // If transactions exist, net transactions is authoritative
+        const txNet = Math.max(0, zInfo.totalIn - zInfo.totalOut);
+        if (zInfo.totalIn > 0 && stockNum !== txNet) {
+          stockNum = txNet;
+        }
+        if (itemZonesList.length >= 2) {
+          zn = itemZonesList.join(', ');
+        } else if (itemZonesList.length === 1 && (!zn || zn === 'តំបន់ A' || zn === '-')) {
+          zn = itemZonesList[0];
+        }
+      }
+
       const calculatedPackStock = packStockNum >= 0 ? packStockNum : (packQtyNum > 1 ? Math.floor(stockNum / packQtyNum) : stockNum);
 
       items.push({
@@ -4547,6 +4647,8 @@ function getItemsList(userOrPayload, warehouseFilter, optSs) {
         currentStock: stockNum,
         minStock: Number(row[idxMinStock] || 0),
         zone: zn,
+        zoneBreakdown: itemZoneBreakdown,
+        zones: itemZonesList,
         imageUrl: img,
         notes: String(row[idxNotes] || '-'),
         createdBy: crBy,
@@ -5583,6 +5685,20 @@ function recordStockIn(dataOrPayload, user) {
     const pQty = idxPackQty >= 0 ? Number(itemsData[targetRow - 1][idxPackQty] || 1) : 1;
     itemsSheet.getRange(targetRow, idxPackStock + 1).setValue(pQty > 1 ? Math.floor(newStock / pQty) : newStock);
   }
+  const idxZone = headers.indexOf('zone');
+  if (idxZone >= 0 && data.zone && String(data.zone).trim() && String(data.zone).trim() !== '-') {
+    const curZoneStr = String(itemsData[targetRow - 1][idxZone] || '').trim();
+    const inZone = String(data.zone).trim();
+    if (!curZoneStr || curZoneStr === '-' || curZoneStr === 'តំបន់ A') {
+      itemsSheet.getRange(targetRow, idxZone + 1).setValue(inZone);
+    } else {
+      const existingZones = curZoneStr.split(/[,;\/]+/).map(z => z.trim()).filter(Boolean);
+      if (!existingZones.includes(inZone)) {
+        existingZones.push(inZone);
+        itemsSheet.getRange(targetRow, idxZone + 1).setValue(existingZones.join(', '));
+      }
+    }
+  }
   itemsSheet.getRange(targetRow, idxUpdatedAt + 1).setValue(new Date());
 
 
@@ -5650,8 +5766,7 @@ function recordStockIn(dataOrPayload, user) {
   logActivity(u ? (u.fullName || u.username) : 'Staff', 'Staff', 'STOCK_IN', `Stock In +${qty} ${unit} of ${itemName} (${sku}) [${data.docNo || 'N/A'}]`);
 
   try {
-    CacheService.getScriptCache().remove('TX_SHEETS_SYNC_ALL');
-    CacheService.getScriptCache().remove('TX_SHEETS_SYNC_STOCK_IN');
+    CacheService.getScriptCache().removeAll(['ITEMS_ALL', 'TX_SHEETS_SYNC_ALL', 'TX_SHEETS_SYNC_STOCK_IN']);
   } catch(e) {}
 
   return {

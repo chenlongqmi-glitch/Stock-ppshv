@@ -6606,10 +6606,12 @@
       itemsList.forEach(item => {
         if (!item || !item.sku) return;
         const net = netPerSku[item.sku];
-        if (net) {
+        if (net && (net.in > 0 || net.out > 0)) {
           const txNet = Math.max(0, net.in - net.out);
-          if (Number(item.currentStock || 0) < txNet) {
+          if (Number(item.currentStock || 0) !== txNet) {
             item.currentStock = txNet;
+            const pQty = Number(item.packQty || 1);
+            item.packStock = pQty > 1 ? Math.floor(txNet / pQty) : txNet;
             changed = true;
           }
         }
@@ -12749,6 +12751,9 @@
       try {
         API_CACHE.clear();
         await applyBootstrapDataSync(true);
+        if (typeof loadStockInHistory === 'function') {
+          await loadStockInHistory(true).catch(() => {});
+        }
         await loadItems();
         const count = (AppState.items || []).length;
         if (!silent) {
@@ -12831,6 +12836,8 @@
               createdBy: rem.createdBy || loc.createdBy || 'Admin',
               createdAt: rem.createdAt || loc.createdAt || '2026-09-22',
               zone: rem.zone || loc.zone || 'តំបន់ A (A01)',
+              zoneBreakdown: rem.zoneBreakdown || loc.zoneBreakdown || [],
+              zones: rem.zones || loc.zones || [],
               imageUrl: img
             };
           });
@@ -12857,6 +12864,10 @@
           AppState.items = mergedList;
           LOCAL_DB.items = [...mergedList];
           saveLocalItemsToStorage();
+
+          if (typeof loadStockInHistory === 'function') {
+            loadStockInHistory(false).catch(() => {});
+          }
 
           if (remoteItems.length === 0 && mergedList.length > 0 && !sessionStorage.getItem('ppshv_sheet_initial_seeded')) {
             // Google Sheet is empty! Automatically seed/sync all items to Google Sheet in background (once)
@@ -13099,6 +13110,20 @@
       if (!item) return [];
       const curStock = Math.max(0, Number(item.currentStock || 0));
       const rUnit = (item.unit || '').trim() || 'ឯកតា';
+
+      // 0. Server-provided authoritative zone breakdown (from Stock_in / Stock_out)
+      if (Array.isArray(item.zoneBreakdown) && item.zoneBreakdown.length > 0) {
+        const sumZb = item.zoneBreakdown.reduce((acc, z) => acc + Number(z.quantity || 0), 0);
+        if (sumZb === curStock || curStock === 0 || !curStock) {
+          return item.zoneBreakdown.map(z => ({
+            zone: z.zone,
+            quantity: Number(z.quantity || 0),
+            unit: z.unit || rUnit,
+            formatted: ${z.zone}:  
+          }));
+        }
+      }
+
       const itemSku = String(item.sku || '').trim().toLowerCase();
       const itemName = String(item.name || '').trim().toLowerCase();
 
@@ -19461,7 +19486,10 @@
           'ស្តុកដុំ/កេស': packStock,
           'ស្តុកបច្ចុប្បន្ន (រាយ)': qty,
           'ស្តុកអប្បបរមា': min,
-          'តំបន់': item.zone || '-',
+          'តំបន់': (function() {
+            const bks = (typeof getItemZoneBreakdown === 'function') ? getItemZoneBreakdown(item) : [];
+            return (bks.length > 0) ? bks.map(z => ${z.zone}:  .trim()).join(', ') : (item.zone || '-');
+          })(),
           'ចំណាំ': item.notes || '-',
           'អ្នកបញ្ចូល': getUserDisplayName(item.createdBy)
         };
