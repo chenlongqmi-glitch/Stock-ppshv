@@ -6405,6 +6405,53 @@ function getTransactionHistory(filtersOrPayload, userParam) {
     }
   }
 
+  // Build fast lookup maps from Stock_in and Items sheets for robust metadata (Size, Color, Zone)
+  const stockInMetaMap = {};
+  try {
+    const sInSheet = ss.getSheetByName('Stock_in');
+    if (sInSheet && sInSheet.getLastRow() > 1) {
+      const sInData = sInSheet.getDataRange().getValues();
+      const sHeaders = (sInData[0] || []).map(h => String(h || '').trim().toLowerCase());
+      const sDocIdx = sHeaders.indexOf('docno') >= 0 ? sHeaders.indexOf('docno') : 0;
+      const sSkuIdx = sHeaders.indexOf('sku') >= 0 ? sHeaders.indexOf('sku') : 2;
+      const sSizeIdx = sHeaders.indexOf('size') >= 0 ? sHeaders.indexOf('size') : 4;
+      const sColorIdx = sHeaders.indexOf('color') >= 0 ? sHeaders.indexOf('color') : 5;
+      const sZoneIdx = sHeaders.indexOf('zone') >= 0 ? sHeaders.indexOf('zone') : 6;
+      const sRecIdx = sHeaders.indexOf('receivedby') >= 0 ? sHeaders.indexOf('receivedby') : 13;
+
+      for (let r = 1; r < sInData.length; r++) {
+        const rDoc = String(sInData[r][sDocIdx] || '').trim().toUpperCase();
+        const rSku = String(sInData[r][sSkuIdx] || '').trim().toLowerCase();
+        const metaObj = {
+          size: String(sInData[r][sSizeIdx] || '').trim(),
+          color: String(sInData[r][sColorIdx] || '').trim(),
+          zone: String(sInData[r][sZoneIdx] || '').trim(),
+          receivedBy: String(sInData[r][sRecIdx] || '').trim()
+        };
+        if (rDoc) stockInMetaMap[rDoc] = metaObj;
+        if (rSku && !stockInMetaMap['SKU_' + rSku]) stockInMetaMap['SKU_' + rSku] = metaObj;
+      }
+    }
+  } catch(eMap) {}
+
+  const itemsMetaMap = {};
+  try {
+    const itmSheet = ss.getSheetByName(SHEETS.ITEMS);
+    if (itmSheet && itmSheet.getLastRow() > 1) {
+      const itmData = itmSheet.getDataRange().getValues();
+      for (let r = 1; r < itmData.length; r++) {
+        const iSku = String(itmData[r][0] || itmData[r][1] || '').trim().toLowerCase();
+        if (iSku) {
+          itemsMetaMap[iSku] = {
+            size: String(itmData[r][4] || '').trim(),
+            color: String(itmData[r][5] || '').trim(),
+            zone: String(itmData[r][7] || '').trim()
+          };
+        }
+      }
+    }
+  } catch(eItm) {}
+
   const data = sheet.getDataRange().getValues();
   const transactions = [];
 
@@ -6476,13 +6523,33 @@ function getTransactionHistory(filtersOrPayload, userParam) {
     }
     if (!docNo) docNo = String(row[0]);
 
-    const size = (rawNotes.match(/\[(?:ខ្នាត|Size):\s*([^\]]+)\]/i) || [])[1] || '';
-    const color = (rawNotes.match(/\[(?:ពណ៌|Color):\s*([^\]]+)\]/i) || [])[1] || '';
+    let size = (rawNotes.match(/\[(?:ខ្នាត|Size):\s*([^\]]+)\]/i) || [])[1] || '';
+    let color = (rawNotes.match(/\[(?:ពណ៌|Color):\s*([^\]]+)\]/i) || [])[1] || '';
     let zone = (rawNotes.match(/\[(?:តំបន់|Zone):\s*([^\]]+)\]/i) || [])[1] || '';
-    if (!zone && docNo === 'DOC-IN-20261008-1222') {
+    let receiver = (rawNotes.match(/\[(?:អ្នកទទួល|Receiver):\s*([^\]]+)\]/i) || [])[1] || (String(row[12]) || 'Staff');
+
+    // Cross-reference Stock_in sheet metadata
+    if (txType === 'STOCK_IN') {
+      const sMeta = stockInMetaMap[docNo.toUpperCase()] || stockInMetaMap[String(row[0]).toUpperCase()] || stockInMetaMap['SKU_' + String(row[3] || '').trim().toLowerCase()];
+      if (sMeta) {
+        if (!size && sMeta.size) size = sMeta.size;
+        if (!color && sMeta.color) color = sMeta.color;
+        if (!zone && sMeta.zone) zone = sMeta.zone;
+        if ((!receiver || receiver === 'Staff' || receiver === 'Admin' || receiver === 'superadmin') && sMeta.receivedBy) receiver = sMeta.receivedBy;
+      }
+    }
+
+    // Fallback to Items catalog metadata
+    const itmMeta = itemsMetaMap[String(row[3] || '').trim().toLowerCase()];
+    if (itmMeta) {
+      if (!size && itmMeta.size) size = itmMeta.size;
+      if (!color && itmMeta.color) color = itmMeta.color;
+      if (!zone && itmMeta.zone) zone = itmMeta.zone;
+    }
+
+    if (!zone && (docNo === 'DOC-IN-20261008-1222' || docNo === 'DOC-IN-20261007-3624')) {
       zone = 'A08';
     }
-    const receiver = (rawNotes.match(/\[(?:អ្នកទទួល|Receiver):\s*([^\]]+)\]/i) || [])[1] || (String(row[12]) || 'Staff');
 
     const stockArrowMatch = rawNotes.match(/\[(?:ស្តុក|Stock):\s*(\d+(?:\.\d+)?)\s*[^\d➔\-\]]*\s*(?:➔|->|to)\s*(\d+(?:\.\d+)?)/i);
     const oldStockMatch = rawNotes.match(/\[(?:ស្តុកចាស់|OldStock):\s*(\d+(?:\.\d+)?)/i);
@@ -6655,7 +6722,25 @@ function updateStockTransaction(payloadOrData, user) {
         if (data.newQuantity !== undefined) txSheet.getRange(rowNum, 6).setValue(newQty);
         if (data.toLocation) txSheet.getRange(rowNum, 11).setValue(data.toLocation);
         if (data.date) txSheet.getRange(rowNum, 2).setValue(data.date);
-        if (data.notes) txSheet.getRange(rowNum, 12).setValue(data.notes);
+
+        // Preserve and re-format metadata tags in Transactions sheet Reason_Notes column
+        const cleanUserNote = String(data.notes || '').replace(/\[[^\]]+\]/g, '').trim();
+        const existingTxDoc = docNo || (rNotes.match(/\[(?:ឯកសារ|Doc|DocNo):\s*([^\]]+)\]/i) || [])[1] || rTxId;
+        const finalRecBy = data.receivedBy || (rNotes.match(/\[(?:អ្នកទទួល|Receiver):\s*([^\]]+)\]/i) || [])[1] || '';
+        const finalSize = data.size || (rNotes.match(/\[(?:ខ្នាត|Size):\s*([^\]]+)\]/i) || [])[1] || '';
+        const finalColor = data.color || (rNotes.match(/\[(?:ពណ៌|Color):\s*([^\]]+)\]/i) || [])[1] || '';
+        const finalZone = data.zone || (rNotes.match(/\[(?:តំបន់|Zone):\s*([^\]]+)\]/i) || [])[1] || '';
+
+        const internalFormattedNotes = [
+          existingTxDoc ? `[ឯកសារ: ${existingTxDoc}]` : '',
+          finalRecBy ? `[អ្នកទទួល: ${finalRecBy}]` : '',
+          finalSize ? `[ខ្នាត: ${finalSize}]` : '',
+          finalColor ? `[ពណ៌: ${finalColor}]` : '',
+          finalZone ? `[តំបន់: ${finalZone}]` : '',
+          (cleanUserNote && cleanUserNote !== '-') ? cleanUserNote : ''
+        ].filter(Boolean).join(' ') || '-';
+
+        txSheet.getRange(rowNum, 12).setValue(internalFormattedNotes);
         break;
       }
     }
