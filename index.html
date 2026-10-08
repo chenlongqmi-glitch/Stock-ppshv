@@ -6446,8 +6446,13 @@
     function matchesTargetWarehouse(loc, targetWh) {
       if (!targetWh || targetWh === 'ALL' || targetWh === '🏢 គ្រប់ស្ថានីយទាំងអស់' || targetWh === 'គ្រប់ឃ្លាំង') return true;
       if (!loc) return false;
+      const isGlobalLoc = (loc === 'ALL' || loc === 'គ្រប់ស្ថានីយទាំងអស់' || loc === 'គ្រប់ឃ្លាំង' || loc === '🏢 គ្រប់ស្ថានីយទាំងអស់');
       if (isAdminComboWarehouse(targetWh)) {
+        if (isGlobalLoc) return true;
         return ADMIN_ALLOWED_WAREHOUSES.some(aw => (typeof isSameWarehouse === 'function') ? isSameWarehouse(loc, aw) : loc === aw);
+      }
+      if (isGlobalLoc && (targetWh.includes('中心库房') || targetWh.includes('机电'))) {
+        return true;
       }
       return (typeof isSameWarehouse === 'function') ? isSameWarehouse(loc, targetWh) : (loc === targetWh);
     }
@@ -12059,6 +12064,7 @@ function saveLocalUsersToStorage() {
       if (typeof renderItemsTable === 'function') renderItemsTable();
       if (typeof filterStockInHistoryTable === 'function') filterStockInHistoryTable();
       if (typeof filterStockOutHistoryTable === 'function') filterStockOutHistoryTable();
+      if (typeof renderPendingIncomingDispatches === 'function') renderPendingIncomingDispatches();
       if (AppState.currentTab === 'reports' && typeof loadReportTransactions === 'function') loadReportTransactions();
       if (AppState.currentTab === 'requests' && typeof filterProductRequests === 'function') filterProductRequests();
       if (typeof applyUserWarehouseToStockInLocation === 'function') applyUserWarehouseToStockInLocation();
@@ -13999,6 +14005,29 @@ function saveLocalUsersToStorage() {
         }
       });
 
+      const breakdowns = [];
+      for (const whKey in whNetMap) {
+        const nQty = Math.max(0, whNetMap[whKey]);
+        if (nQty > 0) {
+          const shortWh = whKey.split(' ')[0] || whKey;
+          breakdowns.push({ warehouse: whKey, shortWh, total: nQty });
+        }
+      }
+
+      if (breakdowns.length === 0 && Number(item.currentStock || 0) > 0) {
+        const primaryWh = item.toLocation || item.location || item.warehouse || '';
+        if (primaryWh && primaryWh !== 'ALL' && primaryWh !== 'គ្រប់ស្ថានីយទាំងអស់') {
+          const shortWh = primaryWh.split(' ')[0] || primaryWh;
+          breakdowns.push({ warehouse: primaryWh, shortWh, total: Number(item.currentStock || 0) });
+        } else if (Array.isArray(item.warehouses) && item.warehouses.length > 0) {
+          item.warehouses.forEach(w => {
+            const shortWh = String(w).split(' ')[0] || String(w);
+            breakdowns.push({ warehouse: String(w), shortWh, total: Number(item.currentStock || 0) });
+          });
+        }
+      }
+      breakdowns.sort((a, b) => b.total - a.total);
+
       let effectiveTotal = 0;
       let hasStationTx = false;
       let isGeneralStock = false;
@@ -14026,29 +14055,6 @@ function saveLocalUsersToStorage() {
 
       const bulk = pQty > 1 ? Math.floor(effectiveTotal / pQty) : 0;
       const loose = pQty > 1 ? (effectiveTotal % pQty) : effectiveTotal;
-
-      const breakdowns = [];
-      for (const whKey in whNetMap) {
-        const nQty = Math.max(0, whNetMap[whKey]);
-        if (nQty > 0) {
-          const shortWh = whKey.split(' ')[0] || whKey;
-          breakdowns.push({ warehouse: whKey, shortWh, total: nQty });
-        }
-      }
-
-      if (breakdowns.length === 0 && Number(item.currentStock || 0) > 0) {
-        const primaryWh = item.toLocation || item.location || item.warehouse || '';
-        if (primaryWh && primaryWh !== 'ALL' && primaryWh !== 'គ្រប់ស្ថានីយទាំងអស់') {
-          const shortWh = primaryWh.split(' ')[0] || primaryWh;
-          breakdowns.push({ warehouse: primaryWh, shortWh, total: Number(item.currentStock || 0) });
-        } else if (Array.isArray(item.warehouses) && item.warehouses.length > 0) {
-          item.warehouses.forEach(w => {
-            const shortWh = String(w).split(' ')[0] || String(w);
-            breakdowns.push({ warehouse: String(w), shortWh, total: Number(item.currentStock || 0) });
-          });
-        }
-      }
-      breakdowns.sort((a, b) => b.total - a.total);
 
       return {
         bulk,
