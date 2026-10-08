@@ -2269,7 +2269,7 @@
                     <th class="px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-14 shrink-0">រូបភាព</th>
                     <th class="px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-[9%]">ពណ៌ & ខ្នាត</th>
                     <th class="px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-[13%]">តំបន់ស្តុក (Zone)</th>
-                    <th id="stationStockHeaderCell" class="px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-[15%]">ស្តុកតាមស្ថានីយ (ដុំ & រាយ)</th>
+                    <th id="stationStockHeaderCell" class="hidden px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-[15%]">ស្តុកតាមស្ថានីយ (ដុំ & រាយ)</th>
                     <th class="px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-[15%]">ស្តុកសរុប (ដុំ & រាយ)</th>
                     <th class="px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-[13%]">សរុបទាំងអស់ជារាយ</th>
                     <th class="px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-[11%]">អ្នកបញ្ចូល</th>
@@ -13546,6 +13546,20 @@
         }
       }
 
+      if (breakdowns.length === 0 && Number(item.currentStock || 0) > 0) {
+        const primaryWh = item.toLocation || item.location || item.warehouse || '';
+        if (primaryWh && primaryWh !== 'ALL' && primaryWh !== 'គ្រប់ស្ថានីយទាំងអស់') {
+          const shortWh = primaryWh.split(' ')[0] || primaryWh;
+          breakdowns.push({ warehouse: primaryWh, shortWh, total: Number(item.currentStock || 0) });
+        } else if (Array.isArray(item.warehouses) && item.warehouses.length > 0) {
+          item.warehouses.forEach(w => {
+            const shortWh = String(w).split(' ')[0] || String(w);
+            breakdowns.push({ warehouse: String(w), shortWh, total: Number(item.currentStock || 0) });
+          });
+        }
+      }
+      breakdowns.sort((a, b) => b.total - a.total);
+
       return {
         bulk,
         loose,
@@ -13704,11 +13718,13 @@
 
             const stHeaderCell = document.getElementById('stationStockHeaderCell');
       if (stHeaderCell) {
-        if (activeWhFilter && activeWhFilter !== 'ALL') {
-          const shortWh = activeWhFilter.split(' ')[0] || activeWhFilter;
-          stHeaderCell.innerHTML = `ស្តុក ${escapeHtml(shortWh)} (ដុំ & រាយ)`;
-        } else {
+        if (isAdmin) {
+          stHeaderCell.classList.remove('hidden');
+          stHeaderCell.style.display = '';
           stHeaderCell.innerHTML = 'ស្តុកតាមស្ថានីយ (ដុំ & រាយ)';
+        } else {
+          stHeaderCell.classList.add('hidden');
+          stHeaderCell.style.display = 'none';
         }
       }
 
@@ -13747,7 +13763,7 @@
       }
 
       if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" class="text-center py-10 text-slate-400">រកមិនឃើញទិន្នន័យទំនិញដែលត្រូវគ្នាទេ</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="${isAdmin ? 10 : 9}" class="text-center py-10 text-slate-400">រកមិនឃើញទិន្នន័យទំនិញដែលត្រូវគ្នាទេ</td></tr>`;
         return;
       }
 
@@ -13836,48 +13852,29 @@
             ${renderItemZoneCell(item, rUnit)}
           </td>
 
-          <!-- ជួរទី៦: ស្តុកតាមស្ថានីយ (Station Stock: ដុំ & រាយ) - ថែមមួយជួរទៀតតាមសំណូមពរ -->
+          ${isAdmin ? `
+          <!-- ជួរទី៦: ស្តុកតាមស្ថានីយ (Station Stock: ដុំ & រាយ) - បង្ហាញសម្រាប់តែ Admin & SuperAdmin ជានិច្ចជា breakdown មិនប្រែប្រួលតាម filter ទេ -->
           <td class="px-2 py-2.5 text-center align-middle overflow-hidden">
             ${(function() {
-              const stStock = (typeof getItemStationStock === 'function') ? getItemStationStock(item, activeWhFilter) : { bulk: 0, loose: 0, total: 0, breakdowns: [] };
-              if (activeWhFilter && activeWhFilter !== 'ALL') {
-                return (pQty > 1) ? `
-                  <div class="inline-flex flex-col items-center justify-center gap-1 w-[72px] sm:w-[78px] mx-auto">
-                    <!-- ចំនួនដុំ/ប្រអប់ (ខាងលើ) -->
-                    <span class="inline-flex items-center justify-center w-full px-1.5 py-0.5 rounded-lg text-[10.5px] font-bold shadow-3xs truncate ${stStock.total === 0 ? 'bg-rose-50 text-rose-500 border border-rose-200' : 'bg-blue-50 text-blue-800 border border-blue-300'}" title="ស្តុកស្ថានីយ (ដុំ): ${stStock.bulk} ${escapeHtml(pUnit)}">
-                      ${stStock.bulk} ${escapeHtml(pUnit)}
-                    </span>
-                    <!-- ចំនួនរាយ/ដើម (ខាងក្រោម) -->
-                    <span class="inline-flex items-center justify-center w-full px-1.5 py-0.5 rounded-lg text-[10.5px] font-bold shadow-3xs truncate ${stStock.total === 0 ? 'bg-rose-50 text-rose-500 border border-rose-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}" title="ស្តុកស្ថានីយ (រាយ): ${stStock.loose} ${escapeHtml(rUnit)} (សរុប: ${stStock.total} ${escapeHtml(rUnit)})">
-                      ${stStock.loose} ${escapeHtml(rUnit)}
-                    </span>
-                  </div>
-                ` : `
-                  <div class="inline-flex flex-col items-center justify-center w-[72px] sm:w-[78px] mx-auto">
-                    <span class="inline-flex items-center justify-center w-full px-1.5 py-1 rounded-lg text-[10.5px] font-bold shadow-3xs truncate ${stStock.total === 0 ? 'bg-rose-50 text-rose-500 border border-rose-200' : 'bg-blue-50 text-blue-800 border border-blue-300'}" title="ស្តុកស្ថានីយ: ${stStock.total} ${escapeHtml(rUnit)}">
-                      ${stStock.total} ${escapeHtml(rUnit)}
-                    </span>
+              const stStock = (typeof getItemStationStock === 'function') ? getItemStationStock(item) : { bulk: 0, loose: 0, total: 0, breakdowns: [] };
+              if (stStock.breakdowns && stStock.breakdowns.length > 0) {
+                return `
+                  <div class="flex flex-col items-center gap-1 w-full max-w-[125px] mx-auto">
+                    ${stStock.breakdowns.slice(0, 2).map(sb => `
+                      <span class="inline-flex items-center justify-between w-full px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-blue-50/80 text-blue-800 border border-blue-200/90 shadow-3xs truncate" title="${escapeHtml(sb.warehouse)}: ${sb.total} ${escapeHtml(rUnit)}">
+                        <span class="truncate">📍 ${escapeHtml(sb.shortWh)}</span>
+                        <span class="ml-1 font-mono">${sb.total}</span>
+                      </span>
+                    `).join('')}
+                    ${stStock.breakdowns.length > 2 ? `<span class="text-[9px] text-slate-400 font-medium">+${stStock.breakdowns.length - 2} ស្ថានីយ</span>` : ''}
                   </div>
                 `;
               } else {
-                if (stStock.breakdowns && stStock.breakdowns.length > 0) {
-                  return `
-                    <div class="flex flex-col items-center gap-1 w-full max-w-[125px] mx-auto">
-                      ${stStock.breakdowns.slice(0, 2).map(sb => `
-                        <span class="inline-flex items-center justify-between w-full px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-blue-50/80 text-blue-800 border border-blue-200/90 shadow-3xs truncate" title="${escapeHtml(sb.warehouse)}: ${sb.total} ${escapeHtml(rUnit)}">
-                          <span class="truncate">📍 ${escapeHtml(sb.shortWh)}</span>
-                          <span class="ml-1 font-mono">${sb.total}</span>
-                        </span>
-                      `).join('')}
-                      ${stStock.breakdowns.length > 2 ? `<span class="text-[9px] text-slate-400 font-medium">+${stStock.breakdowns.length - 2} ស្ថានីយ</span>` : ''}
-                    </div>
-                  `;
-                } else {
-                  return `<span class="text-slate-300 text-xs">-</span>`;
-                }
+                return `<span class="text-slate-300 text-xs">-</span>`;
               }
             })()}
           </td>
+          ` : ''}
 
           <!-- ជួរទី៧: ស្តុកសរុប (Current Total Stock: ដុំ & រាយ) -->
           <td class="px-2 py-2.5 text-center align-middle overflow-hidden">
@@ -19818,9 +19815,12 @@
 
                 const packRate = Number(item.packQty || 1);
         const packStock = packRate > 1 ? Math.floor(qty / packRate) : qty;
-        const stStock = (typeof getItemStationStock === 'function') ? getItemStationStock(item) : { bulk: 0, loose: 0, total: 0 };
+        const u = AppState.currentUser;
+        const isSuperAdmin = (u && (u.role === 'SuperAdmin' || String(u.username).toLowerCase() === 'superadmin' || u.userId === 'USR-SA'));
+        const isAdminUser = isSuperAdmin || (u && (u.role === 'Admin' || String(u.username).toLowerCase() === 'admin' || String(u.username).toLowerCase() === 'singvan327@gmail.com'));
+        const stStock = (isAdminUser && typeof getItemStationStock === 'function') ? getItemStationStock(item) : null;
 
-        return {
+        const rowData = {
           'ល.រ': index + 1,
           'លេខកូដ (SKU)': item.sku || '',
           'ឈ្មោះទំនិញ': item.name || '',
@@ -19830,12 +19830,21 @@
           'ឯកតា': item.unit || '',
           'ឯកតាធំ': item.packUnit || item.unit || '',
           'ចំនួនក្នុងឯកតាធំ': item.packQty || 1,
-          'ស្តុកតាមស្ថានីយ (ដុំ)': stStock.bulk,
-          'ស្តុកតាមស្ថានីយ (រាយ)': stStock.loose,
-          'ស្តុកតាមស្ថានីយ (សរុប)': stStock.total,
-          'ស្តុកដុំ/កេស': packStock,
-          'ស្តុកបច្ចុប្បន្ន (រាយ)': qty,
-          'ស្តុកអប្បបរមា': min,
+        };
+
+        if (isAdminUser && stStock) {
+          rowData['ស្តុកតាមស្ថានីយ (ដុំ)'] = stStock.bulk;
+          rowData['ស្តុកតាមស្ថានីយ (រាយ)'] = stStock.loose;
+          rowData['ស្តុកតាមស្ថានីយ (សរុប)'] = stStock.total;
+          rowData['ស្តុកតាមស្ថានីយ (លម្អិត)'] = (stStock.breakdowns || []).map(b => `${b.shortWh}: ${b.total}`).join(', ') || '-';
+        }
+
+        rowData['ស្តុកដុំ/កេស'] = packStock;
+        rowData['ស្តុកបច្ចុប្បន្ន (រាយ)'] = qty;
+        rowData['ស្តុកអប្បបរមា'] = min;
+
+        return {
+          ...rowData,
           'តំបន់': (function() {
             const bks = (typeof getItemZoneBreakdown === 'function') ? getItemZoneBreakdown(item) : [];
             return (bks.length > 0) ? bks.map(z => (z.formatted || `${z.zone}: ${z.quantity} ${z.unit || ''}`).trim()).join(', ') : (item.zone || '-');
