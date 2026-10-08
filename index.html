@@ -1734,6 +1734,7 @@
             <i class="fa-solid fa-warehouse text-blue-600 shrink-0 text-[11px] sm:text-xs"></i>
             <select id="globalWarehouseSelector" onchange="handleGlobalWarehouseChange(this.value)"
               class="bg-transparent font-bold text-blue-900 outline-none cursor-pointer text-[11px] sm:text-xs truncate w-full">
+              <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់ (Admin Only)</option>
               <option value="中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)">📍 中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)</option>
               <option value="机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)">📍 机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
             </select>
@@ -2212,6 +2213,7 @@
                   <select id="itemWarehouseFilter" onchange="handleItemWarehouseFilterChange(this.value)"
                     class="px-2.5 py-1.5 sm:py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none font-bold text-blue-900 cursor-pointer shadow-3xs max-w-[170px] sm:max-w-[210px] truncate"
                     title="ជ្រើសរើសស្ថានីយដើម្បីច្រោះទិន្នន័យ (Admin Only)">
+                    <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>
                     <option value="中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)">中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)</option>
                     <option value="机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)">机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
                   </select>
@@ -13559,9 +13561,9 @@
       if (isSuperAdmin) {
         activeWhFilter = document.getElementById('itemWarehouseFilter')?.value || AppState.selectedAdminWarehouseFilter || 'ALL';
       } else if (isAdmin) {
-        let curVal = document.getElementById('itemWarehouseFilter')?.value || AppState.selectedAdminWarehouseFilter;
-        if (!ADMIN_ALLOWED_WAREHOUSES.includes(curVal)) {
-          curVal = ADMIN_ALLOWED_WAREHOUSES[0];
+        let curVal = document.getElementById('itemWarehouseFilter')?.value || AppState.selectedAdminWarehouseFilter || 'ALL';
+        if (curVal !== 'ALL' && !ADMIN_ALLOWED_WAREHOUSES.includes(curVal)) {
+          curVal = 'ALL';
         }
         activeWhFilter = curVal;
       } else {
@@ -13686,18 +13688,22 @@
       }
 
       if (whFilterSelect && isAdmin) {
-        // សម្រាប់ account admin ការជ្រើសរើសស្ថានីយ គឺត្រូវបង្ហាញតែ (中心库房) និង (机电) ប៉ុណ្ណោះ
+        // សម្រាប់ account admin ការជ្រើសរើសស្ថានីយ គឺត្រូវបង្ហាញ "គ្រប់ស្ថានីយទាំងអស់" និង (中心库房) និង (机电) ប៉ុណ្ណោះ
         const curOptValues = Array.from(whFilterSelect.options).map(o => o.value);
-        if (curOptValues.length !== ADMIN_ALLOWED_WAREHOUSES.length || !ADMIN_ALLOWED_WAREHOUSES.every(w => curOptValues.includes(w))) {
-          const curVal = whFilterSelect.value;
-          whFilterSelect.innerHTML = ADMIN_ALLOWED_WAREHOUSES.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('');
-          if (ADMIN_ALLOWED_WAREHOUSES.includes(curVal)) {
+        const expectedValues = ['ALL', ...ADMIN_ALLOWED_WAREHOUSES];
+        if (curOptValues.length !== expectedValues.length || !expectedValues.every(w => curOptValues.includes(w))) {
+          const curVal = whFilterSelect.value || 'ALL';
+          whFilterSelect.innerHTML = `
+            <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>
+            ${ADMIN_ALLOWED_WAREHOUSES.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('')}
+          `;
+          if (expectedValues.includes(curVal)) {
             whFilterSelect.value = curVal;
-          } else if (ADMIN_ALLOWED_WAREHOUSES.includes(AppState.selectedAdminWarehouseFilter)) {
+          } else if (expectedValues.includes(AppState.selectedAdminWarehouseFilter)) {
             whFilterSelect.value = AppState.selectedAdminWarehouseFilter;
           } else {
-            whFilterSelect.value = ADMIN_ALLOWED_WAREHOUSES[0];
-            AppState.selectedAdminWarehouseFilter = ADMIN_ALLOWED_WAREHOUSES[0];
+            whFilterSelect.value = 'ALL';
+            AppState.selectedAdminWarehouseFilter = 'ALL';
           }
         }
       }
@@ -13707,11 +13713,11 @@
       if (isSuperAdmin) {
         activeWhFilter = whFilterSelect?.value || AppState.selectedAdminWarehouseFilter || 'ALL';
       } else if (isAdmin) {
-        let curVal = whFilterSelect?.value || AppState.selectedAdminWarehouseFilter;
-        if (!ADMIN_ALLOWED_WAREHOUSES.includes(curVal)) {
-          curVal = ADMIN_ALLOWED_WAREHOUSES[0];
-          if (whFilterSelect) whFilterSelect.value = curVal;
-          AppState.selectedAdminWarehouseFilter = curVal;
+        let curVal = whFilterSelect?.value || AppState.selectedAdminWarehouseFilter || 'ALL';
+        if (curVal !== 'ALL' && !ADMIN_ALLOWED_WAREHOUSES.includes(curVal)) {
+          curVal = 'ALL';
+          if (whFilterSelect) whFilterSelect.value = 'ALL';
+          AppState.selectedAdminWarehouseFilter = 'ALL';
         }
         activeWhFilter = curVal;
       } else {
@@ -25928,14 +25934,17 @@
       const globalSel = document.getElementById('globalWarehouseSelector');
       if (globalSel) {
         if (isAdmin) {
-          // សម្រាប់ account admin ការជ្រើសរើសស្ថានីយ គឺត្រូវបង្ហាញតែ (中心库房) និង (机电) ប៉ុណ្ណោះ
-          const curVal = globalSel.value || AppState.selectedAdminWarehouseFilter || ADMIN_ALLOWED_WAREHOUSES[0];
-          globalSel.innerHTML = ADMIN_ALLOWED_WAREHOUSES.map(w => `<option value="${escapeHtml(w)}">📍 ${escapeHtml(w)}</option>`).join('');
-          if (ADMIN_ALLOWED_WAREHOUSES.includes(curVal)) {
+          // សម្រាប់ account admin ការជ្រើសរើសស្ថានីយ គឺត្រូវបង្ហាញ "គ្រប់ស្ថានីយទាំងអស់" និង (中心库房) និង (机电) ប៉ុណ្ណោះ
+          const curVal = globalSel.value || AppState.selectedAdminWarehouseFilter || 'ALL';
+          globalSel.innerHTML = `
+            <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់ (Admin Only)</option>
+            ${ADMIN_ALLOWED_WAREHOUSES.map(w => `<option value="${escapeHtml(w)}">📍 ${escapeHtml(w)}</option>`).join('')}
+          `;
+          if (['ALL', ...ADMIN_ALLOWED_WAREHOUSES].includes(curVal)) {
             globalSel.value = curVal;
           } else {
-            globalSel.value = ADMIN_ALLOWED_WAREHOUSES[0];
-            AppState.selectedAdminWarehouseFilter = ADMIN_ALLOWED_WAREHOUSES[0];
+            globalSel.value = 'ALL';
+            AppState.selectedAdminWarehouseFilter = 'ALL';
           }
         } else {
           const curVal = globalSel.value || 'ALL';
@@ -25953,14 +25962,17 @@
       const itemWhSelect = document.getElementById('itemWarehouseFilter');
       if (itemWhSelect) {
         if (isAdmin) {
-          // សម្រាប់ account admin ការជ្រើសរើសស្ថានីយ គឺត្រូវបង្ហាញតែ (中心库房) និង (机电) ប៉ុណ្ណោះ
-          const curVal = itemWhSelect.value || AppState.selectedAdminWarehouseFilter || ADMIN_ALLOWED_WAREHOUSES[0];
-          itemWhSelect.innerHTML = ADMIN_ALLOWED_WAREHOUSES.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('');
-          if (ADMIN_ALLOWED_WAREHOUSES.includes(curVal)) {
+          // សម្រាប់ account admin ការជ្រើសរើសស្ថានីយ គឺត្រូវបង្ហាញ "គ្រប់ស្ថានីយទាំងអស់" និង (中心库房) និង (机电) ប៉ុណ្ណោះ
+          const curVal = itemWhSelect.value || AppState.selectedAdminWarehouseFilter || 'ALL';
+          itemWhSelect.innerHTML = `
+            <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>
+            ${ADMIN_ALLOWED_WAREHOUSES.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('')}
+          `;
+          if (['ALL', ...ADMIN_ALLOWED_WAREHOUSES].includes(curVal)) {
             itemWhSelect.value = curVal;
           } else {
-            itemWhSelect.value = ADMIN_ALLOWED_WAREHOUSES[0];
-            AppState.selectedAdminWarehouseFilter = ADMIN_ALLOWED_WAREHOUSES[0];
+            itemWhSelect.value = 'ALL';
+            AppState.selectedAdminWarehouseFilter = 'ALL';
           }
         } else {
           const curVal = itemWhSelect.value || 'ALL';
