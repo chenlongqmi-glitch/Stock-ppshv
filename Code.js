@@ -1109,7 +1109,7 @@ function setupDatabase() {
 
     whSheet.appendRow(['WH-08', '8-K182 ស្ថានីយ (ព្រះសីហនុ)', 'ព្រះសីហនុ', 'លោក ពិសិដ្ឋ', 'Active']);
 
-    whSheet.appendRow(['WH-09', '中心库房 (ឃ្លាំងស្តុកនៅបុងសឹង)', 'បុងសឹង', 'លោក សារ៉ាត់', 'Active']);
+    whSheet.appendRow(['WH-09', '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)', 'ចុងស៊ីង', 'លោក សារ៉ាត់', 'Active']);
 
     whSheet.appendRow(['WH-10', '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)', '机电', 'អ្នកស្រី សុភា', 'Active']);
 
@@ -2720,17 +2720,59 @@ function registerUser(userData) {
 
 
 
-function normalizeWarehouseNameGAS(wh) {
+function toCanonicalWarehouseNameGAS(wh) {
   if (!wh) return '';
-  var s = String(wh).replace(/^[📍🏢\s]+/, '').trim().toLowerCase();
-  s = s.replace(/ស្អាទ័យ/g, 'ស្ថានីយ');
+  var s = String(wh).replace(/^[📍🏢\s]+/, '').replace(/[\u200b\ufeff]/g, '').trim();
+  var sLower = s.toLowerCase();
+
+  if (sLower.indexOf('k3') !== -1 || s.indexOf('ភ្នំពេញ') !== -1 || sLower === 'wh-01' || s.indexOf('ឃ្លាំងទី ០១') !== -1 || s.indexOf('សែនសុខ') !== -1) {
+    return '1-K3 ស្ថានីយ (ភ្នំពេញ)';
+  }
+  if (sLower.indexOf('k26') !== -1 || s.indexOf('កំពង់ស្ពឺ កើត') !== -1 || sLower === 'wh-02' || s.indexOf('ឃ្លាំងទី ០២') !== -1 || s.indexOf('ទួលគោក') !== -1) {
+    return '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)';
+  }
+  if (sLower.indexOf('k43') !== -1 || s.indexOf('កំពង់ស្ពឺ លិច') !== -1 || sLower === 'wh-03' || s.indexOf('ឃ្លាំងទី ០៣') !== -1 || s.indexOf('សៀមរាប') !== -1) {
+    return '3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)';
+  }
+  if (sLower.indexOf('k76') !== -1 || s.indexOf('ត្រែងត្រយឹង') !== -1 || s.indexOf('ព្រែកក្តួច') !== -1 || sLower === 'wh-04' || s.indexOf('ឃ្លាំងទី ០៤') !== -1 || s.indexOf('បាត់ដំបង') !== -1) {
+    return '4-K76 ស្ថានីយ (ត្រែងត្រយឹង)';
+  }
+  if (sLower.indexOf('k114') !== -1 || sLower.indexOf('k113') !== -1 || s.indexOf('កំពង់សីលា') !== -1 || sLower === 'wh-05' || s.indexOf('ឃ្លាំងទី ០៥') !== -1) {
+    return '5-K114 ស្ថានីយ (កំពង់សីលា)';
+  }
+  if (sLower.indexOf('k135') !== -1 || s.indexOf('ស្រែអំបិល') !== -1 || sLower === 'wh-06' || s.indexOf('ឃ្លាំងទី ០៦') !== -1) {
+    return '6-K135 ស្ថានីយ (ស្រែអំបិល)';
+  }
+  if (sLower.indexOf('k172') !== -1 || s.indexOf('ស្ទឹងហាវ') !== -1 || sLower === 'wh-07' || s.indexOf('ឃ្លាំងទី ០៧') !== -1) {
+    return '7-K172 ស្ថានីយ (ស្ទឹងហាវ)';
+  }
+  if (sLower.indexOf('k182') !== -1 || s.indexOf('ព្រះសីហនុ') !== -1 || sLower === 'wh-08' || s.indexOf('ឃ្លាំងទី ០៨') !== -1) {
+    return '8-K182 ស្ថានីយ (ព្រះសីហនុ)';
+  }
+  if (s.indexOf('中心库房') !== -1 || sLower === 'wh-hq' || s.indexOf('ចុងស៊ីង') !== -1 || s.indexOf('បុងសឹង') !== -1) {
+    return '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+  }
+  if (s.indexOf('机电') !== -1 || sLower === 'wh-em' || s.indexOf('គ្រឿងម៉ាស៊ីន') !== -1) {
+    return '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)';
+  }
+  if (s.indexOf('综合办') !== -1 || sLower === 'wh-ga' || s.indexOf('កិច្ចការទូទៅ') !== -1) {
+    return '综合办 (ផ្នែកកិច្ចការទូទៅ)';
+  }
   return s;
 }
 
+function normalizeWarehouseNameGAS(wh) {
+  if (!wh) return '';
+  return toCanonicalWarehouseNameGAS(wh);
+}
+
 function isSameWarehouseGAS(wh1, wh2) {
-  var n1 = normalizeWarehouseNameGAS(wh1);
-  var n2 = normalizeWarehouseNameGAS(wh2);
-  if (!n1 || !n2) return false;
+  if (!wh1 || !wh2) return false;
+  var c1 = toCanonicalWarehouseNameGAS(wh1);
+  var c2 = toCanonicalWarehouseNameGAS(wh2);
+  if (c1 && c2 && c1 === c2) return true;
+  var n1 = String(wh1).replace(/^[📍🏢\s]+/, '').trim().toLowerCase();
+  var n2 = String(wh2).replace(/^[📍🏢\s]+/, '').trim().toLowerCase();
   if (n1 === n2 || n1.indexOf(n2) !== -1 || n2.indexOf(n1) !== -1) return true;
   var m1 = n1.match(/^(\d+-[a-z0-9]+|\d+)/);
   var m2 = n2.match(/^(\d+-[a-z0-9]+|\d+)/);
@@ -4717,29 +4759,8 @@ function getItemsList(userOrPayload, warehouseFilter, optSs) {
  */
 
 function normalizeStationLocationInternal(loc) {
-
   if (!loc) return '1-K3 ស្ថានីយ (ភ្នំពេញ)';
-
-  const s = String(loc).trim();
-
-  if (s.includes('សែនសុខ') || s.includes('ឃ្លាំងទី ០១') || s.includes('ឃ្លាំងកណ្តាល')) return '1-K3 ស្ថានីយ (ភ្នំពេញ)';
-
-  if (s.includes('ទួលគោក') || s.includes('ឃ្លាំងទី ០២')) return '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)';
-
-  if (s.includes('សៀមរាប') || s.includes('ឃ្លាំងទី ០៣')) return '3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)';
-
-  if (s.includes('បាត់ដំបង') || s.includes('ឃ្លាំងទី ០៤')) return '4-K76 ស្ថានីយ (ត្រែងត្រយឹង)';
-
-  if (s.includes('កំពង់សីលា') || s.includes('ឃ្លាំងទី ០៥')) return '5-K114 ស្ថានីយ (កំពង់សីលា)';
-
-  if (s.includes('ស្រែអំបិល') || s.includes('ឃ្លាំងទី ០៦')) return '6-K135 ស្ថានីយ (ស្រែអំបិល)';
-
-  if (s.includes('ស្ទឹងហាវ') || s.includes('ឃ្លាំងទី ០៧')) return '7-K172 ស្ថានីយ (ស្ទឹងហាវ)';
-
-  if (s.includes('ព្រះសីហនុ') || s.includes('ឃ្លាំងទី ០៨')) return '8-K182 ស្ថានីយ (ព្រះសីហនុ)';
-
-  return s;
-
+  return toCanonicalWarehouseNameGAS(loc);
 }
 
 
@@ -5416,91 +5437,103 @@ function getCategoriesListInternal(ss) {
 
 
 function getWarehousesListInternal(ss) {
-
   if (!ss) ss = SpreadsheetApp.getActiveSpreadsheet();
-
   const sheet = ss.getSheetByName(SHEETS.WAREHOUSES);
-
   const defaultList = [
-
     '1-K3 ស្ថានីយ (ភ្នំពេញ)',
-
     '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)',
-
     '3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)',
-
     '4-K76 ស្ថានីយ (ត្រែងត្រយឹង)',
-
     '5-K114 ស្ថានីយ (កំពង់សីលា)',
-
     '6-K135 ស្ថានីយ (ស្រែអំបិល)',
-
     '7-K172 ស្ថានីយ (ស្ទឹងហាវ)',
-
     '8-K182 ស្ថានីយ (ព្រះសីហនុ)',
-
-    '中心库房 (ឃ្លាំងស្តុកនៅបុងសឹង)',
-
+    '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
     '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)',
-
     '综合办 (ផ្នែកកិច្ចការទូទៅ)'
-
   ];
 
   if (!sheet) return defaultList;
 
   const data = sheet.getDataRange().getValues();
-
   const list = [];
+  let sheetUpdated = false;
 
   for (let i = 1; i < data.length; i++) {
+    if (data[i][1]) {
+      const rawName = String(data[i][1]).trim();
+      const canonName = toCanonicalWarehouseNameGAS(rawName);
+      if (canonName && canonName !== rawName) {
+        try {
+          sheet.getRange(i + 1, 2).setValue(canonName);
+          sheetUpdated = true;
+        } catch (e) {}
+      }
+      const finalName = canonName || rawName;
+      if (!list.includes(finalName)) list.push(finalName);
+    }
+  }
 
-    if (data[i][1]) list.push(String(data[i][1]).trim());
+  defaultList.forEach(wh => {
+    if (!list.includes(wh)) list.push(wh);
+  });
 
+  if (sheetUpdated) {
+    try { invalidateAppCache(); } catch (e) {}
   }
 
   return list.length > 0 ? list : defaultList;
-
 }
 
-
-
 function getWarehousesDetailed(ss) {
-
   if (!ss) ss = SpreadsheetApp.getActiveSpreadsheet();
-
   const sheet = ss.getSheetByName(SHEETS.WAREHOUSES);
+  const defaultDetailed = [
+    { id: 'WH-01', name: '1-K3 ស្ថានីយ (ភ្នំពេញ)', location: 'ភ្នំពេញ', manager: 'លោក សុខា', status: 'Active' },
+    { id: 'WH-02', name: '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)', location: 'កំពង់ស្ពឺ កើត', manager: 'កញ្ញា រតនា', status: 'Active' },
+    { id: 'WH-03', name: '3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)', location: 'កំពង់ស្ពឺ លិច', manager: 'លោក ចាន់ណា', status: 'Active' },
+    { id: 'WH-04', name: '4-K76 ស្ថានីយ (ត្រែងត្រយឹង)', location: 'ត្រែងត្រយឹង', manager: 'លោក វិបុល', status: 'Active' },
+    { id: 'WH-05', name: '5-K114 ស្ថានីយ (កំពង់សីលា)', location: 'កំពង់សីលា', manager: 'អ្នកស្រី ធីតា', status: 'Active' },
+    { id: 'WH-06', name: '6-K135 ស្ថានីយ (ស្រែអំបិល)', location: 'ស្រែអំបិល', manager: 'លោក សម្បត្តិ', status: 'Active' },
+    { id: 'WH-07', name: '7-K172 ស្ថានីយ (ស្ទឹងហាវ)', location: 'ស្ទឹងហាវ', manager: 'កញ្ញា ម៉ាលី', status: 'Active' },
+    { id: 'WH-08', name: '8-K182 ស្ថានីយ (ព្រះសីហនុ)', location: 'ព្រះសីហនុ', manager: 'លោក ពិសិដ្ឋ', status: 'Active' },
+    { id: 'WH-09', name: '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)', location: 'ចុងស៊ីង', manager: 'លោក សារ៉ាត់', status: 'Active' },
+    { id: 'WH-10', name: '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)', location: '机电', manager: 'អ្នកស្រី សុភា', status: 'Active' },
+    { id: 'WH-11', name: '综合办 (ផ្នែកកិច្ចការទូទៅ)', location: '综合办', manager: 'លោក វណ្ណា', status: 'Active' }
+  ];
 
-  if (!sheet) return [];
+  if (!sheet) return defaultDetailed;
 
   const data = sheet.getDataRange().getValues();
-
   const list = [];
+  let sheetUpdated = false;
 
   for (let i = 1; i < data.length; i++) {
-
     if (data[i][1]) {
-
+      const rawName = String(data[i][1]).trim();
+      const canonName = toCanonicalWarehouseNameGAS(rawName);
+      if (canonName && canonName !== rawName) {
+        try {
+          sheet.getRange(i + 1, 2).setValue(canonName);
+          sheetUpdated = true;
+        } catch (e) {}
+      }
+      const finalName = canonName || rawName;
       list.push({
-
         id: String(data[i][0] || `WH-${String(i).padStart(2, '0')}`).trim(),
-
-        name: String(data[i][1]).trim(),
-
+        name: finalName,
         location: String(data[i][2] || '').trim(),
-
         manager: String(data[i][3] || '').trim(),
-
         status: String(data[i][4] || 'Active').trim()
-
       });
-
     }
-
   }
 
-  return list;
+  if (sheetUpdated) {
+    try { invalidateAppCache(); } catch (e) {}
+  }
 
+  return list.length > 0 ? list : defaultDetailed;
 }
 
 
@@ -8475,7 +8508,7 @@ function standardizeAndFormatStockInSheet(optSs) {
     [
       'DOC-IN-20261007-3624', '2026-10-07', 'SKU-3037', 'ស្រោមដៃ-手套', 'M', 'ស', 'A02',
       3, 'គូ', '42 គូ', '45 គូ', '42 គូ ➔ 45 គូ',
-      '中心库房 (ឃ្លាំងស្តុកនៅបុងសឹង)', '陈龙', '-', '陈龙', '2026-10-07 21:34:42'
+      '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)', '陈龙', '-', '陈龙', '2026-10-07 21:34:42'
     ],
     [
       'DOC-IN-20261008-1222', '2026-10-08', 'SKU-3037', 'ស្រោមដៃ-手套', 'M', 'ស', 'A08',
