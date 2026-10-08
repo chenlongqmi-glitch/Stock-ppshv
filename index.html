@@ -15823,7 +15823,9 @@
       } else if (retailQty > 0) {
         modeNote = ` [ចូលជារាយ: ${retailQty} ${baseUnit}]`;
       }
-      const finalNotes = (notes !== '-' ? notes + modeNote : (modeNote ? modeNote.trim() : '-')).trim();
+      // កំណត់សម្គាល់: បើអ្នកប្រើប្រាស់មិនបានបំពេញទេ កុំបន្ថែមអ្វីទាំងអស់ (រក្សា '-')
+      const cleanUserNote = (notes && notes !== '-' ? notes.trim() : '');
+      const finalNotes = cleanUserNote || '-';
 
       const payload = {
         data: { 
@@ -17779,24 +17781,9 @@
         tx.zone = v.zone;
         tx.receivedBy = v.receiver;
 
-        // Construct notes preserving tags: [ឯកសារ: ...] [អ្នកទទួល: ...] [ស្តុក: old ➔ new] [ចូល: ...]
-        let baseNotes = cleanDisplayNote(v.notes || '');
-        if (!baseNotes || baseNotes === '-') baseNotes = '';
-        let modeNote = '';
-        if (v.bulkQty > 0 && v.retailQty > 0) {
-          modeNote = `[ចូល: ${v.bulkQty} ${pUnit} + ${v.retailQty} ${rUnit} = ${v.newQty} ${rUnit}]`;
-        } else if (v.bulkQty > 0) {
-          modeNote = `[ចូលជាដុំ: ${v.bulkQty} ${pUnit} = ${v.newQty} ${rUnit}]`;
-        } else if (v.retailQty > 0) {
-          modeNote = `[ចូលជារាយ: ${v.retailQty} ${rUnit}]`;
-        }
-        const noteParts = [];
-        if (v.docNo) noteParts.push(`[ឯកសារ: ${v.docNo}]`);
-        if (v.receiver) noteParts.push(`[អ្នកទទួល: ${v.receiver}]`);
-        noteParts.push(`[ស្តុក: ${curOldStock} ${rUnit} ➔ ${calculatedNewStock} ${rUnit}]`);
-        if (modeNote) noteParts.push(modeNote);
-        if (baseNotes) noteParts.push(baseNotes);
-        tx.notes = noteParts.join(' ').trim();
+        // កំណត់សម្គាល់: រក្សាទុកតែអ្វីដែលអ្នកប្រើប្រាស់បានបញ្ចូល (បើទទេ គឺ '-')
+        let userNote = cleanDisplayNote(v.notes || '');
+        tx.notes = userNote || '-';
 
         // Update item in AppState.items & LOCAL_DB.items
         const itm = (AppState.items || []).find(i => (i.sku && tx.sku && i.sku.toLowerCase() === tx.sku.toLowerCase()));
@@ -18187,25 +18174,9 @@
         tx.issuer = v.issuer;
         tx.reason = v.reason;
 
-        // Construct notes preserving tags: [ឯកសារ: ...] [អ្នកបើក: ...] [មូលហេតុ: ...] [ស្តុក: old ➔ new] [ចេញ: ...]
-        let baseNotes = cleanDisplayNote(v.notes || '');
-        if (!baseNotes || baseNotes === '-') baseNotes = '';
-        let modeNote = '';
-        if (v.bulkQty > 0 && v.retailQty > 0) {
-          modeNote = `[ចេញ: ${v.bulkQty} ${pUnit} + ${v.retailQty} ${rUnit} = ${v.newQty} ${rUnit}]`;
-        } else if (v.bulkQty > 0) {
-          modeNote = `[ចេញជាដុំ: ${v.bulkQty} ${pUnit} = ${v.newQty} ${rUnit}]`;
-        } else if (v.retailQty > 0) {
-          modeNote = `[ចេញជារាយ: ${v.retailQty} ${rUnit}]`;
-        }
-        const noteParts = [];
-        if (v.docNo) noteParts.push(`[ឯកសារ: ${v.docNo}]`);
-        if (v.issuer) noteParts.push(`[អ្នកបើក: ${v.issuer}]`);
-        if (v.reason) noteParts.push(`[មូលហេតុ: ${v.reason}]`);
-        noteParts.push(`[ស្តុក: ${curOldStock} ${rUnit} ➔ ${calculatedNewStock} ${rUnit}]`);
-        if (modeNote) noteParts.push(modeNote);
-        if (baseNotes) noteParts.push(baseNotes);
-        tx.notes = noteParts.join(' ').trim();
+        // កំណត់សម្គាល់: រក្សាទុកតែអ្វីដែលអ្នកប្រើប្រាស់បានបញ្ចូល (បើទទេ គឺ '-')
+        let userNote = cleanDisplayNote(v.notes || '');
+        tx.notes = userNote || '-';
 
         if (qtyDiff !== 0) {
           const itm = (AppState.items || []).find(i => (i.sku && tx.sku && i.sku.toLowerCase() === tx.sku.toLowerCase()));
