@@ -1094,23 +1094,14 @@ function setupDatabase() {
 
 
     whSheet.appendRow(['WH-01', '1-K3 ស្ថានីយ (ភ្នំពេញ)', 'ភ្នំពេញ', 'លោក សុខា', 'Active']);
-
     whSheet.appendRow(['WH-02', '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)', 'កំពង់ស្ពឺ កើត', 'កញ្ញា រតនា', 'Active']);
-
     whSheet.appendRow(['WH-03', '3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)', 'កំពង់ស្ពឺ លិច', 'លោក ចាន់ណា', 'Active']);
-
     whSheet.appendRow(['WH-04', '4-K76 ស្ថានីយ (ត្រែងត្រយឹង)', 'ត្រែងត្រយឹង', 'លោក វិបុល', 'Active']);
-
     whSheet.appendRow(['WH-05', '5-K114 ស្ថានីយ (កំពង់សីលា)', 'កំពង់សីលា', 'អ្នកស្រី ធីតា', 'Active']);
-
     whSheet.appendRow(['WH-06', '6-K135 ស្ថានីយ (ស្រែអំបិល)', 'ស្រែអំបិល', 'លោក សម្បត្តិ', 'Active']);
-
     whSheet.appendRow(['WH-07', '7-K172 ស្ថានីយ (ស្ទឹងហាវ)', 'ស្ទឹងហាវ', 'កញ្ញា ម៉ាលី', 'Active']);
-
     whSheet.appendRow(['WH-08', '8-K182 ស្ថានីយ (ព្រះសីហនុ)', 'ព្រះសីហនុ', 'លោក ពិសិដ្ឋ', 'Active']);
-
     whSheet.appendRow(['WH-09', '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)', 'ចុងស៊ីង', 'លោក សារ៉ាត់', 'Active']);
-
     whSheet.appendRow(['WH-10', '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)', '机电', 'អ្នកស្រី សុភា', 'Active']);
 
     whSheet.appendRow(['WH-11', '综合办 (ផ្នែកកិច្ចការទូទៅ)', '综合办', 'លោក វណ្ណា', 'Active']);
@@ -2725,6 +2716,9 @@ function toCanonicalWarehouseNameGAS(wh) {
   var s = String(wh).replace(/^[📍🏢\s]+/, '').replace(/[\u200b\ufeff]/g, '').trim();
   var sLower = s.toLowerCase();
 
+  if (s === 'ALL' || s === 'គ្រប់ស្ថានីយទាំងអស់' || s === 'គ្រប់ឃ្លាំង') return 'គ្រប់ស្ថានីយទាំងអស់';
+  if (s === 'ADMIN_COMBO' || s === '中心库房 & 机电' || (s.indexOf('中心库房') !== -1 && s.indexOf('机电') !== -1)) return '中心库房 & 机电';
+
   if (sLower.indexOf('k3') !== -1 || s.indexOf('ភ្នំពេញ') !== -1 || sLower === 'wh-01' || s.indexOf('ឃ្លាំងទី ០១') !== -1 || s.indexOf('សែនសុខ') !== -1) {
     return '1-K3 ស្ថានីយ (ភ្នំពេញ)';
   }
@@ -2752,11 +2746,14 @@ function toCanonicalWarehouseNameGAS(wh) {
   if (s.indexOf('中心库房') !== -1 || sLower === 'wh-hq' || s.indexOf('ចុងស៊ីង') !== -1 || s.indexOf('បុងសឹង') !== -1) {
     return '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
   }
-  if (s.indexOf('机电') !== -1 || sLower === 'wh-em' || s.indexOf('គ្រឿងម៉ាស៊ីន') !== -1) {
+  if (s.indexOf('机电') !== -1 || sLower === 'wh-em' || s.indexOf('គ្រឿងម៉ាស៊ីន') !== -1 || s.indexOf('អគ្គិសនី') !== -1) {
     return '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)';
   }
   if (s.indexOf('综合办') !== -1 || sLower === 'wh-ga' || s.indexOf('កិច្ចការទូទៅ') !== -1) {
     return '综合办 (ផ្នែកកិច្ចការទូទៅ)';
+  }
+  if (s.indexOf('External Customer') !== -1 || s.indexOf('អតិថិជនក្រៅ') !== -1) {
+    return 'អតិថិជនក្រៅ (External Customer)';
   }
   return s;
 }

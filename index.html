@@ -6521,14 +6521,11 @@
 
     function getEffectiveStationFilter() {
       const u = AppState.currentUser || {};
-      const uRoleLower = String(u.role || '').trim().toLowerCase();
-      const uNameLower = String(u.username || '').trim().toLowerCase();
-      const isSuperAdmin = (uRoleLower === 'superadmin' || uNameLower === 'superadmin' || u.userId === 'USR-SA');
-      const isAdmin = !isSuperAdmin && (uRoleLower === 'admin' || uRoleLower.includes('admin') || uNameLower === 'admin' || String(u.username).toLowerCase() === 'singvan327@gmail.com' || (String(u.role || '').includes('គ្រប់គ្រង') && !String(u.role || '').includes('ស្ថានីយ')));
-      if (isSuperAdmin || isAdmin) {
+      const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(u) : false;
+      if (isPrivileged) {
         return AppState.selectedAdminWarehouseFilter || ADMIN_DEFAULT_COMBO_WH;
       }
-      return u.warehouse || '';
+      return (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(u.warehouse) : u.warehouse) || '';
     }
     window.getEffectiveStationFilter = getEffectiveStationFilter;
 
@@ -10298,8 +10295,8 @@ function saveLocalUsersToStorage() {
       if (typeof populateItemSelectDropdowns === 'function') populateItemSelectDropdowns();
 
       // 3. Pleasant auto-dismissing toast (1.1s, non-blocking)
-      const isSuperAdmin = (user.role === 'SuperAdmin' || String(user.username).toLowerCase() === 'superadmin');
-      const isAdmin = !isSuperAdmin && (user.role === 'Admin' || String(user.username).toLowerCase() === 'admin');
+      const isSuperAdmin = isUserSuperAdmin(user);
+      const isAdmin = isUserAdmin(user);
 
       // Set default warehouse to Central Warehouse & Electromechanical for SuperAdmin & Admin on login
       if (isSuperAdmin || isAdmin) {
@@ -12106,6 +12103,9 @@ function saveLocalUsersToStorage() {
     }
 
     function handleGlobalWarehouseChange(whValue) {
+      if (!isUserPrivilegedAdmin(AppState.currentUser)) {
+        return;
+      }
       AppState.selectedAdminWarehouseFilter = whValue;
       sessionStorage.setItem('inventory_wh_filter', whValue);
       const sessionWarehouseName = document.getElementById('activeSessionWarehouseName');
@@ -13747,13 +13747,16 @@ function saveLocalUsersToStorage() {
      * គណនាទិន្នន័យស្តុកតាមតំបន់នីមួយៗសម្រាប់មុខទំនិញមួយ (Get stock breakdown by zone for an item)
      * ប្រសិនបើមុខទំនិញមានតំបន់ស្តុកចាប់ពី ២ ឡើងទៅ គណនាចំនួនជាក់ស្តែងក្នុងមួយតំបន់
      */
-    function getItemZoneBreakdown(item) {
+    function getItemZoneBreakdown(item, optWh) {
       if (!item) return [];
+      const activeWh = optWh || (typeof getEffectiveStationFilter === 'function' ? getEffectiveStationFilter() : 'ALL');
       const curStock = Math.max(0, Number(item.currentStock || 0));
       const rUnit = (item.unit || '').trim() || 'ឯកតា';
 
-      // 0. Server-provided authoritative zone breakdown (from Stock_in / Stock_out)
-      if (Array.isArray(item.zoneBreakdown) && item.zoneBreakdown.length > 0) {
+      const isWhRestricted = (activeWh && activeWh !== 'ALL' && activeWh !== '🏢 គ្រប់ស្ថានីយទាំងអស់' && activeWh !== 'គ្រប់ឃ្លាំង');
+
+      // 0. Server-provided authoritative zone breakdown (from Stock_in / Stock_out) when not filtering by specific station
+      if (!isWhRestricted && Array.isArray(item.zoneBreakdown) && item.zoneBreakdown.length > 0) {
         const sumZb = item.zoneBreakdown.reduce((acc, z) => acc + Number(z.quantity || 0), 0);
         if (sumZb === curStock || curStock === 0 || !curStock) {
           return item.zoneBreakdown.map(z => ({
@@ -13768,21 +13771,43 @@ function saveLocalUsersToStorage() {
       const itemSku = String(item.sku || '').trim().toLowerCase();
       const itemName = String(item.name || '').trim().toLowerCase();
 
-      // 1. ប្រមូលរាល់ប្រតិបត្តិការទាំងអស់ដែលពាក់ព័ន្ធនឹងមុខទំនិញនេះ
+      // 1. ប្រមូលរាល់ប្រតិបត្តិការទាំងអស់ដែលពាក់ព័ន្ធនឹងមុខទំនិញនេះ (ច្រោះតាមស្ថានីយ)
       const allTxs = [];
-      const seenTx = new Set();
+      const seenDoc = new Set();
+      const seenTxId = new Set();
+      const seenFallback = new Set();
+
       const collect = (list) => {
         if (!Array.isArray(list)) return;
         for (let i = 0; i < list.length; i++) {
           const t = list[i];
           if (!t) continue;
-          const key = t.txId || t.docNo || (String(t.sku) + '_' + String(t.date) + '_' + String(t.quantity) + '_' + String(t.type));
-          if (key && seenTx.has(key)) continue;
-          if (key) seenTx.add(key);
 
           const tSku = String(t.sku || t.itemCode || t.code || '').trim().toLowerCase();
           const tName = String(t.itemName || '').trim().toLowerCase();
           if ((itemSku && tSku === itemSku) || (itemName && tName === itemName)) {
+            // ច្រោះតាមស្ថានីយដែលជ្រើសរើស (បើកំពុង Filter ស្ថានីយ)
+            if (isWhRestricted) {
+              const toLoc = t.toLocation || t.location || t.warehouse || '';
+              const fromLoc = t.fromLocation || '';
+              const matchTo = (typeof matchesTargetWarehouse === 'function') ? matchesTargetWarehouse(toLoc, activeWh) : (toLoc === activeWh);
+              const matchFrom = (typeof matchesTargetWarehouse === 'function') ? matchesTargetWarehouse(fromLoc, activeWh) : (fromLoc === activeWh);
+              if (!matchTo && !matchFrom) continue;
+            }
+
+            // Deduplication using docNo and txId to avoid double counting across databases
+            const docKey = String(t.docNo || '').trim();
+            const txKey = String(t.txId || t.id || '').trim();
+            if (docKey && seenDoc.has(docKey)) continue;
+            if (txKey && seenTxId.has(txKey)) continue;
+            if (docKey) seenDoc.add(docKey);
+            if (txKey) seenTxId.add(txKey);
+            if (!docKey && !txKey) {
+              const fKey = `${tSku}_${String(t.date || t.timestamp)}_${String(t.quantity)}_${String(t.type)}`;
+              if (seenFallback.has(fKey)) continue;
+              seenFallback.add(fKey);
+            }
+
             allTxs.push(t);
           }
         }
@@ -13864,31 +13889,6 @@ function saveLocalUsersToStorage() {
         }
       }
 
-      // ធានាថាតម្លៃសរុបនៃតំបន់នីមួយៗ ត្រូវគ្នានឹង curStock
-      const sumZones = zoneKeys.reduce((acc, k) => acc + (zoneStockMap[k] || 0), 0);
-      if (curStock > 0 && sumZones > 0 && sumZones !== curStock) {
-        const diff = curStock - sumZones;
-        if (diff > 0) {
-          // បន្ថែមទៅតំបន់ចុងក្រោយ ឬ item.zone
-          const targetZ = (item.zone && zoneStockMap[item.zone] !== undefined) ? item.zone : zoneKeys[zoneKeys.length - 1];
-          zoneStockMap[targetZ] = (zoneStockMap[targetZ] || 0) + diff;
-        } else {
-          // សមាមាត្រចុះក្រោមឱ្យស្មើ curStock
-          let rem = curStock;
-          for (let k = 0; k < zoneKeys.length; k++) {
-            if (k === zoneKeys.length - 1) {
-              zoneStockMap[zoneKeys[k]] = rem;
-            } else {
-              const scaled = Math.round((zoneStockMap[zoneKeys[k]] / sumZones) * curStock);
-              zoneStockMap[zoneKeys[k]] = scaled;
-              rem -= scaled;
-            }
-          }
-        }
-      } else if (curStock === 0) {
-        zoneKeys.forEach(k => { zoneStockMap[k] = 0; });
-      }
-
       return Object.keys(zoneStockMap).map(z => ({
         zone: z,
         quantity: zoneStockMap[z],
@@ -13900,8 +13900,8 @@ function saveLocalUsersToStorage() {
     /**
      * បង្ហាញ Cell តំបន់ស្តុកក្នុងតារាង Product Inventory
      */
-    function renderItemZoneCell(item, rUnit) {
-      const breakdown = getItemZoneBreakdown(item);
+    function renderItemZoneCell(item, rUnit, optWh) {
+      const breakdown = getItemZoneBreakdown(item, optWh);
       if (!breakdown || breakdown.length === 0) {
         return '<span class="text-slate-300 text-xs">-</span>';
       }
@@ -14059,7 +14059,8 @@ function saveLocalUsersToStorage() {
         const isStockOut = (t.type === 'STOCK_OUT') || (!t.type && (t.outBulkStock !== undefined || t.outLooseStock !== undefined || t.docNo?.startsWith('DOC-OUT') || t.docNo?.startsWith('TX-OUT') || t.notes?.includes('ចេញ') || t.notes?.includes('បើក')));
 
         if (isStockIn) {
-          const toWh = t.toLocation || t.location || t.warehouse || '';
+          let toWh = t.toLocation || t.location || t.warehouse || '';
+          if (toWh && typeof toCanonicalWarehouseName === 'function') toWh = toCanonicalWarehouseName(toWh);
           if (toWh) {
             whNetMap[toWh] = (whNetMap[toWh] || 0) + q;
             if (targetWh && targetWh !== 'ALL') {
@@ -14073,7 +14074,8 @@ function saveLocalUsersToStorage() {
             }
           }
         } else if (isStockOut) {
-          const fromWh = t.fromLocation || t.location || t.warehouse || '';
+          let fromWh = t.fromLocation || t.location || t.warehouse || '';
+          if (fromWh && typeof toCanonicalWarehouseName === 'function') fromWh = toCanonicalWarehouseName(fromWh);
           if (fromWh) {
             whNetMap[fromWh] = (whNetMap[fromWh] || 0) - q;
             if (targetWh && targetWh !== 'ALL') {
@@ -14411,7 +14413,7 @@ function saveLocalUsersToStorage() {
 
                     <!-- ជួរទី៥: តំបន់ស្តុក (Zone / Location) - សម្រាប់មុខទំនិញដែលមានចាប់ពី ២ តំបន់ឡើងទៅ បង្ហាញទិន្នន័យក្នុងមួយតំបន់មានចំនួនប៉ុន្មាន -->
           <td class="px-2 py-2.5 text-center align-middle overflow-hidden">
-            ${renderItemZoneCell(item, rUnit)}
+            ${renderItemZoneCell(item, rUnit, activeWhFilter)}
           </td>
 
           ${isPrivilegedAdmin ? `
@@ -16543,36 +16545,35 @@ function saveLocalUsersToStorage() {
     function applyUserWarehouseToStockInLocation(targetEl) {
       const locEl = targetEl || document.getElementById('stockInLocation');
       if (!locEl) return;
-      const u = AppState.currentUser;
-      const isSuperAdmin = (u && (u.role === 'SuperAdmin' || String(u.username).toLowerCase() === 'superadmin' || u.userId === 'USR-SA'));
-      const isAdmin = isSuperAdmin || (u && (u.role === 'Admin' || String(u.username).toLowerCase() === 'admin' || String(u.username).toLowerCase() === 'singvan327@gmail.com' || (String(u.role || '').includes('គ្រប់គ្រង') && !String(u.role || '').includes('ស្ថានីយ'))));
-      const currentList = (typeof getWarehouseNamesList === 'function') ? getWarehouseNamesList() : WAREHOUSES_LIST;
+      const u = AppState.currentUser || {};
+      const isPrivileged = isUserPrivilegedAdmin(u);
 
-      if (isAdmin) {
-        // សម្រាប់ account admin & super admin អាចជ្រើសរើសគ្រប់ស្ថានីយទាំងអស់
-        const curVal = locEl.value;
-        locEl.innerHTML = currentList.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('');
-
-        let targetWh = '';
-        if (typeof isAdminComboWarehouse === 'function' && isAdminComboWarehouse(AppState.selectedAdminWarehouseFilter)) {
-          targetWh = ADMIN_ALLOWED_WAREHOUSES[0] || currentList[0];
-        } else if (AppState.selectedAdminWarehouseFilter && AppState.selectedAdminWarehouseFilter !== 'ALL' && currentList.includes(AppState.selectedAdminWarehouseFilter)) {
-          targetWh = AppState.selectedAdminWarehouseFilter;
-        } else if (curVal && currentList.includes(curVal)) {
-          targetWh = curVal;
-        } else if (u && u.warehouse && currentList.some(w => (typeof isSameWarehouse === 'function' ? isSameWarehouse(w, u.warehouse) : w === u.warehouse))) {
-          targetWh = currentList.find(w => (typeof isSameWarehouse === 'function' ? isSameWarehouse(w, u.warehouse) : w === u.warehouse));
+      if (isPrivileged) {
+        // សម្រាប់ account super admin និង admin បង្ហាញតែប៉ុននេះបានហើយ (中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង) )និង(机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន))
+        locEl.disabled = false;
+        locEl.classList.remove('pointer-events-none', 'bg-slate-100', 'cursor-not-allowed');
+        const allowed = [
+          '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
+          '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)'
+        ];
+        const curVal = locEl.value ? (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(locEl.value) : locEl.value) : '';
+        locEl.innerHTML = allowed.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('');
+        if (curVal && allowed.includes(curVal)) {
+          locEl.value = curVal;
+        } else if (AppState.selectedAdminWarehouseFilter && allowed.includes(AppState.selectedAdminWarehouseFilter)) {
+          locEl.value = AppState.selectedAdminWarehouseFilter;
         } else {
-          targetWh = currentList[0];
+          locEl.value = allowed[0];
         }
-        locEl.value = targetWh;
         return;
       }
 
-      // សម្រាប់អ្នកប្រើប្រាស់តាមស្ថានីយ (Station Users): បង្ហាញតែស្ថានីយរបស់ខ្លួនឯងប៉ុណ្ណោះ
-      const myWh = u?.warehouse || currentList[0] || '1-K3 ស្ថានីយ (ភ្នំពេញ)';
-      locEl.innerHTML = `<option value="${escapeHtml(myWh)}" selected>${escapeHtml(myWh)}</option>`;
-      locEl.value = myWh;
+      // សម្រាប់ account ផ្សេងៗគឺយក default ទៅតាមស្ថានីយ៍រៀងៗខ្លួនមិនចាំបាច់selectយកទេ
+      const userWh = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(u.warehouse) : u.warehouse) || '1-K3 ស្ថានីយ (ភ្នំពេញ)';
+      locEl.innerHTML = `<option value="${escapeHtml(userWh)}" selected>📍 ${escapeHtml(userWh)}</option>`;
+      locEl.value = userWh;
+      locEl.disabled = true;
+      locEl.classList.add('pointer-events-none', 'bg-slate-100', 'cursor-not-allowed');
     }
 
     function initStockInForm() {
@@ -17230,6 +17231,44 @@ function saveLocalUsersToStorage() {
       return docNo;
     }
 
+    function applyUserWarehouseToStockOutLocation(targetEl) {
+      const soTo = targetEl || document.getElementById('stockOutToLocation');
+      if (!soTo) return;
+      const u = AppState.currentUser || {};
+      const isPrivileged = isUserPrivilegedAdmin(u);
+      const currentList = (typeof getWarehouseNamesList === 'function') ? getWarehouseNamesList() : WAREHOUSES_LIST;
+
+      if (isPrivileged) {
+        soTo.disabled = false;
+        soTo.classList.remove('pointer-events-none', 'bg-slate-100', 'cursor-not-allowed');
+        let curVal = soTo.value ? (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(soTo.value) : soTo.value) : '';
+        soTo.innerHTML = `
+          ${currentList.map(w => `<option value="${escapeHtml(w)}">📍 ${escapeHtml(w)}</option>`).join('')}
+          <option value="អតិថិជនក្រៅ (External Customer)">👤 អតិថិជនក្រៅ (External Customer)</option>
+        `;
+        if (curVal && (currentList.includes(curVal) || curVal === 'អតិថិជនក្រៅ (External Customer)')) {
+          soTo.value = curVal;
+        } else {
+          soTo.value = currentList[0];
+        }
+        return;
+      }
+
+      // សម្រាប់អ្នកប្រើប្រាស់នៅតាមស្ថានីយមិនអាចចុចមុខងារជ្រើសរើសយកស្ថានីយផ្សេងៗបានទេ: គឺកំណត់ទៅតាម account របស់ស្ថានីយរៀងៗខ្លួន
+      const myWh = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(u.warehouse) : u.warehouse) || '1-K3 ស្ថានីយ (ភ្នំពេញ)';
+      soTo.innerHTML = `<option value="${escapeHtml(myWh)}" selected>📍 ${escapeHtml(myWh)}</option>`;
+      soTo.value = myWh;
+      soTo.disabled = true;
+      soTo.classList.add('pointer-events-none', 'bg-slate-100', 'cursor-not-allowed');
+
+      // Also ensure multi-station batch dispatch button is hidden for station users
+      const modeSwitcher = document.getElementById('btnStockOutModeMulti')?.parentElement;
+      if (modeSwitcher) {
+        modeSwitcher.classList.add('hidden');
+      }
+    }
+    window.applyUserWarehouseToStockOutLocation = applyUserWarehouseToStockOutLocation;
+
     function initStockOutForm() {
       const docEl = document.getElementById('stockOutDocNo');
       if (docEl && !docEl.value) {
@@ -17240,6 +17279,7 @@ function saveLocalUsersToStorage() {
         const u = AppState.currentUser;
         issuerEl.value = u ? (u.fullName || u.username) : 'Admin';
       }
+      applyUserWarehouseToStockOutLocation();
       updateStockOutImagePreview(null);
     }
 
@@ -27753,24 +27793,36 @@ function saveLocalUsersToStorage() {
       const isAdmin = isUserAdmin(u);
       const isPrivilegedAdmin = isUserPrivilegedAdmin(u);
 
-      // 1. Global Top Warehouse Selector - បង្ហាញជម្រើស Combo (中心库房 & 机电) និង គ្រប់ស្ថានីយទាំងអស់សម្រាប់ Admin និង SuperAdmin
+      // 1. Global Top Warehouse Selector - មុខងារច្រោះយកទិន្នន័យតាមស្ថានីយ ប្រើប្រាស់បានសម្រាប់តែ Account super admin និង admin ប៉ុណ្ណោះ
       const globalSel = document.getElementById('globalWarehouseSelector');
       if (globalSel) {
-        let curVal = globalSel.value || AppState.selectedAdminWarehouseFilter || ADMIN_DEFAULT_COMBO_WH;
-        if (curVal !== ADMIN_DEFAULT_COMBO_WH && curVal !== 'ALL' && typeof toCanonicalWarehouseName === 'function') {
-          curVal = toCanonicalWarehouseName(curVal);
-        }
-        globalSel.innerHTML = `
-          <option value="${escapeHtml(ADMIN_DEFAULT_COMBO_WH)}">🏢 中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង) & 机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
-          <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>
-          ${currentList.map(w => `<option value="${escapeHtml(w)}">📍 ${escapeHtml(w)}</option>`).join('')}
-        `;
-        if (curVal === ADMIN_DEFAULT_COMBO_WH || curVal === 'ALL' || currentList.includes(curVal)) {
-          globalSel.value = curVal;
-          AppState.selectedAdminWarehouseFilter = curVal;
+        if (isPrivilegedAdmin) {
+          globalSel.disabled = false;
+          globalSel.classList.remove('pointer-events-none', 'cursor-not-allowed');
+          let curVal = globalSel.value || AppState.selectedAdminWarehouseFilter || ADMIN_DEFAULT_COMBO_WH;
+          if (curVal !== ADMIN_DEFAULT_COMBO_WH && curVal !== 'ALL' && typeof toCanonicalWarehouseName === 'function') {
+            curVal = toCanonicalWarehouseName(curVal);
+          }
+          globalSel.innerHTML = `
+            <option value="${escapeHtml(ADMIN_DEFAULT_COMBO_WH)}">🏢 中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង) & 机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
+            <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>
+            ${currentList.map(w => `<option value="${escapeHtml(w)}">📍 ${escapeHtml(w)}</option>`).join('')}
+          `;
+          if (curVal === ADMIN_DEFAULT_COMBO_WH || curVal === 'ALL' || currentList.includes(curVal)) {
+            globalSel.value = curVal;
+            AppState.selectedAdminWarehouseFilter = curVal;
+          } else {
+            globalSel.value = ADMIN_DEFAULT_COMBO_WH;
+            AppState.selectedAdminWarehouseFilter = ADMIN_DEFAULT_COMBO_WH;
+          }
         } else {
-          globalSel.value = ADMIN_DEFAULT_COMBO_WH;
-          AppState.selectedAdminWarehouseFilter = ADMIN_DEFAULT_COMBO_WH;
+          // សម្រាប់អ្នកប្រើប្រាស់ផ្សេងៗគឺមិនអាចផ្លាស់ប្ដូរស្ថានីយបានទេ: កំណត់ជាប់ទៅតាមស្ថានីយផ្ទាល់ខ្លួន
+          const userWh = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(u.warehouse) : u.warehouse) || '1-K3 ស្ថានីយ (ភ្នំពេញ)';
+          globalSel.innerHTML = `<option value="${escapeHtml(userWh)}" selected>📍 ${escapeHtml(userWh)}</option>`;
+          globalSel.value = userWh;
+          globalSel.disabled = true;
+          globalSel.classList.add('pointer-events-none', 'cursor-not-allowed');
+          AppState.selectedAdminWarehouseFilter = userWh;
         }
       }
 
@@ -27839,14 +27891,7 @@ function saveLocalUsersToStorage() {
       // 5.1 Stock Out To Location Selector
       const soTo = document.getElementById('stockOutToLocation');
       if (soTo) {
-        let curVal = soTo.value ? (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(soTo.value) : soTo.value) : '';
-        soTo.innerHTML = `
-          ${currentList.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('')}
-          <option value="អតិថិជនក្រៅ (External Customer)">អតិថិជនក្រៅ (External Customer)</option>
-        `;
-        if (curVal && (currentList.includes(curVal) || curVal === 'អតិថិជនក្រៅ (External Customer)')) {
-          soTo.value = curVal;
-        }
+        applyUserWarehouseToStockOutLocation(soTo);
       }
 
       // 6. Stock Transfer From/To Location Selectors
