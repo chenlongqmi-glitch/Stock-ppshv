@@ -4571,11 +4571,15 @@ function getItemsList(userOrPayload, warehouseFilter, optSs) {
         const rWh = (sWhIdx >= 0) ? String(sInData[r][sWhIdx] || '').trim() : '';
 
         const skuKey = rSku.toLowerCase();
-        if (!itemZoneMap[skuKey]) itemZoneMap[skuKey] = { zones: {}, warehouses: [], totalIn: 0, totalOut: 0 };
+        if (!itemZoneMap[skuKey]) itemZoneMap[skuKey] = { zones: {}, zoneWarehouses: {}, warehouses: [], totalIn: 0, totalOut: 0 };
         itemZoneMap[skuKey].totalIn += rQty;
         itemZoneMap[skuKey].zones[rZone] = (itemZoneMap[skuKey].zones[rZone] || 0) + rQty;
-        if (rWh && !itemZoneMap[skuKey].warehouses.includes(rWh)) {
-          itemZoneMap[skuKey].warehouses.push(rWh);
+        if (rWh) {
+          const canonicalWh = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(rWh) : rWh;
+          itemZoneMap[skuKey].zoneWarehouses[rZone] = canonicalWh;
+          if (!itemZoneMap[skuKey].warehouses.includes(canonicalWh)) {
+            itemZoneMap[skuKey].warehouses.push(canonicalWh);
+          }
         }
       }
     }
@@ -4682,10 +4686,12 @@ function getItemsList(userOrPayload, warehouseFilter, optSs) {
       if (zInfo) {
         for (const zk in zInfo.zones) {
           if (zInfo.zones[zk] > 0) {
+            const zWh = (zInfo.zoneWarehouses && zInfo.zoneWarehouses[zk]) ? zInfo.zoneWarehouses[zk] : '';
             itemZoneBreakdown.push({
               zone: zk,
               quantity: zInfo.zones[zk],
               unit: rUnit,
+              warehouse: zWh,
               formatted: zk + ': ' + zInfo.zones[zk] + ' ' + rUnit
             });
             itemZonesList.push(zk);
