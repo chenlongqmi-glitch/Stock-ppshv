@@ -1650,13 +1650,59 @@
       </div>
       <!-- Instant Session Banner Sync Script: Renders correct User info before paint -->
       <script>
+    // =========================================================================
+    // UNIVERSAL ROLE RECOGNITION HELPERS (SUPERADMIN & ADMIN)
+    // =========================================================================
+    function isUserSuperAdmin(user) {
+      const u = user || AppState?.currentUser || {};
+      const r = String(u.role || '').trim().toLowerCase().replace(/[\s_]+/g, '');
+      const name = String(u.username || '').trim().toLowerCase().replace(/[\s_]+/g, '');
+      const email = String(u.email || '').trim().toLowerCase();
+      const id = String(u.userId || '').trim().toUpperCase();
+      return (
+        r === 'superadmin' ||
+        r.includes('super') ||
+        r.includes('អភិបាលកំពូល') ||
+        name === 'superadmin' ||
+        name.includes('superadmin') ||
+        email === 'chenlongqmi@gmail.com' ||
+        id === 'USR-SA' ||
+        id === 'USR-SUPERADMIN'
+      );
+    }
+    window.isUserSuperAdmin = isUserSuperAdmin;
+
+    function isUserAdmin(user) {
+      const u = user || AppState?.currentUser || {};
+      if (isUserSuperAdmin(u)) return false;
+      const r = String(u.role || '').trim().toLowerCase().replace(/[\s_]+/g, '');
+      const name = String(u.username || '').trim().toLowerCase();
+      const email = String(u.email || '').trim().toLowerCase();
+      return (
+        r === 'admin' ||
+        r.includes('admin') ||
+        name === 'admin' ||
+        name === 'singvan327@gmail.com' ||
+        email === 'singvan327@gmail.com' ||
+        email === 'ppshv21qw024@gmail.com' ||
+        (String(u.role || '').includes('គ្រប់គ្រង') && !String(u.role || '').includes('ស្ថានីយ'))
+      );
+    }
+    window.isUserAdmin = isUserAdmin;
+
+    function isUserPrivilegedAdmin(user) {
+      const u = user || AppState?.currentUser || {};
+      return isUserSuperAdmin(u) || isUserAdmin(u);
+    }
+    window.isUserPrivilegedAdmin = isUserPrivilegedAdmin;
+
         (function() {
           try {
             var raw = sessionStorage.getItem('inventory_user');
             if (raw) {
               var u = JSON.parse(raw);
               if (u) {
-                var isSA = (u.userId === 'USR-SA' || (u.username && u.username.toLowerCase() === 'superadmin'));
+                var isSA = isUserSuperAdmin(u);
                 var titleEl = document.getElementById('activeSessionUserTitle');
                 if (titleEl) {
                   var dName = isSA ? '陈龙' : (u.fullName || u.username || 'User');
@@ -1734,7 +1780,7 @@
             <i class="fa-solid fa-warehouse text-blue-600 shrink-0 text-[11px] sm:text-xs"></i>
             <select id="globalWarehouseSelector" onchange="handleGlobalWarehouseChange(this.value)"
               class="bg-transparent font-bold text-blue-900 outline-none cursor-pointer text-[11px] sm:text-xs truncate w-full">
-              <option value="ALL">🏢 គ្រប់ស្ថានីយ (中心库房 & 机电)</option>
+              <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>
               <option value="中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)">📍 中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)</option>
               <option value="机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)">📍 机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
             </select>
@@ -2213,7 +2259,7 @@
                   <select id="itemWarehouseFilter" onchange="handleItemWarehouseFilterChange(this.value)"
                     class="px-2.5 py-1.5 sm:py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none font-bold text-blue-900 cursor-pointer shadow-3xs max-w-[170px] sm:max-w-[210px] truncate"
                     title="ជ្រើសរើសស្ថានីយដើម្បីច្រោះទិន្នន័យ (Admin Only)">
-                    <option value="ALL">🏢 គ្រប់ស្ថានីយ (中心库房 & 机电)</option>
+                    <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>
                     <option value="中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)">中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)</option>
                     <option value="机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)">机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
                   </select>
@@ -4770,7 +4816,7 @@
               <option value="中心库房 (ឃ្លាំងស្តុកនៅបុងសឹង)">📍 中心库房 (ឃ្លាំងស្តុកនៅបុងសឹង)</option>
               <option value="机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)">📍 机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
               <option value="综合办 (ផ្នែកកិច្ចការទូទៅ)">📍 综合办 (ផ្នែកកិច្ចការទូទៅ)</option>
-              <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់ (Admin Only)</option>
+              <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>
             </select>
             <p id="addWarehouseError" class="text-[10.5px] font-bold text-rose-600 mt-1 hidden"><i class="fa-solid fa-circle-exclamation mr-1"></i>សូមជ្រើសរើសស្ថានីយ</p>
           </div>
@@ -11132,11 +11178,11 @@ function saveLocalUsersToStorage() {
         sessionUserTitle.innerHTML = `${u.fullName || u.username} <span class="text-xs text-slate-400 font-mono font-normal">(@${u.username})</span>`;
       }
 
-      const isSuperAdmin = (u.role === 'SuperAdmin') || (String(u.username).toLowerCase() === 'superadmin');
-      const isAdmin = !isSuperAdmin && (u.role === 'Admin' || String(u.username).toLowerCase() === 'admin');
-      const isStationManager = (u.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || u.role === 'អ្នកគ្រប់គ្រង');
-      const isTeamLeader = (u.role === 'ប្រធានក្រុម' || u.role === 'ប្រធាន' || u.role === 'Manager' || u.role === 'Team Leader');
-      const isPrivilegedAdmin = isSuperAdmin || isAdmin;
+      const isSuperAdmin = isUserSuperAdmin(u);
+      const isAdmin = isUserAdmin(u);
+      const isStationManager = !isSuperAdmin && !isAdmin && (String(u.role || '').includes('អ្នកគ្រប់គ្រងស្ថានីយ') || String(u.role || '').includes('អ្នកគ្រប់គ្រង'));
+      const isTeamLeader = !isSuperAdmin && !isAdmin && !isStationManager && (String(u.role || '').includes('ប្រធាន') || String(u.role || '').toLowerCase().includes('leader') || String(u.role || '').toLowerCase().includes('manager'));
+      const isPrivilegedAdmin = isUserPrivilegedAdmin(u);
       const isImpersonating = !!sessionStorage.getItem('inventory_superadmin_session');
 
       const sessionRoleBadge = document.getElementById('activeSessionRoleBadge');
@@ -11169,7 +11215,7 @@ function saveLocalUsersToStorage() {
           if (AppState.selectedAdminWarehouseFilter && AppState.selectedAdminWarehouseFilter !== 'ALL') {
             sessionWarehouseName.innerText = `📍 ${AppState.selectedAdminWarehouseFilter} (${isSuperAdmin ? 'SuperAdmin' : 'Admin'} Switch)`;
           } else {
-            sessionWarehouseName.innerText = isSuperAdmin ? '🏢 គ្រប់ស្ថានីយទាំងអស់ (SuperAdmin Only)' : '🏢 គ្រប់ស្ថានីយ (中心库房 & 机电)';
+            sessionWarehouseName.innerText = '🏢 គ្រប់ស្ថានីយទាំងអស់';
           }
         } else {
           sessionWarehouseName.innerText = `📍 ${u.warehouse || WAREHOUSES_LIST[0]}`;
@@ -11641,9 +11687,9 @@ function saveLocalUsersToStorage() {
         const u = AppState.currentUser || {};
         const uRoleLower = String(u.role || '').trim().toLowerCase();
         const uNameLower = String(u.username || '').trim().toLowerCase();
-        const isSuperAdmin = (uRoleLower === 'superadmin' || uNameLower === 'superadmin' || u.userId === 'USR-SA');
+        const isSuperAdmin = isUserSuperAdmin(u);
         if (whValue === 'ALL') {
-          sessionWarehouseName.innerText = '🏢 គ្រប់ស្ថានីយទាំងអស់ (Admin Only)';
+          sessionWarehouseName.innerText = '🏢 គ្រប់ស្ថានីយទាំងអស់';
         } else {
           sessionWarehouseName.innerText = `📍 ${whValue} (${isSuperAdmin ? 'SuperAdmin' : 'Admin'} Switch)`;
         }
@@ -11673,9 +11719,9 @@ function saveLocalUsersToStorage() {
         const u = AppState.currentUser || {};
         const uRoleLower = String(u.role || '').trim().toLowerCase();
         const uNameLower = String(u.username || '').trim().toLowerCase();
-        const isSuperAdmin = (uRoleLower === 'superadmin' || uNameLower === 'superadmin' || u.userId === 'USR-SA');
+        const isSuperAdmin = isUserSuperAdmin(u);
         if (whValue === 'ALL') {
-          sessionWarehouseName.innerText = '🏢 គ្រប់ស្ថានីយទាំងអស់ (Admin Only)';
+          sessionWarehouseName.innerText = '🏢 គ្រប់ស្ថានីយទាំងអស់';
         } else {
           sessionWarehouseName.innerText = `📍 ${whValue} (${isSuperAdmin ? 'SuperAdmin' : 'Admin'} Switch)`;
         }
@@ -13653,11 +13699,9 @@ function saveLocalUsersToStorage() {
 
     function getFilteredItemsList() {
       const u = AppState.currentUser;
-      const uRoleLower = String(u?.role || '').trim().toLowerCase();
-      const uNameLower = String(u?.username || '').trim().toLowerCase();
-      const isSuperAdmin = (uRoleLower === 'superadmin' || uNameLower === 'superadmin' || u?.userId === 'USR-SA');
-      const isAdmin = !isSuperAdmin && (uRoleLower === 'admin' || uRoleLower.includes('admin') || uNameLower === 'admin' || String(u?.username).toLowerCase() === 'singvan327@gmail.com' || (String(u?.role || '').includes('គ្រប់គ្រង') && !String(u?.role || '').includes('ស្ថានីយ')));
-      const isPrivilegedAdmin = isSuperAdmin || isAdmin;
+      const isSuperAdmin = isUserSuperAdmin(u);
+      const isAdmin = isUserAdmin(u);
+      const isPrivilegedAdmin = isUserPrivilegedAdmin(u);
 
       let activeWhFilter = 'ALL';
       if (isPrivilegedAdmin) {
@@ -13759,9 +13803,9 @@ function saveLocalUsersToStorage() {
       }
 
       const u = AppState.currentUser;
-      const isSuperAdmin = (u && (u.role === 'SuperAdmin' || String(u.username).toLowerCase() === 'superadmin' || u.userId === 'USR-SA'));
-      const isAdmin = !isSuperAdmin && (u && (u.role === 'Admin' || String(u.username).toLowerCase() === 'admin' || String(u.username).toLowerCase() === 'singvan327@gmail.com'));
-      const isPrivilegedAdmin = isSuperAdmin || isAdmin;
+      const isSuperAdmin = isUserSuperAdmin(u);
+      const isAdmin = isUserAdmin(u);
+      const isPrivilegedAdmin = isUserPrivilegedAdmin(u);
 
       // 1. បង្ហាញ dropdown ជ្រើសរើសស្ថានីយសម្រាប់តែ SuperAdmin និង Admin តែប៉ុណ្ណោះ
       const whFilterContainer = document.getElementById('itemWarehouseFilterContainer');
@@ -13837,7 +13881,7 @@ function saveLocalUsersToStorage() {
       }
 
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="${isAdmin ? 10 : 9}" class="text-center py-10 text-slate-400">រកមិនឃើញទិន្នន័យទំនិញដែលត្រូវគ្នាទេ</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="${isPrivilegedAdmin ? 10 : 9}" class="text-center py-10 text-slate-400">រកមិនឃើញទិន្នន័យទំនិញដែលត្រូវគ្នាទេ</td></tr>`;
         return;
       }
 
@@ -19952,8 +19996,8 @@ function saveLocalUsersToStorage() {
                 const packRate = Number(item.packQty || 1);
         const packStock = packRate > 1 ? Math.floor(qty / packRate) : qty;
         const u = AppState.currentUser;
-        const isSuperAdmin = (u && (u.role === 'SuperAdmin' || String(u.username).toLowerCase() === 'superadmin' || u.userId === 'USR-SA'));
-        const isAdminUser = isSuperAdmin || (u && (u.role === 'Admin' || String(u.username).toLowerCase() === 'admin' || String(u.username).toLowerCase() === 'singvan327@gmail.com'));
+        const isSuperAdmin = isUserSuperAdmin(u);
+        const isAdminUser = isUserPrivilegedAdmin(u);
         const exportWhFilter = document.getElementById('itemWarehouseFilter')?.value || AppState.selectedAdminWarehouseFilter || 'ALL';
         const stStock = (isAdminUser && typeof getItemStationStock === 'function') ? getItemStationStock(item, exportWhFilter) : null;
 
@@ -22429,7 +22473,7 @@ function saveLocalUsersToStorage() {
           addWhSelect.disabled = false;
           addWhSelect.innerHTML = `
             ${stations.map(w => `<option value="${escapeHtml(w)}">📍 ${escapeHtml(w)}</option>`).join('')}
-            <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់ (Admin Only)</option>
+            <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>
           `;
           addWhSelect.value = stations[0] || '1-K3 ស្ថានីយ (ភ្នំពេញ)';
         }
@@ -26023,17 +26067,16 @@ function saveLocalUsersToStorage() {
     function refreshAllWarehouseDropdowns() {
       const currentList = getWarehouseNamesList();
       const u = AppState.currentUser || {};
-      const uRoleLower = String(u.role || '').trim().toLowerCase();
-      const uNameLower = String(u.username || '').trim().toLowerCase();
-      const isSuperAdmin = (uRoleLower === 'superadmin' || uNameLower === 'superadmin' || u.userId === 'USR-SA');
-      const isAdmin = !isSuperAdmin && (uRoleLower === 'admin' || uRoleLower.includes('admin') || uNameLower === 'admin' || String(u.username).toLowerCase() === 'singvan327@gmail.com' || (String(u.role || '').includes('គ្រប់គ្រង') && !String(u.role || '').includes('ស្ថានីយ')));
+      const isSuperAdmin = isUserSuperAdmin(u);
+      const isAdmin = isUserAdmin(u);
+      const isPrivilegedAdmin = isUserPrivilegedAdmin(u);
 
       // 1. Global Top Warehouse Selector - បង្ហាញគ្រប់ស្ថានីយទាំងអស់សម្រាប់ទាំង Admin និង SuperAdmin
       const globalSel = document.getElementById('globalWarehouseSelector');
       if (globalSel) {
         const curVal = globalSel.value || AppState.selectedAdminWarehouseFilter || 'ALL';
         globalSel.innerHTML = `
-          <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់ (Admin Only)</option>
+          <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>
           ${currentList.map(w => `<option value="${escapeHtml(w)}">📍 ${escapeHtml(w)}</option>`).join('')}
         `;
         if (currentList.includes(curVal) || curVal === 'ALL') {
@@ -26067,7 +26110,7 @@ function saveLocalUsersToStorage() {
         regWh.innerHTML = `
           <option value="" disabled selected>-- សូមជ្រើសរើសស្ថានីយ --</option>
           ${currentList.map(w => `<option value="${escapeHtml(w)}">📍 ${escapeHtml(w)}</option>`).join('')}
-          <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់ (Admin Only)</option>
+          <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>
         `;
         if (curVal && (currentList.includes(curVal) || curVal === 'ALL')) regWh.value = curVal;
       }
@@ -26085,7 +26128,7 @@ function saveLocalUsersToStorage() {
           userWh.disabled = false;
           userWh.innerHTML = `
             ${currentList.map(w => `<option value="${escapeHtml(w)}">📍 ${escapeHtml(w)}</option>`).join('')}
-            <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់ (Admin Only)</option>
+            <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>
           `;
           if (curVal && (currentList.includes(curVal) || curVal === 'ALL')) {
             userWh.value = curVal;
