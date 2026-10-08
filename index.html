@@ -13186,7 +13186,7 @@
             zone: z.zone,
             quantity: Number(z.quantity || 0),
             unit: z.unit || rUnit,
-            formatted: ${z.zone}:  
+            formatted: `${z.zone}: ${Number(z.quantity || 0)} ${z.unit || rUnit}`
           }));
         }
       }
@@ -13614,96 +13614,10 @@
         activeWhFilter = u?.warehouse || '';
       }
 
-      // 3. ប្រមូលបញ្ជីមុខទំនិញ (SKUs) ដែលបានធ្វើការបញ្ចូលក្នុងស្តុក (Stock In) ក្នុងស្ថានីយនេះ
-      let stockedSkusInTargetWh = null;
-      if (activeWhFilter && activeWhFilter !== 'ALL') {
-        stockedSkusInTargetWh = new Set();
-        let allTxList = [];
-        if (Array.isArray(AppState.stockInHistory)) allTxList = allTxList.concat(AppState.stockInHistory);
-        if (Array.isArray(AppState.transactions)) allTxList = allTxList.concat(AppState.transactions);
-        if (Array.isArray(LOCAL_DB.transactions)) allTxList = allTxList.concat(LOCAL_DB.transactions);
-        try {
-          const s1 = localStorage.getItem('inventory_stock_in_history_db');
-          if (s1) {
-            const p1 = JSON.parse(s1);
-            if (Array.isArray(p1)) allTxList = allTxList.concat(p1);
-          }
-        } catch(e) {}
-        try {
-          const s2 = localStorage.getItem('inventory_transactions_db');
-          if (s2) {
-            const p2 = JSON.parse(s2);
-            if (Array.isArray(p2)) allTxList = allTxList.concat(p2);
-          }
-        } catch(e) {}
-
-        allTxList.forEach(t => {
-          if (!t) return;
-          const isStockIn = (t.type === 'STOCK_IN') || (!t.type && (t.inBulkStock !== undefined || t.inLooseStock !== undefined || t.docNo?.startsWith('DOC-IN') || t.docNo?.startsWith('TX-IN') || t.notes?.includes('ចូលស្តុក')));
-          if (!isStockIn) return;
-
-          const tWh = t.toLocation || t.location || t.warehouse || '';
-          if (!tWh) return;
-
-          const isMatch = (typeof isSameWarehouse === 'function')
-            ? (isSameWarehouse(tWh, activeWhFilter) || tWh === 'គ្រប់ស្ថានីយទាំងអស់' || tWh === 'ALL')
-            : (tWh.includes(activeWhFilter) || activeWhFilter.includes(tWh) || tWh === 'គ្រប់ស្ថានីយទាំងអស់' || tWh === 'ALL');
-
-          if (isMatch) {
-            if (t.sku) stockedSkusInTargetWh.add(String(t.sku).trim().toLowerCase());
-            if (t.itemName) stockedSkusInTargetWh.add(String(t.itemName).trim().toLowerCase());
-          }
-        });
-      }
-
-      let search = rawSearch.toLowerCase().trim();
-      const catFilter = document.getElementById('itemCategoryFilter')?.value || 'ALL';
-      const statusFilter = document.getElementById('itemStatusFilter')?.value || 'ALL';
-
-      let filtered = (AppState.items || []).filter(item => {
-        // ច្រោះតាមស្ថានីយ (សម្រាប់ស្ថានីយផ្ទាល់ខ្លួន ឬតាមការជ្រើសរើសរបស់ Admin)
-        if (stockedSkusInTargetWh !== null) {
-          const iSku = String(item.sku || '').trim().toLowerCase();
-          const iName = String(item.name || '').trim().toLowerCase();
-          const itemLoc = item.toLocation || item.location || item.warehouse || '';
-
-          const isStockedInWh = stockedSkusInTargetWh.has(iSku) || stockedSkusInTargetWh.has(iName);
-          const isItemAssignedToWh = itemLoc && (
-            (typeof isSameWarehouse === 'function')
-              ? (isSameWarehouse(itemLoc, activeWhFilter) || itemLoc === 'គ្រប់ស្ថានីយទាំងអស់' || itemLoc === 'ALL')
-              : (itemLoc.includes(activeWhFilter) || itemLoc === 'គ្រប់ស្ថានីយទាំងអស់' || itemLoc === 'ALL')
-          );
-          const isItemInWhBreakdown = Array.isArray(item.warehouses) && item.warehouses.some(w =>
-            (typeof isSameWarehouse === 'function')
-              ? (isSameWarehouse(w, activeWhFilter) || w === 'គ្រប់ស្ថានីយទាំងអស់' || w === 'ALL')
-              : (w.includes(activeWhFilter) || w === 'គ្រប់ស្ថានីយទាំងអស់' || w === 'ALL')
-          );
-
-          if (!isStockedInWh && !isItemAssignedToWh && !isItemInWhBreakdown) {
-            return false; // ទំនិញក្រៅពីស្ថានីយ៍របស់ខ្លួនមិនអាចមើលឃើញទេ
-          }
-        }
-
-        if (search) {
-          const itemZones = (typeof getItemZoneBreakdown === 'function') ? getItemZoneBreakdown(item) : [];
-          const matchZone = (item.zone && item.zone.toLowerCase().includes(search)) ||
-            itemZones.some(z => z.zone && z.zone.toLowerCase().includes(search));
-          const match = (item.sku && item.sku.toLowerCase().includes(search)) ||
-            (item.barcode && item.barcode.toLowerCase().includes(search)) ||
-            (item.name && item.name.toLowerCase().includes(search)) ||
-            (item.size && item.size.toLowerCase().includes(search)) ||
-            (item.color && item.color.toLowerCase().includes(search)) ||
-            matchZone ||
-            (item.notes && item.notes.toLowerCase().includes(search)) ||
-            (item.createdBy && item.createdBy.toLowerCase().includes(search));
-          if (!match) return false;
-        }
-        if (catFilter !== 'ALL' && item.category !== catFilter) return false;
-        if (statusFilter === 'LOW' && (item.currentStock > item.minStock || item.currentStock === 0)) return false;
-        if (statusFilter === 'OUT' && item.currentStock !== 0) return false;
-        if (statusFilter === 'NORMAL' && item.currentStock <= item.minStock) return false;
-        return true;
-      });
+            // 3. យកបញ្ជីមុខទំនិញដែលបានច្រោះរួច (តាមស្ថានីយ, ពាក្យស្វែងរក, ប្រភេទ និងស្ថានភាពស្តុក)
+      let filtered = (typeof getFilteredItemsList === 'function')
+        ? getFilteredItemsList()
+        : (AppState.items || []);
 
       if ((!AppState.transactions || AppState.transactions.length === 0) && (!LOCAL_DB.transactions || LOCAL_DB.transactions.length === 0)) {
         if (typeof loadLocalTransactionsFromStorage === 'function') {
@@ -19760,7 +19674,7 @@
           'ស្តុកអប្បបរមា': min,
           'តំបន់': (function() {
             const bks = (typeof getItemZoneBreakdown === 'function') ? getItemZoneBreakdown(item) : [];
-            return (bks.length > 0) ? bks.map(z => ${z.zone}:  .trim()).join(', ') : (item.zone || '-');
+            return (bks.length > 0) ? bks.map(z => (z.formatted || `${z.zone}: ${z.quantity} ${z.unit || ''}`).trim()).join(', ') : (item.zone || '-');
           })(),
           'ចំណាំ': item.notes || '-',
           'អ្នកបញ្ចូល': getUserDisplayName(item.createdBy)
