@@ -2498,18 +2498,8 @@
                     </label>
                     <select id="stockInLocation" required
                       class="w-full h-11 px-3 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition shadow-2xs">
-                      <option value="1-K3 ស្ថានីយ (ភ្នំពេញ)">1-K3 ស្ថានីយ (ភ្នំពេញ)</option>
-                      <option value="2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)">2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)</option>
-                      <option value="3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)">3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)</option>
-                      <option value="4-K76 ស្ថានីយ (ត្រែងត្រយឹង)">4-K76 ស្ថានីយ (ត្រែងត្រយឹង)</option>
-                      <option value="5-K114 ស្ថានីយ (កំពង់សីលា)">5-K114 ស្ថានីយ (កំពង់សីលា)</option>
-                      <option value="6-K135 ស្ថានីយ (ស្រែអំបិល)">6-K135 ស្ថានីយ (ស្រែអំបិល)</option>
-                      <option value="7-K172 ស្ថានីយ (ស្ទឹងហាវ)">7-K172 ស្ថានីយ (ស្ទឹងហាវ)</option>
-                      <option value="8-K182 ស្ថានីយ (ព្រះសីហនុ)">8-K182 ស្ថានីយ (ព្រះសីហនុ)</option>
-                      <option value="中心库房 (ឃ្លាំងស្តុកនៅបុងសឹង)" selected>中心库房 (ឃ្លាំងស្តុកនៅបុងសឹង)</option>
+                      <option value="中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)" selected>中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)</option>
                       <option value="机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)">机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
-                      <option value="综合办 (ផ្នែកកិច្ចការទូទៅ)">综合办 (ផ្នែកកិច្ចការទូទៅ)</option>
-                      <option value="អតិថិជនក្រៅ (External Customer)">អតិថិជនក្រៅ (External Customer)</option>
                     </select>
                   </div>
 
@@ -15933,29 +15923,34 @@
       const locEl = targetEl || document.getElementById('stockInLocation');
       if (!locEl) return;
       const u = AppState.currentUser;
-      let targetWh = '';
-      if (u && u.warehouse && u.warehouse !== 'ALL' && u.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់' && u.warehouse !== 'គ្រប់ឃ្លាំង') {
-        targetWh = u.warehouse;
-      } else if (AppState.selectedAdminWarehouseFilter && AppState.selectedAdminWarehouseFilter !== 'ALL' && AppState.selectedAdminWarehouseFilter !== 'គ្រប់ស្ថានីយទាំងអស់') {
-        targetWh = AppState.selectedAdminWarehouseFilter;
-      } else {
-        targetWh = (u && u.warehouse && u.warehouse !== 'ALL') ? u.warehouse : '1-K3 ស្ថានីយ (ភ្នំពេញ)';
+      const isSuperAdmin = (u && (u.role === 'SuperAdmin' || String(u.username).toLowerCase() === 'superadmin' || u.userId === 'USR-SA'));
+      const isAdmin = isSuperAdmin || (u && (u.role === 'Admin' || String(u.username).toLowerCase() === 'admin' || String(u.username).toLowerCase() === 'singvan327@gmail.com'));
+
+      if (isAdmin) {
+        // សម្រាប់ account admin ការជ្រើសរើសទីតាំងឃ្លាំងណា គឺត្រូវបង្ហាញតែ (中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)) និង (机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)) ប៉ុណ្ណោះ
+        const adminWhList = [
+          '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
+          '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)'
+        ];
+        const curVal = locEl.value;
+        locEl.innerHTML = adminWhList.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('');
+
+        let targetWh = '';
+        if (u && u.warehouse && adminWhList.some(w => (typeof isSameWarehouse === 'function' ? isSameWarehouse(w, u.warehouse) : w === u.warehouse))) {
+          targetWh = adminWhList.find(w => (typeof isSameWarehouse === 'function' ? isSameWarehouse(w, u.warehouse) : w === u.warehouse));
+        } else if (curVal && adminWhList.some(w => (typeof isSameWarehouse === 'function' ? isSameWarehouse(w, curVal) : w === curVal))) {
+          targetWh = adminWhList.find(w => (typeof isSameWarehouse === 'function' ? isSameWarehouse(w, curVal) : w === curVal));
+        } else {
+          targetWh = adminWhList[0];
+        }
+        locEl.value = targetWh;
+        return;
       }
 
-      for (let opt of locEl.options) {
-        if (opt.value === targetWh) {
-          locEl.value = targetWh;
-          return;
-        }
-      }
-      const normTarget = targetWh.replace(/\s+/g, '').toLowerCase();
-      for (let opt of locEl.options) {
-        const normOpt = opt.value.replace(/\s+/g, '').toLowerCase();
-        if (normOpt.includes(normTarget) || normTarget.includes(normOpt)) {
-          locEl.value = opt.value;
-          return;
-        }
-      }
+      // សម្រាប់អ្នកប្រើប្រាស់តាមស្ថានីយ (Station Users): បង្ហាញតែស្ថានីយរបស់ខ្លួនឯងប៉ុណ្ណោះ
+      const myWh = u?.warehouse || '1-K3 ស្ថានីយ (ភ្នំពេញ)';
+      locEl.innerHTML = `<option value="${escapeHtml(myWh)}" selected>${escapeHtml(myWh)}</option>`;
+      locEl.value = myWh;
     }
 
     function initStockInForm() {
@@ -18540,15 +18535,18 @@
         }
       };
 
-      const whList = AppState.warehouses && AppState.warehouses.length > 0 ? AppState.warehouses : [
-        { name: '1-K3 ស្ថានីយ (ភ្នំពេញ)' }, { name: '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)' },
-        { name: '3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)' }, { name: '4-K76 ស្ថានីយ (ត្រែងត្រយឹង)' },
-        { name: '5-K113 ស្ថានីយ (កំពង់សិលា)' }, { name: '6-K141 ស្ថានីយ (ស្រែអំបិល)' },
-        { name: '7-K172 ស្ថានីយ (វាលរេញ)' }, { name: '8-K187 ស្ថានីយ (ព្រៃនប់)' },
-        { name: '9-K208 ស្ថានីយ (កែវផុស)' }, { name: '10-K240 ស្ថានីយ (ស្ទឹងហាវ)' },
-        { name: '11-K287 ស្ថានីយ (ក្រុងព្រះសីហនុ)' }
-      ];
-      const whOptions = whList.map(w => `<option value="${escapeHtml(w.name || w)}" ${curLocation === (w.name || w) ? 'selected' : ''}>${escapeHtml(w.name || w)}</option>`).join('');
+      const isSuperAdminUser = (AppState.currentUser && (AppState.currentUser.role === 'SuperAdmin' || String(AppState.currentUser.username).toLowerCase() === 'superadmin' || AppState.currentUser.userId === 'USR-SA'));
+      const isAdminUser = isSuperAdminUser || (AppState.currentUser && (AppState.currentUser.role === 'Admin' || String(AppState.currentUser.username).toLowerCase() === 'admin' || String(AppState.currentUser.username).toLowerCase() === 'singvan327@gmail.com'));
+      let editWhList = [];
+      if (isAdminUser) {
+        editWhList = ['中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)', '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)'];
+        if (curLocation && !editWhList.some(w => typeof isSameWarehouse === 'function' ? isSameWarehouse(w, curLocation) : w === curLocation)) {
+          editWhList.push(curLocation);
+        }
+      } else {
+        editWhList = [curLocation || AppState.currentUser?.warehouse || '1-K3 ស្ថានីយ (ភ្នំពេញ)'];
+      }
+      const whOptions = editWhList.map(w => `<option value="${escapeHtml(w)}" ${(typeof isSameWarehouse === 'function' ? isSameWarehouse(curLocation, w) : curLocation === w) ? 'selected' : ''}>${escapeHtml(w)}</option>`).join('');
 
       Swal.fire({
         title: '<div class="flex items-center justify-center gap-2 text-emerald-800 text-lg font-bold"><i class="fa-solid fa-pen-to-square text-emerald-600"></i><span>ផ្ទាំងកែតម្រូវ ឬលុបទិន្នន័យចូលស្តុក</span></div>',
@@ -25911,12 +25909,10 @@
         }
       }
 
-      // 5. Stock In Location Selector
+      // 5. Stock In Location Selector (Admin: only 中心库房 & 机电)
       const stockInLoc = document.getElementById('stockInLocation');
       if (stockInLoc) {
-        const curVal = stockInLoc.value;
-        stockInLoc.innerHTML = currentList.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('');
-        if (curVal && currentList.includes(curVal)) stockInLoc.value = curVal;
+        applyUserWarehouseToStockInLocation(stockInLoc);
       }
 
       // 6. Stock Transfer From/To Location Selectors
