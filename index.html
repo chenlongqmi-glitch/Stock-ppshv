@@ -1719,15 +1719,13 @@
     function isUserSuperAdmin(user) {
       const u = user || AppState?.currentUser || {};
       const r = String(u.role || '').trim().toLowerCase().replace(/[\s_]+/g, '');
-      const name = String(u.username || '').trim().toLowerCase().replace(/[\s_]+/g, '');
-      const email = String(u.email || '').trim().toLowerCase();
+      const name = String(u.username || '').trim().toLowerCase().replace(/[\u200b\ufeff\s]/g, '');
+      const email = String(u.email || '').trim().toLowerCase().replace(/[\u200b\ufeff\s]/g, '');
       const id = String(u.userId || '').trim().toUpperCase();
       return (
         r === 'superadmin' ||
-        r.includes('super') ||
-        r.includes('អភិបាលកំពូល') ||
+        r === 'អភិបាលកំពូល' ||
         name === 'superadmin' ||
-        name.includes('superadmin') ||
         email === 'chenlongqmi@gmail.com' ||
         id === 'USR-SA' ||
         id === 'USR-SUPERADMIN'
@@ -1739,16 +1737,32 @@
       const u = user || AppState?.currentUser || {};
       if (isUserSuperAdmin(u)) return false;
       const r = String(u.role || '').trim().toLowerCase().replace(/[\s_]+/g, '');
-      const name = String(u.username || '').trim().toLowerCase();
-      const email = String(u.email || '').trim().toLowerCase();
+      const name = String(u.username || '').trim().toLowerCase().replace(/[\u200b\ufeff\s]/g, '');
+      const email = String(u.email || '').trim().toLowerCase().replace(/[\u200b\ufeff\s]/g, '');
+
+      // Explicitly reject any station manager, team leader, stock keeper, or general station staff
+      const roleRaw = String(u.role || '').trim().toLowerCase();
+      if (
+        roleRaw.includes('ស្ថានីយ') ||
+        roleRaw.includes('station') ||
+        roleRaw.includes('ប្រធាន') ||
+        roleRaw.includes('leader') ||
+        roleRaw.includes('កាន់ស្តុក') ||
+        roleRaw.includes('stock') ||
+        roleRaw.includes('staff') ||
+        roleRaw === 'អ្នកគ្រប់គ្រង'
+      ) {
+        return false;
+      }
+
       return (
         r === 'admin' ||
-        r.includes('admin') ||
+        r === 'administrator' ||
+        r.includes('admin(អ្នកគ្រប់គ្រងប្រព័ន្ធ)') ||
         name === 'admin' ||
         name === 'singvan327@gmail.com' ||
         email === 'singvan327@gmail.com' ||
-        email === 'ppshv21qw024@gmail.com' ||
-        (String(u.role || '').includes('គ្រប់គ្រង') && !String(u.role || '').includes('ស្ថានីយ'))
+        email === 'ppshv21qw024@gmail.com'
       );
     }
     window.isUserAdmin = isUserAdmin;
@@ -1844,9 +1858,9 @@
             <span id="currentDateDisplay" class="text-[11px] font-medium text-slate-600 font-sans"></span>
           </div>
 
-          <!-- Admin Global Warehouse Selector Filter -->
+          <!-- Admin Global Warehouse Selector Filter (Visible ONLY for SuperAdmin and Admin) -->
           <div id="adminWarehouseFilterContainer"
-            class="hidden flex items-center space-x-1.5 bg-blue-50 border border-blue-200 rounded-xl px-2 sm:px-2.5 py-1 sm:py-1.5 text-xs shadow-sm max-w-[170px] sm:max-w-[260px] md:max-w-none shrink-0 cursor-pointer" style="display: none !important;">
+            class="hidden items-center space-x-1.5 bg-blue-50 border border-blue-200 rounded-xl px-2 sm:px-2.5 py-1 sm:py-1.5 text-xs shadow-sm max-w-[170px] sm:max-w-[260px] md:max-w-none shrink-0 cursor-pointer" style="display: none !important;">
             <i class="fa-solid fa-warehouse text-blue-600 shrink-0 text-[11px] sm:text-xs"></i>
             <select id="globalWarehouseSelector" onchange="handleGlobalWarehouseChange(this.value)"
               class="bg-transparent font-bold text-blue-900 outline-none cursor-pointer text-[11px] sm:text-xs truncate w-full">
@@ -1881,7 +1895,7 @@
 
           <!-- Add / Manage Warehouse Button for Admin -->
           <button id="addWarehouseTopBtn" onclick="openWarehouseModal()" title="គ្រប់គ្រង & បន្ថែមឃ្លាំងថ្មី"
-            class="hidden lg:flex px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold items-center space-x-1.5 shadow-sm transition">
+            class="hidden px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold items-center space-x-1.5 shadow-sm transition">
             <i class="fa-solid fa-plus text-[10px]"></i>
             <span>បន្ថែមឃ្លាំង</span>
           </button>
@@ -8136,9 +8150,10 @@ function saveLocalUsersToStorage() {
       })();
       if (curStoredUser && (typeof isUserPrivilegedAdmin === 'function' && isUserPrivilegedAdmin(curStoredUser))) {
         const savedWhFilter = sessionStorage.getItem('inventory_wh_filter');
-        AppState.selectedAdminWarehouseFilter = savedWhFilter || ADMIN_DEFAULT_COMBO_WH;
+        let canonicalSaved = savedWhFilter ? (typeof toCanonicalWarehouseName === 'function' && savedWhFilter !== 'ALL' && savedWhFilter !== ADMIN_DEFAULT_COMBO_WH ? toCanonicalWarehouseName(savedWhFilter) : savedWhFilter) : null;
+        AppState.selectedAdminWarehouseFilter = canonicalSaved || ADMIN_DEFAULT_COMBO_WH;
       } else if (curStoredUser && curStoredUser.warehouse) {
-        AppState.selectedAdminWarehouseFilter = curStoredUser.warehouse;
+        AppState.selectedAdminWarehouseFilter = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(curStoredUser.warehouse) : curStoredUser.warehouse);
       }
 
       // Auto-inject SuperAdmin Telegram credentials if missing or empty
@@ -8238,7 +8253,7 @@ function saveLocalUsersToStorage() {
         // 2. Restore warehouse filter
         const savedWh = sessionStorage.getItem('inventory_wh_filter');
         if (savedWh) {
-          AppState.selectedAdminWarehouseFilter = savedWh;
+          AppState.selectedAdminWarehouseFilter = (typeof toCanonicalWarehouseName === 'function' && savedWh !== 'ALL' && savedWh !== ADMIN_DEFAULT_COMBO_WH) ? toCanonicalWarehouseName(savedWh) : savedWh;
         } else {
           AppState.selectedAdminWarehouseFilter = ADMIN_DEFAULT_COMBO_WH;
         }
@@ -11559,8 +11574,8 @@ function saveLocalUsersToStorage() {
       const u = AppState.currentUser || {};
       const uRoleLower = String(u.role || '').trim().toLowerCase();
       const uNameLower = String(u.username || '').trim().toLowerCase();
-      const isSuperAdmin = (uRoleLower === 'superadmin' || uNameLower === 'superadmin' || u.userId === 'USR-SA');
-      const isAdmin = !isSuperAdmin && (uRoleLower === 'admin' || uRoleLower.includes('admin') || uNameLower === 'admin' || (String(u.role || '').includes('គ្រប់គ្រង') && !String(u.role || '').includes('ស្ថានីយ')));
+      const isSuperAdmin = (typeof isUserSuperAdmin === 'function') ? isUserSuperAdmin(u) : (uRoleLower === 'superadmin' || uNameLower === 'superadmin' || u.userId === 'USR-SA');
+      const isAdmin = !isSuperAdmin && ((typeof isUserAdmin === 'function') ? isUserAdmin(u) : (uRoleLower === 'admin' || uNameLower === 'admin'));
       const isStationManager = !isSuperAdmin && !isAdmin && (String(u.role || '').includes('អ្នកគ្រប់គ្រងស្ថានីយ') || String(u.role || '').includes('ស្ថានីយ') || uRoleLower.includes('station manager'));
 
       // Stock Keeper (អ្នកកាន់ស្តុក) and Team Leader (ប្រធានក្រុម) or regular staff CANNOT access Manage Users
@@ -11723,11 +11738,16 @@ function saveLocalUsersToStorage() {
       const userWhContainer = document.getElementById('userWarehouseBadgeContainer');
       const userWhName = document.getElementById('userWarehouseName');
 
+      const addWhBtn = document.getElementById('addWarehouseTopBtn');
       if (isPrivilegedAdmin) {
         if (whLabel) whLabel.innerText = isSuperAdmin ? 'អភិបាលកំពូល (SuperAdmin)' : 'គ្រប់គ្រងគ្រប់ស្ថានីយ';
         if (adminWhContainer) {
           adminWhContainer.classList.remove('hidden');
           adminWhContainer.style.setProperty('display', 'flex', 'important');
+        }
+        if (addWhBtn) {
+          addWhBtn.classList.remove('hidden');
+          addWhBtn.style.setProperty('display', 'flex', 'important');
         }
         if (userWhContainer) {
           userWhContainer.classList.add('hidden');
@@ -11746,6 +11766,10 @@ function saveLocalUsersToStorage() {
         if (adminWhContainer) {
           adminWhContainer.classList.add('hidden');
           adminWhContainer.style.setProperty('display', 'none', 'important');
+        }
+        if (addWhBtn) {
+          addWhBtn.classList.add('hidden');
+          addWhBtn.style.setProperty('display', 'none', 'important');
         }
         if (userWhContainer) {
           userWhContainer.classList.remove('hidden');
@@ -11842,7 +11866,7 @@ function saveLocalUsersToStorage() {
 
         // Reset warehouse filter if target user is restricted
         if (targetUser.warehouse && targetUser.warehouse !== 'ALL') {
-          AppState.selectedAdminWarehouseFilter = targetUser.warehouse;
+          AppState.selectedAdminWarehouseFilter = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(targetUser.warehouse) : targetUser.warehouse);
         } else {
           AppState.selectedAdminWarehouseFilter = ADMIN_DEFAULT_COMBO_WH;
         }
@@ -23197,9 +23221,8 @@ function saveLocalUsersToStorage() {
     function updateRenderableUsersFromDb(optUsers) {
       const actorLul = AppState.currentUser || {};
       const actorLulRoleLower = String(actorLul.role || '').trim().toLowerCase();
-      const actorLulNameLower = String(actorLul.username || '').trim().toLowerCase();
-      const isActorSuperAdmin = (actorLulRoleLower === 'superadmin' || actorLulNameLower === 'superadmin' || actorLul.userId === 'USR-SA');
-      const isActorAdmin = !isActorSuperAdmin && (actorLulRoleLower === 'admin' || actorLulRoleLower.includes('admin') || actorLulNameLower === 'admin' || (String(actorLul.role || '').includes('គ្រប់គ្រង') && !String(actorLul.role || '').includes('ស្ថានីយ')));
+      const isActorSuperAdmin = (typeof isUserSuperAdmin === 'function') ? isUserSuperAdmin(actorLul) : (actorLulRoleLower === 'superadmin' || actorLulNameLower === 'superadmin' || actorLul.userId === 'USR-SA');
+      const isActorAdmin = !isActorSuperAdmin && ((typeof isUserAdmin === 'function') ? isUserAdmin(actorLul) : (actorLulRoleLower === 'admin' || actorLulNameLower === 'admin'));
       const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (
         String(actorLul.role || '').includes('អ្នកគ្រប់គ្រងស្ថានីយ') ||
         String(actorLul.role || '').includes('ស្ថានីយ') ||
@@ -23301,9 +23324,8 @@ function saveLocalUsersToStorage() {
           const tbody = document.getElementById('usersTableBody');
           const actorLul = AppState.currentUser || {};
           const actorLulRoleLower = String(actorLul.role || '').trim().toLowerCase();
-          const actorLulNameLower = String(actorLul.username || '').trim().toLowerCase();
-          const isActorSuperAdmin = (actorLulRoleLower === 'superadmin' || actorLulNameLower === 'superadmin' || actorLul.userId === 'USR-SA');
-          const isActorAdmin = !isActorSuperAdmin && (actorLulRoleLower === 'admin' || actorLulRoleLower.includes('admin') || actorLulNameLower === 'admin' || (String(actorLul.role || '').includes('គ្រប់គ្រង') && !String(actorLul.role || '').includes('ស្ថានីយ')));
+          const isActorSuperAdmin = (typeof isUserSuperAdmin === 'function') ? isUserSuperAdmin(actorLul) : (actorLulRoleLower === 'superadmin' || actorLulNameLower === 'superadmin' || actorLul.userId === 'USR-SA');
+          const isActorAdmin = !isActorSuperAdmin && ((typeof isUserAdmin === 'function') ? isUserAdmin(actorLul) : (actorLulRoleLower === 'admin' || actorLulNameLower === 'admin'));
           const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (
             String(actorLul.role || '').includes('អ្នកគ្រប់គ្រងស្ថានីយ') ||
             String(actorLul.role || '').includes('ស្ថានីយ') ||
@@ -23493,9 +23515,8 @@ function saveLocalUsersToStorage() {
 
       const actor = AppState.currentUser || {};
       const actorRulRoleLower = String(actor.role || '').trim().toLowerCase();
-      const actorRulNameLower = String(actor.username || '').trim().toLowerCase();
-      const isActorSuperAdmin = (actorRulRoleLower === 'superadmin' || actorRulNameLower === 'superadmin' || actor.userId === 'USR-SA');
-      const isActorAdmin = !isActorSuperAdmin && (actorRulRoleLower === 'admin' || actorRulRoleLower.includes('admin') || actorRulNameLower === 'admin' || (String(actor.role || '').includes('គ្រប់គ្រង') && !String(actor.role || '').includes('ស្ថានីយ')));
+      const isActorSuperAdmin = (typeof isUserSuperAdmin === 'function') ? isUserSuperAdmin(actor) : (actorRulRoleLower === 'superadmin' || actorRulNameLower === 'superadmin' || actor.userId === 'USR-SA');
+      const isActorAdmin = !isActorSuperAdmin && ((typeof isUserAdmin === 'function') ? isUserAdmin(actor) : (actorRulRoleLower === 'admin' || actorRulNameLower === 'admin'));
       const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (
         String(actor.role || '').includes('អ្នកគ្រប់គ្រងស្ថានីយ') ||
         String(actor.role || '').includes('ស្ថានីយ') ||
@@ -27956,6 +27977,16 @@ function saveLocalUsersToStorage() {
       const userWhContainer = document.getElementById('userWarehouseBadgeContainer');
       const userWhName = document.getElementById('userWarehouseName');
       const globalSel = document.getElementById('globalWarehouseSelector');
+      const addWhBtn = document.getElementById('addWarehouseTopBtn');
+      if (addWhBtn) {
+        if (isPrivilegedAdmin) {
+          addWhBtn.classList.remove('hidden');
+          addWhBtn.style.setProperty('display', 'flex', 'important');
+        } else {
+          addWhBtn.classList.add('hidden');
+          addWhBtn.style.setProperty('display', 'none', 'important');
+        }
+      }
 
       if (!isPrivilegedAdmin) {
         // NON-ADMIN: Strictly forbid switching stations. Hide admin filter and show assigned badge.
