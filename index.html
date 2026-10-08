@@ -1839,7 +1839,7 @@
 
           <!-- Admin Global Warehouse Selector Filter -->
           <div id="adminWarehouseFilterContainer"
-            class="flex items-center space-x-1.5 bg-blue-50 border border-blue-200 rounded-xl px-2 sm:px-2.5 py-1 sm:py-1.5 text-xs shadow-sm max-w-[170px] sm:max-w-[260px] md:max-w-none shrink-0 cursor-pointer">
+            class="hidden flex items-center space-x-1.5 bg-blue-50 border border-blue-200 rounded-xl px-2 sm:px-2.5 py-1 sm:py-1.5 text-xs shadow-sm max-w-[170px] sm:max-w-[260px] md:max-w-none shrink-0 cursor-pointer" style="display: none !important;">
             <i class="fa-solid fa-warehouse text-blue-600 shrink-0 text-[11px] sm:text-xs"></i>
             <select id="globalWarehouseSelector" onchange="handleGlobalWarehouseChange(this.value)"
               class="bg-transparent font-bold text-blue-900 outline-none cursor-pointer text-[11px] sm:text-xs truncate w-full">
@@ -8134,18 +8134,15 @@ function saveLocalUsersToStorage() {
       } catch (err) {}
       updateClock();
       setInterval(updateClock, 1000);
-      refreshAllWarehouseDropdowns();
-
-      // Check for saved warehouse filter
-      const savedWhFilter = sessionStorage.getItem('inventory_wh_filter');
-      if (savedWhFilter) {
-        AppState.selectedAdminWarehouseFilter = savedWhFilter;
-        const selector = document.getElementById('globalWarehouseSelector');
-        if (selector) selector.value = savedWhFilter;
-      } else {
-        AppState.selectedAdminWarehouseFilter = ADMIN_DEFAULT_COMBO_WH;
-        const selector = document.getElementById('globalWarehouseSelector');
-        if (selector) selector.value = ADMIN_DEFAULT_COMBO_WH;
+      // Only restore admin warehouse filter if session user is privileged admin
+      const curStoredUser = (function() {
+        try { const r = sessionStorage.getItem('inventory_user'); return r ? JSON.parse(r) : null; } catch(e) { return null; }
+      })();
+      if (curStoredUser && (typeof isUserPrivilegedAdmin === 'function' && isUserPrivilegedAdmin(curStoredUser))) {
+        const savedWhFilter = sessionStorage.getItem('inventory_wh_filter');
+        AppState.selectedAdminWarehouseFilter = savedWhFilter || ADMIN_DEFAULT_COMBO_WH;
+      } else if (curStoredUser && curStoredUser.warehouse) {
+        AppState.selectedAdminWarehouseFilter = curStoredUser.warehouse;
       }
 
       // Auto-inject SuperAdmin Telegram credentials if missing or empty
@@ -11732,22 +11729,46 @@ function saveLocalUsersToStorage() {
 
       if (isPrivilegedAdmin) {
         if (whLabel) whLabel.innerText = isSuperAdmin ? 'អភិបាលកំពូល (SuperAdmin)' : 'គ្រប់គ្រងគ្រប់ស្ថានីយ';
-        if (adminWhContainer) adminWhContainer.classList.remove('hidden');
-        if (userWhContainer) userWhContainer.classList.add('hidden');
-      } else {
-        const assignedWh = u.warehouse || WAREHOUSES_LIST[0];
-        if (whLabel) {
-          whLabel.innerText = isStationManager ? `🏢 ${assignedWh} (អ្នកគ្រប់គ្រង)` : (isTeamLeader ? `👤 ${assignedWh} (ប្រធានក្រុម)` : `📦 ${assignedWh}`);
+        if (adminWhContainer) {
+          adminWhContainer.classList.remove('hidden');
+          adminWhContainer.style.setProperty('display', 'flex', 'important');
         }
-        if (adminWhContainer) adminWhContainer.classList.add('hidden');
+        if (userWhContainer) {
+          userWhContainer.classList.add('hidden');
+          userWhContainer.style.setProperty('display', 'none', 'important');
+        }
+        const globalSel = document.getElementById('globalWarehouseSelector');
+        if (globalSel) {
+          globalSel.disabled = false;
+          globalSel.classList.remove('pointer-events-none', 'cursor-not-allowed');
+        }
+      } else {
+        const canonicalWh = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(u.warehouse) : u.warehouse) || WAREHOUSES_LIST[0];
+        if (whLabel) {
+          whLabel.innerText = isStationManager ? `🏢 ${canonicalWh} (អ្នកគ្រប់គ្រង)` : (isTeamLeader ? `👤 ${canonicalWh} (ប្រធានក្រុម)` : `📦 ${canonicalWh}`);
+        }
+        if (adminWhContainer) {
+          adminWhContainer.classList.add('hidden');
+          adminWhContainer.style.setProperty('display', 'none', 'important');
+        }
         if (userWhContainer) {
           userWhContainer.classList.remove('hidden');
-          if (userWhName) userWhName.innerText = assignedWh;
+          userWhContainer.style.setProperty('display', 'flex', 'important');
+          if (userWhName) userWhName.innerText = canonicalWh;
         }
+
+        // Auto lock dropdown and filter to assigned station for non-admins
+        const globalSel = document.getElementById('globalWarehouseSelector');
+        if (globalSel) {
+          globalSel.disabled = true;
+          globalSel.classList.add('pointer-events-none', 'cursor-not-allowed');
+          globalSel.value = canonicalWh;
+        }
+        AppState.selectedAdminWarehouseFilter = canonicalWh;
 
         // Auto lock transfer origin location to their warehouse
         const transferFrom = document.getElementById('transferFromLocation');
-        if (transferFrom) transferFrom.value = assignedWh;
+        if (transferFrom) transferFrom.value = canonicalWh;
       }
 
       // Control "+ បន្ថែមបុគ្គលិកថ្មី" button visibility (មានសម្រាប់ Admin, SuperAdmin និង អ្នកគ្រប់គ្រងស្ថានីយ)
@@ -12155,6 +12176,11 @@ function saveLocalUsersToStorage() {
 
     function handleGlobalWarehouseChange(whValue) {
       if (!whValue) return;
+      const u = AppState.currentUser || {};
+      if (typeof isUserPrivilegedAdmin === 'function' && !isUserPrivilegedAdmin(u)) {
+        console.warn('Unauthorized warehouse change blocked for non-admin:', u.username);
+        return;
+      }
       AppState.selectedAdminWarehouseFilter = whValue;
       sessionStorage.setItem('inventory_wh_filter', whValue);
       const sessionWarehouseName = document.getElementById('activeSessionWarehouseName');
@@ -27892,26 +27918,60 @@ function saveLocalUsersToStorage() {
       const isAdmin = isUserAdmin(u);
       const isPrivilegedAdmin = isUserPrivilegedAdmin(u);
 
-      // 1. Global Top Warehouse Selector - បង្ហាញជម្រើស Combo (中心库房 & 机电) និង គ្រប់ស្ថានីយទាំងអស់សម្រាប់ Admin និង SuperAdmin
+      const adminWhContainer = document.getElementById('adminWarehouseFilterContainer');
+      const userWhContainer = document.getElementById('userWarehouseBadgeContainer');
+      const userWhName = document.getElementById('userWarehouseName');
       const globalSel = document.getElementById('globalWarehouseSelector');
-      if (globalSel) {
-        globalSel.disabled = false;
-        globalSel.classList.remove('pointer-events-none', 'cursor-not-allowed');
-        let curVal = globalSel.value || AppState.selectedAdminWarehouseFilter || ADMIN_DEFAULT_COMBO_WH;
-        if (curVal !== ADMIN_DEFAULT_COMBO_WH && curVal !== 'ALL' && typeof toCanonicalWarehouseName === 'function') {
-          curVal = toCanonicalWarehouseName(curVal);
+
+      if (!isPrivilegedAdmin) {
+        // NON-ADMIN: Strictly forbid switching stations. Hide admin filter and show assigned badge.
+        if (adminWhContainer) {
+          adminWhContainer.classList.add('hidden');
+          adminWhContainer.style.setProperty('display', 'none', 'important');
         }
-        globalSel.innerHTML = `
-          <option value="${escapeHtml(ADMIN_DEFAULT_COMBO_WH)}">🏢 中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង) & 机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
-          <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>
-          ${currentList.map(w => `<option value="${escapeHtml(w)}">📍 ${escapeHtml(w)}</option>`).join('')}
-        `;
-        if (curVal === ADMIN_DEFAULT_COMBO_WH || curVal === 'ALL' || currentList.includes(curVal)) {
-          globalSel.value = curVal;
-          AppState.selectedAdminWarehouseFilter = curVal;
-        } else {
-          globalSel.value = ADMIN_DEFAULT_COMBO_WH;
-          AppState.selectedAdminWarehouseFilter = ADMIN_DEFAULT_COMBO_WH;
+        if (userWhContainer) {
+          userWhContainer.classList.remove('hidden');
+          userWhContainer.style.setProperty('display', 'flex', 'important');
+          if (userWhName) {
+            userWhName.innerText = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(u.warehouse) : u.warehouse) || 'ស្ថានីយផ្ទាល់ខ្លួន';
+          }
+        }
+        const canonicalWh = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(u.warehouse) : u.warehouse) || '';
+        if (globalSel) {
+          globalSel.disabled = true;
+          globalSel.classList.add('pointer-events-none', 'cursor-not-allowed');
+          globalSel.value = canonicalWh;
+        }
+        AppState.selectedAdminWarehouseFilter = canonicalWh;
+      } else {
+        // SUPERADMIN & ADMIN: Show station filter selector
+        if (adminWhContainer) {
+          adminWhContainer.classList.remove('hidden');
+          adminWhContainer.style.setProperty('display', 'flex', 'important');
+        }
+        if (userWhContainer) {
+          userWhContainer.classList.add('hidden');
+          userWhContainer.style.setProperty('display', 'none', 'important');
+        }
+        if (globalSel) {
+          globalSel.disabled = false;
+          globalSel.classList.remove('pointer-events-none', 'cursor-not-allowed');
+          let curVal = globalSel.value || AppState.selectedAdminWarehouseFilter || ADMIN_DEFAULT_COMBO_WH;
+          if (curVal !== ADMIN_DEFAULT_COMBO_WH && curVal !== 'ALL' && typeof toCanonicalWarehouseName === 'function') {
+            curVal = toCanonicalWarehouseName(curVal);
+          }
+          globalSel.innerHTML = `
+            <option value="${escapeHtml(ADMIN_DEFAULT_COMBO_WH)}">🏢 中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង) & 机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
+            <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>
+            ${currentList.map(w => `<option value="${escapeHtml(w)}">📍 ${escapeHtml(w)}</option>`).join('')}
+          `;
+          if (curVal === ADMIN_DEFAULT_COMBO_WH || curVal === 'ALL' || currentList.includes(curVal)) {
+            globalSel.value = curVal;
+            AppState.selectedAdminWarehouseFilter = curVal;
+          } else {
+            globalSel.value = ADMIN_DEFAULT_COMBO_WH;
+            AppState.selectedAdminWarehouseFilter = ADMIN_DEFAULT_COMBO_WH;
+          }
         }
       }
 

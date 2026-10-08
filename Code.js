@@ -2720,28 +2720,28 @@ function toCanonicalWarehouseNameGAS(wh) {
   if (s === 'ADMIN_COMBO' || s === '中心库房 & 机电' || (s.indexOf('中心库房') !== -1 && s.indexOf('机电') !== -1)) return '中心库房 & 机电';
 
   if (sLower.indexOf('k3') !== -1 || s.indexOf('ភ្នំពេញ') !== -1 || sLower === 'wh-01' || s.indexOf('ឃ្លាំងទី ០១') !== -1 || s.indexOf('សែនសុខ') !== -1) {
-    return 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
+    return '1-K3 ស្ថានីយ (ភ្នំពេញ)';
   }
   if (sLower.indexOf('k26') !== -1 || s.indexOf('កំពង់ស្ពឺ កើត') !== -1 || sLower === 'wh-02' || s.indexOf('ឃ្លាំងទី ០២') !== -1 || s.indexOf('ទួលគោក') !== -1) {
-    return 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02';
+    return '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)';
   }
   if (sLower.indexOf('k43') !== -1 || s.indexOf('កំពង់ស្ពឺ លិច') !== -1 || sLower === 'wh-03' || s.indexOf('ឃ្លាំងទី ០៣') !== -1 || s.indexOf('សៀមរាប') !== -1) {
-    return 'K43 ស្ថានីយ (កំពង់ស្ពឺ លិច) 03';
+    return '3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)';
   }
   if (sLower.indexOf('k76') !== -1 || s.indexOf('ត្រែងត្រយឹង') !== -1 || s.indexOf('ព្រែកក្តួច') !== -1 || sLower === 'wh-04' || s.indexOf('ឃ្លាំងទី ០៤') !== -1 || s.indexOf('បាត់ដំបង') !== -1) {
-    return 'K76 ស្ថានីយ (ត្រែងត្រយឹង) 04';
+    return '4-K76 ស្ថានីយ (ត្រែងត្រយឹង)';
   }
   if (sLower.indexOf('k114') !== -1 || sLower.indexOf('k113') !== -1 || s.indexOf('កំពង់សីលា') !== -1 || sLower === 'wh-05' || s.indexOf('ឃ្លាំងទី ០៥') !== -1) {
-    return 'K114 ស្ថានីយ (កំពង់សីលា) 05';
+    return '5-K114 ស្ថានីយ (កំពង់សីលា)';
   }
   if (sLower.indexOf('k135') !== -1 || s.indexOf('ស្រែអំបិល') !== -1 || sLower === 'wh-06' || s.indexOf('ឃ្លាំងទី ០៦') !== -1) {
-    return 'K135 ស្ថានីយ (ស្រែអំបិល) 06';
+    return '6-K135 ស្ថានីយ (ស្រែអំបិល)';
   }
   if (sLower.indexOf('k172') !== -1 || s.indexOf('ស្ទឹងហាវ') !== -1 || sLower === 'wh-07' || s.indexOf('ឃ្លាំងទី ០៧') !== -1) {
-    return 'K172 ស្ថានីយ (ស្ទឹងហាវ) 07';
+    return '7-K172 ស្ថានីយ (ស្ទឹងហាវ)';
   }
   if (sLower.indexOf('k182') !== -1 || s.indexOf('ព្រះសីហនុ') !== -1 || sLower === 'wh-08' || s.indexOf('ឃ្លាំងទី ០៨') !== -1) {
-    return 'K182 ស្ថានីយ (ព្រះសីហនុ) 08';
+    return '8-K182 ស្ថានីយ (ព្រះសីហនុ)';
   }
   if (s.indexOf('中心库房') !== -1 || sLower === 'wh-hq' || s.indexOf('ចុងស៊ីង') !== -1 || s.indexOf('បុងសឹង') !== -1) {
     return '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
@@ -5443,14 +5443,14 @@ function getWarehousesListInternal(ss) {
   if (!ss) ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(SHEETS.WAREHOUSES);
   const defaultList = [
-    'K3 ស្ថានីយ (ភ្នំពេញ) 01',
-    'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
-    'K43 ស្ថានីយ (កំពង់ស្ពឺ លិច) 03',
-    'K76 ស្ថានីយ (ត្រែងត្រយឹង) 04',
-    'K114 ស្ថានីយ (កំពង់សីលា) 05',
-    'K135 ស្ថានីយ (ស្រែអំបិល) 06',
-    'K172 ស្ថានីយ (ស្ទឹងហាវ) 07',
-    'K182 ស្ថានីយ (ព្រះសីហនុ) 08',
+    '1-K3 ស្ថានីយ (ភ្នំពេញ)',
+    '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)',
+    '3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)',
+    '4-K76 ស្ថានីយ (ត្រែងត្រយឹង)',
+    '5-K114 ស្ថានីយ (កំពង់សីលា)',
+    '6-K135 ស្ថានីយ (ស្រែអំបិល)',
+    '7-K172 ស្ថានីយ (ស្ទឹងហាវ)',
+    '8-K182 ស្ថានីយ (ព្រះសីហនុ)',
     '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
     '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)',
     '综合办 (ផ្នែកកិច្ចការទូទៅ)'
@@ -5492,14 +5492,14 @@ function getWarehousesDetailed(ss) {
   if (!ss) ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(SHEETS.WAREHOUSES);
   const defaultDetailed = [
-    { id: 'WH-01', name: 'K3 ស្ថានីយ (ភ្នំពេញ) 01', location: 'ភ្នំពេញ', manager: 'លោក សុខា', status: 'Active' },
-    { id: 'WH-02', name: 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02', location: 'កំពង់ស្ពឺ កើត', manager: 'កញ្ញា រតនា', status: 'Active' },
-    { id: 'WH-03', name: 'K43 ស្ថានីយ (កំពង់ស្ពឺ លិច) 03', location: 'កំពង់ស្ពឺ លិច', manager: 'លោក ចាន់ណា', status: 'Active' },
-    { id: 'WH-04', name: 'K76 ស្ថានីយ (ត្រែងត្រយឹង) 04', location: 'ត្រែងត្រយឹង', manager: 'លោក វិបុល', status: 'Active' },
-    { id: 'WH-05', name: 'K114 ស្ថានីយ (កំពង់សីលា) 05', location: 'កំពង់សីលា', manager: 'អ្នកស្រី ធីតា', status: 'Active' },
-    { id: 'WH-06', name: 'K135 ស្ថានីយ (ស្រែអំបិល) 06', location: 'ស្រែអំបិល', manager: 'លោក សម្បត្តិ', status: 'Active' },
-    { id: 'WH-07', name: 'K172 ស្ថានីយ (ស្ទឹងហាវ) 07', location: 'ស្ទឹងហាវ', manager: 'កញ្ញា ម៉ាលី', status: 'Active' },
-    { id: 'WH-08', name: 'K182 ស្ថានីយ (ព្រះសីហនុ) 08', location: 'ព្រះសីហនុ', manager: 'លោក ពិសិដ្ឋ', status: 'Active' },
+    { id: 'WH-01', name: '1-K3 ស្ថានីយ (ភ្នំពេញ)', location: 'ភ្នំពេញ', manager: 'លោក សុខា', status: 'Active' },
+    { id: 'WH-02', name: '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)', location: 'កំពង់ស្ពឺ កើត', manager: 'កញ្ញា រតនា', status: 'Active' },
+    { id: 'WH-03', name: '3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)', location: 'កំពង់ស្ពឺ លិច', manager: 'លោក ចាន់ណា', status: 'Active' },
+    { id: 'WH-04', name: '4-K76 ស្ថានីយ (ត្រែងត្រយឹង)', location: 'ត្រែងត្រយឹង', manager: 'លោក វិបុល', status: 'Active' },
+    { id: 'WH-05', name: '5-K114 ស្ថានីយ (កំពង់សីលា)', location: 'កំពង់សីលា', manager: 'អ្នកស្រី ធីតា', status: 'Active' },
+    { id: 'WH-06', name: '6-K135 ស្ថានីយ (ស្រែអំបិល)', location: 'ស្រែអំបិល', manager: 'លោក សម្បត្តិ', status: 'Active' },
+    { id: 'WH-07', name: '7-K172 ស្ថានីយ (ស្ទឹងហាវ)', location: 'ស្ទឹងហាវ', manager: 'កញ្ញា ម៉ាលី', status: 'Active' },
+    { id: 'WH-08', name: '8-K182 ស្ថានីយ (ព្រះសីហនុ)', location: 'ព្រះសីហនុ', manager: 'លោក ពិសិដ្ឋ', status: 'Active' },
     { id: 'WH-09', name: '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)', location: 'ចុងស៊ីង', manager: 'លោក សារ៉ាត់', status: 'Active' },
     { id: 'WH-10', name: '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)', location: '机电', manager: 'អ្នកស្រី សុភា', status: 'Active' },
     { id: 'WH-11', name: '综合办 (ផ្នែកកិច្ចការទូទៅ)', location: '综合办', manager: 'លោក វណ្ណា', status: 'Active' }
