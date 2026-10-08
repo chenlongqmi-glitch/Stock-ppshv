@@ -7354,13 +7354,18 @@ function getDashboardStats(userOrPayload, warehouseFilter, optSs) {
   for (let i = 1; i < itemsData.length; i++) {
     const row = itemsData[i];
     if (!row[0]) continue;
+    const loc = idxLocation >= 0 ? String(row[idxLocation] || '').trim() : 'គ្រប់ស្ថានីយទាំងអស់';
+    if (targetWarehouse && targetWarehouse !== 'ALL' && targetWarehouse !== 'គ្រប់ឃ្លាំង' && targetWarehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
+      if (loc && loc !== targetWarehouse && !loc.includes(targetWarehouse) && !targetWarehouse.includes(loc) && loc !== 'គ្រប់ស្ថានីយទាំងអស់' && loc !== 'ALL') {
+        continue;
+      }
+    }
 
     totalProducts++;
     const cost = idxCost >= 0 ? Number(row[idxCost] || 0) : 0;
     const price = idxPrice >= 0 ? Number(row[idxPrice] || 0) : 0;
     const minStock = Number(row[idxMinStock] || 0);
     const currentStock = Number(row[idxCurrentStock] || 0);
-    const loc = idxLocation >= 0 ? String(row[idxLocation] || '').trim() : 'គ្រប់ស្ថានីយទាំងអស់';
     const itemName = String(row[idxName] || row[1] || '').trim();
     const itemCat = String(row[idxCategory] || row[2] || '').trim();
     const itemUnit = String(row[idxUnit] || row[5] || 'ដុំ').trim();
