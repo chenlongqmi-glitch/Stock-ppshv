@@ -17481,12 +17481,28 @@
           oldSt = 0;
           newSt = 2;
         }
+
+        // If oldSt is missing or 0, check previous transactions for the same item chronologically
+        if (oldSt === null || (oldSt === 0 && idx < txs.length - 1)) {
+          const prevSameSku = txs.slice(idx + 1).find(p => {
+            const pSku = String(p.sku || p.itemCode || p.code || '').trim().toLowerCase();
+            const curSku = String(t.sku || t.itemCode || t.code || '').trim().toLowerCase();
+            return pSku && curSku && pSku === curSku;
+          });
+          if (prevSameSku) {
+            const prevNew = Number(prevSameSku.newStock !== undefined ? prevSameSku.newStock : (Number(prevSameSku.oldStock || 0) + Number(prevSameSku.quantity || 0)));
+            if (prevNew > 0) {
+              oldSt = prevNew;
+            }
+          }
+        }
         if (oldSt === null && newSt !== null) {
           oldSt = Math.max(0, newSt - qtyNum);
         }
         if (oldSt === null) oldSt = 0;
         // In Stock-In history, New Stock is dynamically and always Old Stock + In Quantity!
         newSt = oldSt + qtyNum;
+        t.oldStock = oldSt;
         t.newStock = newSt;
         const loc = escapeHtml(t.toLocation || t.location || '-');
 
@@ -18352,13 +18368,24 @@
         const qtyDiff = v.newQty - oldQty;
 
         // Determine current Old Stock before this transaction
-        let curOldStock = (tx.oldStock !== undefined && tx.oldStock !== null && tx.oldStock !== '-') ? Number(tx.oldStock) : null;
+        let curOldStock = (tx.oldStock !== undefined && tx.oldStock !== null && tx.oldStock !== '-' && Number(tx.oldStock) > 0) ? Number(tx.oldStock) : null;
         if (curOldStock === null && tx.notes) {
           const m = tx.notes.match(/\[(?:ស្តុក|Stock):\s*(\d+(?:\.\d+)?)\s*[^\d➔\-\]]*\s*(?:➔|->|to)\s*(\d+(?:\.\d+)?)/i);
           if (m) curOldStock = Number(m[1]);
         }
-        if (curOldStock === null && tx.newStock !== undefined && tx.newStock !== null && tx.newStock !== '-') {
-          curOldStock = Math.max(0, Number(tx.newStock) - oldQty);
+        if (curOldStock === null) {
+          const txIdx = (AppState.stockInHistory || []).findIndex(t => (tx.txId && t.txId === tx.txId) || (tx.docNo && t.docNo === tx.docNo));
+          if (txIdx !== -1 && txIdx < (AppState.stockInHistory || []).length - 1) {
+            const prevTx = (AppState.stockInHistory || []).slice(txIdx + 1).find(p => {
+              const pSku = String(p.sku || p.itemCode || p.code || '').trim().toLowerCase();
+              const targetSku = String(tx.sku || '').trim().toLowerCase();
+              return pSku && targetSku && pSku === targetSku;
+            });
+            if (prevTx) {
+              const pNew = Number(prevTx.newStock !== undefined ? prevTx.newStock : (Number(prevTx.oldStock || 0) + Number(prevTx.quantity || 0)));
+              if (pNew > 0) curOldStock = pNew;
+            }
+          }
         }
         if (curOldStock === null && (tx.docNo === 'DOC-IN-20260930-2295' || tx.sku === 'SKU-2021')) {
           curOldStock = 0;

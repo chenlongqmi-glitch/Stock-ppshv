@@ -6417,6 +6417,8 @@ function getTransactionHistory(filtersOrPayload, userParam) {
       const sSizeIdx = sHeaders.indexOf('size') >= 0 ? sHeaders.indexOf('size') : 4;
       const sColorIdx = sHeaders.indexOf('color') >= 0 ? sHeaders.indexOf('color') : 5;
       const sZoneIdx = sHeaders.indexOf('zone') >= 0 ? sHeaders.indexOf('zone') : 6;
+      const sOldStIdx = sHeaders.findIndex(h => h.includes('oldstock') || h.includes('ស្តុកចាស់'));
+      const sNewStIdx = sHeaders.findIndex(h => h.includes('newstock') || h.includes('ស្តុកថ្មី'));
       const sRecIdx = sHeaders.indexOf('receivedby') >= 0 ? sHeaders.indexOf('receivedby') : 13;
 
       for (let r = 1; r < sInData.length; r++) {
@@ -6426,7 +6428,9 @@ function getTransactionHistory(filtersOrPayload, userParam) {
           size: String(sInData[r][sSizeIdx] || '').trim(),
           color: String(sInData[r][sColorIdx] || '').trim(),
           zone: String(sInData[r][sZoneIdx] || '').trim(),
-          receivedBy: String(sInData[r][sRecIdx] || '').trim()
+          receivedBy: String(sInData[r][sRecIdx] || '').trim(),
+          oldStock: sOldStIdx >= 0 ? sInData[r][sOldStIdx] : null,
+          newStock: sNewStIdx >= 0 ? sInData[r][sNewStIdx] : null
         };
         if (rDoc) stockInMetaMap[rDoc] = metaObj;
         if (rSku && !stockInMetaMap['SKU_' + rSku]) stockInMetaMap['SKU_' + rSku] = metaObj;
@@ -6529,8 +6533,9 @@ function getTransactionHistory(filtersOrPayload, userParam) {
     let receiver = (rawNotes.match(/\[(?:អ្នកទទួល|Receiver):\s*([^\]]+)\]/i) || [])[1] || (String(row[12]) || 'Staff');
 
     // Cross-reference Stock_in sheet metadata
+    let sMeta = null;
     if (txType === 'STOCK_IN') {
-      const sMeta = stockInMetaMap[docNo.toUpperCase()] || stockInMetaMap[String(row[0]).toUpperCase()] || stockInMetaMap['SKU_' + String(row[3] || '').trim().toLowerCase()];
+      sMeta = stockInMetaMap[docNo.toUpperCase()] || stockInMetaMap[String(row[0]).toUpperCase()] || stockInMetaMap['SKU_' + String(row[3] || '').trim().toLowerCase()];
       if (sMeta) {
         if (!size && sMeta.size) size = sMeta.size;
         if (!color && sMeta.color) color = sMeta.color;
@@ -6556,6 +6561,17 @@ function getTransactionHistory(filtersOrPayload, userParam) {
     const newStockMatch = rawNotes.match(/\[(?:ស្តុកថ្មី|NewStock):\s*(\d+(?:\.\d+)?)/i);
     let txOldStock = stockArrowMatch ? Number(stockArrowMatch[1]) : (oldStockMatch ? Number(oldStockMatch[1]) : null);
     let txNewStock = stockArrowMatch ? Number(stockArrowMatch[2]) : (newStockMatch ? Number(newStockMatch[1]) : null);
+
+    if (sMeta) {
+      if (txOldStock === null && sMeta.oldStock !== null && sMeta.oldStock !== undefined && sMeta.oldStock !== '') {
+        const cleanOld = String(sMeta.oldStock).replace(/[^\d.]/g, '');
+        if (cleanOld) txOldStock = Number(cleanOld);
+      }
+      if (txNewStock === null && sMeta.newStock !== null && sMeta.newStock !== undefined && sMeta.newStock !== '') {
+        const cleanNew = String(sMeta.newStock).replace(/[^\d.]/g, '');
+        if (cleanNew) txNewStock = Number(cleanNew);
+      }
+    }
 
     if (txOldStock === null && (docNo === 'DOC-IN-20260930-2295' || String(row[3]) === 'SKU-2021')) {
       txOldStock = 0;
@@ -6731,12 +6747,14 @@ function updateStockTransaction(payloadOrData, user) {
         const finalColor = data.color || (rNotes.match(/\[(?:ពណ៌|Color):\s*([^\]]+)\]/i) || [])[1] || '';
         const finalZone = data.zone || (rNotes.match(/\[(?:តំបន់|Zone):\s*([^\]]+)\]/i) || [])[1] || '';
 
+        const stockTag = (data.oldStock !== undefined && data.newStock !== undefined) ? `[ស្តុក: ${data.oldStock} ➔ ${data.newStock}]` : '';
         const internalFormattedNotes = [
           existingTxDoc ? `[ឯកសារ: ${existingTxDoc}]` : '',
           finalRecBy ? `[អ្នកទទួល: ${finalRecBy}]` : '',
           finalSize ? `[ខ្នាត: ${finalSize}]` : '',
           finalColor ? `[ពណ៌: ${finalColor}]` : '',
           finalZone ? `[តំបន់: ${finalZone}]` : '',
+          stockTag,
           (cleanUserNote && cleanUserNote !== '-') ? cleanUserNote : ''
         ].filter(Boolean).join(' ') || '-';
 
