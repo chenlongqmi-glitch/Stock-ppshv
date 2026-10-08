@@ -1734,7 +1734,7 @@
             <i class="fa-solid fa-warehouse text-blue-600 shrink-0 text-[11px] sm:text-xs"></i>
             <select id="globalWarehouseSelector" onchange="handleGlobalWarehouseChange(this.value)"
               class="bg-transparent font-bold text-blue-900 outline-none cursor-pointer text-[11px] sm:text-xs truncate w-full">
-              <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់ (Admin Only)</option>
+              <option value="ALL">🏢 គ្រប់ស្ថានីយ (中心库房 & 机电)</option>
               <option value="中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)">📍 中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)</option>
               <option value="机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)">📍 机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
             </select>
@@ -2213,7 +2213,7 @@
                   <select id="itemWarehouseFilter" onchange="handleItemWarehouseFilterChange(this.value)"
                     class="px-2.5 py-1.5 sm:py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none font-bold text-blue-900 cursor-pointer shadow-3xs max-w-[170px] sm:max-w-[210px] truncate"
                     title="ជ្រើសរើសស្ថានីយដើម្បីច្រោះទិន្នន័យ (Admin Only)">
-                    <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>
+                    <option value="ALL">🏢 គ្រប់ស្ថានីយ (中心库房 & 机电)</option>
                     <option value="中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)">中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)</option>
                     <option value="机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)">机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
                   </select>
@@ -11153,9 +11153,11 @@
       const sessionWarehouseName = document.getElementById('activeSessionWarehouseName');
       if (sessionWarehouseName) {
         if (isPrivilegedAdmin) {
-          sessionWarehouseName.innerText = (AppState.selectedAdminWarehouseFilter !== 'ALL') ?
-            `${AppState.selectedAdminWarehouseFilter} (${isSuperAdmin ? 'SuperAdmin' : 'Admin'} Switch)` :
-            (u.warehouse === 'ALL' ? `🏢 គ្រប់ស្ថានីយទាំងអស់ (${isSuperAdmin ? 'SuperAdmin' : 'Admin'} Only)` : `📍 ${u.warehouse || WAREHOUSES_LIST[0]}`);
+          if (AppState.selectedAdminWarehouseFilter && AppState.selectedAdminWarehouseFilter !== 'ALL') {
+            sessionWarehouseName.innerText = `📍 ${AppState.selectedAdminWarehouseFilter} (${isSuperAdmin ? 'SuperAdmin' : 'Admin'} Switch)`;
+          } else {
+            sessionWarehouseName.innerText = isSuperAdmin ? '🏢 គ្រប់ស្ថានីយទាំងអស់ (SuperAdmin Only)' : '🏢 គ្រប់ស្ថានីយ (中心库房 & 机电)';
+          }
         } else {
           sessionWarehouseName.innerText = `📍 ${u.warehouse || WAREHOUSES_LIST[0]}`;
         }
@@ -11623,7 +11625,13 @@
       sessionStorage.setItem('inventory_wh_filter', whValue);
       const sessionWarehouseName = document.getElementById('activeSessionWarehouseName');
       if (sessionWarehouseName) {
-        sessionWarehouseName.innerText = (whValue === 'ALL') ? '🏢 គ្រប់ស្ថានីយទាំងអស់ (Admin Only)' : `📍 ${whValue} (Admin Switch)`;
+        const u = AppState.currentUser || {};
+        const isSuperAdmin = (u.role === 'SuperAdmin' || String(u.username).toLowerCase() === 'superadmin' || u.userId === 'USR-SA');
+        if (whValue === 'ALL') {
+          sessionWarehouseName.innerText = isSuperAdmin ? '🏢 គ្រប់ស្ថានីយទាំងអស់ (Admin Only)' : '🏢 គ្រប់ស្ថានីយ (中心库房 & 机电)';
+        } else {
+          sessionWarehouseName.innerText = `📍 ${whValue} (Admin Switch)`;
+        }
       }
       const itemWhSelect = document.getElementById('itemWarehouseFilter');
       if (itemWhSelect && itemWhSelect.value !== whValue) {
@@ -11643,7 +11651,13 @@
       }
       const sessionWarehouseName = document.getElementById('activeSessionWarehouseName');
       if (sessionWarehouseName) {
-        sessionWarehouseName.innerText = (whValue === 'ALL') ? '🏢 គ្រប់ស្ថានីយទាំងអស់ (Admin Only)' : `📍 ${whValue} (Admin Switch)`;
+        const u = AppState.currentUser || {};
+        const isSuperAdmin = (u.role === 'SuperAdmin' || String(u.username).toLowerCase() === 'superadmin' || u.userId === 'USR-SA');
+        if (whValue === 'ALL') {
+          sessionWarehouseName.innerText = isSuperAdmin ? '🏢 គ្រប់ស្ថានីយទាំងអស់ (Admin Only)' : '🏢 គ្រប់ស្ថានីយ (中心库房 & 机电)';
+        } else {
+          sessionWarehouseName.innerText = `📍 ${whValue} (Admin Switch)`;
+        }
       }
       filterItemsTable();
     }
@@ -13578,8 +13592,41 @@
       const statusFilter = document.getElementById('itemStatusFilter')?.value || 'ALL';
 
       return (AppState.items || []).filter(item => {
-        // ច្រោះតាមស្ថានីយ (សម្រាប់ស្ថានីយផ្ទាល់ខ្លួន ឬតាមការជ្រើសរើសរបស់ Admin)
-        if (activeWhFilter && activeWhFilter !== 'ALL') {
+        // ច្រោះតាមស្ថានីយ (សម្រាប់ស្ថានីយផ្ទាល់ខ្លួន ឬតាមការជ្រើសរើសរបស់ Admin / SuperAdmin)
+        if (isAdmin && !isSuperAdmin) {
+          // សម្រាប់ Account Admin:
+          if (activeWhFilter && activeWhFilter !== 'ALL') {
+            // ពេលចុចច្រោះទិន្នន័យតាមស្ថានីយជាក់លាក់ (ឧ. 中心库房 ឬ 机电) -> បង្ហាញតែស្ថានីយដែលបានជ្រើសរើសប៉ុណ្ណោះ
+            const st = getItemStationStock(item, activeWhFilter);
+            const itemLoc = item.toLocation || item.location || item.warehouse || '';
+            const isAssigned = itemLoc && (typeof isSameWarehouse === 'function') && isSameWarehouse(itemLoc, activeWhFilter);
+            const isWhBreakdown = Array.isArray(item.warehouses) && item.warehouses.some(w => (typeof isSameWarehouse === 'function') && isSameWarehouse(w, activeWhFilter));
+
+            const hasBreakdownInWh = (st.breakdowns || []).some(b => (typeof isSameWarehouse === 'function' ? isSameWarehouse(b.warehouse, activeWhFilter) : b.warehouse === activeWhFilter) && b.total > 0);
+
+            if (st.breakdowns && st.breakdowns.length > 0) {
+              if (!hasBreakdownInWh) return false;
+            } else {
+              if (!st.hasStationTx && !isAssigned && !isWhBreakdown) return false;
+              if (st.total <= 0 && !st.hasExactStationTx && !isAssigned) return false;
+            }
+          } else {
+            // ជាធម្មតាត្រូវបង្ហាញ (中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង) និង (机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន))) សិន
+            const st = getItemStationStock(item);
+            const itemLoc = item.toLocation || item.location || item.warehouse || '';
+            const isAssigned = itemLoc && ADMIN_ALLOWED_WAREHOUSES.some(w => (typeof isSameWarehouse === 'function') ? isSameWarehouse(itemLoc, w) : itemLoc === w);
+            const isWhBreakdown = Array.isArray(item.warehouses) && item.warehouses.some(w => ADMIN_ALLOWED_WAREHOUSES.some(aw => (typeof isSameWarehouse === 'function') ? isSameWarehouse(w, aw) : w === aw));
+
+            const hasBreakdownInAdminWh = (st.breakdowns || []).some(b => ADMIN_ALLOWED_WAREHOUSES.some(aw => (typeof isSameWarehouse === 'function') ? isSameWarehouse(b.warehouse, aw) : b.warehouse === aw) && b.total > 0);
+
+            if (st.breakdowns && st.breakdowns.length > 0) {
+              if (!hasBreakdownInAdminWh) return false;
+            } else {
+              if (!isAssigned && !isWhBreakdown) return false;
+            }
+          }
+        } else if (activeWhFilter && activeWhFilter !== 'ALL') {
+          // សម្រាប់ Station User ឬ SuperAdmin ដែលបានជ្រើសរើសស្ថានីយជាក់លាក់
           const st = getItemStationStock(item, activeWhFilter);
           const itemLoc = item.toLocation || item.location || item.warehouse || '';
           const isAssigned = itemLoc && (typeof isSameWarehouse === 'function') && isSameWarehouse(itemLoc, activeWhFilter);
@@ -13587,20 +13634,11 @@
 
           const hasBreakdownInWh = (st.breakdowns || []).some(b => (typeof isSameWarehouse === 'function' ? isSameWarehouse(b.warehouse, activeWhFilter) : b.warehouse === activeWhFilter) && b.total > 0);
 
-          // ប្រសិនបើមានទិន្នន័យស្តុកជាក់ស្តែងតាមស្ថានីយ (breakdowns)
           if (st.breakdowns && st.breakdowns.length > 0) {
-            // ប្រសិនបើស្តុកទាំងអស់នៅស្ថានីយផ្សេង គ្មានស្តុកក្នុងស្ថានីយដែលបានច្រោះទេ (hasBreakdownInWh = false) -> មិនបង្ហាញដាច់ខាត
-            if (!hasBreakdownInWh) {
-              return false;
-            }
+            if (!hasBreakdownInWh) return false;
           } else {
-            // បើគ្មាន breakdown ទេ ត្រូវតែជាទំនិញដែលបានកំណត់ស្ថានីយនេះ ឬមានប្រតិបត្តិការផ្ទាល់ក្នុងស្ថានីយនេះ
-            if (!st.hasStationTx && !isAssigned && !isWhBreakdown) {
-              return false;
-            }
-            if (st.total <= 0 && !st.hasExactStationTx && !isAssigned) {
-              return false;
-            }
+            if (!st.hasStationTx && !isAssigned && !isWhBreakdown) return false;
+            if (st.total <= 0 && !st.hasExactStationTx && !isAssigned) return false;
           }
         }
 
@@ -13694,7 +13732,7 @@
         if (curOptValues.length !== expectedValues.length || !expectedValues.every(w => curOptValues.includes(w))) {
           const curVal = whFilterSelect.value || 'ALL';
           whFilterSelect.innerHTML = `
-            <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>
+            <option value="ALL">🏢 គ្រប់ស្ថានីយ (中心库房 & 机电)</option>
             ${ADMIN_ALLOWED_WAREHOUSES.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('')}
           `;
           if (expectedValues.includes(curVal)) {
@@ -13897,17 +13935,22 @@
                   return `<span class="text-slate-300 text-xs">-</span>`;
                 }
               } else {
-                // ករណីជ្រើសរើស "គ្រប់ស្ថានីយទាំងអស់ (ALL)": បង្ហាញ breakdown ស្ថានីយទាំងអស់
-                if (stStock.breakdowns && stStock.breakdowns.length > 0) {
+                // ករណី "គ្រប់ស្ថានីយទាំងអស់ (ALL)":
+                let bksToDisplay = stStock.breakdowns || [];
+                if (isAdmin && !isSuperAdmin) {
+                  // សម្រាប់ Admin: បង្ហាញតែ breakdown របស់ (中心库房) និង (机电) ប៉ុណ្ណោះ
+                  bksToDisplay = bksToDisplay.filter(sb => ADMIN_ALLOWED_WAREHOUSES.some(aw => (typeof isSameWarehouse === 'function') ? isSameWarehouse(sb.warehouse, aw) : sb.warehouse === aw));
+                }
+                if (bksToDisplay.length > 0) {
                   return `
                     <div class="flex flex-col items-center gap-1 w-full max-w-[125px] mx-auto">
-                      ${stStock.breakdowns.slice(0, 2).map(sb => `
+                      ${bksToDisplay.slice(0, 2).map(sb => `
                         <span class="inline-flex items-center justify-between w-full px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-blue-50/80 text-blue-800 border border-blue-200/90 shadow-3xs truncate" title="${escapeHtml(sb.warehouse)}: ${sb.total} ${escapeHtml(rUnit)}">
                           <span class="truncate">📍 ${escapeHtml(sb.shortWh)}</span>
                           <span class="ml-1 font-mono">${sb.total}</span>
                         </span>
                       `).join('')}
-                      ${stStock.breakdowns.length > 2 ? `<span class="text-[9px] text-slate-400 font-medium">+${stStock.breakdowns.length - 2} ស្ថានីយ</span>` : ''}
+                      ${bksToDisplay.length > 2 ? `<span class="text-[9px] text-slate-400 font-medium">+${bksToDisplay.length - 2} ស្ថានីយ</span>` : ''}
                     </div>
                   `;
                 } else {
@@ -25937,7 +25980,7 @@
           // សម្រាប់ account admin ការជ្រើសរើសស្ថានីយ គឺត្រូវបង្ហាញ "គ្រប់ស្ថានីយទាំងអស់" និង (中心库房) និង (机电) ប៉ុណ្ណោះ
           const curVal = globalSel.value || AppState.selectedAdminWarehouseFilter || 'ALL';
           globalSel.innerHTML = `
-            <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់ (Admin Only)</option>
+            <option value="ALL">🏢 គ្រប់ស្ថានីយ (中心库房 & 机电)</option>
             ${ADMIN_ALLOWED_WAREHOUSES.map(w => `<option value="${escapeHtml(w)}">📍 ${escapeHtml(w)}</option>`).join('')}
           `;
           if (['ALL', ...ADMIN_ALLOWED_WAREHOUSES].includes(curVal)) {
@@ -25965,7 +26008,7 @@
           // សម្រាប់ account admin ការជ្រើសរើសស្ថានីយ គឺត្រូវបង្ហាញ "គ្រប់ស្ថានីយទាំងអស់" និង (中心库房) និង (机电) ប៉ុណ្ណោះ
           const curVal = itemWhSelect.value || AppState.selectedAdminWarehouseFilter || 'ALL';
           itemWhSelect.innerHTML = `
-            <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>
+            <option value="ALL">🏢 គ្រប់ស្ថានីយ (中心库房 & 机电)</option>
             ${ADMIN_ALLOWED_WAREHOUSES.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('')}
           `;
           if (['ALL', ...ADMIN_ALLOWED_WAREHOUSES].includes(curVal)) {
