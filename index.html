@@ -1800,8 +1800,15 @@
                   <i class="fa-solid fa-bell text-amber-400"></i>
                   <h4 class="font-bold text-xs">ការជូនដំណឹងពីឃ្លាំងទាំង ១១</h4>
                 </div>
-                <button onclick="clearAllNotifications()"
-                  class="text-[10px] text-slate-400 hover:text-white underline">លុបទាំងអស់</button>
+                <div class="flex items-center space-x-2">
+                  <button onclick="clearAllNotifications()"
+                    class="text-[10px] text-slate-400 hover:text-white underline">លុបទាំងអស់</button>
+                  <button onclick="closeNotificationDropdown()"
+                    class="text-slate-400 hover:text-white hover:bg-slate-800 p-1 rounded-lg transition-colors flex items-center justify-center w-6 h-6"
+                    title="បិទ (ESC)">
+                    <i class="fa-solid fa-xmark text-xs"></i>
+                  </button>
+                </div>
               </div>
               <div id="notifList" class="max-h-72 overflow-y-auto p-2 space-y-1.5 text-xs">
                 <div class="p-4 text-center text-slate-400 text-xs">មិនទាន់មានការជូនដំណឹងថ្មីទេ</div>
@@ -7888,6 +7895,28 @@
     });
 
     function closeAnyActiveModal() {
+      // 0a. Close Notification Drawer if open
+      const notifDrawer = document.getElementById('notifDropdown');
+      if (notifDrawer && !notifDrawer.classList.contains('hidden')) {
+        if (typeof closeNotificationDropdown === 'function') {
+          closeNotificationDropdown();
+        } else {
+          notifDrawer.classList.add('hidden');
+        }
+        return;
+      }
+
+      // 0b. Close Top Settings Dropdown if open
+      const settingsDrawer = document.getElementById('topSettingsDropdown');
+      if (settingsDrawer && !settingsDrawer.classList.contains('hidden')) {
+        if (typeof closeSettingsDropdown === 'function') {
+          closeSettingsDropdown();
+        } else {
+          settingsDrawer.classList.add('hidden');
+        }
+        return;
+      }
+
       // 1. SweetAlert2 popup
       if (typeof Swal !== 'undefined' && Swal.isVisible()) {
         Swal.close();
@@ -26658,6 +26687,14 @@
       navigateTab('settings');
     }
 
+    // Global ESC key to close notification drawer & settings dropdown immediately
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' || e.key === 'Esc') {
+        closeNotificationDropdown();
+        closeSettingsDropdown();
+      }
+    });
+
     // Close top dropdowns on outside click
     document.addEventListener('click', function (e) {
       const settingsContainer = document.getElementById('topSettingsDropdownContainer');
@@ -26667,9 +26704,16 @@
       const notifBtn = document.getElementById('notifBellBtn');
       const notifDrawer = document.getElementById('notifDropdown');
       if (notifBtn && notifDrawer && !notifBtn.contains(e.target) && !notifDrawer.contains(e.target)) {
-        notifDrawer.classList.add('hidden');
+        closeNotificationDropdown();
       }
     });
+
+    function closeNotificationDropdown() {
+      const drawer = document.getElementById('notifDropdown');
+      if (drawer && !drawer.classList.contains('hidden')) {
+        drawer.classList.add('hidden');
+      }
+    }
 
     function toggleNotificationDropdown() {
       const drawer = document.getElementById('notifDropdown');
@@ -26682,8 +26726,51 @@
           } else if (typeof renderNotificationDrawer === 'function') {
             renderNotificationDrawer();
           }
+          drawer.classList.remove('hidden');
+        } else {
+          drawer.classList.add('hidden');
         }
-        drawer.classList.toggle('hidden');
+      }
+    }
+
+    function handleNotificationItemClick(type, targetUserId, targetUsername) {
+      // 1. បិទផ្ទាំងជូនដំណឹងជាបន្ទាន់ (Hide immediately)
+      closeNotificationDropdown();
+
+      // 2. ធ្វើដំណើរទៅកាន់ផ្ទាំងពាក់ព័ន្ធ (Navigate to relevant view)
+      try {
+        if (type === 'USER_REGISTRATION') {
+          if (typeof openPendingRegistrationsModal === 'function') {
+            openPendingRegistrationsModal(targetUserId || '');
+          } else {
+            navigateTab('chat');
+            if (typeof switchChatChannel === 'function') {
+              switchChatChannel('ADMIN_DIRECT', '🛡️ Admin Support', 'ជជែកផ្ទាល់ជាមួយ Admin', '');
+            }
+          }
+        } else if (type === 'USER_DELETION_REQUEST') {
+          const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
+          if (isActorSuperAdmin && typeof viewUserDeleteReason === 'function') {
+            viewUserDeleteReason(targetUserId || '', targetUsername || '');
+          } else {
+            navigateTab('users');
+            if (typeof openSuperAdminDeletionReviewModal === 'function') {
+              openSuperAdminDeletionReviewModal(targetUserId || '', targetUsername || '');
+            }
+          }
+        } else if (type === 'STOCK_IN') {
+          navigateTab('stockin');
+        } else if (type === 'STOCK_OUT') {
+          navigateTab('stockout');
+        } else if (type === 'TRANSFER') {
+          navigateTab('transfer');
+        } else if (type === 'REQUEST' || type === 'STATUS') {
+          navigateTab('requests');
+        } else if (type === 'CHAT') {
+          navigateTab('chat');
+        }
+      } catch (err) {
+        console.error('Error handling notification click:', err);
       }
     }
 
@@ -26716,16 +26803,10 @@
       }
 
       listEl.innerHTML = filteredList.map(n => {
-        let clickHandler = '';
-        if (n.type === 'USER_REGISTRATION') {
-          clickHandler = `onclick="if (typeof openPendingRegistrationsModal === 'function') { openPendingRegistrationsModal('${escapeHtml(n.targetUserId || '')}'); } else { navigateTab('chat'); switchChatChannel('ADMIN_DIRECT', '🛡️ Admin Support', 'ជជែកផ្ទាល់ជាមួយ Admin', ''); } toggleNotificationDropdown();"`;
-        } else if (n.type === 'USER_DELETION_REQUEST') {
-          if (isActorSuperAdmin) {
-            clickHandler = `onclick="viewUserDeleteReason('${n.targetUserId || ''}', '${n.targetUsername || ''}'); toggleNotificationDropdown();"`;
-          } else {
-            clickHandler = `onclick="navigateTab('users'); if (typeof openSuperAdminDeletionReviewModal === 'function') openSuperAdminDeletionReviewModal('${n.targetUserId || ''}', '${n.targetUsername || ''}'); toggleNotificationDropdown();"`;
-          }
-        }
+        const safeType = escapeHtml(n.type || '');
+        const safeUserId = escapeHtml(n.targetUserId || '');
+        const safeUsername = escapeHtml(n.targetUsername || '');
+        const clickHandler = `onclick="handleNotificationItemClick('${safeType}', '${safeUserId}', '${safeUsername}')"`;
 
         const dotColor = (n.type === 'USER_DELETION_REQUEST') ? 'bg-rose-600 animate-ping' :
           (n.type === 'USER_DELETION_APPROVED') ? 'bg-emerald-500' :
@@ -26735,11 +26816,15 @@
           (n.type === 'USER_REGISTRATION') ? 'bg-amber-500 animate-pulse' : 'bg-blue-500';
 
         const actionText = (n.type === 'USER_REGISTRATION') ? 'ចុចពិនិត្យ & អនុម័ត ❯' :
-          (n.type === 'USER_DELETION_REQUEST') ? (isActorSuperAdmin ? 'ចុចមើលព័ត៌មានលម្អិត ❯' : 'ចុចត្រួតពិនិត្យ ❯') : '';
+          (n.type === 'USER_DELETION_REQUEST') ? (isActorSuperAdmin ? 'ចុចមើលព័ត៌មានលម្អិត ❯' : 'ចុចត្រួតពិនិត្យ ❯') :
+          (n.type === 'STOCK_IN') ? 'ចុចមើលស្តុកចូល ❯' :
+          (n.type === 'STOCK_OUT') ? 'ចុចមើលស្តុកចេញ ❯' :
+          (n.type === 'TRANSFER') ? 'ចុចមើលការផ្ទេរ ❯' :
+          (n.type === 'REQUEST') ? 'ចុចមើលសំណើ ❯' : 'ចុចមើល ❯';
 
         return `
           <div ${clickHandler}
-            class="p-2.5 rounded-xl border border-slate-100 bg-slate-50/80 hover:bg-white hover:border-blue-200 transition-all cursor-pointer">
+            class="p-2.5 rounded-xl border border-slate-100 bg-slate-50/80 hover:bg-white hover:border-blue-200 transition-all cursor-pointer group hover:shadow-xs">
             <div class="flex items-center justify-between">
               <span class="font-bold text-slate-800 text-xs flex items-center">
                 <span class="w-2 h-2 rounded-full ${dotColor} mr-1.5 flex-shrink-0"></span>
@@ -26750,7 +26835,7 @@
             <p class="text-slate-600 text-[11px] mt-0.5 line-clamp-2">${escapeHtml(n.message)}</p>
             <div class="flex items-center justify-between text-[10px] text-slate-400 mt-1 pt-1 border-t border-slate-100">
               <span>📍 ${escapeHtml(n.warehouse)}</span>
-              ${actionText ? `<span class="font-bold text-blue-600 hover:underline">${actionText}</span>` : `<span>👤 ${escapeHtml(n.user || '')}</span>`}
+              ${actionText ? `<span class="font-bold text-blue-600 group-hover:underline">${actionText}</span>` : `<span>👤 ${escapeHtml(n.user || '')}</span>`}
             </div>
           </div>
         `;
