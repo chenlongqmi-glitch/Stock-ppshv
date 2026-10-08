@@ -13586,13 +13586,22 @@
           const isAssigned = itemLoc && (typeof isSameWarehouse === 'function') && isSameWarehouse(itemLoc, activeWhFilter);
           const isWhBreakdown = Array.isArray(item.warehouses) && item.warehouses.some(w => (typeof isSameWarehouse === 'function') && isSameWarehouse(w, activeWhFilter));
 
-          // ត្រូវមានប្រតិបត្តិការស្តុកក្នុងស្ថានីយនេះ ឬកំណត់ស្ថានីយនេះ
-          if (!st.hasStationTx && !isAssigned && !isWhBreakdown) {
-            return false; // ទំនិញក្រៅពីស្ថានីយ៍របស់ខ្លួនមិនអាចមើលឃើញទេ
-          }
-          // ប្រសិនបើស្តុកស្ថានីយនេះស្មើ 0 ហើយគ្មានប្រតិបត្តិការផ្ទាល់ក្នុងស្ថានីយនេះទេ មិនត្រូវបង្ហាញទេ
-          if (st.total <= 0 && !st.hasExactStationTx && !isAssigned) {
-            return false;
+          const hasBreakdownInWh = (st.breakdowns || []).some(b => (typeof isSameWarehouse === 'function' ? isSameWarehouse(b.warehouse, activeWhFilter) : b.warehouse === activeWhFilter) && b.total > 0);
+
+          // ប្រសិនបើមានទិន្នន័យស្តុកជាក់ស្តែងតាមស្ថានីយ (breakdowns)
+          if (st.breakdowns && st.breakdowns.length > 0) {
+            // ប្រសិនបើស្តុកទាំងអស់នៅស្ថានីយផ្សេង គ្មានស្តុកក្នុងស្ថានីយដែលបានច្រោះទេ (hasBreakdownInWh = false) -> មិនបង្ហាញដាច់ខាត
+            if (!hasBreakdownInWh) {
+              return false;
+            }
+          } else {
+            // បើគ្មាន breakdown ទេ ត្រូវតែជាទំនិញដែលបានកំណត់ស្ថានីយនេះ ឬមានប្រតិបត្តិការផ្ទាល់ក្នុងស្ថានីយនេះ
+            if (!st.hasStationTx && !isAssigned && !isWhBreakdown) {
+              return false;
+            }
+            if (st.total <= 0 && !st.hasExactStationTx && !isAssigned) {
+              return false;
+            }
           }
         }
 
@@ -13831,24 +13840,50 @@
           </td>
 
           ${isAdmin ? `
-          <!-- ជួរទី៦: ស្តុកតាមស្ថានីយ (Station Stock: ដុំ & រាយ) - បង្ហាញសម្រាប់តែ Admin & SuperAdmin ជានិច្ចជា breakdown មិនប្រែប្រួលតាម filter ទេ -->
+          <!-- ជួរទី៦: ស្តុកតាមស្ថានីយ (Station Stock: ដុំ & រាយ) -->
           <td class="px-2 py-2.5 text-center align-middle overflow-hidden">
             ${(function() {
-              const stStock = (typeof getItemStationStock === 'function') ? getItemStationStock(item) : { bulk: 0, loose: 0, total: 0, breakdowns: [] };
-              if (stStock.breakdowns && stStock.breakdowns.length > 0) {
-                return `
-                  <div class="flex flex-col items-center gap-1 w-full max-w-[125px] mx-auto">
-                    ${stStock.breakdowns.slice(0, 2).map(sb => `
-                      <span class="inline-flex items-center justify-between w-full px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-blue-50/80 text-blue-800 border border-blue-200/90 shadow-3xs truncate" title="${escapeHtml(sb.warehouse)}: ${sb.total} ${escapeHtml(rUnit)}">
-                        <span class="truncate">📍 ${escapeHtml(sb.shortWh)}</span>
-                        <span class="ml-1 font-mono">${sb.total}</span>
+              const stStock = (typeof getItemStationStock === 'function') ? getItemStationStock(item, activeWhFilter) : { bulk: 0, loose: 0, total: 0, breakdowns: [] };
+
+              if (activeWhFilter && activeWhFilter !== 'ALL') {
+                // ករណីច្រោះយកស្ថានីយជាក់លាក់: បង្ហាញតែទិន្នន័យស្តុករបស់ស្ថានីយដែលបានច្រោះនោះប៉ុណ្ណោះ (ដាច់ខាតមិនបង្ហាញស្ថានីយផ្សេងឡើយ)
+                const targetBks = (stStock.breakdowns || []).filter(sb => (typeof isSameWarehouse === 'function' ? isSameWarehouse(sb.warehouse, activeWhFilter) : sb.warehouse === activeWhFilter));
+                let stationTotal = 0;
+                targetBks.forEach(sb => { stationTotal += Number(sb.total || 0); });
+                if (stationTotal === 0 && stStock.total > 0) {
+                  stationTotal = stStock.total;
+                }
+
+                if (stationTotal > 0) {
+                  const shortWh = (targetBks[0]?.shortWh) || (activeWhFilter.split(' ')[0] || activeWhFilter);
+                  return `
+                    <div class="flex flex-col items-center gap-1 w-full max-w-[125px] mx-auto">
+                      <span class="inline-flex items-center justify-between w-full px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-blue-50/80 text-blue-800 border border-blue-200/90 shadow-3xs truncate" title="${escapeHtml(activeWhFilter)}: ${stationTotal} ${escapeHtml(rUnit)}">
+                        <span class="truncate">📍 ${escapeHtml(shortWh)}</span>
+                        <span class="ml-1 font-mono">${stationTotal}</span>
                       </span>
-                    `).join('')}
-                    ${stStock.breakdowns.length > 2 ? `<span class="text-[9px] text-slate-400 font-medium">+${stStock.breakdowns.length - 2} ស្ថានីយ</span>` : ''}
-                  </div>
-                `;
+                    </div>
+                  `;
+                } else {
+                  return `<span class="text-slate-300 text-xs">-</span>`;
+                }
               } else {
-                return `<span class="text-slate-300 text-xs">-</span>`;
+                // ករណីជ្រើសរើស "គ្រប់ស្ថានីយទាំងអស់ (ALL)": បង្ហាញ breakdown ស្ថានីយទាំងអស់
+                if (stStock.breakdowns && stStock.breakdowns.length > 0) {
+                  return `
+                    <div class="flex flex-col items-center gap-1 w-full max-w-[125px] mx-auto">
+                      ${stStock.breakdowns.slice(0, 2).map(sb => `
+                        <span class="inline-flex items-center justify-between w-full px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-blue-50/80 text-blue-800 border border-blue-200/90 shadow-3xs truncate" title="${escapeHtml(sb.warehouse)}: ${sb.total} ${escapeHtml(rUnit)}">
+                          <span class="truncate">📍 ${escapeHtml(sb.shortWh)}</span>
+                          <span class="ml-1 font-mono">${sb.total}</span>
+                        </span>
+                      `).join('')}
+                      ${stStock.breakdowns.length > 2 ? `<span class="text-[9px] text-slate-400 font-medium">+${stStock.breakdowns.length - 2} ស្ថានីយ</span>` : ''}
+                    </div>
+                  `;
+                } else {
+                  return `<span class="text-slate-300 text-xs">-</span>`;
+                }
               }
             })()}
           </td>
@@ -19792,7 +19827,8 @@
         const u = AppState.currentUser;
         const isSuperAdmin = (u && (u.role === 'SuperAdmin' || String(u.username).toLowerCase() === 'superadmin' || u.userId === 'USR-SA'));
         const isAdminUser = isSuperAdmin || (u && (u.role === 'Admin' || String(u.username).toLowerCase() === 'admin' || String(u.username).toLowerCase() === 'singvan327@gmail.com'));
-        const stStock = (isAdminUser && typeof getItemStationStock === 'function') ? getItemStationStock(item) : null;
+        const exportWhFilter = document.getElementById('itemWarehouseFilter')?.value || AppState.selectedAdminWarehouseFilter || 'ALL';
+        const stStock = (isAdminUser && typeof getItemStationStock === 'function') ? getItemStationStock(item, exportWhFilter) : null;
 
         const rowData = {
           'ល.រ': index + 1,
@@ -19807,10 +19843,24 @@
         };
 
         if (isAdminUser && stStock) {
-          rowData['ស្តុកតាមស្ថានីយ (ដុំ)'] = stStock.bulk;
-          rowData['ស្តុកតាមស្ថានីយ (រាយ)'] = stStock.loose;
-          rowData['ស្តុកតាមស្ថានីយ (សរុប)'] = stStock.total;
-          rowData['ស្តុកតាមស្ថានីយ (លម្អិត)'] = (stStock.breakdowns || []).map(b => `${b.shortWh}: ${b.total}`).join(', ') || '-';
+          if (exportWhFilter && exportWhFilter !== 'ALL') {
+            const bks = (stStock.breakdowns || []).filter(b => (typeof isSameWarehouse === 'function' ? isSameWarehouse(b.warehouse, exportWhFilter) : b.warehouse === exportWhFilter));
+            let sTotal = 0;
+            bks.forEach(b => { sTotal += Number(b.total || 0); });
+            if (sTotal === 0 && stStock.total > 0) sTotal = stStock.total;
+            const pRate = Number(item.packQty || 1);
+            const bBulk = pRate > 1 ? Math.floor(sTotal / pRate) : 0;
+            const bLoose = pRate > 1 ? (sTotal % pRate) : sTotal;
+            rowData['ស្តុកតាមស្ថានីយ (ដុំ)'] = bBulk;
+            rowData['ស្តុកតាមស្ថានីយ (រាយ)'] = bLoose;
+            rowData['ស្តុកតាមស្ថានីយ (សរុប)'] = sTotal;
+            rowData['ស្តុកតាមស្ថានីយ (លម្អិត)'] = `${exportWhFilter.split(' ')[0]}: ${sTotal}`;
+          } else {
+            rowData['ស្តុកតាមស្ថានីយ (ដុំ)'] = stStock.bulk;
+            rowData['ស្តុកតាមស្ថានីយ (រាយ)'] = stStock.loose;
+            rowData['ស្តុកតាមស្ថានីយ (សរុប)'] = stStock.total;
+            rowData['ស្តុកតាមស្ថានីយ (លម្អិត)'] = (stStock.breakdowns || []).map(b => `${b.shortWh}: ${b.total}`).join(', ') || '-';
+          }
         }
 
         rowData['ស្តុកដុំ/កេស'] = packStock;
