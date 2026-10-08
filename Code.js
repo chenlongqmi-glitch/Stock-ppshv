@@ -6478,7 +6478,10 @@ function getTransactionHistory(filtersOrPayload, userParam) {
 
     const size = (rawNotes.match(/\[(?:ខ្នាត|Size):\s*([^\]]+)\]/i) || [])[1] || '';
     const color = (rawNotes.match(/\[(?:ពណ៌|Color):\s*([^\]]+)\]/i) || [])[1] || '';
-    const zone = (rawNotes.match(/\[(?:តំបន់|Zone):\s*([^\]]+)\]/i) || [])[1] || '';
+    let zone = (rawNotes.match(/\[(?:តំបន់|Zone):\s*([^\]]+)\]/i) || [])[1] || '';
+    if (!zone && docNo === 'DOC-IN-20261008-1222') {
+      zone = 'A08';
+    }
     const receiver = (rawNotes.match(/\[(?:អ្នកទទួល|Receiver):\s*([^\]]+)\]/i) || [])[1] || (String(row[12]) || 'Staff');
 
     const stockArrowMatch = rawNotes.match(/\[(?:ស្តុក|Stock):\s*(\d+(?:\.\d+)?)\s*[^\d➔\-\]]*\s*(?:➔|->|to)\s*(\d+(?:\.\d+)?)/i);
@@ -8214,6 +8217,11 @@ function standardizeAndFormatStockInSheet(optSs) {
       'DOC-IN-20261007-3624', '2026-10-07', 'SKU-3037', 'ស្រោមដៃ-手套', 'M', 'ស', 'A02',
       3, 'គូ', '42 គូ', '45 គូ', '42 គូ ➔ 45 គូ',
       '中心库房 (ឃ្លាំងស្តុកនៅបុងសឹង)', '陈龙', '-', '陈龙', '2026-10-07 21:34:42'
+    ],
+    [
+      'DOC-IN-20261008-1222', '2026-10-08', 'SKU-3037', 'ស្រោមដៃ-手套', 'M', 'ស', 'A08',
+      24, 'គូ', '45 គូ', '69 គូ', '45 គូ ➔ 69 គូ',
+      'គ្រប់ស្ថានីយទាំងអស់', '陈龙', '-', '陈龙', '2026-10-08 09:30:49'
     ]
   ];
 

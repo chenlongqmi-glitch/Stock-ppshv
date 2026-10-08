@@ -2238,18 +2238,19 @@
                   class="bg-slate-100 text-slate-700 font-bold border-b border-slate-200 uppercase sticky top-0 z-20 shadow-xs">
                   <tr>
                     <th class="px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-11 shrink-0">ល.រ</th>
-                    <th class="px-2.5 py-3 bg-slate-100 sticky top-0 z-20 text-left w-[24%]">ឈ្មោះទំនិញ (NAME & SKU)</th>
+                    <th class="px-2.5 py-3 bg-slate-100 sticky top-0 z-20 text-left w-[20%]">ឈ្មោះទំនិញ (NAME & SKU)</th>
                     <th class="px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-14 shrink-0">រូបភាព</th>
-                    <th class="px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-[17%]">ពណ៌ & ខ្នាត</th>
-                    <th class="px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-[18%]">ស្តុកបច្ចុប្បន្ន (ដុំ & រាយ)</th>
-                    <th class="px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-[16%]">សរុបទាំងអស់ជារាយ</th>
-                    <th class="px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-[12%]">អ្នកបញ្ចូល</th>
+                    <th class="px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-[9%]">ពណ៌ & ខ្នាត</th>
+                    <th class="px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-[16%]">តំបន់ស្តុក (Zone)</th>
+                    <th class="px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-[17%]">ស្តុកបច្ចុប្បន្ន (ដុំ & រាយ)</th>
+                    <th class="px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-[15%]">សរុបទាំងអស់ជារាយ</th>
+                    <th class="px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-[11%]">អ្នកបញ្ចូល</th>
                     <th class="px-2 py-3 bg-slate-100 sticky top-0 z-20 text-center w-16 shrink-0">សកម្មភាព</th>
                   </tr>
                 </thead>
                 <tbody id="itemsTableBody" class="divide-y divide-slate-100 font-medium">
                   <tr>
-                    <td colspan="8" class="text-center py-10 text-slate-400">កំពុងផ្ទុកទិន្នន័យទំនិញ...</td>
+                    <td colspan="9" class="text-center py-10 text-slate-400">កំពុងផ្ទុកទិន្នន័យទំនិញ...</td>
                   </tr>
                 </tbody>
               </table>
@@ -13089,6 +13090,262 @@
     }
     window.viewItemTransactionsModal = viewItemTransactionsModal;
 
+    /**
+     * គណនាទិន្នន័យស្តុកតាមតំបន់នីមួយៗសម្រាប់មុខទំនិញមួយ (Get stock breakdown by zone for an item)
+     * ប្រសិនបើមុខទំនិញមានតំបន់ស្តុកចាប់ពី ២ ឡើងទៅ គណនាចំនួនជាក់ស្តែងក្នុងមួយតំបន់
+     */
+    function getItemZoneBreakdown(item) {
+      if (!item) return [];
+      const curStock = Math.max(0, Number(item.currentStock || 0));
+      const rUnit = (item.unit || '').trim() || 'ឯកតា';
+      const itemSku = String(item.sku || '').trim().toLowerCase();
+      const itemName = String(item.name || '').trim().toLowerCase();
+
+      // 1. ប្រមូលរាល់ប្រតិបត្តិការទាំងអស់ដែលពាក់ព័ន្ធនឹងមុខទំនិញនេះ
+      const allTxs = [];
+      const seenTx = new Set();
+      const collect = (list) => {
+        if (!Array.isArray(list)) return;
+        for (let i = 0; i < list.length; i++) {
+          const t = list[i];
+          if (!t) continue;
+          const key = t.txId || t.docNo || (String(t.sku) + '_' + String(t.date) + '_' + String(t.quantity) + '_' + String(t.type));
+          if (key && seenTx.has(key)) continue;
+          if (key) seenTx.add(key);
+
+          const tSku = String(t.sku || t.itemCode || t.code || '').trim().toLowerCase();
+          const tName = String(t.itemName || '').trim().toLowerCase();
+          if ((itemSku && tSku === itemSku) || (itemName && tName === itemName)) {
+            allTxs.push(t);
+          }
+        }
+      };
+
+      collect(AppState.stockInHistory);
+      collect(AppState.stockOutHistory);
+      collect(AppState.transactions);
+      collect(LOCAL_DB.transactions);
+
+      // Helper ទាញយក Zone ពី Transaction
+      const extractZone = (tx) => {
+        let z = String(tx.zone || '').trim();
+        if (!z || z === '-' || z === 'គ្មាន' || z === 'null' || z === 'undefined') {
+          const notes = String(tx.notes || '');
+          const m = notes.match(/\[(?:តំបន់|Zone):\s*([^\]]+)\]/i);
+          if (m && m[1]) z = m[1].trim();
+        }
+        return (z && z !== '-' && z !== 'គ្មាន') ? z : '';
+      };
+
+      // 2. គណនាចំនួន Stock In និង Stock Out តាមតំបន់នីមួយៗ
+      const zoneStockMap = {};
+      allTxs.sort((a, b) => {
+        const da = new Date(a.date || a.timestamp || 0).getTime();
+        const db = new Date(b.date || b.timestamp || 0).getTime();
+        return da - db;
+      });
+
+      for (let i = 0; i < allTxs.length; i++) {
+        const t = allTxs[i];
+        const qty = Math.max(0, Number(t.quantity || 0));
+        let z = extractZone(t);
+        const type = String(t.type || 'STOCK_IN').toUpperCase();
+
+        if (type === 'STOCK_IN') {
+          const zoneKey = z || String(item.zone || '').trim() || 'ទូទៅ';
+          if (zoneKey !== '-') {
+            zoneStockMap[zoneKey] = (zoneStockMap[zoneKey] || 0) + qty;
+          }
+        } else if (type === 'STOCK_OUT') {
+          if (z && zoneStockMap[z] !== undefined) {
+            zoneStockMap[z] = Math.max(0, zoneStockMap[z] - qty);
+          } else {
+            // បើ Stock Out មិនបានបញ្ជាក់តំបន់ ដកចេញពីតំបន់ណាដែលមានចំនួនច្រើនជាងគេ
+            let highestZone = null;
+            let maxQ = -1;
+            for (const zk in zoneStockMap) {
+              if (zoneStockMap[zk] > maxQ) {
+                maxQ = zoneStockMap[zk];
+                highestZone = zk;
+              }
+            }
+            if (highestZone) {
+              zoneStockMap[highestZone] = Math.max(0, zoneStockMap[highestZone] - qty);
+            }
+          }
+        }
+      }
+
+      // លុបតំបន់ណាដែលមានស្តុក 0 ប្រសិនបើមានតំបន់ផ្សេងទៀតមានស្តុក > 0
+      for (const zk in zoneStockMap) {
+        if (zoneStockMap[zk] <= 0) {
+          delete zoneStockMap[zk];
+        }
+      }
+
+      let zoneKeys = Object.keys(zoneStockMap);
+
+      // បើគ្មានទិន្នន័យពី transactions ប្រើ item.zone លំនាំដើម
+      if (zoneKeys.length === 0) {
+        const defZone = String(item.zone || '').trim();
+        if (defZone && defZone !== '-' && defZone !== 'គ្មាន') {
+          zoneStockMap[defZone] = curStock;
+          zoneKeys = [defZone];
+        } else if (curStock > 0) {
+          zoneStockMap['ទូទៅ'] = curStock;
+          zoneKeys = ['ទូទៅ'];
+        }
+      }
+
+      // ធានាថាតម្លៃសរុបនៃតំបន់នីមួយៗ ត្រូវគ្នានឹង curStock
+      const sumZones = zoneKeys.reduce((acc, k) => acc + (zoneStockMap[k] || 0), 0);
+      if (curStock > 0 && sumZones > 0 && sumZones !== curStock) {
+        const diff = curStock - sumZones;
+        if (diff > 0) {
+          // បន្ថែមទៅតំបន់ចុងក្រោយ ឬ item.zone
+          const targetZ = (item.zone && zoneStockMap[item.zone] !== undefined) ? item.zone : zoneKeys[zoneKeys.length - 1];
+          zoneStockMap[targetZ] = (zoneStockMap[targetZ] || 0) + diff;
+        } else {
+          // សមាមាត្រចុះក្រោមឱ្យស្មើ curStock
+          let rem = curStock;
+          for (let k = 0; k < zoneKeys.length; k++) {
+            if (k === zoneKeys.length - 1) {
+              zoneStockMap[zoneKeys[k]] = rem;
+            } else {
+              const scaled = Math.round((zoneStockMap[zoneKeys[k]] / sumZones) * curStock);
+              zoneStockMap[zoneKeys[k]] = scaled;
+              rem -= scaled;
+            }
+          }
+        }
+      } else if (curStock === 0) {
+        zoneKeys.forEach(k => { zoneStockMap[k] = 0; });
+      }
+
+      return Object.keys(zoneStockMap).map(z => ({
+        zone: z,
+        quantity: zoneStockMap[z],
+        unit: rUnit,
+        formatted: `${z}: ${zoneStockMap[z]} ${rUnit}`
+      }));
+    }
+
+    /**
+     * បង្ហាញ Cell តំបន់ស្តុកក្នុងតារាង Product Inventory
+     */
+    function renderItemZoneCell(item, rUnit) {
+      const breakdown = getItemZoneBreakdown(item);
+      if (!breakdown || breakdown.length === 0) {
+        return '<span class="text-slate-300 text-xs">-</span>';
+      }
+
+      if (breakdown.length === 1) {
+        const z = breakdown[0];
+        const isZero = (z.quantity === 0);
+        return `
+          <div class="inline-flex flex-col items-center justify-center max-w-full">
+            <span class="inline-flex items-center justify-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-bold shadow-3xs max-w-full truncate border ${isZero ? 'bg-slate-50 text-slate-500 border-slate-200' : 'bg-indigo-50/90 text-indigo-700 border-indigo-200/90'}"
+                  title="តំបន់ ${escapeHtml(z.zone)}${isZero ? ' (ស្តុក: 0)' : `: ${z.quantity} ${escapeHtml(rUnit)}`}">
+              <i class="fa-solid fa-location-dot text-[8.5px] ${isZero ? 'text-slate-400' : 'text-indigo-500'} shrink-0"></i>
+              <span class="truncate">${escapeHtml(z.zone)}${isZero ? '' : `: <span class="font-black text-indigo-900">${z.quantity}</span> ${escapeHtml(rUnit)}`}</span>
+            </span>
+          </div>
+        `;
+      }
+
+      // មានចាប់ពី ២ តំបន់ឡើងទៅ (2 or more zones): បង្ហាញទិន្នន័យក្នុងមួយតំបន់មានចំនួនប៉ុន្មាន តាមការស្នើសុំ
+      const colorPalettes = [
+        { bg: 'bg-indigo-50/90', text: 'text-indigo-700', border: 'border-indigo-200/90', icon: 'text-indigo-500', num: 'text-indigo-900' },
+        { bg: 'bg-purple-50/90', text: 'text-purple-700', border: 'border-purple-200/90', icon: 'text-purple-500', num: 'text-purple-900' },
+        { bg: 'bg-teal-50/90', text: 'text-teal-700', border: 'border-teal-200/90', icon: 'text-teal-500', num: 'text-teal-900' },
+        { bg: 'bg-amber-50/90', text: 'text-amber-700', border: 'border-amber-200/90', icon: 'text-amber-500', num: 'text-amber-900' },
+        { bg: 'bg-sky-50/90', text: 'text-sky-700', border: 'border-sky-200/90', icon: 'text-sky-500', num: 'text-sky-900' }
+      ];
+
+      return `
+        <div class="inline-flex flex-col items-center justify-center gap-1 max-w-full cursor-pointer hover:opacity-95 transition-opacity"
+             onclick="event.stopPropagation(); showItemZoneDetailModal('${escapeHtml(item.sku || '')}')"
+             title="ចុចដើម្បីមើលព័ត៌មានលម្អិតទីតាំងស្តុកទាំង ${breakdown.length} តំបន់">
+          ${breakdown.map((z, idx) => {
+            const pal = colorPalettes[idx % colorPalettes.length];
+            return `
+              <span class="inline-flex items-center justify-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold shadow-3xs max-w-full truncate border ${pal.bg} ${pal.text} ${pal.border}"
+                    title="តំបន់ ${escapeHtml(z.zone)}: ${z.quantity} ${escapeHtml(rUnit)}">
+                <i class="fa-solid fa-location-dot text-[8px] ${pal.icon} shrink-0"></i>
+                <span class="truncate">${escapeHtml(z.zone)}: <span class="font-black ${pal.num}">${z.quantity}</span> ${escapeHtml(rUnit)}</span>
+              </span>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
+    /**
+     * Modal បង្ហាញព័ត៌មានលម្អិតទីតាំងស្តុកពេល User ចុចលើតំបន់
+     */
+    function showItemZoneDetailModal(sku) {
+      const item = (AppState.items || []).find(i => String(i.sku || '').toLowerCase() === String(sku || '').toLowerCase());
+      if (!item) return;
+      const breakdown = getItemZoneBreakdown(item);
+      const rUnit = (item.unit || '').trim() || 'ឯកតា';
+      const curStock = Number(item.currentStock || 0);
+      const pQty = Number(item.packQty || 1);
+      const pUnit = (item.packUnit || '').trim() || 'ប្រអប់';
+
+      let zoneCards = breakdown.map(z => {
+        let bulkNote = '';
+        if (pQty > 1 && z.quantity >= pQty) {
+          const b = Math.floor(z.quantity / pQty);
+          const rem = z.quantity % pQty;
+          bulkNote = `<div class="text-[11px] text-slate-500 font-medium mt-0.5">(${b} ${escapeHtml(pUnit)}${rem > 0 ? ` + ${rem} ${escapeHtml(rUnit)}` : ''})</div>`;
+        }
+        return `
+          <div class="flex items-center justify-between p-2.5 rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-slate-100 transition shadow-3xs">
+            <div class="flex items-center gap-2">
+              <span class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs shrink-0 shadow-3xs">
+                <i class="fa-solid fa-location-dot text-indigo-600"></i>
+              </span>
+              <div class="text-left">
+                <div class="text-xs font-bold text-slate-800">តំបន់ ${escapeHtml(z.zone)}</div>
+                ${bulkNote}
+              </div>
+            </div>
+            <div class="text-right">
+              <span class="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 font-black text-xs border border-emerald-200">
+                ${z.quantity} ${escapeHtml(rUnit)}
+              </span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      if (typeof Swal !== 'undefined') {
+        Swal.fire({
+          title: `<div class="text-base font-bold text-slate-800">ទីតាំងស្តុកទំនិញ (Zone Locations)</div>`,
+          html: `
+            <div class="text-left space-y-3 pt-2">
+              <div class="p-3 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-between">
+                <div>
+                  <div class="text-xs font-bold text-blue-900">${escapeHtml(item.name || item.sku)}</div>
+                  <div class="text-[11px] text-blue-600 font-mono mt-0.5">SKU: ${escapeHtml(item.sku)}</div>
+                </div>
+                <div class="text-right">
+                  <div class="text-[10px] text-slate-500 font-medium">ស្តុកសរុប</div>
+                  <div class="text-xs font-black text-blue-700">${curStock} ${escapeHtml(rUnit)}</div>
+                </div>
+              </div>
+              <div class="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
+                ${zoneCards}
+              </div>
+            </div>
+          `,
+          confirmButtonText: 'យល់ព្រម',
+          confirmButtonColor: '#2563eb',
+          customClass: { popup: 'rounded-2xl' }
+        });
+      }
+    }
+
     function renderItemsTable() {
       const tbody = document.getElementById('itemsTableBody');
       if (!tbody) return;
@@ -13140,13 +13397,15 @@
 
       let filtered = (AppState.items || []).filter(item => {
         if (search) {
+          const itemZones = (typeof getItemZoneBreakdown === 'function') ? getItemZoneBreakdown(item) : [];
+          const matchZone = (item.zone && item.zone.toLowerCase().includes(search)) ||
+            itemZones.some(z => z.zone && z.zone.toLowerCase().includes(search));
           const match = (item.sku && item.sku.toLowerCase().includes(search)) ||
             (item.barcode && item.barcode.toLowerCase().includes(search)) ||
             (item.name && item.name.toLowerCase().includes(search)) ||
             (item.size && item.size.toLowerCase().includes(search)) ||
             (item.color && item.color.toLowerCase().includes(search)) ||
-            (item.zone && item.zone.toLowerCase().includes(search)) ||
-            
+            matchZone ||
             (item.notes && item.notes.toLowerCase().includes(search)) ||
             (item.createdBy && item.createdBy.toLowerCase().includes(search));
           if (!match) return false;
@@ -13197,7 +13456,7 @@
       }
 
       if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-10 text-slate-400">រកមិនឃើញទិន្នន័យទំនិញដែលត្រូវគ្នាទេ</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-10 text-slate-400">រកមិនឃើញទិន្នន័យទំនិញដែលត្រូវគ្នាទេ</td></tr>';
         return;
       }
 
@@ -13281,7 +13540,12 @@
             </div>
           </td>
 
-          <!-- ជួរទី៥: ស្តុកបច្ចុប្បន្ន (Current Stock: ដុំ & រាយ) -->
+          <!-- ជួរទី៥: តំបន់ស្តុក (Zone / Location) - សម្រាប់មុខទំនិញដែលមានចាប់ពី ២ តំបន់ឡើងទៅ បង្ហាញទិន្នន័យក្នុងមួយតំបន់មានចំនួនប៉ុន្មាន -->
+          <td class="px-2 py-2.5 text-center align-middle overflow-hidden">
+            ${renderItemZoneCell(item, rUnit)}
+          </td>
+
+          <!-- ជួរទី៦: ស្តុកបច្ចុប្បន្ន (Current Stock: ដុំ & រាយ) -->
           <td class="px-2 py-2.5 text-center align-middle overflow-hidden">
             <div class="inline-flex flex-col items-start justify-center">
               <div class="flex items-center justify-center gap-1">
