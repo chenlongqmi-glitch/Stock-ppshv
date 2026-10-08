@@ -2688,6 +2688,7 @@
                         </button>
                       </div>
                     </div>
+                    <div id="stockOutMultiZonePills" class="min-h-0"></div>
                   </div>
 
                   <!-- Col 3: សរុបស្តុកចាស់ -->
@@ -15330,6 +15331,8 @@
       if (skuInput) skuInput.value = '';
       const codeInput = document.getElementById('stockOutItemCode');
       if (codeInput) codeInput.value = '';
+      const multiPillsEl = document.getElementById('stockOutMultiZonePills');
+      if (multiPillsEl) multiPillsEl.innerHTML = '';
       onStockOutItemChange();
       hideCustomProductDropdown();
     }
@@ -16365,6 +16368,95 @@
 
     let stockOutZoneActiveFilterLetter = '';
     let stockOutZoneDropdownEl = null;
+    let stockOutZoneShowAllZonesMode = false;
+
+    // Helper: ស្វែងរកមុខទំនិញដែលបានជ្រើសរើសក្នុង Stock Out
+    function getCurrentlySelectedStockOutItem() {
+      const itemCodeEl = document.getElementById('stockOutItemCode');
+      const itemCode = (itemCodeEl?.value || '').trim();
+      if (itemCode && Array.isArray(AppState.items)) {
+        const found = AppState.items.find(i => i.sku && i.sku.toLowerCase() === itemCode.toLowerCase());
+        if (found) return found;
+      }
+      const skuInput = document.getElementById('stockOutSku');
+      const txt = (skuInput?.value || '').trim();
+      if (txt && typeof findItemByInput === 'function') {
+        return findItemByInput(txt);
+      }
+      return null;
+    }
+
+    // Helper: ស្រង់យកតំបន់ទាំងអស់ដែលបានកំណត់ពេលចូលស្តុក (Stock In Zones) សម្រាប់មុខទំនិញ
+    function getItemStockInZones(item) {
+      if (!item) return [];
+      const itemSku = String(item.sku || '').trim().toLowerCase();
+      const itemName = String(item.name || '').trim().toLowerCase();
+      const rUnit = (item.unit || '').trim() || 'ឯកតា';
+
+      // 1. គណនាពី getItemZoneBreakdown (មានស្តុកជាក់ស្តែងតាមតំបន់)
+      const breakdowns = (typeof getItemZoneBreakdown === 'function') ? getItemZoneBreakdown(item) : [];
+      const breakdownMap = {};
+      breakdowns.forEach(b => {
+        if (b && b.zone) breakdownMap[String(b.zone).toUpperCase()] = b;
+      });
+
+      // 2. ប្រមូលពីប្រវត្តិកត់ត្រាចូលស្តុកទាំងអស់ (Stock In History & Transactions)
+      const allStockInTxs = [];
+      const seen = new Set();
+      const collect = (list) => {
+        if (!Array.isArray(list)) return;
+        for (let i = 0; i < list.length; i++) {
+          const t = list[i];
+          if (!t) continue;
+          const type = String(t.type || 'STOCK_IN').toUpperCase();
+          if (type !== 'STOCK_IN') continue;
+          const k = t.txId || t.docNo || (String(t.sku) + '_' + String(t.date) + '_' + String(t.quantity));
+          if (k && seen.has(k)) continue;
+          if (k) seen.add(k);
+
+          const tSku = String(t.sku || t.itemCode || t.code || '').trim().toLowerCase();
+          const tName = String(t.itemName || '').trim().toLowerCase();
+          if ((itemSku && tSku === itemSku) || (itemName && tName === itemName)) {
+            allStockInTxs.push(t);
+          }
+        }
+      };
+
+      collect(AppState.stockInHistory);
+      collect(AppState.transactions);
+      collect(LOCAL_DB.transactions);
+
+      const zoneSet = new Set();
+      allStockInTxs.forEach(t => {
+        let z = String(t.zone || '').trim();
+        if (!z || z === '-' || z === 'គ្មាន' || z === 'null' || z === 'undefined') {
+          const notes = String(t.notes || '');
+          const m = notes.match(/\[(?:តំបន់|Zone):\s*([^\]]+)\]/i);
+          if (m && m[1]) z = m[1].trim();
+        }
+        if (z && z !== '-' && z !== 'គ្មាន') {
+          zoneSet.add(z.toUpperCase());
+        }
+      });
+
+      Object.keys(breakdownMap).forEach(z => zoneSet.add(z));
+
+      if (zoneSet.size === 0 && item.zone && item.zone !== '-' && item.zone !== 'គ្មាន') {
+        zoneSet.add(String(item.zone).trim().toUpperCase());
+      }
+
+      const list = Array.from(zoneSet);
+      list.sort();
+
+      return list.map(z => {
+        const bd = breakdownMap[z];
+        return {
+          zone: z,
+          quantity: bd ? bd.quantity : null,
+          unit: bd ? bd.unit : rUnit
+        };
+      });
+    }
 
     function ensureStockOutZoneDropdown() {
       if (stockOutZoneDropdownEl && document.body.contains(stockOutZoneDropdownEl)) {
@@ -16381,13 +16473,76 @@
     function renderStockOutZoneDropdownContent() {
       const dropdown = ensureStockOutZoneDropdown();
       const inputEl = document.getElementById('stockOutZone');
-      const searchVal = (inputEl?.value || '').trim().toUpperCase();
+      const currentVal = (inputEl?.value || '').trim().toUpperCase();
 
+      const currentItem = getCurrentlySelectedStockOutItem();
+      const stockInZones = getItemStockInZones(currentItem);
+
+      // បើសិនជាមុខទំនិញនោះមានតំបន់ស្តុកលើសពីពីរឡើងទៅ (>= 2 zones) ហើយមិនស្ថិតក្នុង showAllMode
+      // ត្រូវ FILTER បង្ហាញតែតំបន់ដែលបានកំណត់ពេលចូលស្តុក (Stock In Zones)
+      if (stockInZones && stockInZones.length >= 2 && !stockOutZoneShowAllZonesMode) {
+        dropdown.innerHTML = `
+          <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
+            <div class="flex items-center space-x-1.5 min-w-0">
+              <span class="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-xs shadow-3xs shrink-0">
+                <i class="fa-solid fa-location-dot"></i>
+              </span>
+              <span class="text-xs font-black text-slate-800 truncate">តំបន់កំណត់ពេលចូលស្តុក</span>
+            </div>
+            <span class="text-[10px] font-black text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-lg shadow-3xs shrink-0">
+              ${stockInZones.length} ជម្រើស
+            </span>
+          </div>
+
+          <div class="p-2 mb-2 bg-emerald-50/80 rounded-xl border border-emerald-200 text-xs">
+            <div class="flex items-center gap-1.5 text-slate-700">
+              <i class="fa-solid fa-boxes-stacked text-emerald-600 text-xs shrink-0"></i>
+              <span class="text-[11px] font-bold truncate">ទំនិញនេះមានក្នុង <b>${stockInZones.length}</b> តំបន់ពេលចូលស្តុក៖</span>
+            </div>
+          </div>
+
+          <div class="space-y-1.5 max-h-60 overflow-y-auto pr-0.5 custom-scrollbar">
+            ${stockInZones.map(z => {
+              const isSelected = (currentVal === z.zone);
+              return `
+                <button type="button" onclick="selectStockOutZone('${z.zone}')"
+                  class="w-full p-2.5 rounded-xl border text-left transition flex items-center justify-between group active:scale-98 cursor-pointer ${isSelected ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs' : 'bg-white hover:bg-emerald-50/90 border-slate-200 text-slate-800 hover:border-emerald-300'}">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <span class="w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs shrink-0 ${isSelected ? 'bg-white text-emerald-700 shadow-3xs' : 'bg-emerald-100 text-emerald-800 border border-emerald-200'}">
+                      ${z.zone}
+                    </span>
+                    <div class="min-w-0">
+                      <p class="font-black text-xs truncate ${isSelected ? 'text-white' : 'text-slate-800'}">តំបន់ ${z.zone}</p>
+                      <span class="text-[10px] block truncate ${isSelected ? 'text-emerald-100' : 'text-slate-500'} font-medium">កំណត់ពេលចូលស្តុក</span>
+                    </div>
+                  </div>
+                  <div class="text-right shrink-0">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-black ${isSelected ? 'bg-white/20 text-white border border-white/30' : 'bg-emerald-100 text-emerald-800 border border-emerald-200'}">
+                      ${z.quantity !== null && z.quantity !== undefined ? `${z.quantity} ${z.unit}` : 'មានស្តុក'}
+                    </span>
+                    ${isSelected ? '<span class="block text-[9px] text-emerald-100 font-bold mt-0.5"><i class="fa-solid fa-check mr-0.5"></i>បានរើស</span>' : ''}
+                  </div>
+                </button>
+              `;
+            }).join('')}
+          </div>
+
+          <div class="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px]">
+            <span class="text-slate-400"><i class="fa-solid fa-circle-info text-emerald-600 mr-0.5"></i> ចុចលើតំបន់ដើម្បីជ្រើសរើស</span>
+            <button type="button" onclick="stockOutZoneShowAllZonesMode = true; renderStockOutZoneDropdownContent()"
+              class="text-indigo-600 hover:text-indigo-800 font-bold hover:underline flex items-center gap-0.5 cursor-pointer">
+              <i class="fa-solid fa-grid-2"></i>
+              <span>មើលតំបន់ទាំងអស់</span>
+            </button>
+          </div>
+        `;
+        return;
+      }
+
+      // Trường hợp show all mode hoặc item <= 1 zone hoặc chưa chọn item
       let filteredZones = ALL_STOCK_ZONES;
       if (stockOutZoneActiveFilterLetter) {
         filteredZones = ALL_STOCK_ZONES.filter(z => z.startsWith(stockOutZoneActiveFilterLetter));
-      } else if (searchVal) {
-        filteredZones = ALL_STOCK_ZONES.filter(z => z.includes(searchVal));
       }
 
       dropdown.innerHTML = `
@@ -16398,36 +16553,40 @@
             </span>
             <span class="text-xs font-bold text-slate-800">រើសតំបន់ស្តុក (Zone)</span>
           </div>
-          <span class="text-[10px] font-extrabold text-indigo-700 bg-indigo-50 border border-indigo-200/80 px-2 py-0.5 rounded-lg shadow-3xs">
-            ${stockOutZoneActiveFilterLetter ? 'Zone ' + stockOutZoneActiveFilterLetter + ' (10)' : filteredZones.length + ' ជម្រើស'}
-          </span>
+          <div class="flex items-center gap-1.5">
+            ${(stockInZones && stockInZones.length >= 2) ? `
+              <button type="button" onclick="stockOutZoneShowAllZonesMode = false; renderStockOutZoneDropdownContent()"
+                class="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-300 px-2 py-0.5 rounded-lg shadow-3xs hover:bg-emerald-100 cursor-pointer">
+                <i class="fa-solid fa-arrow-left mr-0.5"></i> តំបន់ចូលស្តុក (${stockInZones.length})
+              </button>
+            ` : ''}
+            <span class="text-[10px] font-extrabold text-indigo-700 bg-indigo-50 border border-indigo-200/80 px-2 py-0.5 rounded-lg shadow-3xs">
+              ${stockOutZoneActiveFilterLetter ? 'Zone ' + stockOutZoneActiveFilterLetter + ' (10)' : filteredZones.length + ' ជម្រើស'}
+            </span>
+          </div>
         </div>
 
         <div class="flex items-center gap-1 overflow-x-auto pb-2 mb-2 border-b border-slate-100 no-scrollbar">
           <button type="button" onclick="setStockOutZoneFilterLetter('')"
-            class="px-2.5 py-1 rounded-xl text-[11px] font-bold transition shrink-0 ${!stockOutZoneActiveFilterLetter ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700'}">
+            class="px-2.5 py-1 rounded-xl text-[11px] font-bold transition shrink-0 cursor-pointer ${!stockOutZoneActiveFilterLetter ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700'}">
             ទាំងអស់
           </button>
           ${STOCK_ZONE_LETTERS.map(lt => `
             <button type="button" onclick="setStockOutZoneFilterLetter('${lt}')"
-              class="w-7 h-7 rounded-xl text-[11px] font-bold transition shrink-0 flex items-center justify-center ${stockOutZoneActiveFilterLetter === lt ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700'}">
+              class="w-7 h-7 rounded-xl text-[11px] font-bold transition shrink-0 flex items-center justify-center cursor-pointer ${stockOutZoneActiveFilterLetter === lt ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-100 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700'}">
               ${lt}
             </button>
           `).join('')}
         </div>
 
         <div class="grid grid-cols-5 gap-1.5 max-h-52 overflow-y-auto pr-0.5 custom-scrollbar">
-          ${filteredZones.length === 0 ? `
-            <div class="col-span-5 py-6 text-center text-xs text-slate-400">
-              <i class="fa-solid fa-triangle-exclamation text-amber-500 mb-1 block text-base"></i>
-              មិនមាន Zone ត្រូវនឹង "${escapeHtml(searchVal)}"
-            </div>
-          ` : filteredZones.map(zone => {
-            const isSelected = (searchVal === zone);
+          ${filteredZones.map(zone => {
+            const isSelected = (currentVal === zone);
+            const isStockInZone = stockInZones && stockInZones.some(sz => sz.zone === zone);
             return `
               <button type="button" onclick="selectStockOutZone('${zone}')"
-                class="py-2 px-1 rounded-xl text-xs font-black text-center transition active:scale-95 border ${isSelected ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs' : 'bg-slate-50 text-slate-800 hover:bg-emerald-50 hover:border-emerald-400 hover:text-emerald-800 border-slate-200'}">
-                ${zone}
+                class="py-2 px-1 rounded-xl text-xs font-black text-center transition active:scale-95 border cursor-pointer ${isSelected ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs' : (isStockInZone ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100 font-black' : 'bg-slate-50 text-slate-800 hover:bg-emerald-50 hover:border-emerald-400 hover:text-emerald-800 border-slate-200')}">
+                ${zone}${isStockInZone ? '•' : ''}
               </button>
             `;
           }).join('')}
@@ -16521,6 +16680,31 @@
       const clearBtn = document.getElementById('stockOutZoneClearBtn');
       if (clearBtn) clearBtn.classList.remove('hidden');
 
+      // Update pills active styling
+      const currentItem = getCurrentlySelectedStockOutItem();
+      const stockInZones = getItemStockInZones(currentItem);
+      const multiPillsEl = document.getElementById('stockOutMultiZonePills');
+      if (multiPillsEl && stockInZones && stockInZones.length >= 2) {
+        multiPillsEl.innerHTML = `
+          <div class="w-full flex items-center gap-1.5 flex-wrap mt-1 animate-in fade-in">
+            <span class="text-[10px] font-bold text-slate-500 flex items-center gap-0.5">
+              <i class="fa-solid fa-location-dot text-rose-500 text-[9px]"></i>
+              <span>តំបន់ចូលស្តុក:</span>
+            </span>
+            ${stockInZones.map(z => {
+              const isAct = (zoneCode.toUpperCase() === z.zone);
+              return `
+                <button type="button" onclick="selectStockOutZone('${z.zone}')"
+                  class="px-2 py-0.5 rounded-md text-[10px] font-black transition shadow-3xs cursor-pointer border ${isAct ? 'bg-emerald-600 text-white border-emerald-700' : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200'}"
+                  title="តំបន់ ${z.zone} (មានស្តុក ${z.quantity !== null && z.quantity !== undefined ? z.quantity + ' ' + z.unit : ''})">
+                  ${z.zone} <span class="font-normal opacity-90">${z.quantity !== null && z.quantity !== undefined ? '(' + z.quantity + ' ' + z.unit + ')' : ''}</span>
+                </button>
+              `;
+            }).join('')}
+          </div>
+        `;
+      }
+
       closeStockOutZoneDropdown();
     }
 
@@ -16540,6 +16724,28 @@
       if (clearBtn) clearBtn.classList.add('hidden');
 
       stockOutZoneActiveFilterLetter = '';
+
+      const multiPillsEl = document.getElementById('stockOutMultiZonePills');
+      const currentItem = getCurrentlySelectedStockOutItem();
+      const stockInZones = getItemStockInZones(currentItem);
+      if (multiPillsEl && stockInZones && stockInZones.length >= 2) {
+        multiPillsEl.innerHTML = `
+          <div class="w-full flex items-center gap-1.5 flex-wrap mt-1 animate-in fade-in">
+            <span class="text-[10px] font-bold text-slate-500 flex items-center gap-0.5">
+              <i class="fa-solid fa-location-dot text-rose-500 text-[9px]"></i>
+              <span>តំបន់ចូលស្តុក:</span>
+            </span>
+            ${stockInZones.map(z => `
+              <button type="button" onclick="selectStockOutZone('${z.zone}')"
+                class="px-2 py-0.5 rounded-md text-[10px] font-black transition shadow-3xs cursor-pointer border bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200"
+                title="តំបន់ ${z.zone} (មានស្តុក ${z.quantity !== null && z.quantity !== undefined ? z.quantity + ' ' + z.unit : ''})">
+                ${z.zone} <span class="font-normal opacity-90">${z.quantity !== null && z.quantity !== undefined ? '(' + z.quantity + ' ' + z.unit + ')' : ''}</span>
+              </button>
+            `).join('')}
+          </div>
+        `;
+      }
+
       renderStockOutZoneDropdownContent();
     }
 
@@ -16662,18 +16868,59 @@
         const colorEl = document.getElementById('stockOutColor');
         if (colorEl) colorEl.value = item.color || '';
 
-        // ប្រសិនបើទំនិញនោះធ្លាប់បានចូលស្តុករួចពីមុន និងមានកំណត់តំបន់ យកមកបញ្ចូលក្នុងប្រអប់តំបន់ស្តុកដោយស្វ័យប្រវត្តិ
-        const prevOutZone = findItemPreviousZone(item);
+        // ពិនិត្យរកមើលតំបន់ដែលបានកំណត់ពេលចូលស្តុក (Stock In Zones)
+        const stockInZones = getItemStockInZones(item);
         const zoneEl = document.getElementById('stockOutZone');
         const zoneClearBtn = document.getElementById('stockOutZoneClearBtn');
-        if (zoneEl) {
-          if (prevOutZone) {
-            zoneEl.value = prevOutZone;
+        const multiPillsEl = document.getElementById('stockOutMultiZonePills');
+
+        stockOutZoneShowAllZonesMode = false;
+
+        if (stockInZones && stockInZones.length >= 2) {
+          // ប្រសិនបើមុខទំនិញនោះមានតំបន់ស្តុកលើសពីពីរឡើងទៅ (>= 2 zones)
+          // ជ្រើសរើសតំបន់ទីមួយ ឬរក្សាតំបន់ដែលត្រូវគ្នានឹង stockInZones
+          const currentZ = (zoneEl?.value || '').trim().toUpperCase();
+          const matchZ = stockInZones.find(z => z.zone === currentZ);
+          const chosenZone = matchZ ? matchZ.zone : stockInZones[0].zone;
+
+          if (zoneEl) {
+            zoneEl.value = chosenZone;
             if (zoneClearBtn) zoneClearBtn.classList.remove('hidden');
-          } else {
-            zoneEl.value = '';
-            if (zoneClearBtn) zoneClearBtn.classList.add('hidden');
           }
+
+          if (multiPillsEl) {
+            multiPillsEl.innerHTML = `
+              <div class="w-full flex items-center gap-1.5 flex-wrap mt-1 animate-in fade-in">
+                <span class="text-[10px] font-bold text-slate-500 flex items-center gap-0.5">
+                  <i class="fa-solid fa-location-dot text-rose-500 text-[9px]"></i>
+                  <span>តំបន់ចូលស្តុក:</span>
+                </span>
+                ${stockInZones.map(z => {
+                  const isAct = (chosenZone === z.zone);
+                  return `
+                    <button type="button" onclick="selectStockOutZone('${z.zone}')"
+                      class="px-2 py-0.5 rounded-md text-[10px] font-black transition shadow-3xs cursor-pointer border ${isAct ? 'bg-emerald-600 text-white border-emerald-700' : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200'}"
+                      title="តំបន់ ${z.zone} (មានស្តុក ${z.quantity !== null && z.quantity !== undefined ? z.quantity + ' ' + z.unit : ''})">
+                      ${z.zone} <span class="font-normal opacity-90">${z.quantity !== null && z.quantity !== undefined ? '(' + z.quantity + ' ' + z.unit + ')' : ''}</span>
+                    </button>
+                  `;
+                }).join('')}
+              </div>
+            `;
+          }
+        } else {
+          // បើមានតែ 1 តំបន់ ឬគ្មាន
+          const prevOutZone = (stockInZones && stockInZones.length === 1) ? stockInZones[0].zone : findItemPreviousZone(item);
+          if (zoneEl) {
+            if (prevOutZone) {
+              zoneEl.value = prevOutZone;
+              if (zoneClearBtn) zoneClearBtn.classList.remove('hidden');
+            } else {
+              zoneEl.value = '';
+              if (zoneClearBtn) zoneClearBtn.classList.add('hidden');
+            }
+          }
+          if (multiPillsEl) multiPillsEl.innerHTML = '';
         }
 
         const baseUnit = item.unit || 'ដើម';
@@ -16786,6 +17033,8 @@
       if (zoneEl) zoneEl.value = '';
       const zoneClearBtn = document.getElementById('stockOutZoneClearBtn');
       if (zoneClearBtn) zoneClearBtn.classList.add('hidden');
+      const multiPillsEl = document.getElementById('stockOutMultiZonePills');
+      if (multiPillsEl) multiPillsEl.innerHTML = '';
       const qtyBulkEl = document.getElementById('stockOutQtyBulk');
       if (qtyBulkEl) qtyBulkEl.value = 0;
       const qtyRetailEl = document.getElementById('stockOutQtyRetail');
