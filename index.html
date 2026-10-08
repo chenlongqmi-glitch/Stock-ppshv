@@ -1071,6 +1071,58 @@
       z-index: 10;
       transition: all 0.15s ease;
     }
+  
+    /* =======================================================
+       MULTI-STATION BATCH DISPATCH & TOLL RECEPTION STYLING
+       ======================================================= */
+    .station-dispatch-card {
+      background: #ffffff;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 1rem;
+      padding: 0.75rem;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+    }
+    .station-dispatch-card:hover {
+      border-color: #cbd5e1;
+      box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.05);
+    }
+    .station-dispatch-card.is-active {
+      border-color: #f59e0b;
+      background: linear-gradient(135deg, rgba(254, 243, 199, 0.4) 0%, rgba(255, 255, 255, 0.98) 100%);
+      box-shadow: 0 4px 14px -2px rgba(245, 158, 11, 0.18);
+      outline: 2px solid rgba(245, 158, 11, 0.5);
+    }
+    .station-dispatch-stepper-btn {
+      width: 1.5rem;
+      height: 1.5rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 0.375rem;
+      background: #f1f5f9;
+      color: #475569;
+      font-size: 10px;
+      font-weight: 800;
+      transition: all 0.12s ease;
+      cursor: pointer;
+    }
+    .station-dispatch-stepper-btn:hover {
+      background: #e2e8f0;
+      color: #0f172a;
+      transform: scale(1.08);
+    }
+    .station-dispatch-stepper-btn:active {
+      transform: scale(0.95);
+    }
+    .pulse-amber-badge {
+      animation: pulseAmber 2s infinite;
+    }
+    @keyframes pulseAmber {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.85; transform: scale(1.04); }
+    }
+
   </style>
 </head>
 
@@ -2309,6 +2361,9 @@
         <!-- TAB 3: STOCK IN (ស្តុកចូល) -->
         <!-- ========================================== -->
         <div id="tabStockIn" class="w-full space-y-4 hidden">
+          <!-- CARD: ទំនិញរង់ចាំទទួលចូលស្តុកពី ADMIN (PENDING INCOMING DISPATCHES) -->
+          <div id="pendingIncomingDispatchesCard" class="w-full"></div>
+
           <div id="stockInFormCard" class="glass-card form-freeze-card p-3 sm:p-4 lg:p-4 rounded-2xl sm:rounded-3xl shadow-sm border-2 border-emerald-300/80 bg-gradient-to-br from-emerald-50/30 via-white to-teal-50/20">
 
             <form id="stockInForm" onsubmit="handleStockInSubmit(event)" class="space-y-3">
@@ -2551,6 +2606,47 @@
 
                 </div>
               </div>
+
+              <!-- SECTION: MULTI-STATION TOLL GRID (VISIBLE IN MULTI MODE) -->
+              <div id="stockOutMultiStationSection" class="hidden w-full pt-3.5 border-t-2 border-dashed border-amber-300/80 space-y-3">
+                <!-- Action Bar & Quick Presets -->
+                <div class="flex flex-wrap items-center justify-between gap-2.5 bg-gradient-to-r from-amber-100/70 via-orange-50/50 to-amber-50/70 p-3 rounded-2xl border border-amber-200 shadow-2xs">
+                  <div class="flex items-center space-x-2">
+                    <div class="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center text-xs shadow-2xs">
+                      <i class="fa-solid fa-road"></i>
+                    </div>
+                    <div>
+                      <h5 class="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-1.5">
+                        <span>🛣️ បញ្ជីចែកទំនិញតាមបណ្តាស្ថានីយទាំង ៨ (Toll Stations Dispatch Grid)</span>
+                      </h5>
+                      <p class="text-[11px] text-slate-500 font-khmer">បញ្ចូលចំនួនដុំ ឬរាយសម្រាប់ស្ថានីយនីមួយៗ (អាចចេញម្តង 3-4 ស្ថានីយ ឬទាំង 8)</p>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <button type="button" onclick="quickFillAllStationsPrompt()"
+                      class="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-xs cursor-pointer hover:scale-[1.02] active:scale-[0.98]">
+                      <i class="fa-solid fa-bolt text-xs"></i>
+                      <span>⚡ ចែកស្មើគ្នាគ្រប់ស្ថានីយ</span>
+                    </button>
+                    <button type="button" onclick="clearAllMultiStationQtys()"
+                      class="px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition flex items-center space-x-1 border border-slate-300 shadow-2xs cursor-pointer">
+                      <i class="fa-solid fa-rotate-left text-xs text-slate-500"></i>
+                      <span>សម្អាតចំនួន</span>
+                    </button>
+                    <button type="button" onclick="toggleIncludeGeneralOffice()" id="btnToggleGeneralOffice"
+                      class="px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition flex items-center space-x-1 border border-slate-300 shadow-2xs cursor-pointer">
+                      <i class="fa-solid fa-plus text-xs text-slate-500"></i>
+                      <span>+ 综合办 (កិច្ចការទូទៅ)</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Grid of Station Cards -->
+                <div id="stockOutStationCardsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                  <!-- Generated by renderStockOutMultiStationGrid() -->
+                </div>
+              </div>
+
             </form>
           </div>
 
@@ -2632,6 +2728,34 @@
         <div id="tabStockOut" class="w-full space-y-4 hidden">
           <div id="stockOutFormCard" class="glass-card form-freeze-card p-3 sm:p-4 lg:p-4 rounded-2xl sm:rounded-3xl shadow-sm border-2 border-amber-300/80 bg-gradient-to-br from-amber-50/30 via-white to-orange-50/20">
 
+            <!-- Stock Out Mode Switcher (Single Station vs Multi-Station Batch Distribution) -->
+            <div id="stockOutModeBar" class="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 mb-2 border-b border-amber-200/80">
+              <div class="flex items-center space-x-2">
+                <div class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></div>
+                <span class="text-xs sm:text-sm font-black text-slate-800 font-khmer">របៀបកត់ត្រាចេញពីស្តុក:</span>
+                <div class="inline-flex p-1 bg-amber-100/80 rounded-xl border border-amber-200 shadow-2xs">
+                  <button type="button" id="btnStockOutModeSingle" onclick="setStockOutMode('SINGLE')"
+                    class="px-3 py-1 rounded-lg text-xs font-bold transition shadow-xs bg-white text-amber-900 border border-amber-300">
+                    <i class="fa-solid fa-arrow-right-from-bracket mr-1.5 text-amber-600"></i>នាំចេញទោល (Single Station)
+                  </button>
+                  <button type="button" id="btnStockOutModeMulti" onclick="setStockOutMode('MULTI')"
+                    class="px-3 py-1 rounded-lg text-xs font-bold text-slate-600 hover:text-amber-900 transition">
+                    <i class="fa-solid fa-boxes-stacked mr-1.5 text-amber-600"></i>📦 ចែកតាមពហុស្ថានីយ (Multi-Station Grid)
+                    <span class="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-white font-mono shadow-2xs">8 ស្ថានីយ</span>
+                  </button>
+                </div>
+              </div>
+              <div id="stockOutMultiStatusBanner" class="hidden items-center gap-2">
+                <span class="text-xs font-bold text-amber-900 bg-amber-100/90 border border-amber-300 px-2.5 py-1 rounded-xl flex items-center gap-1.5 shadow-2xs">
+                  <i class="fa-solid fa-route text-amber-600"></i>
+                  <span>ស្ថានីយបានរើស: <b id="multiSelectedStationsCount" class="text-amber-950 font-black">0</b> / 8</span>
+                </span>
+                <span class="text-xs font-bold text-emerald-800 bg-emerald-100/90 border border-emerald-300 px-2.5 py-1 rounded-xl flex items-center gap-1.5 shadow-2xs">
+                  <i class="fa-solid fa-cubes text-emerald-600"></i>
+                  <span>ចំនួនចេញសរុប: <b id="multiTotalQtyDisplay" class="text-emerald-950 font-black">0 ដើម</b></span>
+                </span>
+              </div>
+            </div>
 
             <form id="stockOutForm" onsubmit="handleStockOutSubmit(event)" class="space-y-3">
               <!-- Hidden Old Stock Store, Pack Conversion & Item Code -->
@@ -5645,9 +5769,185 @@
   </div>
 
   <!-- ========================================== -->
-  <!-- 4. JAVASCRIPT LOGIC & STATE MANAGEMENT -->
+
+  <!-- ========================================== -->
+  <!-- MODAL: STATION RECEPTION & VERIFICATION -->
+  <!-- ========================================== -->
+  <div id="stationReceptionModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4" onclick="if(event.target === this) closeStationReceptionModal()">
+    <div class="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden transform transition-all animate-in fade-in zoom-in-95 duration-200">
+      
+      <!-- Modal Header -->
+      <div class="px-6 py-4 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center text-lg border border-white/20 shadow-xs">
+            <i class="fa-solid fa-boxes-packing"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-base tracking-wide flex items-center gap-2">
+              <span>ផ្ទៀងផ្ទាត់ និងទទួលទំនិញចូលស្តុក</span>
+              <span id="receptionModalStationBadge" class="text-[11px] font-black bg-white/20 px-2 py-0.5 rounded-full border border-white/30 font-mono">1-K3</span>
+            </h3>
+            <p class="text-xs text-emerald-100/90 font-khmer">ផ្ទៀងផ្ទាត់ចំនួនទំនិញជាក់ស្តែង និងជ្រើសរើសតំបន់ (Zone) ចូលស្តុក</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeStationReceptionModal()" class="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/25 text-white flex items-center justify-center transition">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <form id="stationReceptionForm" onsubmit="handleConfirmStationReception(event)" class="p-5 sm:p-6 space-y-4">
+        <input type="hidden" id="receptionDispatchId" value="">
+        <input type="hidden" id="receptionSku" value="">
+        <input type="hidden" id="receptionPackQty" value="1">
+        <input type="hidden" id="receptionBaseUnit" value="ដើម">
+        <input type="hidden" id="receptionPackUnit" value="ប្រអប់">
+
+        <!-- Product Preview Card -->
+        <div class="p-4 rounded-2xl bg-emerald-50/40 border border-emerald-200/80 flex flex-col sm:flex-row gap-4 items-center">
+          <div class="w-24 h-24 rounded-2xl bg-white border border-emerald-200 p-1 flex items-center justify-center overflow-hidden shrink-0 shadow-2xs">
+            <img id="receptionProductImg" src="" alt="Product" class="w-full h-full object-contain">
+          </div>
+          <div class="flex-1 space-y-1 text-center sm:text-left">
+            <div class="flex flex-wrap items-center justify-center sm:justify-start gap-1.5">
+              <span id="receptionProductSku" class="font-mono text-xs font-bold px-2 py-0.5 rounded-md bg-white border border-emerald-300 text-emerald-900">SKU-0000</span>
+              <span id="receptionDocNoBadge" class="font-mono text-[11px] font-semibold text-slate-500">DOC-OUT-...</span>
+            </div>
+            <h4 id="receptionProductName" class="text-base font-extrabold text-slate-900 leading-snug">ឈ្មោះទំនិញ</h4>
+            <div class="flex flex-wrap items-center justify-center sm:justify-start gap-3 text-xs text-slate-600">
+              <span><i class="fa-solid fa-ruler-combined text-slate-400 mr-1"></i>ខ្នាត: <b id="receptionProductSize" class="text-slate-800">-</b></span>
+              <span><i class="fa-solid fa-palette text-slate-400 mr-1"></i>ពណ៌: <b id="receptionProductColor" class="text-slate-800">-</b></span>
+              <span><i class="fa-solid fa-user-tie text-slate-400 mr-1"></i>អ្នកចេញ: <b id="receptionIssuer" class="text-slate-800">Admin</b></span>
+            </div>
+            <div class="pt-1 flex flex-wrap items-center justify-center sm:justify-start gap-2">
+              <span class="text-xs font-bold text-emerald-800 bg-emerald-100/80 border border-emerald-300 px-2.5 py-0.5 rounded-lg flex items-center gap-1">
+                <i class="fa-solid fa-box text-emerald-600"></i>
+                <span>ចំនួនផ្ញើមក: <b id="receptionDispatchedQtyText" class="font-black text-emerald-950">0</b></span>
+              </span>
+              <span class="text-xs text-slate-500">ចេញពី: <b id="receptionFromWhText" class="text-slate-700">中心库房</b></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Verification & Storage Inputs Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          <!-- Col 1: តំបន់ស្តុក (ZONE) * (MANDATORY) -->
+          <div class="w-full">
+            <label class="block text-xs font-bold text-slate-800 uppercase mb-1.5 flex items-center justify-between">
+              <span class="flex items-center text-rose-600">
+                <i class="fa-solid fa-location-dot mr-1.5 text-xs"></i>
+                <span>តំបន់ស្តុក (ZONE) *</span>
+              </span>
+              <span class="text-[10px] font-normal text-slate-400">(កន្លែងដាក់ក្នុងស្ថានីយ)</span>
+            </label>
+            <div class="relative w-full h-11">
+              <i class="fa-solid fa-location-dot absolute left-3.5 top-3.5 text-rose-500 text-xs pointer-events-none"></i>
+              <input type="text" id="receiveDispatchZone" required
+                placeholder="រើស ឬវាយបញ្ចូលតំបន់..."
+                autocomplete="off"
+                onfocus="openStockInZoneDropdown('receiveDispatchZone', 'receiveDispatchZoneChevron')"
+                onclick="openStockInZoneDropdown('receiveDispatchZone', 'receiveDispatchZoneChevron')"
+                oninput="handleStockInZoneInput(this.value)"
+                class="w-full h-full pl-9 pr-10 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition shadow-2xs">
+              <div class="absolute right-1.5 top-1.5 flex items-center">
+                <button type="button" onclick="toggleStockInZoneDropdown(event, 'receiveDispatchZone', 'receiveDispatchZoneChevron')"
+                  class="p-1.5 text-slate-400 hover:text-emerald-600 rounded-lg text-xs transition" title="បើកបញ្ជីតំបន់">
+                  <i class="fa-solid fa-chevron-down text-[11px] transition-transform duration-200" id="receiveDispatchZoneChevron"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Col 2: ចំនួនទទួលបានជាក់ស្តែង * (Bulk & Retail) -->
+          <div class="w-full">
+            <label class="block text-xs font-bold text-slate-800 uppercase mb-1.5 flex items-center justify-between">
+              <span class="flex items-center text-emerald-700">
+                <i class="fa-solid fa-clipboard-check mr-1.5 text-xs"></i>
+                <span>ចំនួនជាក់ស្តែងទទួលបាន *</span>
+              </span>
+              <span id="receptionUnitRatioNotice" class="text-[10px] font-mono text-emerald-600"></span>
+            </label>
+            <div class="grid grid-cols-2 gap-2 w-full">
+              <div>
+                <div class="relative">
+                  <input type="number" id="receiveActualBulk" min="0" step="any"
+                    oninput="recomputeReceptionTotal()"
+                    class="w-full h-11 text-center bg-emerald-50/30 border-2 border-emerald-500 rounded-xl text-sm font-black text-emerald-950 outline-none focus:ring-2 focus:ring-emerald-500">
+                  <span id="receiveActualBulkUnitLabel" class="absolute right-2 top-3 text-[10px] font-bold text-emerald-700 pointer-events-none">ប្រអប់</span>
+                </div>
+              </div>
+              <div>
+                <div class="relative">
+                  <input type="number" id="receiveActualRetail" min="0" step="any"
+                    oninput="recomputeReceptionTotal()"
+                    class="w-full h-11 text-center bg-emerald-50/30 border-2 border-emerald-500 rounded-xl text-sm font-black text-emerald-950 outline-none focus:ring-2 focus:ring-emerald-500">
+                  <span id="receiveActualRetailUnitLabel" class="absolute right-2 top-3 text-[10px] font-bold text-emerald-700 pointer-events-none">ដើម</span>
+                </div>
+              </div>
+            </div>
+            <div class="text-[11px] text-right mt-1 font-bold text-emerald-800">
+              សរុបទទួល: <span id="receiveActualTotalText" class="font-black text-emerald-950">0 ដើម</span>
+            </div>
+          </div>
+
+          <!-- Col 3: អ្នកទទួលចូលស្តុក (Receiver) -->
+          <div class="w-full">
+            <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center">
+              <i class="fa-solid fa-user-check text-blue-500 mr-1.5 text-xs"></i>
+              <span>អ្នកទទួល (Receiver)</span>
+            </label>
+            <input type="text" id="receiveActualReceiver"
+              class="w-full h-11 px-3.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500">
+          </div>
+
+          <!-- Col 4: កំណត់សម្គាល់បន្ថែម -->
+          <div class="w-full">
+            <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center">
+              <i class="fa-solid fa-note-sticky text-amber-500 mr-1.5 text-xs"></i>
+              <span>កំណត់សម្គាល់ (Notes)</span>
+            </label>
+            <input type="text" id="receiveActualNotes" value="ទទួលបានគ្រប់ចំនួន និងត្រឹមត្រូវ"
+              class="w-full h-11 px-3.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500">
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+          <button type="button" onclick="closeStationReceptionModal()"
+            class="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs sm:text-sm font-bold transition cursor-pointer">
+            បោះបង់
+          </button>
+          <button type="submit" id="btnConfirmReception"
+            class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs sm:text-sm font-black transition shadow-md shadow-emerald-700/20 flex items-center gap-1.5 cursor-pointer">
+            <i class="fa-solid fa-circle-check"></i>
+            <span>យល់ព្រមទទួលចូលស្តុក</span>
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+
+    <!-- 4. JAVASCRIPT LOGIC & STATE MANAGEMENT -->
   <!-- ========================================== -->
   <script>
+    const TOLL_STATIONS_LIST = [
+      { id: 'K3', name: '1-K3 ស្ថានីយ (ភ្នំពេញ)', shortName: '1-K3 ភ្នំពេញ', badge: 'K3', icon: '🛣️' },
+      { id: 'K26', name: '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)', shortName: '2-K26 កំពង់ស្ពឺ (កើត)', badge: 'K26', icon: '🛣️' },
+      { id: 'K43', name: '3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)', shortName: '3-K43 កំពង់ស្ពឺ (លិច)', badge: 'K43', icon: '🛣️' },
+      { id: 'K76', name: '4-K76 ស្ថានីយ (ត្រែងត្រយឹង)', shortName: '4-K76 ត្រែងត្រយឹង', badge: 'K76', icon: '🛣️' },
+      { id: 'K114', name: '5-K114 ស្ថានីយ (កំពង់សីលា)', shortName: '5-K114 កំពង់សីលា', badge: 'K114', icon: '🛣️' },
+      { id: 'K135', name: '6-K135 ស្ថានីយ (ស្រែអំបិល)', shortName: '6-K135 ស្រែអំបិល', badge: 'K135', icon: '🛣️' },
+      { id: 'K172', name: '7-K172 ស្ថានីយ (ស្ទឹងហាវ)', shortName: '7-K172 ស្ទឹងហាវ', badge: 'K172', icon: '🛣️' },
+      { id: 'K182', name: '8-K182 ស្ថានីយ (ព្រះសីហនុ)', shortName: '8-K182 ព្រះសីហនុ', badge: 'K182', icon: '🛣️' }
+    ];
+
+    let currentStockOutMode = 'SINGLE'; // 'SINGLE' or 'MULTI'
+    let includeGeneralOfficeInMulti = false;
+    let pendingDispatchesFilterTab = 'PENDING'; // 'PENDING' or 'RECEIVED'
+    let pendingDispatchesStationFilter = 'ALL';
+
     const WAREHOUSES_LIST = [
       '1-K3 ស្ថានីយ (ភ្នំពេញ)',
       '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)',
@@ -5866,6 +6166,7 @@
 
     // --- LOCAL DATABASE (Keeps ONLY Google Sheet accounts, no fake local accounts) ---
     const LOCAL_DB = {
+      dispatches: [],
       users: [
         { userId: 'USR-SA', username: 'superadmin', fullName: '陈龙', email: 'chenlongqmi@gmail.com', phone: '066 966 606', role: 'SuperAdmin', status: 'Active', warehouse: 'ALL', avatar: 'assets/superadmin_avatar.jpg', isRegistered: true },
         { userId: 'USR-001', username: 'admin', fullName: '聂稳新', email: 'ppshv21qw024@gmail.com', phone: '098 987 653', role: 'Admin', status: 'Active', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', isRegistered: true },
@@ -6257,6 +6558,32 @@ function saveLocalUsersToStorage() {
       } catch (e) {
         console.warn('Could not save items to localStorage', e);
       }
+    }
+
+    // Persistent Local Dispatches Database
+    function saveLocalDispatchesToStorage() {
+      try {
+        localStorage.setItem('inventory_dispatches_db', JSON.stringify(LOCAL_DB.dispatches || []));
+      } catch (e) {
+        console.warn('Could not save dispatches to localStorage', e);
+      }
+    }
+
+    function loadLocalDispatchesFromStorage() {
+      try {
+        const raw = localStorage.getItem('inventory_dispatches_db');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            LOCAL_DB.dispatches = parsed;
+            return parsed;
+          }
+        }
+      } catch (e) {
+        console.warn('Could not load dispatches from localStorage', e);
+      }
+      if (!LOCAL_DB.dispatches) LOCAL_DB.dispatches = [];
+      return LOCAL_DB.dispatches;
     }
 
     // Persistent Local Transactions Database
@@ -12420,10 +12747,12 @@ function saveLocalUsersToStorage() {
         initStockInForm();
         loadStockInHistory();
         initStockInLayoutCustomizer();
+        if (typeof renderPendingIncomingDispatches === 'function') renderPendingIncomingDispatches();
       } else if (tabName === 'stockout') {
         populateItemSelectDropdowns();
         initStockOutForm();
         loadStockOutHistory();
+        if (typeof renderStockOutMultiStationGrid === 'function') renderStockOutMultiStationGrid();
       } else if (tabName === 'transfer') {
         populateItemSelectDropdowns();
       }
@@ -17470,6 +17799,9 @@ function saveLocalUsersToStorage() {
 
         updateStockOutBadges(oldBulk, oldRetail, oldBulk, oldRetail, packUnit, baseUnit);
         updateStockOutImagePreview(item);
+        if (typeof renderStockOutMultiStationGrid === 'function' && currentStockOutMode === 'MULTI') {
+          renderStockOutMultiStationGrid();
+        }
         calculateStockOutCalculations();
       } else {
         const itemCodeEl = document.getElementById('stockOutItemCode');
@@ -17564,8 +17896,1141 @@ function saveLocalUsersToStorage() {
 
       updateStockOutBadges(0, 0, 0, 0, 'ប្រអប់', 'ដើម');
       updateStockOutImagePreview(null);
+      if (typeof clearAllMultiStationQtys === 'function') clearAllMultiStationQtys();
       generateStockOutDocNo();
     }
+
+
+    /* ==========================================================================
+       MULTI-STATION DISPATCH & TOLL RECEPTION CONTROLLERS
+       ========================================================================== */
+
+    function getActiveTollStationsList() {
+      const list = [...TOLL_STATIONS_LIST];
+      if (includeGeneralOfficeInMulti) {
+        list.push({ id: 'ZHB', name: '综合办 (ផ្នែកកិច្ចការទូទៅ)', shortName: '综合办 កិច្ចការទូទៅ', badge: '综合办', icon: '🏢' });
+      }
+      return list;
+    }
+
+    function setStockOutMode(mode) {
+      currentStockOutMode = (mode === 'MULTI') ? 'MULTI' : 'SINGLE';
+      const btnSingle = document.getElementById('btnStockOutModeSingle');
+      const btnMulti = document.getElementById('btnStockOutModeMulti');
+      const banner = document.getElementById('stockOutMultiStatusBanner');
+      const section = document.getElementById('stockOutMultiStationSection');
+      const toLocField = document.getElementById('stockOutField_toLocation');
+      const submitBtn = document.getElementById('btnSubmitStockOut');
+      const bulkInp = document.getElementById('stockOutQtyBulk');
+      const retailInp = document.getElementById('stockOutQtyRetail');
+
+      if (currentStockOutMode === 'MULTI') {
+        if (btnSingle) {
+          btnSingle.className = 'px-3 py-1 rounded-lg text-xs font-bold text-slate-600 hover:text-amber-900 transition';
+        }
+        if (btnMulti) {
+          btnMulti.className = 'px-3 py-1 rounded-lg text-xs font-bold transition shadow-xs bg-amber-500 text-white border border-amber-600 shadow-amber-500/20';
+        }
+        if (banner) banner.classList.remove('hidden'), banner.classList.add('flex');
+        if (section) section.classList.remove('hidden');
+        if (toLocField) toLocField.classList.add('opacity-40', 'pointer-events-none');
+        if (bulkInp) bulkInp.setAttribute('readonly', 'readonly'), bulkInp.classList.add('bg-slate-100');
+        if (retailInp) retailInp.setAttribute('readonly', 'readonly'), retailInp.classList.add('bg-slate-100');
+
+        if (submitBtn) {
+          submitBtn.innerHTML = `
+            <i class="fa-solid fa-boxes-stacked text-xs text-white"></i>
+            <span class="text-white font-khmer">រក្សាទុក & បើកចេញពហុស្ថានីយ</span>
+          `;
+          submitBtn.className = 'w-full h-11 px-4 rounded-xl bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 hover:from-amber-700 hover:to-orange-700 text-white text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-1.5 shadow-md shadow-orange-700/20 hover:scale-[1.01] active:scale-[0.99] cursor-pointer';
+        }
+
+        renderStockOutMultiStationGrid();
+        recalculateMultiStationTotals();
+      } else {
+        if (btnSingle) {
+          btnSingle.className = 'px-3 py-1 rounded-lg text-xs font-bold transition shadow-xs bg-white text-amber-900 border border-amber-300';
+        }
+        if (btnMulti) {
+          btnMulti.className = 'px-3 py-1 rounded-lg text-xs font-bold text-slate-600 hover:text-amber-900 transition';
+        }
+        if (banner) banner.classList.add('hidden'), banner.classList.remove('flex');
+        if (section) section.classList.add('hidden');
+        if (toLocField) toLocField.classList.remove('opacity-40', 'pointer-events-none');
+        if (bulkInp) bulkInp.removeAttribute('readonly'), bulkInp.classList.remove('bg-slate-100');
+        if (retailInp) retailInp.removeAttribute('readonly'), retailInp.classList.remove('bg-slate-100');
+
+        if (submitBtn) {
+          submitBtn.innerHTML = `
+            <i class="fa-solid fa-check text-xs text-white"></i>
+            <span class="text-white font-khmer">រក្សាទុក</span>
+          `;
+          submitBtn.className = 'w-full h-11 px-4 rounded-xl bg-[#ea580c] hover:bg-[#c2410c] active:bg-[#9a3412] text-white text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-1.5 shadow-md shadow-orange-700/20 hover:scale-[1.01] active:scale-[0.99] cursor-pointer';
+        }
+        calculateStockOutCalculations();
+      }
+    }
+
+    function toggleIncludeGeneralOffice() {
+      includeGeneralOfficeInMulti = !includeGeneralOfficeInMulti;
+      const btn = document.getElementById('btnToggleGeneralOffice');
+      if (btn) {
+        if (includeGeneralOfficeInMulti) {
+          btn.innerHTML = '<i class="fa-solid fa-check text-xs text-emerald-600"></i><span>រួមបញ្ចូល 综合办</span>';
+          btn.classList.add('bg-emerald-50', 'text-emerald-800', 'border-emerald-300');
+          btn.classList.remove('bg-white', 'text-slate-700');
+        } else {
+          btn.innerHTML = '<i class="fa-solid fa-plus text-xs text-slate-500"></i><span>+ 综合办 (កិច្ចការទូទៅ)</span>';
+          btn.classList.remove('bg-emerald-50', 'text-emerald-800', 'border-emerald-300');
+          btn.classList.add('bg-white', 'text-slate-700');
+        }
+      }
+      renderStockOutMultiStationGrid();
+      recalculateMultiStationTotals();
+    }
+
+    function renderStockOutMultiStationGrid() {
+      const container = document.getElementById('stockOutStationCardsGrid');
+      if (!container) return;
+
+      const stations = getActiveTollStationsList();
+      const packQtyRaw = Number(document.getElementById('stockOutPackQtyVal')?.value || 1);
+      const packQty = packQtyRaw > 1 ? packQtyRaw : 1;
+      const packUnit = document.getElementById('stockOutPackUnitVal')?.value || 'ប្រអប់';
+      const baseUnit = document.getElementById('stockOutBaseUnitVal')?.value || 'ដើម';
+
+      // Preserve existing values if re-rendering
+      const currentValues = {};
+      stations.forEach(st => {
+        const b = document.getElementById(`multiQtyBulk_${st.id}`)?.value;
+        const r = document.getElementById(`multiQtyRetail_${st.id}`)?.value;
+        if (b !== undefined || r !== undefined) {
+          currentValues[st.id] = { bulk: b || 0, retail: r || 0 };
+        }
+      });
+
+      container.innerHTML = stations.map(st => {
+        const prevBulk = currentValues[st.id]?.bulk || 0;
+        const prevRetail = currentValues[st.id]?.retail || 0;
+        const stTotal = (Number(prevBulk) * packQty) + Number(prevRetail);
+        const isActive = stTotal > 0;
+
+        return `
+          <div id="stationCard_${st.id}" class="station-dispatch-card ${isActive ? 'is-active' : ''} space-y-2">
+            <!-- Station Card Header -->
+            <div class="flex items-center justify-between gap-1 border-b border-slate-100 pb-1.5">
+              <div class="flex items-center space-x-1.5 truncate">
+                <span class="text-xs">${st.icon || '🛣️'}</span>
+                <span class="font-extrabold text-xs text-slate-800 truncate" title="${escapeHtml(st.name)}">${escapeHtml(st.shortName)}</span>
+              </div>
+              <span id="multiSubtotal_${st.id}" class="text-[11px] font-mono font-black ${isActive ? 'text-amber-800' : 'text-slate-400'} shrink-0">
+                = ${stTotal} ${escapeHtml(baseUnit)}
+              </span>
+            </div>
+
+            <!-- Inputs -->
+            ${packQty > 1 ? `
+              <div class="grid grid-cols-2 gap-1.5">
+                <!-- Bulk Input -->
+                <div class="space-y-0.5">
+                  <div class="flex items-center justify-between text-[10px] font-bold text-slate-500">
+                    <span class="truncate">ដុំ (${escapeHtml(packUnit)})</span>
+                    <div class="flex items-center gap-0.5">
+                      <button type="button" onclick="onMultiStationQtyChange('${st.id}', -1, 0)" class="station-dispatch-stepper-btn">-</button>
+                      <button type="button" onclick="onMultiStationQtyChange('${st.id}', 1, 0)" class="station-dispatch-stepper-btn">+</button>
+                    </div>
+                  </div>
+                  <input type="number" id="multiQtyBulk_${st.id}" min="0" step="any" placeholder="0" value="${prevBulk}"
+                    oninput="onMultiStationQtyChange('${st.id}')"
+                    class="w-full h-8 text-center bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 focus:border-amber-500 rounded-lg text-xs font-black text-amber-950 outline-none transition shadow-2xs">
+                </div>
+
+                <!-- Retail Input -->
+                <div class="space-y-0.5">
+                  <div class="flex items-center justify-between text-[10px] font-bold text-slate-500">
+                    <span class="truncate">រាយ (${escapeHtml(baseUnit)})</span>
+                    <div class="flex items-center gap-0.5">
+                      <button type="button" onclick="onMultiStationQtyChange('${st.id}', 0, -1)" class="station-dispatch-stepper-btn">-</button>
+                      <button type="button" onclick="onMultiStationQtyChange('${st.id}', 0, 1)" class="station-dispatch-stepper-btn">+</button>
+                    </div>
+                  </div>
+                  <input type="number" id="multiQtyRetail_${st.id}" min="0" step="any" placeholder="0" value="${prevRetail}"
+                    oninput="onMultiStationQtyChange('${st.id}')"
+                    class="w-full h-8 text-center bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 focus:border-amber-500 rounded-lg text-xs font-black text-amber-950 outline-none transition shadow-2xs">
+                </div>
+              </div>
+            ` : `
+              <div class="space-y-0.5">
+                <div class="flex items-center justify-between text-[10px] font-bold text-slate-500">
+                  <span>ចំនួនចេញ (${escapeHtml(baseUnit)})</span>
+                  <div class="flex items-center gap-1">
+                    <button type="button" onclick="onMultiStationQtyChange('${st.id}', 0, -1)" class="station-dispatch-stepper-btn">-</button>
+                    <button type="button" onclick="onMultiStationQtyChange('${st.id}', 0, 1)" class="station-dispatch-stepper-btn">+</button>
+                    <button type="button" onclick="onMultiStationQtyChange('${st.id}', 0, 5)" class="station-dispatch-stepper-btn text-[9px] px-1">+5</button>
+                  </div>
+                </div>
+                <input type="number" id="multiQtyRetail_${st.id}" min="0" step="any" placeholder="0" value="${prevRetail}"
+                  oninput="onMultiStationQtyChange('${st.id}')"
+                  class="w-full h-8 text-center bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 focus:border-amber-500 rounded-lg text-xs font-black text-amber-950 outline-none transition shadow-2xs">
+                <input type="hidden" id="multiQtyBulk_${st.id}" value="0">
+              </div>
+            `}
+          </div>
+        `;
+      }).join('');
+    }
+
+    function onMultiStationQtyChange(stationId, deltaBulk = 0, deltaRetail = 0) {
+      const bInput = document.getElementById(`multiQtyBulk_${stationId}`);
+      const rInput = document.getElementById(`multiQtyRetail_${stationId}`);
+
+      if (deltaBulk !== 0 && bInput) {
+        const cur = Math.max(0, Number(bInput.value || 0) + deltaBulk);
+        bInput.value = cur;
+      }
+      if (deltaRetail !== 0 && rInput) {
+        const cur = Math.max(0, Number(rInput.value || 0) + deltaRetail);
+        rInput.value = cur;
+      }
+
+      const packQtyRaw = Number(document.getElementById('stockOutPackQtyVal')?.value || 1);
+      const packQty = packQtyRaw > 1 ? packQtyRaw : 1;
+      const baseUnit = document.getElementById('stockOutBaseUnitVal')?.value || 'ដើម';
+
+      const bVal = Math.max(0, Number(bInput?.value || 0));
+      const rVal = Math.max(0, Number(rInput?.value || 0));
+      const stTotal = (bVal * packQty) + rVal;
+
+      const subtotalEl = document.getElementById(`multiSubtotal_${stationId}`);
+      const cardEl = document.getElementById(`stationCard_${stationId}`);
+
+      if (subtotalEl) {
+        subtotalEl.innerText = `= ${stTotal} ${baseUnit}`;
+        if (stTotal > 0) {
+          subtotalEl.className = 'text-[11px] font-mono font-black text-amber-800 shrink-0';
+        } else {
+          subtotalEl.className = 'text-[11px] font-mono font-black text-slate-400 shrink-0';
+        }
+      }
+
+      if (cardEl) {
+        if (stTotal > 0) cardEl.classList.add('is-active');
+        else cardEl.classList.remove('is-active');
+      }
+
+      recalculateMultiStationTotals();
+    }
+
+    function recalculateMultiStationTotals() {
+      const stations = getActiveTollStationsList();
+      const packQtyRaw = Number(document.getElementById('stockOutPackQtyVal')?.value || 1);
+      const packQty = packQtyRaw > 1 ? packQtyRaw : 1;
+      const baseUnit = document.getElementById('stockOutBaseUnitVal')?.value || 'ដើម';
+
+      let totalSelected = 0;
+      let totalBulk = 0;
+      let totalRetail = 0;
+      let grandTotal = 0;
+
+      stations.forEach(st => {
+        const b = Math.max(0, Number(document.getElementById(`multiQtyBulk_${st.id}`)?.value || 0));
+        const r = Math.max(0, Number(document.getElementById(`multiQtyRetail_${st.id}`)?.value || 0));
+        const tot = (b * packQty) + r;
+        if (tot > 0) {
+          totalSelected++;
+          totalBulk += b;
+          totalRetail += r;
+          grandTotal += tot;
+        }
+      });
+
+      const countBadge = document.getElementById('multiSelectedStationsCount');
+      if (countBadge) countBadge.innerText = totalSelected;
+
+      const qtyDisplay = document.getElementById('multiTotalQtyDisplay');
+      if (qtyDisplay) qtyDisplay.innerText = `${grandTotal} ${baseUnit}`;
+
+      // Synchronize with main form hidden/readonly inputs
+      const fBulk = document.getElementById('stockOutQtyBulk');
+      const fRetail = document.getElementById('stockOutQtyRetail');
+      const fQty = document.getElementById('stockOutQty');
+
+      if (fBulk) fBulk.value = totalBulk;
+      if (fRetail) fRetail.value = (packQty > 1) ? totalRetail : grandTotal;
+      if (fQty) fQty.value = grandTotal;
+
+      calculateStockOutCalculations();
+    }
+
+    async function quickFillAllStationsPrompt() {
+      const packQtyRaw = Number(document.getElementById('stockOutPackQtyVal')?.value || 1);
+      const packQty = packQtyRaw > 1 ? packQtyRaw : 1;
+      const packUnit = document.getElementById('stockOutPackUnitVal')?.value || 'ប្រអប់';
+      const baseUnit = document.getElementById('stockOutBaseUnitVal')?.value || 'ដើម';
+      const stations = getActiveTollStationsList();
+
+      const { value: formValues } = await Swal.fire({
+        title: '<b>⚡ ចែកទំនិញស្មើគ្នាគ្រប់ស្ថានីយ</b>',
+        html: `
+          <div class="text-left text-xs space-y-3 p-1 font-khmer">
+            <p class="text-slate-600">បញ្ចូលចំនួនដែលត្រូវកំណត់ស្មើគ្នាទៅកាន់ស្ថានីយទាំង <b>${stations.length}</b>:</p>
+            ${packQty > 1 ? `
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="block text-[11px] font-bold text-slate-700 mb-1">ចំនួនដុំ (${escapeHtml(packUnit)}):</label>
+                  <input type="number" id="swalQuickBulk" min="0" step="any" value="0"
+                    class="w-full h-10 px-3 border border-slate-300 rounded-xl text-center font-bold text-amber-900 focus:ring-2 focus:ring-amber-500">
+                </div>
+                <div>
+                  <label class="block text-[11px] font-bold text-slate-700 mb-1">ចំនួនរាយ (${escapeHtml(baseUnit)}):</label>
+                  <input type="number" id="swalQuickRetail" min="0" step="any" value="0"
+                    class="w-full h-10 px-3 border border-slate-300 rounded-xl text-center font-bold text-amber-900 focus:ring-2 focus:ring-amber-500">
+                </div>
+              </div>
+            ` : `
+              <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">ចំនួនចេញ (${escapeHtml(baseUnit)}):</label>
+                <input type="number" id="swalQuickRetail" min="0" step="any" value="0"
+                  class="w-full h-10 px-3 border border-slate-300 rounded-xl text-center font-bold text-amber-900 focus:ring-2 focus:ring-amber-500">
+              </div>
+            `}
+          </div>
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonColor: '#ea580c',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'អនុវត្តគ្រប់ស្ថានីយ',
+        cancelButtonText: 'បោះបង់',
+        preConfirm: () => {
+          const b = Math.max(0, Number(document.getElementById('swalQuickBulk')?.value || 0));
+          const r = Math.max(0, Number(document.getElementById('swalQuickRetail')?.value || 0));
+          return { bulk: b, retail: r };
+        }
+      });
+
+      if (formValues) {
+        stations.forEach(st => {
+          const bInp = document.getElementById(`multiQtyBulk_${st.id}`);
+          const rInp = document.getElementById(`multiQtyRetail_${st.id}`);
+          if (bInp) bInp.value = formValues.bulk;
+          if (rInp) rInp.value = formValues.retail;
+          onMultiStationQtyChange(st.id);
+        });
+      }
+    }
+
+    function clearAllMultiStationQtys() {
+      const stations = getActiveTollStationsList();
+      stations.forEach(st => {
+        const b = document.getElementById(`multiQtyBulk_${st.id}`);
+        const r = document.getElementById(`multiQtyRetail_${st.id}`);
+        if (b) b.value = 0;
+        if (r) r.value = 0;
+        onMultiStationQtyChange(st.id);
+      });
+    }
+
+    async function handleMultiStationStockOutSubmit(e) {
+      if (e) e.preventDefault();
+
+      const docNo = document.getElementById('stockOutDocNo')?.value.trim() || generateStockOutDocNo();
+      const rawSku = document.getElementById('stockOutSku')?.value || '';
+      const sku = extractSkuFromInput(rawSku);
+      const itemCode = document.getElementById('stockOutItemCode')?.value.trim() || sku;
+      const baseUnit = document.getElementById('stockOutBaseUnitVal')?.value.trim() || 'ដើម';
+      const packUnit = document.getElementById('stockOutPackUnitVal')?.value.trim() || 'ប្រអប់';
+      const packQty = Math.max(1, Number(document.getElementById('stockOutPackQtyVal')?.value || 1));
+      const oldStock = Number(document.getElementById('stockOutOldStockValue')?.value || 0);
+      const size = document.getElementById('stockOutSize')?.value.trim() || '';
+      const color = document.getElementById('stockOutColor')?.value.trim() || '';
+      const zone = document.getElementById('stockOutZone')?.value.trim() || '';
+      const unitPrice = Number(document.getElementById('stockOutUnitPrice')?.value || 0);
+      const issuer = AppState.currentUser?.fullName || AppState.currentUser?.username || document.getElementById('stockOutIssuer')?.value.trim() || 'Admin';
+      const reason = 'ចែកចេញតាមស្ថានីយ (Multi-Station Dispatch)';
+      const rawNotes = document.getElementById('stockOutNotes')?.value.trim();
+      const notes = (!rawNotes || rawNotes === '') ? '-' : rawNotes;
+
+      if (!sku) {
+        Swal.fire('សូមជ្រើសរើសទំនិញ', 'សូមវាយបញ្ចូល ឬជ្រើសរើសឈ្មោះទំនិញជាមុនសិន!', 'warning');
+        return;
+      }
+
+      // Gather station allocations
+      const activeStations = getActiveTollStationsList();
+      const allocations = [];
+      let grandTotalQty = 0;
+      let totalBulkQty = 0;
+      let totalRetailQty = 0;
+
+      activeStations.forEach(st => {
+        const bInput = document.getElementById(`multiQtyBulk_${st.id}`);
+        const rInput = document.getElementById(`multiQtyRetail_${st.id}`);
+        const bVal = Math.max(0, Number(bInput?.value || 0));
+        const rVal = Math.max(0, Number(rInput?.value || 0));
+        const stTotal = (bVal * packQty) + rVal;
+        if (stTotal > 0) {
+          allocations.push({
+            station: st,
+            bulkQty: bVal,
+            retailQty: rVal,
+            totalQty: stTotal
+          });
+          grandTotalQty += stTotal;
+          totalBulkQty += bVal;
+          totalRetailQty += rVal;
+        }
+      });
+
+      if (allocations.length === 0 || grandTotalQty <= 0) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'មិនទាន់មានចំនួនចែកចេញ',
+          text: 'សូមបញ្ចូលចំនួនទំនិញសម្រាប់ស្ថានីយយ៉ាងហោចណាស់មួយ (ដុំ ឬ រាយ)!'
+        });
+        return;
+      }
+
+      if (grandTotalQty > oldStock) {
+        Swal.fire({
+          icon: 'error',
+          title: 'ស្តុកមិនគ្រប់គ្រាន់',
+          html: `ចំនួនបើកចេញសរុបគ្រប់ស្ថានីយ (<b class="text-rose-600">${grandTotalQty} ${baseUnit}</b>) លើសពីស្តុកដែលមានក្នុងដៃ (<b class="text-slate-800">${oldStock} ${baseUnit}</b>)!`
+        });
+        return;
+      }
+
+      const item = AppState.items.find(i => i.sku === sku);
+      const itemName = item?.name || sku;
+      const remainingStock = oldStock - grandTotalQty;
+
+      // Determine Origin Warehouse
+      const fromLocation = (function() {
+        const activeWh = (typeof getEffectiveStationFilter === 'function') ? getEffectiveStationFilter() : 'ALL';
+        if (activeWh && activeWh !== 'ALL' && !isAdminComboWarehouse(activeWh)) return activeWh;
+        return item?.location || AppState.currentUser?.warehouse || '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+      })();
+
+      // SweetAlert Confirmation breakdown
+      const stationRowsHtml = allocations.map(a => `
+        <tr class="border-b border-slate-100">
+          <td class="py-1.5 px-2 font-bold text-slate-800 text-left">${escapeHtml(a.station.shortName)}</td>
+          <td class="py-1.5 px-2 text-center font-mono font-bold text-amber-700">${a.bulkQty > 0 ? a.bulkQty + ' ' + escapeHtml(packUnit) : '-'}</td>
+          <td class="py-1.5 px-2 text-center font-mono font-bold text-orange-700">${a.retailQty > 0 ? a.retailQty + ' ' + escapeHtml(baseUnit) : '-'}</td>
+          <td class="py-1.5 px-2 text-right font-black text-emerald-800">${a.totalQty} ${escapeHtml(baseUnit)}</td>
+        </tr>
+      `).join('');
+
+      const confirmRes = await Swal.fire({
+        title: '<b>បញ្ជាក់ការបើកទំនិញចែកតាមពហុស្ថានីយ</b>',
+        html: `
+          <div class="text-left text-xs space-y-2.5 p-1 font-khmer">
+            <div class="p-2.5 bg-amber-50 rounded-xl border border-amber-200">
+              <p><b>ទំនិញ:</b> <span class="text-slate-900 font-bold">${escapeHtml(itemName)}</span> (${escapeHtml(sku)})</p>
+              <p><b>ឃ្លាំងចេញ:</b> <span class="text-indigo-800 font-bold">${escapeHtml(fromLocation)}</span> | <b>អ្នកបើក:</b> ${escapeHtml(issuer)}</p>
+              <p><b>លេខឯកសារ:</b> <span class="font-mono font-bold text-amber-900">${escapeHtml(docNo)}</span></p>
+            </div>
+            <div class="max-h-52 overflow-y-auto rounded-xl border border-slate-200 shadow-2xs">
+              <table class="w-full text-xs">
+                <thead class="bg-slate-100 text-[10px] text-slate-700 uppercase sticky top-0">
+                  <tr>
+                    <th class="p-2 text-left">ស្ថានីយគោលដៅ (${allocations.length})</th>
+                    <th class="p-2 text-center">ដុំ</th>
+                    <th class="p-2 text-center">រាយ</th>
+                    <th class="p-2 text-right">សរុប</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                  ${stationRowsHtml}
+                </tbody>
+                <tfoot class="bg-amber-100/70 font-bold text-amber-950">
+                  <tr>
+                    <td class="p-2 text-left">សរុបទាំងអស់</td>
+                    <td class="p-2 text-center">${totalBulkQty > 0 ? totalBulkQty + ' ' + escapeHtml(packUnit) : '-'}</td>
+                    <td class="p-2 text-center">${totalRetailQty > 0 ? totalRetailQty + ' ' + escapeHtml(baseUnit) : '-'}</td>
+                    <td class="p-2 text-right font-black text-emerald-900">${grandTotalQty} ${escapeHtml(baseUnit)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            <div class="flex justify-between items-center text-xs font-bold pt-1 px-1">
+              <span class="text-slate-500">ស្តុកនៅសល់ក្នុង ${escapeHtml(fromLocation)}:</span>
+              <span class="text-emerald-700 font-black text-sm">${remainingStock} ${escapeHtml(baseUnit)}</span>
+            </div>
+          </div>
+        `,
+        showCancelButton: true,
+        confirmButtonColor: '#ea580c',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: '✓ បញ្ជាក់ការបើកចេញ',
+        cancelButtonText: 'បោះបង់'
+      });
+
+      if (!confirmRes.isConfirmed) return;
+
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10);
+      const timeStr = now.toLocaleTimeString();
+
+      // Create Dispatches
+      if (!LOCAL_DB.dispatches) LOCAL_DB.dispatches = [];
+      const createdDispatches = [];
+
+      allocations.forEach((a) => {
+        const dspId = 'DSP-' + dateStr.replace(/-/g, '') + '-' + Math.floor(1000 + Math.random() * 9000) + '-' + a.station.id;
+        const dsp = {
+          dispatchId: dspId,
+          masterDocNo: docNo,
+          date: dateStr,
+          time: timeStr,
+          sku: sku,
+          code: itemCode,
+          itemName: itemName,
+          imageUrl: item?.imageUrl || '',
+          size: size,
+          color: color,
+          unit: baseUnit,
+          packUnit: packUnit,
+          packQty: packQty,
+          bulkQty: a.bulkQty,
+          retailQty: a.retailQty,
+          quantity: a.totalQty,
+          fromLocation: fromLocation,
+          toLocation: a.station.name,
+          toStationId: a.station.id,
+          issuer: issuer,
+          reason: reason,
+          notes: notes,
+          status: 'PENDING',
+          createdAt: now.toISOString()
+        };
+        LOCAL_DB.dispatches.unshift(dsp);
+        createdDispatches.push(dsp);
+
+        // Also add to In-App Notifications for the destination station
+        if (typeof addNotification === 'function') {
+          addNotification('STOCK_DISPATCH', `📦 ទំនិញផ្ញើមកពី Admin (${docNo})`, `Admin (${issuer}) បានបើកចេញ ${itemName} ចំនួន ${a.totalQty} ${baseUnit} មកកាន់ ${a.station.shortName}`, a.station.name, issuer);
+        }
+      });
+      saveLocalDispatchesToStorage();
+
+      // Master Transaction in AppState.stockOutHistory
+      const tempTxId = 'TX-' + dateStr.replace(/-/g, '') + '-' + Math.floor(1000 + Math.random() * 9000);
+      const stationNamesSummary = `${allocations.length} ស្ថានីយ (${allocations.map(a => a.station.badge).join(', ')})`;
+      const masterTx = {
+        txId: tempTxId,
+        docNo: docNo,
+        date: dateStr,
+        time: timeStr,
+        type: 'STOCK_OUT',
+        sku: sku,
+        code: itemCode,
+        itemName: itemName,
+        imageUrl: item?.imageUrl || '',
+        size: size,
+        color: color,
+        zone: zone,
+        quantity: grandTotalQty,
+        bulkQty: totalBulkQty,
+        retailQty: totalRetailQty,
+        outUnitMode: (totalBulkQty > 0 && totalRetailQty === 0) ? 'BULK' : 'RETAIL',
+        unit: baseUnit,
+        packUnit: packUnit,
+        packQty: packQty,
+        oldStock: oldStock,
+        newStock: remainingStock,
+        fromLocation: fromLocation,
+        toLocation: stationNamesSummary,
+        issuer: issuer,
+        reason: reason,
+        notes: `[ចែក ${allocations.length} ស្ថានីយ] ` + (notes !== '-' ? notes : '')
+      };
+
+      if (!AppState.stockOutHistory) AppState.stockOutHistory = [];
+      AppState.stockOutHistory.unshift(masterTx);
+
+      if (!LOCAL_DB.transactions) LOCAL_DB.transactions = [];
+      LOCAL_DB.transactions.unshift(masterTx);
+      saveLocalTransactionsToStorage();
+
+      if (typeof renderStockOutHistoryTable === 'function') renderStockOutHistoryTable(AppState.stockOutHistory);
+
+      // Deduct stock from origin item
+      if (item) item.currentStock = remainingStock;
+      const localItem = (LOCAL_DB.items || []).find(i => i.sku === sku);
+      if (localItem) localItem.currentStock = remainingStock;
+      saveLocalItemsToStorage();
+      if (typeof renderItemsTable === 'function') renderItemsTable();
+
+      // Reset multi station inputs
+      clearAllMultiStationQtys();
+      clearStockOutAllFields();
+
+      // Real-time broadcast
+      if (typeof broadcastInventoryMutation === 'function') {
+        broadcastInventoryMutation('BATCH_DISPATCH', {
+          masterDocNo: docNo,
+          dispatches: createdDispatches,
+          items: AppState.items
+        });
+      }
+
+      // Background sync to backend
+      const payload = {
+        data: {
+          docNo,
+          sku,
+          code: itemCode,
+          itemName,
+          size,
+          unit: baseUnit,
+          packUnit,
+          packQty,
+          bulkQty: totalBulkQty,
+          retailQty: totalRetailQty,
+          outUnitMode: (totalBulkQty > 0 && totalRetailQty === 0) ? 'BULK' : 'RETAIL',
+          color,
+          zone,
+          quantity: grandTotalQty,
+          oldStock,
+          newStock: remainingStock,
+          unitPrice,
+          fromLocation,
+          toLocation: stationNamesSummary,
+          issuer,
+          reason,
+          notes: `[ចែក ${allocations.length} ស្ថានីយ: ${allocations.map(a => a.station.badge + '=' + a.totalQty).join(', ')}] ` + notes
+        },
+        user: AppState.currentUser,
+        dispatches: createdDispatches
+      };
+
+      apiCall('recordStockOut', payload).then(res => {
+        if (res && res.success) {
+          if (typeof loadDashboard === 'function') loadDashboard();
+        }
+      }).catch(err => {
+        console.warn('Background sync batch dispatch error:', err);
+      });
+
+      Swal.fire({
+        icon: 'success',
+        title: 'បានបើកចេញទៅពហុស្ថានីយជោគជ័យ!',
+        html: `
+          <div class="text-left text-xs space-y-1.5 p-2 font-khmer">
+            <p class="text-slate-600">បានចែកទំនិញចេញទៅកាន់ <b>${allocations.length} ស្ថានីយ</b> សរុប <b>${grandTotalQty} ${baseUnit}</b> រួចរាល់!</p>
+            <p class="text-slate-500">ស្ថានីយនីមួយៗបានទទួលសារជូនដំណឹង ហើយអាចផ្ទៀងផ្ទាត់ទទួលចូលស្តុកតាមស្ថានីយរៀងៗខ្លួន។</p>
+          </div>
+        `,
+        timer: 4000,
+        timerProgressBar: true,
+        confirmButtonColor: '#046c4e',
+        confirmButtonText: 'យល់ព្រម'
+      });
+    }
+
+    /* ==========================================================================
+       STATION INCOMING DISPATCHES & RECEPTION CONTROLLER
+       ========================================================================== */
+
+    function switchPendingDispatchesTab(tab) {
+      pendingDispatchesFilterTab = (tab === 'RECEIVED') ? 'RECEIVED' : 'PENDING';
+      const btnPend = document.getElementById('btnTabPendingDispatches');
+      const btnRecv = document.getElementById('btnTabReceivedDispatches');
+
+      if (pendingDispatchesFilterTab === 'RECEIVED') {
+        if (btnPend) btnPend.className = 'px-3 py-1 rounded-lg text-slate-600 hover:text-emerald-800 transition';
+        if (btnRecv) btnRecv.className = 'px-3 py-1 rounded-lg bg-emerald-700 text-white shadow-2xs font-bold transition';
+      } else {
+        if (btnPend) btnPend.className = 'px-3 py-1 rounded-lg bg-white text-emerald-800 shadow-2xs font-bold transition';
+        if (btnRecv) btnRecv.className = 'px-3 py-1 rounded-lg text-slate-600 hover:text-emerald-800 transition';
+      }
+      renderPendingIncomingDispatches();
+    }
+
+    function filterPendingDispatchesByStation(stName) {
+      pendingDispatchesStationFilter = stName || 'ALL';
+      renderPendingIncomingDispatches();
+    }
+
+    function renderPendingIncomingDispatches() {
+      const card = document.getElementById('pendingIncomingDispatchesCard');
+      if (!card) return;
+
+      loadLocalDispatchesFromStorage();
+      const allDispatches = LOCAL_DB.dispatches || [];
+      const u = AppState.currentUser || {};
+      const isSuperAdmin = (u.role === 'SuperAdmin' || String(u.username).toLowerCase() === 'superadmin');
+      const isAdmin = !isSuperAdmin && (u.role === 'Admin' || String(u.username).toLowerCase() === 'admin' || String(u.username).toLowerCase() === 'singvan327@gmail.com');
+      const isPrivileged = isSuperAdmin || isAdmin;
+      const userWarehouse = u.warehouse || '';
+
+      // Determine dispatches visible for this user
+      let userDispatches = allDispatches;
+      if (!isPrivileged && userWarehouse && userWarehouse !== 'ALL') {
+        userDispatches = allDispatches.filter(d => 
+          (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(d.toLocation, userWarehouse) : isSameWarehouse(d.toLocation, userWarehouse))
+        );
+      }
+
+      const pendingCount = userDispatches.filter(d => d.status === 'PENDING').length;
+      const receivedCount = userDispatches.filter(d => d.status === 'RECEIVED').length;
+
+      // Filter by active status tab
+      let displayList = userDispatches.filter(d => d.status === pendingDispatchesFilterTab);
+
+      // Filter by station (if Admin chose a specific station)
+      if (isPrivileged && pendingDispatchesStationFilter !== 'ALL') {
+        displayList = displayList.filter(d => 
+          (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(d.toLocation, pendingDispatchesStationFilter) : isSameWarehouse(d.toLocation, pendingDispatchesStationFilter))
+        );
+      }
+
+      // If non-admin has 0 pending items and is on PENDING tab, show compact clean card
+      card.innerHTML = `
+        <div class="glass-card p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-sm border-2 ${pendingCount > 0 ? 'border-amber-400/90 bg-gradient-to-br from-amber-50/40 via-white to-orange-50/20' : 'border-emerald-300/80 bg-gradient-to-br from-emerald-50/20 via-white to-teal-50/10'} space-y-3 animate-in fade-in">
+          <!-- Card Header -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2.5 border-b border-slate-100">
+            <div class="flex items-center space-x-3">
+              <div class="w-10 h-10 rounded-2xl ${pendingCount > 0 ? 'bg-amber-500 text-white shadow-amber-500/30' : 'bg-emerald-600 text-white shadow-emerald-500/20'} flex items-center justify-center text-lg shadow-sm">
+                <i class="fa-solid fa-boxes-packing"></i>
+              </div>
+              <div>
+                <div class="flex items-center gap-2">
+                  <h4 class="font-black text-slate-800 text-sm sm:text-base">📦 បញ្ជីទំនិញរង់ចាំទទួលចូលស្តុកពី Admin (Pending Incoming Dispatches)</h4>
+                  <span id="pendingDispatchesBadge" class="px-2.5 py-0.5 rounded-full text-xs font-black ${pendingCount > 0 ? 'bg-amber-500 text-white animate-pulse' : 'bg-slate-200 text-slate-600'} shadow-2xs font-mono">
+                    ${pendingCount} មុខទំនិញ
+                  </span>
+                </div>
+                <p class="text-xs text-slate-500 font-khmer">
+                  ${!isPrivileged ? `ទំនិញដែលបានបើកចេញពី Admin មកកាន់ <b>${escapeHtml(userWarehouse || 'ស្ថានីយ')}</b> (ផ្ទៀងផ្ទាត់ និងបញ្ចូលស្តុក)` : 'ទំនិញដែលបានបើកចេញពី Admin ទៅកាន់បណ្តាស្ថានីយទាំងអស់ (Admin Master View)'}
+                </p>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <!-- Tab Switcher between Pending and History -->
+              <div class="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs font-bold">
+                <button type="button" onclick="switchPendingDispatchesTab('PENDING')" id="btnTabPendingDispatches"
+                  class="px-3 py-1 rounded-lg transition ${pendingDispatchesFilterTab === 'PENDING' ? 'bg-white text-emerald-800 shadow-2xs font-bold' : 'text-slate-600 hover:text-emerald-800'}">
+                  🟡 រង់ចាំទទួល (<span id="tabCountPending">${pendingCount}</span>)
+                </button>
+                <button type="button" onclick="switchPendingDispatchesTab('RECEIVED')" id="btnTabReceivedDispatches"
+                  class="px-3 py-1 rounded-lg transition ${pendingDispatchesFilterTab === 'RECEIVED' ? 'bg-emerald-700 text-white shadow-2xs font-bold' : 'text-slate-600 hover:text-emerald-800'}">
+                  ✅ បានទទួលរួចរាល់ (<span id="tabCountReceived">${receivedCount}</span>)
+                </button>
+              </div>
+
+              <button type="button" onclick="renderPendingIncomingDispatches()" title="Refresh"
+                class="p-2 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-emerald-600 hover:border-emerald-300 shadow-2xs cursor-pointer transition">
+                <i class="fa-solid fa-arrows-rotate text-xs"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Admin Station Filter Tabs (Visible if user has Admin/SuperAdmin privileges) -->
+          ${isPrivileged ? `
+            <div class="flex flex-wrap items-center gap-1.5 pt-0.5 text-xs">
+              <span class="text-[11px] font-bold text-slate-500 mr-1 flex items-center gap-1">
+                <i class="fa-solid fa-filter text-amber-500 text-[10px]"></i>ស្ថានីយ:
+              </span>
+              <button type="button" onclick="filterPendingDispatchesByStation('ALL')"
+                class="px-2.5 py-0.5 rounded-lg font-bold transition border ${pendingDispatchesStationFilter === 'ALL' ? 'bg-amber-600 text-white border-amber-700' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'}">
+                ទាំងអស់ (${userDispatches.filter(d => d.status === pendingDispatchesFilterTab).length})
+              </button>
+              ${TOLL_STATIONS_LIST.map(st => {
+                const count = userDispatches.filter(d => d.status === pendingDispatchesFilterTab && (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(d.toLocation, st.name) : isSameWarehouse(d.toLocation, st.name))).length;
+                const isSelected = (pendingDispatchesStationFilter === st.name);
+                return `
+                  <button type="button" onclick="filterPendingDispatchesByStation('${st.name}')"
+                    class="px-2 py-0.5 rounded-lg text-[11px] font-bold transition border ${isSelected ? 'bg-amber-600 text-white border-amber-700' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'}">
+                    ${escapeHtml(st.badge)} (${count})
+                  </button>
+                `;
+              }).join('')}
+            </div>
+          ` : ''}
+
+          <!-- Table Container -->
+          <div class="table-scroll-container rounded-2xl border border-slate-200/80 max-h-[360px] overflow-y-auto bg-white shadow-2xs">
+            <table class="w-full text-left border-collapse min-w-[700px]">
+              <thead class="bg-slate-50 sticky top-0 z-10 text-[11px] font-bold text-slate-700 uppercase tracking-wider border-b border-slate-200">
+                <tr>
+                  <th class="py-2 px-3 text-center w-12">ល.រ</th>
+                  <th class="py-2 px-3">កាលបរិច្ឆេទ & ឯកសារ</th>
+                  <th class="py-2 px-3">ទំនិញ & រូបភាព</th>
+                  <th class="py-2 px-3">ខ្នាត/ពណ៌</th>
+                  <th class="py-2 px-3 text-center">ចំនួនផ្ញើមក</th>
+                  <th class="py-2 px-3">ផ្ញើមកពី</th>
+                  <th class="py-2 px-3">ស្ថានីយគោលដៅ</th>
+                  <th class="py-2 px-3 text-center">ស្ថានភាព</th>
+                  <th class="py-2 px-3 text-center">សកម្មភាព</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 text-xs">
+                ${displayList.length === 0 ? `
+                  <tr>
+                    <td colspan="9" class="text-center py-8 text-slate-400">
+                      <div class="flex flex-col items-center justify-center space-y-1.5">
+                        <i class="fa-solid fa-box-open text-2xl text-slate-300"></i>
+                        <span>${pendingDispatchesFilterTab === 'PENDING' ? '✨ គ្មានទំនិញរង់ចាំទទួលចូលស្តុកទេនៅពេលនេះ (No Pending Dispatches)' : 'មិនទាន់មានប្រវត្តិទំនិញបានទទួលទេ'}</span>
+                      </div>
+                    </td>
+                  </tr>
+                ` : displayList.map((d, idx) => {
+                  const rawUrl = d.imageUrl || '';
+                  const finalImgUrl = formatDriveImageUrl(rawUrl);
+                  const isPending = (d.status === 'PENDING');
+                  const bulkText = d.bulkQty > 0 ? `${d.bulkQty} ${escapeHtml(d.packUnit || 'ប្រអប់')}` : '';
+                  const retailText = d.retailQty > 0 ? `${d.retailQty} ${escapeHtml(d.unit || 'ដើម')}` : '';
+                  const qtyDetails = [bulkText, retailText].filter(Boolean).join(' + ');
+
+                  return `
+                    <tr class="hover:bg-amber-50/30 transition">
+                      <td class="py-2.5 px-3 text-center font-mono text-slate-400 font-bold">${idx + 1}</td>
+                      <td class="py-2.5 px-3">
+                        <div class="font-mono font-bold text-amber-900">${escapeHtml(d.masterDocNo || '-')}</div>
+                        <div class="text-[10px] text-slate-400">${escapeHtml(d.date || '')} ${escapeHtml(d.time || '')}</div>
+                      </td>
+                      <td class="py-2.5 px-3">
+                        <div class="flex items-center space-x-2.5">
+                          <div class="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
+                            ${finalImgUrl ? `
+                              <img src="${finalImgUrl}" alt="" class="w-full h-full object-contain" onerror="handleProductImgError(this)">
+                            ` : `
+                              <i class="fa-regular fa-image text-slate-400 text-sm"></i>
+                            `}
+                          </div>
+                          <div>
+                            <div class="font-bold text-slate-900 leading-tight">${escapeHtml(d.itemName)}</div>
+                            <div class="font-mono text-[10px] text-indigo-700 font-semibold">${escapeHtml(d.sku)}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td class="py-2.5 px-3 text-slate-600">
+                        <div>${escapeHtml(d.size || '-')}</div>
+                        <div class="text-[10px] text-slate-400">${escapeHtml(d.color || '-')}</div>
+                      </td>
+                      <td class="py-2.5 px-3 text-center">
+                        <span class="inline-block px-2.5 py-1 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 font-black font-mono">
+                          ${d.quantity} ${escapeHtml(d.unit || 'ដើម')}
+                        </span>
+                        ${qtyDetails ? `<div class="text-[10px] text-slate-500 mt-0.5 font-medium">${qtyDetails}</div>` : ''}
+                      </td>
+                      <td class="py-2.5 px-3 text-slate-700">
+                        <div class="font-semibold text-xs">${escapeHtml(d.fromLocation || '-')}</div>
+                        <div class="text-[10px] text-slate-400">អ្នកចេញ: <b>${escapeHtml(d.issuer || '-')}</b></div>
+                      </td>
+                      <td class="py-2.5 px-3 text-slate-800 font-bold">
+                        <span class="px-2 py-0.5 rounded-lg bg-slate-100 text-slate-800 border border-slate-200 text-xs">
+                          ${escapeHtml(d.toLocation || '-')}
+                        </span>
+                      </td>
+                      <td class="py-2.5 px-3 text-center">
+                        ${isPending ? `
+                          <span class="px-2.5 py-1 rounded-full text-[11px] font-black bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs pulse-amber-badge">
+                            🟡 រង់ចាំទទួល
+                          </span>
+                        ` : `
+                          <span class="px-2.5 py-1 rounded-full text-[11px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300">
+                            ✅ ទទួលរួចរាល់
+                          </span>
+                        `}
+                      </td>
+                      <td class="py-2.5 px-3 text-center">
+                        ${isPending ? `
+                          <button type="button" onclick="openStationReceptionModal('${escapeHtml(d.dispatchId)}')"
+                            class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-bold transition shadow-xs flex items-center justify-center space-x-1.5 cursor-pointer hover:scale-[1.02] active:scale-[0.98]">
+                            <i class="fa-solid fa-boxes-packing text-xs"></i>
+                            <span>ផ្ទៀងផ្ទាត់ & ទទួលចូលស្តុក</span>
+                          </button>
+                        ` : `
+                          <div class="text-left text-[11px] text-slate-600 space-y-0.5">
+                            <div>ទទួលដោយ: <b class="text-slate-800">${escapeHtml(d.receivedBy || '-')}</b></div>
+                            <div>📍 តំបន់: <b class="text-emerald-700 font-mono">${escapeHtml(d.receivedZone || '-')}</b></div>
+                            <div class="text-[10px] text-slate-400 font-mono">DOC: ${escapeHtml(d.stockInDocNo || '-')}</div>
+                          </div>
+                        `}
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    function openStationReceptionModal(dispatchId) {
+      loadLocalDispatchesFromStorage();
+      const dispatch = (LOCAL_DB.dispatches || []).find(d => d.dispatchId === dispatchId);
+      if (!dispatch) {
+        Swal.fire('រកមិនឃើញទិន្នន័យ', 'មិនអាចស្វែងរកទិន្នន័យដែលបានផ្ញើមកទេ!', 'error');
+        return;
+      }
+
+      const modal = document.getElementById('stationReceptionModal');
+      if (!modal) return;
+
+      document.getElementById('receptionDispatchId').value = dispatch.dispatchId;
+      document.getElementById('receptionSku').value = dispatch.sku;
+      document.getElementById('receptionBaseUnit').value = dispatch.unit || 'ដើម';
+      document.getElementById('receptionPackUnit').value = dispatch.packUnit || 'ប្រអប់';
+      document.getElementById('receptionPackQty').value = Math.max(1, Number(dispatch.packQty || 1));
+
+      // Item Details
+      const imgEl = document.getElementById('receptionProductImg');
+      if (imgEl) {
+        imgEl.src = formatDriveImageUrl(dispatch.imageUrl || '');
+      }
+      document.getElementById('receptionProductSku').innerText = dispatch.sku;
+      document.getElementById('receptionDocNoBadge').innerText = dispatch.masterDocNo || '-';
+      document.getElementById('receptionProductName').innerText = dispatch.itemName || dispatch.sku;
+      document.getElementById('receptionProductSize').innerText = dispatch.size || '-';
+      document.getElementById('receptionProductColor').innerText = dispatch.color || '-';
+      document.getElementById('receptionIssuer').innerText = dispatch.issuer || 'Admin';
+      document.getElementById('receptionDispatchedQtyText').innerText = `${dispatch.quantity} ${dispatch.unit || 'ដើម'}`;
+      document.getElementById('receptionFromWhText').innerText = dispatch.fromLocation || '中心库房';
+      document.getElementById('receptionModalStationBadge').innerText = dispatch.toLocation || 'ស្ថានីយ';
+
+      // Ratio Notice
+      const packQty = Math.max(1, Number(dispatch.packQty || 1));
+      const ratioNotice = document.getElementById('receptionUnitRatioNotice');
+      if (ratioNotice) {
+        ratioNotice.innerText = (packQty > 1) ? `(1 ${dispatch.packUnit || 'ប្រអប់'} = ${packQty} ${dispatch.unit || 'ដើម'})` : '';
+      }
+
+      // Quantity Inputs Pre-fill
+      const bulkInp = document.getElementById('receiveActualBulk');
+      const retailInp = document.getElementById('receiveActualRetail');
+      const bulkLabel = document.getElementById('receiveActualBulkUnitLabel');
+      const retailLabel = document.getElementById('receiveActualRetailUnitLabel');
+
+      if (bulkLabel) bulkLabel.innerText = dispatch.packUnit || 'ប្រអប់';
+      if (retailLabel) retailLabel.innerText = dispatch.unit || 'ដើម';
+
+      if (bulkInp) bulkInp.value = dispatch.bulkQty || 0;
+      if (retailInp) retailInp.value = dispatch.retailQty || (packQty <= 1 ? dispatch.quantity : 0);
+
+      // Pre-fill Zone from existing item or empty
+      const item = (AppState.items || []).find(i => i.sku === dispatch.sku);
+      const zoneInp = document.getElementById('receiveDispatchZone');
+      if (zoneInp) {
+        zoneInp.value = item?.zone || 'តំបន់ A (A01)';
+        zoneInp.classList.remove('ring-2', 'ring-rose-500');
+      }
+
+      // Receiver Name
+      const recvInp = document.getElementById('receiveActualReceiver');
+      if (recvInp) {
+        recvInp.value = AppState.currentUser?.fullName || AppState.currentUser?.username || 'Staff';
+      }
+
+      recomputeReceptionTotal();
+      modal.classList.remove('hidden');
+    }
+
+    function recomputeReceptionTotal() {
+      const packQty = Math.max(1, Number(document.getElementById('receptionPackQty')?.value || 1));
+      const baseUnit = document.getElementById('receptionBaseUnit')?.value || 'ដើម';
+      const bVal = Math.max(0, Number(document.getElementById('receiveActualBulk')?.value || 0));
+      const rVal = Math.max(0, Number(document.getElementById('receiveActualRetail')?.value || 0));
+      const tot = (bVal * packQty) + rVal;
+
+      const txt = document.getElementById('receiveActualTotalText');
+      if (txt) txt.innerText = `${tot} ${baseUnit}`;
+    }
+
+    function closeStationReceptionModal() {
+      const modal = document.getElementById('stationReceptionModal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    async function handleConfirmStationReception(e) {
+      if (e) e.preventDefault();
+
+      const dispatchId = document.getElementById('receptionDispatchId')?.value;
+      const dispatch = (LOCAL_DB.dispatches || []).find(d => d.dispatchId === dispatchId);
+      if (!dispatch) {
+        Swal.fire('រកមិនឃើញទិន្នន័យ', 'មិនអាចស្វែងរកទិន្នន័យដែលបានផ្ញើមកទេ!', 'error');
+        return;
+      }
+
+      const zone = document.getElementById('receiveDispatchZone')?.value.trim();
+      if (!zone) {
+        Swal.fire('សូមជ្រើសរើសតំបន់ស្តុក', 'សូមជ្រើសរើស ឬវាយបញ្ចូលតំបន់ស្តុក (ZONE) ដែលត្រូវដាក់ទំនិញចូល!', 'warning');
+        const zInp = document.getElementById('receiveDispatchZone');
+        if (zInp) { zInp.focus(); zInp.classList.add('ring-2', 'ring-rose-500'); }
+        return;
+      }
+
+      const packQty = Math.max(1, Number(dispatch.packQty || 1));
+      const actualBulk = Math.max(0, Number(document.getElementById('receiveActualBulk')?.value || 0));
+      const actualRetail = Math.max(0, Number(document.getElementById('receiveActualRetail')?.value || 0));
+      const actualTotal = (actualBulk * packQty) + actualRetail;
+
+      if (actualTotal <= 0) {
+        Swal.fire('ចំនួនមិនត្រឹមត្រូវ', 'ចំនួនទទួលជាក់ស្តែងត្រូវតែធំជាង 0!', 'warning');
+        return;
+      }
+
+      const receiver = document.getElementById('receiveActualReceiver')?.value.trim() || AppState.currentUser?.fullName || AppState.currentUser?.username || 'Staff';
+      const notes = document.getElementById('receiveActualNotes')?.value.trim() || 'ទទួលបានត្រឹមត្រូវ';
+
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10);
+      const timeStr = now.toLocaleTimeString();
+      const stockInDocNo = generateStockInDocNo();
+
+      // 1. Mark dispatch as RECEIVED
+      dispatch.status = 'RECEIVED';
+      dispatch.receivedZone = zone;
+      dispatch.receivedQuantity = actualTotal;
+      dispatch.receivedBulkQty = actualBulk;
+      dispatch.receivedRetailQty = actualRetail;
+      dispatch.receivedAt = now.toISOString();
+      dispatch.receivedDateStr = dateStr;
+      dispatch.receivedTimeStr = timeStr;
+      dispatch.receivedBy = receiver;
+      dispatch.receiverNotes = notes;
+      dispatch.stockInDocNo = stockInDocNo;
+      saveLocalDispatchesToStorage();
+
+      // 2. Create STOCK_IN transaction for destination station
+      const newTx = {
+        txId: 'TX-' + dateStr.replace(/-/g, '') + '-' + Math.floor(1000 + Math.random() * 9000),
+        docNo: stockInDocNo,
+        date: dateStr,
+        time: timeStr,
+        type: 'STOCK_IN',
+        sku: dispatch.sku,
+        code: dispatch.code,
+        itemName: dispatch.itemName,
+        imageUrl: dispatch.imageUrl || '',
+        size: dispatch.size || '',
+        color: dispatch.color || '',
+        zone: zone,
+        quantity: actualTotal,
+        bulkQty: actualBulk,
+        retailQty: actualRetail,
+        inUnitMode: (actualBulk > 0 && actualRetail === 0) ? 'BULK' : 'RETAIL',
+        inputQty: actualTotal,
+        unit: dispatch.unit,
+        packUnit: dispatch.packUnit,
+        packQty: dispatch.packQty,
+        oldStock: 0,
+        newStock: actualTotal,
+        unitPrice: 0,
+        supplier: `Admin (${dispatch.issuer})`,
+        fromLocation: dispatch.fromLocation,
+        toLocation: dispatch.toLocation,
+        receivedBy: receiver,
+        notes: `[ទទួលពី Admin: ${dispatch.masterDocNo}] ${notes}`
+      };
+
+      if (!AppState.stockInHistory) AppState.stockInHistory = [];
+      AppState.stockInHistory.unshift(newTx);
+
+      if (!LOCAL_DB.transactions) LOCAL_DB.transactions = [];
+      LOCAL_DB.transactions.unshift(newTx);
+      saveLocalTransactionsToStorage();
+
+      // 3. Update local station inventory
+      const item = (AppState.items || []).find(i => i.sku === dispatch.sku);
+      if (item) {
+        if (!Array.isArray(item.warehouses)) item.warehouses = [];
+        if (!item.warehouses.includes(dispatch.toLocation)) {
+          item.warehouses.push(dispatch.toLocation);
+        }
+      }
+      saveLocalItemsToStorage();
+
+      // 4. In-App Notification for Admin
+      if (typeof addNotification === 'function') {
+        addNotification('STOCK_IN', `✅ ស្ថានីយបានទទួលស្តុកជោគជ័យ`, `${dispatch.toLocation} បានទទួល ${dispatch.itemName} (${actualTotal} ${dispatch.unit}) ចូលទៅក្នុងតំបន់ ${zone} រួចរាល់`, dispatch.toLocation, receiver);
+      }
+
+      // 5. Broadcast Mutation
+      if (typeof broadcastInventoryMutation === 'function') {
+        broadcastInventoryMutation('DISPATCH_RECEIVED', {
+          dispatchId: dispatch.dispatchId,
+          toLocation: dispatch.toLocation,
+          sku: dispatch.sku,
+          quantity: actualTotal,
+          zone: zone,
+          receiver: receiver
+        });
+      }
+
+      // 6. Background API sync
+      apiCall('recordStockIn', {
+        data: newTx,
+        user: AppState.currentUser
+      }).then(res => {
+        if (res && res.success) {
+          if (typeof loadStockInHistory === 'function') loadStockInHistory();
+        }
+      }).catch(err => {
+        console.warn('Background sync reception error:', err);
+      });
+
+      closeStationReceptionModal();
+
+      Swal.fire({
+        icon: 'success',
+        title: 'បានទទួលទំនិញចូលស្តុកជោគជ័យ!',
+        html: `
+          <div class="text-left text-xs space-y-1.5 p-2 font-khmer">
+            <p class="text-emerald-800 font-bold">ទំនិញបានចូលស្តុក <b>${escapeHtml(dispatch.toLocation)}</b> រួចរាល់!</p>
+            <div class="p-2.5 bg-emerald-50 rounded-xl border border-emerald-200 space-y-1 mt-1 text-[11px]">
+              <p><b>ទំនិញ:</b> ${escapeHtml(dispatch.itemName)} (${escapeHtml(dispatch.sku)})</p>
+              <p><b>តំបន់ដាក់ (Zone):</b> <span class="text-rose-700 font-bold">${escapeHtml(zone)}</span></p>
+              <p><b>ចំនួនបានទទួល:</b> <span class="text-emerald-800 font-black">${actualTotal} ${escapeHtml(dispatch.unit)}</span></p>
+              <p><b>លេខឯកសារចូល:</b> <span class="font-mono text-slate-800 font-bold">${escapeHtml(stockInDocNo)}</span></p>
+              <p><b>អ្នកទទួល:</b> ${escapeHtml(receiver)}</p>
+            </div>
+          </div>
+        `,
+        timer: 3500,
+        timerProgressBar: true,
+        confirmButtonColor: '#046c4e',
+        confirmButtonText: 'យល់ព្រម'
+      });
+
+      renderPendingIncomingDispatches();
+      if (typeof renderStockInHistoryTable === 'function') renderStockInHistoryTable(AppState.stockInHistory);
+      if (typeof renderItemsTable === 'function') renderItemsTable();
+    }
+
+    function checkPendingDispatchesNotification() {
+      const u = AppState.currentUser;
+      if (!u) return;
+      const isSuperAdmin = (u.role === 'SuperAdmin' || String(u.username).toLowerCase() === 'superadmin');
+      const isAdmin = !isSuperAdmin && (u.role === 'Admin' || String(u.username).toLowerCase() === 'admin');
+
+      const myWh = u.warehouse || '';
+      if (!myWh || myWh === 'ALL') return;
+
+      const pendingList = (LOCAL_DB.dispatches || []).filter(d =>
+        d.status === 'PENDING' &&
+        ((typeof matchesTargetWarehouse === 'function') ? matchesTargetWarehouse(d.toLocation, myWh) : isSameWarehouse(d.toLocation, myWh))
+      );
+
+      if (pendingList.length > 0) {
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'info',
+          title: `<b>📦 មាន ${pendingList.length} មុខទំនិញរង់ចាំទទួល</b>`,
+          html: `<p class="text-xs">ទំនិញផ្ញើមកពី Admin ចូលក្នុង ${escapeHtml(myWh)}</p><button onclick="navigateTab('stockin'); Swal.close();" class="mt-1 px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-[10px] font-bold cursor-pointer">ចុចទទួលឥឡូវ ❯</button>`,
+          showConfirmButton: false,
+          timer: 8000,
+          timerProgressBar: true
+        });
+      }
+    }
+
 
     async function handleStockOutSubmit(e) {
       e.preventDefault();
@@ -26724,6 +28189,34 @@ function saveLocalUsersToStorage() {
           if (typeof loadChatMessages === 'function') loadChatMessages(true);
         } else if (AppState.currentTab === 'users') {
           if (typeof loadUsersList === 'function') loadUsersList();
+        }
+      }
+
+      if (msg.type === 'BATCH_DISPATCH' || msg.type === 'DISPATCH_RECEIVED') {
+        if (typeof loadLocalDispatchesFromStorage === 'function') loadLocalDispatchesFromStorage();
+        if (msg.type === 'BATCH_DISPATCH' && Array.isArray(msg.dispatches)) {
+          msg.dispatches.forEach(d => {
+            const exists = (LOCAL_DB.dispatches || []).some(x => x.dispatchId === d.dispatchId);
+            if (!exists) {
+              if (!LOCAL_DB.dispatches) LOCAL_DB.dispatches = [];
+              LOCAL_DB.dispatches.unshift(d);
+            }
+          });
+          if (typeof saveLocalDispatchesToStorage === 'function') saveLocalDispatchesToStorage();
+          if (typeof checkPendingDispatchesNotification === 'function') checkPendingDispatchesNotification();
+        }
+        if (msg.type === 'DISPATCH_RECEIVED' && msg.dispatchId) {
+          const targetDsp = (LOCAL_DB.dispatches || []).find(x => x.dispatchId === msg.dispatchId);
+          if (targetDsp) {
+            targetDsp.status = 'RECEIVED';
+            targetDsp.receivedZone = msg.zone;
+            targetDsp.receivedBy = msg.receiver;
+            targetDsp.receivedQuantity = msg.quantity;
+            if (typeof saveLocalDispatchesToStorage === 'function') saveLocalDispatchesToStorage();
+          }
+        }
+        if (AppState.currentTab === 'stockin' && typeof renderPendingIncomingDispatches === 'function') {
+          renderPendingIncomingDispatches();
         }
       }
 

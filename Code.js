@@ -36,7 +36,8 @@ const SHEETS = {
 
   STOCK_IN: 'Stock_in',
 
-  STOCK_OUT: 'Stock_out'
+  STOCK_OUT: 'Stock_out',
+  DISPATCHES: 'Dispatches'
 
 };
 
@@ -788,6 +789,18 @@ function executeLocalApiAction(req) {
       case 'stockIn':
 
         return recordStockIn(payload.data || payload, payload.user);
+
+      case 'recordBatchDispatch':
+      case 'batchDispatch':
+        return recordBatchDispatch(payload.data || payload, payload.user, payload.dispatches);
+
+      case 'confirmStationReception':
+      case 'confirmDispatch':
+        return confirmStationReception(payload.data || payload, payload.user);
+
+      case 'getPendingDispatches':
+      case 'getDispatches':
+        return getPendingDispatches(payload.warehouse || payload.toLocation || payload);
 
       case 'recordStockOut':
 
@@ -8572,4 +8585,164 @@ function standardizeAndFormatStockInSheet(optSs) {
   CacheService.getScriptCache().removeAll(['TX_SHEETS_SYNC_ALL', 'TX_SHEETS_SYNC_STOCK_IN']);
 
   return { success: true, message: 'Stock_in sheet standardized to 17 columns without UnitPrice and TotalAmount, clean Notes!' };
+}
+
+
+/* ==========================================================================
+   MULTI-STATION BATCH DISPATCH & TOLL RECEPTION BACKEND HANDLERS
+   ========================================================================== */
+
+function ensureDispatchesSheet(ss) {
+  let sheet = ss.getSheetByName(SHEETS.DISPATCHES || 'Dispatches');
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEETS.DISPATCHES || 'Dispatches');
+    sheet.appendRow([
+      'DispatchId', 'MasterDocNo', 'Date', 'Time', 'SKU', 'ItemName', 'Size', 'Color',
+      'Quantity', 'BulkQty', 'RetailQty', 'Unit', 'PackUnit', 'FromLocation', 'ToLocation',
+      'Issuer', 'Status', 'ReceivedZone', 'ReceivedQty', 'ReceivedBy', 'ReceivedAt',
+      'StockInDocNo', 'Notes', 'CreatedAt'
+    ]);
+    sheet.getRange(1, 1, 1, 24).setFontWeight('bold').setBackground('#f1f5f9');
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function recordBatchDispatch(dataOrPayload, user, dispatchesList) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const dList = dispatchesList || (dataOrPayload && dataOrPayload.dispatches) || [];
+  const u = user || (dataOrPayload && dataOrPayload.user);
+  const data = (dataOrPayload && dataOrPayload.data) ? dataOrPayload.data : dataOrPayload;
+
+  // 1. Record stock out deduction in items sheet & Stock_out sheet
+  const outRes = recordStockOut(data, u);
+
+  // 2. Append dispatches to Dispatches sheet
+  if (Array.isArray(dList) && dList.length > 0) {
+    try {
+      const sheet = ensureDispatchesSheet(ss);
+      const now = new Date();
+      dList.forEach(d => {
+        sheet.appendRow([
+          d.dispatchId || ('DSP-' + Date.now()),
+          d.masterDocNo || data.docNo || '',
+          d.date || Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd'),
+          d.time || Utilities.formatDate(now, 'GMT+7', 'HH:mm:ss'),
+          d.sku || data.sku || '',
+          d.itemName || data.itemName || '',
+          d.size || data.size || '',
+          d.color || data.color || '',
+          d.quantity || 0,
+          d.bulkQty || 0,
+          d.retailQty || 0,
+          d.unit || data.unit || 'ដើម',
+          d.packUnit || data.packUnit || 'ប្រអប់',
+          d.fromLocation || data.fromLocation || '',
+          d.toLocation || '',
+          d.issuer || (u ? (u.fullName || u.username) : 'Admin'),
+          d.status || 'PENDING',
+          '',
+          '',
+          '',
+          '',
+          '',
+          d.notes || '',
+          now
+        ]);
+      });
+    } catch (err) {
+      Logger.log('Error writing to Dispatches sheet: ' + err.toString());
+    }
+  }
+
+  return {
+    success: true,
+    message: 'បានកត់ត្រាបើកទំនិញចែកតាមពហុស្ថានីយជោគជ័យ',
+    outResult: outRes,
+    dispatchesCount: dList.length
+  };
+}
+
+function confirmStationReception(payload, user) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const d = payload.dispatch || payload.data || payload;
+  const u = user || payload.user;
+
+  // 1. Record Stock In
+  const inRes = recordStockIn(d, u);
+
+  // 2. Update status in Dispatches sheet if exists
+  try {
+    const sheet = ss.getSheetByName(SHEETS.DISPATCHES || 'Dispatches');
+    if (sheet && d.dispatchId) {
+      const data = sheet.getDataRange().getValues();
+      for (let i = 1; i < data.length; i++) {
+        if (String(data[i][0]).trim() === String(d.dispatchId).trim()) {
+          const row = i + 1;
+          sheet.getRange(row, 17).setValue('RECEIVED'); // Status
+          sheet.getRange(row, 18).setValue(d.zone || d.receivedZone || ''); // ReceivedZone
+          sheet.getRange(row, 19).setValue(d.quantity || d.receivedQty || 0); // ReceivedQty
+          sheet.getRange(row, 20).setValue(u ? (u.fullName || u.username) : (d.receivedBy || 'Staff')); // ReceivedBy
+          sheet.getRange(row, 21).setValue(new Date()); // ReceivedAt
+          if (d.docNo) sheet.getRange(row, 22).setValue(d.docNo); // StockInDocNo
+          break;
+        }
+      }
+    }
+  } catch (err) {
+    Logger.log('Error updating Dispatches sheet: ' + err.toString());
+  }
+
+  return {
+    success: true,
+    message: 'បានទទួលទំនិញចូលស្តុកស្ថានីយជោគជ័យ',
+    inResult: inRes
+  };
+}
+
+function getPendingDispatches(targetWarehouse) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SHEETS.DISPATCHES || 'Dispatches');
+  if (!sheet) return { success: true, dispatches: [] };
+
+  const values = sheet.getDataRange().getValues();
+  if (values.length <= 1) return { success: true, dispatches: [] };
+
+  const dispatches = [];
+  const wh = (targetWarehouse && targetWarehouse !== 'ALL') ? String(targetWarehouse).trim() : null;
+
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    const toLoc = String(row[14] || '').trim();
+    if (wh && toLoc !== wh && !toLoc.includes(wh) && !wh.includes(toLoc)) {
+      continue;
+    }
+    dispatches.push({
+      dispatchId: row[0],
+      masterDocNo: row[1],
+      date: row[2],
+      time: row[3],
+      sku: row[4],
+      itemName: row[5],
+      size: row[6],
+      color: row[7],
+      quantity: Number(row[8] || 0),
+      bulkQty: Number(row[9] || 0),
+      retailQty: Number(row[10] || 0),
+      unit: row[11],
+      packUnit: row[12],
+      fromLocation: row[13],
+      toLocation: row[14],
+      issuer: row[15],
+      status: row[16] || 'PENDING',
+      receivedZone: row[17] || '',
+      receivedQuantity: Number(row[18] || 0),
+      receivedBy: row[19] || '',
+      receivedAt: row[20] || '',
+      stockInDocNo: row[21] || '',
+      notes: row[22] || ''
+    });
+  }
+
+  return { success: true, dispatches: dispatches };
 }
