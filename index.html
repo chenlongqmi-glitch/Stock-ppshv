@@ -14348,8 +14348,9 @@ function saveLocalUsersToStorage() {
           if (!t) continue;
 
           const tSku = String(t.sku || t.itemCode || t.code || '').trim().toLowerCase();
-          const tName = String(t.itemName || '').trim().toLowerCase();
-          if ((itemSku && tSku === itemSku) || (itemName && tName === itemName)) {
+          const matchSku = itemSku && tSku && (tSku === itemSku);
+          const matchNameFallback = !tSku && itemName && (tName === itemName);
+          if (matchSku || matchNameFallback) {
             // ច្រោះតាមស្ថានីយដែលជ្រើសរើស (បើកំពុង Filter ស្ថានីយ)
             if (isWhRestricted) {
               const toLoc = t.toLocation || t.location || t.warehouse || '';
@@ -14618,6 +14619,19 @@ function saveLocalUsersToStorage() {
         const txId = String(t.txId || t.id || '').trim();
         const isRealDoc = docNo && docNo !== '-' && docNo !== 'undefined';
         const isRealTx = txId && txId !== '-' && txId !== 'undefined';
+
+        const q = Number(t.quantity || 0);
+        const tDate = String(t.date || t.timestamp || '').trim();
+        const tType = String(t.type || (t.inBulkStock !== undefined || t.docNo?.startsWith('DOC-IN') ? 'STOCK_IN' : 'STOCK_OUT')).toUpperCase();
+        const isStockIn = (tType === 'STOCK_IN') || (!t.type && (t.inBulkStock !== undefined || t.docNo?.startsWith('DOC-IN') || t.docNo?.startsWith('TX-IN') || t.notes?.includes('ចូលស្តុក')));
+        const isStockOut = (tType === 'STOCK_OUT') || (!t.type && (t.outBulkStock !== undefined || t.docNo?.startsWith('DOC-OUT') || t.docNo?.startsWith('TX-OUT') || t.notes?.includes('ចេញ') || t.notes?.includes('បើក')));
+
+        let rawWh = isStockIn ? (t.toLocation || t.location || t.warehouse || '') : (t.fromLocation || t.location || t.warehouse || '');
+        let cleanWh = rawWh ? (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(rawWh) : rawWh) : '';
+
+        if (!cleanWh) {
+          cleanWh = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+        }
         
         // Multi-key deduplication: only deduplicate by unique docNo or txId if present; only fallback to signature if neither is available
         if (isRealDoc) {
@@ -14630,18 +14644,6 @@ function saveLocalUsersToStorage() {
           const sig = `${tSku}_${tType}_${q}_${cleanWh}_${tDate}_${t.zone || ''}`;
           if (seenSignatures.has(sig)) return;
           seenSignatures.add(sig);
-        }
-
-        const q = Number(t.quantity || 0);
-        const tType = String(t.type || (t.inBulkStock !== undefined || t.docNo?.startsWith('DOC-IN') ? 'STOCK_IN' : 'STOCK_OUT')).toUpperCase();
-        const isStockIn = (tType === 'STOCK_IN') || (!t.type && (t.inBulkStock !== undefined || t.docNo?.startsWith('DOC-IN') || t.docNo?.startsWith('TX-IN') || t.notes?.includes('ចូលស្តុក')));
-        const isStockOut = (tType === 'STOCK_OUT') || (!t.type && (t.outBulkStock !== undefined || t.docNo?.startsWith('DOC-OUT') || t.docNo?.startsWith('TX-OUT') || t.notes?.includes('ចេញ') || t.notes?.includes('បើក')));
-
-        let rawWh = isStockIn ? (t.toLocation || t.location || t.warehouse || '') : (t.fromLocation || t.location || t.warehouse || '');
-        let cleanWh = rawWh ? (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(rawWh) : rawWh) : '';
-
-        if (!cleanWh) {
-          cleanWh = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
         }
 
         if (isStockIn) {
@@ -14814,9 +14816,14 @@ function saveLocalUsersToStorage() {
 
           if (isCombo) {
             // Combo: 中心库房 & 机电 (Admin / SuperAdmin default)
-            // Master items belong to the central warehouse / M&E catalog
-            const isExclusivelyStation = Array.isArray(item.warehouses) && item.warehouses.length > 0 && !item.warehouses.some(w => matchesTargetWarehouse(w, activeWhFilter));
-            if (isExclusivelyStation && st.total <= 0) return false;
+            const hasCentralBreakdown = (st.breakdowns || []).some(b => (b.warehouse.includes('中心库房') || b.warehouse.includes('机电')) && b.total > 0);
+            const itemLoc = item.toLocation || item.location || item.warehouse || '';
+            const isAssigned = itemLoc && (itemLoc.includes('中心库房') || itemLoc.includes('机电'));
+            const isWhBreakdown = Array.isArray(item.warehouses) && item.warehouses.some(w => w.includes('中心库房') || w.includes('机电'));
+
+            const belongsToCombo = st.total > 0 || st.hasExactStationTx || hasCentralBreakdown || isAssigned || isWhBreakdown;
+            if (!belongsToCombo) return false;
+            if (st.total <= 0 && !st.hasExactStationTx && !isAssigned) return false;
           } else {
             // Specific toll station or specific individual warehouse
             const isCentralWh = activeWhFilter.includes('中心库房');
@@ -14824,9 +14831,19 @@ function saveLocalUsersToStorage() {
             const isItemMe = (item.category && (item.category.includes('机电') || item.category.includes('អគ្គិសនី'))) || (item.name && item.name.includes('机电'));
 
             if (isCentralWh) {
+              const hasCentralBreakdown = (st.breakdowns || []).some(b => (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(b.warehouse, activeWhFilter) : isSameWarehouse(b.warehouse, activeWhFilter)) && b.total > 0);
+              const itemLoc = item.toLocation || item.location || item.warehouse || '';
+              const isAssigned = itemLoc && (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(itemLoc, activeWhFilter) : isSameWarehouse(itemLoc, activeWhFilter));
               if (isItemMe && !st.hasExactStationTx) return false;
+              if (!st.hasExactStationTx && !hasCentralBreakdown && !isAssigned && st.total <= 0) return false;
+              if (st.total <= 0 && !st.hasExactStationTx && !isAssigned) return false;
             } else if (isMeWh) {
+              const hasMeBreakdown = (st.breakdowns || []).some(b => (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(b.warehouse, activeWhFilter) : isSameWarehouse(b.warehouse, activeWhFilter)) && b.total > 0);
+              const itemLoc = item.toLocation || item.location || item.warehouse || '';
+              const isAssigned = itemLoc && (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(itemLoc, activeWhFilter) : isSameWarehouse(itemLoc, activeWhFilter));
               if (!isItemMe && !st.hasExactStationTx) return false;
+              if (!st.hasExactStationTx && !hasMeBreakdown && !isAssigned && st.total <= 0) return false;
+              if (st.total <= 0 && !st.hasExactStationTx && !isAssigned) return false;
             } else {
               // Toll station: must have actual stock or transaction record at this station!
               const hasStationBreakdown = (st.breakdowns || []).some(b => (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(b.warehouse, activeWhFilter) : isSameWarehouse(b.warehouse, activeWhFilter)) && b.total > 0);
@@ -14993,16 +15010,18 @@ function saveLocalUsersToStorage() {
         const stStock = (typeof getItemStationStock === 'function') ? getItemStationStock(item, activeWhFilter) : { total: Number(item.currentStock || 0), bulk: 0, loose: 0, breakdowns: [] };
         let curStock = (activeWhFilter && activeWhFilter !== 'ALL') ? Number(stStock.total || 0) : Number(item.currentStock || 0);
 
-        const zoneSum = (Array.isArray(item.zoneBreakdown) && item.zoneBreakdown.length > 0)
-          ? item.zoneBreakdown.reduce((s, z) => s + Math.max(0, Number(z.quantity || 0)), 0)
-          : 0;
+        let zoneSum = 0;
+        if (Array.isArray(item.zoneBreakdown) && item.zoneBreakdown.length > 0) {
+          const matchingZones = (!activeWhFilter || activeWhFilter === 'ALL')
+            ? item.zoneBreakdown
+            : item.zoneBreakdown.filter(z => !z.warehouse || ((typeof matchesTargetWarehouse === 'function') ? matchesTargetWarehouse(z.warehouse, activeWhFilter) : isSameWarehouse(z.warehouse, activeWhFilter)));
+          zoneSum = matchingZones.reduce((s, z) => s + Math.max(0, Number(z.quantity || 0)), 0);
+        }
 
         if (!activeWhFilter || activeWhFilter === 'ALL') {
           curStock = Math.max(curStock, Number(stStock.total || 0), zoneSum);
         } else {
-          if (zoneSum > curStock && (!item.warehouses || item.warehouses.length <= 1 || item.warehouses.some(w => (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(w, activeWhFilter) : isSameWarehouse(w, activeWhFilter))))) {
-            curStock = Math.max(curStock, zoneSum);
-          }
+          curStock = Math.max(curStock, zoneSum);
         }
 
         const pQty = Number(item.packQty || 1);
@@ -17413,7 +17432,7 @@ function saveLocalUsersToStorage() {
         const prevTx = historyList.find(t => {
           const tSku = String(t.sku || t.itemCode || t.code || '').trim().toLowerCase();
           const tName = String(t.itemName || '').trim().toLowerCase();
-          const isMatch = (itemSku && tSku === itemSku) || (itemName && tName === itemName);
+          const isMatch = (itemSku && tSku) ? (tSku === itemSku) : (itemName && tName && itemName === tName);
           const z = String(t.zone || '').trim();
           return isMatch && z && z !== '-' && z !== 'គ្មាន' && z !== 'null' && z !== 'undefined';
         });
@@ -17430,7 +17449,7 @@ function saveLocalUsersToStorage() {
         const prevTx = allTxs.find(t => {
           const tSku = String(t.sku || t.itemCode || t.code || '').trim().toLowerCase();
           const tName = String(t.itemName || '').trim().toLowerCase();
-          const isMatch = (itemSku && tSku === itemSku) || (itemName && tName === itemName);
+          const isMatch = (itemSku && tSku) ? (tSku === itemSku) : (itemName && tName && itemName === tName);
           const z = String(t.zone || '').trim();
           return isMatch && (t.type === 'STOCK_IN' || !t.type) && z && z !== '-' && z !== 'គ្មាន' && z !== 'null' && z !== 'undefined';
         });
@@ -18087,7 +18106,8 @@ function saveLocalUsersToStorage() {
 
           const tSku = String(t.sku || t.itemCode || t.code || '').trim().toLowerCase();
           const tName = String(t.itemName || '').trim().toLowerCase();
-          if ((itemSku && tSku === itemSku) || (itemName && tName === itemName)) {
+          const isMatch = (itemSku && tSku) ? (tSku === itemSku) : (itemName && tName && itemName === tName);
+          if (isMatch) {
             allStockInTxs.push(t);
           }
         }
