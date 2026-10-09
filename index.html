@@ -13845,6 +13845,28 @@ function saveLocalUsersToStorage() {
             }
           }
 
+          // D2. Incoming Dispatches
+          if (Array.isArray(res.dispatches)) {
+            const existingMap = new Map();
+            (LOCAL_DB.dispatches || []).forEach(d => { if (d && d.dispatchId) existingMap.set(d.dispatchId, d); });
+            res.dispatches.forEach(d => {
+              if (d && d.dispatchId) {
+                const cur = existingMap.get(d.dispatchId);
+                if (!cur || cur.status === 'PENDING') {
+                  existingMap.set(d.dispatchId, { ...(cur || {}), ...d });
+                }
+              }
+            });
+            LOCAL_DB.dispatches = Array.from(existingMap.values());
+            saveLocalDispatchesToStorage();
+            if (AppState.currentTab === 'incoming' && typeof renderPendingIncomingDispatches === 'function') {
+              renderPendingIncomingDispatches();
+            }
+            if (typeof updateIncomingDispatchesBadge === 'function') {
+              updateIncomingDispatchesBadge();
+            }
+          }
+
           // E. Users (if admin or station manager)
           if (Array.isArray(res.users)) {
             const cleanUsers = res.users.filter(ru => {
@@ -21079,6 +21101,94 @@ function saveLocalUsersToStorage() {
       const timeStr = now.toLocaleTimeString();
       const tempTxId = 'TX-' + dateStr.replace(/-/g, '') + '-' + Math.floor(1000 + Math.random() * 9000);
 
+      // បញ្ជូនទិន្នន័យចូលក្នុងមុខងារ (ទទួលទំនិញចូលស្តុកពី Admin (Incoming Dispatches)) របស់ស្ថានីយដែលត្រូវទទួល
+      const isStationDest = toLocation && !toLocation.includes('អតិថិជន') && !toLocation.includes('ដកប្រើប្រាស់ផ្ទៃក្នុង');
+      let createdDsp = null;
+      if (isStationDest) {
+        const dspId = 'DSP-' + dateStr.replace(/-/g, '') + '-' + Math.floor(1000 + Math.random() * 9000);
+        createdDsp = {
+          dispatchId: dspId,
+          masterDocNo: docNo,
+          date: dateStr,
+          time: timeStr,
+          sku: sku,
+          code: itemCode,
+          itemName: itemName,
+          imageUrl: item?.imageUrl || '',
+          size: size,
+          color: color,
+          unit: baseUnit,
+          packUnit: packUnit,
+          packQty: packQty,
+          bulkQty: bulkQty,
+          retailQty: retailQty,
+          quantity: qty,
+          fromLocation: payload.data.fromLocation,
+          toLocation: toLocation,
+          issuer: issuer,
+          reason: reason,
+          notes: finalNotes,
+          status: 'PENDING',
+          createdAt: now.toISOString()
+        };
+        if (!LOCAL_DB.dispatches) LOCAL_DB.dispatches = [];
+        LOCAL_DB.dispatches.unshift(createdDsp);
+        saveLocalDispatchesToStorage();
+        payload.dispatch = createdDsp;
+        payload.data.dispatch = createdDsp;
+
+        // Broadcast ទៅកាន់ឧបករណ៍ ឬផ្ទាំង Window របស់ស្ថានីយទទួលភ្លាមៗ
+        if (typeof broadcastInventoryMutation === 'function') {
+          broadcastInventoryMutation('BATCH_DISPATCH', { dispatches: [createdDsp] });
+        }
+        if (typeof updateIncomingDispatchesBadge === 'function') updateIncomingDispatchesBadge();
+
+        // ផ្ញើសារជូនដំណឹងទៅកាន់ស្ថានីយដែលត្រូវទទួលទំនិញ
+        const chatNoticeText = `📦 [ដំណឹងទំនិញផ្ញើចេញពី Admin / Stock Out]\n` +
+          `📄 លេខឯកសារ: ${docNo}\n` +
+          `🏢 ផ្ញើមកកាន់: ${toLocation}\n` +
+          `📦 ទំនិញ: ${itemName} (${sku})\n` +
+          `🔢 ចំនួន: ${qty} ${baseUnit}` + (bulkQty > 0 ? ` (${bulkQty} ${packUnit} + ${retailQty} ${baseUnit})` : '') + `\n` +
+          `📏 ខ្នាត: ${size || '-'} | 🎨 ពណ៌: ${color || '-'}\n` +
+          `👤 អ្នកបើកចេញ: ${issuer}\n` +
+          `👉 សូមស្ថានីយចូលទៅកាន់ផ្ទាំង "ទទួលទំនិញចូលស្តុកពី Admin (Incoming Dispatches)" ដើម្បីពិនិត្យ និងទទួលចូលស្តុក!`;
+
+        apiCall('sendChatMessage', {
+          data: {
+            channelId: 'ALL_WAREHOUSES',
+            text: chatNoticeText,
+            messageText: chatNoticeText,
+            senderUsername: issuer,
+            senderRole: 'Admin',
+            senderWarehouse: payload.data.fromLocation
+          }
+        }).catch(() => {});
+
+        // ផ្ញើសារផ្ទាល់ទៅបុគ្គលិកស្ថានីយគោលដៅ
+        const stStaff = (AppState.users || LOCAL_DB.users || []).filter(u => u && !isUserPrivilegedAdmin(u) && (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(u.warehouse, toLocation) : u.warehouse === toLocation));
+        stStaff.forEach(stUser => {
+          if (stUser.username) {
+            const myUname = AppState.currentUser?.username || 'admin';
+            const directChId = (typeof getDirectChannelId === 'function') ? getDirectChannelId(myUname, stUser.username) : 'ALL_WAREHOUSES';
+            apiCall('sendChatMessage', {
+              data: {
+                channelId: directChId,
+                text: chatNoticeText,
+                messageText: chatNoticeText,
+                senderUsername: issuer,
+                senderRole: 'Admin',
+                senderWarehouse: payload.data.fromLocation
+              }
+            }).catch(() => {});
+          }
+        });
+
+        // In-app Notification សម្រាប់តែស្ថានីយគោលដៅ (មិនជូនដំណឹង SuperAdmin / Admin ទេ)
+        if (typeof addNotification === 'function') {
+          addNotification('STOCK_DISPATCH', `📦 ទំនិញផ្ញើមកពី Admin (${docNo})`, `Admin (${issuer}) បានបើកចេញ ${itemName} ចំនួន ${qty} ${baseUnit} មកកាន់ ${toLocation}`, toLocation, issuer);
+        }
+      }
+
       const newTx = {
         txId: tempTxId,
         docNo: docNo,
@@ -21129,7 +21239,7 @@ function saveLocalUsersToStorage() {
         icon: 'success',
         title: 'បានកត់ត្រាទំនិញចេញពីស្តុកជោគជ័យ!',
         html: `<div class="text-left text-sm space-y-1.5 p-2">
-          <p class="text-slate-600 font-medium">ទិន្នន័យបានបង្ហាញនៅតារាងខាងក្រោមរួចរាល់!</p>
+          <p class="text-slate-600 font-medium">ទិន្នន័យបានបញ្ជូនទៅកាន់មុខងារ <b>ទទួលទំនិញចូលស្តុកពី Admin</b> របស់ស្ថានីយ <b>${escapeHtml(toLocation)}</b> រួចរាល់!</p>
           <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs space-y-1 mt-2">
             <p><b>លេខឯកសារ:</b> <span class="font-mono text-amber-900 font-bold">${escapeHtml(docNo)}</span></p>
             <p><b>ទំនិញ:</b> <span class="font-bold text-slate-800">${escapeHtml(itemName)}</span> (${escapeHtml(sku)})</p>
@@ -30948,6 +31058,17 @@ function saveLocalUsersToStorage() {
     const notificationsList = [];
 
     function addNotification(type, title, message, warehouse, user, targetUserId = '', targetUsername = '') {
+      const u = AppState.currentUser || {};
+      const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(u) : (u.role === 'Admin' || u.role === 'SuperAdmin');
+
+      // មិនចាំបាច់មានសារជូនដំណឹងមក super admin ឬក៏ admin ឡើយ (សម្រាប់ STOCK_DISPATCH ឬ STOCK_OUT)
+      if (type === 'STOCK_DISPATCH' || type === 'STOCK_OUT') {
+        if (isPrivileged) return;
+        if (warehouse && (typeof matchesTargetWarehouse === 'function' ? !matchesTargetWarehouse(u.warehouse, warehouse) : (u.warehouse !== warehouse))) {
+          return;
+        }
+      }
+
       const timeStr = new Date().toLocaleTimeString('km-KH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
       const notifObj = {
         id: Date.now() + Math.random(),
@@ -31363,15 +31484,14 @@ function saveLocalUsersToStorage() {
         return true;
       });
 
-      if (stationPendingDispatches.length > 0) {
+      // មិនចាំបាច់មានសារជូនដំណឹងមក super admin ឬក៏ admin
+      if (!isPrivileged && stationPendingDispatches.length > 0) {
         filteredList.unshift({
           type: 'INCOMING_DISPATCH',
           title: `📦 ទំនិញរង់ចាំទទួលចូលស្តុក (${stationPendingDispatches.length} មុខ)`,
-          message: isPrivileged 
-            ? `មានទំនិញ ${stationPendingDispatches.length} មុខកំពុងរង់ចាំស្ថានីយនានាទទួលចូលស្តុក`
-            : `Admin បានបើកទំនិញ ${stationPendingDispatches.length} មុខមកកាន់ ${myWh} សូមចុចទទួលចូលស្តុក`,
+          message: `Admin បានបើកទំនិញ ${stationPendingDispatches.length} មុខមកកាន់ ${myWh} សូមចុចទទួលចូលស្តុក`,
           time: 'ថ្មីៗ',
-          warehouse: isPrivileged ? 'ពហុស្ថានីយ' : myWh,
+          warehouse: myWh,
           user: 'Admin Dispatch'
         });
       }

@@ -4535,6 +4535,7 @@ function getBootstrapData(payload) {
   var warehouses = getWarehousesListInternal(ss);
   var requestsRes = getProductRequests(payload, whFilter, ss);
   var dashRes = getDashboardStats(payload, whFilter, ss);
+  var dispatchesRes = getPendingDispatches(whFilter);
 
   var result = {
     success: true,
@@ -4544,6 +4545,7 @@ function getBootstrapData(payload) {
     warehouses: warehouses,
     warehousesDetailed: warehousesDetailed,
     requests: requestsRes.requests || [],
+    dispatches: dispatchesRes.dispatches || [],
     stats: dashRes.stats || null,
     lowStockItems: dashRes.lowStockItems || [],
     fastMovingItems: dashRes.fastMovingItems || [],
@@ -6150,6 +6152,81 @@ function recordStockOut(dataOrPayload, user) {
     }
   } catch (errOut) {
     Logger.log('Error writing to Stock_out sheet: ' + errOut.toString());
+  }
+
+  // 3. បញ្ជូនទិន្នន័យចូលក្នុងមុខងារ ទទួលទំនិញចូលស្តុកពី Admin (Dispatches Sheet) របស់ស្ថានីយទទួល
+  const destLocation = String(data.toLocation || '').trim();
+  const isStationDestination = destLocation && !destLocation.includes('អតិថិជន') && !destLocation.includes('ដកប្រើប្រាស់ផ្ទៃក្នុង');
+  if (isStationDestination || data.dispatch || (dataOrPayload && dataOrPayload.dispatch)) {
+    try {
+      const dspSheet = ensureDispatchesSheet(ss);
+      const nowDsp = new Date();
+      const dObj = data.dispatch || (dataOrPayload && dataOrPayload.dispatch) || {};
+      const dspId = dObj.dispatchId || ('DSP-' + Utilities.formatDate(nowDsp, 'GMT+7', 'yyyyMMdd') + '-' + Math.floor(1000 + Math.random() * 9000));
+      dspSheet.appendRow([
+        dspId,
+        data.docNo || '',
+        Utilities.formatDate(nowDsp, 'GMT+7', 'yyyy-MM-dd'),
+        Utilities.formatDate(nowDsp, 'GMT+7', 'HH:mm:ss'),
+        sku,
+        itemName,
+        data.size || '',
+        data.color || '',
+        qty,
+        data.bulkQty || 0,
+        data.retailQty || 0,
+        unit,
+        data.packUnit || 'ប្រអប់',
+        location,
+        destLocation,
+        data.issuer || (u ? (u.fullName || u.username) : 'Admin'),
+        'PENDING',
+        '',
+        '',
+        '',
+        '',
+        '',
+        data.notes || '',
+        nowDsp
+      ]);
+    } catch (errDsp) {
+      Logger.log('Error auto-creating dispatch in recordStockOut: ' + errDsp.toString());
+    }
+
+    // 4. ផ្ញើសារជូនដំណឹងទៅកាន់ស្ថានីយដែលត្រូវទទួលទំនិញ (ChatMessages Sheet)
+    try {
+      const chatSheet = ensureChatSheetInitialized(ss);
+      const nowChat = new Date();
+      const msgId = 'MSG-DSP-' + Utilities.formatDate(nowChat, 'GMT+7', 'yyMMddHHmmss') + '-' + Math.floor(Math.random() * 1000);
+      const issuerName = data.issuer || (u ? (u.fullName || u.username) : 'Admin');
+      const chatText = '📦 [ដំណឹងទំនិញផ្ញើចេញពី Admin / Stock Out]\n' +
+        '📄 លេខឯកសារ: ' + (data.docNo || 'N/A') + '\n' +
+        '🏢 ផ្ញើមកកាន់: ' + destLocation + '\n' +
+        '📦 ទំនិញ: ' + itemName + ' (' + sku + ')\n' +
+        '🔢 ចំនួន: ' + qty + ' ' + unit + (data.bulkQty > 0 ? ' (' + data.bulkQty + ' ' + (data.packUnit || 'ប្រអប់') + ' + ' + (data.retailQty || 0) + ' ' + unit + ')' : '') + '\n' +
+        '👤 អ្នកបើកចេញ: ' + issuerName + '\n' +
+        '👉 សូមស្ថានីយចូលទៅកាន់ផ្ទាំង "ទទួលទំនិញចូលស្តុកពី Admin (Incoming Dispatches)" ដើម្បីពិនិត្យ និងទទួលចូលស្តុក!';
+
+      chatSheet.appendRow([
+        msgId,
+        nowChat.toISOString(),
+        destLocation,
+        'Admin Dispatcher',
+        issuerName,
+        'Admin',
+        location,
+        '',
+        chatText,
+        JSON.stringify({ docNo: data.docNo, sku: sku, itemName: itemName, quantity: qty, unit: unit, toLocation: destLocation }),
+        false,
+        '',
+        JSON.stringify(['Admin', destLocation]),
+        false,
+        0
+      ]);
+    } catch (errChat) {
+      Logger.log('Error sending chat dispatch notification: ' + errChat.toString());
+    }
   }
 
   logActivity(u ? (u.fullName || u.username) : 'Staff', 'Staff', 'STOCK_OUT', `Stock Out -${qty} ${unit} of ${itemName} (${sku}) [${data.docNo || 'N/A'}]`);
@@ -9236,10 +9313,11 @@ function getPendingDispatches(targetWarehouse) {
   const dispatches = [];
   const wh = (targetWarehouse && targetWarehouse !== 'ALL') ? String(targetWarehouse).trim() : null;
 
-  for (let i = 1; i < values.length; i++) {
+  for (let i = values.length - 1; i >= 1; i--) {
     const row = values[i];
+    if (!row || !row[0]) continue;
     const toLoc = String(row[14] || '').trim();
-    if (wh && toLoc !== wh && !toLoc.includes(wh) && !wh.includes(toLoc)) {
+    if (wh && (typeof matchesTargetWarehouseGAS === 'function' ? !matchesTargetWarehouseGAS(toLoc, wh) : (toLoc !== wh && !toLoc.includes(wh) && !wh.includes(toLoc)))) {
       continue;
     }
     dispatches.push({
