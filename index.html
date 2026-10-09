@@ -16062,9 +16062,12 @@ function saveLocalUsersToStorage() {
       const catFilter = document.getElementById('itemCategoryFilter')?.value || 'ALL';
       const statusFilter = document.getElementById('itemStatusFilter')?.value || 'ALL';
 
+      const isSearchingGlobalAdmin = isPrivilegedAdmin && !!search;
+
       return (AppState.items || []).filter(item => {
         // ច្រោះតាមស្ថានីយ (សម្រាប់ស្ថានីយផ្ទាល់ខ្លួន ឬតាមការជ្រើសរើសរបស់ Admin / SuperAdmin)
-        if (activeWhFilter && activeWhFilter !== 'ALL' && activeWhFilter !== '🏢 គ្រប់ស្ថានីយទាំងអស់' && activeWhFilter !== 'គ្រប់ឃ្លាំង') {
+        // ប្រសិនបើ Super admin ឬ admin កំពុងវាយស្វែងរកទំនិញ -> បង្ហាញមុខទំនិញទាំងអស់ពីគ្រប់ស្ថានីយ ដោយមិនខ្វល់ថាបានជ្រើសរើសស្ថានីយណាឡើយ
+        if (!isSearchingGlobalAdmin && activeWhFilter && activeWhFilter !== 'ALL' && activeWhFilter !== '🏢 គ្រប់ស្ថានីយទាំងអស់' && activeWhFilter !== 'គ្រប់ឃ្លាំង') {
           const st = (typeof getItemStationStock === 'function') ? getItemStationStock(item, activeWhFilter) : { total: 0, breakdowns: [] };
           const isCombo = (typeof isAdminComboWarehouse === 'function') && isAdminComboWarehouse(activeWhFilter);
 
@@ -16122,8 +16125,9 @@ function saveLocalUsersToStorage() {
         if (catFilter !== 'ALL' && item.category !== catFilter) return false;
 
         // Effective stock for status filter
-        const currentEffectiveStock = (activeWhFilter && activeWhFilter !== 'ALL')
-          ? ((typeof getItemStationStock === 'function') ? getItemStationStock(item, activeWhFilter).total : Number(item.currentStock || 0))
+        const effectiveWhForStatus = isSearchingGlobalAdmin ? 'ALL' : activeWhFilter;
+        const currentEffectiveStock = (effectiveWhForStatus && effectiveWhForStatus !== 'ALL')
+          ? ((typeof getItemStationStock === 'function') ? getItemStationStock(item, effectiveWhForStatus).total : Number(item.currentStock || 0))
           : Number(item.currentStock || 0);
 
         const itemMin = Number(item.minStock || 1);
@@ -16245,9 +16249,18 @@ function saveLocalUsersToStorage() {
         txBadge.innerText = `${matchingTxsCount} ប្រតិបត្តិការ`;
       }
 
+      const search = rawSearch.toLowerCase().trim();
+      const isSearchingGlobalAdmin = isPrivilegedAdmin && !!search;
+
       const summaryText = document.getElementById('itemsFilterSummaryText');
       if (summaryText) {
-        summaryText.innerHTML = '';
+        if (isSearchingGlobalAdmin) {
+          summaryText.classList.remove('hidden');
+          summaryText.innerHTML = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 text-[11px] font-semibold"><i class="fa-solid fa-earth-americas text-blue-500"></i> លទ្ធផលស្វែងរកពីគ្រប់ស្ថានីយទាំងអស់ (${filteredCount} មុខទំនិញ)</span>`;
+        } else {
+          summaryText.classList.add('hidden');
+          summaryText.innerHTML = '';
+        }
       }
 
       if (filtered.length === 0) {
@@ -16255,9 +16268,11 @@ function saveLocalUsersToStorage() {
         return;
       }
 
+      const effectiveWhForDisplay = isSearchingGlobalAdmin ? 'ALL' : activeWhFilter;
+
       tbody.innerHTML = filtered.map((item, idx) => {
-        const stStock = (typeof getItemStationStock === 'function') ? getItemStationStock(item, activeWhFilter) : { total: Number(item.currentStock || 0), bulk: 0, loose: 0, breakdowns: [] };
-        let curStock = (activeWhFilter && activeWhFilter !== 'ALL') ? Number(stStock.total || 0) : Number(item.currentStock || 0);
+        const stStock = (typeof getItemStationStock === 'function') ? getItemStationStock(item, effectiveWhForDisplay) : { total: Number(item.currentStock || 0), bulk: 0, loose: 0, breakdowns: [] };
+        let curStock = (effectiveWhForDisplay && effectiveWhForDisplay !== 'ALL') ? Number(stStock.total || 0) : Number(item.currentStock || 0);
 
         let zoneSum = 0;
         if (Array.isArray(item.zoneBreakdown) && item.zoneBreakdown.length > 0) {
@@ -16265,7 +16280,7 @@ function saveLocalUsersToStorage() {
           const defaultCentralWh = isItemMe ? '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)' : '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
           const itemSku = String(item.sku || '').trim().toLowerCase();
           const zoneToWhMap = (typeof getItemZoneToWarehouseMap === 'function') ? getItemZoneToWarehouseMap(itemSku) : {};
-          const matchingZones = (!activeWhFilter || activeWhFilter === 'ALL' || activeWhFilter === '🏢 គ្រប់ស្ថានីយទាំងអស់' || activeWhFilter === 'គ្រប់ឃ្លាំង')
+          const matchingZones = (!effectiveWhForDisplay || effectiveWhForDisplay === 'ALL' || effectiveWhForDisplay === '🏢 គ្រប់ស្ថានីយទាំងអស់' || effectiveWhForDisplay === 'គ្រប់ឃ្លាំង')
             ? item.zoneBreakdown
             : item.zoneBreakdown.filter(z => {
                 let zWh = z.warehouse ? (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(z.warehouse) : z.warehouse) : '';
@@ -16274,12 +16289,12 @@ function saveLocalUsersToStorage() {
                   zWh = toCanonicalWarehouseName(item.warehouses[0]);
                 }
                 if (!zWh) zWh = defaultCentralWh;
-                return zWh && ((typeof matchesTargetWarehouse === 'function') ? matchesTargetWarehouse(zWh, activeWhFilter) : isSameWarehouse(zWh, activeWhFilter));
+                return zWh && ((typeof matchesTargetWarehouse === 'function') ? matchesTargetWarehouse(zWh, effectiveWhForDisplay) : isSameWarehouse(zWh, effectiveWhForDisplay));
               });
           zoneSum = matchingZones.reduce((s, z) => s + Math.max(0, Number(z.quantity || 0)), 0);
         }
 
-        if (!activeWhFilter || activeWhFilter === 'ALL' || activeWhFilter === '🏢 គ្រប់ស្ថានីយទាំងអស់' || activeWhFilter === 'គ្រប់ឃ្លាំង') {
+        if (!effectiveWhForDisplay || effectiveWhForDisplay === 'ALL' || effectiveWhForDisplay === '🏢 គ្រប់ស្ថានីយទាំងអស់' || effectiveWhForDisplay === 'គ្រប់ឃ្លាំង') {
           curStock = Math.max(curStock, Number(stStock.total || 0), zoneSum);
         } else {
           curStock = Number(stStock.total || 0);
@@ -16364,14 +16379,14 @@ function saveLocalUsersToStorage() {
 
                     <!-- ជួរទី៥: តំបន់ស្តុក (Zone / Location) - សម្រាប់មុខទំនិញដែលមានចាប់ពី ២ តំបន់ឡើងទៅ បង្ហាញទិន្នន័យក្នុងមួយតំបន់មានចំនួនប៉ុន្មាន -->
           <td class="px-2 py-2.5 text-center align-middle overflow-hidden">
-            ${renderItemZoneCell(item, rUnit, activeWhFilter)}
+            ${renderItemZoneCell(item, rUnit, effectiveWhForDisplay)}
           </td>
 
           ${isPrivilegedAdmin ? `
           <!-- ជួរទី៦: ស្តុកតាមស្ថានីយ (Station Stock: ដុំ & រាយ) -->
           <td class="px-2 py-2.5 text-center align-middle overflow-hidden">
             ${(function() {
-              if (activeWhFilter && activeWhFilter !== 'ALL') {
+              if (effectiveWhForDisplay && effectiveWhForDisplay !== 'ALL') {
                 // ករណីច្រោះយកស្ថានីយជាក់លាក់ ឬ Combo: បង្ហាញតែទិន្នន័យស្តុករបស់ស្ថានីយដែលត្រូវគ្នានោះប៉ុណ្ណោះ
                 const targetBks = (stStock.breakdowns || []).filter(sb => (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(sb.warehouse, activeWhFilter) : isSameWarehouse(sb.warehouse, activeWhFilter)));
                 let stationTotal = 0;
@@ -18237,6 +18252,18 @@ function saveLocalUsersToStorage() {
           if (codeInput) codeInput.value = item.sku;
           onStockInItemChange();
         } else if (mode === 'stockOut') {
+          const curStock = Number(item.currentStock || 0);
+          if (curStock <= 0) {
+            clearStockOutProductSelection();
+            Swal.fire({
+              icon: 'warning',
+              title: 'គ្មានទិន្នន័យក្នុងស្តុក',
+              text: 'មុខទំនិញនេះមិនមាននៅក្នុងស្តុកទេ សូមបញ្ចូលមុខទំនិញនេះទៅក្នុងស្តុកជាមុនសិន។',
+              confirmButtonText: 'យល់ព្រម',
+              confirmButtonColor: '#ea580c'
+            });
+            return;
+          }
           const skuInput = document.getElementById('stockOutSku');
           const codeInput = document.getElementById('stockOutItemCode');
           if (skuInput) skuInput.value = item.name || item.sku;
@@ -18342,11 +18369,13 @@ function saveLocalUsersToStorage() {
         const imgUrl = formatDriveImageUrl(rawUrl);
         const pQty = Number(item.packQty || 1);
         const pUnit = (item.packUnit || '').trim();
-        const packInfo = (pUnit && (pQty > 1 || pUnit !== item.unit)) ? ` [${Math.floor(item.currentStock / pQty)} ${pUnit}]` : '';
+        const curStock = Number(item.currentStock || 0);
+        const isOutOfStock = mode === 'stockOut' && curStock <= 0;
+        const packInfo = (pUnit && (pQty > 1 || pUnit !== item.unit)) ? ` [${Math.floor(curStock / pQty)} ${pUnit}]` : '';
         const specs = [item.size, item.color].filter(Boolean).join(' • ');
 
         html += `
-          <div class="p-2.5 hover:bg-emerald-50/80 cursor-pointer transition flex items-center gap-2.5 group product-search-row"
+          <div class="p-2.5 ${isOutOfStock ? 'hover:bg-rose-50/70 bg-slate-50/40 opacity-80' : 'hover:bg-emerald-50/80'} cursor-pointer transition flex items-center gap-2.5 group product-search-row"
                data-index="${idx}"
                data-sku="${escapeHtml(item.sku)}"
                data-mode="${mode}"
@@ -18357,15 +18386,23 @@ function saveLocalUsersToStorage() {
                    class="w-full h-full object-cover">
             </div>
             <div class="flex-1 min-w-0">
-              <div class="font-bold text-slate-800 text-xs sm:text-sm truncate group-hover:text-emerald-700 font-khmer">
-                ${escapeHtml(item.name || item.sku)}
+              <div class="font-bold text-slate-800 text-xs sm:text-sm truncate ${isOutOfStock ? 'group-hover:text-rose-700' : 'group-hover:text-emerald-700'} font-khmer flex items-center gap-1.5">
+                <span class="truncate">${escapeHtml(item.name || item.sku)}</span>
+                ${isOutOfStock ? `<span class="shrink-0 px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-100 text-rose-700 border border-rose-200">គ្មានស្តុក</span>` : ''}
               </div>
               <div class="flex items-center gap-1.5 flex-wrap mt-0.5 text-[11px] text-slate-500 font-khmer">
                 <span class="font-mono font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded text-[10px]">${escapeHtml(item.sku)}</span>
                 ${specs ? `<span class="text-slate-600 text-[11px] font-medium">${escapeHtml(specs)}</span>` : ''}
-                <span class="text-emerald-800 font-bold bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.5 rounded-full text-[10px]">
-                  ស្តុក: ${Number(item.currentStock || 0)} ${escapeHtml(item.unit || 'ដុំ')}${escapeHtml(packInfo)}
-                </span>
+                ${isOutOfStock ? `
+                  <span class="text-rose-700 font-bold bg-rose-50 border border-rose-200/90 px-1.5 py-0.5 rounded-full text-[10px] flex items-center gap-1">
+                    <i class="fa-solid fa-triangle-exclamation text-rose-500 text-[9px]"></i>
+                    ស្តុក: 0 ${escapeHtml(item.unit || 'ដុំ')} [0 ${escapeHtml(pUnit || 'ប្រអប់')}]
+                  </span>
+                ` : `
+                  <span class="text-emerald-800 font-bold bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.5 rounded-full text-[10px]">
+                    ស្តុក: ${curStock} ${escapeHtml(item.unit || 'ដុំ')}${escapeHtml(packInfo)}
+                  </span>
+                `}
                 ${item.location ? `<span class="text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full text-[10px] truncate max-w-[120px]">${escapeHtml(item.location)}</span>` : ''}
               </div>
             </div>
@@ -19828,6 +19865,38 @@ function saveLocalUsersToStorage() {
       const itemCode = itemCodeEl?.value.trim();
       const item = (itemCode ? AppState.items.find(i => i.sku === itemCode) : null) || findItemByInput(inputVal);
       if (item) {
+        const curStock = Number(item.currentStock || 0);
+        if (curStock <= 0) {
+          if (skuInput) skuInput.value = '';
+          if (itemCodeEl) itemCodeEl.value = '';
+          const multiPillsEl = document.getElementById('stockOutMultiZonePills');
+          if (multiPillsEl) multiPillsEl.innerHTML = '';
+          const sizeEl = document.getElementById('stockOutSize');
+          if (sizeEl) sizeEl.value = '';
+          const colorEl = document.getElementById('stockOutColor');
+          if (colorEl) colorEl.value = '';
+          const zoneEl = document.getElementById('stockOutZone');
+          if (zoneEl) zoneEl.value = '';
+          const zoneClearBtn = document.getElementById('stockOutZoneClearBtn');
+          if (zoneClearBtn) zoneClearBtn.classList.add('hidden');
+          const oldStockValEl = document.getElementById('stockOutOldStockValue');
+          if (oldStockValEl) oldStockValEl.value = 0;
+          updateStockOutBadges(0, 0, 0, 0, 'ប្រអប់', 'ដើម');
+          updateStockOutImagePreview(null);
+          calculateStockOutCalculations();
+          if (typeof renderStockOutMultiStationGrid === 'function' && currentStockOutMode === 'MULTI') {
+            renderStockOutMultiStationGrid();
+          }
+          Swal.fire({
+            icon: 'warning',
+            title: 'គ្មានទិន្នន័យក្នុងស្តុក',
+            text: 'មុខទំនិញនេះមិនមាននៅក្នុងស្តុកទេ សូមបញ្ចូលមុខទំនិញនេះទៅក្នុងស្តុកជាមុនសិន។',
+            confirmButtonText: 'យល់ព្រម',
+            confirmButtonColor: '#ea580c'
+          });
+          return;
+        }
+
         if (itemCodeEl) itemCodeEl.value = item.sku || '';
 
         // Strip SKU prefix so user sees ONLY clean item name in search box
@@ -20390,6 +20459,16 @@ function saveLocalUsersToStorage() {
       const packUnit = document.getElementById('stockOutPackUnitVal')?.value.trim() || 'ប្រអប់';
       const packQty = Math.max(1, Number(document.getElementById('stockOutPackQtyVal')?.value || 1));
       const oldStock = Number(document.getElementById('stockOutOldStockValue')?.value || 0);
+      if (oldStock <= 0) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'គ្មានទិន្នន័យក្នុងស្តុក',
+          text: 'មុខទំនិញនេះមិនមាននៅក្នុងស្តុកទេ សូមបញ្ចូលមុខទំនិញនេះទៅក្នុងស្តុកជាមុនសិន។',
+          confirmButtonText: 'យល់ព្រម',
+          confirmButtonColor: '#ea580c'
+        });
+        return;
+      }
       const size = document.getElementById('stockOutSize')?.value.trim() || '';
       const color = document.getElementById('stockOutColor')?.value.trim() || '';
       const zone = document.getElementById('stockOutZone')?.value.trim() || '';
@@ -21290,6 +21369,16 @@ function saveLocalUsersToStorage() {
       const color = document.getElementById('stockOutColor')?.value.trim() || '';
       const zone = document.getElementById('stockOutZone')?.value.trim() || '';
       const oldStock = Number(document.getElementById('stockOutOldStockValue')?.value || 0);
+      if (oldStock <= 0) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'គ្មានទិន្នន័យក្នុងស្តុក',
+          text: 'មុខទំនិញនេះមិនមាននៅក្នុងស្តុកទេ សូមបញ្ចូលមុខទំនិញនេះទៅក្នុងស្តុកជាមុនសិន។',
+          confirmButtonText: 'យល់ព្រម',
+          confirmButtonColor: '#ea580c'
+        });
+        return;
+      }
       const remainingStock = oldStock - qty;
       const unitPrice = Number(document.getElementById('stockOutUnitPrice')?.value || 0);
       let toLocation = document.getElementById('stockOutToLocation')?.value || 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
