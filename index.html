@@ -2147,6 +2147,12 @@
                   <h4 class="font-bold text-xs">ការជូនដំណឹងពីឃ្លាំងទាំង ១១</h4>
                 </div>
                 <div class="flex items-center space-x-2">
+                  <button type="button" onclick="playIncomingDispatchAlertSound(); if (typeof Swal !== 'undefined') Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: '🔔 សាកល្បងសំឡេង Alert (Sound Active)', timer: 2000, showConfirmButton: false });"
+                    class="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 text-[10px] font-medium flex items-center gap-1 border border-slate-700 transition"
+                    title="សាកល្បងសំឡេង Alert">
+                    <i class="fa-solid fa-volume-high text-[9px]"></i>
+                    <span>តេស្តសំឡេង</span>
+                  </button>
                   <button onclick="clearAllNotifications()"
                     class="text-[10px] text-slate-400 hover:text-white underline">លុបទាំងអស់</button>
                   <button onclick="closeNotificationDropdown()"
@@ -11863,6 +11869,7 @@ function saveLocalUsersToStorage() {
 
     async function handleLogin(e) {
       if (e) e.preventDefault();
+      try { if (typeof getGlobalAudioContext === 'function') getGlobalAudioContext(); } catch(eAudio) {}
       const usernameInput = document.getElementById('loginUsername');
       const passwordInput = document.getElementById('loginPassword');
       const btn = document.getElementById('loginBtn');
@@ -21010,7 +21017,8 @@ function saveLocalUsersToStorage() {
       if (typeof updateIncomingDispatchesBadge === 'function') updateIncomingDispatchesBadge();
     }
 
-    function updateIncomingDispatchesBadge() {
+    let _lastAudiblePendingDispatches = -1;
+    function updateIncomingDispatchesBadge(triggerSound = true) {
       loadLocalDispatchesFromStorage();
       const allDispatches = LOCAL_DB.dispatches || [];
       const u = AppState.currentUser || {};
@@ -21041,6 +21049,14 @@ function saveLocalUsersToStorage() {
         badge.innerText = pendingCount;
         badge.classList.toggle('hidden', pendingCount === 0);
       }
+
+      // 🔊 លាន់សំឡេង Alert ជូនដំណឹងនៅពេលមានទំនិញថ្មីរង់ចាំទទួលសម្រាប់ស្ថានីយ
+      if (triggerSound && pendingCount > 0 && (_lastAudiblePendingDispatches === -1 || pendingCount > _lastAudiblePendingDispatches)) {
+        if (!isPrivileged && typeof playIncomingDispatchAlertSound === 'function') {
+          playIncomingDispatchAlertSound();
+        }
+      }
+      _lastAudiblePendingDispatches = pendingCount;
 
       const dashAlert = document.getElementById('dashStationPendingDispatchesAlert');
       if (dashAlert) {
@@ -21332,6 +21348,11 @@ function saveLocalUsersToStorage() {
       );
 
       if (pendingList.length > 0) {
+        if (typeof playIncomingDispatchAlertSound === 'function') {
+          playIncomingDispatchAlertSound();
+        } else if (typeof playNotificationSound === 'function') {
+          playNotificationSound();
+        }
         Swal.fire({
           toast: true,
           position: 'top-end',
@@ -31230,14 +31251,23 @@ function saveLocalUsersToStorage() {
       if (msg.type === 'BATCH_DISPATCH' || msg.type === 'DISPATCH_RECEIVED') {
         if (typeof loadLocalDispatchesFromStorage === 'function') loadLocalDispatchesFromStorage();
         if (msg.type === 'BATCH_DISPATCH' && Array.isArray(msg.dispatches)) {
+          let hasNewForMe = false;
+          const myWh = AppState.currentUser?.warehouse || '';
           msg.dispatches.forEach(d => {
             const exists = (LOCAL_DB.dispatches || []).some(x => x.dispatchId === d.dispatchId);
             if (!exists) {
               if (!LOCAL_DB.dispatches) LOCAL_DB.dispatches = [];
               LOCAL_DB.dispatches.unshift(d);
+              if (myWh && (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(d.toLocation, myWh) : isSameWarehouse(d.toLocation, myWh))) {
+                hasNewForMe = true;
+              }
             }
           });
           if (typeof saveLocalDispatchesToStorage === 'function') saveLocalDispatchesToStorage();
+          if (typeof updateIncomingDispatchesBadge === 'function') updateIncomingDispatchesBadge(true);
+          if (hasNewForMe && typeof playIncomingDispatchAlertSound === 'function') {
+            playIncomingDispatchAlertSound();
+          }
           if (typeof checkPendingDispatchesNotification === 'function') checkPendingDispatchesNotification();
         }
         if (msg.type === 'DISPATCH_RECEIVED' && msg.dispatchId) {
@@ -31515,7 +31545,15 @@ function saveLocalUsersToStorage() {
         return;
       }
 
-      playNotificationSound();
+      if (type === 'STOCK_DISPATCH' || type === 'INCOMING_DISPATCH') {
+        if (typeof playIncomingDispatchAlertSound === 'function') {
+          playIncomingDispatchAlertSound();
+        } else {
+          playNotificationSound();
+        }
+      } else {
+        playNotificationSound();
+      }
 
       // Floating Toast for Real-time Alert (for non-deletion or other users)
       Swal.fire({
@@ -32052,11 +32090,69 @@ function saveLocalUsersToStorage() {
     }
 
     // Auto-unlock audio playback on first user touch/click/press anywhere
-    ['click', 'touchstart', 'keydown'].forEach(evt => {
+    ['click', 'touchstart', 'mousedown', 'keydown', 'pointerdown'].forEach(evt => {
       window.addEventListener(evt, () => {
         getGlobalAudioContext();
       }, { once: false, passive: true });
     });
+
+    // 🔊 Special Delivery / Incoming Dispatch Melodic Alert Sound (ទទួលទំនិញពី Admin)
+    function playIncomingDispatchAlertSound() {
+      try {
+        let audioCtx = getGlobalAudioContext();
+        if (!audioCtx) {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (AudioContextClass) {
+            _globalAudioCtx = new AudioContextClass();
+            audioCtx = _globalAudioCtx;
+          }
+        }
+        if (!audioCtx) {
+          playNotificationSound();
+          return;
+        }
+
+        const playChimes = () => {
+          try {
+            const now = audioCtx.currentTime;
+            // 4-Note Crystal Ascending Delivery Chime: G5 (784Hz) -> B5 (988Hz) -> D6 (1175Hz) -> G6 (1568Hz)
+            const notes = [
+              { f: 783.99, start: 0.00, dur: 0.22, vol: 0.75, type: 'sine' },
+              { f: 987.77, start: 0.12, dur: 0.24, vol: 0.80, type: 'triangle' },
+              { f: 1174.66, start: 0.24, dur: 0.28, vol: 0.85, type: 'sine' },
+              { f: 1567.98, start: 0.38, dur: 0.65, vol: 0.95, type: 'triangle' }
+            ];
+
+            notes.forEach(n => {
+              const osc = audioCtx.createOscillator();
+              const gain = audioCtx.createGain();
+              osc.type = n.type || 'sine';
+              osc.frequency.setValueAtTime(n.f, now + n.start);
+
+              gain.gain.setValueAtTime(0.0001, now + n.start);
+              gain.gain.exponentialRampToValueAtTime(n.vol, now + n.start + 0.02);
+              gain.gain.exponentialRampToValueAtTime(0.0001, now + n.start + n.dur);
+
+              osc.connect(gain);
+              gain.connect(audioCtx.destination);
+              osc.start(now + n.start);
+              osc.stop(now + n.start + n.dur);
+            });
+          } catch(err) {
+            playNotificationSound();
+          }
+        };
+
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume().then(() => playChimes()).catch(() => playChimes());
+        } else {
+          playChimes();
+        }
+      } catch (e) {
+        playNotificationSound();
+      }
+    }
+    window.playIncomingDispatchAlertSound = playIncomingDispatchAlertSound;
 
     function playNotificationSound() {
       try {
@@ -32077,38 +32173,38 @@ function saveLocalUsersToStorage() {
             // Tone 1: E5 (659.25Hz) - gentle chime start
             const osc1 = audioCtx.createOscillator();
             const gain1 = audioCtx.createGain();
-            osc1.type = 'sine';
+            osc1.type = 'triangle';
             osc1.frequency.setValueAtTime(659.25, now);
-            gain1.gain.setValueAtTime(0.5, now);
-            gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+            gain1.gain.setValueAtTime(0.70, now);
+            gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.30);
             osc1.connect(gain1);
             gain1.connect(audioCtx.destination);
             osc1.start(now);
-            osc1.stop(now + 0.28);
+            osc1.stop(now + 0.30);
 
             // Tone 2: A5 (880Hz) - clear musical chime
             const osc2 = audioCtx.createOscillator();
             const gain2 = audioCtx.createGain();
             osc2.type = 'sine';
             osc2.frequency.setValueAtTime(880, now + 0.12);
-            gain2.gain.setValueAtTime(0.55, now + 0.12);
-            gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+            gain2.gain.setValueAtTime(0.75, now + 0.12);
+            gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.58);
             osc2.connect(gain2);
             gain2.connect(audioCtx.destination);
             osc2.start(now + 0.12);
-            osc2.stop(now + 0.55);
+            osc2.stop(now + 0.58);
 
             // Tone 3: C#6 (1108.73Hz) - resonant bell ring
             const osc3 = audioCtx.createOscillator();
             const gain3 = audioCtx.createGain();
-            osc3.type = 'sine';
+            osc3.type = 'triangle';
             osc3.frequency.setValueAtTime(1108.73, now + 0.24);
-            gain3.gain.setValueAtTime(0.6, now + 0.24);
-            gain3.gain.exponentialRampToValueAtTime(0.001, now + 0.85);
+            gain3.gain.setValueAtTime(0.85, now + 0.24);
+            gain3.gain.exponentialRampToValueAtTime(0.001, now + 0.90);
             osc3.connect(gain3);
             gain3.connect(audioCtx.destination);
             osc3.start(now + 0.24);
-            osc3.stop(now + 0.85);
+            osc3.stop(now + 0.90);
           } catch(err) {}
         };
 
@@ -32121,6 +32217,7 @@ function saveLocalUsersToStorage() {
         console.warn('Audio chime error:', e);
       }
     }
+    window.playNotificationSound = playNotificationSound;
 
     // High-Priority Loud & Clear Crystal Melodic Chime for New Account Requests (x300 Speed Alert)
     function playNewRegistrationAlertSound() {
