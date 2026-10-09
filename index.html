@@ -2567,16 +2567,13 @@
                 <div class="relative flex-1 min-w-[180px]">
                   <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-2.5 text-slate-400 text-xs"></i>
                   <input type="search" id="itemSearchInput" name="item_search_nonce_secure"
-                    readonly
                     inputmode="search"
-                    autocomplete="one-time-code" autocorrect="off" autocapitalize="off" spellcheck="false"
-                    data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other"
-                    onfocus="this.removeAttribute('readonly'); if (!this.dataset.userTyped && (this.value.toLowerCase() === 'superadmin' || this.value.replace(/\D/g, '').length >= 8)) { this.value = ''; filterItemsTable(); }"
+                    autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
                     oninput="this.dataset.userTyped = 'true'; filterItemsTable()"
-                    onkeydown="this.dataset.userTyped = 'true';"
+                    onchange="this.dataset.userTyped = 'true'; filterItemsTable()"
                     placeholder="ស្វែងរកតាម ឈ្មោះទំនិញ, ខ្នាត, ពណ៌, ឬ SKU..."
                     class="w-full pl-9 pr-8 py-1.5 sm:py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none">
-                  <button type="button" onclick="const el = document.getElementById('itemSearchInput'); if (el) { el.value = ''; delete el.dataset.userTyped; el.setAttribute('readonly', 'readonly'); filterItemsTable(); }" class="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs p-0.5 rounded transition" title="សម្អាតការស្វែងរក">
+                  <button type="button" onclick="const el = document.getElementById('itemSearchInput'); if (el) { el.value = ''; delete el.dataset.userTyped; filterItemsTable(); }" class="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs p-0.5 rounded transition" title="សម្អាតការស្វែងរក">
                     <i class="fa-solid fa-xmark"></i>
                   </button>
                 </div>
@@ -14189,7 +14186,6 @@ function saveLocalUsersToStorage() {
           if (isEmailAutofill || isUserAutofill || isPhoneAutofill) {
             el.value = '';
             delete el.dataset.userTyped;
-            el.setAttribute('readonly', 'readonly');
             if (id === 'userSearchInput' && typeof filterUsersList === 'function') {
               filterUsersList();
             }
@@ -14213,7 +14209,6 @@ function saveLocalUsersToStorage() {
       if (initItemInp) {
         initItemInp.value = '';
         delete initItemInp.dataset.userTyped;
-        initItemInp.setAttribute('readonly', 'readonly');
       }
       purgeAutofillFromSearchInputs();
       setTimeout(purgeAutofillFromSearchInputs, 50);
@@ -14240,7 +14235,6 @@ function saveLocalUsersToStorage() {
         if (itemInp) {
           itemInp.value = '';
           delete itemInp.dataset.userTyped;
-          itemInp.setAttribute('readonly', 'readonly');
         }
         if (typeof renderItemsTable === 'function') {
           renderItemsTable();
@@ -16041,13 +16035,13 @@ function saveLocalUsersToStorage() {
     }
 
     function getFilteredItemsList() {
-      const u = AppState.currentUser;
-      const isSuperAdmin = isUserSuperAdmin(u);
-      const isAdmin = isUserAdmin(u);
-      const isPrivilegedAdmin = isUserPrivilegedAdmin(u);
+      const u = AppState.currentUser || (function(){ try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch(e){ return null; } })() || {};
+      const isSuperAdmin = (typeof isUserSuperAdmin === 'function') ? isUserSuperAdmin(u) : false;
+      const isAdmin = (typeof isUserAdmin === 'function') ? isUserAdmin(u) : false;
+      const isPrivilegedAdmin = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(u) : (isSuperAdmin || isAdmin);
 
       let activeWhFilter = 'ALL';
-      if (isPrivilegedAdmin) {
+      if (isPrivilegedAdmin || AppState.selectedAdminWarehouseFilter) {
         activeWhFilter = AppState.selectedAdminWarehouseFilter || ADMIN_DEFAULT_COMBO_WH;
       } else {
         // អ្នកប្រើប្រាស់តាមស្ថានីយ: មើលឃើញតែមុខទំនិញក្នុងស្ថានីយរបស់ខ្លួនឯងប៉ុណ្ណោះ!
@@ -16060,7 +16054,8 @@ function saveLocalUsersToStorage() {
       const catFilter = document.getElementById('itemCategoryFilter')?.value || 'ALL';
       const statusFilter = document.getElementById('itemStatusFilter')?.value || 'ALL';
 
-      const isSearchingGlobalAdmin = isPrivilegedAdmin && !!search;
+      // ពេល Super admin និង admin វាយបញ្ចូលស្វែងរកមុខទំនិញ -> បង្ហាញមុខទំនិញដែលមានទាំងអស់ (មិនខ្វល់ថាបានជ្រើសរើសស្ថានីយណាឡើយ)
+      const isSearchingGlobalAdmin = (isPrivilegedAdmin || isSuperAdmin || isAdmin || !!AppState.selectedAdminWarehouseFilter) && !!search;
 
       return (AppState.items || []).filter(item => {
         // ច្រោះតាមស្ថានីយ (សម្រាប់ស្ថានីយផ្ទាល់ខ្លួន ឬតាមការជ្រើសរើសរបស់ Admin / SuperAdmin)
@@ -16107,16 +16102,21 @@ function saveLocalUsersToStorage() {
 
         if (search) {
           const itemZones = (typeof getItemZoneBreakdown === 'function') ? getItemZoneBreakdown(item) : [];
-          const matchZone = (item.zone && item.zone.toLowerCase().includes(search)) ||
-            itemZones.some(z => z.zone && z.zone.toLowerCase().includes(search));
-          const match = (item.sku && item.sku.toLowerCase().includes(search)) ||
-            (item.barcode && item.barcode.toLowerCase().includes(search)) ||
-            (item.name && item.name.toLowerCase().includes(search)) ||
-            (item.size && item.size.toLowerCase().includes(search)) ||
-            (item.color && item.color.toLowerCase().includes(search)) ||
-            matchZone ||
-            (item.notes && item.notes.toLowerCase().includes(search)) ||
-            (item.createdBy && item.createdBy.toLowerCase().includes(search));
+          const zoneText = [item.zone, ...itemZones.map(z => z.zone)].filter(Boolean).join(' ').toLowerCase();
+          const itemText = [
+            item.sku || '',
+            item.barcode || '',
+            item.name || '',
+            item.size || '',
+            item.color || '',
+            item.category || '',
+            zoneText,
+            item.notes || '',
+            item.createdBy || ''
+          ].join(' ').toLowerCase();
+
+          const tokens = search.split(/\s+/).filter(Boolean);
+          const match = tokens.every(tok => itemText.includes(tok));
           if (!match) return false;
         }
 
@@ -16167,11 +16167,12 @@ function saveLocalUsersToStorage() {
         rawSearch.toLowerCase() === 'superadmin' || rawSearch.toLowerCase() === 'super admin' || rawSearch.toLowerCase() === 'admin' ||
         (!searchEl?.dataset?.userTyped && document.activeElement !== searchEl && (rawSearch.includes('@') || (LOCAL_DB.users || []).some(u => (u.username && u.username.toLowerCase() === rawSearch.toLowerCase()) || (u.email && u.email.toLowerCase() === rawSearch.toLowerCase()))));
 
-      if (isPhoneAutofill || isUserAutofill) {
+      if (document.activeElement === searchEl) {
+        searchEl.dataset.userTyped = 'true';
+      } else if (isPhoneAutofill || isUserAutofill) {
         if (searchEl) {
           searchEl.value = '';
           delete searchEl.dataset.userTyped;
-          searchEl.setAttribute('readonly', 'readonly');
         }
         rawSearch = '';
       }
@@ -16181,10 +16182,10 @@ function saveLocalUsersToStorage() {
         syncItemStockFromHistory(LOCAL_DB.items);
       }
 
-      const u = AppState.currentUser;
-      const isSuperAdmin = isUserSuperAdmin(u);
-      const isAdmin = isUserAdmin(u);
-      const isPrivilegedAdmin = isUserPrivilegedAdmin(u);
+      const u = AppState.currentUser || (function(){ try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch(e){ return null; } })() || {};
+      const isSuperAdmin = (typeof isUserSuperAdmin === 'function') ? isUserSuperAdmin(u) : false;
+      const isAdmin = (typeof isUserAdmin === 'function') ? isUserAdmin(u) : false;
+      const isPrivilegedAdmin = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(u) : (isSuperAdmin || isAdmin);
 
       // 1. Image 2 removed: station filter is handled globally via header
       const whFilterContainer = document.getElementById('itemWarehouseFilterContainer');
@@ -16192,7 +16193,7 @@ function saveLocalUsersToStorage() {
 
       // 2. កំណត់ស្ថានីយដែលត្រូវច្រោះ (Admin/SuperAdmin តាមរយៈ Top Bar Selector, អ្នកប្រើប្រាស់តាមស្ថានីយជាប់ស្ថានីយខ្លួនឯង)
       let activeWhFilter = 'ALL';
-      if (isPrivilegedAdmin) {
+      if (isPrivilegedAdmin || AppState.selectedAdminWarehouseFilter) {
         activeWhFilter = AppState.selectedAdminWarehouseFilter || ADMIN_DEFAULT_COMBO_WH;
       } else {
         // អ្នកប្រើប្រាស់តាមស្ថានីយ: មើលឃើញតែមុខទំនិញក្នុងស្ថានីយរបស់ខ្លួនឯងប៉ុណ្ណោះ!
@@ -16248,7 +16249,7 @@ function saveLocalUsersToStorage() {
       }
 
       const search = rawSearch.toLowerCase().trim();
-      const isSearchingGlobalAdmin = isPrivilegedAdmin && !!search;
+      const isSearchingGlobalAdmin = (isPrivilegedAdmin || isSuperAdmin || isAdmin || !!AppState.selectedAdminWarehouseFilter) && !!search;
 
       const summaryText = document.getElementById('itemsFilterSummaryText');
       if (summaryText) {
