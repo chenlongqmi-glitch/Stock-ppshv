@@ -6452,9 +6452,9 @@ function syncSheetsTransactionsInternal(ss, targetType) {
         const qty = Number(row[idxQty] || 0);
         const sig = `STOCK_IN_${sku}_${qty}_${dStr}`;
 
-        const isKnown = (docNo && existingDocs.has(docNo.toUpperCase())) ||
-                        (docNo && existingTxIds.has(docNo)) ||
-                        existingSignatures.has(sig);
+        const isKnown = docNo
+          ? (existingDocs.has(docNo.toUpperCase()) || existingTxIds.has(docNo))
+          : existingSignatures.has(sig);
 
         if (!isKnown) {
           const txId = 'TX-' + Utilities.formatDate(new Date(), 'GMT+7', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 900 + 100);
@@ -6553,9 +6553,9 @@ function syncSheetsTransactionsInternal(ss, targetType) {
         const qty = Number(row[idxQty] || 0);
         const sig = `STOCK_OUT_${sku}_${qty}_${dStr}`;
 
-        const isKnown = (docNo && existingDocs.has(docNo.toUpperCase())) ||
-                        (docNo && existingTxIds.has(docNo)) ||
-                        existingSignatures.has(sig);
+        const isKnown = docNo
+          ? (existingDocs.has(docNo.toUpperCase()) || existingTxIds.has(docNo))
+          : existingSignatures.has(sig);
 
         if (!isKnown) {
           const txId = 'TX-' + Utilities.formatDate(new Date(), 'GMT+7', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 900 + 100);

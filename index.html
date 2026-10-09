@@ -7389,19 +7389,27 @@ function saveLocalUsersToStorage() {
         const txId = String(t.txId || t.id || '').trim();
         const isRealDoc = docNo && docNo !== '-' && docNo !== 'undefined';
         const isRealTx = txId && txId !== '-' && txId !== 'undefined';
-        if (isRealDoc && seenDocNos.has(docNo)) return;
-        if (isRealTx && seenTxIds.has(txId)) return;
+        
+        // Multi-key deduplication: only deduplicate by unique docNo or txId if present; only fallback to signature if neither is available
+        if (isRealDoc) {
+          if (seenDocNos.has(docNo)) return;
+          seenDocNos.add(docNo);
+        } else if (isRealTx) {
+          if (seenTxIds.has(txId)) return;
+          seenTxIds.add(txId);
+        } else {
+          const q = Number(t.quantity || 0);
+          const tType = String(t.type || (t.inBulkStock !== undefined || t.docNo?.startsWith('DOC-IN') ? 'STOCK_IN' : 'STOCK_OUT')).toUpperCase();
+          const tDate = String(t.date || t.timestamp || '').slice(0, 10);
+          const tLoc = String(t.toLocation || t.fromLocation || t.warehouse || '').trim();
+          const tZone = String(t.zone || '').trim();
+          const sig = `${s}_${tType}_${q}_${tLoc}_${tDate}_${tZone}`;
+          if (seenSignatures.has(sig)) return;
+          seenSignatures.add(sig);
+        }
 
         const q = Number(t.quantity || 0);
         const tType = String(t.type || (t.inBulkStock !== undefined || t.docNo?.startsWith('DOC-IN') ? 'STOCK_IN' : 'STOCK_OUT')).toUpperCase();
-        const tDate = String(t.date || t.timestamp || '').slice(0, 10);
-        const tLoc = String(t.toLocation || t.fromLocation || t.warehouse || '').trim();
-        const sig = `${s}_${tType}_${q}_${tLoc}_${tDate}`;
-        if (seenSignatures.has(sig)) return;
-
-        if (isRealDoc) seenDocNos.add(docNo);
-        if (isRealTx) seenTxIds.add(txId);
-        seenSignatures.add(sig);
 
         if (!netPerSku[s]) netPerSku[s] = { in: 0, out: 0 };
         if (tType === 'STOCK_IN') {
@@ -7415,14 +7423,24 @@ function saveLocalUsersToStorage() {
       itemsList.forEach(item => {
         if (!item || !item.sku) return;
         const net = netPerSku[item.sku];
+        const zoneSum = (Array.isArray(item.zoneBreakdown) && item.zoneBreakdown.length > 0)
+          ? item.zoneBreakdown.reduce((sum, z) => sum + Math.max(0, Number(z.quantity || 0)), 0)
+          : 0;
+
+        let effectiveStock = Number(item.currentStock || 0);
+
         if (net && (net.in > 0 || net.out > 0)) {
           const txNet = Math.max(0, net.in - net.out);
-          if (Number(item.currentStock || 0) !== txNet) {
-            item.currentStock = txNet;
-            const pQty = Number(item.packQty || 1);
-            item.packStock = pQty > 1 ? Math.floor(txNet / pQty) : txNet;
-            changed = true;
-          }
+          effectiveStock = Math.max(txNet, zoneSum);
+        } else if (zoneSum > 0) {
+          effectiveStock = Math.max(effectiveStock, zoneSum);
+        }
+
+        if (Number(item.currentStock || 0) !== effectiveStock) {
+          item.currentStock = effectiveStock;
+          const pQty = Number(item.packQty || 1);
+          item.packStock = pQty > 1 ? Math.floor(effectiveStock / pQty) : effectiveStock;
+          changed = true;
         }
       });
       if (changed && typeof saveLocalItemsToStorage === 'function') {
@@ -13876,7 +13894,13 @@ function saveLocalUsersToStorage() {
             if (clr.startsWith('http') || clr.includes('GMT') || clr === 'សាកល្បង' || clr === 'ចំណាំសិន') clr = '-';
 
             const pQty = Number(rem.packQty || loc.packQty || 1);
-            const stock = Number(rem.currentStock !== undefined ? rem.currentStock : (rem.stock || 0));
+            let stock = Number(rem.currentStock !== undefined ? rem.currentStock : (rem.stock || 0));
+            const remZoneSum = (Array.isArray(rem.zoneBreakdown) && rem.zoneBreakdown.length > 0)
+              ? rem.zoneBreakdown.reduce((sum, z) => sum + Math.max(0, Number(z.quantity || 0)), 0)
+              : 0;
+            if (remZoneSum > stock) {
+              stock = remZoneSum;
+            }
 
             return {
               ...loc,
@@ -14478,8 +14502,19 @@ function saveLocalUsersToStorage() {
         const txId = String(t.txId || t.id || '').trim();
         const isRealDoc = docNo && docNo !== '-' && docNo !== 'undefined';
         const isRealTx = txId && txId !== '-' && txId !== 'undefined';
-        if (isRealDoc && seenDocNos.has(docNo)) return;
-        if (isRealTx && seenTxIds.has(txId)) return;
+        
+        // Multi-key deduplication: only deduplicate by unique docNo or txId if present; only fallback to signature if neither is available
+        if (isRealDoc) {
+          if (seenDocNos.has(docNo)) return;
+          seenDocNos.add(docNo);
+        } else if (isRealTx) {
+          if (seenTxIds.has(txId)) return;
+          seenTxIds.add(txId);
+        } else {
+          const sig = `${tSku}_${tType}_${q}_${cleanWh}_${tDate}_${t.zone || ''}`;
+          if (seenSignatures.has(sig)) return;
+          seenSignatures.add(sig);
+        }
 
         const q = Number(t.quantity || 0);
         const tType = String(t.type || (t.inBulkStock !== undefined || t.docNo?.startsWith('DOC-IN') ? 'STOCK_IN' : 'STOCK_OUT')).toUpperCase();
@@ -14488,14 +14523,6 @@ function saveLocalUsersToStorage() {
 
         let rawWh = isStockIn ? (t.toLocation || t.location || t.warehouse || '') : (t.fromLocation || t.location || t.warehouse || '');
         let cleanWh = rawWh ? (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(rawWh) : rawWh) : '';
-        const tDate = String(t.date || t.timestamp || '').slice(0, 10);
-
-        const sig = `${tSku}_${tType}_${q}_${cleanWh}_${tDate}`;
-        if (seenSignatures.has(sig)) return;
-
-        if (isRealDoc) seenDocNos.add(docNo);
-        if (isRealTx) seenTxIds.add(txId);
-        seenSignatures.add(sig);
 
         if (!cleanWh) {
           cleanWh = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
@@ -14533,11 +14560,42 @@ function saveLocalUsersToStorage() {
       const defaultCentralWh = isItemMe ? '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)' : '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
       const defaultCentralShort = isItemMe ? '机电' : '中心库房';
 
+      // Ensure that if item.zoneBreakdown has quantities assigned to specific stations,
+      // those stations are represented in breakdowns with at least that quantity!
+      if (Array.isArray(item.zoneBreakdown) && item.zoneBreakdown.length > 0) {
+        const zoneWhMap = {};
+        item.zoneBreakdown.forEach(zb => {
+          const zQty = Math.max(0, Number(zb.quantity || 0));
+          if (zQty > 0) {
+            let zWh = zb.warehouse ? (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(zb.warehouse) : zb.warehouse) : '';
+            if (!zWh && Array.isArray(item.warehouses) && item.warehouses.length > 0) {
+              zWh = toCanonicalWarehouseName(item.warehouses[0]);
+            }
+            if (zWh && zWh !== 'ALL') {
+              zoneWhMap[zWh] = (zoneWhMap[zWh] || 0) + zQty;
+            }
+          }
+        });
+
+        for (const zWh in zoneWhMap) {
+          const existingBk = breakdowns.find(b => (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(b.warehouse, zWh) : isSameWarehouse(b.warehouse, zWh)));
+          if (existingBk) {
+            if (existingBk.total < zoneWhMap[zWh]) {
+              existingBk.total = zoneWhMap[zWh];
+            }
+          } else {
+            const shortWh = (typeof getStationShortCode === 'function') ? getStationShortCode(zWh) : (zWh.split(' ')[0] || zWh);
+            breakdowns.push({ warehouse: zWh, shortWh, total: zoneWhMap[zWh] });
+          }
+        }
+      }
+
       // If transactions exist for stations, but remaining catalog stock hasn't been exhausted,
       // the remaining stock resides in the central warehouse:
-      if (catalogStock > totalStationTxNet && centralTxNet === 0) {
-        const remCentral = catalogStock - totalStationTxNet;
-        if (remCentral > 0) {
+      const totalStationSum = breakdowns.filter(b => !b.warehouse.includes('中心库房') && !b.warehouse.includes('机电')).reduce((s, b) => s + b.total, 0);
+      if (catalogStock > totalStationSum && centralTxNet === 0) {
+        const remCentral = catalogStock - totalStationSum;
+        if (remCentral > 0 && !breakdowns.some(b => b.warehouse.includes('中心库房') || b.warehouse.includes('机电'))) {
           breakdowns.unshift({ warehouse: defaultCentralWh, shortWh: defaultCentralShort, total: remCentral });
         }
       } else if (breakdowns.length === 0 && catalogStock > 0) {
@@ -14552,8 +14610,13 @@ function saveLocalUsersToStorage() {
       let hasStationTx = false;
       let hasExactStationTx = false;
 
+      const totalBreakdowns = breakdowns.reduce((sum, b) => sum + b.total, 0);
+      const zoneSum = (Array.isArray(item.zoneBreakdown) && item.zoneBreakdown.length > 0)
+        ? item.zoneBreakdown.reduce((sum, z) => sum + Math.max(0, Number(z.quantity || 0)), 0)
+        : 0;
+
       if (!targetWh || targetWh === 'ALL' || targetWh === '🏢 គ្រប់ស្ថានីយទាំងអស់' || targetWh === 'គ្រប់ឃ្លាំង') {
-        effectiveTotal = catalogStock > 0 ? catalogStock : breakdowns.reduce((sum, b) => sum + b.total, 0);
+        effectiveTotal = Math.max(catalogStock, totalBreakdowns, zoneSum);
         hasStationTx = true;
       } else if (typeof isAdminComboWarehouse === 'function' && isAdminComboWarehouse(targetWh)) {
         // Combo: 中心库房 & 机电
@@ -14577,6 +14640,17 @@ function saveLocalUsersToStorage() {
           hasExactStationTx = true;
         } else {
           effectiveTotal = 0;
+        }
+
+        if (zoneSum > 0 && Array.isArray(item.zoneBreakdown)) {
+          const matchingZones = item.zoneBreakdown.filter(z => !z.warehouse || ((typeof matchesTargetWarehouse === 'function') ? matchesTargetWarehouse(z.warehouse, targetWh) : isSameWarehouse(z.warehouse, targetWh)));
+          if (matchingZones.length > 0 && (!item.warehouses || item.warehouses.some(w => matchesTargetWarehouse(w, targetWh)))) {
+            const zTotal = matchingZones.reduce((sum, z) => sum + Math.max(0, Number(z.quantity || 0)), 0);
+            if (zTotal > effectiveTotal) {
+              effectiveTotal = zTotal;
+              hasStationTx = true;
+            }
+          }
         }
       }
 
@@ -14801,7 +14875,20 @@ function saveLocalUsersToStorage() {
 
       tbody.innerHTML = filtered.map((item, idx) => {
         const stStock = (typeof getItemStationStock === 'function') ? getItemStationStock(item, activeWhFilter) : { total: Number(item.currentStock || 0), bulk: 0, loose: 0, breakdowns: [] };
-        const curStock = (activeWhFilter && activeWhFilter !== 'ALL') ? Number(stStock.total || 0) : Number(item.currentStock || 0);
+        let curStock = (activeWhFilter && activeWhFilter !== 'ALL') ? Number(stStock.total || 0) : Number(item.currentStock || 0);
+
+        const zoneSum = (Array.isArray(item.zoneBreakdown) && item.zoneBreakdown.length > 0)
+          ? item.zoneBreakdown.reduce((s, z) => s + Math.max(0, Number(z.quantity || 0)), 0)
+          : 0;
+
+        if (!activeWhFilter || activeWhFilter === 'ALL') {
+          curStock = Math.max(curStock, Number(stStock.total || 0), zoneSum);
+        } else {
+          if (zoneSum > curStock && (!item.warehouses || item.warehouses.length <= 1 || item.warehouses.some(w => (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(w, activeWhFilter) : isSameWarehouse(w, activeWhFilter))))) {
+            curStock = Math.max(curStock, zoneSum);
+          }
+        }
+
         const pQty = Number(item.packQty || 1);
         let pUnit = (item.packUnit || '').trim() || 'ប្រអប់';
         let rUnit = (item.unit || '').trim() || 'ដើម';
@@ -14814,8 +14901,8 @@ function saveLocalUsersToStorage() {
         let displaySize = (item.size || '').trim();
         if (displaySize.startsWith('http') || displaySize.includes('googleusercontent') || displaySize.includes('GMT') || displaySize.includes('2026') || displaySize === '-') displaySize = '';
 
-        const bulkStock = (activeWhFilter && activeWhFilter !== 'ALL') ? stStock.bulk : ((pQty > 1) ? Math.floor(curStock / pQty) : 0);
-        const looseRemainder = (activeWhFilter && activeWhFilter !== 'ALL') ? stStock.loose : ((pQty > 1) ? (curStock % pQty) : curStock);
+        const bulkStock = (pQty > 1) ? Math.floor(curStock / pQty) : 0;
+        const looseRemainder = (pQty > 1) ? (curStock % pQty) : curStock;
 
         const bulkBadgeClass = (curStock === 0)
           ? 'bg-rose-50 text-rose-500 border border-rose-200'
