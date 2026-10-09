@@ -2928,26 +2928,8 @@
                 </div>
               </div>
 
-              <!-- Station Filter & Search & Refresh -->
+              <!-- Search & Refresh -->
               <div class="flex flex-wrap items-center gap-2">
-                <!-- Station Filter Select -->
-                <div class="relative shrink-0">
-                  <select id="stockInStationFilter" onchange="filterStockInHistoryTable()"
-                    title="ចម្រាញ់តាមស្ថានីយ ឬឃ្លាំង"
-                    class="h-9 pl-2.5 pr-6 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500 transition text-slate-700 cursor-pointer shadow-3xs">
-                    <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>
-                    <option value="中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)">中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)</option>
-                    <option value="机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)">机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
-                    <option value="K3 ស្ថានីយ (ភ្នំពេញ) 01">K3 ស្ថានីយ (ភ្នំពេញ) 01</option>
-                    <option value="K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02">K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02</option>
-                    <option value="K43 ស្ថានីយ (កំពង់ស្ពឺ លិច) 03">K43 ស្ថានីយ (កំពង់ស្ពឺ លិច) 03</option>
-                    <option value="K76 ស្ថានីយ (ត្រែងត្រយឹង) 04">K76 ស្ថានីយ (ត្រែងត្រយឹង) 04</option>
-                    <option value="K114 ស្ថានីយ (កំពង់សិលា) 05">K114 ស្ថានីយ (កំពង់សិលា) 05</option>
-                    <option value="K135 ស្ថានីយ (ស្រែអំបិល) 06">K135 ស្ថានីយ (ស្រែអំបិល) 06</option>
-                    <option value="K172 ស្ថានីយ (ស្ទឹងហាវ) 07">K172 ស្ថានីយ (ស្ទឹងហាវ) 07</option>
-                    <option value="K182 ស្ថានីយ (ព្រះសីហនុ) 08">K182 ស្ថានីយ (ព្រះសីហនុ) 08</option>
-                  </select>
-                </div>
 
                 <div class="relative flex-1 sm:flex-initial">
                   <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
@@ -13500,11 +13482,7 @@ function saveLocalUsersToStorage() {
         itemWhSelect.value = whValue;
       }
 
-      // 2. Sync Stock-In (ស្តុកចូល) Table Filter & Location
-      const stockInFilter = document.getElementById('stockInStationFilter');
-      if (stockInFilter && stockInFilter.value !== whValue) {
-        stockInFilter.value = whValue;
-      }
+      // 2. Sync Stock-In (ស្តុកចូល) Location
       if (typeof applyUserWarehouseToStockInLocation === 'function') applyUserWarehouseToStockInLocation();
 
       // 3. Sync Stock-Out (ស្តុកចេញ)
@@ -14234,10 +14212,6 @@ function saveLocalUsersToStorage() {
       if (tabName === 'dashboard') loadDashboard();
       if (tabName === 'items') renderItemsTable();
       if (tabName === 'stockin') {
-        const sInFilter = document.getElementById('stockInStationFilter');
-        if (sInFilter && AppState.selectedAdminWarehouseFilter) {
-          sInFilter.value = AppState.selectedAdminWarehouseFilter;
-        }
         try { populateItemSelectDropdowns(); } catch(e) { console.warn(e); }
         try { initStockInForm(); } catch(e) { console.warn(e); }
         try { loadStockInHistory(); } catch(e) { console.warn(e); }
@@ -21178,14 +21152,9 @@ function saveLocalUsersToStorage() {
     }
 
     function getStockInActiveWarehouseFilter() {
-      const filterSelect = document.getElementById('stockInStationFilter');
-      const selectedFilterWh = filterSelect ? filterSelect.value : '';
       const u = AppState.currentUser || {};
       const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(u) : false;
       if (isPrivileged) {
-        if (selectedFilterWh && selectedFilterWh !== 'ALL') {
-          return selectedFilterWh;
-        }
         if (AppState.selectedAdminWarehouseFilter && AppState.selectedAdminWarehouseFilter !== 'ALL') {
           return AppState.selectedAdminWarehouseFilter;
         }
