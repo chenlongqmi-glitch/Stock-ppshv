@@ -6054,7 +6054,7 @@ function recordStockOut(dataOrPayload, user) {
       itemName = itemsData[i][idxName] || '';
       unit = itemsData[i][idxUnit] || 'ដុំ';
       minStock = Number(itemsData[i][idxMinStock] || 0);
-      location = itemsData[i][8] || '';
+      location = data.fromLocation || data.warehouse || data.location || (u ? u.warehouse : '') || '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
       currentStock = Number(itemsData[i][idxCurrentStock] || 0);
       itemFound = true;
       break;
@@ -6871,12 +6871,15 @@ function getStockOutTransactionsFromSheet(ss, filters, user) {
     const qtyIdx = findIdx(['quantity', 'qty', 'ចំនួន'], 7);
     const unitIdx = findIdx(['unit', 'ឯកតា'], 8);
     const oldStIdx = findIdx(['oldstock', 'ស្តុកចាស់'], 9);
-    const newStIdx = findIdx(['newstock', 'ស្តុកថ្មី'], 10);
+    const newStIdx = findIdx(['newstock', 'remainingstock', 'ស្តុកនៅសល់', 'ស្តុកថ្មី'], 10);
     const movIdx = findIdx(['movement', 'ចរន្ត'], 11);
-    const whIdx = findIdx(['warehouse', 'fromlocation', 'ឃ្លាំង', 'ស្ថានីយ', 'from'], 12);
-    const toLocIdx = findIdx(['tolocation', 'to'], 13);
-    const recIdx = findIdx(['receivedby', 'receiver', 'អ្នកបើក', 'អ្នកទទួល', 'issuer'], 14);
-    const notesIdx = findIdx(['notes', 'note', 'សម្គាល់'], 15);
+    const priceIdx = findIdx(['unitprice', 'price', 'តម្លៃ'], 12);
+    const totalIdx = findIdx(['totalamount', 'total', 'សរុប'], 13);
+    const whIdx = findIdx(['fromlocation', 'warehouse', 'from', 'ឃ្លាំង', 'ស្ថានីយ'], 14);
+    const toLocIdx = findIdx(['tolocation', 'to', 'គោលដៅ', 'អតិថិជន'], 15);
+    const recIdx = findIdx(['issuer', 'receivedby', 'receiver', 'អ្នកបើក', 'អ្នកទទួល'], 16);
+    const reasonIdx = findIdx(['reason', 'មូលហេតុ'], 17);
+    const notesIdx = findIdx(['notes', 'note', 'សម្គាល់'], 18);
 
     let targetWarehouse = null;
     if (user && user.role !== 'Admin' && user.role !== 'SuperAdmin' && user.warehouse && user.warehouse !== 'ALL' && user.warehouse !== 'គ្រប់ឃ្លាំង' && user.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
@@ -6922,8 +6925,13 @@ function getStockOutTransactionsFromSheet(ss, filters, user) {
       if (filters && filters.startDate && dStr && dStr < filters.startDate) continue;
       if (filters && filters.endDate && dStr && dStr > filters.endDate) continue;
 
-      const fromWh = String(row[whIdx] || '').trim();
-      const toWh = String(row[toLocIdx] || fromWh).trim();
+      let fromWh = String(row[whIdx] || '').trim();
+      let toWh = String(row[toLocIdx] || '').trim();
+      // If fromWh is numeric (e.g. '7' from legacy packstock bug) or empty, recover correct warehouse
+      if (!fromWh || fromWh === '-' || /^\d+$/.test(fromWh)) {
+        fromWh = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+      }
+      if (!toWh) toWh = fromWh;
       if (targetWarehouse) {
         if (!matchesTargetWarehouseGAS(fromWh, targetWarehouse) && !matchesTargetWarehouseGAS(toWh, targetWarehouse)) {
           continue;
@@ -7001,17 +7009,19 @@ function getTransactionHistory(filtersOrPayload, userParam) {
 
   // 1. Direct read from Stock_in sheet for 100% accuracy matching Google Sheets tab 'Stock_in'
   if (targetType === 'STOCK_IN') {
-    const stockInTxs = getStockInTransactionsFromSheet(ss, filters, user);
-    if (stockInTxs && stockInTxs.length > 0) {
-      return { success: true, transactions: stockInTxs };
+    const sInSheet = ss.getSheetByName('Stock_in');
+    if (sInSheet) {
+      const stockInTxs = getStockInTransactionsFromSheet(ss, filters, user);
+      return { success: true, transactions: stockInTxs || [] };
     }
   }
 
   // 2. Direct read from Stock_out sheet for 100% accuracy matching Google Sheets tab 'Stock_out'
   if (targetType === 'STOCK_OUT') {
-    const stockOutTxs = getStockOutTransactionsFromSheet(ss, filters, user);
-    if (stockOutTxs && stockOutTxs.length > 0) {
-      return { success: true, transactions: stockOutTxs };
+    const sOutSheet = ss.getSheetByName('Stock_out') || ss.getSheetByName(SHEETS.STOCK_OUT);
+    if (sOutSheet) {
+      const stockOutTxs = getStockOutTransactionsFromSheet(ss, filters, user);
+      return { success: true, transactions: stockOutTxs || [] };
     }
   }
 

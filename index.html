@@ -21060,9 +21060,11 @@ function saveLocalUsersToStorage() {
           newStock: remainingStock,
           unitPrice,
           fromLocation: (function() {
-          const activeWh = (typeof getEffectiveStationFilter === 'function') ? getEffectiveStationFilter() : 'ALL';
-          return (activeWh && activeWh !== 'ALL') ? activeWh : (item?.location || AppState.currentUser?.warehouse || 'K3 ស្ថានីយ (ភ្នំពេញ) 01');
-        })(),
+            const activeWh = (typeof getStockOutActiveWarehouseFilter === 'function') ? getStockOutActiveWarehouseFilter() : 'ALL';
+            if (activeWh && activeWh !== 'ALL' && activeWh !== 'គ្រប់ស្ថានីយទាំងអស់' && (typeof isAdminComboWarehouse !== 'function' || !isAdminComboWarehouse(activeWh))) return activeWh;
+            if (Array.isArray(item?.warehouses) && item.warehouses.length > 0) return (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(item.warehouses[0]) : item.warehouses[0]);
+            return (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(AppState.currentUser?.warehouse) : AppState.currentUser?.warehouse) || '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+          })(),
           toLocation,
           issuer,
           reason,
@@ -21755,15 +21757,18 @@ function saveLocalUsersToStorage() {
 
       if (cachedTxs && cachedTxs.length > 0) {
         AppState.stockOutHistory = cachedTxs;
-        renderStockOutHistoryTable(AppState.stockOutHistory);
+        filterStockOutHistoryTable();
       } else {
         const tbody = document.getElementById('stockOutHistoryTableBody');
         if (tbody) {
-          tbody.innerHTML = '<tr><td colspan="11" class="text-center py-6 text-slate-400 text-sm"><i class="fa-solid fa-spinner fa-spin mr-1"></i> កំពុងផ្ទុកទិន្នន័យពី Google Sheets...</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="9" class="text-center py-6 text-slate-400 text-sm"><i class="fa-solid fa-spinner fa-spin mr-1"></i> កំពុងផ្ទុកទិន្នន័យពី Google Sheets...</td></tr>';
         }
       }
 
       try {
+        // Query Google Sheets directly for STOCK_OUT transactions (limit: 200)
+        // All active station filtering is handled client-side by matchesTargetWarehouse
+        // so that combo warehouses (中心库房 & 机电) and individual stations render accurately.
         const res = await apiCall('getTransactionHistory', { filters: { type: 'STOCK_OUT', limit: 200 } });
         if (res && res.success && Array.isArray(res.transactions)) {
           const cleanTxs = res.transactions.filter(t => {
@@ -21773,51 +21778,74 @@ function saveLocalUsersToStorage() {
             return !isTest;
           });
 
-          // Single Source of Truth: When connected to Google Sheets (not an offline local fallback),
-          // Google Sheets dictates the exact records. If Google Sheets returns empty for this station,
-          // it MUST display empty (0 records), and NEVER keep stale test records from cache!
-          if (!res.isLocalFallback) {
-            AppState.stockOutHistory = cleanTxs;
-            try {
-              localStorage.setItem('inventory_stock_out_history_db', JSON.stringify(cleanTxs));
-            } catch(e) {}
-            renderStockOutHistoryTable(AppState.stockOutHistory);
-            return;
-          }
+          // Enrich metadata (Size, Color, Zone, Warehouse) from notes or AppState.items if missing
+          cleanTxs.forEach(t => {
+            const item = (AppState.items || []).find(i => (i.sku && t.sku && i.sku.toLowerCase() === t.sku.toLowerCase()) || (i.name && t.itemName && i.name.toLowerCase() === t.itemName.toLowerCase()));
+            if (!t.size && t.notes) {
+              const sm = t.notes.match(/\[(?:ខ្នាត|Size):\s*([^\]]+)\]/i);
+              if (sm) t.size = sm[1].trim();
+            }
+            if (!t.color && t.notes) {
+              const cm = t.notes.match(/\[(?:ពណ៌|Color):\s*([^\]]+)\]/i);
+              if (cm) t.color = cm[1].trim();
+            }
+            if (!t.zone && t.notes) {
+              const zm = t.notes.match(/\[(?:តំបន់|Zone):\s*([^\]]+)\]/i);
+              if (zm) t.zone = zm[1].trim();
+            }
+            if (!t.size && item?.size) t.size = String(item.size).trim();
+            if (!t.color && item?.color) t.color = String(item.color).trim();
+            if (!t.zone && item?.zone) t.zone = String(item.zone).trim();
 
-          // If offline local fallback with 0 items, preserve valid non-test cache
-          if (cleanTxs.length === 0 && AppState.stockOutHistory && AppState.stockOutHistory.length > 0) {
-            renderStockOutHistoryTable(AppState.stockOutHistory);
-            return;
-          }
+            // Repair numeric or missing fromLocation (e.g. legacy '7' from packstock bug)
+            if (!t.fromLocation || t.fromLocation === '-' || /^\d+$/.test(String(t.fromLocation).trim())) {
+              t.fromLocation = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+            }
+            if (!t.toLocation) {
+              t.toLocation = t.warehouse || t.location || 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
+            }
+          });
 
           AppState.stockOutHistory = cleanTxs;
           try {
             localStorage.setItem('inventory_stock_out_history_db', JSON.stringify(cleanTxs));
           } catch(e) {}
-          renderStockOutHistoryTable(AppState.stockOutHistory);
+          filterStockOutHistoryTable();
+          return;
         } else if (AppState.stockOutHistory && AppState.stockOutHistory.length > 0) {
-          renderStockOutHistoryTable(AppState.stockOutHistory);
+          filterStockOutHistoryTable();
         } else {
           renderStockOutHistoryTable([]);
         }
       } catch (err) {
         console.warn('loadStockOutHistory error:', err);
-        if (AppState.stockOutHistory && AppState.stockOutHistory.length > 0) {
-          renderStockOutHistoryTable(AppState.stockOutHistory);
-        }
+        filterStockOutHistoryTable();
       }
     }
 
+    function getStockOutActiveWarehouseFilter() {
+      const u = AppState.currentUser || {};
+      const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(u) : false;
+      if (isPrivileged) {
+        if (AppState.selectedAdminWarehouseFilter && AppState.selectedAdminWarehouseFilter !== 'ALL') {
+          return AppState.selectedAdminWarehouseFilter;
+        }
+        return 'ALL';
+      }
+      return (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(u.warehouse) : u.warehouse) || 'ALL';
+    }
+
     function filterStockOutHistoryTable() {
-      const activeWh = (typeof getEffectiveStationFilter === 'function') ? getEffectiveStationFilter() : 'ALL';
+      const activeWh = getStockOutActiveWarehouseFilter();
       let baseList = AppState.stockOutHistory || [];
-      if (activeWh && activeWh !== 'ALL') {
+      if (activeWh && activeWh !== 'ALL' && activeWh !== 'គ្រប់ស្ថានីយទាំងអស់') {
         baseList = baseList.filter(t => {
           const fromL = t.fromLocation || '';
           const toL = t.toLocation || '';
           const loc = t.location || t.warehouse || '';
-          return (typeof matchesTargetWarehouse === 'function') ? (matchesTargetWarehouse(fromL, activeWh) || matchesTargetWarehouse(toL, activeWh) || matchesTargetWarehouse(loc, activeWh)) : (isSameWarehouse(fromL, activeWh) || isSameWarehouse(toL, activeWh) || isSameWarehouse(loc, activeWh));
+          return (typeof matchesTargetWarehouse === 'function')
+            ? (matchesTargetWarehouse(fromL, activeWh) || matchesTargetWarehouse(toL, activeWh) || matchesTargetWarehouse(loc, activeWh))
+            : (isSameWarehouse(fromL, activeWh) || isSameWarehouse(toL, activeWh) || isSameWarehouse(loc, activeWh));
         });
       }
       const sInp = document.getElementById('stockOutHistorySearch');
@@ -21827,7 +21855,7 @@ function saveLocalUsersToStorage() {
         q = '';
       }
       if (!q) {
-        renderStockOutHistoryTable(baseList);
+        renderStockOutHistoryTable(baseList, true);
         return;
       }
       const filtered = baseList.filter(t => {
@@ -21835,25 +21863,40 @@ function saveLocalUsersToStorage() {
                (t.itemName || '').toLowerCase().includes(q) ||
                (t.sku || '').toLowerCase().includes(q) ||
                (t.toLocation || t.location || t.fromLocation || '').toLowerCase().includes(q) ||
-               (t.user || '').toLowerCase().includes(q) ||
+               (t.user || t.receivedBy || '').toLowerCase().includes(q) ||
                (t.reason || '').toLowerCase().includes(q) ||
                (t.notes || '').toLowerCase().includes(q);
       });
-      renderStockOutHistoryTable(filtered);
+      renderStockOutHistoryTable(filtered, true);
     }
 
-    function renderStockOutHistoryTable(rawTxs) {
-      const activeWh = (typeof getEffectiveStationFilter === 'function') ? getEffectiveStationFilter() : 'ALL';
+    function renderStockOutHistoryTable(rawTxs, isFiltered = false) {
+      const activeWh = getStockOutActiveWarehouseFilter();
       const sInp = document.getElementById('stockOutHistorySearch');
-      const q = (sInp?.value || '').trim();
+      const q = (sInp?.value || '').trim().toLowerCase();
       let txs = rawTxs || AppState.stockOutHistory || [];
-      if (!q && activeWh && activeWh !== 'ALL') {
-        txs = txs.filter(t => {
-          const fromL = t.fromLocation || '';
-          const toL = t.toLocation || '';
-          const loc = t.location || t.warehouse || '';
-          return (typeof matchesTargetWarehouse === 'function') ? (matchesTargetWarehouse(fromL, activeWh) || matchesTargetWarehouse(toL, activeWh) || matchesTargetWarehouse(loc, activeWh)) : (isSameWarehouse(fromL, activeWh) || isSameWarehouse(toL, activeWh) || isSameWarehouse(loc, activeWh));
-        });
+      if (!isFiltered) {
+        if (activeWh && activeWh !== 'ALL' && activeWh !== 'គ្រប់ស្ថានីយទាំងអស់') {
+          txs = txs.filter(t => {
+            const fromL = t.fromLocation || '';
+            const toL = t.toLocation || '';
+            const loc = t.location || t.warehouse || '';
+            return (typeof matchesTargetWarehouse === 'function')
+              ? (matchesTargetWarehouse(fromL, activeWh) || matchesTargetWarehouse(toL, activeWh) || matchesTargetWarehouse(loc, activeWh))
+              : (isSameWarehouse(fromL, activeWh) || isSameWarehouse(toL, activeWh) || isSameWarehouse(loc, activeWh));
+          });
+        }
+        if (q) {
+          txs = txs.filter(t => {
+            return (t.docNo || t.txId || '').toLowerCase().includes(q) ||
+                   (t.itemName || '').toLowerCase().includes(q) ||
+                   (t.sku || '').toLowerCase().includes(q) ||
+                   (t.toLocation || t.location || t.fromLocation || '').toLowerCase().includes(q) ||
+                   (t.user || t.receivedBy || '').toLowerCase().includes(q) ||
+                   (t.reason || '').toLowerCase().includes(q) ||
+                   (t.notes || '').toLowerCase().includes(q);
+          });
+        }
       }
       const tbody = document.getElementById('stockOutHistoryTableBody');
       const countEl = document.getElementById('stockOutHistoryCount');
