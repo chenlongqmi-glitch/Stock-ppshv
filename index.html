@@ -6368,6 +6368,8 @@
                 </button>
               </div>
             </div>
+            <!-- Suggestion / Old Zone quick-select badge for Receiver -->
+            <div id="receptionOldZoneNotice" class="mt-1.5 hidden flex items-center gap-1.5 flex-wrap"></div>
           </div>
 
           <!-- Col 2: ចំនួនទទួលបានជាក់ស្តែង * (Bulk & Retail) -->
@@ -17410,10 +17412,78 @@ function saveLocalUsersToStorage() {
       return stockInZoneDropdownEl;
     }
 
+    function getOldStockZoneForItem(sku, warehouse) {
+      if (!sku) return '';
+      const cleanSku = String(sku).trim().toLowerCase();
+
+      // 1. Check in dispatches previously RECEIVED at this warehouse
+      const dispatches = LOCAL_DB.dispatches || [];
+      for (const d of dispatches) {
+        if (d.sku && d.sku.trim().toLowerCase() === cleanSku && d.status === 'RECEIVED' && d.receivedZone && d.receivedZone.trim()) {
+          if (!warehouse || warehouse === 'ALL' || (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(d.toLocation, warehouse) : isSameWarehouse(d.toLocation, warehouse))) {
+            return d.receivedZone.trim();
+          }
+        }
+      }
+
+      // 2. Check in stockInHistory transactions
+      const stockIns = AppState.stockInHistory || [];
+      for (const tx of stockIns) {
+        if (tx.sku && tx.sku.trim().toLowerCase() === cleanSku && tx.zone && tx.zone.trim()) {
+          const loc = tx.warehouse || tx.location || tx.toLocation || '';
+          if (!warehouse || warehouse === 'ALL' || (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(loc, warehouse) : isSameWarehouse(loc, warehouse))) {
+            return tx.zone.trim();
+          }
+        }
+      }
+
+      // 3. Check in general transactions
+      const txs = AppState.transactions || [];
+      for (const tx of txs) {
+        if (tx.sku && tx.sku.trim().toLowerCase() === cleanSku && tx.zone && tx.zone.trim()) {
+          const loc = tx.fromLocation || tx.toLocation || tx.warehouse || tx.location || '';
+          if (!warehouse || warehouse === 'ALL' || (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(loc, warehouse) : isSameWarehouse(loc, warehouse))) {
+            return tx.zone.trim();
+          }
+        }
+      }
+
+      // 4. Check in AppState.items
+      const it = (AppState.items || []).find(i => (i.sku && i.sku.trim().toLowerCase() === cleanSku) || (i.name && i.name.trim().toLowerCase() === cleanSku));
+      if (it && it.zone && it.zone.trim() && it.zone.trim() !== '-') {
+        return it.zone.trim();
+      }
+
+      return '';
+    }
+
+    function getContextOldStockZone() {
+      let sku = '';
+      let targetWarehouse = '';
+
+      if (currentZonePickerTargetInputId === 'receiveDispatchZone') {
+        sku = document.getElementById('receptionSku')?.value || '';
+        targetWarehouse = document.getElementById('receptionModalStationBadge')?.innerText || AppState.currentUser?.warehouse || '';
+      } else if (currentZonePickerTargetInputId === 'stockInZone') {
+        sku = document.getElementById('stockInSku')?.value || '';
+        targetWarehouse = document.getElementById('stockInWarehouse')?.value || AppState.currentUser?.warehouse || '';
+      } else if (currentZonePickerTargetInputId === 'swalEditZone') {
+        sku = document.getElementById('swalEditSku')?.value || '';
+        targetWarehouse = AppState.currentUser?.warehouse || '';
+      }
+
+      if (!sku) {
+        sku = document.getElementById('itemModalSku')?.value || '';
+      }
+
+      return getOldStockZoneForItem(sku, targetWarehouse);
+    }
+
     function renderStockInZoneDropdownContent() {
       const dropdown = ensureStockInZoneDropdown();
       const inputEl = document.getElementById(currentZonePickerTargetInputId) || document.getElementById('stockInZone');
       const searchVal = (inputEl?.value || '').trim().toUpperCase();
+      const oldZone = getContextOldStockZone();
 
       // Filter zones based on active letter tab OR search query
       let filteredZones = ALL_STOCK_ZONES;
@@ -17435,6 +17505,35 @@ function saveLocalUsersToStorage() {
             ${stockInZoneActiveFilterLetter ? 'Zone ' + stockInZoneActiveFilterLetter + ' (10)' : filteredZones.length + ' ជម្រើស'}
           </span>
         </div>
+
+        ${oldZone ? `
+          <!-- Quick Old Stock Zone Selection (បង្ហាញតំបន់ស្តុកចាស់) -->
+          <div class="mb-2.5 p-2 bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/5 border border-amber-300 rounded-xl shadow-3xs">
+            <div class="flex items-center justify-between mb-1.5">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="w-5 h-5 rounded-md bg-amber-500 text-white flex items-center justify-center text-[10px] shrink-0 shadow-3xs">
+                  <i class="fa-solid fa-clock-rotate-left"></i>
+                </span>
+                <span class="text-[11px] font-bold text-amber-900 truncate">តំបន់ស្តុកចាស់ (ធ្លាប់មាន):</span>
+              </div>
+              <span class="text-[9px] font-bold text-amber-700 bg-amber-100/90 border border-amber-200 px-1.5 py-0.5 rounded shadow-3xs">ចុចរើសយក</span>
+            </div>
+            <div class="flex items-center gap-1.5 flex-wrap">
+              ${(() => {
+                const parts = oldZone.split(/[,/| ]+/).map(p => p.trim()).filter(Boolean);
+                const uniqueItems = Array.from(new Set([oldZone, ...parts]));
+                return uniqueItems.map(z => `
+                  <button type="button" onclick="selectStockInZone('${escapeHtml(z)}')"
+                    class="px-2.5 py-1 rounded-lg bg-amber-100/90 hover:bg-amber-200 text-amber-950 border border-amber-300/90 font-mono font-bold text-[11px] flex items-center gap-1 shadow-3xs transition-all active:scale-95 cursor-pointer"
+                    title="ចុចជ្រើសរើសតំបន់ ${escapeHtml(z)}">
+                    <i class="fa-solid fa-location-dot text-[9px] text-amber-600"></i>
+                    <span>${escapeHtml(z)}</span>
+                  </button>
+                `).join('');
+              })()}
+            </div>
+          </div>
+        ` : ''}
 
         <!-- Quick Letter Filters: All, A, B, C, D, E, F, G, H, I, J -->
         <div class="flex items-center gap-1 overflow-x-auto pb-2 mb-2 border-b border-slate-100 no-scrollbar">
@@ -21143,12 +21242,40 @@ function saveLocalUsersToStorage() {
       if (bulkInp) bulkInp.value = dispatch.bulkQty || 0;
       if (retailInp) retailInp.value = dispatch.retailQty || (packQty <= 1 ? dispatch.quantity : 0);
 
-      // Pre-fill Zone from existing item or empty
-      const item = (AppState.items || []).find(i => i.sku === dispatch.sku);
+      // ទុកឱ្យអ្នកទទួលទំនិញជាអ្នកបំពេញ ប៉ុន្តែស្វែងរកតំបន់ស្តុកចាស់ដើម្បីឱ្យអ្នកទទួលអាចចុចរើសបាន ១ ភ្លែត
+      const oldZone = getOldStockZoneForItem(dispatch.sku, dispatch.toLocation);
       const zoneInp = document.getElementById('receiveDispatchZone');
       if (zoneInp) {
-        zoneInp.value = item?.zone || 'តំបន់ A (A01)';
+        zoneInp.value = ''; // ទុកឱ្យអ្នកទទួលទំនិញជាអ្នកបំពេញ
+        zoneInp.placeholder = oldZone ? `រើសតំបន់... (តំបន់ចាស់: ${oldZone})` : 'រើស ឬវាយបញ្ចូលតំបន់...';
         zoneInp.classList.remove('ring-2', 'ring-rose-500');
+      }
+
+      const oldZoneNotice = document.getElementById('receptionOldZoneNotice');
+      if (oldZoneNotice) {
+        if (oldZone) {
+          const parts = oldZone.split(/[,/| ]+/).map(p => p.trim()).filter(Boolean);
+          const uniqueItems = Array.from(new Set([oldZone, ...parts]));
+          oldZoneNotice.innerHTML = `
+            <span class="text-[10.5px] text-slate-500 font-medium flex items-center gap-1">
+              <i class="fa-solid fa-clock-rotate-left text-amber-500 text-[10px]"></i>
+              <span>តំបន់ស្តុកចាស់:</span>
+            </span>
+            ${uniqueItems.map(z => `
+              <button type="button" onclick="selectStockInZone('${escapeHtml(z)}')"
+                class="px-2 py-0.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-[10.5px] font-bold shadow-3xs flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
+                title="ចុចជ្រើសរើសតំបន់ស្តុកនេះ">
+                <i class="fa-solid fa-location-dot text-[9px] text-amber-600"></i>
+                <span>${escapeHtml(z)}</span>
+                <span class="text-[9px] text-amber-700 font-normal">(ចុចរើស)</span>
+              </button>
+            `).join('')}
+          `;
+          oldZoneNotice.classList.remove('hidden');
+        } else {
+          oldZoneNotice.innerHTML = '';
+          oldZoneNotice.classList.add('hidden');
+        }
       }
 
       // Receiver Name
