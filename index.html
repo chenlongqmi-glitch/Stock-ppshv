@@ -21132,7 +21132,7 @@ function saveLocalUsersToStorage() {
 
       if (cachedTxs && cachedTxs.length > 0) {
         AppState.stockInHistory = cachedTxs;
-        renderStockInHistoryTable(AppState.stockInHistory);
+        filterStockInHistoryTable();
       } else {
         const tbody = document.getElementById('stockInHistoryTableBody');
         if (tbody) {
@@ -21141,12 +21141,10 @@ function saveLocalUsersToStorage() {
       }
 
       try {
-        const activeWh = getStockInActiveWarehouseFilter();
-        const filterPayload = { type: 'STOCK_IN', limit: 200 };
-        if (activeWh && activeWh !== 'ALL' && activeWh !== 'គ្រប់ស្ថានីយទាំងអស់') {
-          filterPayload.warehouse = activeWh;
-        }
-        const res = await apiCall('getTransactionHistory', { filters: filterPayload });
+        // Query Google Sheets directly for STOCK_IN transactions (limit: 200)
+        // All active station filtering is handled client-side by matchesTargetWarehouse
+        // so that combo warehouses (中心库房 & 机电) and individual stations render accurately.
+        const res = await apiCall('getTransactionHistory', { filters: { type: 'STOCK_IN', limit: 200 } });
         if (res && res.success && Array.isArray(res.transactions)) {
           const cleanTxs = res.transactions.filter(t => {
             const doc = String(t.docNo || t.txId || '').toUpperCase();
@@ -21155,56 +21153,39 @@ function saveLocalUsersToStorage() {
             return !isTest;
           });
 
-          // Single Source of Truth: When connected to Google Sheets (not an offline local fallback),
-          // Google Sheets dictates the exact records. If Google Sheets returns empty for this station,
-          // it MUST display empty (0 records), and NEVER keep stale test records from cache!
-          if (!res.isLocalFallback) {
-            cleanTxs.forEach(t => {
-              const item = (AppState.items || []).find(i => (i.sku && t.sku && i.sku.toLowerCase() === t.sku.toLowerCase()) || (i.name && t.itemName && i.name.toLowerCase() === t.itemName.toLowerCase()));
-              if (!t.size && t.notes) {
-                const sm = t.notes.match(/\[(?:ខ្នាត|Size):\s*([^\]]+)\]/i);
-                if (sm) t.size = sm[1].trim();
-              }
-              if (!t.color && t.notes) {
-                const cm = t.notes.match(/\[(?:ពណ៌|Color):\s*([^\]]+)\]/i);
-                if (cm) t.color = cm[1].trim();
-              }
-              if (!t.zone && t.notes) {
-                const zm = t.notes.match(/\[(?:តំបន់|Zone):\s*([^\]]+)\]/i);
-                if (zm) t.zone = zm[1].trim();
-              }
-              if (!t.size && item?.size) t.size = String(item.size).trim();
-              if (!t.color && item?.color) t.color = String(item.color).trim();
-              if (!t.zone && item?.zone) t.zone = String(item.zone).trim();
-            });
-
-            AppState.stockInHistory = cleanTxs;
-            try {
-              localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(cleanTxs));
-            } catch(e) {}
-            renderStockInHistoryTable(AppState.stockInHistory);
-            return;
-          }
-
-          // If offline local fallback with 0 items, preserve valid non-test cache
-          if (cleanTxs.length === 0 && AppState.stockInHistory && AppState.stockInHistory.length > 0) {
-            renderStockInHistoryTable(AppState.stockInHistory);
-            return;
-          }
+          cleanTxs.forEach(t => {
+            const item = (AppState.items || []).find(i => (i.sku && t.sku && i.sku.toLowerCase() === t.sku.toLowerCase()) || (i.name && t.itemName && i.name.toLowerCase() === t.itemName.toLowerCase()));
+            if (!t.size && t.notes) {
+              const sm = t.notes.match(/\[(?:ខ្នាត|Size):\s*([^\]]+)\]/i);
+              if (sm) t.size = sm[1].trim();
+            }
+            if (!t.color && t.notes) {
+              const cm = t.notes.match(/\[(?:ពណ៌|Color):\s*([^\]]+)\]/i);
+              if (cm) t.color = cm[1].trim();
+            }
+            if (!t.zone && t.notes) {
+              const zm = t.notes.match(/\[(?:តំបន់|Zone):\s*([^\]]+)\]/i);
+              if (zm) t.zone = zm[1].trim();
+            }
+            if (!t.size && item?.size) t.size = String(item.size).trim();
+            if (!t.color && item?.color) t.color = String(item.color).trim();
+            if (!t.zone && item?.zone) t.zone = String(item.zone).trim();
+          });
 
           AppState.stockInHistory = cleanTxs;
           try {
             localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(cleanTxs));
           } catch(e) {}
-          renderStockInHistoryTable(AppState.stockInHistory);
+          filterStockInHistoryTable();
+          return;
         } else if (AppState.stockInHistory && AppState.stockInHistory.length > 0) {
-          renderStockInHistoryTable(AppState.stockInHistory);
+          filterStockInHistoryTable();
         } else {
           renderStockInHistoryTable([]);
         }
       } catch (err) {
         console.warn('loadStockInHistory error:', err);
-        renderStockInHistoryTable(AppState.stockInHistory || []);
+        filterStockInHistoryTable();
       }
     }
 
@@ -21233,7 +21214,7 @@ function saveLocalUsersToStorage() {
         q = '';
       }
       if (!q) {
-        renderStockInHistoryTable(baseList);
+        renderStockInHistoryTable(baseList, true);
         return;
       }
       const filtered = baseList.filter(t => {
@@ -21246,7 +21227,7 @@ function saveLocalUsersToStorage() {
                (t.receivedBy || t.user || '').toLowerCase().includes(q) ||
                (t.notes || '').toLowerCase().includes(q);
       });
-      renderStockInHistoryTable(filtered);
+      renderStockInHistoryTable(filtered, true);
     }
 
     window.toggleHistoryNote = function(noteId, btn) {
@@ -21296,13 +21277,27 @@ function saveLocalUsersToStorage() {
       return cleaned || '-';
     }
 
-    function renderStockInHistoryTable(rawTxs) {
+    function renderStockInHistoryTable(rawTxs, isFiltered = false) {
       const activeWh = getStockInActiveWarehouseFilter();
       const sInp = document.getElementById('stockInHistorySearch');
       const q = (sInp?.value || '').trim().toLowerCase();
       let txs = rawTxs || AppState.stockInHistory || [];
-      if (!q && activeWh && activeWh !== 'ALL' && activeWh !== 'គ្រប់ស្ថានីយទាំងអស់') {
-        txs = txs.filter(t => (typeof matchesTargetWarehouse === 'function') ? matchesTargetWarehouse(t.toLocation || t.location || t.warehouse || '', activeWh) : true);
+      if (!isFiltered) {
+        if (activeWh && activeWh !== 'ALL' && activeWh !== 'គ្រប់ស្ថានីយទាំងអស់') {
+          txs = txs.filter(t => (typeof matchesTargetWarehouse === 'function') ? matchesTargetWarehouse(t.toLocation || t.location || t.warehouse || '', activeWh) : true);
+        }
+        if (q) {
+          txs = txs.filter(t => {
+            return (t.docNo || t.txId || '').toLowerCase().includes(q) ||
+                   (t.itemName || '').toLowerCase().includes(q) ||
+                   (t.sku || '').toLowerCase().includes(q) ||
+                   (t.code || t.itemCode || '').toLowerCase().includes(q) ||
+                   (t.zone || '').toLowerCase().includes(q) ||
+                   (t.toLocation || t.location || '').toLowerCase().includes(q) ||
+                   (t.receivedBy || t.user || '').toLowerCase().includes(q) ||
+                   (t.notes || '').toLowerCase().includes(q);
+          });
+        }
       }
       const tbody = document.getElementById('stockInHistoryTableBody');
       const countEl = document.getElementById('stockInHistoryCount');
