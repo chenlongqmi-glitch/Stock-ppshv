@@ -6027,7 +6027,8 @@ function recordStockIn(dataOrPayload, user) {
     const stockSheets = ensureStockSheetsInitialized(ss);
     if (stockSheets && stockSheets.stockInSheet) {
       const now = new Date();
-      const cleanUserNote = (data.userNote !== undefined ? data.userNote : (data.notes || '')).replace(/\[[^\]]+\]/g, '').trim() || '-';
+      const cleanUserNote = cleanDisplayNoteGAS(data.userNote !== undefined ? data.userNote : (data.notes || ''));
+      const finalNote = (cleanUserNote && cleanUserNote !== '-') ? cleanUserNote : '-';
       stockSheets.stockInSheet.appendRow([
         data.docNo || '',
         Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd'),
@@ -6043,7 +6044,7 @@ function recordStockIn(dataOrPayload, user) {
         movementStr,
         location,
         data.receivedBy || (u ? (u.fullName || u.username) : 'Staff'),
-        cleanUserNote,
+        finalNote,
         u ? (u.fullName || u.username) : 'Staff',
         now
       ]);
@@ -6076,9 +6077,8 @@ function recordStockIn(dataOrPayload, user) {
 function cleanDisplayNoteGAS(rawNote) {
   if (!rawNote || rawNote === '-' || rawNote === 'undefined' || rawNote === 'null') return '-';
   let cleaned = String(rawNote)
-    .replace(/\[\s*(?:ឯកសារ|លេខឯកសារ|អ្នកទទួល|អ្នកបើក|អ្នកបើកចេញ|អ្នកបើកទំនិញ|ខ្នាត|ពណ៌|តំបន់|មូលហេតុ|ចូល|ចូលជាដុំ|ចូលជារាយ|ចេញ|ចេញជាដុំ|ចេញជារាយ|ដុំ|រាយ|ស្តុក|ស្តុកចាស់|ស្តុកថ្មី|ស្តុកនៅសល់|Stock|OldStock|NewStock|RemainingStock|Movement|StockMovement|Doc|DocNo|Receiver|Issuer|Size|Color|Zone|Reason)\s*:[^\]]*\]/gi, '')
+    .replace(/\[\s*(?:ឯកសារ|លេខឯកសារ|អ្នកទទួល|អ្នកបើក|អ្នកបើកចេញ|អ្នកបើកទំនិញ|ខ្នាត|ពណ៌|តំបន់|មូលហេតុ|ចូល|ចូលជាដុំ|ចូលជារាយ|ចេញ|ចេញជាដុំ|ចេញជារាយ|ដុំ|រាយ|ចែក|ស្តុក|ស្តុកចាស់|ស្តុកថ្មី|ស្តុកនៅសល់|Stock|OldStock|NewStock|RemainingStock|Movement|StockMovement|Doc|DocNo|Receiver|Issuer|Size|Color|Zone|Reason)\s*:[^\]]*\]/gi, '')
     .replace(/\[\s*[^\]]*(?:➔|->)\s*[^\]]*\]/gi, '')
-    .replace(/\[\s*[^\]]+\]/g, '')
     .trim();
   cleaned = cleaned.replace(/^[\s\-–—:]+|[\s\-–—:]+$/g, '').trim();
   return cleaned || '-';
@@ -7551,11 +7551,15 @@ function deleteStockTransaction(payloadOrData, user) {
 
   const targetSheetName = (txType === 'STOCK_OUT') ? 'Stock_out' : 'Stock_in';
   const targetSheet = findSheet(targetSheetName);
-  if (targetSheet) {
+  if (targetSheet && targetSheet.getLastRow() > 1) {
     const rows = targetSheet.getDataRange().getValues();
+    const headers = (rows[0] || []).map(h => String(h || '').trim().toLowerCase());
+    const docIdx = headers.findIndex(h => h.includes('docno') || h.includes('doc') || h.includes('ឯកសារ') || h.includes('txid'));
     for (let i = rows.length - 1; i >= 1; i--) {
-      const rDoc = String(rows[i][0]).trim();
-      if ((docNo && rDoc === docNo) || (txId && rDoc === txId)) {
+      const rDoc = String((docIdx >= 0 ? rows[i][docIdx] : rows[i][0]) || '').trim();
+      const rTx = String(rows[i][0] || '').trim();
+      if ((docNo && (rDoc.toLowerCase() === docNo.toLowerCase() || rTx.toLowerCase() === docNo.toLowerCase())) ||
+          (txId && (rDoc.toLowerCase() === txId.toLowerCase() || rTx.toLowerCase() === txId.toLowerCase()))) {
         targetSheet.deleteRow(i + 1);
         break;
       }
@@ -7579,6 +7583,9 @@ function updateStockTransaction(payloadOrData, user) {
   const oldQty = Number(data.oldQuantity || 0);
   const newQty = Number(data.newQuantity !== undefined ? data.newQuantity : (data.quantity || 0));
   const qtyDiff = newQty - oldQty;
+
+  const rawUserNote = (data.userNote !== undefined) ? String(data.userNote).trim() : (data.notes !== undefined ? String(data.notes).trim() : '');
+  const cleanUserNote = cleanDisplayNoteGAS(rawUserNote);
 
   // 1. Adjust Stock in Items sheet if quantity changed (and auto-heal image column)
   if (sku) {
@@ -7611,21 +7618,30 @@ function updateStockTransaction(payloadOrData, user) {
 
   // 2. Update in Transactions sheet
   const txSheet = ss.getSheetByName(SHEETS.TRANSACTIONS);
-  if (txSheet) {
+  if (txSheet && txSheet.getLastRow() > 1) {
     const txRows = txSheet.getDataRange().getValues();
+    const idxTxId = 0;
+    const idxTxDate = 1;
+    const idxTxQty = 5;
+    const idxTxTo = 10;
+    const idxTxNotes = 11;
+
     for (let i = 1; i < txRows.length; i++) {
-      const rTxId = String(txRows[i][0]).trim();
-      const rNotes = String(txRows[i][11] || '');
-      if ((txId && rTxId === txId) || (docNo && (rTxId === docNo || rNotes.includes(docNo)))) {
+      const rTxId = String(txRows[i][idxTxId] || '').trim();
+      const rNotes = String(txRows[i][idxTxNotes] || '');
+      const isMatch = (txId && rTxId.toLowerCase() === txId.toLowerCase()) ||
+                      (docNo && (rTxId.toLowerCase() === docNo.toLowerCase() || rNotes.toLowerCase().includes(docNo.toLowerCase())));
+      if (isMatch) {
         const rowNum = i + 1;
-        if (data.newQuantity !== undefined) txSheet.getRange(rowNum, 6).setValue(newQty);
-        if (data.toLocation) txSheet.getRange(rowNum, 11).setValue(data.toLocation);
-        if (data.date) txSheet.getRange(rowNum, 2).setValue(data.date);
+        if (data.newQuantity !== undefined) txSheet.getRange(rowNum, idxTxQty + 1).setValue(newQty);
+        if (data.toLocation) txSheet.getRange(rowNum, idxTxTo + 1).setValue(data.toLocation);
+        if (data.date) txSheet.getRange(rowNum, idxTxDate + 1).setValue(data.date);
 
         // Preserve and re-format metadata tags in Transactions sheet Reason_Notes column
-        const cleanUserNote = String(data.notes || '').replace(/\[[^\]]+\]/g, '').trim();
         const existingTxDoc = docNo || (rNotes.match(/\[(?:ឯកសារ|Doc|DocNo):\s*([^\]]+)\]/i) || [])[1] || rTxId;
         const finalRecBy = data.receivedBy || (rNotes.match(/\[(?:អ្នកទទួល|Receiver):\s*([^\]]+)\]/i) || [])[1] || '';
+        const finalIssuer = data.issuer || (rNotes.match(/\[(?:អ្នកបើក|អ្នកបើកចេញ|Issuer):\s*([^\]]+)\]/i) || [])[1] || '';
+        const finalReason = data.reason || (rNotes.match(/\[(?:មូលហេតុ|Reason):\s*([^\]]+)\]/i) || [])[1] || '';
         const finalSize = data.size || (rNotes.match(/\[(?:ខ្នាត|Size):\s*([^\]]+)\]/i) || [])[1] || '';
         const finalColor = data.color || (rNotes.match(/\[(?:ពណ៌|Color):\s*([^\]]+)\]/i) || [])[1] || '';
         const finalZone = data.zone || (rNotes.match(/\[(?:តំបន់|Zone):\s*([^\]]+)\]/i) || [])[1] || '';
@@ -7633,7 +7649,8 @@ function updateStockTransaction(payloadOrData, user) {
         const stockTag = (data.oldStock !== undefined && data.newStock !== undefined) ? `[ស្តុក: ${data.oldStock} ➔ ${data.newStock}]` : '';
         const internalFormattedNotes = [
           existingTxDoc ? `[ឯកសារ: ${existingTxDoc}]` : '',
-          finalRecBy ? `[អ្នកទទួល: ${finalRecBy}]` : '',
+          (txType === 'STOCK_OUT' && finalIssuer) ? `[អ្នកបើកចេញ: ${finalIssuer}]` : (finalRecBy ? `[អ្នកទទួល: ${finalRecBy}]` : ''),
+          finalReason ? `[មូលហេតុ: ${finalReason}]` : '',
           finalSize ? `[ខ្នាត: ${finalSize}]` : '',
           finalColor ? `[ពណ៌: ${finalColor}]` : '',
           finalZone ? `[តំបន់: ${finalZone}]` : '',
@@ -7641,7 +7658,7 @@ function updateStockTransaction(payloadOrData, user) {
           (cleanUserNote && cleanUserNote !== '-') ? cleanUserNote : ''
         ].filter(Boolean).join(' ') || '-';
 
-        txSheet.getRange(rowNum, 12).setValue(internalFormattedNotes);
+        txSheet.getRange(rowNum, idxTxNotes + 1).setValue(internalFormattedNotes);
         break;
       }
     }
@@ -7658,43 +7675,59 @@ function updateStockTransaction(payloadOrData, user) {
 
   const targetSheetName = (txType === 'STOCK_OUT') ? 'Stock_out' : 'Stock_in';
   const targetSheet = findSheet(targetSheetName);
-  if (targetSheet) {
+  if (targetSheet && targetSheet.getLastRow() > 1) {
     const rows = targetSheet.getDataRange().getValues();
+    const headers = (rows[0] || []).map(h => String(h || '').trim().toLowerCase());
+
+    const findHIdx = (keywords, defIdx) => {
+      const idx = headers.findIndex(h => keywords.some(k => h === k || h.includes(k)));
+      return idx >= 0 ? idx : defIdx;
+    };
+
+    const docIdx = findHIdx(['docno', 'doc', 'លេខឯកសារ', 'txid'], 0);
+    const dateIdx = findHIdx(['date', 'កាលបរិច្ឆេទ'], 1);
+    const skuIdx = findHIdx(['sku', 'កូដ'], 2);
+    const nameIdx = findHIdx(['itemname', 'item', 'name', 'ឈ្មោះ'], 3);
+    const sizeIdx = findHIdx(['size', 'ខ្នាត'], 4);
+    const colorIdx = findHIdx(['color', 'ពណ៌'], 5);
+    const zoneIdx = findHIdx(['zone', 'តំបន់'], 6);
+    const qtyIdx = findHIdx(['quantity', 'qty', 'ចំនួន'], 7);
+    const unitIdx = findHIdx(['unit', 'ឯកតា'], 8);
+    const oldStIdx = findHIdx(['oldstock', 'ស្តុកចាស់'], 9);
+    const remStIdx = findHIdx(['remainingstock', 'newstock', 'ស្តុកនៅសល់', 'ស្តុកថ្មី'], 10);
+    const movIdx = findHIdx(['movement', 'ចរន្ត', 'ស្តុកចាស់ ➔ ថ្មី'], 11);
+    const fromIdx = findHIdx(['from', 'fromlocation', 'warehouse', 'ឃ្លាំង', 'ស្ថានីយ', 'ចេញពី'], -1);
+    const toLocIdx = findHIdx(['tolocation', 'to', 'towarehouse', 'គោលដៅ', 'អតិថិជន', 'ទៅកាន់'], -1);
+    const recIdx = findHIdx(['receivedby', 'receiver', 'issuer', 'អ្នកទទួល', 'អ្នកបើក'], -1);
+    const reasonIdx = findHIdx(['reason', 'មូលហេតុ'], -1);
+    const notesIdx = findHIdx(['notes', 'note', 'សម្គាល់'], -1);
+
     for (let i = 1; i < rows.length; i++) {
-      const rDoc = String(rows[i][0]).trim();
-      if ((docNo && rDoc === docNo) || (txId && rDoc === txId)) {
+      const rDoc = String(docIdx >= 0 ? rows[i][docIdx] : rows[i][0]).trim();
+      const rTx = String(rows[i][0] || '').trim();
+      const isMatch = (docNo && (rDoc.toLowerCase() === docNo.toLowerCase() || rTx.toLowerCase() === docNo.toLowerCase())) ||
+                      (txId && (rDoc.toLowerCase() === txId.toLowerCase() || rTx.toLowerCase() === txId.toLowerCase()));
+      if (isMatch) {
         const rowNum = i + 1;
-        if (targetSheetName === 'Stock_in') {
-          if (data.docNo) targetSheet.getRange(rowNum, 1).setValue(data.docNo);
-          if (data.date) targetSheet.getRange(rowNum, 2).setValue(data.date);
-          if (data.size !== undefined) targetSheet.getRange(rowNum, 5).setValue(data.size);
-          if (data.color !== undefined) targetSheet.getRange(rowNum, 6).setValue(data.color);
-          if (data.zone !== undefined) targetSheet.getRange(rowNum, 7).setValue(data.zone);
-          if (data.newQuantity !== undefined) targetSheet.getRange(rowNum, 8).setValue(newQty);
-          if (data.oldStock !== undefined) targetSheet.getRange(rowNum, 10).setValue(data.oldStock);
-          if (data.newStock !== undefined) targetSheet.getRange(rowNum, 11).setValue(data.newStock);
-          if (data.stockMovement !== undefined) targetSheet.getRange(rowNum, 12).setValue(data.stockMovement);
-          if (data.toLocation) targetSheet.getRange(rowNum, 13).setValue(data.toLocation);
-          if (data.receivedBy) targetSheet.getRange(rowNum, 14).setValue(data.receivedBy);
-          if (data.notes !== undefined) {
-            const cleanNote = String(data.notes || '').replace(/\[[^\]]+\]/g, '').trim() || '-';
-            targetSheet.getRange(rowNum, 15).setValue(cleanNote);
-          }
-        } else {
-          if (data.docNo) targetSheet.getRange(rowNum, 1).setValue(data.docNo);
-          if (data.date) targetSheet.getRange(rowNum, 2).setValue(data.date);
-          if (data.size !== undefined) targetSheet.getRange(rowNum, 5).setValue(data.size);
-          if (data.color !== undefined) targetSheet.getRange(rowNum, 6).setValue(data.color);
-          if (data.zone !== undefined) targetSheet.getRange(rowNum, 7).setValue(data.zone);
-          if (data.newQuantity !== undefined) targetSheet.getRange(rowNum, 8).setValue(newQty);
-          if (data.oldStock !== undefined) targetSheet.getRange(rowNum, 10).setValue(data.oldStock);
-          if (data.newStock !== undefined) targetSheet.getRange(rowNum, 11).setValue(data.newStock);
-          if (data.stockMovement !== undefined) targetSheet.getRange(rowNum, 12).setValue(data.stockMovement);
-          targetSheet.getRange(rowNum, 13).setValue('បញ្ជូនមកពីចុងស៊ីន'); // Col 13: From
-          if (data.toLocation) targetSheet.getRange(rowNum, 14).setValue(data.toLocation); // Col 14: ToLocation
-          if (data.notes !== undefined) {
-            targetSheet.getRange(rowNum, 15).setValue(cleanDisplayNoteGAS(data.notes)); // Col 15: Notes
-          }
+        if (docIdx >= 0 && data.docNo) targetSheet.getRange(rowNum, docIdx + 1).setValue(data.docNo);
+        if (dateIdx >= 0 && data.date) targetSheet.getRange(rowNum, dateIdx + 1).setValue(data.date);
+        if (sizeIdx >= 0 && data.size !== undefined) targetSheet.getRange(rowNum, sizeIdx + 1).setValue(data.size);
+        if (colorIdx >= 0 && data.color !== undefined) targetSheet.getRange(rowNum, colorIdx + 1).setValue(data.color);
+        if (zoneIdx >= 0 && data.zone !== undefined) targetSheet.getRange(rowNum, zoneIdx + 1).setValue(data.zone);
+        if (qtyIdx >= 0 && data.newQuantity !== undefined) targetSheet.getRange(rowNum, qtyIdx + 1).setValue(newQty);
+        if (oldStIdx >= 0 && data.oldStock !== undefined) targetSheet.getRange(rowNum, oldStIdx + 1).setValue(data.oldStock);
+        if (remStIdx >= 0 && data.newStock !== undefined) targetSheet.getRange(rowNum, remStIdx + 1).setValue(data.newStock);
+        if (movIdx >= 0 && data.stockMovement !== undefined) targetSheet.getRange(rowNum, movIdx + 1).setValue(data.stockMovement);
+        if (fromIdx >= 0 && (data.fromLocation || data.location)) {
+          targetSheet.getRange(rowNum, fromIdx + 1).setValue(data.fromLocation || data.location);
+        }
+        if (toLocIdx >= 0 && data.toLocation) targetSheet.getRange(rowNum, toLocIdx + 1).setValue(data.toLocation);
+        if (recIdx >= 0 && (data.receivedBy || data.issuer)) {
+          targetSheet.getRange(rowNum, recIdx + 1).setValue(data.receivedBy || data.issuer);
+        }
+        if (reasonIdx >= 0 && data.reason) targetSheet.getRange(rowNum, reasonIdx + 1).setValue(data.reason);
+        if (notesIdx >= 0) {
+          targetSheet.getRange(rowNum, notesIdx + 1).setValue(cleanUserNote || '-');
         }
         break;
       }

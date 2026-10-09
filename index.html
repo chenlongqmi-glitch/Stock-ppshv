@@ -23211,7 +23211,8 @@ function saveLocalUsersToStorage() {
       const pQty = Math.max(1, Number(tx.packQty || item?.packQty || 1));
       const pUnit = (tx.packUnit || item?.packUnit || 'ប្រអប់').trim();
       const rUnit = (tx.unit || item?.unit || 'គូ').trim() || 'គូ';
-      const curNotes = escapeHtml(cleanDisplayNote(tx.notes || ''));
+      const rawCleanedNotes = cleanDisplayNote(tx.notes || '');
+      const curNotes = escapeHtml(rawCleanedNotes === '-' ? '' : rawCleanedNotes);
 
       // Determine initial bulk & retail quantities
       let initialBulk = 0;
@@ -23503,8 +23504,9 @@ function saveLocalUsersToStorage() {
         tx.receivedBy = v.receiver;
 
         // កំណត់សម្គាល់: រក្សាទុកតែអ្វីដែលអ្នកប្រើប្រាស់បានបញ្ចូល (បើទទេ គឺ '-')
-        let userNote = cleanDisplayNote(v.notes || '');
-        tx.notes = userNote || '-';
+        const userNoteRaw = v.notes ? String(v.notes).trim() : '';
+        const userNote = (userNoteRaw && userNoteRaw !== '-') ? userNoteRaw : '-';
+        tx.notes = userNote;
 
         // Update item in AppState.items & LOCAL_DB.items
         const itm = (AppState.items || []).find(i => (i.sku && tx.sku && i.sku.toLowerCase() === tx.sku.toLowerCase()));
@@ -23527,23 +23529,27 @@ function saveLocalUsersToStorage() {
         if (AppState.stockInHistory) {
           const sIdx = AppState.stockInHistory.findIndex(t => (tx.txId && t.txId === tx.txId) || (tx.docNo && t.docNo === tx.docNo));
           if (sIdx !== -1) {
-            AppState.stockInHistory[sIdx] = { ...AppState.stockInHistory[sIdx], ...tx, size: tx.size, color: tx.color, zone: tx.zone };
+            AppState.stockInHistory[sIdx] = { ...AppState.stockInHistory[sIdx], ...tx, size: tx.size, color: tx.color, zone: tx.zone, notes: userNote };
           }
         }
         if (AppState.transactions) {
           const tIdx = AppState.transactions.findIndex(t => (tx.txId && t.txId === tx.txId) || (tx.docNo && t.docNo === tx.docNo));
-          if (tIdx !== -1) AppState.transactions[tIdx] = { ...AppState.transactions[tIdx], ...tx, size: tx.size, color: tx.color, zone: tx.zone };
+          if (tIdx !== -1) AppState.transactions[tIdx] = { ...AppState.transactions[tIdx], ...tx, size: tx.size, color: tx.color, zone: tx.zone, notes: userNote };
         }
         if (LOCAL_DB.transactions) {
           const ltIdx = LOCAL_DB.transactions.findIndex(t => (tx.txId && t.txId === tx.txId) || (tx.docNo && t.docNo === tx.docNo));
-          if (ltIdx !== -1) LOCAL_DB.transactions[ltIdx] = { ...LOCAL_DB.transactions[ltIdx], ...tx, size: tx.size, color: tx.color, zone: tx.zone };
+          if (ltIdx !== -1) LOCAL_DB.transactions[ltIdx] = { ...LOCAL_DB.transactions[ltIdx], ...tx, size: tx.size, color: tx.color, zone: tx.zone, notes: userNote };
         }
 
         try {
-          localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(AppState.stockInHistory));
+          localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(AppState.stockInHistory || []));
         } catch(e) {}
         if (typeof saveLocalTransactionsToStorage === 'function') saveLocalTransactionsToStorage();
-        renderStockInHistoryTable(AppState.stockInHistory);
+        if (typeof filterStockInHistoryTable === 'function') {
+          filterStockInHistoryTable();
+        } else {
+          renderStockInHistoryTable(AppState.stockInHistory);
+        }
         if (typeof renderItemsTable === 'function') renderItemsTable();
         if (typeof loadDashboard === 'function') loadDashboard();
 
@@ -23567,7 +23573,8 @@ function saveLocalUsersToStorage() {
             zone: v.zone,
             toLocation: v.location,
             receivedBy: v.receiver,
-            notes: tx.notes
+            notes: userNote,
+            userNote: userNote
           }
         }).then(r => {
           if (!r || !r.success) console.warn('Update stock in cloud warning:', r?.message);
@@ -23696,7 +23703,8 @@ function saveLocalUsersToStorage() {
       const pQty = Math.max(1, Number(tx.packQty || item?.packQty || 1));
       const pUnit = (tx.packUnit || item?.packUnit || 'ប្រអប់').trim();
       const rUnit = (tx.unit || item?.unit || 'គូ').trim() || 'គូ';
-      const curNotes = escapeHtml(cleanDisplayNote(tx.notes || ''));
+      const rawCleanedNotes = cleanDisplayNote(tx.notes || '');
+      const curNotes = escapeHtml(rawCleanedNotes === '-' ? '' : rawCleanedNotes);
 
       // Determine initial bulk & retail quantities
       let initialBulk = 0;
@@ -23941,8 +23949,9 @@ function saveLocalUsersToStorage() {
         tx.reason = v.reason;
 
         // កំណត់សម្គាល់: រក្សាទុកតែអ្វីដែលអ្នកប្រើប្រាស់បានបញ្ចូល (បើទទេ គឺ '-')
-        let userNote = cleanDisplayNote(v.notes || '');
-        tx.notes = userNote || '-';
+        const userNoteRaw = v.notes ? String(v.notes).trim() : '';
+        const userNote = (userNoteRaw && userNoteRaw !== '-') ? userNoteRaw : '-';
+        tx.notes = userNote;
 
         if (qtyDiff !== 0) {
           const itm = (AppState.items || []).find(i => (i.sku && tx.sku && i.sku.toLowerCase() === tx.sku.toLowerCase()));
@@ -23952,18 +23961,35 @@ function saveLocalUsersToStorage() {
           if (typeof saveLocalItemsToStorage === 'function') saveLocalItemsToStorage();
         }
 
-        // Also sync in AppState.transactions & LOCAL_DB.transactions
+        // Also sync in AppState.stockOutHistory, AppState.transactions & LOCAL_DB.transactions
+        if (AppState.stockOutHistory) {
+          const sIdx = AppState.stockOutHistory.findIndex(t => (tx.txId && t.txId === tx.txId) || (tx.docNo && t.docNo === tx.docNo));
+          if (sIdx !== -1) {
+            AppState.stockOutHistory[sIdx] = { ...AppState.stockOutHistory[sIdx], ...tx, notes: userNote };
+          }
+        }
         if (AppState.transactions) {
           const tIdx = AppState.transactions.findIndex(t => (tx.txId && t.txId === tx.txId) || (tx.docNo && t.docNo === tx.docNo));
-          if (tIdx !== -1) AppState.transactions[tIdx] = { ...AppState.transactions[tIdx], ...tx };
+          if (tIdx !== -1) {
+            AppState.transactions[tIdx] = { ...AppState.transactions[tIdx], ...tx, notes: userNote };
+          }
         }
         if (LOCAL_DB.transactions) {
           const ltIdx = LOCAL_DB.transactions.findIndex(t => (tx.txId && t.txId === tx.txId) || (tx.docNo && t.docNo === tx.docNo));
-          if (ltIdx !== -1) LOCAL_DB.transactions[ltIdx] = { ...LOCAL_DB.transactions[ltIdx], ...tx };
+          if (ltIdx !== -1) {
+            LOCAL_DB.transactions[ltIdx] = { ...LOCAL_DB.transactions[ltIdx], ...tx, notes: userNote };
+          }
         }
 
+        try {
+          localStorage.setItem('inventory_stock_out_history_db', JSON.stringify(AppState.stockOutHistory || []));
+        } catch(e) {}
         if (typeof saveLocalTransactionsToStorage === 'function') saveLocalTransactionsToStorage();
-        renderStockOutHistoryTable(AppState.stockOutHistory);
+        if (typeof filterStockOutHistoryTable === 'function') {
+          filterStockOutHistoryTable();
+        } else {
+          renderStockOutHistoryTable(AppState.stockOutHistory);
+        }
         if (typeof renderItemsTable === 'function') renderItemsTable();
         if (typeof loadDashboard === 'function') loadDashboard();
 
@@ -23982,10 +24008,12 @@ function saveLocalUsersToStorage() {
             newStock: calculatedNewStock,
             stockMovement: '-' + v.newQty,
             date: v.date,
+            fromLocation: tx.fromLocation || tx.location || tx.warehouse,
             toLocation: v.location,
             issuer: v.issuer,
             reason: v.reason,
-            notes: tx.notes
+            notes: userNote,
+            userNote: userNote
           }
         }).then(r => {
           if (!r || !r.success) console.warn('Update stock out cloud warning:', r?.message);
