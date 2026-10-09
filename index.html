@@ -1842,6 +1842,45 @@
                     if (mobAvatar) mobAvatar.innerHTML = '<img src="' + avSrc + '" class="w-full h-full object-cover rounded-full pointer-events-none" style="width:100%;height:100%;object-fit:cover;border-radius:9999px;"><span class="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 border border-white rounded-full"></span>';
                   }
                 }
+                var isPrivileged = isUserPrivilegedAdmin(u);
+                var adminWh = document.getElementById('adminWarehouseFilterContainer');
+                var addBtn = document.getElementById('addWarehouseTopBtn');
+                var userWh = document.getElementById('userWarehouseBadgeContainer');
+                if (adminWh) {
+                  if (isPrivileged) {
+                    adminWh.classList.remove('hidden');
+                    adminWh.classList.add('flex');
+                    adminWh.style.display = 'flex';
+                  } else {
+                    adminWh.classList.add('hidden');
+                    adminWh.classList.remove('flex');
+                    adminWh.style.display = 'none';
+                  }
+                }
+                if (addBtn) {
+                  if (isPrivileged) {
+                    addBtn.classList.remove('hidden');
+                    addBtn.classList.add('flex');
+                    addBtn.style.display = 'flex';
+                  } else {
+                    addBtn.classList.add('hidden');
+                    addBtn.classList.remove('flex');
+                    addBtn.style.display = 'none';
+                  }
+                }
+                if (userWh) {
+                  if (!isPrivileged) {
+                    userWh.classList.remove('hidden');
+                    userWh.classList.add('flex');
+                    userWh.style.display = 'flex';
+                    var uNameEl = document.getElementById('userWarehouseName');
+                    if (uNameEl && u.warehouse) uNameEl.innerText = u.warehouse;
+                  } else {
+                    userWh.classList.add('hidden');
+                    userWh.classList.remove('flex');
+                    userWh.style.display = 'none';
+                  }
+                }
               }
             }
           } catch(e) {}
@@ -1874,9 +1913,9 @@
             <span id="currentDateDisplay" class="text-[11px] font-medium text-slate-600 font-sans"></span>
           </div>
 
-          <!-- Admin Global Warehouse Selector Filter (Visible for SuperAdmin and Admin) -->
-          <div id="adminWarehouseFilterContainer"
-            class="flex items-center space-x-1.5 bg-gradient-to-r from-blue-50 via-indigo-50 to-blue-50 border border-blue-200 hover:border-blue-300 rounded-xl px-2.5 sm:px-3 py-1.5 text-xs shadow-xs shrink-0 cursor-pointer transition">
+          <!-- Admin Global Warehouse Selector Filter (Visible for SuperAdmin and Admin ONLY) -->
+          <div id="adminWarehouseFilterContainer" style="display: none;"
+            class="hidden items-center space-x-1.5 bg-gradient-to-r from-blue-50 via-indigo-50 to-blue-50 border border-blue-200 hover:border-blue-300 rounded-xl px-2.5 sm:px-3 py-1.5 text-xs shadow-xs shrink-0 cursor-pointer transition">
             <div class="flex items-center space-x-1 text-blue-700 font-bold shrink-0">
               <i class="fa-solid fa-warehouse text-blue-600 text-xs"></i>
               <span class="hidden md:inline text-[11px]">ឃ្លាំង:</span>
@@ -1899,9 +1938,9 @@
             </select>
           </div>
 
-          <!-- Add / Manage Warehouse Button for Admin -->
-          <button id="addWarehouseTopBtn" onclick="navigateTab('warehouses')" title="គ្រប់គ្រងស្ថានីយ (សម្រាប់ Admin & SuperAdmin)"
-            class="flex px-3 py-1.5 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-xl text-xs font-bold items-center space-x-1.5 shadow-xs transition hover:scale-105 active:scale-95 shrink-0">
+          <!-- Add / Manage Warehouse Button for Admin (Visible for SuperAdmin and Admin ONLY) -->
+          <button id="addWarehouseTopBtn" onclick="navigateTab('warehouses')" title="គ្រប់គ្រងស្ថានីយ (សម្រាប់ Admin & SuperAdmin)" style="display: none;"
+            class="hidden px-3 py-1.5 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-xl text-xs font-bold items-center space-x-1.5 shadow-xs transition hover:scale-105 active:scale-95 shrink-0">
             <i class="fa-solid fa-warehouse text-xs"></i>
             <span class="hidden sm:inline">គ្រប់គ្រងស្ថានីយ</span>
           </button>
@@ -12004,10 +12043,12 @@ function saveLocalUsersToStorage() {
         if (adminWhContainer) {
           adminWhContainer.classList.add('hidden');
           adminWhContainer.classList.remove('flex');
+          adminWhContainer.style.display = 'none';
         }
         if (addWhBtn) {
           addWhBtn.classList.add('hidden');
           addWhBtn.classList.remove('flex');
+          addWhBtn.style.display = 'none';
         }
         if (userWhContainer) {
           userWhContainer.classList.remove('hidden');
