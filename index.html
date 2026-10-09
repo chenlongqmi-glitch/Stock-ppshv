@@ -1706,6 +1706,17 @@
               id="activeSessionWarehouseName">...</span>
           </div>
 
+          <!-- Live Clock & Date Badge for SuperAdmin and Admin (រូបភាពទី 1 នៅខាងឆ្វេងដៃនៃរូបភាពទី 2) -->
+          <div id="sessionBannerClockDateBtn" onclick="openKhmerCalendarModal()"
+            class="hidden items-center space-x-1.5 bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded-xl border border-white/20 backdrop-blur-md shadow-sm transition-all text-white text-xs cursor-pointer select-none group"
+            title="ចុចដើម្បីមើលប្រតិទិនចន្ទគតិខ្មែរ (Khmer Lunar Calendar)">
+            <i class="fa-regular fa-clock text-blue-200 group-hover:text-cyan-300 text-xs transition"></i>
+            <span id="sessionBannerDateDisplay" class="text-[11px] font-medium text-white group-hover:text-cyan-200 font-sans"></span>
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-white/20 text-white border border-white/30 backdrop-blur-sm group-hover:bg-cyan-500 group-hover:text-slate-950 transition ml-0.5">
+              <i class="fa-regular fa-calendar-days text-[10px] mr-1"></i>ប្រតិទិន
+            </span>
+          </div>
+
           <!-- រយៈពេលចូលប្រើប្រាស់ (Live Session Duration Timer Badge) -->
           <div class="flex items-center space-x-1.5 bg-white/10 hover:bg-white/15 px-2.5 py-1 rounded-xl border border-white/20 backdrop-blur-md shadow-sm transition-colors" title="រយៈពេលកំពុងដំណើរការ Session នេះ">
             <span class="w-4 h-4 rounded-full bg-cyan-400 text-slate-950 flex items-center justify-center text-[9px] font-black shadow">
@@ -1867,9 +1878,10 @@
                   roleEl.className = rClass;
                 }
                 var isPrivileged = isUserPrivilegedAdmin(u);
+                var isSuperOrAdmin = (isPrivileged || isSA || u.role === 'Admin');
                 var whContainer = document.getElementById('activeSessionWarehouseContainer');
                 if (whContainer) {
-                  if (isPrivileged || isSA || u.role === 'Admin') {
+                  if (isSuperOrAdmin) {
                     whContainer.classList.add('hidden');
                     whContainer.classList.remove('flex');
                     whContainer.style.display = 'none';
@@ -1877,6 +1889,31 @@
                     whContainer.classList.remove('hidden');
                     whContainer.classList.add('flex');
                     whContainer.style.display = 'flex';
+                  }
+                }
+                var bannerClock = document.getElementById('sessionBannerClockDateBtn');
+                var headerClock = document.getElementById('headerClockDateBtn');
+                if (isSuperOrAdmin) {
+                  if (bannerClock) {
+                    bannerClock.classList.remove('hidden');
+                    bannerClock.classList.add('flex');
+                    bannerClock.style.display = 'flex';
+                  }
+                  if (headerClock) {
+                    headerClock.classList.add('hidden');
+                    headerClock.classList.remove('flex', 'lg:flex');
+                    headerClock.style.display = 'none';
+                  }
+                } else {
+                  if (bannerClock) {
+                    bannerClock.classList.add('hidden');
+                    bannerClock.classList.remove('flex');
+                    bannerClock.style.display = 'none';
+                  }
+                  if (headerClock) {
+                    headerClock.classList.remove('hidden');
+                    headerClock.classList.add('lg:flex');
+                    headerClock.style.display = '';
                   }
                 }
                 var whEl = document.getElementById('activeSessionWarehouseName');
@@ -9094,8 +9131,11 @@ function saveLocalUsersToStorage() {
     window.formatKhmerDateTime = formatKhmerDateTime;
 
     function updateClock() {
+      const nowStr = formatKhmerDateTime(new Date());
       const dateEl = document.getElementById('currentDateDisplay');
-      if (dateEl) dateEl.innerText = formatKhmerDateTime(new Date());
+      if (dateEl) dateEl.innerText = nowStr;
+      const bannerDateEl = document.getElementById('sessionBannerDateDisplay');
+      if (bannerDateEl) bannerDateEl.innerText = nowStr;
     }
 
     // =========================================================================
@@ -12861,6 +12901,32 @@ function saveLocalUsersToStorage() {
         }
       }
 
+      const bannerClock = document.getElementById('sessionBannerClockDateBtn');
+      const headerClock = document.getElementById('headerClockDateBtn');
+      if (isPrivilegedAdmin) {
+        if (bannerClock) {
+          bannerClock.classList.remove('hidden');
+          bannerClock.classList.add('flex');
+          bannerClock.style.display = 'flex';
+        }
+        if (headerClock) {
+          headerClock.classList.add('hidden');
+          headerClock.classList.remove('flex', 'lg:flex');
+          headerClock.style.display = 'none';
+        }
+      } else {
+        if (bannerClock) {
+          bannerClock.classList.add('hidden');
+          bannerClock.classList.remove('flex');
+          bannerClock.style.display = 'none';
+        }
+        if (headerClock) {
+          headerClock.classList.remove('hidden');
+          headerClock.classList.add('lg:flex');
+          headerClock.style.display = '';
+        }
+      }
+
       const sessionWarehouseName = document.getElementById('activeSessionWarehouseName');
       if (sessionWarehouseName) {
         if (isPrivilegedAdmin) {
@@ -13394,12 +13460,26 @@ function saveLocalUsersToStorage() {
 
       // Sync Active Session Warehouse Badge
       const sessionWhContainer = document.getElementById('activeSessionWarehouseContainer');
+      const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(u) : (u?.role === 'Admin' || u?.role === 'SuperAdmin');
       if (sessionWhContainer) {
-        const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(u) : (u?.role === 'Admin' || u?.role === 'SuperAdmin');
         if (isPrivileged) {
           sessionWhContainer.classList.add('hidden');
           sessionWhContainer.classList.remove('flex');
           sessionWhContainer.style.display = 'none';
+        }
+      }
+      const bannerClock = document.getElementById('sessionBannerClockDateBtn');
+      const headerClock = document.getElementById('headerClockDateBtn');
+      if (isPrivileged) {
+        if (bannerClock) {
+          bannerClock.classList.remove('hidden');
+          bannerClock.classList.add('flex');
+          bannerClock.style.display = 'flex';
+        }
+        if (headerClock) {
+          headerClock.classList.add('hidden');
+          headerClock.classList.remove('flex', 'lg:flex');
+          headerClock.style.display = 'none';
         }
       }
       const sessionWarehouseName = document.getElementById('activeSessionWarehouseName');
