@@ -117,6 +117,10 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 
+  <!-- Khmer Lunar Calendar Library (MomentKH) -->
+  <script src="assets/momentkh.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@thyrith/momentkh@3.0.3/momentkh.js"></script>
+
   <style>
     /* Avatar circular crop box preview */
     .cropper-avatar-mode .cropper-view-box,
@@ -1952,11 +1956,23 @@
         </div>
 
         <div class="flex items-center space-x-1 sm:space-x-1.5 md:space-x-3 shrink-0 min-w-0 justify-end">
-          <!-- Live Clock & Date Badge -->
-          <div class="hidden xl:flex items-center space-x-1.5 bg-slate-100/90 border border-slate-200 rounded-xl px-2.5 py-1.5 text-slate-600 text-xs shadow-2xs shrink-0" title="កាលបរិច្ឆេទ & ម៉ោង">
-            <i class="fa-regular fa-clock text-slate-400 text-xs"></i>
-            <span id="currentDateDisplay" class="text-[11px] font-medium text-slate-600 font-sans"></span>
+          <!-- Live Clock & Date Badge (Click to open Khmer Lunar Calendar) -->
+          <div id="headerClockDateBtn" onclick="openKhmerCalendarModal()"
+            class="hidden lg:flex items-center space-x-1.5 bg-slate-100/90 hover:bg-blue-50/90 border border-slate-200 hover:border-blue-300 rounded-xl px-2.5 py-1.5 text-slate-600 hover:text-blue-700 text-xs shadow-2xs shrink-0 cursor-pointer transition select-none group"
+            title="ចុចដើម្បីមើលប្រតិទិនចន្ទគតិខ្មែរ (Khmer Lunar Calendar)">
+            <i class="fa-regular fa-clock text-slate-400 group-hover:text-blue-500 text-xs transition"></i>
+            <span id="currentDateDisplay" class="text-[11px] font-medium text-slate-600 group-hover:text-blue-700 font-sans"></span>
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-blue-100 text-blue-700 group-hover:bg-blue-600 group-hover:text-white transition ml-0.5">
+              <i class="fa-regular fa-calendar-days text-[10px] mr-1"></i>ប្រតិទិន
+            </span>
           </div>
+
+          <!-- Mobile Calendar Icon Button -->
+          <button id="mobileCalendarBtn" onclick="openKhmerCalendarModal()"
+            class="lg:hidden flex items-center justify-center w-8 h-8 rounded-xl bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600 border border-slate-200 transition shrink-0"
+            title="ប្រតិទិនចន្ទគតិខ្មែរ (Khmer Lunar Calendar)">
+            <i class="fa-regular fa-calendar-days text-xs text-blue-600"></i>
+          </button>
 
           <!-- Admin Global Warehouse Selector Filter (Visible for SuperAdmin and Admin ONLY) -->
           <div id="adminWarehouseFilterContainer"
@@ -6321,6 +6337,109 @@
     </div>
   </div>
 
+  <!-- ========================================================================= -->
+  <!-- KHMER LUNAR CALENDAR MODAL (ប្រតិទិនចន្ទគតិខ្មែរ)                           -->
+  <!-- Inspired by khmer-lunar-calendar.com (Clean, Compact, Buddhist Era & Holidays) -->
+  <!-- ========================================================================= -->
+  <div id="khmerCalendarModal" onclick="if(event.target === this) closeKhmerCalendarModal()"
+    class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-xs select-none">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-[420px] overflow-hidden flex flex-col transition-all">
+      
+      <!-- 1. Header: Month/Year & Navigation Controls -->
+      <div class="px-3.5 pt-3.5 pb-2.5 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-slate-50 via-white to-blue-50/40 dark:from-slate-800/80 dark:to-slate-900 flex items-center justify-between">
+        <div class="flex flex-col min-w-0 pr-2">
+          <div class="flex items-center space-x-1.5">
+            <h3 id="calHeaderMonthYear" class="text-sm sm:text-base font-black text-slate-900 dark:text-white leading-tight font-sans truncate">
+              ខែតុលា ឆ្នាំ២០២៦
+            </h3>
+            <span id="calHeaderAnimalEmoji" class="text-base shrink-0" title="ឆ្នាំนัก្សត្រ">🐎</span>
+          </div>
+          <p id="calHeaderLunarSubtitle" class="text-[11px] font-semibold text-amber-700 dark:text-amber-400 mt-0.5 font-sans truncate">
+            ព.ស. ២៥៧០ • ឆ្នាំមមី អដ្ឋស័ក
+          </p>
+        </div>
+
+        <!-- Controls: Today, Prev, Next, Close -->
+        <div class="flex items-center space-x-1 shrink-0">
+          <button type="button" onclick="calGoToToday()" title="ត្រឡប់មកថ្ងៃនេះ"
+            class="px-2 py-1 text-[11px] font-bold text-blue-700 dark:text-blue-300 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 rounded-lg transition flex items-center space-x-1 cursor-pointer">
+            <i class="fa-solid fa-bullseye text-[10px]"></i>
+            <span>ថ្ងៃនេះ</span>
+          </button>
+          <button type="button" onclick="calNavigateMonth(-1)" title="ខែមុន"
+            class="w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer">
+            <i class="fa-solid fa-chevron-left text-xs"></i>
+          </button>
+          <button type="button" onclick="calNavigateMonth(1)" title="ខែបន្ទាប់"
+            class="w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer">
+            <i class="fa-solid fa-chevron-right text-xs"></i>
+          </button>
+          <button type="button" onclick="closeKhmerCalendarModal()" title="បិទ (Esc)"
+            class="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer ml-0.5">
+            <i class="fa-solid fa-xmark text-sm"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- 2. Weekday Column Headers (7 days) -->
+      <div class="grid grid-cols-7 gap-1 px-2.5 pt-2 pb-1 text-center border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 text-xs font-black">
+        <span class="text-rose-600" title="ថ្ងៃអាទិត្យ (Sunday)">អា</span>
+        <span class="text-slate-700 dark:text-slate-300" title="ថ្ងៃច័ន្ទ (Monday)">ច</span>
+        <span class="text-slate-700 dark:text-slate-300" title="ថ្ងៃអង្គារ (Tuesday)">អ</span>
+        <span class="text-slate-700 dark:text-slate-300" title="ថ្ងៃពុធ (Wednesday)">ព</span>
+        <span class="text-slate-700 dark:text-slate-300" title="ថ្ងៃព្រហស្បតិ៍ (Thursday)">ព្រ</span>
+        <span class="text-slate-700 dark:text-slate-300" title="ថ្ងៃសុក្រ (Friday)">សុ</span>
+        <span class="text-indigo-600 dark:text-indigo-400" title="ថ្ងៃសៅរ៍ (Saturday)">ស</span>
+      </div>
+
+      <!-- 3. Calendar Days Grid (7 columns x 5 or 6 rows) -->
+      <div id="calDaysGrid" class="grid grid-cols-7 gap-1 p-2.5 bg-white dark:bg-slate-900">
+        <!-- Rendered dynamically via renderKhmerCalendarGrid() -->
+      </div>
+
+      <!-- 4. Selected Date Detail Card -->
+      <div class="px-2.5 pb-2">
+        <div id="calSelectedDayCard" class="p-2.5 bg-gradient-to-br from-slate-50 to-blue-50/50 dark:from-slate-800 dark:to-slate-800/70 rounded-xl border border-slate-200/90 dark:border-slate-700 flex flex-col space-y-1">
+          <div class="flex items-center justify-between">
+            <span id="calDetailSolarFull" class="text-xs font-bold text-slate-800 dark:text-white font-sans"></span>
+            <div id="calDetailBadges" class="flex items-center space-x-1"></div>
+          </div>
+          <div class="text-[11px] font-semibold text-blue-700 dark:text-blue-300 font-sans flex items-center space-x-1.5">
+            <i class="fa-solid fa-moon text-amber-500 text-[10px]"></i>
+            <span id="calDetailLunarFull"></span>
+          </div>
+          <div id="calDetailHolidayContainer" class="hidden text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md self-start flex items-center space-x-1">
+            <i class="fa-solid fa-gift text-rose-500"></i>
+            <span id="calDetailHolidayName"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. Legend & Quick Action Footer -->
+      <div class="px-3 pb-2.5 pt-0 flex items-center justify-between text-[10px] text-slate-400 dark:text-slate-500 border-t border-slate-100 dark:border-slate-800 pt-2">
+        <div class="flex items-center space-x-2.5 flex-wrap">
+          <span class="flex items-center space-x-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-blue-600 inline-block"></span>
+            <span class="text-slate-600 dark:text-slate-400">ថ្ងៃនេះ</span>
+          </span>
+          <span class="flex items-center space-x-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block"></span>
+            <span class="text-slate-600 dark:text-slate-400">ថ្ងៃសីល (☸️)</span>
+          </span>
+          <span class="flex items-center space-x-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>
+            <span class="text-slate-600 dark:text-slate-400">បុណ្យជាតិ</span>
+          </span>
+        </div>
+        <button type="button" onclick="calCopySelectedDate()" class="text-blue-600 hover:text-blue-700 dark:text-blue-400 font-medium hover:underline flex items-center space-x-1 cursor-pointer">
+          <i class="fa-regular fa-copy text-[10px]"></i>
+          <span>ចម្លងកាលបរិច្ឆេទ</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
 
     <!-- 4. JAVASCRIPT LOGIC & STATE MANAGEMENT -->
   <!-- ========================================== -->
@@ -8921,6 +9040,390 @@ function saveLocalUsersToStorage() {
       const dateEl = document.getElementById('currentDateDisplay');
       if (dateEl) dateEl.innerText = formatKhmerDateTime(new Date());
     }
+
+    // =========================================================================
+    // KHMER LUNAR CALENDAR ENGINE & INTERACTIVE MODAL CONTROLLER
+    // Inspired by https://khmer-lunar-calendar.com/
+    // =========================================================================
+    const KHMER_CAL_MONTH_NAMES = [
+      'ខែមករា', 'ខែកុម្ភៈ', 'ខែមីនា', 'ខែមេសា', 'ខែឧសភា', 'ខែមិថុនា',
+      'ខែកក្កដា', 'ខែសីហា', 'ខែកញ្ញា', 'ខែតុលា', 'ខែវិច្ឆិកា', 'ខែធ្នូ'
+    ];
+
+    const KHMER_CAL_DAYS_FULL = [
+      'ថ្ងៃអាទិត្យ', 'ថ្ងៃច័ន្ទ', 'ថ្ងៃអង្គារ', 'ថ្ងៃពុធ', 'ថ្ងៃព្រហស្បតិ៍', 'ថ្ងៃសុក្រ', 'ថ្ងៃសៅរ៍'
+    ];
+
+    const CAMBODIAN_PUBLIC_HOLIDAYS = {
+      '1-1': 'ទិវាចូលឆ្នាំសកល',
+      '1-7': 'ទិវាជ័យជម្នះលើរបបប្រល័យពូជសាសន៍',
+      '3-8': 'ទិវាអន្តរជាតិនារី',
+      '4-13': 'ពិធីបុណ្យចូលឆ្នាំថ្មីប្រពៃណីជាតិ (ថ្ងៃទី១)',
+      '4-14': 'ពិធីបុណ្យចូលឆ្នាំថ្មីប្រពៃណីជាតិ (ថ្ងៃទី២)',
+      '4-15': 'ពិធីបុណ្យចូលឆ្នាំថ្មីប្រពៃណីជាតិ (ថ្ងៃទី៣)',
+      '4-16': 'ពិធីបុណ្យចូលឆ្នាំថ្មីប្រពៃណីជាតិ (ថ្ងៃទី៤)',
+      '5-1': 'ទិវាពលកម្មអន្តរជាតិ',
+      '5-14': 'ព្រះរាជពិធីបុណ្យចម្រើនព្រះជន្ម ព្រះករុណា ព្រះមហាក្សត្រ',
+      '6-18': 'ព្រះរាជពិធីបុណ្យចម្រើនព្រះជន្ម សម្តេចព្រះមហាក្សត្រី',
+      '9-24': 'ទិវាប្រកាសរដ្ឋធម្មនុញ្ញ',
+      '10-15': 'ទិវាប្រារព្ធពិធីគោរពព្រះវិញ្ញាណក្ខន្ធ ព្រះបរមរតនកោដ្ឋ',
+      '10-29': 'ព្រះរាជពិធីគ្រងព្រះបរមរាជសម្បត្តិ',
+      '11-9': 'ពិធីបុណ្យឯករាជ្យជាតិ'
+    };
+
+    const CAMBODIAN_LUNAR_HOLIDAYS = {
+      'ពិសាខ_15_0': 'ពិធីបុណ្យពិសាខបូជា',
+      'ពិសាខ_4_1': 'ព្រះរាជពិធីច្រត់ព្រះនង្គ័ល',
+      'ភទ្របទ_14_1': 'ពិធីបុណ្យភ្ជុំបិណ្ឌ (ថ្ងៃទី១)',
+      'ភទ្របទ_15_1': 'ពិធីបុណ្យភ្ជុំបិណ្ឌ (ថ្ងៃភ្ជុំធំ)',
+      'អស្សុជ_1_0': 'ពិធីបុណ្យភ្ជុំបិណ្ឌ (ថ្ងៃទី៣)',
+      'កត្ដិក_14_0': 'ព្រះរាជពិធីបុណ្យអុំទូក (ថ្ងៃទី១)',
+      'កត្ដិក_15_0': 'ព្រះរាជពិធីបុណ្យអុំទូក បណ្តែតប្រទីប និងសំពះព្រះខែ (ថ្ងៃទី២)',
+      'កត្ដិក_1_1': 'ព្រះរាជពិធីបុណ្យអុំទូក (ថ្ងៃទី៣)',
+      'មាឃ_15_0': 'ពិធីបុណ្យមាឃបូជា'
+    };
+
+    const KHMER_ANIMAL_EMOJIS = ['🐀', '🐂', '🐅', '🐇', '🐉', '🐍', '🐎', '🐐', '🐒', '🐓', '🐕', '🐖'];
+
+    function toKhmerDigits(num) {
+      const khmerDigits = ['០', '១', '២', '៣', '៤', '៥', '៦', '៧', '៨', '៩'];
+      return String(num).replace(/[0-9]/g, d => khmerDigits[d]);
+    }
+
+    let KhmerCalState = {
+      viewYear: new Date().getFullYear(),
+      viewMonth: new Date().getMonth(), // 0 - 11
+      selectedDate: new Date()
+    };
+
+    function getKhmerDayDetails(date) {
+      let kData = null;
+      let isLastWaningDay = false;
+
+      if (typeof momentkh !== 'undefined' && momentkh && typeof momentkh.fromDate === 'function') {
+        try {
+          kData = momentkh.fromDate(date);
+          const nextD = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
+          const nextKD = momentkh.fromDate(nextD);
+          if (kData && nextKD && kData.khmer && nextKD.khmer) {
+            isLastWaningDay = (kData.khmer.moonPhase === 1 && nextKD.khmer.moonPhase === 0);
+          }
+        } catch(e) {
+          kData = null;
+        }
+      }
+
+      // Safe Fallback calculation if library not loaded
+      if (!kData || !kData.khmer) {
+        const anchor = new Date('2026-10-11T00:00:00Z').getTime();
+        const diffDays = Math.round((date.getTime() - anchor) / 86400000);
+        const synodic = 29.53058867;
+        let pos = ((diffDays % synodic) + synodic) % synodic;
+        const moonPhase = pos < 15 ? 0 : 1;
+        const phaseDay = moonPhase === 0 ? Math.floor(pos) + 1 : Math.floor(pos - 15) + 1;
+        kData = {
+          khmer: {
+            day: Math.min(15, Math.max(1, phaseDay)),
+            moonPhase: moonPhase,
+            moonPhaseName: moonPhase === 0 ? 'កើត' : 'រោច',
+            monthName: 'ភទ្របទ',
+            beYear: 2570,
+            animalYear: 6,
+            animalYearName: 'មមី',
+            sakName: 'អដ្ឋស័ក'
+          }
+        };
+        isLastWaningDay = (kData.khmer.moonPhase === 1 && kData.khmer.day >= 14);
+      }
+
+      const km = kData.khmer;
+      let isSila = false;
+      let silaTitle = '';
+
+      if (km.day === 8 && km.moonPhase === 0) {
+        isSila = true;
+        silaTitle = '៨ កើត (ថ្ងៃសីល)';
+      } else if (km.day === 15 && km.moonPhase === 0) {
+        isSila = true;
+        silaTitle = '១៥ កើត (ពេញបូណ៌មី - ថ្ងៃសីល)';
+      } else if (km.day === 8 && km.moonPhase === 1) {
+        isSila = true;
+        silaTitle = '៨ រោច (ថ្ងៃសីល)';
+      } else if (isLastWaningDay) {
+        isSila = true;
+        silaTitle = `${toKhmerDigits(km.day)} រោច (ដាច់ខែ - ថ្ងៃសីល)`;
+      }
+
+      // Holiday Check
+      const solarKey = `${date.getMonth() + 1}-${date.getDate()}`;
+      const lunarKey = `${km.monthName}_${km.day}_${km.moonPhase}`;
+      const holiday = CAMBODIAN_PUBLIC_HOLIDAYS[solarKey] || CAMBODIAN_LUNAR_HOLIDAYS[lunarKey] || null;
+
+      const animalEmoji = (typeof momentkh !== 'undefined' && momentkh && momentkh.constants && momentkh.constants.AnimalYearEmojis)
+        ? (momentkh.constants.AnimalYearEmojis[km.animalYear] || '🐎')
+        : (KHMER_ANIMAL_EMOJIS[km.animalYear] || '🐎');
+
+      return {
+        date,
+        dayOfMonth: date.getDate(),
+        km,
+        lunarShort: `${toKhmerDigits(km.day)}${km.moonPhaseName}`,
+        isSila,
+        silaTitle,
+        holiday,
+        animalEmoji
+      };
+    }
+
+    function openKhmerCalendarModal() {
+      const now = new Date();
+      KhmerCalState.viewYear = now.getFullYear();
+      KhmerCalState.viewMonth = now.getMonth();
+      KhmerCalState.selectedDate = now;
+
+      renderKhmerCalendarGrid();
+
+      const modal = document.getElementById('khmerCalendarModal');
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    function closeKhmerCalendarModal() {
+      const modal = document.getElementById('khmerCalendarModal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function toggleKhmerCalendarModal() {
+      const modal = document.getElementById('khmerCalendarModal');
+      if (modal && !modal.classList.contains('hidden')) {
+        closeKhmerCalendarModal();
+      } else {
+        openKhmerCalendarModal();
+      }
+    }
+
+    function calNavigateMonth(delta) {
+      KhmerCalState.viewMonth += delta;
+      if (KhmerCalState.viewMonth < 0) {
+        KhmerCalState.viewMonth = 11;
+        KhmerCalState.viewYear -= 1;
+      } else if (KhmerCalState.viewMonth > 11) {
+        KhmerCalState.viewMonth = 0;
+        KhmerCalState.viewYear += 1;
+      }
+      renderKhmerCalendarGrid();
+    }
+
+    function calGoToToday() {
+      const now = new Date();
+      KhmerCalState.viewYear = now.getFullYear();
+      KhmerCalState.viewMonth = now.getMonth();
+      KhmerCalState.selectedDate = now;
+      renderKhmerCalendarGrid();
+    }
+
+    function calSelectDate(y, m, d) {
+      KhmerCalState.selectedDate = new Date(y, m, d);
+      renderKhmerCalendarGrid();
+    }
+
+    function renderKhmerCalendarGrid() {
+      const y = KhmerCalState.viewYear;
+      const m = KhmerCalState.viewMonth;
+
+      // 1. Update Header Title & Subtitle
+      const midMonthDate = new Date(y, m, 15);
+      const midMonthInfo = getKhmerDayDetails(midMonthDate);
+
+      const headerTitleEl = document.getElementById('calHeaderMonthYear');
+      if (headerTitleEl) {
+        headerTitleEl.innerText = `${KHMER_CAL_MONTH_NAMES[m]} ឆ្នាំ${toKhmerDigits(y)}`;
+      }
+
+      const animalEmojiEl = document.getElementById('calHeaderAnimalEmoji');
+      if (animalEmojiEl) {
+        animalEmojiEl.innerText = midMonthInfo.animalEmoji;
+      }
+
+      const lunarSubEl = document.getElementById('calHeaderLunarSubtitle');
+      if (lunarSubEl) {
+        lunarSubEl.innerText = `ព.ស. ${toKhmerDigits(midMonthInfo.km.beYear)} • ឆ្នាំ${midMonthInfo.km.animalYearName} ${midMonthInfo.km.sakName}`;
+      }
+
+      // 2. Generate 35 or 42 grid cells
+      const firstDay = new Date(y, m, 1);
+      const lastDay = new Date(y, m + 1, 0);
+      const totalDays = lastDay.getDate();
+      const startDayOfWeek = firstDay.getDay(); // 0 = Sunday
+
+      const prevMonthLastDay = new Date(y, m, 0).getDate();
+      const cells = [];
+
+      // Trailing days from previous month
+      for (let i = startDayOfWeek - 1; i >= 0; i--) {
+        const dayNum = prevMonthLastDay - i;
+        cells.push({
+          date: new Date(y, m - 1, dayNum),
+          dayNum,
+          isCurrentMonth: false
+        });
+      }
+
+      // Current month days
+      for (let d = 1; d <= totalDays; d++) {
+        cells.push({
+          date: new Date(y, m, d),
+          dayNum: d,
+          isCurrentMonth: true
+        });
+      }
+
+      // Leading days for next month
+      const remainingCells = (7 - (cells.length % 7)) % 7;
+      for (let d = 1; d <= remainingCells; d++) {
+        cells.push({
+          date: new Date(y, m + 1, d),
+          dayNum: d,
+          isCurrentMonth: false
+        });
+      }
+
+      // 3. Render HTML
+      const now = new Date();
+      const todayStr = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
+      const selected = KhmerCalState.selectedDate || now;
+      const selectedStr = `${selected.getFullYear()}-${selected.getMonth()}-${selected.getDate()}`;
+
+      const gridEl = document.getElementById('calDaysGrid');
+      if (!gridEl) return;
+
+      let gridHtml = '';
+      cells.forEach(c => {
+        const dStr = `${c.date.getFullYear()}-${c.date.getMonth()}-${c.date.getDate()}`;
+        const isToday = (dStr === todayStr);
+        const isSelected = (dStr === selectedStr);
+        const dayInfo = getKhmerDayDetails(c.date);
+
+        const dayOfWeek = c.date.getDay();
+        const isSun = (dayOfWeek === 0);
+
+        let cellClasses = 'relative flex flex-col items-center justify-between p-1 rounded-xl cursor-pointer transition select-none min-h-[46px] sm:min-h-[50px] ';
+
+        if (isToday) {
+          cellClasses += 'bg-blue-600 text-white font-bold shadow-xs hover:bg-blue-700 ';
+        } else if (isSelected) {
+          cellClasses += 'ring-2 ring-blue-500 bg-blue-50/90 dark:bg-blue-950/40 text-blue-900 dark:text-blue-200 ';
+        } else if (!c.isCurrentMonth) {
+          cellClasses += 'opacity-30 hover:opacity-75 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 ';
+        } else {
+          cellClasses += 'hover:bg-blue-50/80 dark:hover:bg-slate-800/80 text-slate-700 dark:text-slate-300 ';
+        }
+
+        // Solar number color
+        let solarColor = isToday ? 'text-white' : (isSun ? 'text-rose-600' : (dayInfo.holiday ? 'text-rose-600 font-black' : 'text-slate-800 dark:text-slate-200'));
+
+        // Lunar text color
+        let lunarColor = isToday ? 'text-blue-100' : (dayInfo.isSila ? 'text-amber-600 font-bold' : 'text-slate-400 dark:text-slate-400');
+
+        // Sila Badge / Icon
+        let silaBadgeHtml = '';
+        if (dayInfo.isSila) {
+          silaBadgeHtml = `<span class="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full ${isToday ? 'bg-amber-300 ring-1 ring-white' : 'bg-amber-500'}" title="${dayInfo.silaTitle}"></span>`;
+        }
+
+        // Holiday Dot
+        let holidayDotHtml = '';
+        if (dayInfo.holiday && !isToday) {
+          holidayDotHtml = `<span class="absolute top-0.5 left-0.5 w-1.5 h-1.5 rounded-full bg-rose-500" title="${dayInfo.holiday}"></span>`;
+        }
+
+        gridHtml += `
+          <div class="${cellClasses}" onclick="calSelectDate(${c.date.getFullYear()}, ${c.date.getMonth()}, ${c.date.getDate()})">
+            ${silaBadgeHtml}
+            ${holidayDotHtml}
+            <span class="text-xs sm:text-[13px] font-bold ${solarColor} leading-none mt-0.5">
+              ${c.dayNum}
+            </span>
+            <span class="text-[9px] sm:text-[9.5px] leading-tight truncate max-w-full font-sans ${lunarColor}">
+              ${dayInfo.lunarShort}
+            </span>
+          </div>
+        `;
+      });
+
+      gridEl.innerHTML = gridHtml;
+
+      // 4. Update Selected Date Detail Card
+      updateCalDetailCard(selected);
+    }
+
+    function updateCalDetailCard(date) {
+      const dayInfo = getKhmerDayDetails(date);
+
+      const solarFullEl = document.getElementById('calDetailSolarFull');
+      if (solarFullEl) {
+        solarFullEl.innerText = `${KHMER_CAL_DAYS_FULL[date.getDay()]} ទី${String(date.getDate()).padStart(2, '0')} ${KHMER_CAL_MONTH_NAMES[date.getMonth()]} ឆ្នាំ${date.getFullYear()}`;
+      }
+
+      const lunarFullEl = document.getElementById('calDetailLunarFull');
+      if (lunarFullEl) {
+        const km = dayInfo.km;
+        lunarFullEl.innerText = `${KHMER_CAL_DAYS_FULL[date.getDay()]} ${toKhmerDigits(km.day)} ${km.moonPhaseName} ខែ${km.monthName} ឆ្នាំ${km.animalYearName} ${km.sakName} ព.ស. ${toKhmerDigits(km.beYear)}`;
+      }
+
+      const badgesContainer = document.getElementById('calDetailBadges');
+      if (badgesContainer) {
+        let bHtml = '';
+        if (dayInfo.isSila) {
+          bHtml += `<span class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-black bg-amber-100 text-amber-800 border border-amber-300 shadow-2xs">☸️ ថ្ងៃសីល</span>`;
+        }
+        badgesContainer.innerHTML = bHtml;
+      }
+
+      const holidayContainer = document.getElementById('calDetailHolidayContainer');
+      const holidayNameEl = document.getElementById('calDetailHolidayName');
+      if (holidayContainer && holidayNameEl) {
+        if (dayInfo.holiday) {
+          holidayContainer.classList.remove('hidden');
+          holidayNameEl.innerText = dayInfo.holiday;
+        } else {
+          holidayContainer.classList.add('hidden');
+        }
+      }
+    }
+
+    function calCopySelectedDate() {
+      const selected = KhmerCalState.selectedDate || new Date();
+      const dayInfo = getKhmerDayDetails(selected);
+      const km = dayInfo.km;
+      const solarFull = `${KHMER_CAL_DAYS_FULL[selected.getDay()]} ទី${String(selected.getDate()).padStart(2, '0')} ${KHMER_CAL_MONTH_NAMES[selected.getMonth()]} ឆ្នាំ${selected.getFullYear()}`;
+      const lunarFull = `${KHMER_CAL_DAYS_FULL[selected.getDay()]} ${toKhmerDigits(km.day)} ${km.moonPhaseName} ខែ${km.monthName} ឆ្នាំ${km.animalYearName} ${km.sakName} ព.ស. ${toKhmerDigits(km.beYear)}`;
+      let copyText = `${solarFull} (${lunarFull})`;
+      if (dayInfo.isSila) copyText += ` [${dayInfo.silaTitle}]`;
+      if (dayInfo.holiday) copyText += ` [${dayInfo.holiday}]`;
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(copyText).then(() => {
+          if (typeof Swal !== 'undefined') {
+            Swal.fire({
+              toast: true,
+              position: 'top-end',
+              icon: 'success',
+              title: 'បានចម្លងកាលបរិច្ឆេទដោយជោគជ័យ!',
+              showConfirmButton: false,
+              timer: 2000
+            });
+          }
+        });
+      }
+    }
+
+    window.openKhmerCalendarModal = openKhmerCalendarModal;
+    window.closeKhmerCalendarModal = closeKhmerCalendarModal;
+    window.toggleKhmerCalendarModal = toggleKhmerCalendarModal;
+    window.calNavigateMonth = calNavigateMonth;
+    window.calGoToToday = calGoToToday;
+    window.calSelectDate = calSelectDate;
+    window.calCopySelectedDate = calCopySelectedDate;
 
     // =========================================================================
     // HYPER-PERFORMANCE TURBO ENGINE: IN-MEMORY SWR CACHE & INSTANT OPTIMISTIC UI
