@@ -6697,8 +6697,7 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
 
       const wh = String(row[whIdx] || '').trim();
       if (targetWarehouse) {
-        const isGlobal = wh === 'គ្រប់ស្ថានីយទាំងអស់' || wh === 'ALL' || wh === 'គ្រប់ឃ្លាំង';
-        if (!isGlobal && !matchesTargetWarehouseGAS(wh, targetWarehouse)) {
+        if (!matchesTargetWarehouseGAS(wh, targetWarehouse)) {
           continue;
         }
       }
@@ -6838,8 +6837,7 @@ function getStockOutTransactionsFromSheet(ss, filters, user) {
       const fromWh = String(row[whIdx] || '').trim();
       const toWh = String(row[toLocIdx] || fromWh).trim();
       if (targetWarehouse) {
-        const isGlobal = fromWh === 'គ្រប់ស្ថានីយទាំងអស់' || fromWh === 'ALL' || fromWh === 'គ្រប់ឃ្លាំង' || toWh === 'គ្រប់ស្ថានីយទាំងអស់' || toWh === 'ALL';
-        if (!isGlobal && !matchesTargetWarehouseGAS(fromWh, targetWarehouse) && !matchesTargetWarehouseGAS(toWh, targetWarehouse)) {
+        if (!matchesTargetWarehouseGAS(fromWh, targetWarehouse) && !matchesTargetWarehouseGAS(toWh, targetWarehouse)) {
           continue;
         }
       }

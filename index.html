@@ -7110,7 +7110,7 @@ function saveLocalUsersToStorage() {
           if (!t) return;
           const doc = String(t.docNo || t.txId || '').toUpperCase();
           const notes = String(t.notes || '').toLowerCase();
-          if (doc.includes('TEST') || notes.includes('test auto sync')) return;
+          if (doc.includes('TEST') || notes.includes('test') || notes.includes('សាកល្បង')) return;
           const key = t.txId || t.docNo;
           if (key && seen.has(key)) return;
           if (key) seen.add(key);
@@ -10242,8 +10242,9 @@ function saveLocalUsersToStorage() {
         }
         if (targetWarehouse && targetWarehouse !== 'ALL' && targetWarehouse !== 'គ្រប់ឃ្លាំង' && targetWarehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
           txs = txs.filter(t => {
-            const isGlobal = t.toLocation === 'គ្រប់ស្ថានីយទាំងអស់' || t.toLocation === 'ALL' || t.fromLocation === 'គ្រប់ស្ថានីយទាំងអស់';
-            return isGlobal || t.fromLocation === targetWarehouse || t.toLocation === targetWarehouse;
+            return (typeof matchesTargetWarehouse === 'function') 
+              ? (matchesTargetWarehouse(t.toLocation, targetWarehouse) || matchesTargetWarehouse(t.fromLocation, targetWarehouse))
+              : (t.fromLocation === targetWarehouse || t.toLocation === targetWarehouse);
           });
         }
         return { success: true, transactions: txs, isLocalFallback: true };
@@ -20151,7 +20152,8 @@ function saveLocalUsersToStorage() {
               cachedTxs = parsed.filter(t => {
                 const doc = String(t.docNo || t.txId || '').toUpperCase();
                 const notes = String(t.notes || '').toLowerCase();
-                return !doc.includes('TEST') && !notes.includes('test auto sync');
+                const isTest = doc.includes('TEST') || notes.includes('test') || notes.includes('សាកល្បង');
+                return !isTest;
               });
             }
           }
@@ -20167,7 +20169,8 @@ function saveLocalUsersToStorage() {
               cachedTxs = parsedGen.filter(t => {
                 const doc = String(t.docNo || t.txId || '').toUpperCase();
                 const notes = String(t.notes || '').toLowerCase();
-                return t.type === 'STOCK_IN' && !doc.includes('TEST') && !notes.includes('test auto sync');
+                const isTest = doc.includes('TEST') || notes.includes('test') || notes.includes('សាកល្បង');
+                return t.type === 'STOCK_IN' && !isTest;
               });
             }
           }
@@ -20185,51 +20188,61 @@ function saveLocalUsersToStorage() {
       }
 
       try {
-        const res = await apiCall('getTransactionHistory', { filters: { type: 'STOCK_IN', limit: 200 } });
+        const activeWh = getStockInActiveWarehouseFilter();
+        const filterPayload = { type: 'STOCK_IN', limit: 200 };
+        if (activeWh && activeWh !== 'ALL' && activeWh !== 'គ្រប់ស្ថានីយទាំងអស់') {
+          filterPayload.warehouse = activeWh;
+        }
+        const res = await apiCall('getTransactionHistory', { filters: filterPayload });
         if (res && res.success && Array.isArray(res.transactions)) {
           const cleanTxs = res.transactions.filter(t => {
             const doc = String(t.docNo || t.txId || '').toUpperCase();
             const notes = String(t.notes || '').toLowerCase();
-            return !doc.includes('TEST') && !notes.includes('test auto sync');
+            const isTest = doc.includes('TEST') || notes.includes('test') || notes.includes('សាកល្បង');
+            return !isTest;
           });
 
-          // Safeguard: If incoming transactions are empty but we already have valid cached data,
-          // do NOT destroy the existing table on transient empty responses or local fallback
-          if (cleanTxs.length === 0 && AppState.stockInHistory && AppState.stockInHistory.length > 0) {
-            if (res.isLocalFallback || !forceRefresh) {
-              console.warn('[loadStockInHistory] Preserving cached stock in records against empty response');
-              renderStockInHistoryTable(AppState.stockInHistory);
-              return;
-            }
-          }
+          // Single Source of Truth: When connected to Google Sheets (not an offline local fallback),
+          // Google Sheets dictates the exact records. If Google Sheets returns empty for this station,
+          // it MUST display empty (0 records), and NEVER keep stale test records from cache!
+          if (!res.isLocalFallback) {
+            cleanTxs.forEach(t => {
+              const item = (AppState.items || []).find(i => (i.sku && t.sku && i.sku.toLowerCase() === t.sku.toLowerCase()) || (i.name && t.itemName && i.name.toLowerCase() === t.itemName.toLowerCase()));
+              if (!t.size && t.notes) {
+                const sm = t.notes.match(/\[(?:ខ្នាត|Size):\s*([^\]]+)\]/i);
+                if (sm) t.size = sm[1].trim();
+              }
+              if (!t.color && t.notes) {
+                const cm = t.notes.match(/\[(?:ពណ៌|Color):\s*([^\]]+)\]/i);
+                if (cm) t.color = cm[1].trim();
+              }
+              if (!t.zone && t.notes) {
+                const zm = t.notes.match(/\[(?:តំបន់|Zone):\s*([^\]]+)\]/i);
+                if (zm) t.zone = zm[1].trim();
+              }
+              if (!t.size && item?.size) t.size = String(item.size).trim();
+              if (!t.color && item?.color) t.color = String(item.color).trim();
+              if (!t.zone && item?.zone) t.zone = String(item.zone).trim();
+            });
 
-          // Auto-enrich transactions with Size, Color, Zone from items or notes
-          cleanTxs.forEach(t => {
-            const item = (AppState.items || []).find(i => (i.sku && t.sku && i.sku.toLowerCase() === t.sku.toLowerCase()) || (i.name && t.itemName && i.name.toLowerCase() === t.itemName.toLowerCase()));
-            if (!t.size && t.notes) {
-              const sm = t.notes.match(/\[(?:ខ្នាត|Size):\s*([^\]]+)\]/i);
-              if (sm) t.size = sm[1].trim();
-            }
-            if (!t.color && t.notes) {
-              const cm = t.notes.match(/\[(?:ពណ៌|Color):\s*([^\]]+)\]/i);
-              if (cm) t.color = cm[1].trim();
-            }
-            if (!t.zone && t.notes) {
-              const zm = t.notes.match(/\[(?:តំបន់|Zone):\s*([^\]]+)\]/i);
-              if (zm) t.zone = zm[1].trim();
-            }
-            if (!t.size && item?.size) t.size = String(item.size).trim();
-            if (!t.color && item?.color) t.color = String(item.color).trim();
-            if (!t.zone && item?.zone) t.zone = String(item.zone).trim();
-            if (!t.zone && (t.docNo === 'DOC-IN-20261007-3624' || t.docNo === 'DOC-IN-20261008-1222')) t.zone = 'A08';
-          });
-
-          AppState.stockInHistory = cleanTxs;
-          if (cleanTxs.length > 0 || forceRefresh) {
+            AppState.stockInHistory = cleanTxs;
             try {
               localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(cleanTxs));
             } catch(e) {}
+            renderStockInHistoryTable(AppState.stockInHistory);
+            return;
           }
+
+          // If offline local fallback with 0 items, preserve valid non-test cache
+          if (cleanTxs.length === 0 && AppState.stockInHistory && AppState.stockInHistory.length > 0) {
+            renderStockInHistoryTable(AppState.stockInHistory);
+            return;
+          }
+
+          AppState.stockInHistory = cleanTxs;
+          try {
+            localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(cleanTxs));
+          } catch(e) {}
           renderStockInHistoryTable(AppState.stockInHistory);
         } else if (AppState.stockInHistory && AppState.stockInHistory.length > 0) {
           renderStockInHistoryTable(AppState.stockInHistory);
@@ -20694,7 +20707,8 @@ function saveLocalUsersToStorage() {
               cachedTxs = parsed.filter(t => {
                 const doc = String(t.docNo || t.txId || '').toUpperCase();
                 const notes = String(t.notes || '').toLowerCase();
-                return !doc.includes('TEST') && !notes.includes('test auto sync');
+                const isTest = doc.includes('TEST') || notes.includes('test') || notes.includes('សាកល្បង');
+                return !isTest;
               });
             }
           }
@@ -20710,7 +20724,8 @@ function saveLocalUsersToStorage() {
               cachedTxs = parsedGen.filter(t => {
                 const doc = String(t.docNo || t.txId || '').toUpperCase();
                 const notes = String(t.notes || '').toLowerCase();
-                return t.type === 'STOCK_OUT' && !doc.includes('TEST') && !notes.includes('test auto sync');
+                const isTest = doc.includes('TEST') || notes.includes('test') || notes.includes('សាកល្បង');
+                return t.type === 'STOCK_OUT' && !isTest;
               });
             }
           }
@@ -20733,28 +20748,37 @@ function saveLocalUsersToStorage() {
           const cleanTxs = res.transactions.filter(t => {
             const doc = String(t.docNo || t.txId || '').toUpperCase();
             const notes = String(t.notes || '').toLowerCase();
-            return !doc.includes('TEST') && !notes.includes('test auto sync');
+            const isTest = doc.includes('TEST') || notes.includes('test') || notes.includes('សាកល្បង');
+            return !isTest;
           });
 
-          // Safeguard: If incoming transactions are empty but we already have valid cached data,
-          // do NOT destroy the existing table on transient empty responses or local fallback
-          if (cleanTxs.length === 0 && AppState.stockOutHistory && AppState.stockOutHistory.length > 0) {
-            if (res.isLocalFallback || !forceRefresh) {
-              console.warn('[loadStockOutHistory] Preserving cached stock out records against empty response');
-              renderStockOutHistoryTable(AppState.stockOutHistory);
-              return;
-            }
-          }
-
-          AppState.stockOutHistory = cleanTxs;
-          if (cleanTxs.length > 0 || forceRefresh) {
+          // Single Source of Truth: When connected to Google Sheets (not an offline local fallback),
+          // Google Sheets dictates the exact records. If Google Sheets returns empty for this station,
+          // it MUST display empty (0 records), and NEVER keep stale test records from cache!
+          if (!res.isLocalFallback) {
+            AppState.stockOutHistory = cleanTxs;
             try {
               localStorage.setItem('inventory_stock_out_history_db', JSON.stringify(cleanTxs));
             } catch(e) {}
+            renderStockOutHistoryTable(AppState.stockOutHistory);
+            return;
           }
+
+          // If offline local fallback with 0 items, preserve valid non-test cache
+          if (cleanTxs.length === 0 && AppState.stockOutHistory && AppState.stockOutHistory.length > 0) {
+            renderStockOutHistoryTable(AppState.stockOutHistory);
+            return;
+          }
+
+          AppState.stockOutHistory = cleanTxs;
+          try {
+            localStorage.setItem('inventory_stock_out_history_db', JSON.stringify(cleanTxs));
+          } catch(e) {}
           renderStockOutHistoryTable(AppState.stockOutHistory);
         } else if (AppState.stockOutHistory && AppState.stockOutHistory.length > 0) {
           renderStockOutHistoryTable(AppState.stockOutHistory);
+        } else {
+          renderStockOutHistoryTable([]);
         }
       } catch (err) {
         console.warn('loadStockOutHistory error:', err);
