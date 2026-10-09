@@ -677,6 +677,19 @@ function executeLocalApiAction(req) {
       'updateStockTransaction': true, 'updateTransaction': true, 'deleteStockTransaction': true, 'deleteTransaction': true
     };
     if (MUTATIONS[action]) {
+      const actor = payload.user || payload.actor;
+      if (actor) {
+        const aRole = String(actor.role || '').toLowerCase();
+        const aName = String(actor.username || '').toLowerCase();
+        const aEmail = String(actor.email || '').toLowerCase();
+        const isSA = aRole === 'superadmin' || aName === 'superadmin' || aName === 'chenlong' || aEmail === 'chenlongqmi@gmail.com';
+        if (!isSA && (aRole === 'admin' || aRole.includes('admin'))) {
+          const perms = actor.permissions;
+          if (perms && perms.viewOnly === true) {
+            return { success: false, message: 'គណនី Admin របស់អ្នកស្ថិតក្នុងកម្រិត View-Only មិនអាចបន្ថែម កែប្រែ ឬលុបទិន្នន័យបានទេ!' };
+          }
+        }
+      }
       invalidateAppCache();
       setGlobalDataVersion();
     }
@@ -1754,9 +1767,9 @@ function ensureUsersInitialized(ss) {
     setupDatabase();
     sheet = ss.getSheetByName(SHEETS.USERS);
   } else {
-    // Ensure column count is at least 17 for Avatar, Phone, Deletion Workflow, BoundDevices & Password
-    if (sheet.getMaxColumns() < 17) {
-      sheet.insertColumnsAfter(sheet.getMaxColumns(), 17 - sheet.getMaxColumns());
+    // Ensure column count is at least 18 for Avatar, Phone, Deletion Workflow, BoundDevices, Password & Permissions
+    if (sheet.getMaxColumns() < 18) {
+      sheet.insertColumnsAfter(sheet.getMaxColumns(), 18 - sheet.getMaxColumns());
     }
     try {
       sheet.getRange(1, 5).setValue('Password');
@@ -1767,6 +1780,7 @@ function ensureUsersInitialized(ss) {
       sheet.getRange(1, 15).setValue('DeleteRequestedAt');
       sheet.getRange(1, 16).setValue('BoundDevices');
       sheet.getRange(1, 17).setValue('Password');
+      sheet.getRange(1, 18).setValue('Permissions');
     } catch (colErr) {}
 
     // Backfill and record plain passwords for all existing users in Google Sheets
@@ -1965,6 +1979,15 @@ function loginUser(usernameOrData, password, extraDeviceInfo) {
           } catch (errCache) {}
         }
 
+        let userPerms = null;
+        if (row[17]) {
+          try {
+            userPerms = typeof row[17] === 'string' ? JSON.parse(row[17]) : row[17];
+          } catch (e) {
+            userPerms = null;
+          }
+        }
+
         const userObj = {
           userId: String(row[0]),
           username: String(row[1]),
@@ -1975,6 +1998,7 @@ function loginUser(usernameOrData, password, extraDeviceInfo) {
           warehouse: String(row[9] || (String(row[6]) === 'Admin' || String(row[6]) === 'SuperAdmin' ? 'ALL' : 'K3 ស្ថានីយ (ភ្នំពេញ) 01')),
           avatar: String(row[10] || ''),
           phone: String(row[11] || ''),
+          permissions: userPerms,
           boundDevices: boundDevices,
           token: Utilities.base64EncodeWebSafe(row[0] + ':' + new Date().getTime())
         };
@@ -3001,6 +3025,16 @@ function getUsersList(userOrPayload) {
           }
           return { desktop: null, mobile: null };
         })(),
+        permissions: (function() {
+          if (data[i][17]) {
+            try {
+              return typeof data[i][17] === 'string' ? JSON.parse(data[i][17]) : data[i][17];
+            } catch (e) {
+              return null;
+            }
+          }
+          return null;
+        })(),
         password: isPrivileged ? rawPassword : ''
       });
     }
@@ -3491,6 +3525,12 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
         } catch (e) {}
       }
       if (phone && String(phone).trim() !== '') sheet.getRange(i + 1, 12).setValue(String(phone).trim());
+      if (userIdOrPayload && typeof userIdOrPayload === 'object' && userIdOrPayload.permissions !== undefined) {
+        try {
+          const permStr = typeof userIdOrPayload.permissions === 'object' ? JSON.stringify(userIdOrPayload.permissions) : String(userIdOrPayload.permissions);
+          sheet.getRange(i + 1, 18).setValue(permStr);
+        } catch (e) {}
+      }
       if (st === 'Pending_Deletion') {
         if (deleteReason) sheet.getRange(i + 1, 13).setValue(deleteReason);
         if (deleteRequestedBy) sheet.getRange(i + 1, 14).setValue(String(deleteRequestedBy));

@@ -2465,6 +2465,32 @@
         <div id="tabItems" class="space-y-3 hidden flex-1 min-h-0 flex flex-col">
           <!-- TOP FREEZE SECTION: Header Banner + Search & Filter Bar (Frozen at top) -->
           <div id="itemsTopFreezeSection" class="shrink-0 space-y-2.5">
+            <!-- Items View-Only Mode Alert Banner -->
+            <div id="itemsViewOnlyBanner" class="hidden p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border-2 border-amber-400 text-amber-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs animate-fade-in">
+              <div class="flex items-start sm:items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center text-lg shrink-0 shadow-xs">
+                  <i class="fa-solid fa-lock"></i>
+                </div>
+                <div>
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <h5 class="text-xs sm:text-sm font-black text-amber-950 font-khmer flex items-center gap-1.5">
+                      <i class="fa-solid fa-eye text-amber-600 text-xs"></i>
+                      <span>របៀបត្រួតពិនិត្យទិន្នន័យប៉ុណ្ណោះ (View-Only Mode)</span>
+                    </h5>
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-200 text-amber-900 font-khmer border border-amber-300">មិនអាចកែប្រែទិន្នន័យបានទេ</span>
+                  </div>
+                  <p class="text-xs text-amber-900 font-khmer mt-0.5 leading-relaxed">
+                    លោកអ្នកកំពុងជ្រើសរើសស្ថានីយ <b id="itemsViewOnlyWhName" class="text-amber-950 font-black">-</b>។ បង្ហាញតែទិន្នន័យទំនិញក្នុងស្តុកនៃស្ថានីយនេះ (មិនអនុញ្ញាតឲ្យកែប្រែចំនួន ឬទិន្នន័យផ្សេងៗឡើយ)!
+                  </p>
+                </div>
+              </div>
+              <button type="button" onclick="switchToAdminDefaultWarehouse()"
+                class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-bold font-khmer shadow-sm hover:scale-[1.02] active:scale-[0.98] transition flex items-center gap-1.5 shrink-0 cursor-pointer">
+                <i class="fa-solid fa-rotate text-xs"></i>
+                <span>ប្តូរមកឃ្លាំងចុងស៊ីង & 机电 (បើកសិទ្ធិ)</span>
+              </button>
+            </div>
+
             <!-- HEADER BANNER: បញ្ជីទំនិញទាំងអស់ (Product Inventory) -->
             <div class="glass-card p-3.5 sm:p-4 rounded-2xl shadow-xs border border-slate-200/80 bg-white flex flex-col lg:flex-row lg:items-center justify-between gap-3">
               <div class="flex items-center space-x-3">
@@ -2559,7 +2585,7 @@
                 </div>
 
                 <!-- Add Product Button -->
-                <button onclick="openItemModal()"
+                <button id="btnAddNewItem" onclick="openItemModal()"
                   class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 shadow-md shadow-blue-500/20 active:scale-95 transition">
                   <i class="fa-solid fa-plus"></i>
                   <span>បន្ថែមទំនិញថ្មី</span>
@@ -2643,33 +2669,33 @@
         <!-- TAB 3: STOCK IN (ស្តុកចូល) -->
         <!-- ========================================== -->
         <div id="tabStockIn" class="w-full space-y-4 hidden">
-          <div id="stockInFormCard" class="glass-card form-freeze-card p-3 sm:p-4 lg:p-4 rounded-2xl sm:rounded-3xl shadow-sm border-2 border-emerald-300/80 bg-gradient-to-br from-emerald-50/30 via-white to-teal-50/20">
-
-            <!-- Stock In View-Only Mode Alert Banner -->
-            <div id="stockInViewOnlyBanner" class="hidden p-3.5 sm:p-4 mb-3.5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border-2 border-amber-400 text-amber-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs animate-fade-in">
-              <div class="flex items-start sm:items-center space-x-3">
-                <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center text-lg shrink-0 shadow-xs">
-                  <i class="fa-solid fa-lock"></i>
-                </div>
-                <div>
-                  <div class="flex items-center gap-2 flex-wrap">
-                    <h5 class="text-xs sm:text-sm font-black text-amber-950 font-khmer flex items-center gap-1.5">
-                      <i class="fa-solid fa-eye text-amber-600 text-xs"></i>
-                      <span>របៀបត្រួតពិនិត្យទិន្នន័យប៉ុណ្ណោះ (View-Only Mode)</span>
-                    </h5>
-                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-200 text-amber-900 font-khmer border border-amber-300">មិនអាចកត់ត្រាចូលស្តុកទេ</span>
-                  </div>
-                  <p class="text-xs text-amber-900 font-khmer mt-0.5 leading-relaxed">
-                    លោកអ្នកកំពុងជ្រើសរើសស្ថានីយ <b id="stockInViewOnlyWhName" class="text-amber-950 font-black">-</b>។ មុខងារកត់ត្រាចូលស្តុកត្រូវបានចាក់សោ (បានត្រឹមតែមើលទិន្នន័យប៉ុណ្ណោះ)!
-                  </p>
-                </div>
+          <!-- Stock In View-Only Mode Alert Banner -->
+          <div id="stockInViewOnlyBanner" class="hidden p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border-2 border-amber-400 text-amber-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs animate-fade-in">
+            <div class="flex items-start sm:items-center space-x-3">
+              <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center text-lg shrink-0 shadow-xs">
+                <i class="fa-solid fa-lock"></i>
               </div>
-              <button type="button" onclick="switchToAdminDefaultWarehouse()"
-                class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-bold font-khmer shadow-sm hover:scale-[1.02] active:scale-[0.98] transition flex items-center gap-1.5 shrink-0 cursor-pointer">
-                <i class="fa-solid fa-rotate text-xs"></i>
-                <span>ប្តូរមកឃ្លាំងចុងស៊ីង & 机电 (បើកសិទ្ធិ)</span>
-              </button>
+              <div>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <h5 class="text-xs sm:text-sm font-black text-amber-950 font-khmer flex items-center gap-1.5">
+                    <i class="fa-solid fa-eye text-amber-600 text-xs"></i>
+                    <span>របៀបត្រួតពិនិត្យទិន្នន័យប៉ុណ្ណោះ (View-Only Mode)</span>
+                  </h5>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-200 text-amber-900 font-khmer border border-amber-300">មិនអាចកត់ត្រាចូលស្តុកទេ</span>
+                </div>
+                <p class="text-xs text-amber-900 font-khmer mt-0.5 leading-relaxed">
+                  លោកអ្នកកំពុងជ្រើសរើសស្ថានីយ <b id="stockInViewOnlyWhName" class="text-amber-950 font-black">-</b>។ មុខងារកត់ត្រាចូលស្តុកត្រូវបានចាក់សោ (បានត្រឹមតែមើលទិន្នន័យប៉ុណ្ណោះ)!
+                </p>
+              </div>
             </div>
+            <button type="button" onclick="switchToAdminDefaultWarehouse()"
+              class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-bold font-khmer shadow-sm hover:scale-[1.02] active:scale-[0.98] transition flex items-center gap-1.5 shrink-0 cursor-pointer">
+              <i class="fa-solid fa-rotate text-xs"></i>
+              <span>ប្តូរមកឃ្លាំងចុងស៊ីង & 机电 (បើកសិទ្ធិ)</span>
+            </button>
+          </div>
+
+          <div id="stockInFormCard" class="glass-card form-freeze-card p-3 sm:p-4 lg:p-4 rounded-2xl sm:rounded-3xl shadow-sm border-2 border-emerald-300/80 bg-gradient-to-br from-emerald-50/30 via-white to-teal-50/20">
 
             <form id="stockInForm" onsubmit="handleStockInSubmit(event)" class="space-y-3">
               <!-- Hidden Old Stock & Pack Conversion Stores -->
@@ -2999,33 +3025,33 @@
         <!-- TAB 4: STOCK OUT (ស្តុកចេញ) -->
         <!-- ========================================== -->
         <div id="tabStockOut" class="w-full space-y-4 hidden">
-          <div id="stockOutFormCard" class="glass-card form-freeze-card p-3 sm:p-4 lg:p-4 rounded-2xl sm:rounded-3xl shadow-sm border-2 border-amber-300/80 bg-gradient-to-br from-amber-50/30 via-white to-orange-50/20">
-
-            <!-- Stock Out View-Only Mode Alert Banner -->
-            <div id="stockOutViewOnlyBanner" class="hidden p-3.5 sm:p-4 mb-3 rounded-2xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border-2 border-amber-400 text-amber-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs animate-fade-in">
-              <div class="flex items-start sm:items-center space-x-3">
-                <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center text-lg shrink-0 shadow-xs">
-                  <i class="fa-solid fa-lock"></i>
-                </div>
-                <div>
-                  <div class="flex items-center gap-2 flex-wrap">
-                    <h5 class="text-xs sm:text-sm font-black text-amber-950 font-khmer flex items-center gap-1.5">
-                      <i class="fa-solid fa-eye text-amber-600 text-xs"></i>
-                      <span>របៀបត្រួតពិនិត្យទិន្នន័យប៉ុណ្ណោះ (View-Only Mode)</span>
-                    </h5>
-                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-200 text-amber-900 font-khmer border border-amber-300">មិនអាចកត់ត្រាចេញស្តុកទេ</span>
-                  </div>
-                  <p class="text-xs text-amber-900 font-khmer mt-0.5 leading-relaxed">
-                    លោកអ្នកកំពុងជ្រើសរើសស្ថានីយ <b id="stockOutViewOnlyWhName" class="text-amber-950 font-black">-</b>។ មុខងារកត់ត្រាចេញស្តុកត្រូវបានចាក់សោ (បានត្រឹមតែមើលទិន្នន័យប៉ុណ្ណោះ)!
-                  </p>
-                </div>
+          <!-- Stock Out View-Only Mode Alert Banner -->
+          <div id="stockOutViewOnlyBanner" class="hidden p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border-2 border-amber-400 text-amber-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs animate-fade-in">
+            <div class="flex items-start sm:items-center space-x-3">
+              <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center text-lg shrink-0 shadow-xs">
+                <i class="fa-solid fa-lock"></i>
               </div>
-              <button type="button" onclick="switchToAdminDefaultWarehouse()"
-                class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-bold font-khmer shadow-sm hover:scale-[1.02] active:scale-[0.98] transition flex items-center gap-1.5 shrink-0 cursor-pointer">
-                <i class="fa-solid fa-rotate text-xs"></i>
-                <span>ប្តូរមកឃ្លាំងចុងស៊ីង & 机电 (បើកសិទ្ធិ)</span>
-              </button>
+              <div>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <h5 class="text-xs sm:text-sm font-black text-amber-950 font-khmer flex items-center gap-1.5">
+                    <i class="fa-solid fa-eye text-amber-600 text-xs"></i>
+                    <span>របៀបត្រួតពិនិត្យទិន្នន័យប៉ុណ្ណោះ (View-Only Mode)</span>
+                  </h5>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-200 text-amber-900 font-khmer border border-amber-300">មិនអាចកត់ត្រាចេញស្តុកទេ</span>
+                </div>
+                <p class="text-xs text-amber-900 font-khmer mt-0.5 leading-relaxed">
+                  លោកអ្នកកំពុងជ្រើសរើសស្ថានីយ <b id="stockOutViewOnlyWhName" class="text-amber-950 font-black">-</b>។ មុខងារកត់ត្រាចេញស្តុកត្រូវបានចាក់សោ (បានត្រឹមតែមើលទិន្នន័យប៉ុណ្ណោះ)!
+                </p>
+              </div>
             </div>
+            <button type="button" onclick="switchToAdminDefaultWarehouse()"
+              class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-bold font-khmer shadow-sm hover:scale-[1.02] active:scale-[0.98] transition flex items-center gap-1.5 shrink-0 cursor-pointer">
+              <i class="fa-solid fa-rotate text-xs"></i>
+              <span>ប្តូរមកឃ្លាំងចុងស៊ីង & 机电 (បើកសិទ្ធិ)</span>
+            </button>
+          </div>
+
+          <div id="stockOutFormCard" class="glass-card form-freeze-card p-3 sm:p-4 lg:p-4 rounded-2xl sm:rounded-3xl shadow-sm border-2 border-amber-300/80 bg-gradient-to-br from-amber-50/30 via-white to-orange-50/20">
 
             <!-- Stock Out Mode Switcher (Single Station vs Multi-Station Batch Distribution) -->
             <div id="stockOutModeBar" class="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 mb-2 border-b border-amber-200/80">
@@ -7281,7 +7307,7 @@
             inSubmitBtn.title = 'មុខងារត្រូវបានចាក់សោ ក្នុងរបៀបត្រួតពិនិត្យទិន្នន័យ (View-Only Mode)';
           }
           if (inCard) {
-            inCard.classList.add('ring-2', 'ring-amber-400/80');
+            inCard.classList.add('hidden');
           }
         } else {
           inBanner.classList.add('hidden');
@@ -7291,7 +7317,7 @@
             inSubmitBtn.removeAttribute('title');
           }
           if (inCard) {
-            inCard.classList.remove('ring-2', 'ring-amber-400/80');
+            inCard.classList.remove('hidden');
           }
         }
       }
@@ -7316,7 +7342,7 @@
             outModeBar.classList.add('opacity-50', 'pointer-events-none');
           }
           if (outCard) {
-            outCard.classList.add('ring-2', 'ring-amber-400/80');
+            outCard.classList.add('hidden');
           }
         } else {
           outBanner.classList.add('hidden');
@@ -7329,8 +7355,27 @@
             outModeBar.classList.remove('opacity-50', 'pointer-events-none');
           }
           if (outCard) {
-            outCard.classList.remove('ring-2', 'ring-amber-400/80');
+            outCard.classList.remove('hidden');
           }
+        }
+      }
+
+      // 4. Items / Inventory Tab Lock & Banner
+      const itemsBanner = document.getElementById('itemsViewOnlyBanner');
+      const itemsWhText = document.getElementById('itemsViewOnlyWhName');
+      const btnAddNewItem = document.getElementById('btnAddNewItem');
+      const btnImportExcel = document.getElementById('btnImportExcel');
+
+      if (itemsBanner) {
+        if (isViewOnly) {
+          itemsBanner.classList.remove('hidden');
+          if (itemsWhText) itemsWhText.textContent = cleanWhName;
+          if (btnAddNewItem) btnAddNewItem.classList.add('hidden');
+          if (btnImportExcel) btnImportExcel.classList.add('hidden');
+        } else {
+          itemsBanner.classList.add('hidden');
+          if (btnAddNewItem) btnAddNewItem.classList.remove('hidden');
+          if (btnImportExcel) btnImportExcel.classList.remove('hidden');
         }
       }
     }
@@ -10015,6 +10060,26 @@ function saveLocalUsersToStorage() {
           }
         }
         if (!payload.warehouseFilter) payload.warehouseFilter = AppState.selectedAdminWarehouseFilter;
+      }
+
+      if (typeof isCurrentAdminInViewOnlyMode === 'function' && isCurrentAdminInViewOnlyMode()) {
+        const VIEW_ONLY_BLOCKED = new Set([
+          'saveOrUpdateItem', 'saveItem', 'deleteItem', 'removeItem',
+          'recordStockIn', 'recordStockOut', 'recordStockTransfer', 'recordStockAdjustment',
+          'updateStockTransaction', 'deleteStockTransaction', 'updateTransaction', 'deleteTransaction',
+          'updateUserStatus', 'updateUserProfile', 'deleteUser', 'requestUserDeletion', 'approveUserDeletion', 'rejectUserDeletion',
+          'saveWarehouse', 'addWarehouse', 'updateWarehouse', 'deleteWarehouse',
+          'saveSystemSettings', 'saveSettings',
+          'resetUserDeviceBinding',
+          'createProductRequest', 'updateProductRequestStatus'
+        ]);
+        if (VIEW_ONLY_BLOCKED.has(action)) {
+          console.warn('[VIEW-ONLY] Blocked mutating apiCall action:', action);
+          if (typeof showAdminViewOnlyWarning === 'function') {
+            showAdminViewOnlyWarning();
+          }
+          return { success: false, message: 'គណនី Admin របស់អ្នកស្ថិតក្នុងកម្រិត View-Only មិនអាចបន្ថែម កែប្រែ ឬលុបទិន្នន័យបានទេ!' };
+        }
       }
 
       const gasUrl = AppState.gasApiUrl || localStorage.getItem('inventory_gas_api_url');
@@ -17948,6 +18013,10 @@ function saveLocalUsersToStorage() {
     }
 
     function openItemModal() {
+      if (typeof isCurrentAdminInViewOnlyMode === 'function' && isCurrentAdminInViewOnlyMode()) {
+        showAdminViewOnlyWarning();
+        return;
+      }
       clearAllItemModalErrors();
       document.getElementById('itemEditMode').value = 'ADD';
       document.getElementById('itemModalTitle').innerText = 'បន្ថែមទំនិញថ្មី';
@@ -17996,6 +18065,10 @@ function saveLocalUsersToStorage() {
     }
 
     function openEditItemModal(sku) {
+      if (typeof isCurrentAdminInViewOnlyMode === 'function' && isCurrentAdminInViewOnlyMode()) {
+        showAdminViewOnlyWarning();
+        return;
+      }
       clearAllItemModalErrors();
       const item = AppState.items.find(i => i.sku === sku);
       if (!item) return;
@@ -18087,6 +18160,11 @@ function saveLocalUsersToStorage() {
       if (e) {
         if (typeof e.preventDefault === 'function') e.preventDefault();
         if (typeof e.stopPropagation === 'function') e.stopPropagation();
+      }
+
+      if (typeof isCurrentAdminInViewOnlyMode === 'function' && isCurrentAdminInViewOnlyMode()) {
+        showAdminViewOnlyWarning();
+        return;
       }
 
       if (isSavingItemInProgress) return;
@@ -18318,6 +18396,10 @@ function saveLocalUsersToStorage() {
     }
 
     async function handleDeleteItem(sku) {
+      if (typeof isCurrentAdminInViewOnlyMode === 'function' && isCurrentAdminInViewOnlyMode()) {
+        showAdminViewOnlyWarning();
+        return;
+      }
       if (AppState.currentUser?.role !== 'Admin' && AppState.currentUser?.role !== 'SuperAdmin') {
         Swal.fire('គ្មានសិទ្ធិ', 'មានតែ Admin ឬ SuperAdmin ប៉ុណ្ណោះដែលអាចលុបទំនិញបាន', 'warning');
         return;
@@ -23803,7 +23885,11 @@ function saveLocalUsersToStorage() {
     }
 
     async function handleTransferSubmit(e) {
-      e.preventDefault();
+      if (e) e.preventDefault();
+      if (typeof isCurrentAdminInViewOnlyMode === 'function' && isCurrentAdminInViewOnlyMode()) {
+        showAdminViewOnlyWarning();
+        return;
+      }
       const rawSku = document.getElementById('transferSku').value;
       const sku = extractSkuFromInput(rawSku);
 
@@ -23845,7 +23931,11 @@ function saveLocalUsersToStorage() {
     }
 
     async function handleAdjustmentSubmit(e) {
-      e.preventDefault();
+      if (e) e.preventDefault();
+      if (typeof isCurrentAdminInViewOnlyMode === 'function' && isCurrentAdminInViewOnlyMode()) {
+        showAdminViewOnlyWarning();
+        return;
+      }
       const rawSku = document.getElementById('adjustSku').value;
       const sku = extractSkuFromInput(rawSku);
 
@@ -27987,6 +28077,10 @@ function saveLocalUsersToStorage() {
     }
 
     async function openEditUserModal(userId) {
+      if (typeof isCurrentAdminInViewOnlyMode === 'function' && isCurrentAdminInViewOnlyMode()) {
+        showAdminViewOnlyWarning();
+        return;
+      }
       const isSelf = (AppState.currentUser?.userId === userId || AppState.currentUser?.username === userId);
       if (isSelf) {
         openProfileModal();
@@ -28265,6 +28359,10 @@ function saveLocalUsersToStorage() {
     }
 
     async function toggleUserStatus(userId, newStatus) {
+      if (typeof isCurrentAdminInViewOnlyMode === 'function' && isCurrentAdminInViewOnlyMode()) {
+        showAdminViewOnlyWarning();
+        return;
+      }
       const resUsers = await apiCall('getUsersList');
       const targetUser = (resUsers && resUsers.users ? resUsers.users : LOCAL_DB.users).find(x => x.userId === userId);
       const actor = AppState.currentUser || {};
@@ -28319,6 +28417,10 @@ function saveLocalUsersToStorage() {
     }
 
     async function handleDeleteUser(userId, username) {
+      if (typeof isCurrentAdminInViewOnlyMode === 'function' && isCurrentAdminInViewOnlyMode()) {
+        showAdminViewOnlyWarning();
+        return;
+      }
       const actor = AppState.currentUser;
       const isActorSuperAdmin = (actor?.role === 'SuperAdmin') || (String(actor?.username).toLowerCase() === 'superadmin');
       const isActorAdmin = !isActorSuperAdmin && (actor?.role === 'Admin' || String(actor?.username).toLowerCase() === 'admin');
