@@ -1761,11 +1761,15 @@
       const id = String(u.userId || '').trim().toUpperCase();
       return (
         r === 'superadmin' ||
+        r.includes('superadmin') ||
         r === 'អភិបាលកំពូល' ||
+        r.includes('អភិបាលកំពូល') ||
         name === 'superadmin' ||
+        name.includes('superadmin') ||
         email === 'chenlongqmi@gmail.com' ||
         id === 'USR-SA' ||
-        id === 'USR-SUPERADMIN'
+        id === 'USR-SUPERADMIN' ||
+        u.isSuperAdmin === true
       );
     }
     window.isUserSuperAdmin = isUserSuperAdmin;
@@ -1806,7 +1810,20 @@
 
     function isUserPrivilegedAdmin(user) {
       const u = user || AppState?.currentUser || {};
-      return isUserSuperAdmin(u) || isUserAdmin(u);
+      const r = String(u.role || '').trim().toLowerCase().replace(/[\s_]+/g, '');
+      const name = String(u.username || '').trim().toLowerCase().replace(/[\u200b\ufeff\s]/g, '');
+      return (
+        isUserSuperAdmin(u) ||
+        isUserAdmin(u) ||
+        r === 'superadmin' ||
+        r.includes('superadmin') ||
+        r === 'admin' ||
+        r.includes('admin') ||
+        r.includes('administrator') ||
+        r.includes('អភិបាល') ||
+        name === 'superadmin' ||
+        name === 'admin'
+      );
     }
     window.isUserPrivilegedAdmin = isUserPrivilegedAdmin;
 
@@ -1935,7 +1952,7 @@
           </div>
 
           <!-- Admin Global Warehouse Selector Filter (Visible for SuperAdmin and Admin ONLY) -->
-          <div id="adminWarehouseFilterContainer" style="display: none;"
+          <div id="adminWarehouseFilterContainer"
             class="hidden items-center space-x-1.5 bg-gradient-to-r from-blue-50 via-indigo-50 to-blue-50 border border-blue-200 hover:border-blue-300 rounded-xl px-2.5 sm:px-3 py-1.5 text-xs shadow-xs shrink-0 cursor-pointer transition">
             <div class="flex items-center space-x-1 text-blue-700 font-bold shrink-0">
               <i class="fa-solid fa-warehouse text-blue-600 text-xs"></i>
@@ -1960,7 +1977,7 @@
           </div>
 
           <!-- Add / Manage Warehouse Button for Admin (Visible for SuperAdmin and Admin ONLY) -->
-          <button id="addWarehouseTopBtn" onclick="navigateTab('warehouses')" title="គ្រប់គ្រងស្ថានីយ (សម្រាប់ Admin & SuperAdmin)" style="display: none;"
+          <button id="addWarehouseTopBtn" onclick="navigateTab('warehouses')" title="គ្រប់គ្រងស្ថានីយ (សម្រាប់ Admin & SuperAdmin)"
             class="hidden px-3 py-1.5 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-xl text-xs font-bold items-center space-x-1.5 shadow-xs transition hover:scale-105 active:scale-95 shrink-0">
             <i class="fa-solid fa-warehouse text-xs"></i>
             <span class="hidden sm:inline">គ្រប់គ្រងស្ថានីយ</span>
@@ -1972,6 +1989,61 @@
             <i class="fa-solid fa-location-dot text-emerald-600 shrink-0"></i>
             <span id="userWarehouseName" class="truncate">K3 ស្ថានីយ (ភ្នំពេញ) 01</span>
           </div>
+
+          <!-- Fast In-Header Role Enforcement Script for SuperAdmin & Admin -->
+          <script>
+            (function() {
+              try {
+                var raw = sessionStorage.getItem('inventory_user');
+                if (raw) {
+                  var u = JSON.parse(raw);
+                  if (u) {
+                    var rLower = String(u.role || '').toLowerCase().replace(/[\s_]+/g, '');
+                    var uLower = String(u.username || '').toLowerCase();
+                    var isSuper = rLower.includes('superadmin') || rLower.includes('អភិបាលកំពូល') || uLower === 'superadmin' || u.userId === 'USR-SA' || u.isSuperAdmin === true;
+                    var isAdmin = !isSuper && (rLower === 'admin' || rLower === 'administrator' || uLower === 'admin' || uLower === 'singvan327@gmail.com');
+                    var isPrivileged = isSuper || isAdmin || (typeof isUserPrivilegedAdmin === 'function' && isUserPrivilegedAdmin(u));
+                    var adminWh = document.getElementById('adminWarehouseFilterContainer');
+                    var addBtn = document.getElementById('addWarehouseTopBtn');
+                    var userWh = document.getElementById('userWarehouseBadgeContainer');
+                    if (adminWh) {
+                      if (isPrivileged) {
+                        adminWh.classList.remove('hidden');
+                        adminWh.classList.add('flex');
+                        adminWh.style.display = 'flex';
+                      } else {
+                        adminWh.classList.add('hidden');
+                        adminWh.classList.remove('flex');
+                        adminWh.style.display = 'none';
+                      }
+                    }
+                    if (addBtn) {
+                      if (isPrivileged) {
+                        addBtn.classList.remove('hidden');
+                        addBtn.classList.add('flex');
+                        addBtn.style.display = 'flex';
+                      } else {
+                        addBtn.classList.add('hidden');
+                        addBtn.classList.remove('flex');
+                        addBtn.style.display = 'none';
+                      }
+                    }
+                    if (userWh) {
+                      if (!isPrivileged) {
+                        userWh.classList.remove('hidden');
+                        userWh.classList.add('flex');
+                        userWh.style.display = 'flex';
+                      } else {
+                        userWh.classList.add('hidden');
+                        userWh.classList.remove('flex');
+                        userWh.style.display = 'none';
+                      }
+                    }
+                  }
+                }
+              } catch(e) {}
+            })();
+          </script>
 
           <!-- Multi-Monitor Adaptive Scaling Widget -->
           <div id="monitorScaleWidget"
@@ -12064,17 +12136,17 @@ function saveLocalUsersToStorage() {
         if (adminWhContainer) {
           adminWhContainer.classList.remove('hidden');
           adminWhContainer.classList.add('flex');
-          adminWhContainer.style.removeProperty('display');
+          adminWhContainer.style.display = 'flex';
         }
         if (addWhBtn) {
           addWhBtn.classList.remove('hidden');
           addWhBtn.classList.add('flex');
-          addWhBtn.style.removeProperty('display');
+          addWhBtn.style.display = 'flex';
         }
         if (userWhContainer) {
           userWhContainer.classList.add('hidden');
           userWhContainer.classList.remove('flex');
-          userWhContainer.style.removeProperty('display');
+          userWhContainer.style.display = 'none';
         }
         const globalSel = document.getElementById('globalWarehouseSelector');
         if (globalSel) {
@@ -12099,7 +12171,7 @@ function saveLocalUsersToStorage() {
         if (userWhContainer) {
           userWhContainer.classList.remove('hidden');
           userWhContainer.classList.add('flex');
-          userWhContainer.style.removeProperty('display');
+          userWhContainer.style.display = 'flex';
           if (userWhName) userWhName.innerText = canonicalWh;
         }
 
@@ -28813,10 +28885,11 @@ function saveLocalUsersToStorage() {
         if (isPrivilegedAdmin) {
           addWhBtn.classList.remove('hidden');
           addWhBtn.classList.add('flex');
-          addWhBtn.style.removeProperty('display');
+          addWhBtn.style.display = 'flex';
         } else {
           addWhBtn.classList.add('hidden');
           addWhBtn.classList.remove('flex');
+          addWhBtn.style.display = 'none';
         }
       }
 
@@ -28825,11 +28898,12 @@ function saveLocalUsersToStorage() {
         if (adminWhContainer) {
           adminWhContainer.classList.add('hidden');
           adminWhContainer.classList.remove('flex');
+          adminWhContainer.style.display = 'none';
         }
         if (userWhContainer) {
           userWhContainer.classList.remove('hidden');
           userWhContainer.classList.add('flex');
-          userWhContainer.style.removeProperty('display');
+          userWhContainer.style.display = 'flex';
           if (userWhName) {
             userWhName.innerText = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(u.warehouse) : u.warehouse) || 'ស្ថានីយផ្ទាល់ខ្លួន';
           }
@@ -28846,11 +28920,12 @@ function saveLocalUsersToStorage() {
         if (adminWhContainer) {
           adminWhContainer.classList.remove('hidden');
           adminWhContainer.classList.add('flex');
-          adminWhContainer.style.removeProperty('display');
+          adminWhContainer.style.display = 'flex';
         }
         if (userWhContainer) {
           userWhContainer.classList.add('hidden');
           userWhContainer.classList.remove('flex');
+          userWhContainer.style.display = 'none';
         }
         if (globalSel) {
           globalSel.disabled = false;
