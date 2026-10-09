@@ -1367,8 +1367,7 @@ function ensureStockSheetsInitialized(ss) {
   }
   const stockOutHeaders = [
     'DocNo', 'Date', 'SKU', 'ItemName', 'Size', 'Color', 'Zone',
-    'Quantity', 'Unit', 'OldStock (ស្តុកចាស់)', 'RemainingStock (ស្តុកនៅសល់)', 'StockMovement (ស្តុកចាស់ ➔ នៅសល់)',
-    'UnitPrice', 'TotalAmount', 'FromLocation', 'ToLocation',
+    'Quantity', 'Unit', 'UnitPrice', 'TotalAmount', 'FromLocation', 'ToLocation',
     'Issuer', 'Reason', 'Notes', 'User', 'Timestamp'
   ];
 
@@ -1380,6 +1379,49 @@ function ensureStockSheetsInitialized(ss) {
   if (stockOutSheet.getLastRow() === 0) {
     stockOutSheet.appendRow(stockOutHeaders);
     formatHeaderRow(stockOutSheet, stockOutHeaders.length, '#b45309');
+  } else {
+    // ស្វ័យប្រវត្តិកែតម្រូវជួរដេកណាដែលមានទិន្នន័យខុសជួរឈរ (Fix scrambled/shifted columns in Stock_out)
+    try {
+      const lastRow = stockOutSheet.getLastRow();
+      if (lastRow >= 2) {
+        const outRange = stockOutSheet.getRange(2, 1, lastRow - 1, Math.max(stockOutSheet.getLastColumn(), 21));
+        const outVals = outRange.getValues();
+        let modified = false;
+        for (let r = 0; r < outVals.length; r++) {
+          const row = outVals[r];
+          const colJ = String(row[9] || '').trim(); // Col J (Index 9)
+          // ប្រសិនបើ Col J មាន "ដើម", "ប្រអប់", ឬ Col L មាន "➔" នោះបញ្ជាក់ថាជួរដេកនេះត្រូវខុសលំដាប់ដោយសារ 3 ជួរឈរបន្ថែម
+          if (colJ.includes('ដើម') || colJ.includes('ប្រអប់') || String(row[11] || '').includes('➔')) {
+            const repairedRow = [
+              row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8],
+              Number(row[12]) || Number(row[7] ? 0.8 : 0), // UnitPrice
+              Number(row[13]) || Number(row[7] ? (Number(row[7]) * (Number(row[12]) || 0.8)) : 0), // TotalAmount
+              row[14] || '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)', // FromLocation
+              row[15] || 'K3 ស្ថានីយ (ភ្នំពេញ) 01', // ToLocation
+              row[16] || 'Staff', // Issuer
+              row[17] || '', // Reason
+              row[18] || '', // Notes
+              row[19] || (row[16] || 'Staff'), // User
+              row[20] || new Date() // Timestamp
+            ];
+            for (let c = 0; c < 18; c++) {
+              row[c] = repairedRow[c];
+            }
+            // Clear extra columns beyond 18
+            for (let c = 18; c < row.length; c++) {
+              row[c] = '';
+            }
+            modified = true;
+          }
+        }
+        if (modified) {
+          outRange.setValues(outVals);
+          Logger.log('Successfully repaired scrambled rows in Stock_out sheet!');
+        }
+      }
+    } catch (eFix) {
+      Logger.log('Notice: auto-repair Stock_out: ' + eFix.toString());
+    }
   }
 
   // Auto-backfill existing transactions from Transactions sheet if Stock_in or Stock_out only has headers (rowCount <= 1)
@@ -2985,23 +3027,8 @@ function getUsersList(userOrPayload) {
     return false;
   };
 
-  if (isSuperAdmin) {
-    return { success: true, users: users.filter(u => !isSelf(u)) };
-  } else if (isAdmin) {
-    return { success: true, users: users.filter(u => {
-      const r = String(u.role || '').trim().toLowerCase();
-      const uName = cleanUname(u.username);
-      const uId = String(u.userId || '').toUpperCase();
-      const isSA = (r === 'superadmin' || uName === 'superadmin' || uId === 'USR-SA');
-      if (isSA) return false; // Admin cannot see SuperAdmin
-      const isPending = (u.status === 'Pending' || u.status === 'Pending_Admin' || u.status === 'Pending_SuperAdmin');
-      if (!isPending) {
-        const isOtherAdmin = (r === 'admin' || uName === 'admin' || uName === 'singvan327@gmail.com') && !isSelf(u);
-        if (isOtherAdmin) return false; // Admin sees own Admin account with (ខ្ញុំ) badge, but not other Admins
-      }
-      return true;
-    }) };
-
+  if (isSuperAdmin || isAdmin) {
+    return { success: true, users: users };
   } else if (isStationManager) {
 
     const myWh = normalizeWarehouseNameGAS(actor.warehouse);
@@ -6121,14 +6148,24 @@ function recordStockOut(dataOrPayload, user) {
     user: u ? (u.fullName || u.username) : 'Staff'
   });
 
-  // កត់ត្រាចូលក្នុង Sheet 'Stock_out' ដោយផ្ទាល់
+  // កត់ត្រាចូលក្នុង Sheet 'Stock_out' ដោយផ្ទាល់ (តម្រឹមតាម 18 ជួរឈរក្នុង Google Sheet យ៉ាងជាក់លាក់)
   try {
     const stockSheets = ensureStockSheetsInitialized(ss);
     if (stockSheets && stockSheets.stockOutSheet) {
+      const outSheet = stockSheets.stockOutSheet;
       const now = new Date();
-      stockSheets.stockOutSheet.appendRow([
+      const dateStr = Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd');
+      const timeStr = Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd HH:mm:ss');
+      const cleanUserNote = (data.userNote !== undefined ? data.userNote : (data.notes || '')).replace(/\[[^\]]+\]/g, '').trim() || (data.notes || '');
+      const issuerName = data.issuer || (u ? (u.fullName || u.username) : 'Staff');
+      const staffName = u ? (u.fullName || u.username) : 'Staff';
+      const toLoc = data.toLocation || data.customer || 'អតិថិជន/ដកប្រើប្រាស់';
+
+      // 18 Standard Columns ត្រូវតាម Google Sheet ១០០%:
+      // DocNo, Date, SKU, ItemName, Size, Color, Zone, Quantity, Unit, UnitPrice, TotalAmount, FromLocation, ToLocation, Issuer, Reason, Notes, User, Timestamp
+      const outRowValues = [
         data.docNo || '',
-        Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd'),
+        dateStr,
         sku,
         itemName,
         data.size || '',
@@ -6136,19 +6173,18 @@ function recordStockOut(dataOrPayload, user) {
         data.zone || '',
         qty,
         unit,
-        `${oldStockVal} ${unit}`,
-        `${remStockVal} ${unit}`,
-        movementStr,
         unitPriceFinal,
         totalAmount,
         location,
-        data.toLocation || data.customer || 'អតិថិជន/ដកប្រើប្រាស់',
-        data.issuer || (u ? (u.fullName || u.username) : 'Staff'),
+        toLoc,
+        issuerName,
         data.reason || '',
-        data.notes || '',
-        u ? (u.fullName || u.username) : 'Staff',
+        cleanUserNote,
+        staffName,
         now
-      ]);
+      ];
+
+      outSheet.appendRow(outRowValues);
     }
   } catch (errOut) {
     Logger.log('Error writing to Stock_out sheet: ' + errOut.toString());
