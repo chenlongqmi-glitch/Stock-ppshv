@@ -2717,7 +2717,7 @@ function registerUser(userData) {
 
 function toCanonicalWarehouseNameGAS(wh) {
   if (!wh) return '';
-  var s = String(wh).replace(/^[📍🏢\s]+/, '').replace(/[\u200b\ufeff]/g, '').trim();
+  var s = String(wh).replace(/^[📍🏢\s]+/, '').replace(/^[\d]+[-\s]+/, '').replace(/[\u200b\ufeff]/g, '').trim();
   var sLower = s.toLowerCase();
 
   if (s === 'ALL' || s === 'គ្រប់ស្ថានីយទាំងអស់' || s === 'គ្រប់ឃ្លាំង') return 'គ្រប់ស្ថានីយទាំងអស់';

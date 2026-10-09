@@ -1732,6 +1732,27 @@
     // =========================================================================
     // UNIVERSAL ROLE RECOGNITION HELPERS (SUPERADMIN & ADMIN)
     // =========================================================================
+        function sanitizeStationName(rawWh) {
+      if (!rawWh) return '';
+      var s = String(rawWh).replace(/^[📍🏢\s]+/, '').replace(/^[\d]+[-\s]+/, '').replace(/[\u200b\ufeff]/g, '').trim();
+      var sLower = s.toLowerCase();
+      if (s === 'ALL' || s === 'គ្រប់ស្ថានីយទាំងអស់' || s === 'គ្រប់ឃ្លាំង') return '🏢 គ្រប់ស្ថានីយទាំងអស់';
+      if (s === '中心库房 & 机电' || (s.indexOf('中心库房') !== -1 && s.indexOf('机电') !== -1)) return '🏢 中心库房 & 机电';
+      if (sLower.indexOf('k3') !== -1 || s.indexOf('ភ្នំពេញ') !== -1) return 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
+      if (sLower.indexOf('k26') !== -1 || s.indexOf('កំពង់ស្ពឺ កើត') !== -1) return 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02';
+      if (sLower.indexOf('k43') !== -1 || s.indexOf('កំពង់ស្ពឺ លិច') !== -1) return 'K43 ស្ថានីយ (កំពង់ស្ពឺ លិច) 03';
+      if (sLower.indexOf('k76') !== -1 || s.indexOf('ត្រាំខ្នារ') !== -1 || s.indexOf('ត្រែងត្រយឹង') !== -1) return 'K76 ស្ថានីយ (ត្រាំខ្នារ) 04';
+      if (sLower.indexOf('k109') !== -1 || sLower.indexOf('k114') !== -1 || s.indexOf('កំពង់សិលា') !== -1) return 'K109 ស្ថានីយ (កំពង់សិលា) 05';
+      if (sLower.indexOf('k136') !== -1 || sLower.indexOf('k135') !== -1 || s.indexOf('ស្ទឹងហាវ') !== -1 || s.indexOf('ស្រែអំបិល') !== -1) return 'K136 ស្ថានីយ (ស្ទឹងហាវ) 06';
+      if (sLower.indexOf('k172') !== -1 || s.indexOf('ព្រៃនប់') !== -1) return 'K172 ស្ថានីយ (ព្រៃនប់) 07';
+      if (sLower.indexOf('k182') !== -1 || s.indexOf('ព្រះសីហនុ') !== -1) return 'K182 ស្ថានីយ (ព្រះសីហនុ) 08';
+      if (s.indexOf('中心库房') !== -1 || s.indexOf('ចុងស៊ីង') !== -1) return '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+      if (s.indexOf('机电') !== -1 || s.indexOf('គ្រឿងម៉ាស៊ីន') !== -1) return '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)';
+      if (s.indexOf('综合办') !== -1 || s.indexOf('កិច្ចការទូទៅ') !== -1) return '综合办 (ផ្នែកកិច្ចការទូទៅ)';
+      return s;
+    }
+    window.sanitizeStationName = sanitizeStationName;
+
     function isUserSuperAdmin(user) {
       const u = user || AppState?.currentUser || {};
       const r = String(u.role || '').trim().toLowerCase().replace(/[\s_]+/g, '');
@@ -1827,10 +1848,10 @@
                   var curSavedWh = sessionStorage.getItem('inventory_wh_filter');
                   if (isSA || u.role === 'Admin') {
                     if (curSavedWh === 'ALL') whEl.innerText = '🏢 គ្រប់ស្ថានីយទាំងអស់';
-                    else if (curSavedWh && curSavedWh !== '中心库房 & 机电') whEl.innerText = '📍 ' + curSavedWh;
+                    else if (curSavedWh && curSavedWh !== '中心库房 & 机电') whEl.innerText = sanitizeStationName(curSavedWh);
                     else whEl.innerText = '🏢 中心库房 & 机电';
                   } else if (u.warehouse) {
-                    whEl.innerText = (u.warehouse === 'ALL') ? 'គ្រប់ស្ថានីយទាំងអស់' : u.warehouse;
+                    whEl.innerText = sanitizeStationName(u.warehouse);
                   }
                 }
                 var avatarEl = document.getElementById('activeSessionAvatar');
@@ -6716,7 +6737,7 @@
 
     function getStationShortCode(wh) {
       if (!wh) return '';
-      const s = String(wh).replace(/^[📍🏢\s]+/, '').replace(/[\u200b\ufeff]/g, '').trim();
+      const s = String(wh).replace(/^[📍🏢\s]+/, '').replace(/^[\d]+[-\s]+/, '').replace(/[\u200b\ufeff]/g, '').trim();
       const sLower = s.toLowerCase();
       
       const kMatch = s.match(/\bK\d+\b/i) || s.match(/K\d+/i);
@@ -8454,6 +8475,10 @@ function saveLocalUsersToStorage() {
       }
 
       if (savedUser && (savedUser.username || savedUser.userId)) {
+        if (savedUser.warehouse) {
+          savedUser.warehouse = sanitizeStationName(savedUser.warehouse);
+          try { sessionStorage.setItem('inventory_user', JSON.stringify(savedUser)); } catch(e) {}
+        }
         // Upgrade SuperAdmin session if it holds old default data
         if (savedUser.userId === 'USR-SA' || (savedUser.username && savedUser.username.toLowerCase() === 'superadmin')) {
           if (!savedUser.fullName || savedUser.fullName.includes('Super Administrator')) savedUser.fullName = '陈龙';
@@ -10561,6 +10586,9 @@ function saveLocalUsersToStorage() {
 
     // --- AUTHENTICATION & PROFILE LOGIC ---
     function completeSuccessfulLogin(user, username = '', password = '') {
+      if (user && user.warehouse) {
+        user.warehouse = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(user.warehouse) : user.warehouse;
+      }
       AppState.currentUser = user;
       const loginNow = new Date().toISOString();
       const remember = document.getElementById('rememberMe')?.checked;
@@ -11966,12 +11994,12 @@ function saveLocalUsersToStorage() {
           } else if (isAdminComboWarehouse(AppState.selectedAdminWarehouseFilter)) {
             sessionWarehouseName.innerText = '🏢 中心库房 & 机电 (ឃ្លាំងចុងស៊ីង & អគ្គិសនី)';
           } else if (AppState.selectedAdminWarehouseFilter) {
-            sessionWarehouseName.innerText = `📍 ${AppState.selectedAdminWarehouseFilter} (${isSuperAdmin ? 'SuperAdmin' : 'Admin'} Switch)`;
+            sessionWarehouseName.innerText = sanitizeStationName(AppState.selectedAdminWarehouseFilter) + ` (${isSuperAdmin ? 'SuperAdmin' : 'Admin'} Switch)`;
           } else {
             sessionWarehouseName.innerText = '🏢 中心库房 & 机电 (ឃ្លាំងចុងស៊ីង & អគ្គិសនី)';
           }
         } else {
-          sessionWarehouseName.innerText = `📍 ${u.warehouse || WAREHOUSES_LIST[0]}`;
+          sessionWarehouseName.innerText = sanitizeStationName(u.warehouse || WAREHOUSES_LIST[0]);
         }
       }
 
@@ -12492,7 +12520,7 @@ function saveLocalUsersToStorage() {
         } else if (typeof isAdminComboWarehouse === 'function' && isAdminComboWarehouse(whValue)) {
           sessionWarehouseName.innerText = '🏢 中心库房 & 机电 (ឃ្លាំងចុងស៊ីង & អគ្គិសនី)';
         } else {
-          sessionWarehouseName.innerText = `📍 ${whValue} (${isSuperAdmin ? 'SuperAdmin' : 'Admin'} Switch)`;
+          sessionWarehouseName.innerText = sanitizeStationName(whValue) + ` (${isSuperAdmin ? 'SuperAdmin' : 'Admin'} Switch)`;
         }
       }
       const itemWhSelect = document.getElementById('itemWarehouseFilter');
@@ -12526,7 +12554,7 @@ function saveLocalUsersToStorage() {
         if (whValue === 'ALL') {
           sessionWarehouseName.innerText = '🏢 គ្រប់ស្ថានីយទាំងអស់';
         } else {
-          sessionWarehouseName.innerText = `📍 ${whValue} (${isSuperAdmin ? 'SuperAdmin' : 'Admin'} Switch)`;
+          sessionWarehouseName.innerText = sanitizeStationName(whValue) + ` (${isSuperAdmin ? 'SuperAdmin' : 'Admin'} Switch)`;
         }
       }
       loadDashboard();
