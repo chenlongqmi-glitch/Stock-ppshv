@@ -1826,6 +1826,7 @@
       );
     }
     window.isUserPrivilegedAdmin = isUserPrivilegedAdmin;
+    window.isPrivilegedAdmin = isUserPrivilegedAdmin;
 
         (function() {
           try {
@@ -12987,6 +12988,12 @@ function saveLocalUsersToStorage() {
       }).catch(() => {
         if (typeof loadItems === 'function') loadItems();
       });
+
+      // 3. Pre-load stock-in and stock-out transactions so they are instantly ready without spinner delay
+      try {
+        if (typeof loadStockInHistory === 'function') loadStockInHistory();
+        if (typeof loadStockOutHistory === 'function') loadStockOutHistory();
+      } catch (e) {}
     }
 
 
@@ -13124,6 +13131,7 @@ function saveLocalUsersToStorage() {
       const isSuperAdmin = (typeof isUserSuperAdmin === 'function') ? isUserSuperAdmin(u) : (u && (u.role === 'SuperAdmin' || String(u.username).toLowerCase() === 'superadmin'));
       const isAdmin = !isSuperAdmin && ((typeof isUserAdmin === 'function') ? isUserAdmin(u) : (u && (u.role === 'Admin' || String(u.username).toLowerCase() === 'admin')));
       const isStationManager = !isSuperAdmin && !isAdmin && (u && (u.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || u.role === 'អ្នកគ្រប់គ្រង'));
+      const isPrivilegedAdmin = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(u) : (isSuperAdmin || isAdmin);
       const canAccessUsers = isSuperAdmin || isAdmin || isStationManager;
       const canAccessSettings = isSuperAdmin || isAdmin;
       const canAccessWarehouses = isSuperAdmin || isAdmin;
@@ -13340,7 +13348,7 @@ function saveLocalUsersToStorage() {
       if (tabName === 'stockin') {
         try { populateItemSelectDropdowns(); } catch(e) { console.warn(e); }
         try { initStockInForm(); } catch(e) { console.warn(e); }
-        loadStockInHistory();
+        try { loadStockInHistory(); } catch(e) { console.warn(e); }
         try { initStockInLayoutCustomizer(); } catch(e) { console.warn(e); }
       } else if (tabName === 'incoming') {
         if (typeof renderPendingIncomingDispatches === 'function') renderPendingIncomingDispatches();
@@ -20116,7 +20124,7 @@ function saveLocalUsersToStorage() {
       } else {
         const tbody = document.getElementById('stockInHistoryTableBody');
         if (tbody) {
-          tbody.innerHTML = '<tr><td colspan="10" class="text-center py-6 text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-1"></i> កំពុងផ្ទុកទិន្នន័យពី Google Sheets...</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="9" class="text-center py-6 text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-1"></i> កំពុងផ្ទុកទិន្នន័យពី Google Sheets...</td></tr>';
         }
       }
 
