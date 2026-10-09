@@ -8891,11 +8891,35 @@ function saveLocalUsersToStorage() {
       });
     }
 
+    function formatKhmerDateTime(date) {
+      const d = date || new Date();
+      const khmerDays = ['ថ្ងៃអាទិត្យ', 'ថ្ងៃច័ន្ទ', 'ថ្ងៃអង្គារ', 'ថ្ងៃពុធ', 'ថ្ងៃព្រហស្បតិ៍', 'ថ្ងៃសុក្រ', 'ថ្ងៃសៅរ៍'];
+      const khmerMonths = ['ខែមករា', 'ខែកុម្ភៈ', 'ខែមីនា', 'ខែមេសា', 'ខែឧសភា', 'ខែមិថុនា', 'ខែកក្កដា', 'ខែសីហា', 'ខែកញ្ញា', 'ខែតុលា', 'ខែវិច្ឆិកា', 'ខែធ្នូ'];
+
+      const dayName = khmerDays[d.getDay()];
+      const dayNum = String(d.getDate()).padStart(2, '0');
+      const monthName = khmerMonths[d.getMonth()];
+      const year = d.getFullYear();
+
+      const rawHours = d.getHours();
+      let h12 = rawHours % 12;
+      if (h12 === 0) h12 = 12;
+      const hh = String(h12).padStart(2, '0');
+      const mm = String(d.getMinutes()).padStart(2, '0');
+      const ss = String(d.getSeconds()).padStart(2, '0');
+
+      let period = 'ព្រឹក';
+      if (rawHours >= 12 && rawHours < 17) period = 'រសៀល';
+      else if (rawHours >= 17 && rawHours < 19) period = 'ល្ងាច';
+      else if (rawHours >= 19) period = 'យប់';
+
+      return `${dayName} ទី${dayNum} ${monthName} ឆ្នាំ${year} ម៉ោង ${hh}:${mm}:${ss} ${period}`;
+    }
+    window.formatKhmerDateTime = formatKhmerDateTime;
+
     function updateClock() {
-      const now = new Date();
-      const options = { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' };
       const dateEl = document.getElementById('currentDateDisplay');
-      if (dateEl) dateEl.innerText = now.toLocaleDateString('km-KH', options);
+      if (dateEl) dateEl.innerText = formatKhmerDateTime(new Date());
     }
 
     // =========================================================================
