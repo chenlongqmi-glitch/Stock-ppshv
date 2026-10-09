@@ -2748,7 +2748,7 @@
                       <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 border border-emerald-300 font-mono leading-none">auto</span>
                     </label>
                     <div class="relative w-full h-11">
-                      <input type="text" id="stockInDocNo" required placeholder="DOC-IN-..."
+                      <input type="text" id="stockInDocNo" required placeholder="IN-..."
                         class="w-full h-full px-3 pr-8 bg-emerald-50/20 hover:bg-white border border-emerald-300 rounded-xl text-xs sm:text-sm font-mono font-bold text-emerald-950 text-center tracking-wide focus:ring-2 focus:ring-emerald-500 outline-none transition shadow-2xs">
                       <button type="button" onclick="generateStockInDocNo()" title="បង្កើតលេខឯកសារស្វ័យប្រវត្តិ"
                         class="absolute right-2 top-2.5 text-slate-400 hover:text-emerald-700 text-xs px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 hover:bg-emerald-50">
@@ -3151,7 +3151,7 @@
                       <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300 font-mono leading-none">auto</span>
                     </label>
                     <div class="relative w-full h-11">
-                      <input type="text" id="stockOutDocNo" required placeholder="DOC-OUT-..."
+                      <input type="text" id="stockOutDocNo" required placeholder="OUT-..."
                         class="w-full h-full px-3 pr-8 bg-amber-50/20 hover:bg-white border border-amber-300 rounded-xl text-xs sm:text-sm font-mono font-bold text-amber-950 text-center tracking-wide focus:ring-2 focus:ring-amber-500 outline-none transition shadow-2xs">
                       <button type="button" onclick="generateStockOutDocNo()" title="បង្កើតលេខឯកសារស្វ័យប្រវត្តិ"
                         class="absolute right-2 top-2.5 text-slate-400 hover:text-amber-700 text-xs px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 hover:bg-amber-50">
@@ -6245,7 +6245,7 @@
           <div class="flex-1 space-y-1 text-center sm:text-left">
             <div class="flex flex-wrap items-center justify-center sm:justify-start gap-1.5">
               <span id="receptionProductSku" class="font-mono text-xs font-bold px-2 py-0.5 rounded-md bg-white border border-emerald-300 text-emerald-900">SKU-0000</span>
-              <span id="receptionDocNoBadge" class="font-mono text-[11px] font-semibold text-slate-500">DOC-OUT-...</span>
+              <span id="receptionDocNoBadge" class="font-mono text-[11px] font-semibold text-slate-500">OUT-...</span>
             </div>
             <h4 id="receptionProductName" class="text-base font-extrabold text-slate-900 leading-snug">ឈ្មោះទំនិញ</h4>
             <div class="flex flex-wrap items-center justify-center sm:justify-start gap-3 text-xs text-slate-600">
@@ -7675,7 +7675,7 @@ function saveLocalUsersToStorage() {
           seenTxIds.add(txId);
         } else {
           const q = Number(t.quantity || 0);
-          const tType = String(t.type || (t.inBulkStock !== undefined || t.docNo?.startsWith('DOC-IN') ? 'STOCK_IN' : 'STOCK_OUT')).toUpperCase();
+          const tType = String(t.type || (t.inBulkStock !== undefined || t.docNo?.startsWith('DOC-IN') || t.docNo?.startsWith('IN-') ? 'STOCK_IN' : 'STOCK_OUT')).toUpperCase();
           const tDate = String(t.date || t.timestamp || '').slice(0, 10);
           const tLoc = String(t.toLocation || t.fromLocation || t.warehouse || '').trim();
           const tZone = String(t.zone || '').trim();
@@ -7685,7 +7685,7 @@ function saveLocalUsersToStorage() {
         }
 
         const q = Number(t.quantity || 0);
-        const tType = String(t.type || (t.inBulkStock !== undefined || t.docNo?.startsWith('DOC-IN') ? 'STOCK_IN' : 'STOCK_OUT')).toUpperCase();
+        const tType = String(t.type || (t.inBulkStock !== undefined || t.docNo?.startsWith('DOC-IN') || t.docNo?.startsWith('IN-') ? 'STOCK_IN' : 'STOCK_OUT')).toUpperCase();
 
         if (!netPerSku[s]) netPerSku[s] = { in: 0, out: 0 };
         if (tType === 'STOCK_IN') {
@@ -15554,8 +15554,8 @@ function saveLocalUsersToStorage() {
 
         const q = Number(t.quantity || 0);
         const tDate = String(t.date || t.timestamp || '').trim();
-        const tType = String(t.type || (t.inBulkStock !== undefined || t.docNo?.startsWith('DOC-IN') ? 'STOCK_IN' : 'STOCK_OUT')).toUpperCase();
-        const isStockIn = (tType === 'STOCK_IN') || (!t.type && (t.inBulkStock !== undefined || t.docNo?.startsWith('DOC-IN') || t.docNo?.startsWith('TX-IN') || t.notes?.includes('ចូលស្តុក')));
+        const tType = String(t.type || (t.inBulkStock !== undefined || t.docNo?.startsWith('DOC-IN') || t.docNo?.startsWith('IN-') ? 'STOCK_IN' : 'STOCK_OUT')).toUpperCase();
+        const isStockIn = (tType === 'STOCK_IN') || (!t.type && (t.inBulkStock !== undefined || t.docNo?.startsWith('DOC-IN') || t.docNo?.startsWith('IN-') || t.docNo?.startsWith('TX-IN') || t.notes?.includes('ចូលស្តុក')));
         const isStockOut = (tType === 'STOCK_OUT') || (!t.type && (t.outBulkStock !== undefined || t.docNo?.startsWith('DOC-OUT') || t.docNo?.startsWith('TX-OUT') || t.notes?.includes('ចេញ') || t.notes?.includes('បើក')));
 
         let rawWh = isStockIn ? (t.toLocation || t.location || t.warehouse || '') : (t.fromLocation || t.location || t.warehouse || '');
@@ -18127,7 +18127,7 @@ function saveLocalUsersToStorage() {
       const m = String(now.getMonth() + 1).padStart(2, '0');
       const d = String(now.getDate()).padStart(2, '0');
       const rand = Math.floor(1000 + Math.random() * 9000);
-      const docNo = `DOC-IN-${y}${m}${d}-${rand}`;
+      const docNo = `IN-${y}${m}${d}-${rand}`;
       const el = document.getElementById('stockInDocNo');
       if (el) el.value = docNo;
       return docNo;
@@ -18878,7 +18878,7 @@ function saveLocalUsersToStorage() {
       const m = String(now.getMonth() + 1).padStart(2, '0');
       const d = String(now.getDate()).padStart(2, '0');
       const rand = Math.floor(1000 + Math.random() * 9000);
-      const docNo = `DOC-OUT-${y}${m}${d}-${rand}`;
+      const docNo = `OUT-${y}${m}${d}-${rand}`;
       const el = document.getElementById('stockOutDocNo');
       if (el) el.value = docNo;
       return docNo;
@@ -21321,6 +21321,7 @@ function saveLocalUsersToStorage() {
           if (docMatch) docId = docMatch[1].trim();
         }
         docId = escapeHtml(docId);
+        const displayDocId = docId.replace(/^DOC-/i, '');
 
         const dStr = escapeHtml(t.date || '-');
         const timeStr = t.time ? escapeHtml(t.time) : '';
@@ -21500,7 +21501,7 @@ function saveLocalUsersToStorage() {
 
             <!-- 2. លេខឯកសារ & កាលបរិច្ឆេទ -->
             <td class="px-2 py-2.5 align-middle overflow-hidden">
-              <span class="bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/90 font-mono font-bold text-emerald-800 text-[10.5px] block truncate shadow-3xs" title="${docId}">${docId}</span>
+              <span class="bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200/90 font-mono font-bold text-emerald-800 text-[10.5px] inline-flex items-center max-w-full truncate shadow-3xs" title="${displayDocId}">${displayDocId}</span>
               <div class="text-[10px] text-slate-500 font-medium mt-0.5 flex items-center gap-1 truncate" title="${dStr}${timeStr ? ` ${timeStr}` : ''}">
                 <i class="fa-regular fa-calendar-days text-[9px] text-slate-400 shrink-0"></i>
                 <span class="truncate">${dStr}</span>
@@ -21799,6 +21800,7 @@ function saveLocalUsersToStorage() {
           if (docMatch) docId = docMatch[1].trim();
         }
         docId = escapeHtml(docId);
+        const displayDocId = docId.replace(/^DOC-/i, '');
 
         const dStr = escapeHtml(t.date || '-');
         const timeStr = t.time ? escapeHtml(t.time) : '';
@@ -21919,7 +21921,7 @@ function saveLocalUsersToStorage() {
 
             <!-- 2. លេខឯកសារ & កាលបរិច្ឆេទ -->
             <td class="px-2 py-2.5 align-middle overflow-hidden">
-              <span class="bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/90 font-mono font-bold text-amber-900 text-[10.5px] block truncate shadow-3xs" title="${docId}">${docId}</span>
+              <span class="bg-amber-50 px-2.5 py-0.5 rounded-md border border-amber-200/90 font-mono font-bold text-amber-900 text-[10.5px] inline-flex items-center max-w-full truncate shadow-3xs" title="${displayDocId}">${displayDocId}</span>
               <div class="text-[10px] text-slate-500 font-medium mt-0.5 flex items-center gap-1 truncate" title="${dStr}${timeStr ? ` ${timeStr}` : ''}">
                 <i class="fa-regular fa-calendar-days text-[9px] text-slate-400 shrink-0"></i>
                 <span class="truncate">${dStr}</span>
