@@ -509,6 +509,67 @@ function setGlobalDataVersion() {
   }
 }
 
+function recordUserPresence(user) {
+  if (!user || (!user.username && !user.userId)) return getGlobalOnlineUsers();
+  try {
+    var cache = CacheService.getScriptCache();
+    var now = Date.now();
+    var presenceMap = {};
+    var raw = cache.get('GLOBAL_ONLINE_USERS');
+    if (raw) {
+      try { presenceMap = JSON.parse(raw); } catch (e) { presenceMap = {}; }
+    }
+
+    var uKey = String(user.username || user.userId || '').trim().toLowerCase();
+    if (uKey) {
+      presenceMap[uKey] = {
+        username: user.username || user.userId,
+        fullName: user.fullName || user.username || '',
+        role: user.role || '',
+        warehouse: user.warehouse || '',
+        avatar: user.avatar || '',
+        lastSeen: now
+      };
+    }
+
+    // Keep active users seen within the last 60 seconds
+    var activeList = [];
+    var cleanMap = {};
+    for (var k in presenceMap) {
+      var u = presenceMap[k];
+      if (u && (now - (u.lastSeen || 0) < 60000)) {
+        cleanMap[k] = u;
+        activeList.push(u);
+      }
+    }
+
+    cache.put('GLOBAL_ONLINE_USERS', JSON.stringify(cleanMap), 180);
+    return activeList;
+  } catch (err) {
+    return [];
+  }
+}
+
+function getGlobalOnlineUsers() {
+  try {
+    var cache = CacheService.getScriptCache();
+    var raw = cache.get('GLOBAL_ONLINE_USERS');
+    if (!raw) return [];
+    var presenceMap = JSON.parse(raw);
+    var now = Date.now();
+    var list = [];
+    for (var k in presenceMap) {
+      var u = presenceMap[k];
+      if (u && (now - (u.lastSeen || 0) < 60000)) {
+        list.push(u);
+      }
+    }
+    return list;
+  } catch (e) {
+    return [];
+  }
+}
+
 function checkDataVersion(payload) {
   var clientVersion = payload && payload.version ? String(payload.version) : '';
   var cache = CacheService.getScriptCache();
@@ -526,12 +587,22 @@ function checkDataVersion(payload) {
   var lastPendingRegTime = cache.get('LAST_PENDING_REG_TIMESTAMP') || '0';
   var lastPendingCount = cache.get('PENDING_USERS_COUNT') || '0';
 
+  // Online Presence Tracking across all stations and devices
+  var onlineList = [];
+  if (payload && payload.user) {
+    onlineList = recordUserPresence(payload.user);
+  } else {
+    onlineList = getGlobalOnlineUsers();
+  }
+
   return {
     success: true,
     hasUpdates: hasUpdates,
     serverVersion: serverVersion,
     lastPendingRegTime: lastPendingRegTime,
     lastPendingCount: Number(lastPendingCount),
+    onlineUsers: onlineList,
+    onlineCount: onlineList.length,
     timestamp: Date.now()
   };
 }
@@ -877,6 +948,13 @@ function executeLocalApiAction(req) {
       case 'getChatChannels':
 
         return getChatChannels(payload.user);
+
+      case 'reportChatPresence':
+      case 'updateChatHeartbeat':
+        return { success: true, onlineUsers: recordUserPresence(payload.user || payload) };
+
+      case 'getOnlineUsers':
+        return { success: true, onlineUsers: getGlobalOnlineUsers() };
 
       case 'getWarehousesDetailed':
 
@@ -8694,9 +8772,16 @@ function logActivity(user, role, action, details) {
           }
         }
 
-        return { success: true, messages: messages };
+        var onlineList = [];
+        if (user) {
+          onlineList = recordUserPresence(user);
+        } else {
+          onlineList = getGlobalOnlineUsers();
+        }
+
+        return { success: true, messages: messages, onlineUsers: onlineList, onlineCount: onlineList.length };
       } catch (e) {
-        return { success: false, message: e.toString(), messages: [] };
+        return { success: false, message: e.toString(), messages: [], onlineUsers: [] };
       }
     }
 

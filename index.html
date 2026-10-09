@@ -3887,8 +3887,15 @@
                   </div>
                 </div>
 
-                <div class="px-2 pt-2 pb-1 text-[10px] font-bold uppercase text-slate-400 tracking-wider">
-                  បុគ្គលិកតាមស្ថានីយ (Station Staff)
+                <div class="px-2 pt-2.5 pb-1 flex items-center justify-between text-[10px] font-bold uppercase text-slate-500 tracking-wider">
+                  <span class="flex items-center gap-1.5">
+                    <i class="fa-solid fa-users text-slate-400 text-[9px]"></i>
+                    <span>បុគ្គលិកតាមស្ថានីយ (Station Staff)</span>
+                  </span>
+                  <span id="chatStaffOnlineCountBadge" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[9px] font-bold shadow-3xs cursor-pointer transition" onclick="openOnlineUsersModal()" title="ចុចមើលអ្នកកំពុង Online ទាំងអស់">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span id="chatStaffOnlineCountText">0 Online</span>
+                  </span>
                 </div>
 
                 <!-- Warehouses Dynamic List Container -->
@@ -30828,8 +30835,14 @@ function saveLocalUsersToStorage() {
           hasNewUpdates = true;
         } else {
           const heartbeat = await apiCall('checkDataVersion', {
-            version: AppState.clientDataVersion
+            version: AppState.clientDataVersion,
+            user: AppState.currentUser
           });
+          if (heartbeat && Array.isArray(heartbeat.onlineUsers)) {
+            if (typeof applyCloudOnlineUsers === 'function') {
+              applyCloudOnlineUsers(heartbeat.onlineUsers);
+            }
+          }
           if (heartbeat && heartbeat.hasUpdates) {
             hasNewUpdates = true;
             AppState.clientDataVersion = heartbeat.serverVersion || '';
@@ -31783,11 +31796,36 @@ function saveLocalUsersToStorage() {
           fullName: AppState.currentUser.fullName || AppState.currentUser.username,
           role: AppState.currentUser.role || '',
           warehouse: AppState.currentUser.warehouse || '',
+          avatar: AppState.currentUser.avatar || '',
           lastSeen: Date.now()
         };
         localStorage.setItem('inventory_online_heartbeats', JSON.stringify(heartbeats));
       } catch (e) {}
     }
+
+    function applyCloudOnlineUsers(cloudList) {
+      if (!Array.isArray(cloudList)) return;
+      try {
+        const raw = localStorage.getItem('inventory_online_heartbeats');
+        const heartbeats = raw ? JSON.parse(raw) : {};
+        const now = Date.now();
+        cloudList.forEach(u => {
+          if (!u || (!u.username && !u.userId)) return;
+          const uname = String(u.username || u.userId).toLowerCase();
+          heartbeats[uname] = {
+            username: u.username || u.userId,
+            fullName: u.fullName || u.username || '',
+            role: u.role || '',
+            warehouse: u.warehouse || '',
+            avatar: u.avatar || '',
+            lastSeen: Number(u.lastSeen || now)
+          };
+        });
+        localStorage.setItem('inventory_online_heartbeats', JSON.stringify(heartbeats));
+      } catch (e) {}
+      updateChatOnlineIndicators();
+    }
+    window.applyCloudOnlineUsers = applyCloudOnlineUsers;
 
     function getOnlineUsersList() {
       const online = [];
@@ -31797,7 +31835,7 @@ function saveLocalUsersToStorage() {
         if (raw) {
           const heartbeats = JSON.parse(raw);
           for (const [key, user] of Object.entries(heartbeats)) {
-            if (now - (user.lastSeen || 0) < 45000) {
+            if (user && user.lastSeen && (now - user.lastSeen < 60000 || user.lastSeen > now)) {
               online.push(user);
             }
           }
@@ -31812,6 +31850,7 @@ function saveLocalUsersToStorage() {
             fullName: AppState.currentUser.fullName || AppState.currentUser.username,
             role: AppState.currentUser.role || '',
             warehouse: AppState.currentUser.warehouse || '',
+            avatar: AppState.currentUser.avatar || '',
             lastSeen: now
           });
         }
@@ -31832,6 +31871,18 @@ function saveLocalUsersToStorage() {
       return getOnlineUsersList().some(u => u.warehouse === whName);
     }
 
+    let lastOnlineSignature = '';
+    function checkAndRefreshOnlineContacts() {
+      const onlineList = getOnlineUsersList();
+      const currentSignature = onlineList.map(u => String(u.username || '').toLowerCase()).sort().join('|');
+      if (currentSignature !== lastOnlineSignature) {
+        lastOnlineSignature = currentSignature;
+        if (typeof renderManagementChatContacts === 'function') renderManagementChatContacts();
+        if (typeof renderDirectWarehouseContacts === 'function') renderDirectWarehouseContacts();
+        if (typeof filterChatChannels === 'function') filterChatChannels();
+      }
+    }
+
     function updateChatOnlineIndicators() {
       const onlineUsers = getOnlineUsersList();
       const count = Math.max(1, onlineUsers.length);
@@ -31842,6 +31893,17 @@ function saveLocalUsersToStorage() {
       const headerBtnBadge = document.getElementById('chatHeaderOnlineCountText');
       if (headerBtnBadge) {
         headerBtnBadge.innerText = `អ្នក Online (${count})`;
+      }
+
+      // Update Station Staff Online count badge
+      const staffOnlineBadge = document.getElementById('chatStaffOnlineCountText');
+      if (staffOnlineBadge) {
+        const staffOnlineCount = onlineUsers.filter(u => {
+          const r = String(u.role || '').toLowerCase();
+          const un = String(u.username || '').toLowerCase();
+          return r !== 'superadmin' && un !== 'superadmin';
+        }).length;
+        staffOnlineBadge.innerText = `${staffOnlineCount} Online`;
       }
 
       // Update header subtitle if currently looking at direct channel
@@ -31867,6 +31929,8 @@ function saveLocalUsersToStorage() {
         const currentSubText = subtitle.getAttribute('data-subtext') || subtitle.innerText.replace(/^[●\s]+/, '').replace(/\(Online\)|\(Offline\)/, '').trim();
         subtitle.innerHTML = `${dot} ${escapeHtml(currentSubText)} <span class="text-[10px] font-bold ${isDirectOnline ? 'text-emerald-600' : 'text-slate-400'}">(${isDirectOnline ? 'Online' : 'Offline'})</span>`;
       }
+
+      checkAndRefreshOnlineContacts();
     }
 
     // --- Online Users Modal & Interaction ---
@@ -32401,7 +32465,7 @@ function saveLocalUsersToStorage() {
           </div>
         `;
       } else {
-        html += `
+        const adminItem = `
           <div
             onclick="switchChatChannel('ADMIN_DIRECT', '🛡️ Admin (${escapeHtml(adminUser.fullName)})', 'ជជែកផ្ទាល់ជាមួយ Admin ប្រព័ន្ធ', '${adminAvatar}')"
             id="channel-ADMIN_DIRECT"
@@ -32426,7 +32490,9 @@ function saveLocalUsersToStorage() {
               </p>
             </div>
           </div>
+        `;
 
+        const saItem = `
           <div
             onclick="switchChatChannel('SUPERADMIN_DIRECT', '👑 SuperAdmin (${escapeHtml(saUser.fullName)})', 'ជជែកផ្ទាល់ជាមួយ SuperAdmin', '${saAvatar}')"
             id="channel-SUPERADMIN_DIRECT"
@@ -32448,6 +32514,12 @@ function saveLocalUsersToStorage() {
             </div>
           </div>
         `;
+
+        if (isSaOnline && !isAdminOnline) {
+          html += saItem + adminItem;
+        } else {
+          html += adminItem + saItem;
+        }
       }
 
       container.innerHTML = html;
@@ -32484,6 +32556,42 @@ function saveLocalUsersToStorage() {
         container.innerHTML = `<div class="p-3 text-center text-xs text-slate-400">មិនមានគណនីបុគ្គលិកទេ</div>`;
         return;
       }
+
+      // Sort: អ្នកកំពុង Online ត្រូវតម្រៀបជួរមកខាងលើបង្អស់ជាបន្តបន្ទាប់គ្នា (Sort online users to the top sequentially)
+      stationStaff.sort((a, b) => {
+        const aUname = String(a.username || '').toLowerCase();
+        const bUname = String(b.username || '').toLowerCase();
+        const aOnline = isUserOnline(aUname);
+        const bOnline = isUserOnline(bUname);
+
+        // 1. អ្នកដែលកំពុង Online មកខាងលើគេបង្អស់
+        if (aOnline && !bOnline) return -1;
+        if (!aOnline && bOnline) return 1;
+
+        // 2. ក្នុងចំណោមអ្នក Online ដូចគ្នា ឬ Offline ដូចគ្នា: គណនីផ្ទាល់ខ្លួន (Me) ដាក់បន្ទាប់ពីអ្នកដទៃ
+        const aIsMe = (aUname === myUsername);
+        const bIsMe = (bUname === myUsername);
+        if (aIsMe && !bIsMe) return 1;
+        if (!aIsMe && bIsMe) return -1;
+
+        // 3. តម្រៀបតាមតួនាទី (Role)
+        const roleOrder = {
+          'admin': 1,
+          'អ្នកគ្រប់គ្រងស្ថានីយ': 2,
+          'អ្នកគ្រប់គ្រង': 2,
+          'ប្រធានក្រុម': 3,
+          'អ្នកកាន់ស្តុក': 4,
+          'បុគ្គលិក': 5
+        };
+        const aOrder = roleOrder[String(a.role || '').toLowerCase()] || 99;
+        const bOrder = roleOrder[String(b.role || '').toLowerCase()] || 99;
+        if (aOrder !== bOrder) return aOrder - bOrder;
+
+        // 4. តម្រៀបតាមឈ្មោះ (Name)
+        const aName = String(a.fullName || a.username || '');
+        const bName = String(b.fullName || b.username || '');
+        return aName.localeCompare(bName, 'km');
+      });
 
       container.innerHTML = stationStaff.map((u) => {
         const uname = String(u.username || '').toLowerCase();
@@ -32531,6 +32639,13 @@ function saveLocalUsersToStorage() {
           </div>
         `;
       }).join('');
+
+      if (typeof filterChatChannels === 'function') {
+        const sInp = document.getElementById('chatSearchInput');
+        if (sInp && sInp.value && sInp.value.trim()) {
+          filterChatChannels();
+        }
+      }
     }
     const renderDirectUserContacts = renderDirectWarehouseContacts;
 
@@ -32621,8 +32736,11 @@ function saveLocalUsersToStorage() {
           } catch (err) {}
         }
 
-        const res = await apiCall('getChatMessages', { channelId: currentChatChannel });
+        const res = await apiCall('getChatMessages', { channelId: currentChatChannel, user: AppState.currentUser });
         if (res && res.success) {
+          if (Array.isArray(res.onlineUsers) && typeof applyCloudOnlineUsers === 'function') {
+            applyCloudOnlineUsers(res.onlineUsers);
+          }
           let msgs = res.messages || [];
 
           // SANITIZE & PURGE ADMIN NOTIFICATIONS FROM PUBLIC ROOM (ALL_WAREHOUSES / បន្ទប់រួម)
