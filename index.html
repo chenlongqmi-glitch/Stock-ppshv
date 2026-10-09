@@ -12602,9 +12602,16 @@ function saveLocalUsersToStorage() {
       }
       AppState.selectedAdminWarehouseFilter = whValue;
       sessionStorage.setItem('inventory_wh_filter', whValue);
+
+      // Sync Global Warehouse Selector in Header
+      const globalSelect = document.getElementById('globalWarehouseSelector');
+      if (globalSelect && globalSelect.value !== whValue) {
+        globalSelect.value = whValue;
+      }
+
+      // Sync Active Session Warehouse Badge
       const sessionWarehouseName = document.getElementById('activeSessionWarehouseName');
       if (sessionWarehouseName) {
-        const u = AppState.currentUser || {};
         const isSuperAdmin = (typeof isUserSuperAdmin === 'function') ? isUserSuperAdmin(u) : false;
         if (whValue === 'ALL') {
           sessionWarehouseName.innerText = '🏢 គ្រប់ស្ថានីយទាំងអស់';
@@ -12614,10 +12621,44 @@ function saveLocalUsersToStorage() {
           sessionWarehouseName.innerText = sanitizeStationName(whValue) + ` (${isSuperAdmin ? 'SuperAdmin' : 'Admin'} Switch)`;
         }
       }
+
+      // 1. Sync Product Inventory (បញ្ជីទំនិញទាំងអស់)
       const itemWhSelect = document.getElementById('itemWarehouseFilter');
       if (itemWhSelect && itemWhSelect.value !== whValue) {
         itemWhSelect.value = whValue;
       }
+
+      // 2. Sync Stock-In (ស្តុកចូល) Table Filter & Location
+      const stockInFilter = document.getElementById('stockInStationFilter');
+      if (stockInFilter && stockInFilter.value !== whValue) {
+        stockInFilter.value = whValue;
+      }
+      if (typeof applyUserWarehouseToStockInLocation === 'function') applyUserWarehouseToStockInLocation();
+
+      // 3. Sync Stock-Out (ស្តុកចេញ)
+      if (typeof applyUserWarehouseToStockOutLocation === 'function') applyUserWarehouseToStockOutLocation();
+
+      // 4. Sync Incoming Dispatches (ទំនិញផ្ទេរចូល)
+      if (typeof pendingDispatchesStationFilter !== 'undefined') {
+        pendingDispatchesStationFilter = whValue;
+      }
+
+      // 5. Sync Transfer (ផ្ទេរទំនិញ)
+      const trFrom = document.getElementById('transferFromLocation');
+      if (trFrom && whValue !== 'ALL') {
+        trFrom.value = whValue;
+      }
+
+      // 6. Sync Product Requests (ស្នើសុំទំនិញ)
+      const reqWhSelect = document.getElementById('reqWarehouseFilter');
+      if (reqWhSelect && reqWhSelect.value !== whValue) {
+        reqWhSelect.value = whValue;
+      }
+
+      // 7. Update Item Dropdown Datalists for Station Stock
+      if (typeof populateItemSelectDropdowns === 'function') populateItemSelectDropdowns();
+
+      // 8. Re-render/filter all tabs instantly
       if (typeof loadDashboard === 'function') loadDashboard();
       if (typeof renderItemsTable === 'function') renderItemsTable();
       if (typeof filterStockInHistoryTable === 'function') filterStockInHistoryTable();
@@ -12626,35 +12667,10 @@ function saveLocalUsersToStorage() {
       if (typeof updateIncomingDispatchesBadge === 'function') updateIncomingDispatchesBadge();
       if (AppState.currentTab === 'reports' && typeof loadReportTransactions === 'function') loadReportTransactions();
       if (AppState.currentTab === 'requests' && typeof filterProductRequests === 'function') filterProductRequests();
-      if (typeof applyUserWarehouseToStockInLocation === 'function') applyUserWarehouseToStockInLocation();
     }
 
     function handleItemWarehouseFilterChange(whValue) {
-      AppState.selectedAdminWarehouseFilter = whValue;
-      sessionStorage.setItem('inventory_wh_filter', whValue);
-      const globalSelect = document.getElementById('globalWarehouseSelector');
-      if (globalSelect && globalSelect.value !== whValue) {
-        globalSelect.value = whValue;
-      }
-      const sessionWarehouseName = document.getElementById('activeSessionWarehouseName');
-      if (sessionWarehouseName) {
-        const u = AppState.currentUser || {};
-        const uRoleLower = String(u.role || '').trim().toLowerCase();
-        const uNameLower = String(u.username || '').trim().toLowerCase();
-        const isSuperAdmin = isUserSuperAdmin(u);
-        if (whValue === 'ALL') {
-          sessionWarehouseName.innerText = '🏢 គ្រប់ស្ថានីយទាំងអស់';
-        } else {
-          sessionWarehouseName.innerText = sanitizeStationName(whValue) + ` (${isSuperAdmin ? 'SuperAdmin' : 'Admin'} Switch)`;
-        }
-      }
-      loadDashboard();
-      if (typeof renderItemsTable === 'function') renderItemsTable();
-      if (typeof filterStockInHistoryTable === 'function') filterStockInHistoryTable();
-      if (typeof filterStockOutHistoryTable === 'function') filterStockOutHistoryTable();
-      if (AppState.currentTab === 'reports' && typeof loadReportTransactions === 'function') loadReportTransactions();
-      if (AppState.currentTab === 'requests' && typeof filterProductRequests === 'function') filterProductRequests();
-      if (typeof applyUserWarehouseToStockInLocation === 'function') applyUserWarehouseToStockInLocation();
+      handleGlobalWarehouseChange(whValue);
     }
 
     function togglePasswordVisibility(fieldOrId, btn) {
@@ -13346,6 +13362,10 @@ function saveLocalUsersToStorage() {
       if (tabName === 'dashboard') loadDashboard();
       if (tabName === 'items') renderItemsTable();
       if (tabName === 'stockin') {
+        const sInFilter = document.getElementById('stockInStationFilter');
+        if (sInFilter && AppState.selectedAdminWarehouseFilter) {
+          sInFilter.value = AppState.selectedAdminWarehouseFilter;
+        }
         try { populateItemSelectDropdowns(); } catch(e) { console.warn(e); }
         try { initStockInForm(); } catch(e) { console.warn(e); }
         try { loadStockInHistory(); } catch(e) { console.warn(e); }
@@ -13359,9 +13379,19 @@ function saveLocalUsersToStorage() {
         if (typeof renderStockOutMultiStationGrid === 'function') renderStockOutMultiStationGrid();
       } else if (tabName === 'transfer') {
         try { populateItemSelectDropdowns(); } catch(e) { console.warn(e); }
+        const trFrom = document.getElementById('transferFromLocation');
+        if (trFrom && AppState.selectedAdminWarehouseFilter && AppState.selectedAdminWarehouseFilter !== 'ALL') {
+          trFrom.value = AppState.selectedAdminWarehouseFilter;
+        }
       }
       if (tabName === 'reports') loadReportTransactions();
-      if (tabName === 'requests') loadProductRequests();
+      if (tabName === 'requests') {
+        const reqWh = document.getElementById('reqWarehouseFilter');
+        if (reqWh && AppState.selectedAdminWarehouseFilter) {
+          reqWh.value = AppState.selectedAdminWarehouseFilter;
+        }
+        loadProductRequests();
+      }
       if (tabName === 'chat') initLiveChatView();
       if (tabName === 'users') {
         if (typeof updateRenderableUsersFromDb === 'function') updateRenderableUsersFromDb();
@@ -13432,6 +13462,7 @@ function saveLocalUsersToStorage() {
     async function loadDashboard() {
       if (typeof updateIncomingDispatchesBadge === 'function') updateIncomingDispatchesBadge();
       const activeWh = (typeof getEffectiveStationFilter === 'function') ? getEffectiveStationFilter() : (AppState.selectedAdminWarehouseFilter || 'ALL');
+      let stationItemsCount = 0;
 
       // Instant local render from memory (< 1ms)
       if (AppState.items && AppState.items.length > 0) {
@@ -13479,6 +13510,7 @@ function saveLocalUsersToStorage() {
             }
           });
 
+          stationItemsCount = stationItems.length;
           const totalProdEl = document.getElementById('dashTotalProducts');
           if (totalProdEl) {
             totalProdEl.innerText = stationItems.length;
@@ -13513,16 +13545,20 @@ function saveLocalUsersToStorage() {
         const res = await apiCall('getDashboardStats', { warehouseFilter: activeWh });
         if (res && res.success && (!activeWh || activeWh === 'ALL' || !res.activeWarehouseFilter || res.activeWarehouseFilter === activeWh)) {
           const s = res.stats;
-          document.getElementById('dashTotalProducts').innerText = s.totalProducts;
-          document.getElementById('dashTotalQty').innerText = `ស្តុកសរុប: ${s.totalStockQuantity} ដុំ`;
-          document.getElementById('dashInventoryValue').innerText = `$${s.totalInventoryCostValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-          document.getElementById('dashRetailValue').innerText = `តម្លៃលក់: $${s.totalInventoryRetailValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-          document.getElementById('dashLowStockCount').innerText = s.lowStockCount;
-          document.getElementById('dashOutOfStockCount').innerText = s.outOfStockCount;
+          if (activeWh && activeWh !== 'ALL' && s.totalProducts === 0 && stationItemsCount > 0) {
+            renderMovementChart(res.movementTrend);
+          } else {
+            document.getElementById('dashTotalProducts').innerText = s.totalProducts;
+            document.getElementById('dashTotalQty').innerText = `ស្តុកសរុប: ${s.totalStockQuantity} ដុំ`;
+            document.getElementById('dashInventoryValue').innerText = `$${s.totalInventoryCostValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+            document.getElementById('dashRetailValue').innerText = `តម្លៃលក់: $${s.totalInventoryRetailValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+            document.getElementById('dashLowStockCount').innerText = s.lowStockCount;
+            document.getElementById('dashOutOfStockCount').innerText = s.outOfStockCount;
 
-          renderLowStockTable(res.lowStockItems || []);
-          renderFastMovingList(res.fastMovingItems || []);
-          renderMovementChart(res.movementTrend);
+            renderLowStockTable(res.lowStockItems || []);
+            renderFastMovingList(res.fastMovingItems || []);
+            renderMovementChart(res.movementTrend);
+          }
 
           if (typeof checkPendingDeletionsForSuperAdmin === 'function') {
             checkPendingDeletionsForSuperAdmin(true);
@@ -17193,21 +17229,19 @@ function saveLocalUsersToStorage() {
       const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(u) : false;
 
       if (isPrivileged) {
-        // សម្រាប់ account super admin និង admin បង្ហាញតែប៉ុននេះបានហើយ (中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង) )និង(机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន))
         locEl.disabled = false;
         locEl.classList.remove('pointer-events-none', 'bg-slate-100', 'cursor-not-allowed');
-        const allowed = [
-          '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
-          '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)'
-        ];
+        const currentList = (typeof getWarehouseNamesList === 'function') ? getWarehouseNamesList() : WAREHOUSES_LIST;
         const curVal = locEl.value ? (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(locEl.value) : locEl.value) : '';
-        locEl.innerHTML = allowed.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('');
-        if (curVal && allowed.includes(curVal)) {
+        locEl.innerHTML = currentList.map(w => `<option value="${escapeHtml(w)}">📍 ${escapeHtml(w)}</option>`).join('');
+        const activeWh = AppState.selectedAdminWarehouseFilter || '';
+        const targetVal = (activeWh && activeWh !== 'ALL' && !isAdminComboWarehouse(activeWh)) ? activeWh : '';
+        if (targetVal && currentList.includes(targetVal)) {
+          locEl.value = targetVal;
+        } else if (curVal && currentList.includes(curVal)) {
           locEl.value = curVal;
-        } else if (AppState.selectedAdminWarehouseFilter && allowed.includes(AppState.selectedAdminWarehouseFilter)) {
-          locEl.value = AppState.selectedAdminWarehouseFilter;
         } else {
-          locEl.value = allowed[0];
+          locEl.value = currentList[0];
         }
         return;
       }
@@ -20186,15 +20220,18 @@ function saveLocalUsersToStorage() {
       }
     }
 
-        function getStockInActiveWarehouseFilter() {
+    function getStockInActiveWarehouseFilter() {
       const filterSelect = document.getElementById('stockInStationFilter');
-      const selectedFilterWh = filterSelect ? filterSelect.value : 'ALL';
-      if (selectedFilterWh && selectedFilterWh !== 'ALL') {
-        return selectedFilterWh;
-      }
+      const selectedFilterWh = filterSelect ? filterSelect.value : '';
       const u = AppState.currentUser || {};
       const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(u) : false;
       if (isPrivileged) {
+        if (selectedFilterWh && selectedFilterWh !== 'ALL') {
+          return selectedFilterWh;
+        }
+        if (AppState.selectedAdminWarehouseFilter && AppState.selectedAdminWarehouseFilter !== 'ALL') {
+          return AppState.selectedAdminWarehouseFilter;
+        }
         return 'ALL';
       }
       return (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(u.warehouse) : u.warehouse) || 'ALL';

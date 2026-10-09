@@ -7764,11 +7764,49 @@ function getDashboardStats(userOrPayload, warehouseFilter, optSs) {
   const idxCategory = headers.indexOf('category') >= 0 ? headers.indexOf('category') : 2;
   const idxUnit = headers.indexOf('unit') >= 0 ? headers.indexOf('unit') : 5;
 
+  const isTargetWhSpecific = targetWarehouse && targetWarehouse !== 'ALL' && targetWarehouse !== 'គ្រប់ឃ្លាំង' && targetWarehouse !== 'គ្រប់ស្ថានីយទាំងអស់' && !isComboWarehouseGAS(targetWarehouse);
+  const stationStockMap = {};
+  const stationTxCountMap = {};
+
+  if (isTargetWhSpecific) {
+    const txHeaders = (txData[0] || []).map(h => String(h || '').trim().toLowerCase());
+    const txSkuIdx = txHeaders.indexOf('sku') >= 0 ? txHeaders.indexOf('sku') : 2;
+    const txQtyIdx = txHeaders.indexOf('quantity') >= 0 ? txHeaders.indexOf('quantity') : 5;
+    const txFromIdx = txHeaders.indexOf('fromlocation') >= 0 ? txHeaders.indexOf('fromlocation') : 10;
+    const txToIdx = txHeaders.indexOf('tolocation') >= 0 ? txHeaders.indexOf('tolocation') : 11;
+    for (let j = 1; j < txData.length; j++) {
+      const txRow = txData[j];
+      const tSku = String(txRow[txSkuIdx] || '').trim().toLowerCase();
+      if (!tSku) continue;
+      const tQty = Number(txRow[txQtyIdx] || 0);
+      const tFrom = String(txRow[txFromIdx] || '').trim();
+      const tTo = String(txRow[txToIdx] || '').trim();
+      if (matchesTargetWarehouseGAS(tTo, targetWarehouse)) {
+        stationStockMap[tSku] = (stationStockMap[tSku] || 0) + tQty;
+        stationTxCountMap[tSku] = (stationTxCountMap[tSku] || 0) + 1;
+      }
+      if (matchesTargetWarehouseGAS(tFrom, targetWarehouse)) {
+        stationStockMap[tSku] = (stationStockMap[tSku] || 0) - tQty;
+        stationTxCountMap[tSku] = (stationTxCountMap[tSku] || 0) + 1;
+      }
+    }
+  }
+
   for (let i = 1; i < itemsData.length; i++) {
     const row = itemsData[i];
     if (!row[0]) continue;
     const loc = idxLocation >= 0 ? String(row[idxLocation] || '').trim() : 'គ្រប់ស្ថានីយទាំងអស់';
-    if (targetWarehouse && targetWarehouse !== 'ALL' && targetWarehouse !== 'គ្រប់ឃ្លាំង' && targetWarehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
+    let currentStock = Number(row[idxCurrentStock] || 0);
+
+    if (isTargetWhSpecific) {
+      const skuKey = String(row[0] || '').trim().toLowerCase();
+      const hasStationTx = stationTxCountMap[skuKey] !== undefined;
+      const isAssigned = matchesTargetWarehouseGAS(loc, targetWarehouse);
+      if (!hasStationTx && !isAssigned) {
+        continue;
+      }
+      currentStock = hasStationTx ? Math.max(0, stationStockMap[skuKey] || 0) : currentStock;
+    } else if (targetWarehouse && targetWarehouse !== 'ALL' && targetWarehouse !== 'គ្រប់ឃ្លាំង' && targetWarehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
       if (!matchesTargetWarehouseGAS(loc, targetWarehouse)) {
         continue;
       }
@@ -7778,7 +7816,6 @@ function getDashboardStats(userOrPayload, warehouseFilter, optSs) {
     const cost = idxCost >= 0 ? Number(row[idxCost] || 0) : 0;
     const price = idxPrice >= 0 ? Number(row[idxPrice] || 0) : 0;
     const minStock = Number(row[idxMinStock] || 0);
-    const currentStock = Number(row[idxCurrentStock] || 0);
     const itemName = String(row[idxName] || row[1] || '').trim();
     const itemCat = String(row[idxCategory] || row[2] || '').trim();
     const itemUnit = String(row[idxUnit] || row[5] || 'ដុំ').trim();
