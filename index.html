@@ -7170,7 +7170,7 @@
       if (sLower.includes('k182') || s.includes('ព្រះសីហនុ') || sLower === 'wh-08' || s.includes('ឃ្លាំងទី ០៨')) {
         return 'K182 ស្ថានីយ (ព្រះសីហនុ) 08';
       }
-      if (s.includes('中心库房') || sLower === 'wh-hq' || s.includes('ចុងស៊ីង') || s.includes('បុងសឹង')) {
+      if (s.includes('中心库房') || sLower === 'wh-hq' || s.includes('ចុងស៊ីង') || s.includes('ចុងស៊ីន') || s.includes('ចុងកុងស៊ុង') || s.includes('បុងសឹង') || s.includes('បញ្ជូនមកពីចុង')) {
         return '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
       }
       if (s.includes('机电') || sLower === 'wh-em' || s.includes('គ្រឿងម៉ាស៊ីន') || s.includes('អគ្គិសនី')) {
@@ -7185,6 +7185,92 @@
       return s;
     }
     window.toCanonicalWarehouseName = toCanonicalWarehouseName;
+
+    function deductItemZoneBreakdown(item, zoneToDeduct, qtyToDeduct) {
+      if (!item) return;
+      let remDeduct = Math.max(0, Number(qtyToDeduct || 0));
+      if (remDeduct <= 0) return;
+
+      if (!Array.isArray(item.zoneBreakdown) || item.zoneBreakdown.length === 0) {
+        return;
+      }
+
+      const targetZone = String(zoneToDeduct || '').trim().toLowerCase();
+      // 1. If targetZone specified, try to deduct from that zone first
+      if (targetZone && targetZone !== '-' && targetZone !== 'គ្មាន') {
+        const zb = item.zoneBreakdown.find(z => String(z.zone || '').trim().toLowerCase() === targetZone);
+        if (zb) {
+          const curQ = Math.max(0, Number(zb.quantity || 0));
+          const deductNow = Math.min(curQ, remDeduct);
+          zb.quantity = Math.max(0, curQ - deductNow);
+          remDeduct -= deductNow;
+        }
+      }
+
+      // 2. If remaining to deduct, deduct from largest available zones
+      if (remDeduct > 0) {
+        const sorted = [...item.zoneBreakdown].sort((a, b) => Number(b.quantity || 0) - Number(a.quantity || 0));
+        for (const zb of sorted) {
+          const curQ = Math.max(0, Number(zb.quantity || 0));
+          if (curQ > 0) {
+            const deductNow = Math.min(curQ, remDeduct);
+            zb.quantity = Math.max(0, curQ - deductNow);
+            remDeduct -= deductNow;
+            if (remDeduct <= 0) break;
+          }
+        }
+      }
+
+      // 3. Filter out zones with 0 quantity
+      item.zoneBreakdown = item.zoneBreakdown.filter(z => Number(z.quantity || 0) > 0);
+
+      // 4. Update item.zone formatted string
+      const rUnit = item.unit || 'ដុំ';
+      if (item.zoneBreakdown.length > 0) {
+        item.zone = item.zoneBreakdown.map(z => `${z.zone}: ${z.quantity} ${z.unit || rUnit}`).join(', ');
+      } else {
+        item.zone = '-';
+      }
+    }
+    window.deductItemZoneBreakdown = deductItemZoneBreakdown;
+
+    function alignItemZoneBreakdownWithStock(item) {
+      if (!item) return;
+      const targetStock = Math.max(0, Number(item.currentStock || 0));
+      if (!Array.isArray(item.zoneBreakdown) || item.zoneBreakdown.length === 0) {
+        if (targetStock === 0) item.zone = '-';
+        return;
+      }
+
+      if (targetStock === 0) {
+        item.zoneBreakdown = [];
+        item.zone = '-';
+        return;
+      }
+
+      let currentZoneSum = item.zoneBreakdown.reduce((s, z) => s + Math.max(0, Number(z.quantity || 0)), 0);
+      if (currentZoneSum > targetStock) {
+        let excess = currentZoneSum - targetStock;
+        const sorted = [...item.zoneBreakdown].sort((a, b) => Number(b.quantity || 0) - Number(a.quantity || 0));
+        for (const zb of sorted) {
+          const curQ = Math.max(0, Number(zb.quantity || 0));
+          if (curQ > 0) {
+            const deductNow = Math.min(curQ, excess);
+            zb.quantity = Math.max(0, curQ - deductNow);
+            excess -= deductNow;
+            if (excess <= 0) break;
+          }
+        }
+        item.zoneBreakdown = item.zoneBreakdown.filter(z => Number(z.quantity || 0) > 0);
+        const rUnit = item.unit || 'ដុំ';
+        if (item.zoneBreakdown.length > 0) {
+          item.zone = item.zoneBreakdown.map(z => `${z.zone}: ${z.quantity} ${z.unit || rUnit}`).join(', ');
+        } else {
+          item.zone = '-';
+        }
+      }
+    }
+    window.alignItemZoneBreakdownWithStock = alignItemZoneBreakdownWithStock;
 
     function normalizeWarehouseName(wh) {
       if (!wh) return '';
@@ -7976,17 +8062,16 @@ function saveLocalUsersToStorage() {
       itemsList.forEach(item => {
         if (!item || !item.sku) return;
         const net = netPerSku[item.sku];
-        const zoneSum = (Array.isArray(item.zoneBreakdown) && item.zoneBreakdown.length > 0)
-          ? item.zoneBreakdown.reduce((sum, z) => sum + Math.max(0, Number(z.quantity || 0)), 0)
-          : 0;
 
         let effectiveStock = Number(item.currentStock || 0);
 
         if (net && (net.in > 0 || net.out > 0)) {
-          const txNet = Math.max(0, net.in - net.out);
-          effectiveStock = Math.max(txNet, zoneSum);
-        } else if (zoneSum > 0) {
-          effectiveStock = Math.max(effectiveStock, zoneSum);
+          if (net.in > 0) {
+            effectiveStock = Math.max(0, net.in - net.out);
+          } else {
+            // net.in is 0, so only stock-out transactions exist
+            effectiveStock = Math.max(0, effectiveStock - net.out);
+          }
         }
 
         if (Number(item.currentStock || 0) !== effectiveStock) {
@@ -7994,6 +8079,10 @@ function saveLocalUsersToStorage() {
           const pQty = Number(item.packQty || 1);
           item.packStock = pQty > 1 ? Math.floor(effectiveStock / pQty) : effectiveStock;
           changed = true;
+        }
+
+        if (typeof alignItemZoneBreakdownWithStock === 'function') {
+          alignItemZoneBreakdownWithStock(item);
         }
       });
       if (changed && typeof saveLocalItemsToStorage === 'function') {
@@ -11632,7 +11721,14 @@ function saveLocalUsersToStorage() {
           oldStock: oldStockNum,
           newStock: newStockNum
         });
-        if (matched) matched.currentStock = newStockNum;
+        if (matched) {
+          matched.currentStock = newStockNum;
+          const pQty = Number(matched.packQty || 1);
+          matched.packStock = pQty > 1 ? Math.floor(newStockNum / pQty) : newStockNum;
+          if (typeof deductItemZoneBreakdown === 'function') {
+            deductItemZoneBreakdown(matched, d.zone, qtyNum);
+          }
+        }
         addNotification('STOCK_OUT', 'នាំចេញស្តុកទំនិញ (Stock Out)', `-${qtyNum} ${d.unit || 'ដុំ'} នៃ ${d.itemName || d.sku} (ឯកសារ: ${d.docNo || 'N/A'})`, d.toLocation || d.fromLocation || u?.warehouse, u?.username || 'Staff');
         return { success: true, message: 'បានកត់ត្រាទំនិញចេញពីស្តុកជោគជ័យ!' };
       }
@@ -18694,6 +18790,19 @@ function saveLocalUsersToStorage() {
         if (customProductActiveIndex >= 0 && customProductActiveIndex < customProductCurrentResults.length) {
           e.preventDefault();
           selectProductItem(customProductCurrentResults[customProductActiveIndex].sku, mode);
+        } else if (customProductCurrentResults.length === 1) {
+          e.preventDefault();
+          selectProductItem(customProductCurrentResults[0].sku, mode);
+        } else if (customProductCurrentResults.length > 1) {
+          const q = (e.target?.value || '').trim().toLowerCase();
+          const exactMatch = customProductCurrentResults.find(i => 
+            (i.sku && i.sku.toLowerCase() === q) || 
+            (i.barcode && i.barcode.toLowerCase() === q)
+          );
+          if (exactMatch) {
+            e.preventDefault();
+            selectProductItem(exactMatch.sku, mode);
+          }
         }
       } else if (e.key === 'Escape') {
         hideCustomProductDropdown();
@@ -20951,9 +21060,23 @@ function saveLocalUsersToStorage() {
       if (typeof renderStockOutHistoryTable === 'function') renderStockOutHistoryTable(AppState.stockOutHistory);
 
       // Deduct stock from origin item
-      if (item) item.currentStock = remainingStock;
+      if (item) {
+        item.currentStock = remainingStock;
+        const pQty = Number(item.packQty || 1);
+        item.packStock = pQty > 1 ? Math.floor(remainingStock / pQty) : remainingStock;
+        if (typeof deductItemZoneBreakdown === 'function') {
+          deductItemZoneBreakdown(item, zone, grandTotalQty);
+        }
+      }
       const localItem = (LOCAL_DB.items || []).find(i => i.sku === sku);
-      if (localItem) localItem.currentStock = remainingStock;
+      if (localItem) {
+        localItem.currentStock = remainingStock;
+        const pQty = Number(localItem.packQty || 1);
+        localItem.packStock = pQty > 1 ? Math.floor(remainingStock / pQty) : remainingStock;
+        if (typeof deductItemZoneBreakdown === 'function') {
+          deductItemZoneBreakdown(localItem, zone, grandTotalQty);
+        }
+      }
       saveLocalItemsToStorage();
       if (typeof renderItemsTable === 'function') renderItemsTable();
 
@@ -21670,6 +21793,15 @@ function saveLocalUsersToStorage() {
       const retailQty = Number(document.getElementById('stockOutQtyRetail')?.value || 0);
       const qty = (bulkQty * packQty) + retailQty;
 
+      let modeNote = '';
+      if (bulkQty > 0 && retailQty > 0) {
+        modeNote = ` [ចេញ: ${bulkQty} ${packUnit} + ${retailQty} ${baseUnit} = ${qty} ${baseUnit}]`;
+      } else if (bulkQty > 0) {
+        modeNote = ` [ចេញជាដុំ: ${bulkQty} ${packUnit} = ${qty} ${baseUnit}]`;
+      } else if (retailQty > 0) {
+        modeNote = ` [ចេញជារាយ: ${retailQty} ${baseUnit}]`;
+      }
+
       const size = document.getElementById('stockOutSize')?.value.trim() || '';
       const color = document.getElementById('stockOutColor')?.value.trim() || '';
       const zone = document.getElementById('stockOutZone')?.value.trim() || '';
@@ -21877,9 +22009,23 @@ function saveLocalUsersToStorage() {
 
       if (typeof renderStockOutHistoryTable === 'function') renderStockOutHistoryTable(AppState.stockOutHistory);
 
-      if (item) item.currentStock = remainingStock;
+      if (item) {
+        item.currentStock = remainingStock;
+        const pQty = Number(item.packQty || 1);
+        item.packStock = pQty > 1 ? Math.floor(remainingStock / pQty) : remainingStock;
+        if (typeof deductItemZoneBreakdown === 'function') {
+          deductItemZoneBreakdown(item, zone, qty);
+        }
+      }
       const localItem = (LOCAL_DB.items || []).find(i => i.sku === sku);
-      if (localItem) localItem.currentStock = remainingStock;
+      if (localItem) {
+        localItem.currentStock = remainingStock;
+        const pQty = Number(localItem.packQty || 1);
+        localItem.packStock = pQty > 1 ? Math.floor(remainingStock / pQty) : remainingStock;
+        if (typeof deductItemZoneBreakdown === 'function') {
+          deductItemZoneBreakdown(localItem, zone, qty);
+        }
+      }
       if (typeof saveLocalItemsToStorage === 'function') saveLocalItemsToStorage();
       if (typeof renderItemsTable === 'function') renderItemsTable();
 
@@ -23852,10 +23998,24 @@ function saveLocalUsersToStorage() {
     function quickStockIn(sku) {
       navigateTab('stockin');
       const input = document.getElementById('stockInSku');
+      const codeInput = document.getElementById('stockInItemCode');
       const item = AppState.items.find(i => i.sku === sku);
+      if (codeInput && item) codeInput.value = item.sku;
       if (input) {
-        input.value = item ? `${item.sku} | ${item.name}` : sku;
+        input.value = item ? (item.name || item.sku) : sku;
         onStockInItemChange();
+      }
+    }
+
+    function quickStockOut(sku) {
+      navigateTab('stockout');
+      const input = document.getElementById('stockOutSku');
+      const codeInput = document.getElementById('stockOutItemCode');
+      const item = AppState.items.find(i => i.sku === sku);
+      if (codeInput && item) codeInput.value = item.sku;
+      if (input) {
+        input.value = item ? (item.name || item.sku) : sku;
+        onStockOutItemChange();
       }
     }
 
@@ -24083,12 +24243,7 @@ function saveLocalUsersToStorage() {
       } else if (action === 'stockin' && matchedItem) {
         quickStockIn(matchedItem.sku);
       } else if (action === 'stockout' && matchedItem) {
-        navigateTab('stockout');
-        const select = document.getElementById('stockOutSku');
-        if (select) {
-          select.value = matchedItem.sku;
-          onStockOutItemChange();
-        }
+        quickStockOut(matchedItem.sku);
       }
     }
 
