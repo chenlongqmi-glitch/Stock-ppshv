@@ -74,12 +74,23 @@ const DEFAULT_DRIVE_FOLDER_URL = 'https://drive.google.com/drive/u/2/folders/1_p
 
 
 // ==========================================
-
-// 1. WEB APP ROUTING (doGet & doPost)
-
+// 1. WEB APP ROUTING (doGet & doPost) & CUSTOM MENU
 // ==========================================
 
-
+/**
+ * បង្កើត Custom Menu លើ Google Sheets នៅពេលបើកឯកសារ
+ */
+function onOpen(e) {
+  try {
+    const ui = SpreadsheetApp.getUi();
+    ui.createMenu('📦 ប្រព័ន្ធគ្រប់គ្រងស្តុក')
+      .addItem('🔄 តម្រឹមជួរឈរ Stock_out (21 ជួរឈរស្តង់ដារ)', 'standardizeAndFormatStockOutSheet')
+      .addItem('🔄 តម្រឹមជួរឈរ Stock_in (17 ជួរឈរស្តង់ដារ)', 'standardizeAndFormatStockInSheet')
+      .addSeparator()
+      .addItem('✨ ធ្វើឱ្យទាន់សម័យគ្រប់ Sheet ទាំងអស់ (Sync All)', 'ensureStockSheetsInitialized')
+      .addToUi();
+  } catch(err) {}
+}
 
 /**
 
@@ -772,6 +783,14 @@ function executeLocalApiAction(req) {
         return standardizeAndFormatStockOutSheet();
       }
 
+      case 'getRawStockOutData': {
+        const ss = SpreadsheetApp.getActiveSpreadsheet();
+        const s = ss.getSheetByName('Stock_out') || ss.getSheetByName(SHEETS.STOCK_OUT);
+        if (!s) return { success: false, message: 'Stock_out not found' };
+        const vals = s.getDataRange().getValues();
+        return { success: true, rows: vals };
+      }
+
       case 'checkDriveFiles': {
         try {
           const folder = DriveApp.getFolderById('1_pn3xY4G0wnaqLcT44VGPEz9W1_4E_Qm');
@@ -1364,15 +1383,16 @@ function ensureStockSheetsInitialized(ss) {
     formatHeaderRow(stockInSheet, stockInHeaders.length, '#047857');
   }
 
-  // 2. Sheet Stock_out
+  // 2. Sheet Stock_out (21 Columns ស្តង់ដារ)
   let stockOutSheet = findSheet('Stock_out');
   if (!stockOutSheet) {
     stockOutSheet = ss.insertSheet('Stock_out');
   }
   const stockOutHeaders = [
     'DocNo', 'Date', 'SKU', 'ItemName', 'Size', 'Color', 'Zone',
-    'Quantity', 'Unit', 'UnitPrice', 'TotalAmount', 'FromLocation', 'ToLocation',
-    'Issuer', 'Reason', 'Notes', 'User', 'Timestamp'
+    'Quantity', 'Unit', 'OldStock (ស្តុកចាស់)', 'RemainingStock (ស្តុកនៅសល់)', 'StockMovement (ស្តុកចាស់ ➔ ថ្មី)',
+    'UnitPrice', 'TotalAmount', 'Issuer', 'FromLocation', 'ToLocation',
+    'Reason', 'Notes', 'User', 'Timestamp'
   ];
 
   // បើមានជួរឈរ TxID (Column 1) សូមលុបចេញ
@@ -1501,13 +1521,12 @@ function ensureStockSheetsInitialized(ss) {
     }
   } catch(e) {}
 
-  // ស្វ័យប្រវត្តិកែសម្រួល និងតម្រឹមជួរឈរ Sheet Stock_out បើពិនិត្យឃើញថាមានជួរឈរខុស ឬទិន្នន័យរអិលខុសជួរ
+  // ស្វ័យប្រវត្តិកែសម្រួល និងតម្រឹមជួរឈរ Sheet Stock_out បើពិនិត្យឃើញថាមានជួរឈរខុស ឬខ្វះជួរឈរ 21 columns
   try {
-    if (stockOutSheet && stockOutSheet.getLastRow() >= 2) {
-      const row2 = stockOutSheet.getRange(2, 1, 1, Math.min(15, stockOutSheet.getLastColumn())).getValues()[0] || [];
-      const col9 = String(row2[9] || '').trim();
-      const isShifted = col9.includes('ដើម') || col9.includes('ដុំ') || col9.includes('ប្រអប់') || col9.includes('កំប៉ុង') || col9.includes('គូ');
-      if (isShifted) {
+    if (stockOutSheet && stockOutSheet.getLastRow() >= 1) {
+      const hRow = stockOutSheet.getRange(1, 1, 1, Math.max(1, stockOutSheet.getLastColumn())).getValues()[0] || [];
+      const has21Cols = hRow.some(h => String(h || '').includes('RemainingStock') || String(h || '').includes('ស្តុកនៅសល់'));
+      if (!has21Cols || hRow.length !== 21) {
         standardizeAndFormatStockOutSheet(ss);
       }
     }
@@ -1598,6 +1617,11 @@ function alignAndBackfillStockSheets(optSs) {
       }
     }
   }
+
+  // 3. Stock_out Sheet (21 ជួរឈរស្តង់ដារ)
+  try {
+    standardizeAndFormatStockOutSheet(ss);
+  } catch(eOut) {}
 
   return { success: true, message: 'បានកែសម្រួលជួរឈរ ស្តុកចាស់ ➔ ថ្មី ក្នុង Google Sheet ជោគជ័យ' };
 }
@@ -6140,7 +6164,7 @@ function recordStockOut(dataOrPayload, user) {
     user: u ? (u.fullName || u.username) : 'Staff'
   });
 
-  // កត់ត្រាចូលក្នុង Sheet 'Stock_out' ដោយផ្ទាល់ (18 ជួរឈរ តាម Standard Headers មិនឲ្យរអិលខុសជួរ)
+  // កត់ត្រាចូលក្នុង Sheet 'Stock_out' ដោយផ្ទាល់ (21 ជួរឈរ តាម Standard Headers មិនឲ្យរអិលខុសជួរ)
   try {
     const stockSheets = ensureStockSheetsInitialized(ss);
     if (stockSheets && stockSheets.stockOutSheet) {
@@ -6168,18 +6192,18 @@ function recordStockOut(dataOrPayload, user) {
           if (h === 'zone' || h.includes('តំបន់')) return data.zone || '';
           if (h.includes('quantity') || h === 'qty' || h.includes('ចំនួន')) return qty;
           if (h === 'unit' || h.includes('ឯកតា')) return unit;
+          if (h.includes('oldstock') || h.includes('ស្តុកចាស់')) return `${oldStockVal} ${unit}`;
+          if (h.includes('remainingstock') || h.includes('newstock') || h.includes('ស្តុកនៅសល់')) return `${remStockVal} ${unit}`;
+          if (h.includes('movement') || h.includes('ចរន្ត') || h.includes('ស្តុកចាស់ ➔ ថ្មី')) return movementStr;
           if (h.includes('unitprice') || (h.includes('price') && !h.includes('total')) || h.includes('តម្លៃ')) return unitPriceFinal;
           if (h.includes('totalamount') || h.includes('total') || h.includes('សរុប')) return totalAmount;
+          if (h.includes('issuer') || h.includes('អ្នកបើក')) return issuerName;
           if (h.includes('fromlocation') || h === 'from' || h.includes('ចេញពី')) return location;
           if (h.includes('tolocation') || h === 'to' || h.includes('គោលដៅ') || h.includes('អតិថិជន')) return toLocFinal;
-          if (h.includes('issuer') || h.includes('អ្នកបើក')) return issuerName;
           if (h.includes('reason') || h.includes('មូលហេតុ')) return reasonFinal;
           if (h.includes('notes') || h.includes('note') || h.includes('សម្គាល់')) return finalNote;
           if (h === 'user' || h.includes('អ្នកប្រើ')) return u ? (u.fullName || u.username) : 'Staff';
           if (h.includes('timestamp') || h.includes('ពេល')) return tsFormatted;
-          if (h.includes('oldstock') || h.includes('ស្តុកចាស់')) return `${oldStockVal} ${unit}`;
-          if (h.includes('remainingstock') || h.includes('newstock') || h.includes('ស្តុកនៅសល់')) return `${remStockVal} ${unit}`;
-          if (h.includes('movement') || h.includes('ចរន្ត')) return movementStr;
           return '';
         });
         sOutSheet.appendRow(rowToAppend);
@@ -6194,11 +6218,14 @@ function recordStockOut(dataOrPayload, user) {
           data.zone || '',
           qty,
           unit,
+          `${oldStockVal} ${unit}`,
+          `${remStockVal} ${unit}`,
+          movementStr,
           unitPriceFinal,
           totalAmount,
+          issuerName,
           location,
           toLocFinal,
-          issuerName,
           reasonFinal,
           finalNote,
           u ? (u.fullName || u.username) : 'Staff',
@@ -7039,18 +7066,18 @@ function getStockOutTransactionsFromSheet(ss, filters, user) {
     const zoneIdx = findIdx(['zone', 'តំបន់'], 6);
     const qtyIdx = findIdx(['quantity', 'qty', 'ចំនួន'], 7);
     const unitIdx = findIdx(['unit', 'ឯកតា'], 8);
-    const oldStIdx = findIdx(['oldstock', 'ស្តុកចាស់'], -1);
-    const newStIdx = findIdx(['newstock', 'remainingstock', 'ស្តុកនៅសល់', 'ស្តុកថ្មី'], -1);
-    const movIdx = findIdx(['movement', 'ចរន្ត'], -1);
-    const priceIdx = findIdx(['unitprice', 'price', 'តម្លៃ'], 9);
-    const totalIdx = findIdx(['totalamount', 'total', 'សរុប'], 10);
-    const whIdx = findIdx(['fromlocation', 'warehouse', 'from', 'ឃ្លាំង', 'ស្ថានីយ', 'ចេញពី'], 11);
-    const toLocIdx = findIdx(['tolocation', 'to', 'គោលដៅ', 'អតិថិជន', 'ទៅកាន់'], 12);
-    const recIdx = findIdx(['issuer', 'receivedby', 'receiver', 'អ្នកបើក', 'អ្នកទទួល'], 13);
-    const reasonIdx = findIdx(['reason', 'មូលហេតុ'], 14);
-    const notesIdx = findIdx(['notes', 'note', 'សម្គាល់'], 15);
-    const userIdx = findIdx(['user', 'អ្នកប្រើ'], 16);
-    const tsIdx = findIdx(['timestamp', 'ពេល'], 17);
+    const oldStIdx = findIdx(['oldstock', 'ស្តុកចាស់'], 9);
+    const newStIdx = findIdx(['remainingstock', 'newstock', 'ស្តុកនៅសល់', 'ស្តុកថ្មី'], 10);
+    const movIdx = findIdx(['movement', 'ចរន្ត', 'ស្តុកចាស់ ➔ ថ្មី'], 11);
+    const priceIdx = findIdx(['unitprice', 'price', 'តម្លៃ'], 12);
+    const totalIdx = findIdx(['totalamount', 'total', 'សរុប'], 13);
+    const recIdx = findIdx(['issuer', 'receivedby', 'receiver', 'អ្នកបើក', 'អ្នកទទួល'], 14);
+    const whIdx = findIdx(['fromlocation', 'warehouse', 'from', 'ឃ្លាំង', 'ស្ថានីយ', 'ចេញពី'], 15);
+    const toLocIdx = findIdx(['tolocation', 'to', 'គោលដៅ', 'អតិថិជន', 'ទៅកាន់'], 16);
+    const reasonIdx = findIdx(['reason', 'មូលហេតុ'], 17);
+    const notesIdx = findIdx(['notes', 'note', 'សម្គាល់'], 18);
+    const userIdx = findIdx(['user', 'អ្នកប្រើ'], 19);
+    const tsIdx = findIdx(['timestamp', 'ពេល'], 20);
 
     let targetWarehouse = null;
     if (user && user.role !== 'Admin' && user.role !== 'SuperAdmin' && user.warehouse && user.warehouse !== 'ALL' && user.warehouse !== 'គ្រប់ឃ្លាំង' && user.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
@@ -9329,7 +9356,7 @@ function standardizeAndFormatStockInSheet(optSs) {
 }
 
 /**
- * មុខងារកែសម្រួលជួរឈរ និងតម្រឹមទិន្នន័យ Sheet Stock_out ទៅជា 18 ជួរឈរស្តង់ដារ
+ * មុខងារកែសម្រួលជួរឈរ និងតម្រឹមទិន្នន័យ Sheet Stock_out ទៅជា 21 ជួរឈរស្តង់ដារ
  * ព្រមទាំងជួសជុលទិន្នន័យចាស់ៗដែលធ្លាប់រអិលខុសជួរ ឲ្យចូលតាមក្រឡាត្រឹមត្រូវ ១០០%
  */
 function standardizeAndFormatStockOutSheet(optSs) {
@@ -9352,17 +9379,20 @@ function standardizeAndFormatStockOutSheet(optSs) {
     stockOutSheet = ss.insertSheet('Stock_out');
   }
 
-  // 18 Columns ស្តង់ដារត្រឹមត្រូវតាម Google Sheets
+  // 21 Columns ស្តង់ដារត្រឹមត្រូវតាម Google Sheets & តម្រូវការចេញស្តុក
   const stockOutHeaders = [
     'DocNo', 'Date', 'SKU', 'ItemName', 'Size', 'Color', 'Zone',
-    'Quantity', 'Unit', 'UnitPrice', 'TotalAmount', 'FromLocation', 'ToLocation',
-    'Issuer', 'Reason', 'Notes', 'User', 'Timestamp'
+    'Quantity', 'Unit', 'OldStock (ស្តុកចាស់)', 'RemainingStock (ស្តុកនៅសល់)', 'StockMovement (ស្តុកចាស់ ➔ ថ្មី)',
+    'UnitPrice', 'TotalAmount', 'Issuer', 'FromLocation', 'ToLocation',
+    'Reason', 'Notes', 'User', 'Timestamp'
   ];
 
   const cleanRows = [];
 
   if (stockOutSheet.getLastRow() > 1) {
     const rawData = stockOutSheet.getDataRange().getValues();
+    const headers = (rawData[0] || []).map(h => String(h || '').trim().toLowerCase());
+    const hasRemainingCol = headers.some(h => h.includes('remainingstock') || h.includes('ស្តុកនៅសល់'));
 
     for (let r = 1; r < rawData.length; r++) {
       const row = rawData[r];
@@ -9387,36 +9417,41 @@ function standardizeAndFormatStockOutSheet(optSs) {
       const qty = Number(row[7] || 0);
       const unit = String(row[8] || 'ដើម').trim();
 
-      // ពិនិត្យមើលថាតើទិន្នន័យជួរដេកនេះធ្លាប់រអិលខុសជួរឈរដោយសារ OldStock/RemainingStock ឬទេ (ពិនិត្យ Col J / row[9])
       const col9 = String(row[9] || '').trim();
-      const isShifted = col9.includes('ដើម') || col9.includes('ដុំ') || col9.includes('ប្រអប់') || col9.includes('កំប៉ុង') || col9.includes('គូ');
+      const col10 = String(row[10] || '').trim();
+      const col11 = String(row[11] || '').trim();
+      const is21Format = hasRemainingCol || col9.includes('ដើម') || col9.includes('ដុំ') || col9.includes('ប្រអប់') || col9.includes('កំប៉ុង') || col9.includes('គូ') || col11.includes('➔');
 
+      let oldStockStr = '';
+      let remStockStr = '';
+      let moveStr = '';
       let unitPrice = 0;
       let totalAmount = 0;
+      let issuer = 'Staff';
       let fromLoc = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
       let toLoc = 'អតិថិជន/ដកប្រើប្រាស់';
-      let issuer = 'Staff';
       let reason = 'ដកប្រើប្រាស់ផ្ទៃក្នុង (Internal Use)';
       let cleanNotes = '-';
       let user = 'Staff';
       let ts = new Date();
 
-      if (isShifted) {
+      if (is21Format) {
+        oldStockStr = col9 || `${qty} ${unit}`;
+        remStockStr = col10 || `0 ${unit}`;
+        moveStr = col11 || `${oldStockStr} ➔ ${remStockStr}`;
         unitPrice = Number(row[12] || 0);
         totalAmount = Number(row[13] || (qty * unitPrice));
-        let rawFrom = String(row[14] || '').trim();
+        issuer = String(row[14] || 'Staff').trim() || 'Staff';
+        let rawFrom = String(row[15] || '').trim();
         if (!rawFrom || /^\d+$/.test(rawFrom) || rawFrom === 'ALL' || rawFrom === 'គ្រប់ស្ថានីយទាំងអស់' || rawFrom === '-') {
           fromLoc = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
         } else {
           fromLoc = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(rawFrom) : rawFrom;
         }
-        toLoc = String(row[15] || 'អតិថិជន/ដកប្រើប្រាស់').trim();
-        issuer = String(row[16] || 'Admin').trim();
-        reason = String(row[17] || 'ដកប្រើប្រាស់ផ្ទៃក្នុង (Internal Use)').trim();
-        const moveStr = String(row[11] || '').trim();
-        const userNotes = String(row[18] || '').trim();
-        cleanNotes = moveStr ? (`[ស្តុក: ${moveStr}]` + (userNotes && userNotes !== '-' ? ' ' + userNotes : '')) : (userNotes || '-');
-        user = String(row[19] || issuer || 'Admin').trim();
+        toLoc = String(row[16] || 'អតិថិជន/ដកប្រើប្រាស់').trim() || 'អតិថិជន/ដកប្រើប្រាស់';
+        reason = String(row[17] || 'ដកប្រើប្រាស់ផ្ទៃក្នុង (Internal Use)').trim() || 'ដកប្រើប្រាស់ផ្ទៃក្នុង (Internal Use)';
+        cleanNotes = String(row[18] || '-').trim() || '-';
+        user = String(row[19] || issuer || 'Staff').trim() || 'Staff';
         ts = row[20] || new Date();
       } else {
         unitPrice = Number(row[9] || 0);
@@ -9427,12 +9462,15 @@ function standardizeAndFormatStockOutSheet(optSs) {
         } else {
           fromLoc = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(rawFrom) : rawFrom;
         }
-        toLoc = String(row[12] || 'អតិថិជន/ដកប្រើប្រាស់').trim();
-        issuer = String(row[13] || 'Admin').trim();
-        reason = String(row[14] || 'ដកប្រើប្រាស់ផ្ទៃក្នុង (Internal Use)').trim();
+        toLoc = String(row[12] || 'អតិថិជន/ដកប្រើប្រាស់').trim() || 'អតិថិជន/ដកប្រើប្រាស់';
+        issuer = String(row[13] || 'Staff').trim() || 'Staff';
+        reason = String(row[14] || 'ដកប្រើប្រាស់ផ្ទៃក្នុង (Internal Use)').trim() || 'ដកប្រើប្រាស់ផ្ទៃក្នុង (Internal Use)';
         cleanNotes = String(row[15] || '-').trim() || '-';
-        user = String(row[16] || issuer || 'Admin').trim();
+        user = String(row[16] || issuer || 'Staff').trim() || 'Staff';
         ts = row[17] || new Date();
+        oldStockStr = '-';
+        remStockStr = '-';
+        moveStr = `-${qty} ${unit}`;
       }
 
       cleanRows.push([
@@ -9445,11 +9483,14 @@ function standardizeAndFormatStockOutSheet(optSs) {
         zone,
         qty,
         unit,
+        oldStockStr,
+        remStockStr,
+        moveStr,
         unitPrice,
         totalAmount,
+        issuer,
         fromLoc,
         toLoc,
-        issuer,
         reason,
         cleanNotes,
         user,
@@ -9486,7 +9527,7 @@ function standardizeAndFormatStockOutSheet(optSs) {
       rowRange.setBackground(r % 2 === 0 ? '#ffffff' : '#fffbeb');
     }
 
-    // Alignments
+    // Alignments for 21 columns
     stockOutSheet.getRange(2, 1, totalRows, 1).setHorizontalAlignment('center'); // 1: DocNo
     stockOutSheet.getRange(2, 2, totalRows, 1).setHorizontalAlignment('center'); // 2: Date
     stockOutSheet.getRange(2, 3, totalRows, 1).setHorizontalAlignment('center').setFontWeight('bold'); // 3: SKU
@@ -9496,15 +9537,18 @@ function standardizeAndFormatStockOutSheet(optSs) {
     stockOutSheet.getRange(2, 7, totalRows, 1).setHorizontalAlignment('center').setFontWeight('bold').setFontColor('#4338ca'); // 7: Zone
     stockOutSheet.getRange(2, 8, totalRows, 1).setHorizontalAlignment('center').setFontWeight('bold').setFontColor('#b45309'); // 8: Quantity
     stockOutSheet.getRange(2, 9, totalRows, 1).setHorizontalAlignment('center'); // 9: Unit
-    stockOutSheet.getRange(2, 10, totalRows, 1).setHorizontalAlignment('right'); // 10: UnitPrice
-    stockOutSheet.getRange(2, 11, totalRows, 1).setHorizontalAlignment('right').setFontWeight('bold'); // 11: TotalAmount
-    stockOutSheet.getRange(2, 12, totalRows, 1).setHorizontalAlignment('left'); // 12: FromLocation
-    stockOutSheet.getRange(2, 13, totalRows, 1).setHorizontalAlignment('left').setFontWeight('bold'); // 13: ToLocation
-    stockOutSheet.getRange(2, 14, totalRows, 1).setHorizontalAlignment('center'); // 14: Issuer
-    stockOutSheet.getRange(2, 15, totalRows, 1).setHorizontalAlignment('center'); // 15: Reason
-    stockOutSheet.getRange(2, 16, totalRows, 1).setHorizontalAlignment('left'); // 16: Notes
-    stockOutSheet.getRange(2, 17, totalRows, 1).setHorizontalAlignment('center'); // 17: User
-    stockOutSheet.getRange(2, 18, totalRows, 1).setHorizontalAlignment('center'); // 18: Timestamp
+    stockOutSheet.getRange(2, 10, totalRows, 1).setHorizontalAlignment('center'); // 10: OldStock
+    stockOutSheet.getRange(2, 11, totalRows, 1).setHorizontalAlignment('center').setFontWeight('bold'); // 11: RemainingStock
+    stockOutSheet.getRange(2, 12, totalRows, 1).setHorizontalAlignment('center').setFontColor('#059669'); // 12: StockMovement
+    stockOutSheet.getRange(2, 13, totalRows, 1).setHorizontalAlignment('right'); // 13: UnitPrice
+    stockOutSheet.getRange(2, 14, totalRows, 1).setHorizontalAlignment('right').setFontWeight('bold'); // 14: TotalAmount
+    stockOutSheet.getRange(2, 15, totalRows, 1).setHorizontalAlignment('center'); // 15: Issuer
+    stockOutSheet.getRange(2, 16, totalRows, 1).setHorizontalAlignment('left'); // 16: FromLocation
+    stockOutSheet.getRange(2, 17, totalRows, 1).setHorizontalAlignment('left').setFontWeight('bold'); // 17: ToLocation
+    stockOutSheet.getRange(2, 18, totalRows, 1).setHorizontalAlignment('center'); // 18: Reason
+    stockOutSheet.getRange(2, 19, totalRows, 1).setHorizontalAlignment('left'); // 19: Notes
+    stockOutSheet.getRange(2, 20, totalRows, 1).setHorizontalAlignment('center'); // 20: User
+    stockOutSheet.getRange(2, 21, totalRows, 1).setHorizontalAlignment('center'); // 21: Timestamp
 
     // Borders
     stockOutSheet.getRange(1, 1, totalRows + 1, numCols).setBorder(
@@ -9519,7 +9563,7 @@ function standardizeAndFormatStockOutSheet(optSs) {
     } catch(e) {}
   }
 
-  // Column widths
+  // Column widths for 21 columns
   const colWidths = [
     185, // 1: DocNo
     110, // 2: Date
@@ -9530,15 +9574,18 @@ function standardizeAndFormatStockOutSheet(optSs) {
     80,  // 7: Zone
     90,  // 8: Quantity
     80,  // 9: Unit
-    90,  // 10: UnitPrice
-    100, // 11: TotalAmount
-    200, // 12: FromLocation
-    200, // 13: ToLocation
-    110, // 14: Issuer
-    160, // 15: Reason
-    200, // 16: Notes
-    100, // 17: User
-    160  // 18: Timestamp
+    120, // 10: OldStock (ស្តុកចាស់)
+    125, // 11: RemainingStock (ស្តុកនៅសល់)
+    165, // 12: StockMovement (ស្តុកចាស់ ➔ ថ្មី)
+    90,  // 13: UnitPrice
+    100, // 14: TotalAmount
+    110, // 15: Issuer
+    200, // 16: FromLocation
+    200, // 17: ToLocation
+    160, // 18: Reason
+    200, // 19: Notes
+    100, // 20: User
+    160  // 21: Timestamp
   ];
   for (let c = 0; c < colWidths.length; c++) {
     stockOutSheet.setColumnWidth(c + 1, colWidths[c]);
@@ -9556,7 +9603,7 @@ function standardizeAndFormatStockOutSheet(optSs) {
 
   CacheService.getScriptCache().removeAll(['TX_SHEETS_SYNC_ALL', 'TX_SHEETS_SYNC_STOCK_OUT']);
 
-  return { success: true, message: 'Stock_out sheet standardized to 18 columns with correct alignments and formats!' };
+  return { success: true, message: 'Stock_out sheet standardized to 21 columns with correct alignments and formats!' };
 }
 
 

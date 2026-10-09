@@ -3371,6 +3371,11 @@
                   <i class="fa-solid fa-rotate text-xs"></i>
                   <span class="hidden sm:inline">Refresh</span>
                 </button>
+                <button type="button" onclick="handleStandardizeStockOutSheet()" title="តម្រឹមអក្សរក្បាលទំព័រ Sheet Stock_out លើ Google Sheets ឱ្យបានត្រឹមត្រូវ ២១ ជួរឈរ"
+                  class="h-9 px-3 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 border border-amber-300 shadow-3xs shrink-0">
+                  <i class="fa-solid fa-table-columns text-amber-600"></i>
+                  <span class="hidden sm:inline">តម្រឹម Sheet</span>
+                </button>
               </div>
             </div>
 
@@ -4364,15 +4369,22 @@
                     <span>បើកមើល</span>
                   </button>
                 </div>
-                <div class="pt-2 border-t border-emerald-200/70 flex items-center justify-between">
+                <div class="pt-2 border-t border-emerald-200/70 flex flex-wrap items-center justify-between gap-2">
                   <span class="text-[11px] text-emerald-800 font-medium">
                     <i class="fa-solid fa-wrench mr-1 text-emerald-600"></i>បញ្ហា Header មិនត្រូវនឹងទិន្នន័យ?
                   </span>
-                  <button type="button" onclick="handleFixGoogleSheetHeaders()"
-                    class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[11px] font-bold shadow-sm flex items-center space-x-1.5 transition">
-                    <i class="fa-solid fa-wand-magic-sparkles"></i>
-                    <span>ជួសជុល Header គ្រប់ Sheet</span>
-                  </button>
+                  <div class="flex items-center gap-2">
+                    <button type="button" onclick="handleStandardizeStockOutSheet()"
+                      class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[11px] font-bold shadow-sm flex items-center space-x-1.5 transition">
+                      <i class="fa-solid fa-table-columns"></i>
+                      <span>តម្រឹម Stock_out (21 ជួរឈរ)</span>
+                    </button>
+                    <button type="button" onclick="handleFixGoogleSheetHeaders()"
+                      class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[11px] font-bold shadow-sm flex items-center space-x-1.5 transition">
+                      <i class="fa-solid fa-wand-magic-sparkles"></i>
+                      <span>ជួសជុល Header គ្រប់ Sheet</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -31617,6 +31629,71 @@ function saveLocalUsersToStorage() {
           icon: 'error',
           title: 'ជួបបញ្ហា',
           text: 'មិនអាចកែតម្រូវបានទេ៖ ' + (err.message || err.toString()),
+          confirmButtonColor: '#ef4444'
+        });
+      }
+    }
+
+    /* Standardize and Align Stock_out Sheet to 21 Standard Columns */
+    async function handleStandardizeStockOutSheet() {
+      const confirmRes = await Swal.fire({
+        icon: 'question',
+        title: 'តម្រឹមជួរឈរ Google Sheet Stock_out?',
+        html: `
+          <div class="text-left text-xs space-y-2 p-1 font-khmer text-slate-600">
+            <p>ប្រព័ន្ធនឹងកែសម្រួលអក្សរក្បាលទំព័រ Sheet <b>Stock_out</b> ទៅជា <b>២១ ជួរឈរស្តង់ដារ</b> តាមលក្ខខណ្ឌតម្រូវការចេញស្តុកទំនិញ៖</p>
+            <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-[11px] leading-relaxed text-slate-700 space-y-1">
+              <div><b>១. ព័ត៌មានទំនិញ:</b> DocNo, Date, SKU, ItemName, Size, Color, Zone</div>
+              <div><b>២. ចំនួនចេញ & ឯកតា:</b> Quantity, Unit</div>
+              <div class="text-amber-800 font-bold"><b>៣. ចលនាស្តុក:</b> OldStock (ស្តុកចាស់), RemainingStock (ស្តុកនៅសល់), StockMovement (ស្តុកចាស់ ➔ ថ្មី)</div>
+              <div><b>៤. តម្លៃ & អ្នកបើក:</b> UnitPrice, TotalAmount, Issuer</div>
+              <div><b>៥. ទីតាំង & មូលហេតុ:</b> FromLocation, ToLocation, Reason, Notes, User, Timestamp</div>
+            </div>
+            <p class="text-amber-800 font-medium">✨ ការពារកុំឱ្យទិន្នន័យរអិលខុសក្រឡា និងមានក្បាលជួរឈរត្រឹមត្រូវ ១០០%។</p>
+          </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'យល់ព្រម តម្រឹមឥឡូវនេះ',
+        cancelButtonText: 'បោះបង់',
+        confirmButtonColor: '#b45309'
+      });
+
+      if (!confirmRes.isConfirmed) return;
+
+      Swal.fire({
+        title: 'កំពុងតម្រឹម Sheet Stock_out...',
+        html: '<p class="text-xs text-slate-500 font-khmer">កំពុងរៀបចំ និងតម្រឹមអក្សរក្បាលទំព័រទាំង ២១ លើ Google Sheet Stock_out...</p>',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
+
+      try {
+        const res = await apiCall('standardizeStockOutSheet', {});
+        if (res && res.success) {
+          Swal.fire({
+            icon: 'success',
+            title: 'ជោគជ័យ 🎉',
+            text: res.message || 'បានតម្រឹមអក្សរក្បាលទំព័រ Sheet Stock_out ទៅជា ២១ ជួរឈរស្តង់ដារត្រឹមត្រូវ ១០០% រួចរាល់!',
+            confirmButtonColor: '#10b981'
+          });
+        } else {
+          const fb = await apiCall('alignStockSheets', {});
+          if (fb && fb.success) {
+            Swal.fire({
+              icon: 'success',
+              title: 'ជោគជ័យ 🎉',
+              text: 'បានតម្រឹមអក្សរក្បាលទំព័រ Sheet Stock_out ទៅជា ២១ ជួរឈរស្តង់ដាររួចរាល់!',
+              confirmButtonColor: '#10b981'
+            });
+          } else {
+            throw new Error(res?.message || fb?.message || 'ប្រតិបត្តិការបរាជ័យ');
+          }
+        }
+      } catch (err) {
+        Swal.fire({
+          icon: 'error',
+          title: 'ជួបបញ្ហា',
+          text: 'មិនអាចតម្រឹមបានទេ៖ ' + (err.message || err.toString()),
           confirmButtonColor: '#ef4444'
         });
       }
