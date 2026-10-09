@@ -5917,7 +5917,7 @@ function recordStockIn(dataOrPayload, user) {
       itemName = itemsData[i][idxName] || '';
       unit = itemsData[i][idxUnit] || 'ដុំ';
       currentStock = Number(itemsData[i][idxCurrentStock] || 0);
-      location = itemsData[i][8] || '';
+      if (!location) location = itemsData[i][8] || '';
       itemFound = true;
       break;
     }

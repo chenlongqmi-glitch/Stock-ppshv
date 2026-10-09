@@ -21383,7 +21383,7 @@ function saveLocalUsersToStorage() {
         fromLocation: dispatch.fromLocation,
         toLocation: dispatch.toLocation,
         receivedBy: receiver,
-        notes: `[ទទួលពី Admin: ${dispatch.masterDocNo}] ${notes}`
+        notes: `[ទទួលពី Admin: ${dispatch.masterDocNo}] [ស្តុក: 0 ${dispatch.unit || 'ដើម'} ➔ ${actualTotal} ${dispatch.unit || 'ដើម'}] ${notes}`
       };
 
       if (!AppState.stockInHistory) AppState.stockInHistory = [];
@@ -22103,28 +22103,25 @@ function saveLocalUsersToStorage() {
           if (newSt === null) newSt = 2;
         }
 
-        // If oldSt is missing or 0, check previous transactions for the same item chronologically
-        if (oldSt === null || (oldSt === 0 && idx < txs.length - 1)) {
-          const prevSameSku = txs.slice(idx + 1).find(p => {
-            const pSku = String(p.sku || p.itemCode || p.code || '').trim().toLowerCase();
-            const curSku = String(t.sku || t.itemCode || t.code || '').trim().toLowerCase();
-            return pSku && curSku && pSku === curSku;
-          });
-          if (prevSameSku) {
-            const prevNew = parseStockNum(prevSameSku.newStock !== undefined ? prevSameSku.newStock : (Number(prevSameSku.oldStock || 0) + Number(prevSameSku.quantity || 0)));
-            if (prevNew !== null && prevNew > 0) {
-              oldSt = prevNew;
-            }
-          }
-        }
-        if (oldSt === null && newSt !== null) {
-          oldSt = Math.max(0, newSt - qtyNum);
-        }
+        // Strict preservation of historical stock-in values: never overwrite with older transactions from other warehouses
         if (oldSt !== null && newSt === null) {
           newSt = oldSt + qtyNum;
+        } else if (newSt !== null && oldSt === null) {
+          oldSt = Math.max(0, newSt - qtyNum);
+        } else if (oldSt === null && newSt === null) {
+          oldSt = 0;
+          newSt = qtyNum;
         }
-        if (oldSt === null) oldSt = 0;
-        if (newSt === null) newSt = oldSt + qtyNum;
+
+        // Self-heal corrupted oldStock if previous cross-table overwrite caused oldStock + quantity !== newStock
+        if (oldSt !== null && newSt !== null && (oldSt + qtyNum !== newSt)) {
+          if (newSt === qtyNum) {
+            oldSt = 0;
+          } else if (newSt > qtyNum && (oldSt > newSt || oldSt === 0)) {
+            oldSt = newSt - qtyNum;
+          }
+        }
+
         t.oldStock = oldSt;
         t.newStock = newSt;
         const loc = escapeHtml(t.toLocation || t.location || '-');
