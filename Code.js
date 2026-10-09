@@ -6247,7 +6247,7 @@ function recordStockOut(dataOrPayload, user) {
           if (h.includes('oldstock') || h.includes('ស្តុកចាស់')) return `${oldStockVal} ${unit}`;
           if (h.includes('remainingstock') || h.includes('newstock') || h.includes('ស្តុកនៅសល់')) return `${remStockVal} ${unit}`;
           if (h.includes('movement') || h.includes('ចរន្ត') || h.includes('ស្តុកចាស់ ➔ ថ្មី')) return movementStr;
-          if (h === 'from' || h.includes('from') || h.includes('ចេញពី')) return 'បញ្ជូនមកពីចុងស៊ីន';
+          if (h === 'from' || h.includes('from') || h.includes('ចេញពី')) return location;
           if (h.includes('tolocation') || h === 'to' || h.includes('គោលដៅ') || h.includes('អតិថិជន')) return toLocFinal;
           if (h.includes('notes') || h.includes('note') || h.includes('សម្គាល់')) return finalNote;
           if (h === 'user' || h.includes('អ្នកប្រើ')) return u ? (u.fullName || u.username) : 'Staff';
@@ -6269,7 +6269,7 @@ function recordStockOut(dataOrPayload, user) {
           `${oldStockVal} ${unit}`,
           `${remStockVal} ${unit}`,
           movementStr,
-          'បញ្ជូនមកពីចុងស៊ីន',
+          location,
           toLocFinal,
           finalNote,
           u ? (u.fullName || u.username) : 'Staff',
@@ -6281,10 +6281,13 @@ function recordStockOut(dataOrPayload, user) {
     Logger.log('Error writing to Stock_out sheet: ' + errOut.toString());
   }
 
-  // 3. បញ្ជូនទិន្នន័យចូលក្នុងមុខងារ ទទួលទំនិញចូលស្តុកពី Admin (Dispatches Sheet) របស់ស្ថានីយទទួល
+  // 3. បញ្ជូនទិន្នន័យចូលក្នុងមុខងារ ទទួលទំនិញចូលស្តុកពី Admin (Dispatches Sheet) របស់ស្ថានីយទទួល (សម្រាប់តែ Admin dispatch ទៅស្ថានីយប៉ុណ្ណោះ)
   const destLocation = String(data.toLocation || '').trim();
-  const isStationDestination = destLocation && !destLocation.includes('អតិថិជន') && !destLocation.includes('ដកប្រើប្រាស់ផ្ទៃក្នុង');
-  if (isStationDestination || data.dispatch || (dataOrPayload && dataOrPayload.dispatch)) {
+  const uRole = String(u ? (u.role || '') : '').toLowerCase();
+  const uName = String(u ? (u.username || '') : '').toLowerCase();
+  const isPrivilegedUser = u && (uRole.includes('admin') || uRole.includes('superadmin') || uRole.includes('អភិបាល') || uName === 'admin' || uName === 'superadmin');
+  const isStationDestination = isPrivilegedUser && destLocation && !destLocation.includes('អតិថិជន') && !destLocation.includes('ដកប្រើប្រាស់');
+  if (isStationDestination || (isPrivilegedUser && (data.dispatch || (dataOrPayload && dataOrPayload.dispatch)))) {
     try {
       const dspSheet = ensureDispatchesSheet(ss);
       const nowDsp = new Date();

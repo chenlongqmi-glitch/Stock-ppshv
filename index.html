@@ -3289,7 +3289,7 @@
                   <!-- Col 2: នាំចេញទៅឃ្លាំងណា -->
                   <div id="stockOutField_toLocation" class="w-full">
                     <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center truncate" title="នាំចេញទៅឃ្លាំងណា">
-                      <span class="truncate">នាំចេញទៅឃ្លាំងណា</span>
+                      <span id="stockOutToLocationLabel" class="truncate">នាំចេញទៅឃ្លាំងណា</span>
                     </label>
                     <select id="stockOutToLocation" required
                       class="w-full h-11 px-3 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-amber-500 focus:bg-white outline-none transition shadow-2xs">
@@ -18610,13 +18610,26 @@ function saveLocalUsersToStorage() {
           if (codeInput) codeInput.value = item.sku;
           onStockInItemChange();
         } else if (mode === 'stockOut') {
-          const curStock = Number(item.currentStock || 0);
+          const curU = AppState.currentUser || (function(){ try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch(e){ return null; } })() || {};
+          const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : false;
+          let curStock = 0;
+          if (isPrivileged) {
+            const adminWh = (AppState.selectedAdminWarehouseFilter && AppState.selectedAdminWarehouseFilter !== 'ALL')
+              ? AppState.selectedAdminWarehouseFilter
+              : '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+            const stStock = (typeof getItemStationStock === 'function') ? getItemStationStock(item, adminWh) : null;
+            curStock = stStock ? stStock.total : Number(item.currentStock || 0);
+          } else {
+            const userWh = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(curU.warehouse) : curU.warehouse) || 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
+            const stStock = (typeof getItemStationStock === 'function') ? getItemStationStock(item, userWh) : null;
+            curStock = stStock ? stStock.total : 0;
+          }
           if (curStock <= 0) {
             clearStockOutProductSelection();
             Swal.fire({
               icon: 'warning',
               title: 'គ្មានទិន្នន័យក្នុងស្តុក',
-              text: 'មុខទំនិញនេះមិនមាននៅក្នុងស្តុកទេ សូមបញ្ចូលមុខទំនិញនេះទៅក្នុងស្តុកជាមុនសិន។',
+              text: isPrivileged ? 'មុខទំនិញនេះមិនមាននៅក្នុងស្តុកទេ សូមបញ្ចូលមុខទំនិញនេះទៅក្នុងស្តុកជាមុនសិន។' : 'មុខទំនិញនេះមិនមាននៅក្នុងស្តុករបស់ស្ថានីយទេ!',
               confirmButtonText: 'យល់ព្រម',
               confirmButtonColor: '#ea580c'
             });
@@ -18727,9 +18740,31 @@ function saveLocalUsersToStorage() {
         const imgUrl = formatDriveImageUrl(rawUrl);
         const pQty = Number(item.packQty || 1);
         const pUnit = (item.packUnit || '').trim();
-        const curStock = Number(item.currentStock || 0);
+        const curU = AppState.currentUser || (function(){ try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch(e){ return null; } })() || {};
+        const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : false;
+        let curStock = Number(item.currentStock || 0);
+        let curBulk = 0, curRetail = 0;
+        if (mode === 'stockOut') {
+          if (isPrivileged) {
+            const adminWh = (AppState.selectedAdminWarehouseFilter && AppState.selectedAdminWarehouseFilter !== 'ALL') ? AppState.selectedAdminWarehouseFilter : '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+            const stStock = (typeof getItemStationStock === 'function') ? getItemStationStock(item, adminWh) : null;
+            curStock = stStock ? stStock.total : Number(item.currentStock || 0);
+            curBulk = stStock ? stStock.bulk : (pQty > 1 ? Math.floor(curStock / pQty) : 0);
+            curRetail = stStock ? stStock.loose : (pQty > 1 ? (curStock % pQty) : curStock);
+          } else {
+            const userWh = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(curU.warehouse) : curU.warehouse) || 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
+            const stStock = (typeof getItemStationStock === 'function') ? getItemStationStock(item, userWh) : null;
+            curStock = stStock ? stStock.total : 0;
+            curBulk = stStock ? stStock.bulk : (pQty > 1 ? Math.floor(curStock / pQty) : 0);
+            curRetail = stStock ? stStock.loose : (pQty > 1 ? (curStock % pQty) : curStock);
+          }
+        } else {
+          curBulk = pQty > 1 ? Math.floor(curStock / pQty) : 0;
+          curRetail = pQty > 1 ? (curStock % pQty) : curStock;
+        }
+
         const isOutOfStock = mode === 'stockOut' && curStock <= 0;
-        const packInfo = (pUnit && (pQty > 1 || pUnit !== item.unit)) ? ` [${Math.floor(curStock / pQty)} ${pUnit}]` : '';
+        const packInfo = (pUnit && (pQty > 1 || pUnit !== item.unit)) ? ` [${curBulk} ${pUnit}]` : '';
         const specs = [item.size, item.color].filter(Boolean).join(' • ');
 
         html += `
@@ -18746,7 +18781,7 @@ function saveLocalUsersToStorage() {
             <div class="flex-1 min-w-0">
               <div class="font-bold text-slate-800 text-xs sm:text-sm truncate ${isOutOfStock ? 'group-hover:text-rose-700' : 'group-hover:text-emerald-700'} font-khmer flex items-center gap-1.5">
                 <span class="truncate">${escapeHtml(item.name || item.sku)}</span>
-                ${isOutOfStock ? `<span class="shrink-0 px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-100 text-rose-700 border border-rose-200">គ្មានស្តុក</span>` : ''}
+                ${isOutOfStock ? `<span class="shrink-0 px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-100 text-rose-700 border border-rose-200">${!isPrivileged && mode === 'stockOut' ? 'គ្មានស្តុកនៅស្ថានីយ' : 'គ្មានស្តុក'}</span>` : ''}
               </div>
               <div class="flex items-center gap-1.5 flex-wrap mt-0.5 text-[11px] text-slate-500 font-khmer">
                 <span class="font-mono font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded text-[10px]">${escapeHtml(item.sku)}</span>
@@ -18758,7 +18793,7 @@ function saveLocalUsersToStorage() {
                   </span>
                 ` : `
                   <span class="text-emerald-800 font-bold bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.5 rounded-full text-[10px]">
-                    ស្តុក: ${curStock} ${escapeHtml(item.unit || 'ដុំ')}${escapeHtml(packInfo)}
+                    ${mode === 'stockOut' && !isPrivileged ? 'ស្តុកស្ថានីយ:' : 'ស្តុក:'} ${curStock} ${escapeHtml(item.unit || 'ដុំ')}${escapeHtml(packInfo)}
                   </span>
                 `}
                 ${item.location ? `<span class="text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full text-[10px] truncate max-w-[120px]">${escapeHtml(item.location)}</span>` : ''}
@@ -19636,6 +19671,8 @@ function saveLocalUsersToStorage() {
       if (isPrivileged) {
         soTo.disabled = false;
         soTo.classList.remove('pointer-events-none', 'bg-slate-100', 'cursor-not-allowed');
+        const lbl = document.getElementById('stockOutToLocationLabel');
+        if (lbl) lbl.innerText = 'នាំចេញទៅឃ្លាំងណា';
         let curVal = soTo.value ? (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(soTo.value) : soTo.value) : '';
         soTo.innerHTML = `
           ${currentList.map(w => `<option value="${escapeHtml(w)}">📍 ${escapeHtml(w)}</option>`).join('')}
@@ -19655,12 +19692,20 @@ function saveLocalUsersToStorage() {
         return;
       }
 
-      // សម្រាប់អ្នកប្រើប្រាស់នៅតាមស្ថានីយមិនអាចចុចមុខងារជ្រើសរើសយកស្ថានីយផ្សេងៗបានទេ: គឺកំណត់ទៅតាម account របស់ស្ថានីយរៀងៗខ្លួន
+      // សម្រាប់អ្នកប្រើប្រាស់នៅតាមស្ថានីយ: ទីតាំងគោលដៅចេញ គឺដកប្រើប្រាស់ក្នុងស្ថានីយ ឬតាមផ្នែកនានា
       const myWh = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(u.warehouse) : u.warehouse) || 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
-      soTo.innerHTML = `<option value="${escapeHtml(myWh)}" selected>📍 ${escapeHtml(myWh)}</option>`;
-      soTo.value = myWh;
-      soTo.disabled = true;
-      soTo.classList.add('pointer-events-none', 'bg-slate-100', 'cursor-not-allowed');
+      soTo.disabled = false;
+      soTo.classList.remove('pointer-events-none', 'bg-slate-100', 'cursor-not-allowed');
+      const lbl = document.getElementById('stockOutToLocationLabel');
+      if (lbl) lbl.innerText = 'គោលដៅ / គោលបំណងចេញ';
+      soTo.innerHTML = `
+        <option value="ដកប្រើប្រាស់ក្នុងស្ថានីយ (Station Internal Use)" selected>🏢 ដកប្រើប្រាស់ក្នុងស្ថានីយ (Station Internal Use)</option>
+        <option value="គន្លងផ្លូវ (Toll Booths)">🛣️ គន្លងផ្លូវ (Toll Booths)</option>
+        <option value="ការិយាល័យស្ថានីយ (Station Office)">📁 ការិយាល័យស្ថានីយ (Station Office)</option>
+        <option value="បាត់បង់ ឬ ខូចខាត (Damaged/Lost)">⚠️ បាត់បង់ ឬ ខូចខាត (Damaged/Lost)</option>
+        <option value="អតិថិជនក្រៅ (External Customer)">👤 អតិថិជនក្រៅ (External Customer)</option>
+      `;
+      soTo.value = 'ដកប្រើប្រាស់ក្នុងស្ថានីយ (Station Internal Use)';
 
       // Also ensure multi-station batch dispatch button is completely hidden for station users
       const modeSwitcher = document.getElementById('btnStockOutModeMulti')?.parentElement;
@@ -20236,7 +20281,19 @@ function saveLocalUsersToStorage() {
       const itemCode = itemCodeEl?.value.trim();
       const item = (itemCode ? AppState.items.find(i => i.sku === itemCode) : null) || findItemByInput(inputVal);
       if (item) {
-        const curStock = Number(item.currentStock || 0);
+        const curU = AppState.currentUser || (function(){ try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch(e){ return null; } })() || {};
+        const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : false;
+        let curStock = Number(item.currentStock || 0);
+        if (isPrivileged) {
+          const adminWh = (AppState.selectedAdminWarehouseFilter && AppState.selectedAdminWarehouseFilter !== 'ALL') ? AppState.selectedAdminWarehouseFilter : '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+          const stStock = (typeof getItemStationStock === 'function') ? getItemStationStock(item, adminWh) : null;
+          curStock = stStock ? stStock.total : Number(item.currentStock || 0);
+        } else {
+          const userWh = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(curU.warehouse) : curU.warehouse) || 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
+          const stStock = (typeof getItemStationStock === 'function') ? getItemStationStock(item, userWh) : null;
+          curStock = stStock ? stStock.total : 0;
+        }
+
         if (curStock <= 0) {
           if (skuInput) skuInput.value = '';
           if (itemCodeEl) itemCodeEl.value = '';
@@ -20260,8 +20317,10 @@ function saveLocalUsersToStorage() {
           }
           Swal.fire({
             icon: 'warning',
-            title: 'គ្មានទិន្នន័យក្នុងស្តុក',
-            text: 'មុខទំនិញនេះមិនមាននៅក្នុងស្តុកទេ សូមបញ្ចូលមុខទំនិញនេះទៅក្នុងស្តុកជាមុនសិន។',
+            title: isPrivileged ? 'គ្មានទិន្នន័យក្នុងស្តុក' : 'គ្មានទិន្នន័យក្នុងស្តុកនៅស្ថានីយនេះ',
+            text: isPrivileged 
+              ? 'មុខទំនិញនេះមិនមាននៅក្នុងស្តុកទេ សូមបញ្ចូលមុខទំនិញនេះទៅក្នុងស្តុកជាមុនសិន។'
+              : 'មុខទំនិញនេះមិនមាននៅក្នុងស្តុករបស់ស្ថានីយលោកអ្នកទេ (ស្តុកនៅសល់: 0) សូមធ្វើការស្នើសុំ ឬទទួលទំនិញពី Admin ជាមុនសិន។',
             confirmButtonText: 'យល់ព្រម',
             confirmButtonColor: '#ea580c'
           });
@@ -20345,7 +20404,7 @@ function saveLocalUsersToStorage() {
         document.getElementById('stockOutPackQtyVal').value = packQty;
         document.getElementById('stockOutUnit').value = baseUnit;
 
-        const oldStock = Number(item.currentStock || 0);
+        const oldStock = curStock;
         const oldStockValEl = document.getElementById('stockOutOldStockValue');
         if (oldStockValEl) oldStockValEl.value = oldStock;
 
@@ -23698,9 +23757,34 @@ function saveLocalUsersToStorage() {
         }
       };
 
-      const whList = (typeof getWarehouseNamesList === "function") ? getWarehouseNamesList() : (AppState.warehouses || WAREHOUSES_LIST);
-      const whOptions = `<option value="អតិថិជន/ដកប្រើប្រាស់" ${curLocation === 'អតិថិជន/ដកប្រើប្រាស់' ? 'selected' : ''}>អតិថិជន/ដកប្រើប្រាស់</option>` +
-        whList.map(w => `<option value="${escapeHtml(w.name || w)}" ${curLocation === (w.name || w) ? 'selected' : ''}>${escapeHtml(w.name || w)}</option>`).join('');
+      const curU = AppState.currentUser || (function(){ try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch(e){ return null; } })() || {};
+      const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : false;
+      let whOptions = '';
+      if (!isPrivileged) {
+        const stationPurposes = [
+          '🏢 ដកប្រើប្រាស់ក្នុងស្ថានីយ (Station Internal Use)',
+          '🛣️ គន្លងផ្លូវ (Toll Booths)',
+          '📁 ការិយាល័យស្ថានីយ (Station Office)',
+          '⚠️ បាត់បង់ ឬ ខូចខាត (Damaged/Lost)',
+          '👤 អតិថិជនក្រៅ (External Customer)'
+        ];
+        let hasMatched = false;
+        whOptions = stationPurposes.map(p => {
+          const isSelected = (!hasMatched && (curLocation === p || (curLocation && p.includes(curLocation))));
+          if (isSelected) hasMatched = true;
+          return `<option value="${escapeHtml(p)}" ${isSelected ? 'selected' : ''}>${escapeHtml(p)}</option>`;
+        }).join('');
+        if (!hasMatched && curLocation) {
+          whOptions = `<option value="${escapeHtml(curLocation)}" selected>📍 ${escapeHtml(curLocation)}</option>` + whOptions;
+        }
+      } else {
+        const whList = (typeof getWarehouseNamesList === "function") ? getWarehouseNamesList() : (AppState.warehouses || WAREHOUSES_LIST);
+        whOptions = `<option value="អតិថិជន/ដកប្រើប្រាស់" ${curLocation === 'អតិថិជន/ដកប្រើប្រាស់' ? 'selected' : ''}>អតិថិជន/ដកប្រើប្រាស់</option>` +
+          whList.map(w => {
+            const wName = w.name || w;
+            return `<option value="${escapeHtml(wName)}" ${curLocation === wName ? 'selected' : ''}>📍 ${escapeHtml(wName)}</option>`;
+          }).join('');
+      }
 
       Swal.fire({
         title: '<div class="flex items-center justify-center gap-2 text-amber-900 text-lg font-bold"><i class="fa-solid fa-pen-to-square text-amber-600"></i><span>ផ្ទាំងកែតម្រូវ ឬលុបទិន្នន័យចេញពីស្តុក</span></div>',
