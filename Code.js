@@ -2762,6 +2762,10 @@ function toCanonicalWarehouseNameGAS(wh) {
   return s;
 }
 
+function toCanonicalWarehouseName(wh) {
+  return toCanonicalWarehouseNameGAS(wh);
+}
+
 function normalizeWarehouseNameGAS(wh) {
   if (!wh) return '';
   return toCanonicalWarehouseNameGAS(wh);
@@ -4579,7 +4583,7 @@ function getItemsList(userOrPayload, warehouseFilter, optSs) {
         itemZoneMap[skuKey].totalIn += rQty;
         itemZoneMap[skuKey].zones[rZone] = (itemZoneMap[skuKey].zones[rZone] || 0) + rQty;
         if (rWh) {
-          const canonicalWh = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(rWh) : rWh;
+          const canonicalWh = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(rWh) : ((typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(rWh) : rWh);
           itemZoneMap[skuKey].zoneWarehouses[rZone] = canonicalWh;
           if (!itemZoneMap[skuKey].warehouses.includes(canonicalWh)) {
             itemZoneMap[skuKey].warehouses.push(canonicalWh);
@@ -4690,7 +4694,13 @@ function getItemsList(userOrPayload, warehouseFilter, optSs) {
       if (zInfo) {
         for (const zk in zInfo.zones) {
           if (zInfo.zones[zk] > 0) {
-            const zWh = (zInfo.zoneWarehouses && zInfo.zoneWarehouses[zk]) ? zInfo.zoneWarehouses[zk] : '';
+            let zWh = (zInfo.zoneWarehouses && zInfo.zoneWarehouses[zk]) ? zInfo.zoneWarehouses[zk] : '';
+            if (!zWh && zInfo.warehouses && zInfo.warehouses.length === 1) {
+              zWh = zInfo.warehouses[0];
+            }
+            if (zWh && typeof toCanonicalWarehouseNameGAS === 'function') {
+              zWh = toCanonicalWarehouseNameGAS(zWh);
+            }
             itemZoneBreakdown.push({
               zone: zk,
               quantity: zInfo.zones[zk],
