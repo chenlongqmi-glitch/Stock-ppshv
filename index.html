@@ -2040,6 +2040,10 @@
               <option value="机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)">📍 机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
               <option value="综合办 (ផ្នែកកិច្ចការទូទៅ)">📍 综合办 (ផ្នែកកិច្ចការទូទៅ)</option>
             </select>
+            <span id="adminViewOnlyBadge" class="hidden items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-amber-500/20 text-amber-800 border border-amber-300 shadow-2xs shrink-0 select-none animate-pulse" title="របៀបត្រួតពិនិត្យទិន្នន័យប៉ុណ្ណោះ (View-Only Mode)">
+              <i class="fa-solid fa-eye text-amber-600 text-[10px]"></i>
+              <span class="hidden sm:inline font-khmer">ត្រួតពិនិត្យប៉ុណ្ណោះ</span>
+            </span>
           </div>
 
           <!-- Add / Manage Warehouse Button for Admin (Visible for SuperAdmin and Admin ONLY) -->
@@ -2633,6 +2637,32 @@
         <div id="tabStockIn" class="w-full space-y-4 hidden">
           <div id="stockInFormCard" class="glass-card form-freeze-card p-3 sm:p-4 lg:p-4 rounded-2xl sm:rounded-3xl shadow-sm border-2 border-emerald-300/80 bg-gradient-to-br from-emerald-50/30 via-white to-teal-50/20">
 
+            <!-- Stock In View-Only Mode Alert Banner -->
+            <div id="stockInViewOnlyBanner" class="hidden p-3.5 sm:p-4 mb-3.5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border-2 border-amber-400 text-amber-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs animate-fade-in">
+              <div class="flex items-start sm:items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center text-lg shrink-0 shadow-xs">
+                  <i class="fa-solid fa-lock"></i>
+                </div>
+                <div>
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <h5 class="text-xs sm:text-sm font-black text-amber-950 font-khmer flex items-center gap-1.5">
+                      <i class="fa-solid fa-eye text-amber-600 text-xs"></i>
+                      <span>របៀបត្រួតពិនិត្យទិន្នន័យប៉ុណ្ណោះ (View-Only Mode)</span>
+                    </h5>
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-200 text-amber-900 font-khmer border border-amber-300">មិនអាចកត់ត្រាចូលស្តុកទេ</span>
+                  </div>
+                  <p class="text-xs text-amber-900 font-khmer mt-0.5 leading-relaxed">
+                    លោកអ្នកកំពុងជ្រើសរើសស្ថានីយ <b id="stockInViewOnlyWhName" class="text-amber-950 font-black">-</b>។ មុខងារកត់ត្រាចូលស្តុកត្រូវបានចាក់សោ (បានត្រឹមតែមើលទិន្នន័យប៉ុណ្ណោះ)!
+                  </p>
+                </div>
+              </div>
+              <button type="button" onclick="switchToAdminDefaultWarehouse()"
+                class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-bold font-khmer shadow-sm hover:scale-[1.02] active:scale-[0.98] transition flex items-center gap-1.5 shrink-0 cursor-pointer">
+                <i class="fa-solid fa-rotate text-xs"></i>
+                <span>ប្តូរមកឃ្លាំងចុងស៊ីង & 机电 (បើកសិទ្ធិ)</span>
+              </button>
+            </div>
+
             <form id="stockInForm" onsubmit="handleStockInSubmit(event)" class="space-y-3">
               <!-- Hidden Old Stock & Pack Conversion Stores -->
               <input type="hidden" id="stockInOldStockValue" value="0">
@@ -2874,44 +2904,6 @@
                 </div>
               </div>
 
-              <!-- SECTION: MULTI-STATION TOLL GRID (VISIBLE IN MULTI MODE) -->
-              <div id="stockOutMultiStationSection" class="hidden w-full pt-3.5 border-t-2 border-dashed border-amber-300/80 space-y-3">
-                <!-- Action Bar & Quick Presets -->
-                <div class="flex flex-wrap items-center justify-between gap-2.5 bg-gradient-to-r from-amber-100/70 via-orange-50/50 to-amber-50/70 p-3 rounded-2xl border border-amber-200 shadow-2xs">
-                  <div class="flex items-center space-x-2">
-                    <div class="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center text-xs shadow-2xs">
-                      <i class="fa-solid fa-road"></i>
-                    </div>
-                    <div>
-                      <h5 class="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-1.5">
-                        <span>🛣️ បញ្ជីចែកទំនិញតាមបណ្តាស្ថានីយទាំង ៨ (Toll Stations Dispatch Grid)</span>
-                      </h5>
-                      <p class="text-[11px] text-slate-500 font-khmer">បញ្ចូលចំនួនដុំ ឬរាយសម្រាប់ស្ថានីយនីមួយៗ (អាចចេញម្តង 3-4 ស្ថានីយ ឬទាំង 8)</p>
-                    </div>
-                  </div>
-                  <div class="flex items-center gap-1.5 flex-wrap">
-                    <button type="button" onclick="quickFillAllStationsPrompt()"
-                      class="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-xs cursor-pointer hover:scale-[1.02] active:scale-[0.98]">
-                      <i class="fa-solid fa-bolt text-xs"></i>
-                      <span>⚡ ចែកស្មើគ្នាគ្រប់ស្ថានីយ</span>
-                    </button>
-                    <button type="button" onclick="clearAllMultiStationQtys()"
-                      class="px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition flex items-center space-x-1 border border-slate-300 shadow-2xs cursor-pointer">
-                      <i class="fa-solid fa-rotate-left text-xs text-slate-500"></i>
-                      <span>សម្អាតចំនួន</span>
-                    </button>
-                    <button type="button" onclick="toggleIncludeGeneralOffice()" id="btnToggleGeneralOffice"
-                      class="px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition flex items-center space-x-1 border border-slate-300 shadow-2xs cursor-pointer">
-                      <i class="fa-solid fa-plus text-xs text-slate-500"></i>
-                      <span>+ 综合办 (កិច្ចការទូទៅ)</span>
-                    </button>
-                  </div>
-                </div>
-
-                <!-- Grid of Station Cards -->
-                <div id="stockOutStationCardsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-                  <!-- Generated by renderStockOutMultiStationGrid() -->
-                </div>
               </div>
 
             </form>
@@ -3002,6 +2994,32 @@
         <!-- ========================================== -->
         <div id="tabStockOut" class="w-full space-y-4 hidden">
           <div id="stockOutFormCard" class="glass-card form-freeze-card p-3 sm:p-4 lg:p-4 rounded-2xl sm:rounded-3xl shadow-sm border-2 border-amber-300/80 bg-gradient-to-br from-amber-50/30 via-white to-orange-50/20">
+
+            <!-- Stock Out View-Only Mode Alert Banner -->
+            <div id="stockOutViewOnlyBanner" class="hidden p-3.5 sm:p-4 mb-3 rounded-2xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border-2 border-amber-400 text-amber-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs animate-fade-in">
+              <div class="flex items-start sm:items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center text-lg shrink-0 shadow-xs">
+                  <i class="fa-solid fa-lock"></i>
+                </div>
+                <div>
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <h5 class="text-xs sm:text-sm font-black text-amber-950 font-khmer flex items-center gap-1.5">
+                      <i class="fa-solid fa-eye text-amber-600 text-xs"></i>
+                      <span>របៀបត្រួតពិនិត្យទិន្នន័យប៉ុណ្ណោះ (View-Only Mode)</span>
+                    </h5>
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-200 text-amber-900 font-khmer border border-amber-300">មិនអាចកត់ត្រាចេញស្តុកទេ</span>
+                  </div>
+                  <p class="text-xs text-amber-900 font-khmer mt-0.5 leading-relaxed">
+                    លោកអ្នកកំពុងជ្រើសរើសស្ថានីយ <b id="stockOutViewOnlyWhName" class="text-amber-950 font-black">-</b>។ មុខងារកត់ត្រាចេញស្តុកត្រូវបានចាក់សោ (បានត្រឹមតែមើលទិន្នន័យប៉ុណ្ណោះ)!
+                  </p>
+                </div>
+              </div>
+              <button type="button" onclick="switchToAdminDefaultWarehouse()"
+                class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-bold font-khmer shadow-sm hover:scale-[1.02] active:scale-[0.98] transition flex items-center gap-1.5 shrink-0 cursor-pointer">
+                <i class="fa-solid fa-rotate text-xs"></i>
+                <span>ប្តូរមកឃ្លាំងចុងស៊ីង & 机电 (បើកសិទ្ធិ)</span>
+              </button>
+            </div>
 
             <!-- Stock Out Mode Switcher (Single Station vs Multi-Station Batch Distribution) -->
             <div id="stockOutModeBar" class="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 mb-2 border-b border-amber-200/80">
@@ -3273,6 +3291,46 @@
                     </button>
                   </div>
 
+                </div>
+              </div>
+
+              <!-- SECTION: MULTI-STATION TOLL GRID (VISIBLE IN MULTI MODE) -->
+              <div id="stockOutMultiStationSection" class="hidden w-full pt-3.5 border-t-2 border-dashed border-amber-300/80 space-y-3">
+                <!-- Action Bar & Quick Presets -->
+                <div class="flex flex-wrap items-center justify-between gap-2.5 bg-gradient-to-r from-amber-100/70 via-orange-50/50 to-amber-50/70 p-3 rounded-2xl border border-amber-200 shadow-2xs">
+                  <div class="flex items-center space-x-2">
+                    <div class="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center text-xs shadow-2xs">
+                      <i class="fa-solid fa-road"></i>
+                    </div>
+                    <div>
+                      <h5 class="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-1.5">
+                        <span>🛣️ បញ្ជីចែកទំនិញតាមបណ្តាស្ថានីយទាំង ៨ (Toll Stations Dispatch Grid)</span>
+                      </h5>
+                      <p class="text-[11px] text-slate-500 font-khmer">បញ្ចូលចំនួនដុំ ឬរាយសម្រាប់ស្ថានីយនីមួយៗ (អាចចេញម្តង 3-4 ស្ថានីយ ឬទាំង 8)</p>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <button type="button" onclick="quickFillAllStationsPrompt()"
+                      class="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-xs cursor-pointer hover:scale-[1.02] active:scale-[0.98]">
+                      <i class="fa-solid fa-bolt text-xs"></i>
+                      <span>⚡ ចែកស្មើគ្នាគ្រប់ស្ថានីយ</span>
+                    </button>
+                    <button type="button" onclick="clearAllMultiStationQtys()"
+                      class="px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition flex items-center space-x-1 border border-slate-300 shadow-2xs cursor-pointer">
+                      <i class="fa-solid fa-rotate-left text-xs text-slate-500"></i>
+                      <span>សម្អាតចំនួន</span>
+                    </button>
+                    <button type="button" onclick="toggleIncludeGeneralOffice()" id="btnToggleGeneralOffice"
+                      class="px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition flex items-center space-x-1 border border-slate-300 shadow-2xs cursor-pointer">
+                      <i class="fa-solid fa-plus text-xs text-slate-500"></i>
+                      <span>+ 综合办 (កិច្ចការទូទៅ)</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Grid of Station Cards -->
+                <div id="stockOutStationCardsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                  <!-- Generated by renderStockOutMultiStationGrid() -->
                 </div>
               </div>
             </form>
@@ -7110,6 +7168,153 @@
       return s === ADMIN_DEFAULT_COMBO_WH || s === 'ADMIN_DEFAULT_COMBO' || s === 'COMBO_CENTRAL_ME' || s.includes('中心库房 & 机电') || (s.includes('中心库房') && s.includes('机电'));
     }
     window.isAdminComboWarehouse = isAdminComboWarehouse;
+
+    /**
+     * ត្រួតពិនិត្យថាតើស្ថានីយដែលជ្រើសរើសជាស្ថានីយអនុញ្ញាតឲ្យ Admin / SuperAdmin ប្រតិបត្តិការ (ចូលស្តុក / ចេញស្តុក) បានដែរឬទេ
+     * អាចប្រតិបត្តិការបាន លើកលែងតែជ្រើសរើសយក:
+     * 1. 中心库房 & 机电 (Combo)
+     * 2. 中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)
+     * 3. 机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)
+     * រាល់ស្ថានីយផ្សេងៗទាំងអស់ (K3, K26, ALL...) គឺបានត្រឹមតែត្រួតពិនិត្យទិន្នន័យ (View-Only) ប៉ុណ្ណោះ!
+     */
+    function isAdminOperationalWarehouse(wh) {
+      if (!wh) return false;
+      const s = String(wh).trim();
+      if (typeof isAdminComboWarehouse === 'function' && isAdminComboWarehouse(s)) return true;
+      if (s === '中心库房 & 机电' || s.includes('中心库房 & 机电') || (s.includes('中心库房') && s.includes('机电'))) return true;
+      const canonical = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(s) : s;
+      return canonical === '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)' || canonical === '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)' || canonical === '中心库房 & 机电';
+    }
+    window.isAdminOperationalWarehouse = isAdminOperationalWarehouse;
+
+    /**
+     * ត្រួតពិនិត្យថាតើ Admin / SuperAdmin កំពុងស្ថិតក្នុងរបៀប View-Only (ត្រួតពិនិត្យទិន្នន័យប៉ុណ្ណោះ) ដែរឬទេ
+     */
+    function isCurrentAdminInViewOnlyMode() {
+      const u = AppState.currentUser || (function(){ try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch(e){ return null; } })() || {};
+      if (typeof isUserPrivilegedAdmin === 'function' && !isUserPrivilegedAdmin(u)) {
+        return false; // User ធម្មតាមិនស្ថិតក្នុងលក្ខខណ្ឌ Admin View-Only នេះទេ
+      }
+      const activeWh = AppState.selectedAdminWarehouseFilter || sessionStorage.getItem('inventory_wh_filter') || '中心库房 & 机电';
+      return !isAdminOperationalWarehouse(activeWh);
+    }
+    window.isCurrentAdminInViewOnlyMode = isCurrentAdminInViewOnlyMode;
+
+    /**
+     * ផ្លាស់ប្តូរមកកាន់ឃ្លាំងលំនាំដើមរបស់ Admin ភ្លាមៗ (ដោះសោរបៀប View-Only)
+     */
+    function switchToAdminDefaultWarehouse() {
+      const targetWh = '中心库房 & 机电';
+      const sel = document.getElementById('globalWarehouseSelector');
+      if (sel) {
+        sel.value = targetWh;
+      }
+      if (typeof handleGlobalWarehouseChange === 'function') {
+        handleGlobalWarehouseChange(targetWh);
+      }
+      if (typeof Swal !== 'undefined') {
+        Swal.fire({
+          icon: 'success',
+          title: 'បានបើកសិទ្ធិប្រតិបត្តិការ!',
+          html: '<p class="text-xs font-khmer text-slate-700">បានប្តូរទៅកាន់ <b>中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង) & 机电</b> រួចរាល់។ លោកអ្នកអាចកត់ត្រាចូលស្តុក និងចេញស្តុកបានជាធម្មតា!</p>',
+          timer: 2200,
+          timerProgressBar: true,
+          showConfirmButton: false
+        });
+      }
+    }
+    window.switchToAdminDefaultWarehouse = switchToAdminDefaultWarehouse;
+
+    /**
+     * ធ្វើបច្ចុប្បន្នភាព UI ទាំងមូលនៅពេល Admin ស្ថិតក្នុងរបៀបត្រួតពិនិត្យទិន្នន័យ (View-Only Mode)
+     */
+    function updateAdminOperationalViewMode() {
+      const isViewOnly = (typeof isCurrentAdminInViewOnlyMode === 'function') ? isCurrentAdminInViewOnlyMode() : false;
+      const currentWh = AppState.selectedAdminWarehouseFilter || sessionStorage.getItem('inventory_wh_filter') || '中心库房 & 机电';
+      const cleanWhName = (typeof sanitizeStationName === 'function') ? sanitizeStationName(currentWh) : currentWh;
+
+      // 1. Header Badge
+      const headerBadge = document.getElementById('adminViewOnlyBadge');
+      if (headerBadge) {
+        if (isViewOnly) {
+          headerBadge.classList.remove('hidden');
+          headerBadge.classList.add('inline-flex');
+        } else {
+          headerBadge.classList.add('hidden');
+          headerBadge.classList.remove('inline-flex');
+        }
+      }
+
+      // 2. Stock In Form Lock & Banner
+      const inBanner = document.getElementById('stockInViewOnlyBanner');
+      const inWhText = document.getElementById('stockInViewOnlyWhName');
+      const inSubmitBtn = document.getElementById('btnSubmitStockIn');
+      const inCard = document.getElementById('stockInFormCard');
+
+      if (inBanner) {
+        if (isViewOnly) {
+          inBanner.classList.remove('hidden');
+          if (inWhText) inWhText.textContent = cleanWhName;
+          if (inSubmitBtn) {
+            inSubmitBtn.disabled = true;
+            inSubmitBtn.classList.add('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+            inSubmitBtn.title = 'មុខងារត្រូវបានចាក់សោ ក្នុងរបៀបត្រួតពិនិត្យទិន្នន័យ (View-Only Mode)';
+          }
+          if (inCard) {
+            inCard.classList.add('ring-2', 'ring-amber-400/80');
+          }
+        } else {
+          inBanner.classList.add('hidden');
+          if (inSubmitBtn) {
+            inSubmitBtn.disabled = false;
+            inSubmitBtn.classList.remove('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+            inSubmitBtn.removeAttribute('title');
+          }
+          if (inCard) {
+            inCard.classList.remove('ring-2', 'ring-amber-400/80');
+          }
+        }
+      }
+
+      // 3. Stock Out Form Lock & Banner
+      const outBanner = document.getElementById('stockOutViewOnlyBanner');
+      const outWhText = document.getElementById('stockOutViewOnlyWhName');
+      const outSubmitBtn = document.getElementById('btnSubmitStockOut');
+      const outModeBar = document.getElementById('stockOutModeBar');
+      const outCard = document.getElementById('stockOutFormCard');
+
+      if (outBanner) {
+        if (isViewOnly) {
+          outBanner.classList.remove('hidden');
+          if (outWhText) outWhText.textContent = cleanWhName;
+          if (outSubmitBtn) {
+            outSubmitBtn.disabled = true;
+            outSubmitBtn.classList.add('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+            outSubmitBtn.title = 'មុខងារត្រូវបានចាក់សោ ក្នុងរបៀបត្រួតពិនិត្យទិន្នន័យ (View-Only Mode)';
+          }
+          if (outModeBar) {
+            outModeBar.classList.add('opacity-50', 'pointer-events-none');
+          }
+          if (outCard) {
+            outCard.classList.add('ring-2', 'ring-amber-400/80');
+          }
+        } else {
+          outBanner.classList.add('hidden');
+          if (outSubmitBtn) {
+            outSubmitBtn.disabled = false;
+            outSubmitBtn.classList.remove('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+            outSubmitBtn.removeAttribute('title');
+          }
+          if (outModeBar) {
+            outModeBar.classList.remove('opacity-50', 'pointer-events-none');
+          }
+          if (outCard) {
+            outCard.classList.remove('ring-2', 'ring-amber-400/80');
+          }
+        }
+      }
+    }
+    window.updateAdminOperationalViewMode = updateAdminOperationalViewMode;
 
     function matchesTargetWarehouse(loc, targetWh) {
       if (!targetWh || targetWh === 'ALL' || targetWh === '🏢 គ្រប់ស្ថានីយទាំងអស់' || targetWh === 'គ្រប់ឃ្លាំង') return true;
@@ -13581,6 +13786,11 @@ function saveLocalUsersToStorage() {
       if (typeof updateIncomingDispatchesBadge === 'function') updateIncomingDispatchesBadge();
       if (AppState.currentTab === 'reports' && typeof loadReportTransactions === 'function') loadReportTransactions();
       if (AppState.currentTab === 'requests' && typeof filterProductRequests === 'function') filterProductRequests();
+
+      // 9. Update View-Only state for Admin
+      if (typeof updateAdminOperationalViewMode === 'function') {
+        updateAdminOperationalViewMode();
+      }
     }
 
     function handleItemWarehouseFilterChange(whValue) {
@@ -14100,6 +14310,7 @@ function saveLocalUsersToStorage() {
 
       AppState.currentTab = tabName;
       sessionStorage.setItem('inventory_active_tab', tabName);
+      if (typeof updateAdminOperationalViewMode === 'function') updateAdminOperationalViewMode();
       if (window.history && window.history.replaceState) {
         window.history.replaceState(null, null, '#' + tabName);
       }
@@ -18329,6 +18540,7 @@ function saveLocalUsersToStorage() {
     }
 
     function initStockInForm() {
+      if (typeof updateAdminOperationalViewMode === 'function') updateAdminOperationalViewMode();
       const docEl = document.getElementById('stockInDocNo');
       if (docEl && !docEl.value) {
         generateStockInDocNo();
@@ -18696,7 +18908,23 @@ function saveLocalUsersToStorage() {
     }
 
     async function handleStockInSubmit(e) {
-      e.preventDefault();
+      if (e) e.preventDefault();
+      if (typeof isCurrentAdminInViewOnlyMode === 'function' && isCurrentAdminInViewOnlyMode()) {
+        const curWh = AppState.selectedAdminWarehouseFilter || 'ស្ថានីយនេះ';
+        Swal.fire({
+          icon: 'warning',
+          title: '🔒 របៀបត្រួតពិនិត្យទិន្នន័យប៉ុណ្ណោះ (View-Only Mode)',
+          html: `<div class="text-left text-xs space-y-2 p-1 font-khmer">
+            <p>ពេលជ្រើសរើសស្ថានីយ <b>${escapeHtml(curWh)}</b> លោកអ្នកបានត្រឹមតែត្រួតពិនិត្យទិន្នន័យតែប៉ុណ្ណោះ <b>មិនអាចប្រតិបត្តិការចូលស្តុកទំនិញបានជាដាច់ខាត</b>!</p>
+            <div class="p-2.5 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 mt-2">
+              💡 ដើម្បីអាចកត់ត្រាចូលស្តុកបាន សូមជ្រើសរើសយក <b>"中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង) & 机电"</b> ឬ <b>"中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)"</b> ឬ <b>"机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)"</b> នៅលើ Header ខាងលើ។
+            </div>
+          </div>`,
+          confirmButtonText: 'យល់ព្រម',
+          confirmButtonColor: '#d97706'
+        });
+        return;
+      }
       clearStockInFieldErrors();
 
       const docNo = document.getElementById('stockInDocNo')?.value.trim() || generateStockInDocNo();
@@ -19038,6 +19266,7 @@ function saveLocalUsersToStorage() {
     window.applyUserWarehouseToStockOutLocation = applyUserWarehouseToStockOutLocation;
 
     function initStockOutForm() {
+      if (typeof updateAdminOperationalViewMode === 'function') updateAdminOperationalViewMode();
       const docEl = document.getElementById('stockOutDocNo');
       if (docEl && !docEl.value) {
         generateStockOutDocNo();
@@ -20136,6 +20365,22 @@ function saveLocalUsersToStorage() {
 
     async function handleMultiStationStockOutSubmit(e) {
       if (e) e.preventDefault();
+      if (typeof isCurrentAdminInViewOnlyMode === 'function' && isCurrentAdminInViewOnlyMode()) {
+        const curWh = AppState.selectedAdminWarehouseFilter || 'ស្ថានីយនេះ';
+        Swal.fire({
+          icon: 'warning',
+          title: '🔒 របៀបត្រួតពិនិត្យទិន្នន័យប៉ុណ្ណោះ (View-Only Mode)',
+          html: `<div class="text-left text-xs space-y-2 p-1 font-khmer">
+            <p>ពេលជ្រើសរើសស្ថានីយ <b>${escapeHtml(curWh)}</b> លោកអ្នកបានត្រឹមតែត្រួតពិនិត្យទិន្នន័យតែប៉ុណ្ណោះ <b>មិនអាចប្រតិបត្តិការចេញស្តុកទំនិញបានជាដាច់ខាត</b>!</p>
+            <div class="p-2.5 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 mt-2">
+              💡 ដើម្បីអាចកត់ត្រាចេញស្តុកបាន សូមជ្រើសរើសយក <b>"中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង) & 机电"</b> ឬ <b>"中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)"</b> ឬ <b>"机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)"</b> នៅលើ Header ខាងលើ។
+            </div>
+          </div>`,
+          confirmButtonText: 'យល់ព្រម',
+          confirmButtonColor: '#ea580c'
+        });
+        return;
+      }
 
       const docNo = document.getElementById('stockOutDocNo')?.value.trim() || generateStockOutDocNo();
       const rawSku = document.getElementById('stockOutSku')?.value || '';
@@ -21012,7 +21257,23 @@ function saveLocalUsersToStorage() {
 
 
     async function handleStockOutSubmit(e) {
-      e.preventDefault();
+      if (e) e.preventDefault();
+      if (typeof isCurrentAdminInViewOnlyMode === 'function' && isCurrentAdminInViewOnlyMode()) {
+        const curWh = AppState.selectedAdminWarehouseFilter || 'ស្ថានីយនេះ';
+        Swal.fire({
+          icon: 'warning',
+          title: '🔒 របៀបត្រួតពិនិត្យទិន្នន័យប៉ុណ្ណោះ (View-Only Mode)',
+          html: `<div class="text-left text-xs space-y-2 p-1 font-khmer">
+            <p>ពេលជ្រើសរើសស្ថានីយ <b>${escapeHtml(curWh)}</b> លោកអ្នកបានត្រឹមតែត្រួតពិនិត្យទិន្នន័យតែប៉ុណ្ណោះ <b>មិនអាចប្រតិបត្តិការចេញស្តុកទំនិញបានជាដាច់ខាត</b>!</p>
+            <div class="p-2.5 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 mt-2">
+              💡 ដើម្បីអាចកត់ត្រាចេញស្តុកបាន សូមជ្រើសរើសយក <b>"中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង) & 机电"</b> ឬ <b>"中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)"</b> ឬ <b>"机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)"</b> នៅលើ Header ខាងលើ។
+            </div>
+          </div>`,
+          confirmButtonText: 'យល់ព្រម',
+          confirmButtonColor: '#ea580c'
+        });
+        return;
+      }
       const docNo = document.getElementById('stockOutDocNo')?.value.trim() || generateStockOutDocNo();
       const rawSku = document.getElementById('stockOutSku')?.value || '';
       const sku = extractSkuFromInput(rawSku);
@@ -22306,6 +22567,22 @@ function saveLocalUsersToStorage() {
     }
 
     function openEditStockInModal(txId, docNo) {
+      if (typeof isCurrentAdminInViewOnlyMode === 'function' && isCurrentAdminInViewOnlyMode()) {
+        const curWh = AppState.selectedAdminWarehouseFilter || 'ស្ថានីយនេះ';
+        Swal.fire({
+          icon: 'info',
+          title: '🔒 របៀបត្រួតពិនិត្យទិន្នន័យប៉ុណ្ណោះ',
+          html: `<div class="text-left text-xs space-y-2 p-1 font-khmer">
+            <p>លោកអ្នកកំពុងស្ថិតក្នុងរបៀបត្រួតពិនិត្យទិន្នន័យនៃស្ថានីយ <b>${escapeHtml(curWh)}</b>។</p>
+            <p class="text-rose-600 font-bold">មិនអនុញ្ញាតឲ្យកែប្រែ ឬលុបប្រតិបត្តិការស្តុកចូលឡើយ!</p>
+            <div class="p-2 bg-amber-50 rounded-lg border border-amber-200 text-amber-900 mt-2">
+              💡 ដើម្បីអាចកែប្រែបាន សូមជ្រើសរើសយក <b>"中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង) & 机电"</b> ឬ <b>"中心库房"</b> ឬ <b>"机电"</b> នៅលើ Header ខាងលើ។
+            </div>
+          </div>`,
+          confirmButtonText: 'យល់ព្រម'
+        });
+        return;
+      }
       const tx = findTransactionRecord(txId, docNo, 'STOCK_IN');
       if (!tx) {
         Swal.fire({ icon: 'error', title: 'រកមិនឃើញទិន្នន័យប្រតិបត្តិការទេ!', confirmButtonColor: '#047857' });
@@ -22800,6 +23077,22 @@ function saveLocalUsersToStorage() {
     }
 
     function openEditStockOutModal(txId, docNo) {
+      if (typeof isCurrentAdminInViewOnlyMode === 'function' && isCurrentAdminInViewOnlyMode()) {
+        const curWh = AppState.selectedAdminWarehouseFilter || 'ស្ថានីយនេះ';
+        Swal.fire({
+          icon: 'info',
+          title: '🔒 របៀបត្រួតពិនិត្យទិន្នន័យប៉ុណ្ណោះ',
+          html: `<div class="text-left text-xs space-y-2 p-1 font-khmer">
+            <p>លោកអ្នកកំពុងស្ថិតក្នុងរបៀបត្រួតពិនិត្យទិន្នន័យនៃស្ថានីយ <b>${escapeHtml(curWh)}</b>។</p>
+            <p class="text-rose-600 font-bold">មិនអនុញ្ញាតឲ្យកែប្រែ ឬលុបប្រតិបត្តិការស្តុកចេញឡើយ!</p>
+            <div class="p-2 bg-amber-50 rounded-lg border border-amber-200 text-amber-900 mt-2">
+              💡 ដើម្បីអាចកែប្រែបាន សូមជ្រើសរើសយក <b>"中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង) & 机电"</b> ឬ <b>"中心库房"</b> ឬ <b>"机电"</b> នៅលើ Header ខាងលើ។
+            </div>
+          </div>`,
+          confirmButtonText: 'យល់ព្រម'
+        });
+        return;
+      }
       const tx = findTransactionRecord(txId, docNo, 'STOCK_OUT');
       if (!tx) {
         Swal.fire({ icon: 'error', title: 'រកមិនឃើញទិន្នន័យប្រតិបត្តិការទេ!', confirmButtonColor: '#b45309' });

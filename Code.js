@@ -5831,6 +5831,22 @@ function updateWarehouse(payload, user) {
 
 
 
+/**
+ * ត្រួតពិនិត្យថាតើស្ថានីយដែលជ្រើសរើសជាស្ថានីយអនុញ្ញាតឲ្យ Admin / SuperAdmin ប្រតិបត្តិការ (ចូលស្តុក / ចេញស្តុក) បានដែរឬទេ
+ * អាចប្រតិបត្តិការបាន លើកលែងតែជ្រើសរើសយក:
+ * 1. 中心库房 & 机电 (Combo)
+ * 2. 中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)
+ * 3. 机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)
+ */
+function isAdminOperationalWarehouseGAS(wh) {
+  if (!wh) return false;
+  const s = String(wh).trim();
+  if (s === '中心库房 & 机电' || s.includes('中心库房 & 机电') || (s.includes('中心库房') && s.includes('机电'))) return true;
+  if (s.includes('中心库房') && !s.includes('K') && !s.includes('ស្ថានីយ')) return true;
+  if (s.includes('机电') && !s.includes('K') && !s.includes('ស្ថានីយ')) return true;
+  return false;
+}
+
 function recordStockIn(dataOrPayload, user) {
 
   let data = dataOrPayload;
@@ -5864,6 +5880,13 @@ function recordStockIn(dataOrPayload, user) {
 
 
   if (qty <= 0) return { success: false, message: 'ចំនួនទំនិញចូលត្រូវតែធំជាង 0' };
+
+  const reqWhFilterIn = String(data.warehouseFilter || data.stationFilter || '').trim();
+  const uRoleIn = String((u && u.role) || '').toLowerCase();
+  const isPrivAdminIn = uRoleIn.includes('admin') || uRoleIn.includes('superadmin') || (u && (u.username === 'admin' || u.username === 'superadmin'));
+  if (isPrivAdminIn && reqWhFilterIn && reqWhFilterIn !== 'ALL' && reqWhFilterIn !== '中心库房 & 机电' && !isAdminOperationalWarehouseGAS(reqWhFilterIn)) {
+    return { success: false, message: 'ស្ថានីយនេះបានត្រឹមតែត្រួតពិនិត្យទិន្នន័យ (View-Only Mode) ប៉ុណ្ណោះ មិនអាចប្រតិបត្តិការចូលស្តុកបានឡើយ!' };
+  }
 
 
 
@@ -6039,6 +6062,13 @@ function recordStockOut(dataOrPayload, user) {
 
 
   if (qty <= 0) return { success: false, message: 'ចំនួនទំនិញចេញត្រូវតែធំជាង 0' };
+
+  const reqWhFilterOut = String(data.warehouseFilter || data.stationFilter || '').trim();
+  const uRoleOut = String((u && u.role) || '').toLowerCase();
+  const isPrivAdminOut = uRoleOut.includes('admin') || uRoleOut.includes('superadmin') || (u && (u.username === 'admin' || u.username === 'superadmin'));
+  if (isPrivAdminOut && reqWhFilterOut && reqWhFilterOut !== 'ALL' && reqWhFilterOut !== '中心库房 & 机电' && !isAdminOperationalWarehouseGAS(reqWhFilterOut)) {
+    return { success: false, message: 'ស្ថានីយនេះបានត្រឹមតែត្រួតពិនិត្យទិន្នន័យ (View-Only Mode) ប៉ុណ្ណោះ មិនអាចប្រតិបត្តិការចេញស្តុកបានឡើយ!' };
+  }
 
 
 
