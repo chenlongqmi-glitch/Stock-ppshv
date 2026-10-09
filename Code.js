@@ -2724,28 +2724,28 @@ function toCanonicalWarehouseNameGAS(wh) {
   if (s === 'ADMIN_COMBO' || s === '中心库房 & 机电' || (s.indexOf('中心库房') !== -1 && s.indexOf('机电') !== -1)) return '中心库房 & 机电';
 
   if (sLower.indexOf('k3') !== -1 || s.indexOf('ភ្នំពេញ') !== -1 || sLower === 'wh-01' || s.indexOf('ឃ្លាំងទី ០១') !== -1 || s.indexOf('សែនសុខ') !== -1) {
-    return '1-K3 ស្ថានីយ (ភ្នំពេញ)';
+    return 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
   }
   if (sLower.indexOf('k26') !== -1 || s.indexOf('កំពង់ស្ពឺ កើត') !== -1 || sLower === 'wh-02' || s.indexOf('ឃ្លាំងទី ០២') !== -1 || s.indexOf('ទួលគោក') !== -1) {
-    return '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)';
+    return 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02';
   }
   if (sLower.indexOf('k43') !== -1 || s.indexOf('កំពង់ស្ពឺ លិច') !== -1 || sLower === 'wh-03' || s.indexOf('ឃ្លាំងទី ០៣') !== -1 || s.indexOf('សៀមរាប') !== -1) {
-    return '3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)';
+    return 'K43 ស្ថានីយ (កំពង់ស្ពឺ លិច) 03';
   }
   if (sLower.indexOf('k76') !== -1 || s.indexOf('ត្រែងត្រយឹង') !== -1 || s.indexOf('ព្រែកក្តួច') !== -1 || sLower === 'wh-04' || s.indexOf('ឃ្លាំងទី ០៤') !== -1 || s.indexOf('បាត់ដំបង') !== -1) {
-    return '4-K76 ស្ថានីយ (ត្រែងត្រយឹង)';
+    return 'K76 ស្ថានីយ (ត្រែងត្រយឹង) 04';
   }
   if (sLower.indexOf('k114') !== -1 || sLower.indexOf('k113') !== -1 || s.indexOf('កំពង់សីលា') !== -1 || sLower === 'wh-05' || s.indexOf('ឃ្លាំងទី ០៥') !== -1) {
-    return '5-K114 ស្ថានីយ (កំពង់សីលា)';
+    return 'K114 ស្ថានីយ (កំពង់សីលា) 05';
   }
   if (sLower.indexOf('k135') !== -1 || s.indexOf('ស្រែអំបិល') !== -1 || sLower === 'wh-06' || s.indexOf('ឃ្លាំងទី ០៦') !== -1) {
-    return '6-K135 ស្ថានីយ (ស្រែអំបិល)';
+    return 'K135 ស្ថានីយ (ស្រែអំបិល) 06';
   }
   if (sLower.indexOf('k172') !== -1 || s.indexOf('ស្ទឹងហាវ') !== -1 || sLower === 'wh-07' || s.indexOf('ឃ្លាំងទី ០៧') !== -1) {
-    return '7-K172 ស្ថានីយ (ស្ទឹងហាវ)';
+    return 'K172 ស្ថានីយ (ស្ទឹងហាវ) 07';
   }
   if (sLower.indexOf('k182') !== -1 || s.indexOf('ព្រះសីហនុ') !== -1 || sLower === 'wh-08' || s.indexOf('ឃ្លាំងទី ០៨') !== -1) {
-    return '8-K182 ស្ថានីយ (ព្រះសីហនុ)';
+    return 'K182 ស្ថានីយ (ព្រះសីហនុ) 08';
   }
   if (s.indexOf('中心库房') !== -1 || sLower === 'wh-hq' || s.indexOf('ចុងស៊ីង') !== -1 || s.indexOf('បុងសឹង') !== -1) {
     return '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
@@ -5447,14 +5447,14 @@ function getWarehousesListInternal(ss) {
   if (!ss) ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(SHEETS.WAREHOUSES);
   const defaultList = [
-    '1-K3 ស្ថានីយ (ភ្នំពេញ)',
-    '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)',
-    '3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)',
-    '4-K76 ស្ថានីយ (ត្រែងត្រយឹង)',
-    '5-K114 ស្ថានីយ (កំពង់សីលា)',
-    '6-K135 ស្ថានីយ (ស្រែអំបិល)',
-    '7-K172 ស្ថានីយ (ស្ទឹងហាវ)',
-    '8-K182 ស្ថានីយ (ព្រះសីហនុ)',
+    'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+    'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+    'K43 ស្ថានីយ (កំពង់ស្ពឺ លិច) 03',
+    'K76 ស្ថានីយ (ត្រែងត្រយឹង) 04',
+    'K114 ស្ថានីយ (កំពង់សីលា) 05',
+    'K135 ស្ថានីយ (ស្រែអំបិល) 06',
+    'K172 ស្ថានីយ (ស្ទឹងហាវ) 07',
+    'K182 ស្ថានីយ (ព្រះសីហនុ) 08',
     '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
     '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)',
     '综合办 (ផ្នែកកិច្ចការទូទៅ)'
@@ -5463,32 +5463,38 @@ function getWarehousesListInternal(ss) {
   if (!sheet) return defaultList;
 
   const data = sheet.getDataRange().getValues();
-  const list = [];
-  let sheetUpdated = false;
+  if (!data || data.length <= 1) return defaultList;
 
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][1]) {
-      const rawName = String(data[i][1]).trim();
-      const canonName = toCanonicalWarehouseNameGAS(rawName);
-      if (canonName && canonName !== rawName) {
-        try {
-          sheet.getRange(i + 1, 2).setValue(canonName);
-          sheetUpdated = true;
-        } catch (e) {}
-      }
-      const finalName = canonName || rawName;
-      if (!list.includes(finalName)) list.push(finalName);
+  const headerRow = data[0] || [];
+  let nameCol = -1;
+  for (let c = 0; c < headerRow.length; c++) {
+    const h = String(headerRow[c] || '').trim().toLowerCase();
+    if (h === 'name' || h === 'ឈ្មោះ' || h === 'warehousename' || h === 'station' || h === 'ស្ថានីយ' || h === 'ឃ្លាំង') {
+      nameCol = c;
+      break;
+    }
+  }
+  if (nameCol === -1) {
+    const firstH = String(headerRow[0] || '').trim().toLowerCase();
+    if ((firstH === 'warehouseid' || firstH === 'id' || firstH === 'កូដ') && data.length > 1 && data[1].length > 1) {
+      nameCol = 1;
+    } else {
+      nameCol = 0;
     }
   }
 
-  defaultList.forEach(wh => {
-    if (!list.includes(wh)) list.push(wh);
-  });
-
-  if (sheetUpdated) {
-    try { invalidateAppCache(); } catch (e) {}
+  const list = [];
+  for (let i = 1; i < data.length; i++) {
+    const rawVal = data[i][nameCol];
+    if (rawVal !== undefined && rawVal !== null) {
+      const rawName = String(rawVal).trim();
+      if (rawName && !list.includes(rawName)) {
+        list.push(rawName);
+      }
+    }
   }
 
+  // ប្រព័ន្ធត្រូវយកតាម Google Sheet ដែលអ្នកប្រើប្រាស់បានកែរួច កុំយកទិន្នន័យមកពីកន្លែងផ្សេង
   return list.length > 0 ? list : defaultList;
 }
 
@@ -5496,14 +5502,14 @@ function getWarehousesDetailed(ss) {
   if (!ss) ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(SHEETS.WAREHOUSES);
   const defaultDetailed = [
-    { id: 'WH-01', name: '1-K3 ស្ថានីយ (ភ្នំពេញ)', location: 'ភ្នំពេញ', manager: 'លោក សុខា', status: 'Active' },
-    { id: 'WH-02', name: '2-K26 ស្ថានីយ (កំពង់ស្ពឺ កើត)', location: 'កំពង់ស្ពឺ កើត', manager: 'កញ្ញា រតនា', status: 'Active' },
-    { id: 'WH-03', name: '3-K43 ស្ថានីយ (កំពង់ស្ពឺ លិច)', location: 'កំពង់ស្ពឺ លិច', manager: 'លោក ចាន់ណា', status: 'Active' },
-    { id: 'WH-04', name: '4-K76 ស្ថានីយ (ត្រែងត្រយឹង)', location: 'ត្រែងត្រយឹង', manager: 'លោក វិបុល', status: 'Active' },
-    { id: 'WH-05', name: '5-K114 ស្ថានីយ (កំពង់សីលា)', location: 'កំពង់សីលា', manager: 'អ្នកស្រី ធីតា', status: 'Active' },
-    { id: 'WH-06', name: '6-K135 ស្ថានីយ (ស្រែអំបិល)', location: 'ស្រែអំបិល', manager: 'លោក សម្បត្តិ', status: 'Active' },
-    { id: 'WH-07', name: '7-K172 ស្ថានីយ (ស្ទឹងហាវ)', location: 'ស្ទឹងហាវ', manager: 'កញ្ញា ម៉ាលី', status: 'Active' },
-    { id: 'WH-08', name: '8-K182 ស្ថានីយ (ព្រះសីហនុ)', location: 'ព្រះសីហនុ', manager: 'លោក ពិសិដ្ឋ', status: 'Active' },
+    { id: 'WH-01', name: 'K3 ស្ថានីយ (ភ្នំពេញ) 01', location: 'ភ្នំពេញ', manager: 'លោក សុខា', status: 'Active' },
+    { id: 'WH-02', name: 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02', location: 'កំពង់ស្ពឺ កើត', manager: 'កញ្ញា រតនា', status: 'Active' },
+    { id: 'WH-03', name: 'K43 ស្ថានីយ (កំពង់ស្ពឺ លិច) 03', location: 'កំពង់ស្ពឺ លិច', manager: 'លោក ចាន់ណា', status: 'Active' },
+    { id: 'WH-04', name: 'K76 ស្ថានីយ (ត្រែងត្រយឹង) 04', location: 'ត្រែងត្រយឹង', manager: 'លោក វិបុល', status: 'Active' },
+    { id: 'WH-05', name: 'K114 ស្ថានីយ (កំពង់សីលា) 05', location: 'កំពង់សីលា', manager: 'អ្នកស្រី ធីតា', status: 'Active' },
+    { id: 'WH-06', name: 'K135 ស្ថានីយ (ស្រែអំបិល) 06', location: 'ស្រែអំបិល', manager: 'លោក សម្បត្តិ', status: 'Active' },
+    { id: 'WH-07', name: 'K172 ស្ថានីយ (ស្ទឹងហាវ) 07', location: 'ស្ទឹងហាវ', manager: 'កញ្ញា ម៉ាលី', status: 'Active' },
+    { id: 'WH-08', name: 'K182 ស្ថានីយ (ព្រះសីហនុ) 08', location: 'ព្រះសីហនុ', manager: 'លោក ពិសិដ្ឋ', status: 'Active' },
     { id: 'WH-09', name: '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)', location: 'ចុងស៊ីង', manager: 'លោក សារ៉ាត់', status: 'Active' },
     { id: 'WH-10', name: '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)', location: '机电', manager: 'អ្នកស្រី សុភា', status: 'Active' },
     { id: 'WH-11', name: '综合办 (ផ្នែកកិច្ចការទូទៅ)', location: '综合办', manager: 'លោក វណ្ណា', status: 'Active' }
@@ -5512,166 +5518,147 @@ function getWarehousesDetailed(ss) {
   if (!sheet) return defaultDetailed;
 
   const data = sheet.getDataRange().getValues();
-  const list = [];
-  let sheetUpdated = false;
+  if (!data || data.length <= 1) return defaultDetailed;
 
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][1]) {
-      const rawName = String(data[i][1]).trim();
-      const canonName = toCanonicalWarehouseNameGAS(rawName);
-      if (canonName && canonName !== rawName) {
-        try {
-          sheet.getRange(i + 1, 2).setValue(canonName);
-          sheetUpdated = true;
-        } catch (e) {}
-      }
-      const finalName = canonName || rawName;
-      list.push({
-        id: String(data[i][0] || `WH-${String(i).padStart(2, '0')}`).trim(),
-        name: finalName,
-        location: String(data[i][2] || '').trim(),
-        manager: String(data[i][3] || '').trim(),
-        status: String(data[i][4] || 'Active').trim()
-      });
-    }
+  const headerRow = data[0] || [];
+  let nameCol = -1, locCol = -1, mgrCol = -1, statusCol = -1, idCol = -1;
+
+  for (let c = 0; c < headerRow.length; c++) {
+    const h = String(headerRow[c] || '').trim().toLowerCase();
+    if (h === 'name' || h === 'ឈ្មោះ' || h === 'warehousename' || h === 'station' || h === 'ស្ថានីយ' || h === 'ឃ្លាំង') nameCol = c;
+    else if (h === 'warehouseid' || h === 'id' || h === 'កូដ') idCol = c;
+    else if (h === 'location' || h === 'ទីតាំង') locCol = c;
+    else if (h === 'manager' || h === 'អ្នកគ្រប់គ្រង') mgrCol = c;
+    else if (h === 'status' || h === 'ស្ថានភាព') statusCol = c;
   }
 
-  if (sheetUpdated) {
-    try { invalidateAppCache(); } catch (e) {}
+  if (nameCol === -1) {
+    const firstH = String(headerRow[0] || '').trim().toLowerCase();
+    if ((firstH === 'warehouseid' || firstH === 'id' || firstH === 'កូដ') && data.length > 1 && data[1].length > 1) {
+      nameCol = 1;
+    } else {
+      nameCol = 0;
+    }
+  }
+  if (locCol === -1) locCol = (nameCol === 0) ? 1 : 2;
+  if (mgrCol === -1) mgrCol = (nameCol === 0) ? 2 : 3;
+  if (statusCol === -1) statusCol = (nameCol === 0) ? 3 : 4;
+
+  const list = [];
+  for (let i = 1; i < data.length; i++) {
+    const rawVal = data[i][nameCol];
+    if (rawVal !== undefined && rawVal !== null) {
+      const rawName = String(rawVal).trim();
+      if (!rawName) continue;
+      const loc = (locCol >= 0 && locCol < data[i].length && data[i][locCol] !== undefined) ? String(data[i][locCol]).trim() : '';
+      const mgr = (mgrCol >= 0 && mgrCol < data[i].length && data[i][mgrCol] !== undefined) ? String(data[i][mgrCol]).trim() : '';
+      const st = (statusCol >= 0 && statusCol < data[i].length && data[i][statusCol] !== undefined && String(data[i][statusCol]).trim()) ? String(data[i][statusCol]).trim() : 'Active';
+      const id = (idCol >= 0 && idCol < data[i].length && data[i][idCol] !== undefined && String(data[i][idCol]).trim()) ? String(data[i][idCol]).trim() : `WH-${String(i).padStart(2, '0')}`;
+      list.push({
+        id: id,
+        name: rawName,
+        location: loc,
+        manager: mgr,
+        status: st
+      });
+    }
   }
 
   return list.length > 0 ? list : defaultDetailed;
 }
 
-
-
 function addWarehouse(payload, user) {
-
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-
   let sheet = ss.getSheetByName(SHEETS.WAREHOUSES);
-
   if (!sheet) {
-
     sheet = getOrCreateSheet(ss, SHEETS.WAREHOUSES);
-
     const headers = ['WarehouseID', 'Name', 'Location', 'Manager', 'Status'];
-
     sheet.appendRow(headers);
-
     formatHeaderRow(sheet, headers.length, '#334155');
-
   }
-
-
 
   const name = String(payload.name || '').trim();
-
   if (!name) return { success: false, message: 'សូមបញ្ចូលឈ្មោះឃ្លាំង!' };
 
-
-
   const data = sheet.getDataRange().getValues();
-
-  for (let i = 1; i < data.length; i++) {
-
-    if (String(data[i][1]).trim().toLowerCase() === name.toLowerCase()) {
-
-      return { success: false, message: 'ឃ្លាំងឈ្មោះនេះមានរួចហើយក្នុងប្រព័ន្ធ!' };
-
+  const headerRow = data[0] || [];
+  let nameCol = 1;
+  for (let c = 0; c < headerRow.length; c++) {
+    const h = String(headerRow[c] || '').trim().toLowerCase();
+    if (h === 'name' || h === 'ឈ្មោះ' || h === 'warehousename' || h === 'station' || h === 'ស្ថានីយ' || h === 'ឃ្លាំង') {
+      nameCol = c;
+      break;
     }
-
   }
 
-
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][nameCol] || '').trim().toLowerCase() === name.toLowerCase()) {
+      return { success: false, message: 'ឃ្លាំងឈ្មោះនេះមានរួចហើយក្នុងប្រព័ន្ធ!' };
+    }
+  }
 
   const whId = payload.id || `WH-${String(data.length).padStart(2, '0')}`;
-
   const location = payload.location || '';
-
   const manager = payload.manager || '';
-
   const status = payload.status || 'Active';
 
-
-
-  sheet.appendRow([whId, name, location, manager, status]);
-
-  sheet.getRange(sheet.getLastRow(), 1, 1, 5).setFontFamily('Siemreap');
-
-
+  if (nameCol === 0) {
+    sheet.appendRow([name, location, manager, status]);
+    sheet.getRange(sheet.getLastRow(), 1, 1, 4).setFontFamily('Siemreap');
+  } else {
+    sheet.appendRow([whId, name, location, manager, status]);
+    sheet.getRange(sheet.getLastRow(), 1, 1, 5).setFontFamily('Siemreap');
+  }
 
   logActivity('WAREHOUSE', (user ? user.username : 'Admin'), 'ADD_WAREHOUSE', `បន្ថែមឃ្លាំងថ្មី: ${name} (${location})`);
-
-
+  invalidateAppCache();
 
   return {
-
     success: true,
-
     message: `បានបន្ថែម ${name} ទៅក្នុងប្រព័ន្ធដោយជោគជ័យ!`,
-
     warehouses: getWarehousesListInternal(ss),
-
     warehousesDetailed: getWarehousesDetailed(ss)
-
   };
-
 }
 
-
-
 function deleteWarehouse(payload, user) {
-
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-
   const sheet = ss.getSheetByName(SHEETS.WAREHOUSES);
-
   if (!sheet) return { success: false, message: 'រកមិនឃើញ Sheet Warehouses ទេ' };
 
-
-
   const name = String(payload.name || payload.warehouse || '').trim();
-
   const id = String(payload.id || '').trim();
-
   if (!name && !id) return { success: false, message: 'សូមបញ្ជាក់ឃ្លាំងដែលត្រូវលុប' };
 
-
-
   const data = sheet.getDataRange().getValues();
+  const headerRow = data[0] || [];
+  let nameCol = -1, idCol = -1;
+  for (let c = 0; c < headerRow.length; c++) {
+    const h = String(headerRow[c] || '').trim().toLowerCase();
+    if (h === 'name' || h === 'ឈ្មោះ' || h === 'warehousename' || h === 'station' || h === 'ស្ថានីយ') nameCol = c;
+    else if (h === 'warehouseid' || h === 'id' || h === 'កូដ') idCol = c;
+  }
+  if (nameCol === -1) nameCol = (idCol === 0) ? 1 : 0;
 
   for (let i = 1; i < data.length; i++) {
-
-    if ((name && String(data[i][1]).trim().toLowerCase() === name.toLowerCase()) || (id && String(data[i][0]).trim() === id)) {
-
-      const deletedName = data[i][1];
-
+    const rName = String(data[i][nameCol] || '').trim().toLowerCase();
+    const rId = idCol >= 0 ? String(data[i][idCol] || '').trim() : '';
+    if ((name && rName === name.toLowerCase()) || (id && rId === id)) {
+      const deletedName = data[i][nameCol];
       sheet.deleteRow(i + 1);
-
       logActivity('WAREHOUSE', (user ? user.username : 'Admin'), 'DELETE_WAREHOUSE', `លុបឃ្លាំង: ${deletedName}`);
-
+      invalidateAppCache();
       return {
-
         success: true,
-
         message: `បានលុបឃ្លាំង ${deletedName} ដោយជោគជ័យ!`,
-
         warehouses: getWarehousesListInternal(ss),
-
         warehousesDetailed: getWarehousesDetailed(ss)
-
       };
-
     }
-
   }
 
   return { success: false, message: 'រកមិនឃើញឃ្លាំងនេះទេ!' };
-
 }
-
-
 
 function updateWarehouse(payload, user) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -5690,14 +5677,29 @@ function updateWarehouse(payload, user) {
   }
 
   const data = sheet.getDataRange().getValues();
+  const headerRow = data[0] || [];
+  let nameCol = -1, locCol = -1, mgrCol = -1, statusCol = -1, idCol = -1;
+  for (let c = 0; c < headerRow.length; c++) {
+    const h = String(headerRow[c] || '').trim().toLowerCase();
+    if (h === 'name' || h === 'ឈ្មោះ' || h === 'warehousename' || h === 'station' || h === 'ស្ថានីយ') nameCol = c;
+    else if (h === 'warehouseid' || h === 'id' || h === 'កូដ') idCol = c;
+    else if (h === 'location' || h === 'ទីតាំង') locCol = c;
+    else if (h === 'manager' || h === 'អ្នកគ្រប់គ្រង') mgrCol = c;
+    else if (h === 'status' || h === 'ស្ថានភាព') statusCol = c;
+  }
+  if (nameCol === -1) nameCol = (idCol === 0) ? 1 : 0;
+  if (locCol === -1) locCol = (nameCol === 0) ? 1 : 2;
+  if (mgrCol === -1) mgrCol = (nameCol === 0) ? 2 : 3;
+  if (statusCol === -1) statusCol = (nameCol === 0) ? 3 : 4;
+
   for (let i = 1; i < data.length; i++) {
-    const rowId = String(data[i][0] || '').trim();
-    const rowName = String(data[i][1] || '').trim();
+    const rowId = idCol >= 0 ? String(data[i][idCol] || '').trim() : '';
+    const rowName = String(data[i][nameCol] || '').trim();
     if ((targetId && rowId === targetId) || (targetName && rowName.toLowerCase() === targetName.toLowerCase())) {
-      if (newName) sheet.getRange(i + 1, 2).setValue(newName);
-      if (location !== undefined) sheet.getRange(i + 1, 3).setValue(location);
-      if (manager !== undefined) sheet.getRange(i + 1, 4).setValue(manager);
-      if (status !== undefined) sheet.getRange(i + 1, 5).setValue(status);
+      if (newName) sheet.getRange(i + 1, nameCol + 1).setValue(newName);
+      if (location !== undefined && locCol >= 0) sheet.getRange(i + 1, locCol + 1).setValue(location);
+      if (manager !== undefined && mgrCol >= 0) sheet.getRange(i + 1, mgrCol + 1).setValue(manager);
+      if (status !== undefined && statusCol >= 0) sheet.getRange(i + 1, statusCol + 1).setValue(status);
 
       logActivity('WAREHOUSE', (user ? user.username : 'Admin'), 'UPDATE_WAREHOUSE', `កែប្រែព័ត៌មានស្ថានីយ: ${newName || rowName} (${location})`);
       invalidateAppCache();
