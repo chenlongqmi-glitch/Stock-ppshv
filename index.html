@@ -2742,8 +2742,27 @@
                 </div>
               </div>
 
-              <!-- Search & Refresh -->
-              <div class="flex items-center space-x-2">
+              <!-- Station Filter & Search & Refresh -->
+              <div class="flex flex-wrap items-center gap-2">
+                <!-- Station Filter Select -->
+                <div class="relative shrink-0">
+                  <select id="stockInStationFilter" onchange="filterStockInHistoryTable()"
+                    title="ចម្រាញ់តាមស្ថានីយ ឬឃ្លាំង"
+                    class="h-9 pl-2.5 pr-6 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500 transition text-slate-700 cursor-pointer shadow-3xs">
+                    <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>
+                    <option value="中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)">中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)</option>
+                    <option value="机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)">机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
+                    <option value="K3 ស្ថានីយ (ភ្នំពេញ) 01">K3 ស្ថានីយ (ភ្នំពេញ) 01</option>
+                    <option value="K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02">K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02</option>
+                    <option value="K43 ស្ថានីយ (កំពង់ស្ពឺ លិច) 03">K43 ស្ថានីយ (កំពង់ស្ពឺ លិច) 03</option>
+                    <option value="K76 ស្ថានីយ (ត្រាំខ្នារ) 04">K76 ស្ថានីយ (ត្រាំខ្នារ) 04</option>
+                    <option value="K109 ស្ថានីយ (កំពង់សិលា) 05">K109 ស្ថានីយ (កំពង់សិលា) 05</option>
+                    <option value="K136 ស្ថានីយ (ស្ទឹងហាវ) 06">K136 ស្ថានីយ (ស្ទឹងហាវ) 06</option>
+                    <option value="K172 ស្ថានីយ (ព្រៃនប់) 07">K172 ស្ថានីយ (ព្រៃនប់) 07</option>
+                    <option value="K182 ស្ថានីយ (ព្រះសីហនុ) 08">K182 ស្ថានីយ (ព្រះសីហនុ) 08</option>
+                  </select>
+                </div>
+
                 <div class="relative flex-1 sm:flex-initial">
                   <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
                   <input type="search" id="stockInHistorySearch" name="stockin_search_nonce_secure"
@@ -2755,7 +2774,7 @@
                     oninput="this.dataset.userTyped = 'true'; filterStockInHistoryTable()"
                     onkeydown="this.dataset.userTyped = 'true';"
                     placeholder="ស្វែងរកតាមលេខឯកសារ, ឈ្មោះ, SKU..."
-                    class="w-full sm:w-64 pl-8 pr-7 h-9 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm outline-none focus:ring-2 focus:ring-emerald-500 transition">
+                    class="w-full sm:w-56 pl-8 pr-7 h-9 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm outline-none focus:ring-2 focus:ring-emerald-500 transition">
                   <button type="button" onclick="const el = document.getElementById('stockInHistorySearch'); if (el) { el.value = ''; delete el.dataset.userTyped; el.setAttribute('readonly', 'readonly'); filterStockInHistoryTable(); }" class="absolute right-2 top-2 text-slate-400 hover:text-slate-600 text-xs p-0.5 rounded transition" title="សម្អាតការស្វែងរក">
                     <i class="fa-solid fa-xmark"></i>
                   </button>
@@ -13160,19 +13179,19 @@ function saveLocalUsersToStorage() {
       if (tabName === 'dashboard') loadDashboard();
       if (tabName === 'items') renderItemsTable();
       if (tabName === 'stockin') {
-        populateItemSelectDropdowns();
-        initStockInForm();
+        try { populateItemSelectDropdowns(); } catch(e) { console.warn(e); }
+        try { initStockInForm(); } catch(e) { console.warn(e); }
         loadStockInHistory();
-        initStockInLayoutCustomizer();
+        try { initStockInLayoutCustomizer(); } catch(e) { console.warn(e); }
       } else if (tabName === 'incoming') {
         if (typeof renderPendingIncomingDispatches === 'function') renderPendingIncomingDispatches();
       } else if (tabName === 'stockout') {
-        populateItemSelectDropdowns();
-        initStockOutForm();
+        try { populateItemSelectDropdowns(); } catch(e) { console.warn(e); }
+        try { initStockOutForm(); } catch(e) { console.warn(e); }
         loadStockOutHistory();
         if (typeof renderStockOutMultiStationGrid === 'function') renderStockOutMultiStationGrid();
       } else if (tabName === 'transfer') {
-        populateItemSelectDropdowns();
+        try { populateItemSelectDropdowns(); } catch(e) { console.warn(e); }
       }
       if (tabName === 'reports') loadReportTransactions();
       if (tabName === 'requests') loadProductRequests();
@@ -16841,7 +16860,7 @@ function saveLocalUsersToStorage() {
     // Stock Transactions & Keyword Datalist Population
     function populateItemSelectDropdowns() {
       const datalists = ['stockInDatalist', 'stockOutDatalist', 'transferDatalist', 'adjustDatalist'];
-      const optionsHtml = AppState.items.map(i => {
+      const optionsHtml = (AppState.items || []).map(i => {
         const pQty = Number(i.packQty || 1);
         const pUnit = (i.packUnit || '').trim();
         const packInfo = (pUnit && (pQty > 1 || pUnit !== i.unit)) ? ` [${Math.floor(i.currentStock / pQty)} ${pUnit}]` : '';
@@ -19922,19 +19941,33 @@ function saveLocalUsersToStorage() {
           renderStockInHistoryTable(AppState.stockInHistory);
         } else if (AppState.stockInHistory && AppState.stockInHistory.length > 0) {
           renderStockInHistoryTable(AppState.stockInHistory);
+        } else {
+          renderStockInHistoryTable([]);
         }
       } catch (err) {
         console.warn('loadStockInHistory error:', err);
-        if (AppState.stockInHistory && AppState.stockInHistory.length > 0) {
-          renderStockInHistoryTable(AppState.stockInHistory);
-        }
+        renderStockInHistoryTable(AppState.stockInHistory || []);
       }
     }
 
+        function getStockInActiveWarehouseFilter() {
+      const filterSelect = document.getElementById('stockInStationFilter');
+      const selectedFilterWh = filterSelect ? filterSelect.value : 'ALL';
+      if (selectedFilterWh && selectedFilterWh !== 'ALL') {
+        return selectedFilterWh;
+      }
+      const u = AppState.currentUser || {};
+      const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(u) : false;
+      if (isPrivileged) {
+        return 'ALL';
+      }
+      return (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(u.warehouse) : u.warehouse) || 'ALL';
+    }
+
     function filterStockInHistoryTable() {
-      const activeWh = (typeof getEffectiveStationFilter === 'function') ? getEffectiveStationFilter() : 'ALL';
+      const activeWh = getStockInActiveWarehouseFilter();
       let baseList = AppState.stockInHistory || [];
-      if (activeWh && activeWh !== 'ALL') {
+      if (activeWh && activeWh !== 'ALL' && activeWh !== 'គ្រប់ស្ថានីយទាំងអស់') {
         baseList = baseList.filter(t => (typeof matchesTargetWarehouse === 'function') ? matchesTargetWarehouse(t.toLocation || t.location || t.warehouse || '', activeWh) : isSameWarehouse(t.toLocation || t.location || t.warehouse || '', activeWh));
       }
       const sInp = document.getElementById('stockInHistorySearch');
@@ -20008,12 +20041,12 @@ function saveLocalUsersToStorage() {
     }
 
     function renderStockInHistoryTable(rawTxs) {
-      const activeWh = (typeof getEffectiveStationFilter === 'function') ? getEffectiveStationFilter() : 'ALL';
+      const activeWh = getStockInActiveWarehouseFilter();
       const sInp = document.getElementById('stockInHistorySearch');
-      const q = (sInp?.value || '').trim();
+      const q = (sInp?.value || '').trim().toLowerCase();
       let txs = rawTxs || AppState.stockInHistory || [];
-      if (!q && activeWh && activeWh !== 'ALL') {
-        txs = txs.filter(t => (typeof isSameWarehouse === 'function') ? isSameWarehouse(t.toLocation || t.location || t.warehouse || '', activeWh) : true);
+      if (!q && activeWh && activeWh !== 'ALL' && activeWh !== 'គ្រប់ស្ថានីយទាំងអស់') {
+        txs = txs.filter(t => (typeof matchesTargetWarehouse === 'function') ? matchesTargetWarehouse(t.toLocation || t.location || t.warehouse || '', activeWh) : true);
       }
       const tbody = document.getElementById('stockInHistoryTableBody');
       const countEl = document.getElementById('stockInHistoryCount');
@@ -20077,10 +20110,16 @@ function saveLocalUsersToStorage() {
         const colorStr = escapeHtml(rawColor);
         const zoneStr = escapeHtml(rawZone);
 
-        const qtyNum = Number(t.quantity || 0);
+        const parseStockNum = (v) => {
+          if (v === undefined || v === null || v === '' || v === '-') return null;
+          if (typeof v === 'number') return isNaN(v) ? null : v;
+          const m = String(v).replace(/,/g, '').match(/[-+]?\d+(?:\.\d+)?/);
+          return m ? Number(m[0]) : null;
+        };
+        const qtyNum = parseStockNum(t.quantity) !== null ? parseStockNum(t.quantity) : 0;
         const unitStr = escapeHtml(t.unit || 'ដុំ');
-        let oldSt = (t.oldStock !== undefined && t.oldStock !== null && t.oldStock !== '-') ? Number(t.oldStock) : null;
-        let newSt = (t.newStock !== undefined && t.newStock !== null && t.newStock !== '-') ? Number(t.newStock) : null;
+        let oldSt = parseStockNum(t.oldStock);
+        let newSt = parseStockNum(t.newStock);
         if ((oldSt === null || newSt === null) && t.notes) {
           const m = t.notes.match(/\[(?:ស្តុក|Stock):\s*(\d+(?:\.\d+)?)\s*[^\d➔\-\]]*\s*(?:➔|->|to)\s*(\d+(?:\.\d+)?)/i);
           if (m) {
@@ -20090,7 +20129,7 @@ function saveLocalUsersToStorage() {
         }
         if (oldSt === null && (t.docNo === 'DOC-IN-20260930-2295' || t.sku === 'SKU-2021')) {
           oldSt = 0;
-          newSt = 2;
+          if (newSt === null) newSt = 2;
         }
 
         // If oldSt is missing or 0, check previous transactions for the same item chronologically
@@ -20101,8 +20140,8 @@ function saveLocalUsersToStorage() {
             return pSku && curSku && pSku === curSku;
           });
           if (prevSameSku) {
-            const prevNew = Number(prevSameSku.newStock !== undefined ? prevSameSku.newStock : (Number(prevSameSku.oldStock || 0) + Number(prevSameSku.quantity || 0)));
-            if (prevNew > 0) {
+            const prevNew = parseStockNum(prevSameSku.newStock !== undefined ? prevSameSku.newStock : (Number(prevSameSku.oldStock || 0) + Number(prevSameSku.quantity || 0)));
+            if (prevNew !== null && prevNew > 0) {
               oldSt = prevNew;
             }
           }
@@ -20110,9 +20149,11 @@ function saveLocalUsersToStorage() {
         if (oldSt === null && newSt !== null) {
           oldSt = Math.max(0, newSt - qtyNum);
         }
+        if (oldSt !== null && newSt === null) {
+          newSt = oldSt + qtyNum;
+        }
         if (oldSt === null) oldSt = 0;
-        // In Stock-In history, New Stock is dynamically and always Old Stock + In Quantity!
-        newSt = oldSt + qtyNum;
+        if (newSt === null) newSt = oldSt + qtyNum;
         t.oldStock = oldSt;
         t.newStock = newSt;
         const loc = escapeHtml(t.toLocation || t.location || '-');

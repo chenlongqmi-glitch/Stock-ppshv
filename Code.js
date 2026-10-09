@@ -6615,6 +6615,290 @@ function syncSheetsTransactionsInternal(ss, targetType) {
   }
 }
 
+
+/**
+ * អានទិន្នន័យប្រតិបត្តិការចូលស្តុកដោយផ្ទាល់ពី Google Sheet 'Stock_in'
+ * ធានាភាពសុក្រឹត្យ 100% ដូចគ្នាបេះបិទទៅនឹងសន្លឹកកិច្ចការ Stock_in ក្នុង Google Sheets
+ */
+function getStockInTransactionsFromSheet(ss, filters, user) {
+  try {
+    const sInSheet = ss.getSheetByName('Stock_in') || ss.getSheetByName(SHEETS.STOCK_IN);
+    if (!sInSheet || sInSheet.getLastRow() <= 1) return [];
+
+    const data = sInSheet.getDataRange().getValues();
+    if (!data || data.length <= 1) return [];
+
+    const headers = (data[0] || []).map(h => String(h || '').trim().toLowerCase());
+
+    const findIdx = (keywords, defaultIdx) => {
+      const idx = headers.findIndex(h => keywords.some(k => h.includes(k)));
+      return idx >= 0 ? idx : defaultIdx;
+    };
+
+    const docIdx = findIdx(['docno', 'doc', 'លេខឯកសារ'], 0);
+    const dateIdx = findIdx(['date', 'កាលបរិច្ឆេទ'], 1);
+    const skuIdx = findIdx(['sku', 'កូដ'], 2);
+    const nameIdx = findIdx(['itemname', 'item', 'name', 'ឈ្មោះ'], 3);
+    const sizeIdx = findIdx(['size', 'ខ្នាត'], 4);
+    const colorIdx = findIdx(['color', 'ពណ៌'], 5);
+    const zoneIdx = findIdx(['zone', 'តំបន់'], 6);
+    const qtyIdx = findIdx(['quantity', 'qty', 'ចំនួន'], 7);
+    const unitIdx = findIdx(['unit', 'ឯកតា'], 8);
+    const oldStIdx = findIdx(['oldstock', 'ស្តុកចាស់'], 9);
+    const newStIdx = findIdx(['newstock', 'ស្តុកថ្មី'], 10);
+    const movIdx = findIdx(['movement', 'ចរន្ត'], 11);
+    const whIdx = findIdx(['warehouse', 'ឃ្លាំង', 'ស្ថានីយ'], 12);
+    const recIdx = findIdx(['receivedby', 'receiver', 'អ្នកទទួល'], 13);
+    const notesIdx = findIdx(['notes', 'note', 'សម្គាល់'], 14);
+
+    let targetWarehouse = null;
+    if (user && user.role !== 'Admin' && user.role !== 'SuperAdmin' && user.warehouse && user.warehouse !== 'ALL' && user.warehouse !== 'គ្រប់ឃ្លាំង' && user.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
+      targetWarehouse = user.warehouse;
+    } else if (filters && filters.warehouse && filters.warehouse !== 'ALL' && filters.warehouse !== 'គ្រប់ឃ្លាំង' && filters.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
+      targetWarehouse = filters.warehouse;
+    }
+
+    const limit = (filters && filters.limit) ? Number(filters.limit) : 200;
+    const transactions = [];
+
+    const parseNum = (val) => {
+      if (val === undefined || val === null || val === '' || val === '-') return null;
+      if (typeof val === 'number') return isNaN(val) ? null : val;
+      const m = String(val).replace(/,/g, '').match(/[-+]?\d+(?:\.\d+)?/);
+      return m ? Number(m[0]) : null;
+    };
+
+    for (let r = data.length - 1; r >= 1; r--) {
+      const row = data[r];
+      if (!row) continue;
+      const docNo = String(row[docIdx] || '').trim();
+      const sku = String(row[skuIdx] || '').trim();
+      if (!sku && !docNo) continue;
+      if (docNo.toUpperCase().startsWith('TEST-')) continue;
+
+      let dStr = '';
+      if (row[dateIdx] instanceof Date) {
+        try { dStr = Utilities.formatDate(row[dateIdx], 'GMT+7', 'yyyy-MM-dd'); } catch(e) {}
+      } else if (row[dateIdx]) {
+        try {
+          const pd = new Date(row[dateIdx]);
+          if (!isNaN(pd.getTime())) {
+            dStr = Utilities.formatDate(pd, 'GMT+7', 'yyyy-MM-dd');
+          } else {
+            dStr = String(row[dateIdx]).slice(0, 10);
+          }
+        } catch(e) {
+          dStr = String(row[dateIdx]).slice(0, 10);
+        }
+      }
+
+      if (filters && filters.startDate && dStr && dStr < filters.startDate) continue;
+      if (filters && filters.endDate && dStr && dStr > filters.endDate) continue;
+
+      const wh = String(row[whIdx] || '').trim();
+      if (targetWarehouse) {
+        const isGlobal = wh === 'គ្រប់ស្ថានីយទាំងអស់' || wh === 'ALL' || wh === 'គ្រប់ឃ្លាំង';
+        if (!isGlobal && !matchesTargetWarehouseGAS(wh, targetWarehouse)) {
+          continue;
+        }
+      }
+
+      const itemName = String(row[nameIdx] || sku);
+      const size = String(row[sizeIdx] || '').trim();
+      const color = String(row[colorIdx] || '').trim();
+      const zone = String(row[zoneIdx] || '').trim();
+      const qty = parseNum(row[qtyIdx]) !== null ? parseNum(row[qtyIdx]) : 0;
+      const unit = String(row[unitIdx] || 'ដុំ').trim();
+      const oldSt = parseNum(row[oldStIdx]);
+      const newSt = parseNum(row[newStIdx]);
+      const recBy = String(row[recIdx] || '').trim();
+      const notes = String(row[notesIdx] || '').trim();
+
+      if (filters && filters.search) {
+        const q = String(filters.search).toLowerCase();
+        const match = docNo.toLowerCase().includes(q) ||
+                      sku.toLowerCase().includes(q) ||
+                      itemName.toLowerCase().includes(q) ||
+                      wh.toLowerCase().includes(q) ||
+                      notes.toLowerCase().includes(q);
+        if (!match) continue;
+      }
+
+      transactions.push({
+        txId: docNo || ('TX-IN-' + r),
+        docNo: docNo,
+        date: dStr,
+        type: 'STOCK_IN',
+        sku: sku,
+        itemName: itemName,
+        size: size,
+        color: color,
+        zone: zone,
+        quantity: qty,
+        unit: unit,
+        oldStock: oldSt,
+        newStock: newSt,
+        toLocation: wh,
+        warehouse: wh,
+        location: wh,
+        receivedBy: recBy,
+        user: recBy,
+        notes: notes
+      });
+
+      if (transactions.length >= limit) break;
+    }
+
+    return transactions;
+  } catch (err) {
+    Logger.log('getStockInTransactionsFromSheet error: ' + err.toString());
+    return [];
+  }
+}
+
+/**
+ * អានទិន្នន័យប្រតិបត្តិការចេញពីស្តុកដោយផ្ទាល់ពី Google Sheet 'Stock_out'
+ */
+function getStockOutTransactionsFromSheet(ss, filters, user) {
+  try {
+    const sOutSheet = ss.getSheetByName('Stock_out') || ss.getSheetByName(SHEETS.STOCK_OUT);
+    if (!sOutSheet || sOutSheet.getLastRow() <= 1) return [];
+
+    const data = sOutSheet.getDataRange().getValues();
+    if (!data || data.length <= 1) return [];
+
+    const headers = (data[0] || []).map(h => String(h || '').trim().toLowerCase());
+
+    const findIdx = (keywords, defaultIdx) => {
+      const idx = headers.findIndex(h => keywords.some(k => h.includes(k)));
+      return idx >= 0 ? idx : defaultIdx;
+    };
+
+    const docIdx = findIdx(['docno', 'doc', 'លេខឯកសារ'], 0);
+    const dateIdx = findIdx(['date', 'កាលបរិច្ឆេទ'], 1);
+    const skuIdx = findIdx(['sku', 'កូដ'], 2);
+    const nameIdx = findIdx(['itemname', 'item', 'name', 'ឈ្មោះ'], 3);
+    const sizeIdx = findIdx(['size', 'ខ្នាត'], 4);
+    const colorIdx = findIdx(['color', 'ពណ៌'], 5);
+    const zoneIdx = findIdx(['zone', 'តំបន់'], 6);
+    const qtyIdx = findIdx(['quantity', 'qty', 'ចំនួន'], 7);
+    const unitIdx = findIdx(['unit', 'ឯកតា'], 8);
+    const oldStIdx = findIdx(['oldstock', 'ស្តុកចាស់'], 9);
+    const newStIdx = findIdx(['newstock', 'ស្តុកថ្មី'], 10);
+    const movIdx = findIdx(['movement', 'ចរន្ត'], 11);
+    const whIdx = findIdx(['warehouse', 'fromlocation', 'ឃ្លាំង', 'ស្ថានីយ', 'from'], 12);
+    const toLocIdx = findIdx(['tolocation', 'to'], 13);
+    const recIdx = findIdx(['receivedby', 'receiver', 'អ្នកបើក', 'អ្នកទទួល', 'issuer'], 14);
+    const notesIdx = findIdx(['notes', 'note', 'សម្គាល់'], 15);
+
+    let targetWarehouse = null;
+    if (user && user.role !== 'Admin' && user.role !== 'SuperAdmin' && user.warehouse && user.warehouse !== 'ALL' && user.warehouse !== 'គ្រប់ឃ្លាំង' && user.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
+      targetWarehouse = user.warehouse;
+    } else if (filters && filters.warehouse && filters.warehouse !== 'ALL' && filters.warehouse !== 'គ្រប់ឃ្លាំង' && filters.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
+      targetWarehouse = filters.warehouse;
+    }
+
+    const limit = (filters && filters.limit) ? Number(filters.limit) : 200;
+    const transactions = [];
+
+    const parseNum = (val) => {
+      if (val === undefined || val === null || val === '' || val === '-') return null;
+      if (typeof val === 'number') return isNaN(val) ? null : val;
+      const m = String(val).replace(/,/g, '').match(/[-+]?\d+(?:\.\d+)?/);
+      return m ? Number(m[0]) : null;
+    };
+
+    for (let r = data.length - 1; r >= 1; r--) {
+      const row = data[r];
+      if (!row) continue;
+      const docNo = String(row[docIdx] || '').trim();
+      const sku = String(row[skuIdx] || '').trim();
+      if (!sku && !docNo) continue;
+      if (docNo.toUpperCase().startsWith('TEST-')) continue;
+
+      let dStr = '';
+      if (row[dateIdx] instanceof Date) {
+        try { dStr = Utilities.formatDate(row[dateIdx], 'GMT+7', 'yyyy-MM-dd'); } catch(e) {}
+      } else if (row[dateIdx]) {
+        try {
+          const pd = new Date(row[dateIdx]);
+          if (!isNaN(pd.getTime())) {
+            dStr = Utilities.formatDate(pd, 'GMT+7', 'yyyy-MM-dd');
+          } else {
+            dStr = String(row[dateIdx]).slice(0, 10);
+          }
+        } catch(e) {
+          dStr = String(row[dateIdx]).slice(0, 10);
+        }
+      }
+
+      if (filters && filters.startDate && dStr && dStr < filters.startDate) continue;
+      if (filters && filters.endDate && dStr && dStr > filters.endDate) continue;
+
+      const fromWh = String(row[whIdx] || '').trim();
+      const toWh = String(row[toLocIdx] || fromWh).trim();
+      if (targetWarehouse) {
+        const isGlobal = fromWh === 'គ្រប់ស្ថានីយទាំងអស់' || fromWh === 'ALL' || fromWh === 'គ្រប់ឃ្លាំង' || toWh === 'គ្រប់ស្ថានីយទាំងអស់' || toWh === 'ALL';
+        if (!isGlobal && !matchesTargetWarehouseGAS(fromWh, targetWarehouse) && !matchesTargetWarehouseGAS(toWh, targetWarehouse)) {
+          continue;
+        }
+      }
+
+      const itemName = String(row[nameIdx] || sku);
+      const size = String(row[sizeIdx] || '').trim();
+      const color = String(row[colorIdx] || '').trim();
+      const zone = String(row[zoneIdx] || '').trim();
+      const qty = parseNum(row[qtyIdx]) !== null ? parseNum(row[qtyIdx]) : 0;
+      const unit = String(row[unitIdx] || 'ដុំ').trim();
+      const oldSt = parseNum(row[oldStIdx]);
+      const newSt = parseNum(row[newStIdx]);
+      const recBy = String(row[recIdx] || '').trim();
+      const notes = String(row[notesIdx] || '').trim();
+
+      if (filters && filters.search) {
+        const q = String(filters.search).toLowerCase();
+        const match = docNo.toLowerCase().includes(q) ||
+                      sku.toLowerCase().includes(q) ||
+                      itemName.toLowerCase().includes(q) ||
+                      fromWh.toLowerCase().includes(q) ||
+                      notes.toLowerCase().includes(q);
+        if (!match) continue;
+      }
+
+      transactions.push({
+        txId: docNo || ('TX-OUT-' + r),
+        docNo: docNo,
+        date: dStr,
+        type: 'STOCK_OUT',
+        sku: sku,
+        itemName: itemName,
+        size: size,
+        color: color,
+        zone: zone,
+        quantity: qty,
+        unit: unit,
+        oldStock: oldSt,
+        newStock: newSt,
+        fromLocation: fromWh,
+        toLocation: toWh,
+        warehouse: fromWh,
+        location: fromWh,
+        receivedBy: recBy,
+        user: recBy,
+        notes: notes
+      });
+
+      if (transactions.length >= limit) break;
+    }
+
+    return transactions;
+  } catch (err) {
+    Logger.log('getStockOutTransactionsFromSheet error: ' + err.toString());
+    return [];
+  }
+}
+
+
 function getTransactionHistory(filtersOrPayload, userParam) {
   let filters = filtersOrPayload || {};
   let user = userParam;
@@ -6628,6 +6912,22 @@ function getTransactionHistory(filtersOrPayload, userParam) {
   if (!sheet) return { success: false, transactions: [] };
 
   const targetType = (filters.type && filters.type !== 'ALL') ? String(filters.type).toUpperCase() : null;
+
+  // 1. Direct read from Stock_in sheet for 100% accuracy matching Google Sheets tab 'Stock_in'
+  if (targetType === 'STOCK_IN') {
+    const stockInTxs = getStockInTransactionsFromSheet(ss, filters, user);
+    if (stockInTxs && stockInTxs.length > 0) {
+      return { success: true, transactions: stockInTxs };
+    }
+  }
+
+  // 2. Direct read from Stock_out sheet for 100% accuracy matching Google Sheets tab 'Stock_out'
+  if (targetType === 'STOCK_OUT') {
+    const stockOutTxs = getStockOutTransactionsFromSheet(ss, filters, user);
+    if (stockOutTxs && stockOutTxs.length > 0) {
+      return { success: true, transactions: stockOutTxs };
+    }
+  }
 
   // Debounced auto-sync (runs at most once every 60s to keep read speed under 0.8s)
   const syncCacheKey = 'TX_SHEETS_SYNC_' + (targetType || 'ALL');
