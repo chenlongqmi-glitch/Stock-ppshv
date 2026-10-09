@@ -2572,14 +2572,19 @@
               <div class="flex flex-1 flex-wrap gap-2 w-full">
                 <div class="relative flex-1 min-w-[180px]">
                   <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-2.5 text-slate-400 text-xs"></i>
-                  <input type="search" id="itemSearchInput" name="item_search_nonce_secure"
+                  <input type="search" id="itemSearchInput"
+                    readonly
                     inputmode="search"
-                    autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-                    oninput="this.dataset.userTyped = 'true'; filterItemsTable()"
-                    onchange="this.dataset.userTyped = 'true'; filterItemsTable()"
+                    autocomplete="one-time-code" autocorrect="off" autocapitalize="off" spellcheck="false"
+                    data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other" role="searchbox"
+                    onfocus="this.removeAttribute('readonly'); this.readOnly = false; if (typeof sanitizeSearchElement === 'function') sanitizeSearchElement(this, filterItemsTable);"
+                    onblur="if (!this.value) { this.setAttribute('readonly', 'readonly'); }"
+                    oninput="if (typeof sanitizeSearchElement === 'function' && sanitizeSearchElement(this, filterItemsTable)) return; this.dataset.userTyped = 'true'; filterItemsTable();"
+                    onchange="if (typeof sanitizeSearchElement === 'function' && sanitizeSearchElement(this, filterItemsTable)) return; this.dataset.userTyped = 'true'; filterItemsTable();"
+                    onkeydown="this.dataset.userTyped = 'true';"
                     placeholder="ស្វែងរកតាម ឈ្មោះទំនិញ, ខ្នាត, ពណ៌, ឬ SKU..."
                     class="w-full pl-9 pr-8 py-1.5 sm:py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none">
-                  <button type="button" onclick="const el = document.getElementById('itemSearchInput'); if (el) { el.value = ''; delete el.dataset.userTyped; filterItemsTable(); }" class="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs p-0.5 rounded transition" title="សម្អាតការស្វែងរក">
+                  <button type="button" onclick="const el = document.getElementById('itemSearchInput'); if (el) { el.value = ''; delete el.dataset.userTyped; el.setAttribute('readonly', 'readonly'); filterItemsTable(); }" class="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs p-0.5 rounded transition" title="សម្អាតការស្វែងរក">
                     <i class="fa-solid fa-xmark"></i>
                   </button>
                 </div>
@@ -14175,6 +14180,64 @@ function saveLocalUsersToStorage() {
     }
 
 
+    /**
+     * ត្រួតពិនិត្យ និងកម្ចាត់ចោលរាល់ទិន្នន័យ autofill ផ្តេសផ្តាស (ដូចជាលេខទូរសព្ទ, email, username ឬ admin credentials)
+     * ដែល browser ព្យាយាមបំពេញស្វ័យប្រវត្តិក្នងប្រអប់ស្វែងរក
+     */
+    function isGarbageSearchInput(val, elId) {
+      if (!val || val === '-') return false;
+      const s = String(val).trim().toLowerCase();
+      const cleanDigits = s.replace(/\D/g, '');
+      const curPhone = String(AppState?.currentUser?.phone || '').replace(/\D/g, '');
+      const curEmail = String(AppState?.currentUser?.email || '').trim().toLowerCase();
+      const curUname = String(AppState?.currentUser?.username || '').replace(/^@+/, '').trim().toLowerCase();
+
+      // 1. លេខទូរសព្ទ, Email, Username របស់ User បច្ចុប្បន្ន ឬ Admin credentials
+      if (curPhone && cleanDigits === curPhone) return true;
+      if (curEmail && s === curEmail) return true;
+      if (curUname && s === curUname) return true;
+      if (s === 'superadmin' || s === 'super admin' || s === 'admin' || s === 'staff') return true;
+      if (s.includes('@') && elId !== 'userSearchInput') return true;
+
+      // 2. លេខទូរសព្ទ ឬ ព័ត៌មាន User ណាម្នាក់ក្នុង LOCAL_DB.users
+      const isKnownUser = (LOCAL_DB.users || []).some(u => {
+        const uPhone = String(u.phone || '').replace(/\D/g, '');
+        const uEmail = String(u.email || '').toLowerCase().trim();
+        const uName = String(u.username || '').toLowerCase().trim();
+        return (uPhone && uPhone === cleanDigits) || (uEmail && uEmail === s) || (uName && uName === s);
+      });
+      if (isKnownUser && elId !== 'userSearchInput') return true;
+
+      // 3. សម្រាប់ប្រអប់ស្វែងរកទំនិញ (itemSearchInput, stockInHistorySearch, stockOutHistorySearch)
+      // ប្រសិនបើទម្រង់ជាលេខទូរសព្ទ (៨ ទៅ ១២ ខ្ទង់ ឬចាប់ផ្ដើមដោយ 0) ហើយមិនមានទំនិញណាមួយមាន SKU ឬ Barcode នេះទេ
+      if (elId === 'itemSearchInput' || elId === 'stockInHistorySearch' || elId === 'stockOutHistorySearch') {
+        if (/^0\d{7,11}$/.test(cleanDigits) || (cleanDigits.length >= 8 && cleanDigits.length <= 12 && (s.includes(' ') || s.includes('-') || s.startsWith('0')))) {
+          const isRealProduct = (AppState.items || []).some(item => {
+            const sku = String(item.sku || '').toLowerCase();
+            const bc = String(item.barcode || '').toLowerCase();
+            return sku === s || bc === s || (cleanDigits && (sku.includes(cleanDigits) || bc.includes(cleanDigits)));
+          });
+          if (!isRealProduct) return true;
+        }
+      }
+
+      return false;
+    }
+
+    function sanitizeSearchElement(el, callback) {
+      if (!el) return false;
+      if (isGarbageSearchInput(el.value, el.id)) {
+        el.value = '';
+        delete el.dataset.userTyped;
+        el.setAttribute('readonly', 'readonly');
+        if (typeof callback === 'function') {
+          try { callback(); } catch(e) {}
+        }
+        return true;
+      }
+      return false;
+    }
+
     function purgeAutofillFromSearchInputs() {
       const searchIds = [
         'itemSearchInput',
@@ -14188,37 +14251,24 @@ function saveLocalUsersToStorage() {
       ];
       searchIds.forEach(id => {
         const el = document.getElementById(id);
-        if (el && document.activeElement !== el) {
-          const val = String(el.value || '').trim().toLowerCase();
-          const cleanDigits = val.replace(/\D/g, '');
-          const curEmail = String(AppState?.currentUser?.email || '').trim().toLowerCase();
-          const curUname = String(AppState?.currentUser?.username || '').replace(/^@+/, '').trim().toLowerCase();
-          const curPhone = String(AppState?.currentUser?.phone || '').replace(/\D/g, '');
-
-          const isKnownPhone = (LOCAL_DB.users || []).some(u => {
-            const uPhone = String(u.phone || '').replace(/\D/g, '');
-            return uPhone && uPhone === cleanDigits;
-          });
-
-          const isEmailAutofill = val.includes('@') || (curEmail && val === curEmail);
-          const isUserAutofill = (curUname && val === curUname) || val === 'superadmin' || val === 'super admin' || val === 'admin';
-          const isPhoneAutofill = (curPhone && cleanDigits === curPhone) || isKnownPhone || (!el.dataset.userTyped && (cleanDigits.length >= 8 && cleanDigits.length <= 12));
-
-          if (isEmailAutofill || isUserAutofill || isPhoneAutofill) {
-            el.value = '';
-            delete el.dataset.userTyped;
-            if (id === 'userSearchInput' && typeof filterUsersList === 'function') {
-              filterUsersList();
-            }
-            if (id === 'itemSearchInput' && typeof renderItemsTable === 'function') {
-              renderItemsTable();
-            }
-            if (id === 'stockInHistorySearch' && typeof filterStockInHistoryTable === 'function') {
-              filterStockInHistoryTable();
-            }
-            if (id === 'stockOutHistorySearch' && typeof filterStockOutHistoryTable === 'function') {
-              filterStockOutHistoryTable();
-            }
+        if (el && isGarbageSearchInput(el.value, id)) {
+          el.value = '';
+          delete el.dataset.userTyped;
+          el.setAttribute('readonly', 'readonly');
+          if (id === 'userSearchInput' && typeof filterUsersList === 'function') {
+            filterUsersList();
+          }
+          if (id === 'itemSearchInput' && typeof renderItemsTable === 'function') {
+            renderItemsTable();
+          }
+          if (id === 'stockInHistorySearch' && typeof filterStockInHistoryTable === 'function') {
+            filterStockInHistoryTable();
+          }
+          if (id === 'stockOutHistorySearch' && typeof filterStockOutHistoryTable === 'function') {
+            filterStockOutHistoryTable();
+          }
+          if (id === 'reqSearchInput' && typeof filterProductRequests === 'function') {
+            filterProductRequests();
           }
         }
       });
@@ -14230,6 +14280,7 @@ function saveLocalUsersToStorage() {
       if (initItemInp) {
         initItemInp.value = '';
         delete initItemInp.dataset.userTyped;
+        initItemInp.setAttribute('readonly', 'readonly');
       }
       purgeAutofillFromSearchInputs();
       setTimeout(purgeAutofillFromSearchInputs, 50);
@@ -14256,7 +14307,9 @@ function saveLocalUsersToStorage() {
         if (itemInp) {
           itemInp.value = '';
           delete itemInp.dataset.userTyped;
+          itemInp.setAttribute('readonly', 'readonly');
         }
+        purgeAutofillFromSearchInputs();
         if (typeof renderItemsTable === 'function') {
           renderItemsTable();
         }
@@ -16070,6 +16123,11 @@ function saveLocalUsersToStorage() {
       }
 
       const searchEl = document.getElementById('itemSearchInput');
+      if (searchEl && typeof isGarbageSearchInput === 'function' && isGarbageSearchInput(searchEl.value, 'itemSearchInput')) {
+        searchEl.value = '';
+        delete searchEl.dataset.userTyped;
+        searchEl.setAttribute('readonly', 'readonly');
+      }
       let rawSearch = (searchEl?.value || '').trim();
       let search = rawSearch.toLowerCase().trim();
       const catFilter = document.getElementById('itemCategoryFilter')?.value || 'ALL';
@@ -16168,6 +16226,11 @@ function saveLocalUsersToStorage() {
       }
 
       const searchEl = document.getElementById('itemSearchInput');
+      if (searchEl && typeof isGarbageSearchInput === 'function' && isGarbageSearchInput(searchEl.value, 'itemSearchInput')) {
+        searchEl.value = '';
+        delete searchEl.dataset.userTyped;
+        searchEl.setAttribute('readonly', 'readonly');
+      }
       let rawSearch = (searchEl?.value || '').trim();
       const cleanDigits = rawSearch.replace(/\D/g, '');
       const curPhone = String(AppState?.currentUser?.phone || '').replace(/\D/g, '');
@@ -21902,6 +21965,11 @@ function saveLocalUsersToStorage() {
         baseList = baseList.filter(t => (typeof matchesTargetWarehouse === 'function') ? matchesTargetWarehouse(t.toLocation || t.location || t.warehouse || '', activeWh) : isSameWarehouse(t.toLocation || t.location || t.warehouse || '', activeWh));
       }
       const sInp = document.getElementById('stockInHistorySearch');
+      if (sInp && typeof isGarbageSearchInput === 'function' && isGarbageSearchInput(sInp.value, 'stockInHistorySearch')) {
+        sInp.value = '';
+        delete sInp.dataset.userTyped;
+        sInp.setAttribute('readonly', 'readonly');
+      }
       let q = (sInp?.value || '').trim().toLowerCase();
       if ((q === 'superadmin' || q === 'super admin' || q === 'admin') && document.activeElement !== sInp) {
         if (sInp) sInp.value = '';
@@ -21974,6 +22042,11 @@ function saveLocalUsersToStorage() {
     function renderStockInHistoryTable(rawTxs, isFiltered = false) {
       const activeWh = getStockInActiveWarehouseFilter();
       const sInp = document.getElementById('stockInHistorySearch');
+      if (sInp && typeof isGarbageSearchInput === 'function' && isGarbageSearchInput(sInp.value, 'stockInHistorySearch')) {
+        sInp.value = '';
+        delete sInp.dataset.userTyped;
+        sInp.setAttribute('readonly', 'readonly');
+      }
       const q = (sInp?.value || '').trim().toLowerCase();
       let txs = rawTxs || AppState.stockInHistory || [];
       if (!isFiltered) {
@@ -22485,6 +22558,11 @@ function saveLocalUsersToStorage() {
     function renderStockOutHistoryTable(rawTxs, isFiltered = false) {
       const activeWh = getStockOutActiveWarehouseFilter();
       const sInp = document.getElementById('stockOutHistorySearch');
+      if (sInp && typeof isGarbageSearchInput === 'function' && isGarbageSearchInput(sInp.value, 'stockOutHistorySearch')) {
+        sInp.value = '';
+        delete sInp.dataset.userTyped;
+        sInp.setAttribute('readonly', 'readonly');
+      }
       const q = (sInp?.value || '').trim().toLowerCase();
       let txs = rawTxs || AppState.stockOutHistory || [];
       if (!isFiltered) {
@@ -25752,6 +25830,11 @@ function saveLocalUsersToStorage() {
 
     function filterUsersList() {
       const searchEl = document.getElementById('userSearchInput');
+      if (searchEl && typeof isGarbageSearchInput === 'function' && isGarbageSearchInput(searchEl.value, 'userSearchInput')) {
+        searchEl.value = '';
+        delete searchEl.dataset.userTyped;
+        searchEl.setAttribute('readonly', 'readonly');
+      }
       let search = (searchEl?.value || '').toLowerCase().trim();
       const curEmail = String(AppState?.currentUser?.email || '').trim().toLowerCase();
       const curUname = String(AppState?.currentUser?.username || '').replace(/^@+/, '').trim().toLowerCase();
@@ -32406,6 +32489,11 @@ function saveLocalUsersToStorage() {
 
     function filterProductRequests() {
       const sInp = document.getElementById('reqSearchInput');
+      if (sInp && typeof isGarbageSearchInput === 'function' && isGarbageSearchInput(sInp.value, 'reqSearchInput')) {
+        sInp.value = '';
+        delete sInp.dataset.userTyped;
+        sInp.setAttribute('readonly', 'readonly');
+      }
       let q = (sInp?.value || '').toLowerCase().trim();
       if ((q === 'superadmin' || q === 'super admin' || q === 'admin') && document.activeElement !== sInp) {
         if (sInp) sInp.value = '';
