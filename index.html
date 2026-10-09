@@ -20789,11 +20789,11 @@ function saveLocalUsersToStorage() {
         packQty: packQty,
         oldStock: oldStock,
         newStock: remainingStock,
-        fromLocation: fromLocation,
+        fromLocation: 'បញ្ជូនមកពីចុងស៊ីន',
         toLocation: stationNamesSummary,
         issuer: issuer,
         reason: reason,
-        notes: `[ចែក ${allocations.length} ស្ថានីយ] ` + (notes !== '-' ? notes : '')
+        notes: (notes && notes !== '-') ? notes : '-'
       };
 
       if (!AppState.stockOutHistory) AppState.stockOutHistory = [];
@@ -20845,11 +20845,12 @@ function saveLocalUsersToStorage() {
           oldStock,
           newStock: remainingStock,
           unitPrice,
-          fromLocation,
+          fromLocation: 'បញ្ជូនមកពីចុងស៊ីន',
           toLocation: stationNamesSummary,
           issuer,
           reason,
-          notes: `[ចែក ${allocations.length} ស្ថានីយ: ${allocations.map(a => a.station.badge + '=' + a.totalQty).join(', ')}] ` + notes
+          notes: (notes && notes !== '-') ? notes : '-',
+          userNote: (notes && notes !== '-') ? notes : '-'
         },
         user: AppState.currentUser,
         dispatches: createdDispatches
@@ -21567,15 +21568,8 @@ function saveLocalUsersToStorage() {
       const item = AppState.items.find(i => i.sku === sku);
       const itemName = item?.name || sku;
 
-      let modeNote = '';
-      if (bulkQty > 0 && retailQty > 0) {
-        modeNote = ` [ចេញ: ${bulkQty} ${packUnit} + ${retailQty} ${baseUnit} = ${qty} ${baseUnit}]`;
-      } else if (bulkQty > 0) {
-        modeNote = ` [ចេញជាដុំ: ${bulkQty} ${packUnit} = ${qty} ${baseUnit}]`;
-      } else if (retailQty > 0) {
-        modeNote = ` [ចេញជារាយ: ${retailQty} ${baseUnit}]`;
-      }
-      const finalNotes = (notes !== '-' ? notes + modeNote : (modeNote ? modeNote.trim() : '-')).trim();
+      // Notes: យកខ្លឹមសារពី (កំណត់សម្គាល់បន្ថែម) ជាក់ស្តែង
+      const finalNotes = (rawNotes && rawNotes !== '-') ? rawNotes : '-';
 
       const payload = {
         data: {
@@ -21596,31 +21590,12 @@ function saveLocalUsersToStorage() {
           oldStock,
           newStock: remainingStock,
           unitPrice,
-          fromLocation: (function() {
-            const activeWh = (typeof getStockOutActiveWarehouseFilter === 'function') ? getStockOutActiveWarehouseFilter() : 'ALL';
-            if (activeWh && activeWh !== 'ALL' && activeWh !== 'គ្រប់ស្ថានីយទាំងអស់' && (typeof isAdminComboWarehouse !== 'function' || !isAdminComboWarehouse(activeWh)) && !/^\d+$/.test(activeWh)) {
-              return activeWh;
-            }
-            if (AppState.currentUser && AppState.currentUser.warehouse && AppState.currentUser.warehouse !== 'ALL' && AppState.currentUser.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់' && !/^\d+$/.test(AppState.currentUser.warehouse)) {
-              return (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(AppState.currentUser.warehouse) : AppState.currentUser.warehouse;
-            }
-            const selectedZone = (document.getElementById('stockOutZone')?.value || '').trim();
-            if (selectedZone && item && Array.isArray(item.zoneBreakdown)) {
-              const zb = item.zoneBreakdown.find(z => z.zone === selectedZone);
-              if (zb && zb.warehouse && zb.warehouse !== 'ALL' && !/^\d+$/.test(zb.warehouse)) {
-                return (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(zb.warehouse) : zb.warehouse;
-              }
-            }
-            if (Array.isArray(item?.warehouses) && item.warehouses.length > 0) {
-              const validWh = item.warehouses.find(w => w && w !== 'ALL' && !/^\d+$/.test(w));
-              if (validWh) return (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(validWh) : validWh;
-            }
-            return '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
-          })(),
+          fromLocation: 'បញ្ជូនមកពីចុងស៊ីន',
           toLocation,
           issuer,
           reason,
-          notes: finalNotes
+          notes: finalNotes,
+          userNote: finalNotes
         },
         user: AppState.currentUser
       };
@@ -21987,9 +21962,9 @@ function saveLocalUsersToStorage() {
     };
 
     function cleanDisplayNote(rawNote) {
-      if (!rawNote || rawNote === '-') return '-';
+      if (!rawNote || rawNote === '-' || rawNote === 'undefined' || rawNote === 'null') return '-';
       let cleaned = String(rawNote)
-        .replace(/\[\s*(?:ឯកសារ|លេខឯកសារ|អ្នកទទួល|អ្នកបើក|អ្នកបើកចេញ|អ្នកបើកទំនិញ|ខ្នាត|ពណ៌|តំបន់|មូលហេតុ|ចូល|ចូលជាដុំ|ចូលជារាយ|ចេញ|ចេញជាដុំ|ចេញជារាយ|ដុំ|រាយ|ស្តុក|ស្តុកចាស់|ស្តុកថ្មី|ស្តុកនៅសល់|Stock|OldStock|NewStock|RemainingStock|Movement|StockMovement|Doc|DocNo|Receiver|Issuer|Size|Color|Zone|Reason)\s*:[^\]]*\]/gi, '')
+        .replace(/\[\s*(?:ឯកសារ|លេខឯកសារ|អ្នកទទួល|អ្នកបើក|អ្នកបើកចេញ|អ្នកបើកទំនិញ|ខ្នាត|ពណ៌|តំបន់|មូលហេតុ|ចូល|ចូលជាដុំ|ចូលជារាយ|ចេញ|ចេញជាដុំ|ចេញជារាយ|ដុំ|រាយ|ចែក|ស្តុក|ស្តុកចាស់|ស្តុកថ្មី|ស្តុកនៅសល់|Stock|OldStock|NewStock|RemainingStock|Movement|StockMovement|Doc|DocNo|Receiver|Issuer|Size|Color|Zone|Reason)\b[^\]]*\]/gi, '')
         .replace(/\[\s*[^\]]*(?:➔|->)\s*[^\]]*\]/gi, '')
         .trim();
       cleaned = cleaned.replace(/^[\s\-–—:]+|[\s\-–—:]+$/g, '').trim();
