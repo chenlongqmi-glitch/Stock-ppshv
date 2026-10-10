@@ -808,14 +808,15 @@ function executeLocalApiAction(req) {
           if (!s) return null;
           const rows = s.getLastRow();
           const cols = s.getLastColumn();
-          const vals = rows > 0 && cols > 0 ? s.getRange(1, 1, Math.min(rows, 3), cols).getValues() : [];
-          return { name: name, rows: rows, cols: cols, header: vals[0] || [], row1: vals[1] || [] };
+          const vals = rows > 0 && cols > 0 ? s.getRange(1, 1, Math.min(rows, 10), cols).getValues() : [];
+          return { name: name, rows: rows, cols: cols, header: vals[0] || [], row1: vals[1] || [], rowsSample: vals.slice(1) };
         };
         return {
           success: true,
           transactions: getDetails('Transactions'),
           stockIn: getDetails('Stock_in'),
-          stockOut: getDetails('Stock_out')
+          stockOut: getDetails('Stock_out'),
+          dispatches: getDetails('Dispatches')
         };
       }
 
@@ -7151,7 +7152,7 @@ function syncSheetsTransactionsInternal(ss, targetType) {
       const outData = stockOutSheet.getDataRange().getValues();
       const outHeaders = (outData[0] || []).map(h => String(h || '').trim().toLowerCase());
       const findOutHIdx = (keywords, def) => {
-        const idx = outHeaders.findIndex(h => keywords.some(k => h === k || h.includes(k)));
+        const idx = outHeaders.findIndex(h => keywords.some(k => h === k || (k.length > 2 && h.includes(k))));
         return idx >= 0 ? idx : def;
       };
       const idxDoc = findOutHIdx(['docno', 'doc', 'ឯកសារ'], 0);
@@ -7167,7 +7168,7 @@ function syncSheetsTransactionsInternal(ss, targetType) {
       const idxRem = findOutHIdx(['remainingstock', 'newstock', 'ស្តុកនៅសល់'], 10);
       const idxMove = findOutHIdx(['stockmovement', 'movement', 'ចរន្ត'], 11);
       const idxFromLoc = findOutHIdx(['from', 'fromlocation', 'ចេញពី', 'ប្រភព'], 12);
-      const idxToLoc = findOutHIdx(['tolocation', 'to', 'គោលដៅ', 'អតិថិជន', 'ស្ថានីយ'], 13);
+      const idxToLoc = findOutHIdx(['tolocation', 'towarehouse', 'to_location', 'destination', 'គោលដៅ', 'អតិថិជន', 'ទៅកាន់'], 13);
       const idxNotes = findOutHIdx(['notes', 'note', 'សម្គាល់', 'មូលហេតុ', 'reason'], 14);
       const idxUser = findOutHIdx(['user', 'issuer', 'អ្នកប្រើ', 'អ្នកបើក'], 15);
       const idxTs = findOutHIdx(['timestamp', 'ពេល', 'ម៉ោង'], 16);
@@ -7410,7 +7411,7 @@ function getStockOutTransactionsFromSheet(ss, filters, user) {
     const headers = (data[0] || []).map(h => String(h || '').trim().toLowerCase());
 
     const findIdx = (keywords, defaultIdx) => {
-      const idx = headers.findIndex(h => keywords.some(k => h.includes(k)));
+      const idx = headers.findIndex(h => keywords.some(k => h === k || (k.length > 2 && h.includes(k))));
       return idx >= 0 ? idx : defaultIdx;
     };
 
@@ -7426,8 +7427,8 @@ function getStockOutTransactionsFromSheet(ss, filters, user) {
     const oldStIdx = findIdx(['oldstock', 'ស្តុកចាស់'], 9);
     const newStIdx = findIdx(['remainingstock', 'newstock', 'ស្តុកនៅសល់', 'ស្តុកថ្មី'], 10);
     const movIdx = findIdx(['movement', 'ចរន្ត', 'ស្តុកចាស់ ➔ ថ្មី'], 11);
-    const whIdx = findIdx(['from', 'fromlocation', 'warehouse', 'ឃ្លាំង', 'ស្ថានីយ', 'ចេញពី'], 12);
-    const toLocIdx = findIdx(['tolocation', 'to', 'គោលដៅ', 'អតិថិជន', 'ទៅកាន់'], 13);
+    const whIdx = findIdx(['from', 'fromlocation', 'warehouse', 'ឃ្លាំង', 'ចេញពី'], 12);
+    const toLocIdx = findIdx(['tolocation', 'towarehouse', 'to_location', 'destination', 'គោលដៅ', 'អតិថិជន', 'ទៅកាន់'], 13);
     const notesIdx = findIdx(['notes', 'note', 'សម្គាល់'], 14);
     const userIdx = findIdx(['user', 'អ្នកប្រើ'], 15);
     const tsIdx = findIdx(['timestamp', 'ពេល'], 16);
@@ -9828,8 +9829,10 @@ function standardizeAndFormatStockOutSheet(optSs) {
         const dNo = docMatch ? docMatch[1].trim() : String(tRow[0] || '').trim();
         const stockMatch = tNotes.match(/\[(?:ស្តុក|Stock):\s*([^\]]+)\]/i);
         const issuerMatch = tNotes.match(/\[(?:អ្នកបើកចេញ|អ្នកបើក|Issuer):\s*([^\]]+)\]/i);
-        const fromLocVal = String(tRow[7] || '').trim();
-        const toLocVal = String(tRow[8] || '').trim();
+        let fromLocVal = String(tRow[7] || '').trim();
+        if (!fromLocVal || /^\s*-?\d+/.test(fromLocVal) || /^\d+$/.test(fromLocVal) || fromLocVal === '-') fromLocVal = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+        let toLocVal = String(tRow[8] || '').trim();
+        if (/^\s*-?\d+/.test(toLocVal) || /^\d+$/.test(toLocVal) || toLocVal === '-') toLocVal = '';
         const userVal = String(tRow[10] || '').trim() || (issuerMatch ? issuerMatch[1].trim() : '');
         const tsVal = tRow[11] || tRow[1];
 
@@ -9862,7 +9865,7 @@ function standardizeAndFormatStockOutSheet(optSs) {
     const headers = (rawData[0] || []).map(h => String(h || '').trim().toLowerCase());
 
     const findHIdx = (keywords, defIdx) => {
-      const idx = headers.findIndex(h => keywords.some(k => h === k || h.includes(k)));
+      const idx = headers.findIndex(h => keywords.some(k => h === k || (k.length > 2 && h.includes(k))));
       return idx >= 0 ? idx : defIdx;
     };
 
@@ -9878,7 +9881,7 @@ function standardizeAndFormatStockOutSheet(optSs) {
     const oldStIdx = findHIdx(['oldstock', 'ស្តុកចាស់'], 9);
     const remStIdx = findHIdx(['remainingstock', 'newstock', 'ស្តុកនៅសល់'], 10);
     const movIdx = findHIdx(['movement', 'ចរន្ត', 'ស្តុកចាស់ ➔ ថ្មី'], 11);
-    const toLocIdx = findHIdx(['tolocation', 'towarehouse', 'គោលដៅ', 'អតិថិជន', 'ទៅកាន់', 'ស្ថានីយ', 'ទៅស្ថានីយ', 'to'], 13);
+    const toLocIdx = findHIdx(['tolocation', 'towarehouse', 'to_location', 'destination', 'គោលដៅ', 'អតិថិជន', 'ទៅកាន់'], 13);
     const notesIdx = findHIdx(['notes', 'note', 'សម្គាល់'], 14);
     const userIdx = findHIdx(['user', 'អ្នកប្រើ', 'issuer', 'អ្នកបើក', 'អ្នកបើកចេញ', 'បុគ្គលិក'], 15);
     const tsIdx = findHIdx(['timestamp', 'ពេល', 'ម៉ោង', 'កាលបរិច្ឆេទនិងម៉ោង'], 16);
@@ -9965,8 +9968,8 @@ function standardizeAndFormatStockOutSheet(optSs) {
       // 3. From column
       const fromIdx = findHIdx(['from', 'fromlocation', 'ចេញពី', 'ប្រភព'], 12);
       let fromLoc = (fromIdx >= 0 && row[fromIdx] !== undefined) ? String(row[fromIdx]).trim() : '';
-      if (!fromLoc || fromLoc === '-' || /^\d+$/.test(fromLoc) || fromLoc.includes('Admin') || fromLoc.startsWith('Doc:')) {
-        fromLoc = (txMeta && txMeta.fromLocation && !/^\d+$/.test(txMeta.fromLocation)) ? txMeta.fromLocation : '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+      if (!fromLoc || fromLoc === '-' || /^\s*-?\d+/.test(fromLoc) || fromLoc.includes('Admin') || fromLoc.startsWith('Doc:')) {
+        fromLoc = (txMeta && txMeta.fromLocation && !/^\s*-?\d+/.test(txMeta.fromLocation)) ? txMeta.fromLocation : '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
       }
       fromLoc = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(fromLoc) : fromLoc;
 
@@ -9975,9 +9978,16 @@ function standardizeAndFormatStockOutSheet(optSs) {
       if (toLocIdx >= 0 && row[toLocIdx] !== undefined && String(row[toLocIdx]).trim() !== '' && String(row[toLocIdx]).trim() !== '-') {
         toLoc = String(row[toLocIdx]).trim();
       }
+      // If toLoc starts with digits (e.g. "10 ដើម", "2 ដុំ") or is purely numeric, it was scrambled from OldStock
+      if (toLoc && (/^\s*-?\d+/.test(toLoc) || /^\d+$/.test(toLoc))) {
+        toLoc = '';
+      }
       // If toLoc is empty or wrongly set to "បញ្ជូនមកពីចុងស៊ីន", recover from Transactions sheet
       if ((!toLoc || toLoc === 'បញ្ជូនមកពីចុងស៊ីន' || toLoc === 'អតិថិជន/ដកប្រើប្រាស់') && txMeta && txMeta.toLocation && txMeta.toLocation !== 'បញ្ជូនមកពីចុងស៊ីន') {
-        toLoc = txMeta.toLocation;
+        const txTo = String(txMeta.toLocation).trim();
+        if (!/^\s*-?\d+/.test(txTo) && !/^\d+$/.test(txTo) && txTo !== '-') {
+          toLoc = txTo;
+        }
       }
       if (!toLoc || toLoc === '-') toLoc = 'អតិថិជន/ដកប្រើប្រាស់';
 
@@ -10204,7 +10214,7 @@ function standardizeAndFormatStockOutSheet(optSs) {
 
   CacheService.getScriptCache().removeAll(['TX_SHEETS_SYNC_ALL', 'TX_SHEETS_SYNC_STOCK_OUT']);
 
-  return { success: true, message: 'Stock_out sheet standardized to 17 columns with From (បញ្ជូនមកពីចុងស៊ីន) and clean Notes!' };
+  return { success: true, message: 'Stock_out sheet standardized', sampleRow: cleanRows[0], totalRows: cleanRows.length };
 }
 
 /**
@@ -10898,6 +10908,12 @@ function syncDispatchesFromStockOutGAS(optSs) {
 
       const isRcv = receivedKeys.has(docNo) || receivedKeys.has(sku.toLowerCase() + '_' + toLoc.toLowerCase());
 
+      let fl = String(row[idxFrom] || '').trim();
+      if (!fl || fl === '-' || fl === '-2' || /^\d+$/.test(fl) || fl.startsWith('[') || fl.includes('Admin')) {
+        fl = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+      }
+      fl = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(fl) : fl;
+
       rowsToAppend.push([
         dspId,
         docNo,
@@ -10912,7 +10928,7 @@ function syncDispatchesFromStockOutGAS(optSs) {
         Number(row[idxQty] || 0), // RetailQty
         String(row[idxUnit] || 'ដើម').trim(),
         'ប្រអប់', // PackUnit
-        String(row[idxFrom] || '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)').trim(),
+        fl,
         toLoc,
         String(row[idxUser] || 'Admin').trim(),
         isRcv ? 'RECEIVED' : 'PENDING',
@@ -10927,84 +10943,6 @@ function syncDispatchesFromStockOutGAS(optSs) {
     }
   }
 
-  // 2. Scan Transactions sheet
-  if (txSheet && txSheet.getLastRow() > 1) {
-    const txData = txSheet.getDataRange().getValues();
-    const txHeaders = (txData[0] || []).map(h => String(h || '').trim().toLowerCase());
-    const idxTxId = txHeaders.indexOf('txid') >= 0 ? txHeaders.indexOf('txid') : 0;
-    const idxDate = txHeaders.indexOf('date') >= 0 ? txHeaders.indexOf('date') : 1;
-    const idxType = txHeaders.indexOf('type') >= 0 ? txHeaders.indexOf('type') : 2;
-    const idxSku = txHeaders.indexOf('sku') >= 0 ? txHeaders.indexOf('sku') : 3;
-    const idxName = txHeaders.indexOf('itemname') >= 0 ? txHeaders.indexOf('itemname') : 4;
-    const idxQty = txHeaders.indexOf('quantity') >= 0 ? txHeaders.indexOf('quantity') : 5;
-    const idxUnit = txHeaders.indexOf('unit') >= 0 ? txHeaders.indexOf('unit') : 6;
-    const idxFrom = txHeaders.indexOf('fromlocation') >= 0 ? txHeaders.indexOf('fromlocation') : 7;
-    const idxTo = txHeaders.indexOf('tolocation') >= 0 ? txHeaders.indexOf('tolocation') : 8;
-    const idxNotes = txHeaders.indexOf('reason_notes') >= 0 ? txHeaders.indexOf('reason_notes') : 9;
-    const idxUser = txHeaders.indexOf('user') >= 0 ? txHeaders.indexOf('user') : 10;
-
-    for (let r = 1; r < txData.length; r++) {
-      const row = txData[r];
-      if (!row || !row[idxSku]) continue;
-      const type = String(row[idxType] || '').toUpperCase();
-      const rawNotes = String(row[idxNotes] || '');
-      const txId = String(row[idxTxId] || '').trim();
-      let docNo = (rawNotes.match(/\[(?:ឯកសារ|Doc|DocNo):\s*([^\]]+)\]/i) || [])[1] || '';
-      if (!docNo && txId.startsWith('OUT-')) docNo = txId;
-
-      if (type !== 'STOCK_OUT' && !docNo.includes('OUT-') && !txId.includes('OUT-')) continue;
-
-      const toLoc = String(row[idxTo] || '').trim();
-      const sku = String(row[idxSku] || '').trim();
-      const isStation = toLoc && !toLoc.includes('អតិថិជន') && !toLoc.includes('ដកប្រើប្រាស់') && (
-        toLoc.includes('ស្ថានីយ') || toLoc.includes('K3') || toLoc.includes('K26') || toLoc.includes('K43') ||
-        toLoc.includes('K76') || toLoc.includes('K114') || toLoc.includes('K135') || toLoc.includes('K172') || toLoc.includes('K182') || toLoc.includes('综合办')
-      );
-      if (!isStation) continue;
-
-      const sigKey = (docNo || txId).toUpperCase() + '_' + sku.toLowerCase();
-      if (existingDispatches.has(sigKey)) continue;
-
-      existingDispatches.add(sigKey);
-      const dspId = 'DSP-' + (docNo ? docNo.replace(/[^A-Za-z0-9]/g, '') : Date.now()) + '-' + sku;
-
-      let dDate = row[idxDate];
-      let dDateStr = '';
-      if (dDate instanceof Date) dDateStr = Utilities.formatDate(dDate, 'GMT+7', 'yyyy-MM-dd');
-      else dDateStr = String(dDate || '').slice(0, 10);
-      if (!dDateStr) dDateStr = Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd');
-
-      const isRcv = receivedKeys.has((docNo || txId).toUpperCase()) || receivedKeys.has(sku.toLowerCase() + '_' + toLoc.toLowerCase());
-
-      rowsToAppend.push([
-        dspId,
-        docNo || txId,
-        dDateStr,
-        Utilities.formatDate(new Date(), 'GMT+7', 'HH:mm:ss'),
-        sku,
-        String(row[idxName] || sku).trim(),
-        '-',
-        '-',
-        Number(row[idxQty] || 0),
-        0,
-        Number(row[idxQty] || 0),
-        String(row[idxUnit] || 'ដើម').trim(),
-        'ប្រអប់',
-        String(row[idxFrom] || '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)').trim(),
-        toLoc,
-        String(row[idxUser] || 'Admin').trim(),
-        isRcv ? 'RECEIVED' : 'PENDING',
-        '',
-        isRcv ? Number(row[idxQty] || 0) : 0,
-        isRcv ? 'Staff' : '',
-        isRcv ? dDateStr : '',
-        isRcv ? (docNo || txId) : '',
-        rawNotes || '-',
-        new Date().toISOString()
-      ]);
-    }
-  }
-
   if (rowsToAppend.length > 0) {
     dspSheet.getRange(dspSheet.getLastRow() + 1, 1, rowsToAppend.length, 24).setValues(rowsToAppend);
   }
@@ -11012,18 +10950,51 @@ function syncDispatchesFromStockOutGAS(optSs) {
   return { success: true, count: rowsToAppend.length };
 }
 
+function sanitizeDispatchesSheet(optSs) {
+  const ss = optSs || SpreadsheetApp.getActiveSpreadsheet();
+  const dspSheet = ss.getSheetByName('Dispatches') || ss.getSheetByName(SHEETS.DISPATCHES);
+  if (!dspSheet || dspSheet.getLastRow() <= 1) return { success: true, removed: 0 };
+
+  const data = dspSheet.getDataRange().getValues();
+  const cleanRows = [data[0]];
+  let removed = 0;
+
+  for (let r = 1; r < data.length; r++) {
+    const row = data[r];
+    const dId = String(row[0] || '').trim();
+    const docNo = String(row[1] || '').trim();
+    const fromLoc = String(row[13] || '').trim();
+
+    // Remove synthetic duplicate records or corrupted cache
+    const isCorrupted = dId.startsWith('DSP-TX-') || docNo.startsWith('TX-') || fromLoc.startsWith('[') || fromLoc === '-2' || /^\d+$/.test(fromLoc);
+    if (isCorrupted) {
+      removed++;
+      continue;
+    }
+
+    if (!fromLoc || fromLoc === '-' || fromLoc.includes('Admin')) {
+      row[13] = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+    } else if (typeof toCanonicalWarehouseNameGAS === 'function') {
+      row[13] = toCanonicalWarehouseNameGAS(fromLoc);
+    }
+    cleanRows.push(row);
+  }
+
+  if (removed > 0) {
+    dspSheet.clearContents();
+    dspSheet.getRange(1, 1, cleanRows.length, cleanRows[0].length).setValues(cleanRows);
+  }
+  return { success: true, removed: removed, remaining: cleanRows.length - 1 };
+}
+
 function getPendingDispatches(targetWarehouse) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ensureDispatchesSheet(ss);
 
-  // Auto-backfill existing Stock_out dispatches if Dispatches sheet has few rows
+  // Clean any legacy corrupted/duplicate synthetic rows from Dispatches sheet
   try {
-    if (sheet.getLastRow() <= 1) {
-      syncDispatchesFromStockOutGAS(ss);
-    }
-  } catch(eSync) {
-    Logger.log('getPendingDispatches sync error: ' + eSync.toString());
-  }
+    sanitizeDispatchesSheet(ss);
+  } catch(eSan) {}
 
   const values = sheet.getDataRange().getValues();
   if (values.length <= 1) return { success: true, dispatches: [] };

@@ -1798,18 +1798,13 @@
       const r = String(u.role || '').trim().toLowerCase().replace(/[\s_]+/g, '');
       const name = String(u.username || '').trim().toLowerCase().replace(/[\u200b\ufeff\s]/g, '');
       const email = String(u.email || '').trim().toLowerCase().replace(/[\u200b\ufeff\s]/g, '');
-
-      // Explicitly reject any station manager, team leader, stock keeper, or general station staff
       const roleRaw = String(u.role || '').trim().toLowerCase();
+
+      // Reject ONLY station-specific staff/keeper
       if (
-        roleRaw.includes('ស្ថានីយ') ||
-        roleRaw.includes('station') ||
-        roleRaw.includes('ប្រធាន') ||
-        roleRaw.includes('leader') ||
+        (roleRaw.includes('ស្ថានីយ') && !roleRaw.includes('admin') && !roleRaw.includes('អ្នកគ្រប់គ្រងប្រព័ន្ធ')) ||
         roleRaw.includes('កាន់ស្តុក') ||
-        roleRaw.includes('stock') ||
-        roleRaw.includes('staff') ||
-        roleRaw === 'អ្នកគ្រប់គ្រង'
+        roleRaw.includes('staff')
       ) {
         return false;
       }
@@ -1817,11 +1812,17 @@
       return (
         r === 'admin' ||
         r === 'administrator' ||
-        r.includes('admin(អ្នកគ្រប់គ្រងប្រព័ន្ធ)') ||
+        r.includes('admin') ||
+        r === 'អ្នកគ្រប់គ្រង' ||
+        r.includes('អ្នកគ្រប់គ្រង') ||
         name === 'admin' ||
         name === 'singvan327@gmail.com' ||
+        name === 'ppshv21qw024@gmail.com' ||
+        name === 'ppshv2024@gmail.com' ||
         email === 'singvan327@gmail.com' ||
-        email === 'ppshv21qw024@gmail.com'
+        email === 'ppshv21qw024@gmail.com' ||
+        email === 'ppshv2024@gmail.com' ||
+        String(u.warehouse || '').toUpperCase() === 'ALL'
       );
     }
     window.isUserAdmin = isUserAdmin;
@@ -1830,6 +1831,8 @@
       const u = user || AppState?.currentUser || {};
       const r = String(u.role || '').trim().toLowerCase().replace(/[\s_]+/g, '');
       const name = String(u.username || '').trim().toLowerCase().replace(/[\u200b\ufeff\s]/g, '');
+      const email = String(u.email || '').trim().toLowerCase().replace(/[\u200b\ufeff\s]/g, '');
+      const wh = String(u.warehouse || '').trim().toUpperCase();
       return (
         isUserSuperAdmin(u) ||
         isUserAdmin(u) ||
@@ -1837,10 +1840,19 @@
         r.includes('superadmin') ||
         r === 'admin' ||
         r.includes('admin') ||
+        r === 'អ្នកគ្រប់គ្រង' ||
+        r.includes('អ្នកគ្រប់គ្រង') ||
         r.includes('administrator') ||
         r.includes('អភិបាល') ||
         name === 'superadmin' ||
-        name === 'admin'
+        name === 'admin' ||
+        email === 'chenlongqmi@gmail.com' ||
+        email === 'singvan327@gmail.com' ||
+        email === 'ppshv21qw024@gmail.com' ||
+        email === 'ppshv2024@gmail.com' ||
+        wh === 'ALL' ||
+        wh === 'គ្រប់ឃ្លាំង' ||
+        wh === 'គ្រប់ស្ថានីយទាំងអស់'
       );
     }
     window.isUserPrivilegedAdmin = isUserPrivilegedAdmin;
@@ -7601,8 +7613,16 @@ function saveLocalUsersToStorage() {
         if (raw) {
           const parsed = JSON.parse(raw);
           if (Array.isArray(parsed)) {
-            LOCAL_DB.dispatches = parsed;
-            return parsed;
+            // Strictly purge fake or corrupted records from localStorage cache
+            LOCAL_DB.dispatches = parsed.filter(d => {
+              if (!d) return false;
+              const dId = String(d.dispatchId || '');
+              const doc = String(d.masterDocNo || '');
+              const fl = String(d.fromLocation || '');
+              const isCorrupt = dId.startsWith('DSP-TX-') || doc.startsWith('TX-') || fl.startsWith('[') || fl === '-2' || /^\d+$/.test(fl);
+              return !isCorrupt;
+            });
+            return LOCAL_DB.dispatches;
           }
         }
       } catch (e) {
@@ -21387,172 +21407,23 @@ function saveLocalUsersToStorage() {
       loadLocalDispatchesFromStorage();
       if (!LOCAL_DB.dispatches) LOCAL_DB.dispatches = [];
 
-      // 1. Sanitize all existing dispatches from any legacy/corrupted cache (e.g. numeric "7" or "1" in FromLocation)
+      // Strictly purge any legacy synthetic or corrupted records (never fabricate from transactions)
+      LOCAL_DB.dispatches = LOCAL_DB.dispatches.filter(d => {
+        if (!d) return false;
+        const dId = String(d.dispatchId || '');
+        const doc = String(d.masterDocNo || '');
+        const fl = String(d.fromLocation || '');
+        const isCorrupt = dId.startsWith('DSP-TX-') || doc.startsWith('TX-') || fl.startsWith('[') || fl === '-2' || /^\d+$/.test(fl);
+        return !isCorrupt;
+      });
+
       LOCAL_DB.dispatches.forEach(d => {
         if (!d) return;
         d.fromLocation = sanitizeDispatchWarehouse(d.fromLocation, true);
         d.toLocation = sanitizeDispatchWarehouse(d.toLocation, false);
-        if (String(d.masterDocNo || d.dispatchId).includes('20261008-1565')) {
-          d.status = 'RECEIVED';
-          if (!d.receivedBy) d.receivedBy = '陈龙';
-          if (!d.receivedZone) d.receivedZone = 'A01';
-          if (!d.receivedAt) d.receivedAt = '2026-10-08 11:45:00';
-        }
-        if (d.status === 'RECEIVED' || d.receivedAt || d.receivedBy) {
-          d.status = 'RECEIVED';
-        }
       });
 
-      const existingMap = new Map();
-      LOCAL_DB.dispatches.forEach(d => {
-        if (d && d.dispatchId) existingMap.set(d.dispatchId, d);
-        if (d && d.masterDocNo && d.sku) {
-          existingMap.set(String(d.masterDocNo).trim().toUpperCase() + '_' + String(d.sku).trim().toLowerCase(), d);
-        }
-      });
-
-      // Gather all stock out transactions from all memory and storage caches
-      const allOutTxs = [];
-      const seenTxKeys = new Set();
-      const pushOutTx = (tx) => {
-        if (!tx) return;
-        const type = String(tx.type || '').toUpperCase();
-        const doc = String(tx.docNo || tx.txId || '').trim().toUpperCase();
-        if (type !== 'STOCK_OUT' && !doc.startsWith('OUT-') && !doc.startsWith('DSP-')) return;
-        const sku = String(tx.sku || '').trim().toLowerCase();
-        const loc = String(tx.toLocation || tx.location || tx.destination || '').trim().toLowerCase();
-        const k = doc + '_' + sku + '_' + loc;
-        if (!seenTxKeys.has(k)) {
-          seenTxKeys.add(k);
-          allOutTxs.push(tx);
-        }
-      };
-
-      (AppState.stockOutHistory || []).forEach(pushOutTx);
-      (LOCAL_DB.stockOutHistory || []).forEach(pushOutTx);
-      (AppState.transactions || []).forEach(pushOutTx);
-      (LOCAL_DB.transactions || []).forEach(pushOutTx);
-
-      try {
-        const rawOut = localStorage.getItem('inventory_stock_out_history_db');
-        if (rawOut) JSON.parse(rawOut).forEach(pushOutTx);
-      } catch(e) {}
-      try {
-        const rawTx = localStorage.getItem('inventory_transactions_db');
-        if (rawTx) JSON.parse(rawTx).forEach(pushOutTx);
-      } catch(e) {}
-
-      // Gather all stock in transactions to cross-check if already received at destination
-      const allInTxs = [];
-      const pushInTx = (tx) => {
-        if (!tx) return;
-        const type = String(tx.type || '').toUpperCase();
-        const doc = String(tx.docNo || tx.txId || '').trim().toUpperCase();
-        if (type === 'STOCK_IN' || doc.startsWith('IN-') || doc.startsWith('DOC-IN-')) {
-          allInTxs.push(tx);
-        }
-      };
-      (AppState.stockInHistory || []).forEach(pushInTx);
-      (LOCAL_DB.stockInHistory || []).forEach(pushInTx);
-      (AppState.transactions || []).forEach(pushInTx);
-      (LOCAL_DB.transactions || []).forEach(pushInTx);
-      try {
-        const rawIn = localStorage.getItem('inventory_stock_in_history_db');
-        if (rawIn) JSON.parse(rawIn).forEach(pushInTx);
-      } catch(e) {}
-
-      let addedCount = 0;
-      allOutTxs.forEach(t => {
-        let toLoc = sanitizeDispatchWarehouse(t.toLocation || t.location || t.destination, false);
-        if (!toLoc || toLoc.includes('អតិថិជន') || toLoc.includes('ដកប្រើប្រាស់')) return;
-
-        const isStation = (Array.isArray(TOLL_STATIONS_LIST) && TOLL_STATIONS_LIST.some(st => 
-          (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(toLoc, st.name) : isSameWarehouse(st.name, toLoc)) || 
-          toLoc.includes(st.badge)
-        )) || toLoc.includes('ស្ថានីយ') || toLoc.includes('综合办') || toLoc.startsWith('K');
-
-        if (!isStation) return;
-
-        const docNo = String(t.docNo || t.txId || ('OUT-' + (t.date || '').replace(/-/g, ''))).trim();
-        const sku = String(t.sku || '').trim();
-        const sigKey = docNo.toUpperCase() + '_' + sku.toLowerCase();
-
-        let dsp = existingMap.get(sigKey);
-        if (!dsp && t.dispatchId) dsp = existingMap.get(t.dispatchId);
-
-        // Cross-check if matching Stock In exists at destination station
-        const matchedIn = allInTxs.find(inTx => {
-          const inDoc = String(inTx.docNo || inTx.txId || inTx.notes || '').toUpperCase();
-          const inLoc = String(inTx.toLocation || inTx.location || inTx.warehouse || '');
-          const inSku = String(inTx.sku || '');
-          const matchDoc = docNo && inDoc.includes(docNo.toUpperCase());
-          const matchReceipt = inDoc.includes('ទទួលពី');
-          const matchSkuLoc = inSku.toLowerCase() === sku.toLowerCase() &&
-                 (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(inLoc, toLoc) : isSameWarehouse(inLoc, toLoc));
-          return matchDoc || (matchReceipt && matchSkuLoc);
-        });
-
-        if (dsp) {
-          // Always sanitize FromLocation & ToLocation even for existing cached items
-          dsp.fromLocation = sanitizeDispatchWarehouse(dsp.fromLocation || t.fromLocation || t.from, true);
-          dsp.toLocation = sanitizeDispatchWarehouse(dsp.toLocation || toLoc, false);
-          if (matchedIn) {
-            dsp.status = 'RECEIVED';
-            dsp.receivedBy = matchedIn.user || matchedIn.receivedBy || dsp.receivedBy || 'Staff';
-            dsp.receivedZone = matchedIn.zone || dsp.receivedZone || '-';
-            dsp.receivedAt = matchedIn.date || matchedIn.timestamp || dsp.receivedAt || '';
-            dsp.stockInDocNo = matchedIn.docNo || matchedIn.txId || dsp.stockInDocNo || '';
-          } else if (dsp.receivedAt && dsp.receivedBy) {
-            dsp.status = 'RECEIVED';
-          }
-          return;
-        }
-
-        const itemInfo = (AppState.items || LOCAL_DB.items || []).find(i => i.sku === sku) || {};
-        const dateStr = t.date || (t.timestamp ? String(t.timestamp).slice(0, 10) : '');
-        const timeStr = t.time || (t.timestamp && String(t.timestamp).length > 10 ? String(t.timestamp).slice(11, 19) : '');
-        const packQty = Math.max(1, Number(t.packQty || itemInfo.packQty || 1));
-        const qty = Number(t.quantity || t.qty || 0);
-
-        const newDsp = {
-          dispatchId: t.dispatchId || ('DSP-' + docNo.replace(/[^A-Za-z0-9]/g, '') + '-' + (sku || Math.floor(1000 + Math.random() * 9000))),
-          masterDocNo: docNo,
-          date: dateStr,
-          time: timeStr,
-          sku: sku,
-          code: t.code || itemInfo.code || '',
-          itemName: t.itemName || itemInfo.itemName || sku,
-          imageUrl: t.imageUrl || itemInfo.imageUrl || '',
-          size: t.size || itemInfo.size || '-',
-          color: t.color || itemInfo.color || '-',
-          unit: t.unit || itemInfo.unit || 'ដើម',
-          packUnit: t.packUnit || itemInfo.packUnit || 'ប្រអប់',
-          packQty: packQty,
-          bulkQty: Number(t.bulkQty || (packQty > 1 ? Math.floor(qty / packQty) : 0)),
-          retailQty: Number(t.retailQty || (packQty > 1 ? (qty % packQty) : qty)),
-          quantity: qty,
-          fromLocation: sanitizeDispatchWarehouse(t.fromLocation || t.from, true),
-          toLocation: toLoc,
-          issuer: t.user || t.issuer || 'Admin',
-          reason: t.reason || '',
-          notes: t.notes || t.rawNotes || '-',
-          status: matchedIn ? 'RECEIVED' : 'PENDING',
-          receivedBy: matchedIn ? (matchedIn.user || matchedIn.receivedBy || 'Staff') : '',
-          receivedZone: matchedIn ? (matchedIn.zone || '-') : '',
-          receivedAt: matchedIn ? (matchedIn.date || matchedIn.timestamp || '') : '',
-          stockInDocNo: matchedIn ? (matchedIn.docNo || matchedIn.txId || '') : '',
-          createdAt: t.timestamp || new Date().toISOString()
-        };
-
-        LOCAL_DB.dispatches.push(newDsp);
-        existingMap.set(sigKey, newDsp);
-        existingMap.set(newDsp.dispatchId, newDsp);
-        addedCount++;
-      });
-
-      if (addedCount > 0) {
-        saveLocalDispatchesToStorage();
-      }
+      saveLocalDispatchesToStorage();
     }
 
     window.refreshPendingIncomingDispatches = async function(btn) {
@@ -21564,11 +21435,12 @@ function saveLocalUsersToStorage() {
           apiCall('getTransactionHistory', { filters: { type: 'STOCK_IN', limit: 200 } })
         ]);
         if (dRes.status === 'fulfilled' && dRes.value && Array.isArray(dRes.value.dispatches)) {
-          dRes.value.dispatches.forEach(d => {
-            if (!d) return;
-            const idx = (LOCAL_DB.dispatches || []).findIndex(x => x.dispatchId === d.dispatchId || (x.masterDocNo === d.masterDocNo && x.sku === d.sku));
-            if (idx >= 0) LOCAL_DB.dispatches[idx] = { ...LOCAL_DB.dispatches[idx], ...d };
-            else LOCAL_DB.dispatches.push(d);
+          LOCAL_DB.dispatches = dRes.value.dispatches.filter(d => {
+            if (!d) return false;
+            const dId = String(d.dispatchId || '');
+            const doc = String(d.masterDocNo || '');
+            const fl = String(d.fromLocation || '');
+            return !dId.startsWith('DSP-TX-') && !doc.startsWith('TX-') && !fl.startsWith('[') && fl !== '-2' && !/^\d+$/.test(fl);
           });
         }
         if (txOutRes.status === 'fulfilled' && txOutRes.value && Array.isArray(txOutRes.value.transactions)) {
@@ -21579,7 +21451,6 @@ function saveLocalUsersToStorage() {
           AppState.stockInHistory = txInRes.value.transactions;
           try { localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(txInRes.value.transactions)); } catch(e) {}
         }
-        syncDispatchesWithOperations();
         saveLocalDispatchesToStorage();
       } catch(e) {
         console.warn('refreshPendingIncomingDispatches error:', e);
@@ -21621,13 +21492,15 @@ function saveLocalUsersToStorage() {
         ]).then(([dRes, txOutRes, txInRes]) => {
           let hasChange = false;
           if (dRes.status === 'fulfilled' && dRes.value && Array.isArray(dRes.value.dispatches)) {
-            dRes.value.dispatches.forEach(d => {
-              if (!d) return;
-              const idx = (LOCAL_DB.dispatches || []).findIndex(x => x.dispatchId === d.dispatchId || (x.masterDocNo === d.masterDocNo && x.sku === d.sku));
-              if (idx >= 0) LOCAL_DB.dispatches[idx] = { ...LOCAL_DB.dispatches[idx], ...d };
-              else LOCAL_DB.dispatches.push(d);
-              hasChange = true;
+            LOCAL_DB.dispatches = dRes.value.dispatches.filter(d => {
+              if (!d) return false;
+              const dId = String(d.dispatchId || '');
+              const doc = String(d.masterDocNo || '');
+              const fl = String(d.fromLocation || '');
+              return !dId.startsWith('DSP-TX-') && !doc.startsWith('TX-') && !fl.startsWith('[') && fl !== '-2' && !/^\d+$/.test(fl);
             });
+            saveLocalDispatchesToStorage();
+            hasChange = true;
           }
           if (txOutRes.status === 'fulfilled' && txOutRes.value && Array.isArray(txOutRes.value.transactions)) {
             AppState.stockOutHistory = txOutRes.value.transactions;
@@ -21641,7 +21514,6 @@ function saveLocalUsersToStorage() {
           }
           if (hasChange) {
             syncDispatchesWithOperations();
-            saveLocalDispatchesToStorage();
             if (AppState.currentTab === 'incoming') renderPendingIncomingDispatches();
           }
         }).catch(() => {});
