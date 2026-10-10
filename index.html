@@ -21766,13 +21766,20 @@ function saveLocalUsersToStorage() {
                         `}
                       </td>
                       <td class="py-2.5 px-3 text-center">
-                        ${isPending ? `
-                          <button type="button" onclick="openStationReceptionModal('${escapeHtml(d.dispatchId)}')"
-                            class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-bold transition shadow-xs flex items-center justify-center space-x-1.5 cursor-pointer hover:scale-[1.02] active:scale-[0.98]">
-                            <i class="fa-solid fa-boxes-packing text-xs"></i>
-                            <span>ផ្ទៀងផ្ទាត់ & ទទួលចូលស្តុក</span>
-                          </button>
-                        ` : `
+                        ${isPending ? (
+                          isPrivileged ? `
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 text-slate-500 border border-slate-200 text-xs font-semibold cursor-default" title="គណនី Admin / SuperAdmin អាចត្រឹមតែតាមដានមើលទិន្នន័យប៉ុណ្ណោះ មិនអាចប្រតិបត្តិការជំនួសស្ថានីយបានឡើយ">
+                              <i class="fa-solid fa-hourglass-half text-amber-500 text-[11px]"></i>
+                              <span>រង់ចាំស្ថានីយទទួល</span>
+                            </span>
+                          ` : `
+                            <button type="button" onclick="openStationReceptionModal('${escapeHtml(d.dispatchId)}')"
+                              class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-bold transition shadow-xs flex items-center justify-center space-x-1.5 cursor-pointer hover:scale-[1.02] active:scale-[0.98]">
+                              <i class="fa-solid fa-boxes-packing text-xs"></i>
+                              <span>ផ្ទៀងផ្ទាត់ & ទទួលចូលស្តុក</span>
+                            </button>
+                          `
+                        ) : `
                           <div class="text-left text-[11px] text-slate-600 space-y-0.5">
                             <div>ទទួលដោយ: <b class="text-slate-800">${escapeHtml(d.receivedBy || '-')}</b></div>
                             <div>📍 តំបន់: <b class="text-emerald-700 font-mono">${escapeHtml(d.receivedZone || '-')}</b></div>
@@ -21868,6 +21875,20 @@ function saveLocalUsersToStorage() {
     window.updateIncomingDispatchesBadge = updateIncomingDispatchesBadge;
 
     function openStationReceptionModal(dispatchId) {
+      const u = AppState.currentUser || {};
+      const isSuperAdmin = (typeof isUserSuperAdmin === 'function' ? isUserSuperAdmin(u) : (u.role === 'SuperAdmin' || String(u.username).toLowerCase() === 'superadmin'));
+      const isAdmin = (typeof isUserAdmin === 'function' ? isUserAdmin(u) : (u.role === 'Admin' || String(u.username).toLowerCase() === 'admin' || String(u.username).toLowerCase() === 'singvan327@gmail.com' || String(u.username).toLowerCase() === 'ppshv2024@gmail.com'));
+      if (isSuperAdmin || isAdmin || (typeof isUserPrivilegedAdmin === 'function' && isUserPrivilegedAdmin(u))) {
+        Swal.fire({
+          icon: 'info',
+          title: 'សិទ្ធិមើលទិន្នន័យប៉ុណ្ណោះ (View Only)',
+          text: 'គណនី SuperAdmin និង Admin អាចត្រឹមតែតាមដានមើលទិន្នន័យប៉ុណ្ណោះ មិនអាចប្រតិបត្តិការទទួលទំនិញជំនួសស្ថានីយបានទេ។ មានតែបុគ្គលិកប្រចាំស្ថានីយគោលដៅប៉ុណ្ណោះ ទើបអាចចុចផ្ទៀងផ្ទាត់ និងទទួលទំនិញចូលស្តុកបាន!',
+          confirmButtonColor: '#046c4e',
+          confirmButtonText: 'យល់ព្រម'
+        });
+        return;
+      }
+
       loadLocalDispatchesFromStorage();
       const dispatch = (LOCAL_DB.dispatches || []).find(d => d.dispatchId === dispatchId);
       if (!dispatch) {
@@ -21982,6 +22003,14 @@ function saveLocalUsersToStorage() {
 
     async function handleConfirmStationReception(e) {
       if (e) e.preventDefault();
+
+      const u = AppState.currentUser || {};
+      const isSuperAdmin = (typeof isUserSuperAdmin === 'function' ? isUserSuperAdmin(u) : (u.role === 'SuperAdmin' || String(u.username).toLowerCase() === 'superadmin'));
+      const isAdmin = (typeof isUserAdmin === 'function' ? isUserAdmin(u) : (u.role === 'Admin' || String(u.username).toLowerCase() === 'admin' || String(u.username).toLowerCase() === 'singvan327@gmail.com' || String(u.username).toLowerCase() === 'ppshv2024@gmail.com'));
+      if (isSuperAdmin || isAdmin || (typeof isUserPrivilegedAdmin === 'function' && isUserPrivilegedAdmin(u))) {
+        Swal.fire('គ្មានសិទ្ធិ', 'គណនី SuperAdmin និង Admin អាចត្រឹមតែតាមដានមើលទិន្នន័យប៉ុណ្ណោះ!', 'warning');
+        return;
+      }
 
       const dispatchId = document.getElementById('receptionDispatchId')?.value;
       const dispatch = (LOCAL_DB.dispatches || []).find(d => d.dispatchId === dispatchId);
