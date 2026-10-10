@@ -1808,11 +1808,18 @@
       const email = String(u.email || '').trim().toLowerCase().replace(/[\u200b\ufeff\s]/g, '');
       const roleRaw = String(u.role || '').trim().toLowerCase();
 
-      // Reject ONLY station-specific staff/keeper
+      // Reject ALL station-level roles and regular users (Station Manager, Team Leader, Stock Keeper, Staff, User, etc.)
       if (
-        (roleRaw.includes('ស្ថានីយ') && !roleRaw.includes('admin') && !roleRaw.includes('អ្នកគ្រប់គ្រងប្រព័ន្ធ')) ||
+        roleRaw.includes('ស្ថានីយ') ||
         roleRaw.includes('កាន់ស្តុក') ||
-        roleRaw.includes('staff')
+        roleRaw.includes('ប្រធានក្រុម') ||
+        roleRaw.includes('ប្រធាន') ||
+        roleRaw.includes('team') ||
+        roleRaw.includes('keeper') ||
+        roleRaw.includes('staff') ||
+        roleRaw.includes('បុគ្គលិក') ||
+        roleRaw.includes('user') ||
+        roleRaw.includes('viewer')
       ) {
         return false;
       }
@@ -1820,48 +1827,22 @@
       return (
         r === 'admin' ||
         r === 'administrator' ||
-        r.includes('admin') ||
-        r === 'អ្នកគ្រប់គ្រង' ||
-        r.includes('អ្នកគ្រប់គ្រង') ||
+        r === 'អ្នកគ្រប់គ្រងប្រព័ន្ធ' ||
+        (r.includes('admin') && !r.includes('superadmin')) ||
         name === 'admin' ||
         name === 'singvan327@gmail.com' ||
         name === 'ppshv21qw024@gmail.com' ||
         name === 'ppshv2024@gmail.com' ||
         email === 'singvan327@gmail.com' ||
         email === 'ppshv21qw024@gmail.com' ||
-        email === 'ppshv2024@gmail.com' ||
-        String(u.warehouse || '').toUpperCase() === 'ALL'
+        email === 'ppshv2024@gmail.com'
       );
     }
     window.isUserAdmin = isUserAdmin;
 
     function isUserPrivilegedAdmin(user) {
       const u = user || AppState?.currentUser || {};
-      const r = String(u.role || '').trim().toLowerCase().replace(/[\s_]+/g, '');
-      const name = String(u.username || '').trim().toLowerCase().replace(/[\u200b\ufeff\s]/g, '');
-      const email = String(u.email || '').trim().toLowerCase().replace(/[\u200b\ufeff\s]/g, '');
-      const wh = String(u.warehouse || '').trim().toUpperCase();
-      return (
-        isUserSuperAdmin(u) ||
-        isUserAdmin(u) ||
-        r === 'superadmin' ||
-        r.includes('superadmin') ||
-        r === 'admin' ||
-        r.includes('admin') ||
-        r === 'អ្នកគ្រប់គ្រង' ||
-        r.includes('អ្នកគ្រប់គ្រង') ||
-        r.includes('administrator') ||
-        r.includes('អភិបាល') ||
-        name === 'superadmin' ||
-        name === 'admin' ||
-        email === 'chenlongqmi@gmail.com' ||
-        email === 'singvan327@gmail.com' ||
-        email === 'ppshv21qw024@gmail.com' ||
-        email === 'ppshv2024@gmail.com' ||
-        wh === 'ALL' ||
-        wh === 'គ្រប់ឃ្លាំង' ||
-        wh === 'គ្រប់ស្ថានីយទាំងអស់'
-      );
+      return isUserSuperAdmin(u) || isUserAdmin(u);
     }
     window.isUserPrivilegedAdmin = isUserPrivilegedAdmin;
     window.isPrivilegedAdmin = isUserPrivilegedAdmin;
@@ -2038,7 +2019,7 @@
           </button>
 
           <!-- Admin Global Warehouse Selector Filter (Visible for SuperAdmin and Admin ONLY) -->
-          <div id="adminWarehouseFilterContainer"
+          <div id="adminWarehouseFilterContainer" style="display: none;"
             class="hidden items-center space-x-1.5 bg-gradient-to-r from-blue-50 via-indigo-50 to-blue-50 border border-blue-200 hover:border-blue-300 rounded-xl px-2.5 sm:px-3 py-1.5 text-xs shadow-xs shrink-0 cursor-pointer transition">
             <div class="flex items-center space-x-1 text-blue-700 font-bold shrink-0">
               <i class="fa-solid fa-warehouse text-blue-600 text-xs"></i>
@@ -2067,7 +2048,7 @@
           </div>
 
           <!-- Add / Manage Warehouse Button for Admin (Visible for SuperAdmin and Admin ONLY) -->
-          <button id="addWarehouseTopBtn" onclick="navigateTab('warehouses')" title="គ្រប់គ្រងស្ថានីយ (សម្រាប់ Admin & SuperAdmin)"
+          <button id="addWarehouseTopBtn" onclick="navigateTab('warehouses')" title="គ្រប់គ្រងស្ថានីយ (សម្រាប់ Admin & SuperAdmin)" style="display: none;"
             class="hidden px-3 py-1.5 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-xl text-xs font-bold items-center space-x-1.5 shadow-xs transition hover:scale-105 active:scale-95 shrink-0">
             <i class="fa-solid fa-warehouse text-xs"></i>
             <span class="hidden sm:inline">គ្រប់គ្រងស្ថានីយ</span>
@@ -2088,11 +2069,9 @@
                 if (raw) {
                   var u = JSON.parse(raw);
                   if (u) {
-                    var rLower = String(u.role || '').toLowerCase().replace(/[\s_]+/g, '');
-                    var uLower = String(u.username || '').toLowerCase();
-                    var isSuper = rLower.includes('superadmin') || rLower.includes('អភិបាលកំពូល') || uLower === 'superadmin' || u.userId === 'USR-SA' || u.isSuperAdmin === true;
-                    var isAdmin = !isSuper && (rLower === 'admin' || rLower === 'administrator' || uLower === 'admin' || uLower === 'singvan327@gmail.com');
-                    var isPrivileged = isSuper || isAdmin || (typeof isUserPrivilegedAdmin === 'function' && isUserPrivilegedAdmin(u));
+                    var isSuper = (typeof isUserSuperAdmin === 'function') ? isUserSuperAdmin(u) : false;
+                    var isAdmin = (typeof isUserAdmin === 'function') ? isUserAdmin(u) : false;
+                    var isPrivileged = isSuper || isAdmin;
                     var adminWh = document.getElementById('adminWarehouseFilterContainer');
                     var addBtn = document.getElementById('addWarehouseTopBtn');
                     var userWh = document.getElementById('userWarehouseBadgeContainer');
@@ -32206,7 +32185,7 @@ function saveLocalUsersToStorage() {
 
     function refreshAllWarehouseDropdowns() {
       const currentList = getWarehouseNamesList();
-      const u = AppState.currentUser || {};
+      const u = AppState.currentUser || (function(){ try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch(e){ return null; } })() || {};
       const isSuperAdmin = isUserSuperAdmin(u);
       const isAdmin = isUserAdmin(u);
       const isPrivilegedAdmin = isUserPrivilegedAdmin(u);
