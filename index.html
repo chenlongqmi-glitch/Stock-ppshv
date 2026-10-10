@@ -17643,9 +17643,9 @@ function saveLocalUsersToStorage() {
       }
       stockInZoneDropdownEl = document.createElement('div');
       stockInZoneDropdownEl.id = 'stockInZoneDropdown';
-      stockInZoneDropdownEl.className = 'fixed bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-2xl shadow-2xl z-[99999] p-3 w-[340px] max-w-[95vw] transition-all duration-150 font-sans hidden animate-in fade-in zoom-in-95';
+      stockInZoneDropdownEl.className = 'fixed bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-2xl shadow-2xl z-[1000] p-3 w-[340px] max-w-[95vw] transition-all duration-150 font-sans hidden animate-in fade-in zoom-in-95';
       stockInZoneDropdownEl.style.fontFamily = "'Kantumruy Pro', 'Battambang', sans-serif";
-      stockInZoneDropdownEl.style.zIndex = '99999';
+      stockInZoneDropdownEl.style.zIndex = '1000';
       document.body.appendChild(stockInZoneDropdownEl);
       return stockInZoneDropdownEl;
     }
@@ -17841,6 +17841,18 @@ function saveLocalUsersToStorage() {
     }
 
     function openStockInZoneDropdown(targetInputId, targetChevronId) {
+      // បិទដាច់ខាតមិនឱ្យលោតផ្ទាំង Zone ពេលកំពុងផ្ទៀងផ្ទាត់ Error ឬកំពុងបង្ហាញ Alert ជូនដំណឹង
+      if (window._suppressZoneDropdown) {
+        return;
+      }
+      if (typeof Swal !== 'undefined' && Swal.isVisible && Swal.isVisible()) {
+        const swalModal = Swal.getPopup();
+        const editZoneInSwal = swalModal ? swalModal.querySelector('#swalEditZone') : null;
+        if (!editZoneInSwal || (targetInputId !== 'swalEditZone' && currentZonePickerTargetInputId !== 'swalEditZone')) {
+          return;
+        }
+      }
+
       if (targetInputId) {
         currentZonePickerTargetInputId = targetInputId;
       } else {
@@ -17854,6 +17866,11 @@ function saveLocalUsersToStorage() {
       }
 
       const dropdown = ensureStockInZoneDropdown();
+      if (currentZonePickerTargetInputId === 'swalEditZone') {
+        dropdown.style.zIndex = '99999';
+      } else {
+        dropdown.style.zIndex = '1000';
+      }
       renderStockInZoneDropdownContent();
       dropdown.classList.remove('hidden');
       positionStockInZoneDropdown();
@@ -17885,6 +17902,14 @@ function saveLocalUsersToStorage() {
       if (e) {
         e.preventDefault();
         e.stopPropagation();
+      }
+      if (window._suppressZoneDropdown) return;
+      if (typeof Swal !== 'undefined' && Swal.isVisible && Swal.isVisible()) {
+        const swalModal = Swal.getPopup();
+        const editZoneInSwal = swalModal ? swalModal.querySelector('#swalEditZone') : null;
+        if (!editZoneInSwal || (targetInputId !== 'swalEditZone' && currentZonePickerTargetInputId !== 'swalEditZone')) {
+          return;
+        }
       }
       if (targetInputId) currentZonePickerTargetInputId = targetInputId;
       if (targetChevronId !== undefined) currentZonePickerTargetChevronId = targetChevronId;
@@ -19382,6 +19407,9 @@ function saveLocalUsersToStorage() {
         });
         return;
       }
+      if (typeof closeStockInZoneDropdown === 'function') {
+        closeStockInZoneDropdown();
+      }
       clearStockInFieldErrors();
 
       const docNo = document.getElementById('stockInDocNo')?.value.trim() || generateStockInDocNo();
@@ -19450,17 +19478,49 @@ function saveLocalUsersToStorage() {
       }
 
       if (hasError) {
+        window._suppressZoneDropdown = true;
+        if (typeof closeStockInZoneDropdown === 'function') {
+          closeStockInZoneDropdown();
+        }
         const firstErr = document.querySelector('#stockInForm .has-stock-error');
         if (firstErr) {
           firstErr.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          firstErr.focus();
+          if (firstErr.id !== 'stockInZone') {
+            try {
+              firstErr.focus({ preventScroll: true });
+            } catch (err) {
+              firstErr.focus();
+            }
+          }
+        }
+        if (typeof closeStockInZoneDropdown === 'function') {
+          closeStockInZoneDropdown();
         }
         Swal.fire({
           icon: 'warning',
           title: 'មិនអាចរក្សាទុកបានទេ!',
           text: 'សូមពិនិត្យមើលប្រអប់ដែលមានអក្សរ និងបន្ទាត់ពណ៌ក្រហម ហើយបំពេញព័ត៌មានឱ្យបានគ្រប់ជ្រុងជ្រោយ!',
           confirmButtonColor: '#046c4e',
-          confirmButtonText: 'យល់ព្រម'
+          confirmButtonText: 'យល់ព្រម',
+          returnFocus: false,
+          willOpen: () => {
+            if (typeof closeStockInZoneDropdown === 'function') {
+              closeStockInZoneDropdown();
+            }
+          },
+          didOpen: () => {
+            if (typeof closeStockInZoneDropdown === 'function') {
+              closeStockInZoneDropdown();
+            }
+          },
+          didClose: () => {
+            if (typeof closeStockInZoneDropdown === 'function') {
+              closeStockInZoneDropdown();
+            }
+            setTimeout(() => {
+              window._suppressZoneDropdown = false;
+            }, 300);
+          }
         });
         return;
       }
@@ -21662,9 +21722,40 @@ function saveLocalUsersToStorage() {
 
       const zone = document.getElementById('receiveDispatchZone')?.value.trim();
       if (!zone) {
-        Swal.fire('សូមជ្រើសរើសតំបន់ស្តុក', 'សូមជ្រើសរើស ឬវាយបញ្ចូលតំបន់ស្តុក (ZONE) ដែលត្រូវដាក់ទំនិញចូល!', 'warning');
+        window._suppressZoneDropdown = true;
+        if (typeof closeStockInZoneDropdown === 'function') {
+          closeStockInZoneDropdown();
+        }
         const zInp = document.getElementById('receiveDispatchZone');
-        if (zInp) { zInp.focus(); zInp.classList.add('ring-2', 'ring-rose-500'); }
+        if (zInp) {
+          zInp.classList.add('ring-2', 'ring-rose-500');
+        }
+        Swal.fire({
+          icon: 'warning',
+          title: 'សូមជ្រើសរើសតំបន់ស្តុក',
+          text: 'សូមជ្រើសរើស ឬវាយបញ្ចូលតំបន់ស្តុក (ZONE) ដែលត្រូវដាក់ទំនិញចូល!',
+          confirmButtonColor: '#046c4e',
+          confirmButtonText: 'យល់ព្រម',
+          returnFocus: false,
+          willOpen: () => {
+            if (typeof closeStockInZoneDropdown === 'function') {
+              closeStockInZoneDropdown();
+            }
+          },
+          didOpen: () => {
+            if (typeof closeStockInZoneDropdown === 'function') {
+              closeStockInZoneDropdown();
+            }
+          },
+          didClose: () => {
+            if (typeof closeStockInZoneDropdown === 'function') {
+              closeStockInZoneDropdown();
+            }
+            setTimeout(() => {
+              window._suppressZoneDropdown = false;
+            }, 300);
+          }
+        });
         return;
       }
 
