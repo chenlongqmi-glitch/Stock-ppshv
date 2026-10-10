@@ -84,6 +84,7 @@ function onOpen(e) {
   try {
     const ui = SpreadsheetApp.getUi();
     ui.createMenu('📦 ប្រព័ន្ធគ្រប់គ្រងស្តុក')
+      .addItem('🔄 តម្រឹមជួរឈរ Transactions (12 ជួរឈរស្តង់ដារ)', 'standardizeAndFormatTransactionsSheet')
       .addItem('🔄 តម្រឹមជួរឈរ Stock_out (17 ជួរឈរស្តង់ដារ)', 'standardizeAndFormatStockOutSheet')
       .addItem('🔄 តម្រឹមជួរឈរ Stock_in (17 ជួរឈរស្តង់ដារ)', 'standardizeAndFormatStockInSheet')
       .addSeparator()
@@ -788,6 +789,10 @@ function executeLocalApiAction(req) {
         return { success: true, rows: vals };
       }
 
+      case 'standardizeTransactionsSheet': {
+        return standardizeAndFormatTransactionsSheet();
+      }
+
       case 'standardizeStockInSheet': {
         return standardizeAndFormatStockInSheet();
       }
@@ -1140,13 +1145,9 @@ function setupDatabase() {
   if (txSheet.getLastRow() === 0) {
 
     const headers = [
-
       'TxID', 'Date', 'Type', 'SKU', 'ItemName',
-
-      'Quantity', 'Unit', 'UnitPrice', 'TotalAmount',
-
+      'Quantity', 'Unit',
       'FromLocation', 'ToLocation', 'Reason_Notes', 'User', 'Timestamp'
-
     ];
 
     txSheet.appendRow(headers);
@@ -1579,6 +1580,19 @@ function ensureStockSheetsInitialized(ss) {
       }
     }
   } catch(eShift) {}
+
+  // ស្វ័យប្រវត្តិកែសម្រួល និងតម្រឹមជួរឈរ Sheet Transactions បើពិនិត្យឃើញថាមាន UnitPrice / TotalAmount ឬមិនទាន់គ្រប់ 12 columns ស្តង់ដារ
+  try {
+    const txSheet = ss.getSheetByName(SHEETS.TRANSACTIONS);
+    if (txSheet && txSheet.getLastRow() >= 1) {
+      const txHRow = txSheet.getRange(1, 1, 1, Math.max(1, txSheet.getLastColumn())).getValues()[0] || [];
+      const hasTxUnitPrice = txHRow.some(h => String(h || '').toLowerCase().includes('unitprice') || String(h || '').includes('តម្លៃ'));
+      const hasTxTotal = txHRow.some(h => String(h || '').toLowerCase().includes('totalamount') || String(h || '').includes('សរុប'));
+      if (hasTxUnitPrice || hasTxTotal || txHRow.length !== 12) {
+        standardizeAndFormatTransactionsSheet(ss);
+      }
+    }
+  } catch(eTxStd) {}
 
   return { stockInSheet: stockInSheet, stockOutSheet: stockOutSheet };
 }
@@ -6170,12 +6184,22 @@ function repairStockInWarehouses(optSs) {
     const txSheet = ss.getSheetByName(SHEETS.TRANSACTIONS);
     if (txSheet && txSheet.getLastRow() > 1) {
       const txData = txSheet.getDataRange().getValues();
+      const txHeaders = (txData[0] || []).map(h => String(h || '').trim().toLowerCase());
+      const idxType = txHeaders.indexOf('type') >= 0 ? txHeaders.indexOf('type') : 2;
+      const idxFrom = txHeaders.indexOf('fromlocation') >= 0 ? txHeaders.indexOf('fromlocation') : (txHeaders.indexOf('from') >= 0 ? txHeaders.indexOf('from') : 7);
+      const idxTo = txHeaders.indexOf('tolocation') >= 0 ? txHeaders.indexOf('tolocation') : (txHeaders.indexOf('to') >= 0 ? txHeaders.indexOf('to') : 8);
+
       for (let i = 1; i < txData.length; i++) {
-        const type = String(txData[i][2] || '').toUpperCase();
+        const type = String(txData[i][idxType] || '').toUpperCase();
         if (type === 'STOCK_IN') {
-          const toLoc = String(txData[i][10] || '').trim();
-          if (!toLoc || toLoc === '-' || /^\d+$/.test(toLoc) || toLoc.toUpperCase() === 'ALL') {
-            txSheet.getRange(i + 1, 11).setValue('中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)');
+          const fromLoc = String(txData[i][idxFrom] || '').trim();
+          if (!fromLoc || fromLoc.startsWith('Doc:') || fromLoc.includes('Admin') || /^\d+$/.test(fromLoc)) {
+            txSheet.getRange(i + 1, idxFrom + 1).setValue('អ្នកផ្គត់ផ្គង់ (Supplier)');
+            fixedCount++;
+          }
+          const toLoc = String(txData[i][idxTo] || '').trim();
+          if (!toLoc || toLoc === '-' || /^\d+$/.test(toLoc) || toLoc.toUpperCase() === 'ALL' || toLoc === 'គ្រប់ស្ថានីយទាំងអស់' || toLoc === 'គ្រប់ឃ្លាំង') {
+            txSheet.getRange(i + 1, idxTo + 1).setValue('中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)');
             fixedCount++;
           }
         }
@@ -6779,51 +6803,51 @@ function recordStockAdjustment(dataOrPayload, user) {
 
 
 function recordTransactionInternal(ss, tx) {
-
   const sheet = ss.getSheetByName(SHEETS.TRANSACTIONS);
+  if (!sheet) return { success: false };
 
-  const txId = 'TX-' + Utilities.formatDate(new Date(), 'GMT+7', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 900 + 100);
-
+  const txId = tx.txId || ('TX-' + Utilities.formatDate(new Date(), 'GMT+7', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 900 + 100));
   const now = new Date();
+  const dStr = tx.date || Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd');
 
+  let fromLoc = tx.fromLocation || '';
+  let toLoc = tx.toLocation || '';
 
+  if (tx.type === 'STOCK_IN') {
+    if (!fromLoc || fromLoc.startsWith('Doc:') || fromLoc === '-' || /^\d+$/.test(fromLoc) || fromLoc.includes('Admin')) {
+      fromLoc = 'អ្នកផ្គត់ផ្គង់ (Supplier)';
+    }
+    if (!toLoc || toLoc === '-' || toLoc === 'ALL' || toLoc === 'គ្រប់ស្ថានីយទាំងអស់' || toLoc === 'គ្រប់ឃ្លាំង' || /^\d+$/.test(toLoc)) {
+      toLoc = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+    }
+    toLoc = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(toLoc) : toLoc;
+  } else if (tx.type === 'STOCK_OUT') {
+    if (!fromLoc || fromLoc === '-' || /^\d+$/.test(fromLoc) || fromLoc.includes('Admin') || fromLoc.startsWith('Doc:')) {
+      fromLoc = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+    }
+    fromLoc = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(fromLoc) : fromLoc;
+    if (!toLoc || toLoc === '-' || /^\d+$/.test(toLoc)) toLoc = 'អតិថិជន/ដកប្រើប្រាស់';
+  } else if (tx.type === 'TRANSFER') {
+    if (!fromLoc) fromLoc = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+    if (!toLoc) toLoc = 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
+  }
 
   sheet.appendRow([
-
     txId,
-
-    Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd'),
-
+    dStr,
     tx.type,
-
     tx.sku,
-
     tx.itemName,
-
     tx.quantity,
-
     tx.unit,
-
-    tx.unitPrice,
-
-    tx.totalAmount,
-
-    tx.fromLocation,
-
-    tx.toLocation,
-
+    fromLoc,
+    toLoc,
     tx.notes,
-
     tx.user,
-
     now
-
   ]);
 
-
-
   return { txId: txId };
-
 }
 
 
@@ -6923,10 +6947,11 @@ function syncSheetsTransactionsInternal(ss, targetType) {
           const unitPrice = idxPrice >= 0 ? Number(row[idxPrice] || 0) : 0;
           const totalAmount = idxTotal >= 0 ? Number(row[idxTotal] || 0) : (qty * unitPrice);
           let wh = String((idxWh >= 0 ? row[idxWh] : '') || '').trim();
-          if (!wh || wh === '-' || /^\d+$/.test(wh) || wh.toUpperCase() === 'ALL') {
+          if (!wh || wh === '-' || /^\d+$/.test(wh) || wh.toUpperCase() === 'ALL' || wh === 'គ្រប់ស្ថានីយទាំងអស់' || wh === 'គ្រប់ឃ្លាំង') {
             wh = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
           }
           wh = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(wh) : wh;
+          if (wh === 'ALL' || wh === 'គ្រប់ស្ថានីយទាំងអស់' || wh === 'គ្រប់ឃ្លាំង') wh = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
           const recBy = String(row[idxRecBy] || '');
           const notesRaw = String(row[idxNotes] || '');
           const userStr = String(row[idxUser] || 'Admin');
@@ -6941,6 +6966,8 @@ function syncSheetsTransactionsInternal(ss, targetType) {
             notesRaw
           ].filter(Boolean).join(' ');
 
+          const fromLoc = 'អ្នកផ្គត់ផ្គង់ (Supplier)';
+
           newTxRows.push([
             txId,
             dStr || Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd'),
@@ -6949,9 +6976,7 @@ function syncSheetsTransactionsInternal(ss, targetType) {
             iName,
             qty,
             unit,
-            unitPrice,
-            totalAmount,
-            docNo ? `Doc: ${docNo}` : 'Supplier',
+            fromLoc,
             wh,
             formattedNotes,
             userStr,
@@ -7089,8 +7114,6 @@ function syncSheetsTransactionsInternal(ss, targetType) {
             iName,
             qty,
             unit,
-            unitPrice,
-            totalAmount,
             fromLoc,
             toLoc,
             formattedNotes,
@@ -7510,6 +7533,22 @@ function getTransactionHistory(filtersOrPayload, userParam) {
   } catch(eItm) {}
 
   const data = sheet.getDataRange().getValues();
+  const txHeaders = (data[0] || []).map(h => String(h || '').trim().toLowerCase());
+  const idxTxId = txHeaders.indexOf('txid') >= 0 ? txHeaders.indexOf('txid') : 0;
+  const idxDate = txHeaders.indexOf('date') >= 0 ? txHeaders.indexOf('date') : 1;
+  const idxType = txHeaders.indexOf('type') >= 0 ? txHeaders.indexOf('type') : 2;
+  const idxSku = txHeaders.indexOf('sku') >= 0 ? txHeaders.indexOf('sku') : 3;
+  const idxName = txHeaders.indexOf('itemname') >= 0 ? txHeaders.indexOf('itemname') : 4;
+  const idxQty = txHeaders.indexOf('quantity') >= 0 ? txHeaders.indexOf('quantity') : 5;
+  const idxUnit = txHeaders.indexOf('unit') >= 0 ? txHeaders.indexOf('unit') : 6;
+  const idxFrom = txHeaders.indexOf('fromlocation') >= 0 ? txHeaders.indexOf('fromlocation') : (txHeaders.indexOf('from') >= 0 ? txHeaders.indexOf('from') : 7);
+  const idxTo = txHeaders.indexOf('tolocation') >= 0 ? txHeaders.indexOf('tolocation') : (txHeaders.indexOf('to') >= 0 ? txHeaders.indexOf('to') : 8);
+  const idxNotes = txHeaders.indexOf('reason_notes') >= 0 ? txHeaders.indexOf('reason_notes') : (txHeaders.indexOf('notes') >= 0 ? txHeaders.indexOf('notes') : 9);
+  const idxUser = txHeaders.indexOf('user') >= 0 ? txHeaders.indexOf('user') : 10;
+  const idxTs = txHeaders.indexOf('timestamp') >= 0 ? txHeaders.indexOf('timestamp') : 11;
+  const idxPrice = txHeaders.indexOf('unitprice');
+  const idxTotal = txHeaders.indexOf('totalamount');
+
   const transactions = [];
 
   let targetWarehouse = null;
@@ -7521,15 +7560,15 @@ function getTransactionHistory(filtersOrPayload, userParam) {
 
   for (let i = data.length - 1; i >= 1; i--) {
     const row = data[i];
-    if (!row[0]) continue;
-    const rawTxId = String(row[0]).trim().toUpperCase();
-    const rawNotesCheck = String(row[11] || '').toLowerCase();
+    if (!row[0] && !row[idxSku]) continue;
+    const rawTxId = String(row[idxTxId] || '').trim().toUpperCase();
+    const rawNotesCheck = String(row[idxNotes] || '').toLowerCase();
     if (rawTxId.startsWith('TEST-') || rawNotesCheck.includes('test auto sync') || rawNotesCheck.includes('test-doc')) {
       continue;
     }
 
-    const fromLoc = String(row[9] || '');
-    let toLoc = String(row[10] || '');
+    const fromLoc = String(row[idxFrom] || '');
+    let toLoc = String(row[idxTo] || '');
     if (/^\d+$/.test(toLoc.trim())) {
       toLoc = 'គ្រប់ស្ថានីយទាំងអស់';
     }
@@ -7543,21 +7582,21 @@ function getTransactionHistory(filtersOrPayload, userParam) {
 
     let txDate = '';
     try {
-      if (row[1] instanceof Date) {
-        txDate = Utilities.formatDate(row[1], 'GMT+7', 'yyyy-MM-dd');
-      } else if (row[1]) {
-        const d = new Date(row[1]);
+      if (row[idxDate] instanceof Date) {
+        txDate = Utilities.formatDate(row[idxDate], 'GMT+7', 'yyyy-MM-dd');
+      } else if (row[idxDate]) {
+        const d = new Date(row[idxDate]);
         if (!isNaN(d.getTime())) {
           txDate = Utilities.formatDate(d, 'GMT+7', 'yyyy-MM-dd');
         } else {
-          txDate = String(row[1]).slice(0, 10);
+          txDate = String(row[idxDate]).slice(0, 10);
         }
       }
     } catch(e) {
-      txDate = String(row[1] || '').slice(0, 10);
+      txDate = String(row[idxDate] || '').slice(0, 10);
     }
 
-    const txType = String(row[2] || '').toUpperCase();
+    const txType = String(row[idxType] || '').toUpperCase();
 
     if (filters.startDate && txDate < filters.startDate) continue;
     if (filters.endDate && txDate > filters.endDate) continue;
@@ -7565,31 +7604,31 @@ function getTransactionHistory(filtersOrPayload, userParam) {
 
     if (filters.search) {
       const q = filters.search.toLowerCase();
-      const match = String(row[3]).toLowerCase().includes(q) ||
-        String(row[4]).toLowerCase().includes(q) ||
-        String(row[0]).toLowerCase().includes(q) ||
-        String(row[11] || '').toLowerCase().includes(q);
+      const match = String(row[idxSku] || '').toLowerCase().includes(q) ||
+        String(row[idxName] || '').toLowerCase().includes(q) ||
+        String(row[idxTxId] || '').toLowerCase().includes(q) ||
+        String(row[idxNotes] || '').toLowerCase().includes(q);
       if (!match) continue;
     }
 
-    const rawNotes = String(row[11] || '');
+    const rawNotes = String(row[idxNotes] || '');
     let docNo = (rawNotes.match(/\[(?:ឯកសារ|Doc|DocNo):\s*([^\]]+)\]/i) || [])[1] || '';
     if (!docNo) {
       const fromMatch = fromLoc.match(/Doc:\s*([^,\s]+)/i);
       if (fromMatch) docNo = fromMatch[1];
     }
-    if (!docNo) docNo = String(row[0]);
+    if (!docNo) docNo = String(row[idxTxId] || '');
 
     let size = (rawNotes.match(/\[(?:ខ្នាត|Size):\s*([^\]]+)\]/i) || [])[1] || '';
     let color = (rawNotes.match(/\[(?:ពណ៌|Color):\s*([^\]]+)\]/i) || [])[1] || '';
     let zone = (rawNotes.match(/\[(?:តំបន់|Zone):\s*([^\]]+)\]/i) || [])[1] || '';
-    let receiver = (rawNotes.match(/\[(?:អ្នកទទួល|Receiver):\s*([^\]]+)\]/i) || [])[1] || (String(row[12]) || 'Staff');
-    let issuer = (rawNotes.match(/\[(?:អ្នកបើកចេញ|អ្នកបើក|Issuer):\s*([^\]]+)\]/i) || [])[1] || (String(row[12]) || 'Staff');
+    let receiver = (rawNotes.match(/\[(?:អ្នកទទួល|Receiver):\s*([^\]]+)\]/i) || [])[1] || (String(row[idxUser] || '') || 'Staff');
+    let issuer = (rawNotes.match(/\[(?:អ្នកបើកចេញ|អ្នកបើក|Issuer):\s*([^\]]+)\]/i) || [])[1] || (String(row[idxUser] || '') || 'Staff');
 
     // Cross-reference Stock_in sheet metadata
     let sMeta = null;
     if (txType === 'STOCK_IN') {
-      sMeta = stockInMetaMap[docNo.toUpperCase()] || stockInMetaMap[String(row[0]).toUpperCase()] || stockInMetaMap['SKU_' + String(row[3] || '').trim().toLowerCase()];
+      sMeta = stockInMetaMap[docNo.toUpperCase()] || stockInMetaMap[String(row[idxTxId] || '').toUpperCase()] || stockInMetaMap['SKU_' + String(row[idxSku] || '').trim().toLowerCase()];
       if (sMeta) {
         if (!size && sMeta.size) size = sMeta.size;
         if (!color && sMeta.color) color = sMeta.color;
@@ -7599,7 +7638,7 @@ function getTransactionHistory(filtersOrPayload, userParam) {
     }
 
     // Fallback to Items catalog metadata
-    const itmMeta = itemsMetaMap[String(row[3] || '').trim().toLowerCase()];
+    const itmMeta = itemsMetaMap[String(row[idxSku] || '').trim().toLowerCase()];
     if (itmMeta) {
       if (!size && itmMeta.size) size = itmMeta.size;
       if (!color && itmMeta.color) color = itmMeta.color;
@@ -7627,36 +7666,36 @@ function getTransactionHistory(filtersOrPayload, userParam) {
       }
     }
 
-    if (txOldStock === null && (docNo === 'DOC-IN-20260930-2295' || String(row[3]) === 'SKU-2021')) {
+    if (txOldStock === null && (docNo === 'DOC-IN-20260930-2295' || String(row[idxSku]) === 'SKU-2021')) {
       txOldStock = 0;
       txNewStock = 2;
     }
 
     transactions.push({
-      txId: String(row[0]),
+      txId: String(row[idxTxId] || ''),
       docNo: docNo,
       date: txDate,
       type: txType,
-      sku: String(row[3]),
-      itemName: String(row[4]),
-      quantity: Number(row[5] || 0),
-      unit: String(row[6] || 'ដុំ'),
+      sku: String(row[idxSku] || ''),
+      itemName: String(row[idxName] || ''),
+      quantity: Number(row[idxQty] || 0),
+      unit: String(row[idxUnit] || 'ដុំ'),
       oldStock: txOldStock,
       newStock: txNewStock,
-      unitPrice: Number(row[7] || 0),
-      totalAmount: Number(row[8] || 0),
+      unitPrice: (idxPrice >= 0 && Number(row[idxPrice])) ? Number(row[idxPrice]) : 0,
+      totalAmount: (idxTotal >= 0 && Number(row[idxTotal])) ? Number(row[idxTotal]) : 0,
       fromLocation: fromLoc,
       toLocation: toLoc,
       notes: cleanDisplayNoteGAS(rawNotes),
       userNote: cleanDisplayNoteGAS(rawNotes),
       rawNotes: rawNotes,
-      user: String(row[12] || ''),
+      user: String(row[idxUser] || ''),
       receivedBy: receiver,
       issuer: issuer,
       size: size,
       color: color,
       zone: zone,
-      timestamp: row[13] || txDate
+      timestamp: row[idxTs] || txDate
     });
 
     if (transactions.length >= (filters.limit || 200)) break;
@@ -7702,12 +7741,15 @@ function deleteStockTransaction(payloadOrData, user) {
 
   // 2. Delete row from Transactions sheet
   const txSheet = ss.getSheetByName(SHEETS.TRANSACTIONS);
-  if (txSheet) {
+  if (txSheet && txSheet.getLastRow() > 1) {
     const txRows = txSheet.getDataRange().getValues();
+    const txHeaders = (txRows[0] || []).map(h => String(h || '').trim().toLowerCase());
+    const idxTxId = txHeaders.indexOf('txid') >= 0 ? txHeaders.indexOf('txid') : 0;
+    const idxTxNotes = txHeaders.indexOf('reason_notes') >= 0 ? txHeaders.indexOf('reason_notes') : (txHeaders.indexOf('notes') >= 0 ? txHeaders.indexOf('notes') : 9);
     for (let i = txRows.length - 1; i >= 1; i--) {
-      const rTxId = String(txRows[i][0]).trim();
-      const rNotes = String(txRows[i][11] || '');
-      if ((txId && rTxId === txId) || (docNo && (rTxId === docNo || rNotes.includes(docNo)))) {
+      const rTxId = String(txRows[i][idxTxId] || '').trim();
+      const rNotes = String(txRows[i][idxTxNotes] || '');
+      if ((txId && rTxId.toLowerCase() === txId.toLowerCase()) || (docNo && (rTxId.toLowerCase() === docNo.toLowerCase() || rNotes.toLowerCase().includes(docNo.toLowerCase())))) {
         txSheet.deleteRow(i + 1);
         break;
       }
@@ -7794,11 +7836,14 @@ function updateStockTransaction(payloadOrData, user) {
   const txSheet = ss.getSheetByName(SHEETS.TRANSACTIONS);
   if (txSheet && txSheet.getLastRow() > 1) {
     const txRows = txSheet.getDataRange().getValues();
-    const idxTxId = 0;
-    const idxTxDate = 1;
-    const idxTxQty = 5;
-    const idxTxTo = 10;
-    const idxTxNotes = 11;
+    const txHeaders = (txRows[0] || []).map(h => String(h || '').trim().toLowerCase());
+    const idxTxId = txHeaders.indexOf('txid') >= 0 ? txHeaders.indexOf('txid') : 0;
+    const idxTxDate = txHeaders.indexOf('date') >= 0 ? txHeaders.indexOf('date') : 1;
+    const idxTxQty = txHeaders.indexOf('quantity') >= 0 ? txHeaders.indexOf('quantity') : 5;
+    const idxTxFrom = txHeaders.indexOf('fromlocation') >= 0 ? txHeaders.indexOf('fromlocation') : (txHeaders.indexOf('from') >= 0 ? txHeaders.indexOf('from') : 7);
+    const idxTxTo = txHeaders.indexOf('tolocation') >= 0 ? txHeaders.indexOf('tolocation') : (txHeaders.indexOf('to') >= 0 ? txHeaders.indexOf('to') : 8);
+    const idxTxNotes = txHeaders.indexOf('reason_notes') >= 0 ? txHeaders.indexOf('reason_notes') : (txHeaders.indexOf('notes') >= 0 ? txHeaders.indexOf('notes') : 9);
+    const idxTxUser = txHeaders.indexOf('user') >= 0 ? txHeaders.indexOf('user') : 10;
 
     for (let i = 1; i < txRows.length; i++) {
       const rTxId = String(txRows[i][idxTxId] || '').trim();
@@ -7807,10 +7852,11 @@ function updateStockTransaction(payloadOrData, user) {
                       (docNo && (rTxId.toLowerCase() === docNo.toLowerCase() || rNotes.toLowerCase().includes(docNo.toLowerCase())));
       if (isMatch) {
         const rowNum = i + 1;
-        if (data.newQuantity !== undefined) txSheet.getRange(rowNum, idxTxQty + 1).setValue(newQty);
-        if (data.toLocation) txSheet.getRange(rowNum, idxTxTo + 1).setValue(data.toLocation);
-        if (data.date) txSheet.getRange(rowNum, idxTxDate + 1).setValue(data.date);
-        if (data.issuer || data.user || data.receivedBy) txSheet.getRange(rowNum, 13).setValue(data.issuer || data.user || data.receivedBy);
+        if (data.newQuantity !== undefined && idxTxQty >= 0) txSheet.getRange(rowNum, idxTxQty + 1).setValue(newQty);
+        if (data.fromLocation && idxTxFrom >= 0) txSheet.getRange(rowNum, idxTxFrom + 1).setValue(data.fromLocation);
+        if (data.toLocation && idxTxTo >= 0) txSheet.getRange(rowNum, idxTxTo + 1).setValue(data.toLocation);
+        if (data.date && idxTxDate >= 0) txSheet.getRange(rowNum, idxTxDate + 1).setValue(data.date);
+        if ((data.issuer || data.user || data.receivedBy) && idxTxUser >= 0) txSheet.getRange(rowNum, idxTxUser + 1).setValue(data.issuer || data.user || data.receivedBy);
 
         // Preserve and re-format metadata tags in Transactions sheet Reason_Notes column
         const existingTxDoc = docNo || (rNotes.match(/\[(?:ឯកសារ|Doc|DocNo):\s*([^\]]+)\]/i) || [])[1] || rTxId;
@@ -10033,6 +10079,377 @@ function standardizeAndFormatStockOutSheet(optSs) {
   CacheService.getScriptCache().removeAll(['TX_SHEETS_SYNC_ALL', 'TX_SHEETS_SYNC_STOCK_OUT']);
 
   return { success: true, message: 'Stock_out sheet standardized to 17 columns with From (បញ្ជូនមកពីចុងស៊ីន) and clean Notes!' };
+}
+
+/**
+ * 🔄 តម្រឹមជួរឈរ Transactions (12 ជួរឈរស្តង់ដារ)
+ * - លុប UnitPrice និង TotalAmount ចេញ (តាមការស្នើសុំរបស់អ្នកប្រើប្រាស់)
+ * - កែសម្រួល FromLocation និង ToLocation ឲ្យត្រឹមត្រូវ ១០០%
+ *   + STOCK_IN: FromLocation = "អ្នកផ្គត់ផ្គង់ (Supplier)", ToLocation = ឃ្លាំងជាក់ស្តែង (ឧ. "中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)")
+ *   + STOCK_OUT: FromLocation = ឃ្លាំងដើម (ឧ. "中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)"), ToLocation = ស្ថានីយ/អតិថិជន (ឧ. "K3 ស្ថានីយ...", "K182 ស្ថានីយ...")
+ */
+function standardizeAndFormatTransactionsSheet(optSs) {
+  let ss = optSs;
+  if (!ss) {
+    try { ss = SpreadsheetApp.getActiveSpreadsheet(); } catch (e) {}
+  }
+  if (!ss) {
+    try { ss = SpreadsheetApp.openById('1zIK2d2uF3EYzaM9f4N2eOzR-HAmBihfxfHzK3xdgV_A'); } catch (e) {}
+  }
+  if (!ss) return { success: false, message: 'Could not access spreadsheet' };
+
+  let txSheet = ss.getSheetByName(SHEETS.TRANSACTIONS);
+  if (!txSheet) {
+    txSheet = ss.insertSheet(SHEETS.TRANSACTIONS);
+  }
+
+  // Standard 12 Columns (UnitPrice & TotalAmount completely REMOVED)
+  const transactionsHeaders = [
+    'TxID', 'Date', 'Type', 'SKU', 'ItemName',
+    'Quantity', 'Unit',
+    'FromLocation', 'ToLocation',
+    'Reason_Notes', 'User', 'Timestamp'
+  ];
+
+  // 1. Build lookup maps from Stock_in and Stock_out sheets for 100% accurate From/To Locations
+  const stockInMap = {};
+  const stockOutMap = {};
+
+  try {
+    const sInSheet = ss.getSheetByName('Stock_in') || ss.getSheetByName(SHEETS.STOCK_IN);
+    if (sInSheet && sInSheet.getLastRow() > 1) {
+      const inData = sInSheet.getDataRange().getValues();
+      const inHeaders = (inData[0] || []).map(h => String(h || '').trim().toLowerCase());
+      const inDocIdx = inHeaders.indexOf('docno') >= 0 ? inHeaders.indexOf('docno') : 0;
+      const inSkuIdx = inHeaders.indexOf('sku') >= 0 ? inHeaders.indexOf('sku') : 2;
+      const inQtyIdx = inHeaders.indexOf('quantity') >= 0 ? inHeaders.indexOf('quantity') : 7;
+      const inWhIdx = inHeaders.indexOf('warehouse') >= 0 ? inHeaders.indexOf('warehouse') : 12;
+      const inRecIdx = inHeaders.indexOf('receivedby') >= 0 ? inHeaders.indexOf('receivedby') : 13;
+      const inNotesIdx = inHeaders.indexOf('notes') >= 0 ? inHeaders.indexOf('notes') : 14;
+
+      for (let r = 1; r < inData.length; r++) {
+        const row = inData[r];
+        const doc = String(row[inDocIdx] || '').trim().toUpperCase();
+        const sku = String(row[inSkuIdx] || '').trim().toLowerCase();
+        const qty = Number(row[inQtyIdx] || 0);
+        let wh = String(row[inWhIdx] || '').trim();
+        if (!wh || wh === '-' || /^\d+$/.test(wh) || wh === 'ALL' || wh === 'គ្រប់ស្ថានីយទាំងអស់' || wh === 'គ្រប់ឃ្លាំង') {
+          wh = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+        } else {
+          wh = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(wh) : wh;
+          if (wh === 'ALL' || wh === 'គ្រប់ស្ថានីយទាំងអស់' || wh === 'គ្រប់ឃ្លាំង') wh = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+        }
+        const obj = { warehouse: wh, receivedBy: String(row[inRecIdx] || '').trim(), notes: String(row[inNotesIdx] || '').trim() };
+        if (doc) stockInMap[doc] = obj;
+        if (sku) stockInMap[sku + '_' + qty] = obj;
+      }
+    }
+  } catch(eIn) {}
+
+  try {
+    const sOutSheet = ss.getSheetByName('Stock_out') || ss.getSheetByName(SHEETS.STOCK_OUT);
+    if (sOutSheet && sOutSheet.getLastRow() > 1) {
+      const outData = sOutSheet.getDataRange().getValues();
+      const outHeaders = (outData[0] || []).map(h => String(h || '').trim().toLowerCase());
+      const outDocIdx = outHeaders.indexOf('docno') >= 0 ? outHeaders.indexOf('docno') : 0;
+      const outSkuIdx = outHeaders.indexOf('sku') >= 0 ? outHeaders.indexOf('sku') : 2;
+      const outQtyIdx = outHeaders.indexOf('quantity') >= 0 ? outHeaders.indexOf('quantity') : 7;
+      const outFromIdx = outHeaders.indexOf('from') >= 0 ? outHeaders.indexOf('from') : 12;
+      const outToIdx = outHeaders.indexOf('tolocation') >= 0 ? outHeaders.indexOf('tolocation') : 13;
+      const outNotesIdx = outHeaders.indexOf('notes') >= 0 ? outHeaders.indexOf('notes') : 14;
+      const outUserIdx = outHeaders.indexOf('user') >= 0 ? outHeaders.indexOf('user') : 15;
+
+      for (let r = 1; r < outData.length; r++) {
+        const row = outData[r];
+        const doc = String(row[outDocIdx] || '').trim().toUpperCase();
+        const sku = String(row[outSkuIdx] || '').trim().toLowerCase();
+        const qty = Number(row[outQtyIdx] || 0);
+        let fromLoc = String(row[outFromIdx] || '').trim();
+        if (!fromLoc || fromLoc === '-' || /^\d+$/.test(fromLoc) || fromLoc.includes('Admin') || fromLoc.startsWith('Doc:')) {
+          fromLoc = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+        } else {
+          fromLoc = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(fromLoc) : fromLoc;
+        }
+        let toLoc = String(row[outToIdx] || '').trim();
+        if (!toLoc || toLoc === '-' || /^\d+$/.test(toLoc)) {
+          toLoc = 'អតិថិជន/ដកប្រើប្រាស់';
+        }
+        const obj = { fromLocation: fromLoc, toLocation: toLoc, notes: String(row[outNotesIdx] || '').trim(), user: String(row[outUserIdx] || '').trim() };
+        if (doc) stockOutMap[doc] = obj;
+        if (sku) stockOutMap[sku + '_' + qty] = obj;
+      }
+    }
+  } catch(eOut) {}
+
+  // 2. Read existing rows in Transactions sheet and transform
+  const cleanRows = [];
+  if (txSheet.getLastRow() > 1) {
+    const rawData = txSheet.getDataRange().getValues();
+    const headers = (rawData[0] || []).map(h => String(h || '').trim().toLowerCase());
+
+    const findHIdx = (keywords, defIdx) => {
+      const idx = headers.findIndex(h => keywords.some(k => h === k || h.includes(k)));
+      return idx >= 0 ? idx : defIdx;
+    };
+
+    const idxTxId = findHIdx(['txid', 'id'], 0);
+    const idxDate = findHIdx(['date', 'កាលបរិច្ឆេទ'], 1);
+    const idxType = findHIdx(['type', 'ប្រភេទ'], 2);
+    const idxSku = findHIdx(['sku', 'កូដ'], 3);
+    const idxName = findHIdx(['itemname', 'item', 'name', 'ឈ្មោះ'], 4);
+    const idxQty = findHIdx(['quantity', 'qty', 'ចំនួន'], 5);
+    const idxUnit = findHIdx(['unit', 'ឯកតា'], 6);
+    const idxFrom = findHIdx(['fromlocation', 'from', 'ចេញពី', 'ប្រភព'], 9);
+    const idxTo = findHIdx(['tolocation', 'to', 'ទៅកាន់', 'គោលដៅ', 'ឃ្លាំង'], 10);
+    const idxNotes = findHIdx(['reason_notes', 'reason', 'notes', 'សម្គាល់'], 11);
+    const idxUser = findHIdx(['user', 'អ្នកប្រើ', 'បុគ្គលិក'], 12);
+    const idxTs = findHIdx(['timestamp', 'ពេល', 'ម៉ោង'], 13);
+
+    for (let r = 1; r < rawData.length; r++) {
+      const row = rawData[r];
+      if (!row || (!row[idxSku] && !row[idxName] && !row[0])) continue;
+
+      let txId = String(row[idxTxId] || ('TX-' + Utilities.formatDate(new Date(), 'GMT+7', 'yyyyMMddHHmmss') + '-' + r)).trim();
+      const sku = String(row[idxSku] || '').trim();
+      const itemName = String(row[idxName] || sku).trim();
+      const txType = String(row[idxType] || 'STOCK_IN').trim().toUpperCase();
+      const qty = Number(row[idxQty] || 0);
+      const unit = String(row[idxUnit] || 'ដុំ').trim();
+
+      // Format Date
+      let dateVal = row[idxDate];
+      let dateStr = '';
+      if (dateVal instanceof Date) {
+        try { dateStr = Utilities.formatDate(dateVal, 'GMT+7', 'yyyy-MM-dd'); } catch(e) {}
+      } else if (dateVal) {
+        try {
+          const pd = new Date(dateVal);
+          if (!isNaN(pd.getTime())) dateStr = Utilities.formatDate(pd, 'GMT+7', 'yyyy-MM-dd');
+          else dateStr = String(dateVal).slice(0, 10);
+        } catch(e) { dateStr = String(dateVal).slice(0, 10); }
+      }
+      if (!dateStr) dateStr = Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd');
+
+      // Format Notes
+      const rawNotes = String(row[idxNotes] || '').trim();
+      let docNo = (rawNotes.match(/\[(?:ឯកសារ|Doc|DocNo):\s*([^\]]+)\]/i) || [])[1] || '';
+      const oldFrom = String(row[idxFrom] || '').trim();
+      if (!docNo) {
+        const fromDocM = oldFrom.match(/Doc:\s*([^,\s]+)/i);
+        if (fromDocM) docNo = fromDocM[1].trim();
+      }
+      if (!docNo && (txId.startsWith('DOC-') || txId.startsWith('IN-') || txId.startsWith('OUT-'))) {
+        docNo = txId;
+      }
+
+      const sInMeta = (docNo && stockInMap[docNo.toUpperCase()]) || stockInMap[sku.toLowerCase() + '_' + qty] || null;
+      const sOutMeta = (docNo && stockOutMap[docNo.toUpperCase()]) || stockOutMap[sku.toLowerCase() + '_' + qty] || null;
+
+      const oldTo = String(row[idxTo] || '').trim();
+
+      // Determine Clean FromLocation & ToLocation
+      let finalFrom = '';
+      let finalTo = '';
+
+      if (txType === 'STOCK_IN') {
+        // STOCK_IN: Origin is Supplier! (NEVER Doc: ..., NEVER User Name, NEVER Number)
+        finalFrom = 'អ្នកផ្គត់ផ្គង់ (Supplier)';
+
+        // Destination is the warehouse
+        if (sInMeta && sInMeta.warehouse && sInMeta.warehouse !== 'ALL' && sInMeta.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
+          finalTo = sInMeta.warehouse;
+        } else if (oldTo && oldTo !== '-' && oldTo !== 'ALL' && oldTo !== 'គ្រប់ស្ថានីយទាំងអស់' && oldTo !== 'គ្រប់ឃ្លាំង' && !/^\d+$/.test(oldTo)) {
+          finalTo = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(oldTo) : oldTo;
+          if (finalTo === 'ALL' || finalTo === 'គ្រប់ស្ថានីយទាំងអស់' || finalTo === 'គ្រប់ឃ្លាំង') {
+            finalTo = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+          }
+        } else {
+          const stMatch = rawNotes.match(/(?:K\d+[^\]\n\r]+)/i);
+          if (stMatch) {
+            finalTo = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(stMatch[0]) : stMatch[0];
+          } else {
+            finalTo = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+          }
+        }
+      } else if (txType === 'STOCK_OUT') {
+        // STOCK_OUT: Origin is Warehouse!
+        if (sOutMeta && sOutMeta.fromLocation) {
+          finalFrom = sOutMeta.fromLocation;
+        } else if (oldFrom && oldFrom !== '-' && !/^\d+$/.test(oldFrom) && !oldFrom.includes('Admin') && !oldFrom.startsWith('Doc:')) {
+          finalFrom = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(oldFrom) : oldFrom;
+        } else {
+          finalFrom = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+        }
+
+        // Destination is Station or Customer
+        if (sOutMeta && sOutMeta.toLocation) {
+          finalTo = sOutMeta.toLocation;
+        } else if (oldTo && oldTo !== '-' && !/^\d+$/.test(oldTo)) {
+          finalTo = oldTo;
+          if (finalTo === finalFrom || finalTo.includes('中心库房')) {
+            const stM = rawNotes.match(/(?:K\d+\s*ស្ថានីយ[^\],]+)/i);
+            if (stM) finalTo = stM[0].trim();
+            else finalTo = 'អតិថិជន/ដកប្រើប្រាស់';
+          }
+        } else {
+          const stM = rawNotes.match(/(?:K\d+\s*ស្ថានីយ[^\],]+)/i);
+          finalTo = stM ? stM[0].trim() : 'អតិថិជន/ដកប្រើប្រាស់';
+        }
+      } else if (txType === 'TRANSFER') {
+        finalFrom = (oldFrom && !/^\d+$/.test(oldFrom)) ? oldFrom : '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+        finalTo = (oldTo && !/^\d+$/.test(oldTo)) ? oldTo : 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
+      } else {
+        finalFrom = 'ស្តុកជាក់ស្តែង (Audit)';
+        finalTo = (oldTo && !/^\d+$/.test(oldTo)) ? oldTo : '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+      }
+
+      // Preserve Reason_Notes with metadata tags
+      let formattedNotes = rawNotes;
+      if (docNo && !formattedNotes.includes('[ឯកសារ:')) {
+        formattedNotes = `[ឯកសារ: ${docNo}] ` + formattedNotes;
+      }
+      formattedNotes = formattedNotes.trim() || '-';
+
+      // User
+      let userStr = String(row[idxUser] || '').trim();
+      if (!userStr || userStr === '-') {
+        if (sOutMeta && sOutMeta.user) userStr = sOutMeta.user;
+        else if (sInMeta && sInMeta.receivedBy) userStr = sInMeta.receivedBy;
+        else userStr = '陈龙';
+      }
+
+      // Timestamp
+      let tsVal = row[idxTs] || row[idxDate] || new Date();
+      let tsFormatted = '';
+      if (tsVal instanceof Date) {
+        try { tsFormatted = Utilities.formatDate(tsVal, 'GMT+7', 'yyyy-MM-dd HH:mm:ss'); } catch(e) {}
+      } else if (tsVal) {
+        const tsStr = String(tsVal).trim();
+        if (tsStr.length >= 10) {
+          try {
+            const pd = new Date(tsStr);
+            if (!isNaN(pd.getTime())) tsFormatted = Utilities.formatDate(pd, 'GMT+7', 'yyyy-MM-dd HH:mm:ss');
+            else tsFormatted = dateStr + ' ' + (tsStr.includes(':') ? tsStr.slice(11) : '00:00:00');
+          } catch(e) { tsFormatted = dateStr + ' 00:00:00'; }
+        }
+      }
+      if (!tsFormatted) tsFormatted = dateStr + ' 00:00:00';
+
+      cleanRows.push([
+        txId,
+        dateStr,
+        txType,
+        sku,
+        itemName,
+        qty,
+        unit,
+        finalFrom,
+        finalTo,
+        formattedNotes,
+        userStr,
+        tsFormatted
+      ]);
+    }
+  }
+
+  // 3. Clear and overwrite Transactions sheet
+  txSheet.clear();
+
+  const numCols = transactionsHeaders.length; // 12
+  txSheet.getRange(1, 1, 1, numCols).setValues([transactionsHeaders]);
+
+  // Header styling
+  const headerRange = txSheet.getRange(1, 1, 1, numCols);
+  headerRange.setBackground('#0f766e')
+             .setFontColor('#ffffff')
+             .setFontFamily('Siemreap')
+             .setFontSize(10)
+             .setFontWeight('bold')
+             .setHorizontalAlignment('center')
+             .setVerticalAlignment('middle')
+             .setWrap(false);
+  txSheet.setRowHeight(1, 35);
+
+  if (cleanRows.length > 0) {
+    txSheet.getRange(2, 1, cleanRows.length, numCols).setValues(cleanRows);
+
+    const totalRows = cleanRows.length;
+    const dataRange = txSheet.getRange(2, 1, totalRows, numCols);
+    dataRange.setFontFamily('Siemreap')
+             .setFontSize(10)
+             .setVerticalAlignment('middle');
+
+    for (let r = 2; r <= totalRows + 1; r++) {
+      txSheet.setRowHeight(r, 28);
+    }
+
+    for (let r = 0; r < totalRows; r++) {
+      const rowRange = txSheet.getRange(r + 2, 1, 1, numCols);
+      rowRange.setBackground(r % 2 === 0 ? '#ffffff' : '#f0fdfa');
+    }
+
+    // Alignments for 12 columns
+    txSheet.getRange(2, 1, totalRows, 1).setHorizontalAlignment('center'); // 1: TxID
+    txSheet.getRange(2, 2, totalRows, 1).setHorizontalAlignment('center'); // 2: Date
+    txSheet.getRange(2, 3, totalRows, 1).setHorizontalAlignment('center').setFontWeight('bold'); // 3: Type
+    txSheet.getRange(2, 4, totalRows, 1).setHorizontalAlignment('center').setFontWeight('bold'); // 4: SKU
+    txSheet.getRange(2, 5, totalRows, 1).setHorizontalAlignment('left').setFontWeight('bold'); // 5: ItemName
+    txSheet.getRange(2, 6, totalRows, 1).setHorizontalAlignment('center').setFontWeight('bold').setNumberFormat('#,##0'); // 6: Quantity
+    txSheet.getRange(2, 7, totalRows, 1).setHorizontalAlignment('center'); // 7: Unit
+    txSheet.getRange(2, 8, totalRows, 1).setHorizontalAlignment('left').setFontWeight('bold').setFontColor('#0f766e'); // 8: FromLocation
+    txSheet.getRange(2, 9, totalRows, 1).setHorizontalAlignment('left').setFontWeight('bold').setFontColor('#1e40af'); // 9: ToLocation
+    txSheet.getRange(2, 10, totalRows, 1).setHorizontalAlignment('left'); // 10: Reason_Notes
+    txSheet.getRange(2, 11, totalRows, 1).setHorizontalAlignment('center'); // 11: User
+    txSheet.getRange(2, 12, totalRows, 1).setHorizontalAlignment('center'); // 12: Timestamp
+
+    // Borders
+    txSheet.getRange(1, 1, totalRows + 1, numCols).setBorder(
+      true, true, true, true, true, true, '#cbd5e1', SpreadsheetApp.BorderStyle.SOLID
+    );
+
+    // Filter
+    try {
+      const existingFilter = txSheet.getFilter();
+      if (existingFilter) existingFilter.remove();
+      txSheet.getRange(1, 1, totalRows + 1, numCols).createFilter();
+    } catch(e) {}
+  }
+
+  // Column widths for 12 columns
+  const colWidths = [
+    180, // 1: TxID
+    110, // 2: Date
+    100, // 3: Type
+    110, // 4: SKU
+    200, // 5: ItemName
+    80,  // 6: Quantity
+    70,  // 7: Unit
+    200, // 8: FromLocation (ប្រភព)
+    200, // 9: ToLocation (គោលដៅ)
+    260, // 10: Reason_Notes
+    100, // 11: User
+    160  // 12: Timestamp
+  ];
+  for (let c = 0; c < colWidths.length; c++) {
+    txSheet.setColumnWidth(c + 1, colWidths[c]);
+  }
+
+  // Delete all extra columns beyond column 12 (removes old UnitPrice & TotalAmount columns completely)
+  try {
+    if (txSheet.getMaxColumns() > numCols) {
+      txSheet.deleteColumns(numCols + 1, txSheet.getMaxColumns() - numCols);
+    }
+  } catch(e) {}
+
+  txSheet.setFrozenRows(1);
+  txSheet.setHiddenGridlines(false);
+
+  CacheService.getScriptCache().removeAll(['TX_SHEETS_SYNC_ALL', 'TX_SHEETS_SYNC_STOCK_IN', 'TX_SHEETS_SYNC_STOCK_OUT']);
+
+  return {
+    success: true,
+    message: `Transactions sheet standardized to 12 columns! UnitPrice and TotalAmount removed. FromLocation and ToLocation healed for ${cleanRows.length} rows.`
+  };
 }
 
 
