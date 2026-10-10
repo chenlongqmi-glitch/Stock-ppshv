@@ -7619,8 +7619,10 @@ function saveLocalUsersToStorage() {
               const dId = String(d.dispatchId || '');
               const doc = String(d.masterDocNo || '');
               const fl = String(d.fromLocation || '');
+              const tl = String(d.toLocation || '');
               const isCorrupt = dId.startsWith('DSP-TX-') || doc.startsWith('TX-') || fl.startsWith('[') || fl === '-2' || /^\d+$/.test(fl);
-              return !isCorrupt;
+              const isInternalHq = tl.includes('机电') || tl.includes('អគ្គិសនី') || tl.includes('中心库房') || tl.includes('ឃ្លាំងស្តុកនៅចុងស៊ីង') || tl.includes('ចុងស៊ីង') || tl.includes('ចុងស៊ីន') || tl.includes('អតិថិជន') || tl.includes('ដកប្រើប្រាស់');
+              return !isCorrupt && !isInternalHq;
             });
             return LOCAL_DB.dispatches;
           }
@@ -21237,6 +21239,10 @@ function saveLocalUsersToStorage() {
       const createdDispatches = [];
 
       allocations.forEach((a) => {
+        const destName = String(a.station?.name || '').trim();
+        const isInternalHq = destName.includes('机电') || destName.includes('អគ្គិសនី') || destName.includes('中心库房') || destName.includes('ឃ្លាំងស្តុកនៅចុងស៊ីង') || destName.includes('ចុងស៊ីង') || destName.includes('ចុងស៊ីន');
+        if (isInternalHq) return;
+
         const dspId = 'DSP-' + dateStr.replace(/-/g, '') + '-' + Math.floor(1000 + Math.random() * 9000) + '-' + a.station.id;
         const dsp = {
           dispatchId: dspId,
@@ -21457,8 +21463,10 @@ function saveLocalUsersToStorage() {
         const dId = String(d.dispatchId || '');
         const doc = String(d.masterDocNo || '');
         const fl = String(d.fromLocation || '');
+        const tl = String(d.toLocation || '');
         const isCorrupt = dId.startsWith('DSP-TX-') || doc.startsWith('TX-') || fl.startsWith('[') || fl === '-2' || /^\d+$/.test(fl);
-        return !isCorrupt;
+        const isInternalHq = tl.includes('机电') || tl.includes('អគ្គិសនី') || tl.includes('中心库房') || tl.includes('ឃ្លាំងស្តុកនៅចុងស៊ីង') || tl.includes('ចុងស៊ីង') || tl.includes('ចុងស៊ីន') || tl.includes('អតិថិជន') || tl.includes('ដកប្រើប្រាស់');
+        return !isCorrupt && !isInternalHq;
       });
 
       LOCAL_DB.dispatches.forEach(d => {
@@ -21484,7 +21492,10 @@ function saveLocalUsersToStorage() {
             const dId = String(d.dispatchId || '');
             const doc = String(d.masterDocNo || '');
             const fl = String(d.fromLocation || '');
-            return !dId.startsWith('DSP-TX-') && !doc.startsWith('TX-') && !fl.startsWith('[') && fl !== '-2' && !/^\d+$/.test(fl);
+            const tl = String(d.toLocation || '');
+            const isCorrupt = dId.startsWith('DSP-TX-') || doc.startsWith('TX-') || fl.startsWith('[') || fl === '-2' || /^\d+$/.test(fl);
+            const isInternalHq = tl.includes('机电') || tl.includes('អគ្គិសនី') || tl.includes('中心库房') || tl.includes('ឃ្លាំងស្តុកនៅចុងស៊ីង') || tl.includes('ចុងស៊ីង') || tl.includes('ចុងស៊ីន') || tl.includes('អតិថិជន') || tl.includes('ដកប្រើប្រាស់');
+            return !isCorrupt && !isInternalHq;
           });
         }
         if (txOutRes.status === 'fulfilled' && txOutRes.value && Array.isArray(txOutRes.value.transactions)) {
@@ -21541,7 +21552,10 @@ function saveLocalUsersToStorage() {
               const dId = String(d.dispatchId || '');
               const doc = String(d.masterDocNo || '');
               const fl = String(d.fromLocation || '');
-              return !dId.startsWith('DSP-TX-') && !doc.startsWith('TX-') && !fl.startsWith('[') && fl !== '-2' && !/^\d+$/.test(fl);
+              const tl = String(d.toLocation || '');
+              const isCorrupt = dId.startsWith('DSP-TX-') || doc.startsWith('TX-') || fl.startsWith('[') || fl === '-2' || /^\d+$/.test(fl);
+              const isInternalHq = tl.includes('机电') || tl.includes('អគ្គិសនី') || tl.includes('中心库房') || tl.includes('ឃ្លាំងស្តុកនៅចុងស៊ីង') || tl.includes('ចុងស៊ីង') || tl.includes('ចុងស៊ីន') || tl.includes('អតិថិជន') || tl.includes('ដកប្រើប្រាស់');
+              return !isCorrupt && !isInternalHq;
             });
             saveLocalDispatchesToStorage();
             hasChange = true;
@@ -22326,8 +22340,16 @@ function saveLocalUsersToStorage() {
       const timeStr = now.toLocaleTimeString();
       const tempTxId = 'TX-' + dateStr.replace(/-/g, '') + '-' + Math.floor(1000 + Math.random() * 9000);
 
-      // បញ្ជូនទិន្នន័យចូលក្នុងមុខងារ (ទទួលទំនិញចូលស្តុកពី Admin (Incoming Dispatches)) របស់ស្ថានីយដែលត្រូវទទួល
-      const isStationDest = toLocation && !toLocation.includes('អតិថិជន') && !toLocation.includes('ដកប្រើប្រាស់ផ្ទៃក្នុង');
+      // បញ្ជូនទិន្នន័យចូលក្នុងមុខងារ (ទទួលទំនិញចូលស្តុកពី Admin (Incoming Dispatches)) របស់ស្ថានីយដែលត្រូវទទួល (ដកចេញឃ្លាំងកណ្តាល 机电 ឬ 中心库房)
+      const isInternalHq = toLocation && (
+        toLocation.includes('机电') ||
+        toLocation.includes('អគ្គិសនី') ||
+        toLocation.includes('中心库房') ||
+        toLocation.includes('ឃ្លាំងស្តុកនៅចុងស៊ីង') ||
+        toLocation.includes('ចុងស៊ីង') ||
+        toLocation.includes('ចុងស៊ីន')
+      );
+      const isStationDest = toLocation && !isInternalHq && !toLocation.includes('អតិថិជន') && !toLocation.includes('ដកប្រើប្រាស់');
       let createdDsp = null;
       if (isStationDest) {
         const dspId = 'DSP-' + dateStr.replace(/-/g, '') + '-' + Math.floor(1000 + Math.random() * 9000);

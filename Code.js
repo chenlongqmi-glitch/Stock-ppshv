@@ -6596,11 +6596,12 @@ function recordStockOut(dataOrPayload, user) {
 
   // 3. បញ្ជូនទិន្នន័យចូលក្នុងមុខងារ ទទួលទំនិញចូលស្តុកពី Admin (Dispatches Sheet) របស់ស្ថានីយទទួល (សម្រាប់តែ Admin dispatch ទៅស្ថានីយប៉ុណ្ណោះ)
   const destLocation = String(data.toLocation || '').trim();
+  const isInternalHQ = destLocation.includes('机电') || destLocation.includes('អគ្គិសនី') || destLocation.includes('中心库房') || destLocation.includes('ឃ្លាំងស្តុកនៅចុងស៊ីង') || destLocation.includes('ចុងស៊ីង') || destLocation.includes('ចុងស៊ីន') || destLocation.includes('អតិថិជន') || destLocation.includes('ដកប្រើប្រាស់');
   const uRole = String(u ? (u.role || '') : '').toLowerCase();
   const uName = String(u ? (u.username || '') : '').toLowerCase();
   const isPrivilegedUser = u && (uRole.includes('admin') || uRole.includes('superadmin') || uRole.includes('អភិបាល') || uName === 'admin' || uName === 'superadmin');
-  const isStationDestination = isPrivilegedUser && destLocation && !destLocation.includes('អតិថិជន') && !destLocation.includes('ដកប្រើប្រាស់');
-  if (isStationDestination || (isPrivilegedUser && (data.dispatch || (dataOrPayload && dataOrPayload.dispatch)))) {
+  const isStationDestination = isPrivilegedUser && destLocation && !isInternalHQ;
+  if (isStationDestination) {
     try {
       const dspSheet = ensureDispatchesSheet(ss);
       const nowDsp = new Date();
@@ -10736,6 +10737,9 @@ function recordBatchDispatch(dataOrPayload, user, dispatchesList) {
       const sheet = ensureDispatchesSheet(ss);
       const now = new Date();
       dList.forEach(d => {
+        const toLoc = String(d.toLocation || '').trim();
+        const isInternalHQ = toLoc.includes('机电') || toLoc.includes('អគ្គិសនី') || toLoc.includes('中心库房') || toLoc.includes('ឃ្លាំងស្តុកនៅចុងស៊ីង') || toLoc.includes('ចុងស៊ីង') || toLoc.includes('ចុងស៊ីន') || toLoc.includes('អតិថិជន') || toLoc.includes('ដកប្រើប្រាស់');
+        if (isInternalHQ) return;
         sheet.appendRow([
           d.dispatchId || ('DSP-' + Date.now()),
           d.masterDocNo || data.docNo || '',
@@ -10884,6 +10888,9 @@ function syncDispatchesFromStockOutGAS(optSs) {
       const toLoc = String(row[idxTo] || '').trim();
       const sku = String(row[idxSku] || '').trim();
 
+      const isInternalHQ = toLoc.includes('机电') || toLoc.includes('អគ្គិសនី') || toLoc.includes('中心库房') || toLoc.includes('ឃ្លាំងស្តុកនៅចុងស៊ីង') || toLoc.includes('ចុងស៊ីង') || toLoc.includes('ចុងស៊ីន');
+      if (isInternalHQ) continue;
+
       const isStation = toLoc && !toLoc.includes('អតិថិជន') && !toLoc.includes('ដកប្រើប្រាស់') && (
         toLoc.includes('ស្ថានីយ') || toLoc.includes('K3') || toLoc.includes('K26') || toLoc.includes('K43') ||
         toLoc.includes('K76') || toLoc.includes('K114') || toLoc.includes('K135') || toLoc.includes('K172') || toLoc.includes('K182') || toLoc.includes('综合办')
@@ -10965,8 +10972,11 @@ function sanitizeDispatchesSheet(optSs) {
     const docNo = String(row[1] || '').trim();
     const fromLoc = String(row[13] || '').trim();
 
-    // Remove synthetic duplicate records or corrupted cache
-    const isCorrupted = dId.startsWith('DSP-TX-') || docNo.startsWith('TX-') || fromLoc.startsWith('[') || fromLoc === '-2' || /^\d+$/.test(fromLoc);
+    const toLoc = String(row[14] || '').trim();
+
+    // Remove synthetic duplicate records, corrupted cache, or dispatches to internal HQ warehouses (机电 or 中心库房)
+    const isInternalHqDest = toLoc.includes('机电') || toLoc.includes('អគ្គិសនី') || toLoc.includes('中心库房') || toLoc.includes('ឃ្លាំងស្តុកនៅចុងស៊ីង') || toLoc.includes('ចុងស៊ីង') || toLoc.includes('ចុងស៊ីន') || toLoc.includes('អតិថិជន') || toLoc.includes('ដកប្រើប្រាស់');
+    const isCorrupted = dId.startsWith('DSP-TX-') || docNo.startsWith('TX-') || fromLoc.startsWith('[') || fromLoc === '-2' || /^\d+$/.test(fromLoc) || isInternalHqDest;
     if (isCorrupted) {
       removed++;
       continue;
@@ -11006,6 +11016,9 @@ function getPendingDispatches(targetWarehouse) {
     const row = values[i];
     if (!row || !row[0]) continue;
     const toLoc = String(row[14] || '').trim();
+    const isInternalHqDest = toLoc.includes('机电') || toLoc.includes('អគ្គិសនី') || toLoc.includes('中心库房') || toLoc.includes('ឃ្លាំងស្តុកនៅចុងស៊ីង') || toLoc.includes('ចុងស៊ីង') || toLoc.includes('ចុងស៊ីន') || toLoc.includes('អតិថិជន') || toLoc.includes('ដកប្រើប្រាស់');
+    if (isInternalHqDest) continue;
+
     if (wh && (typeof matchesTargetWarehouseGAS === 'function' ? !matchesTargetWarehouseGAS(toLoc, wh) : (toLoc !== wh && !toLoc.includes(wh) && !wh.includes(toLoc)))) {
       continue;
     }
