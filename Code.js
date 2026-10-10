@@ -6203,6 +6203,15 @@ function cleanDisplayNoteGAS(rawNote) {
   let s = String(rawNote).trim();
   if (!s || s === '-') return '-';
 
+  if (s.startsWith('{') && s.endsWith('}')) {
+    try {
+      const p = JSON.parse(s);
+      if (p && typeof p === 'object') {
+        s = String(p.userNote || p.notes || p.note || '').trim();
+      }
+    } catch(e) {}
+  }
+
   // 1. Extract note content if explicitly labeled [កំណត់សម្គាល់: ...] or [Note: ...] or [Notes: ...]
   s = s.replace(/\[\s*(?:កំណត់សម្គាល់|Note|Notes)\s*[:=：]\s*([^\]]+)\]/gi, function(m, p1) { return ' ' + p1 + ' '; });
 
@@ -7229,7 +7238,9 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
         location: wh,
         receivedBy: recBy,
         user: recBy,
-        notes: notes
+        notes: notes,
+        userNote: notes,
+        rawNotes: String(notesIdx >= 0 ? row[notesIdx] : '')
       });
 
       if (transactions.length >= limit) break;
@@ -7387,7 +7398,9 @@ function getStockOutTransactionsFromSheet(ss, filters, user) {
         issuer: userStr || recBy,
         reason: reason,
         user: userStr,
-        notes: notes
+        notes: notes,
+        userNote: notes,
+        rawNotes: String(notesIdx >= 0 ? row[notesIdx] : '')
       });
 
       if (transactions.length >= limit) break;

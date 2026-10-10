@@ -19406,9 +19406,18 @@ function saveLocalUsersToStorage() {
       const unitPrice = 0;
       const supplier = '';
       const rawLoc = document.getElementById('stockInLocation')?.value || '';
-      let location = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(rawLoc) : rawLoc)
-        || (AppState.currentUser?.warehouse ? (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(AppState.currentUser.warehouse) : AppState.currentUser.warehouse) : '')
-        || '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+      let location = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(rawLoc) : rawLoc);
+      if (!location || location === 'ALL' || location === 'គ្រប់ស្ថានីយទាំងអស់' || location === 'គ្រប់ឃ្លាំង') {
+        const uWh = AppState.currentUser?.warehouse ? (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(AppState.currentUser.warehouse) : AppState.currentUser.warehouse) : '';
+        if (uWh && uWh !== 'ALL' && uWh !== 'គ្រប់ស្ថានីយទាំងអស់' && uWh !== 'គ្រប់ឃ្លាំង') {
+          location = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(uWh) : uWh;
+        } else {
+          location = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+        }
+      }
+      if (!location || location === 'ALL' || location === 'គ្រប់ស្ថានីយទាំងអស់' || location === 'គ្រប់ឃ្លាំង') {
+        location = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+      }
       const receiver = AppState.currentUser?.fullName || AppState.currentUser?.username || document.getElementById('stockInReceiver')?.value.trim() || 'Admin';
       const rawNotes = document.getElementById('stockInNotes')?.value.trim();
       const notes = (!rawNotes || rawNotes === '') ? '-' : rawNotes;
@@ -22186,6 +22195,12 @@ function saveLocalUsersToStorage() {
       }
 
       if (cachedTxs && cachedTxs.length > 0) {
+        cachedTxs.forEach(t => {
+          t.rawNotes = t.rawNotes || t.notes;
+          const cleanN = cleanDisplayNote(t.userNote || t.notes || '');
+          t.userNote = cleanN;
+          t.notes = cleanN;
+        });
         AppState.stockInHistory = cachedTxs;
         filterStockInHistoryTable();
       } else {
@@ -22225,6 +22240,26 @@ function saveLocalUsersToStorage() {
             if (!t.size && item?.size) t.size = String(item.size).trim();
             if (!t.color && item?.color) t.color = String(item.color).trim();
             if (!t.zone && item?.zone) t.zone = String(item.zone).trim();
+
+            // Sanitize warehouse: Stock In must NEVER be "ALL" or "គ្រប់ស្ថានីយទាំងអស់"
+            let rawWh = String(t.toLocation || t.location || t.warehouse || '').trim();
+            if (!rawWh || rawWh === '-' || rawWh === 'ALL' || rawWh === 'គ្រប់ស្ថានីយទាំងអស់' || rawWh === 'គ្រប់ឃ្លាំង' || /^\d+$/.test(rawWh)) {
+              const nStr = t.rawNotes || t.notes || '';
+              const stMatch = nStr.match(/(?:K\d+[^\]\n\r]+)/i);
+              if (stMatch) {
+                rawWh = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(stMatch[0]) : stMatch[0];
+              } else {
+                rawWh = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+              }
+            } else {
+              rawWh = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(rawWh) : rawWh;
+              if (rawWh === 'ALL' || rawWh === 'គ្រប់ស្ថានីយទាំងអស់' || rawWh === 'គ្រប់ឃ្លាំង') {
+                rawWh = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+              }
+            }
+            t.toLocation = rawWh;
+            t.warehouse = rawWh;
+            t.location = rawWh;
 
             // Sanitize notes so raw bracket metadata is NEVER stored or displayed
             const cleanN = cleanDisplayNote(t.userNote || t.notes || '');
@@ -22370,10 +22405,18 @@ function saveLocalUsersToStorage() {
       // 5. Remove ANY bracket containing a key-value pattern (like [anything: anything])
       s = s.replace(/\[\s*[^\]:=：]+[:=：][^\]]*(?:\]|$)/g, ' ');
 
-      // 6. Remove any remaining closed brackets [...]
+      // 6. Remove any remaining bracket containing key metadata delimiters
+      s = s.replace(/\[[^\]]*(?:[:=：]|➔|->|OUT|IN|DOC|TX)[^\]]*(?:\]|$)/gi, ' ');
+
+      // 7. If the entire string is just bracket tokens or unclosed brackets, return '-'
+      if (s.replace(/\[[^\]]*(?:\]|$)/g, '').trim() === '') {
+        return '-';
+      }
+
+      // 8. Remove any remaining closed brackets [...]
       s = s.replace(/\[[^\]]*\]/g, ' ');
 
-      // 7. Remove any trailing unclosed bracket like "[..." up to end of string
+      // 9. Remove any trailing unclosed bracket like "[..." up to end of string
       s = s.replace(/\[.*$/g, ' ');
 
       // 8. If everything left is only bracket characters or whitespace or '-', return '-'
@@ -22515,9 +22558,25 @@ function saveLocalUsersToStorage() {
           }
         }
 
-        t.oldStock = oldSt;
-        t.newStock = newSt;
-        const loc = escapeHtml(t.toLocation || t.location || '-');
+        let rawLoc = String(t.toLocation || t.location || t.warehouse || '').trim();
+        if (!rawLoc || rawLoc === '-' || rawLoc === 'ALL' || rawLoc === 'គ្រប់ស្ថានីយទាំងអស់' || rawLoc === 'គ្រប់ឃ្លាំង' || /^\d+$/.test(rawLoc)) {
+          const nStr = t.rawNotes || t.notes || '';
+          const stMatch = nStr.match(/(?:K\d+[^\]\n\r]+)/i);
+          if (stMatch) {
+            rawLoc = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(stMatch[0]) : stMatch[0];
+          } else {
+            rawLoc = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+          }
+        } else {
+          rawLoc = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(rawLoc) : rawLoc;
+          if (rawLoc === 'ALL' || rawLoc === 'គ្រប់ស្ថានីយទាំងអស់' || rawLoc === 'គ្រប់ឃ្លាំង') {
+            rawLoc = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+          }
+        }
+        t.toLocation = rawLoc;
+        t.warehouse = rawLoc;
+        t.location = rawLoc;
+        const loc = escapeHtml(rawLoc);
 
         let receiver = t.receivedBy || t.user || '';
         if ((!receiver || receiver === '-' || receiver === 'Admin' || receiver === 'superadmin') && t.notes) {
@@ -22786,6 +22845,12 @@ function saveLocalUsersToStorage() {
       }
 
       if (cachedTxs && cachedTxs.length > 0) {
+        cachedTxs.forEach(t => {
+          t.rawNotes = t.rawNotes || t.notes;
+          const cleanN = cleanDisplayNote(t.userNote || t.notes || '');
+          t.userNote = cleanN;
+          t.notes = cleanN;
+        });
         AppState.stockOutHistory = cachedTxs;
         filterStockOutHistoryTable();
       } else {
@@ -23277,14 +23342,17 @@ function saveLocalUsersToStorage() {
       const curSize = escapeHtml(initialSize);
       const curColor = escapeHtml(initialColor);
       const curZone = escapeHtml(initialZone);
-      const curReceiver = escapeHtml(tx.receivedBy || tx.user || '');
-      const curLocation = escapeHtml(tx.toLocation || tx.location || 'K3 ស្ថានីយ (ភ្នំពេញ) 01');
+      let rawTxLoc = String(tx.toLocation || tx.location || tx.warehouse || '').trim();
+      if (!rawTxLoc || rawTxLoc === 'ALL' || rawTxLoc === 'គ្រប់ស្ថានីយទាំងអស់' || rawTxLoc === 'គ្រប់ឃ្លាំង' || /^\d+$/.test(rawTxLoc)) {
+        rawTxLoc = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+      }
+      const curLocation = escapeHtml((typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(rawTxLoc) : rawTxLoc);
 
       const pQty = Math.max(1, Number(tx.packQty || item?.packQty || 1));
       const pUnit = (tx.packUnit || item?.packUnit || 'ប្រអប់').trim();
       const rUnit = (tx.unit || item?.unit || 'គូ').trim() || 'គូ';
       const rawCleanedNotes = cleanDisplayNote(tx.userNote !== undefined ? tx.userNote : (tx.notes || ''));
-      const curNotes = escapeHtml(rawCleanedNotes === '-' ? '' : rawCleanedNotes);
+      const curNotes = (rawCleanedNotes === '-' || !rawCleanedNotes) ? '' : escapeHtml(rawCleanedNotes);
 
       // Determine initial bulk & retail quantities
       let initialBulk = 0;
