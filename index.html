@@ -17650,16 +17650,73 @@ function saveLocalUsersToStorage() {
       return stockInZoneDropdownEl;
     }
 
+    /**
+     * ស្រង់យកតែឈ្មោះតំបន់ស្តុកសុទ្ធ (Clean Zones Only)
+     * លុបចោលទាំងស្រុងនូវចំនួន ចំនួនស្តុក និងឯកតា (ដូចជា : 1 ដុំ, 10, pcs, ល.)
+     */
+    function extractCleanStockZones(rawZoneStr) {
+      if (!rawZoneStr || typeof rawZoneStr !== 'string') return [];
+      const raw = rawZoneStr.trim();
+      if (!raw || raw === '-' || raw === 'គ្មាន' || raw === 'null' || raw === 'undefined') return [];
+
+      const foundZones = [];
+      const addZone = (z) => {
+        if (!z) return;
+        let clean = String(z).trim().replace(/[:;,]/g, '').trim();
+        const m = clean.match(/^([A-Za-z])(?:-|\s*)?(0?[1-9]|10)$/);
+        if (m) {
+          clean = m[1].toUpperCase() + m[2].padStart(2, '0');
+        }
+        if (clean && !foundZones.includes(clean)) {
+          foundZones.push(clean);
+        }
+      };
+
+      // 1. រកមើលតាមទម្រង់កូដតំបន់ស្តង់ដារ A01-J10 ឬ Letter+Digits (ឧ. A02, B1, C10, J05)
+      const letterDigitMatches = raw.match(/\b([A-Za-z])(?:-|\s*)?(0?[1-9]|10)\b/gi);
+      if (letterDigitMatches && letterDigitMatches.length > 0) {
+        letterDigitMatches.forEach(addZone);
+        if (foundZones.length > 0) return foundZones;
+      }
+
+      // 2. ប្រសិនបើមិនមែនជាទម្រង់ Letter+Digit ស្តង់ដារ (ឧ. តំបន់ពិសេស) ញែកតាមសញ្ញាក្បៀស ឬបន្ទាត់
+      const segments = raw.split(/[,;/|]+/);
+      const invalidWords = new Set([
+        'ដុំ', 'កេស', 'ប្រអប់', 'ដើម', 'គ្រាប់', 'ឈុត', 'គីឡូ', 'កញ្ចប់', 'បាវ', 'តោន', 'លីត្រ', 'ម៉ែត្រ',
+        'pcs', 'pc', 'box', 'boxes', 'unit', 'units', 'kg', 'set', 'sets', 'pack', 'packs', 'ចុចរើស', 'រើស'
+      ]);
+
+      segments.forEach(seg => {
+        let s = seg.trim();
+        if (!s) return;
+        if (s.includes(':')) s = s.split(':')[0].trim();
+        s = s.replace(/\(.*?\)/g, '').trim();
+        s = s.replace(/^\s*\d+(?:\.\d+)?\s*(?:ដុំ|កេស|ប្រអប់|ដើម|គ្រាប់|ឈុត|គីឡូ|កញ្ចប់|បាវ|តោន|លីត្រ|ម៉ែត្រ|pcs|pc|box|boxes|unit|units|kg|set|sets|pack|packs)?\s*$/i, '').trim();
+        s = s.replace(/\s+\d+(?:\.\d+)?\s*(?:ដុំ|កេស|ប្រអប់|ដើម|គ្រាប់|ឈុត|គីឡូ|កញ្ចប់|បាវ|តោន|លីត្រ|ម៉ែត្រ|pcs|pc|box|boxes|unit|units|kg|set|sets|pack|packs)?$/i, '').trim();
+        if (!s || /^\d+$/.test(s) || invalidWords.has(s.toLowerCase())) return;
+        addZone(s);
+      });
+
+      return foundZones;
+    }
+    window.extractCleanStockZones = extractCleanStockZones;
+
     function getOldStockZoneForItem(sku, warehouse) {
       if (!sku) return '';
       const cleanSku = String(sku).trim().toLowerCase();
+
+      const formatReturnZone = (rawVal) => {
+        if (!rawVal) return '';
+        const cz = extractCleanStockZones(rawVal);
+        return cz.length > 0 ? cz.join(', ') : rawVal.trim();
+      };
 
       // 1. Check in dispatches previously RECEIVED at this warehouse
       const dispatches = LOCAL_DB.dispatches || [];
       for (const d of dispatches) {
         if (d.sku && d.sku.trim().toLowerCase() === cleanSku && d.status === 'RECEIVED' && d.receivedZone && d.receivedZone.trim()) {
           if (!warehouse || warehouse === 'ALL' || (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(d.toLocation, warehouse) : isSameWarehouse(d.toLocation, warehouse))) {
-            return d.receivedZone.trim();
+            return formatReturnZone(d.receivedZone);
           }
         }
       }
@@ -17670,7 +17727,7 @@ function saveLocalUsersToStorage() {
         if (tx.sku && tx.sku.trim().toLowerCase() === cleanSku && tx.zone && tx.zone.trim()) {
           const loc = tx.warehouse || tx.location || tx.toLocation || '';
           if (!warehouse || warehouse === 'ALL' || (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(loc, warehouse) : isSameWarehouse(loc, warehouse))) {
-            return tx.zone.trim();
+            return formatReturnZone(tx.zone);
           }
         }
       }
@@ -17681,7 +17738,7 @@ function saveLocalUsersToStorage() {
         if (tx.sku && tx.sku.trim().toLowerCase() === cleanSku && tx.zone && tx.zone.trim()) {
           const loc = tx.fromLocation || tx.toLocation || tx.warehouse || tx.location || '';
           if (!warehouse || warehouse === 'ALL' || (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(loc, warehouse) : isSameWarehouse(loc, warehouse))) {
-            return tx.zone.trim();
+            return formatReturnZone(tx.zone);
           }
         }
       }
@@ -17689,7 +17746,7 @@ function saveLocalUsersToStorage() {
       // 4. Check in AppState.items
       const it = (AppState.items || []).find(i => (i.sku && i.sku.trim().toLowerCase() === cleanSku) || (i.name && i.name.trim().toLowerCase() === cleanSku));
       if (it && it.zone && it.zone.trim() && it.zone.trim() !== '-') {
-        return it.zone.trim();
+        return formatReturnZone(it.zone);
       }
 
       return '';
@@ -17722,6 +17779,7 @@ function saveLocalUsersToStorage() {
       const inputEl = document.getElementById(currentZonePickerTargetInputId) || document.getElementById('stockInZone');
       const searchVal = (inputEl?.value || '').trim().toUpperCase();
       const oldZone = getContextOldStockZone();
+      const cleanZones = extractCleanStockZones(oldZone);
 
       // Filter zones based on active letter tab OR search query
       let filteredZones = ALL_STOCK_ZONES;
@@ -17744,7 +17802,7 @@ function saveLocalUsersToStorage() {
           </span>
         </div>
 
-        ${oldZone ? `
+        ${cleanZones.length > 0 ? `
           <!-- Quick Old Stock Zone Selection (បង្ហាញតំបន់ស្តុកចាស់) -->
           <div class="mb-2.5 p-2 bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/5 border border-amber-300 rounded-xl shadow-3xs">
             <div class="flex items-center justify-between mb-1.5">
@@ -17752,23 +17810,19 @@ function saveLocalUsersToStorage() {
                 <span class="w-5 h-5 rounded-md bg-amber-500 text-white flex items-center justify-center text-[10px] shrink-0 shadow-3xs">
                   <i class="fa-solid fa-clock-rotate-left"></i>
                 </span>
-                <span class="text-[11px] font-bold text-amber-900 truncate">តំបន់ស្តុកចាស់ (ធ្លាប់មាន):</span>
+                <span class="text-[11px] font-bold text-amber-900 truncate">តំបន់ស្តុកចាស់:</span>
               </div>
               <span class="text-[9px] font-bold text-amber-700 bg-amber-100/90 border border-amber-200 px-1.5 py-0.5 rounded shadow-3xs">ចុចរើសយក</span>
             </div>
             <div class="flex items-center gap-1.5 flex-wrap">
-              ${(() => {
-                const parts = oldZone.split(/[,/| ]+/).map(p => p.trim()).filter(Boolean);
-                const uniqueItems = Array.from(new Set([oldZone, ...parts]));
-                return uniqueItems.map(z => `
-                  <button type="button" onclick="selectStockInZone('${escapeHtml(z)}')"
-                    class="px-2.5 py-1 rounded-lg bg-amber-100/90 hover:bg-amber-200 text-amber-950 border border-amber-300/90 font-mono font-bold text-[11px] flex items-center gap-1 shadow-3xs transition-all active:scale-95 cursor-pointer"
-                    title="ចុចជ្រើសរើសតំបន់ ${escapeHtml(z)}">
-                    <i class="fa-solid fa-location-dot text-[9px] text-amber-600"></i>
-                    <span>${escapeHtml(z)}</span>
-                  </button>
-                `).join('');
-              })()}
+              ${cleanZones.map(z => `
+                <button type="button" onclick="selectStockInZone('${escapeHtml(z)}')"
+                  class="px-2.5 py-1 rounded-lg bg-amber-100/90 hover:bg-amber-200 text-amber-950 border border-amber-300/90 font-mono font-bold text-[11px] flex items-center gap-1 shadow-3xs transition-all active:scale-95 cursor-pointer"
+                  title="ចុចជ្រើសរើសតំបន់ ${escapeHtml(z)}">
+                  <i class="fa-solid fa-location-dot text-[9px] text-amber-600"></i>
+                  <span>${escapeHtml(z)}</span>
+                </button>
+              `).join('')}
             </div>
           </div>
         ` : ''}
@@ -17928,11 +17982,12 @@ function saveLocalUsersToStorage() {
       renderStockInZoneDropdownContent();
     }
 
-    function selectStockInZone(zoneCode) {
-      const targetId = currentZonePickerTargetInputId || 'stockInZone';
+    function selectStockInZone(zoneCode, optTargetId) {
+      const targetId = optTargetId || currentZonePickerTargetInputId || 'stockInZone';
       const inputEl = document.getElementById(targetId);
       if (inputEl) {
-        inputEl.value = zoneCode;
+        inputEl.value = (zoneCode || '').trim();
+        inputEl.classList.remove('ring-2', 'ring-rose-500');
         inputEl.dispatchEvent(new Event('input', { bubbles: true }));
         inputEl.dispatchEvent(new Event('change', { bubbles: true }));
       }
@@ -21941,27 +21996,31 @@ function saveLocalUsersToStorage() {
 
       // ទុកឱ្យអ្នកទទួលទំនិញជាអ្នកបំពេញ ប៉ុន្តែស្វែងរកតំបន់ស្តុកចាស់ដើម្បីឱ្យអ្នកទទួលអាចចុចរើសបាន ១ ភ្លែត
       const oldZone = getOldStockZoneForItem(dispatch.sku, dispatch.toLocation);
+      const cleanZones = (typeof extractCleanStockZones === 'function') ? extractCleanStockZones(oldZone) : (oldZone ? [oldZone] : []);
+      const oldZoneDisplay = cleanZones.join(', ');
+
+      currentZonePickerTargetInputId = 'receiveDispatchZone';
+      currentZonePickerTargetChevronId = 'receiveDispatchZoneChevron';
+
       const zoneInp = document.getElementById('receiveDispatchZone');
       if (zoneInp) {
         zoneInp.value = ''; // ទុកឱ្យអ្នកទទួលទំនិញជាអ្នកបំពេញ
-        zoneInp.placeholder = oldZone ? `រើសតំបន់... (តំបន់ចាស់: ${oldZone})` : 'រើស ឬវាយបញ្ចូលតំបន់...';
+        zoneInp.placeholder = oldZoneDisplay ? `រើសតំបន់... (តំបន់ចាស់: ${oldZoneDisplay})` : 'រើស ឬវាយបញ្ចូលតំបន់...';
         zoneInp.classList.remove('ring-2', 'ring-rose-500');
       }
 
       const oldZoneNotice = document.getElementById('receptionOldZoneNotice');
       if (oldZoneNotice) {
-        if (oldZone) {
-          const parts = oldZone.split(/[,/| ]+/).map(p => p.trim()).filter(Boolean);
-          const uniqueItems = Array.from(new Set([oldZone, ...parts]));
+        if (cleanZones.length > 0) {
           oldZoneNotice.innerHTML = `
             <span class="text-[10.5px] text-slate-500 font-medium flex items-center gap-1">
               <i class="fa-solid fa-clock-rotate-left text-amber-500 text-[10px]"></i>
               <span>តំបន់ស្តុកចាស់:</span>
             </span>
-            ${uniqueItems.map(z => `
-              <button type="button" onclick="selectStockInZone('${escapeHtml(z)}')"
+            ${cleanZones.map(z => `
+              <button type="button" onclick="selectStockInZone('${escapeHtml(z)}', 'receiveDispatchZone')"
                 class="px-2 py-0.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-[10.5px] font-bold shadow-3xs flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
-                title="ចុចជ្រើសរើសតំបន់ស្តុកនេះ">
+                title="ចុចជ្រើសរើសតំបន់ ${escapeHtml(z)}">
                 <i class="fa-solid fa-location-dot text-[9px] text-amber-600"></i>
                 <span>${escapeHtml(z)}</span>
                 <span class="text-[9px] text-amber-700 font-normal">(ចុចរើស)</span>
@@ -22849,10 +22908,12 @@ function saveLocalUsersToStorage() {
       if (!tbody) return;
 
       if (!txs || txs.length === 0) {
+        window._currentStockInDisplayList = [];
         tbody.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-slate-400 text-sm">មិនទាន់មានទិន្នន័យកត់ត្រាទំនិញចូលស្តុកនៅឡើយទេ</td></tr>';
         return;
       }
 
+      window._currentStockInDisplayList = txs;
       tbody.innerHTML = txs.map((t, idx) => {
         let docId = t.docNo || t.txId || 'N/A';
         if ((!t.docNo || t.docNo === t.txId || t.docNo.startsWith('TX-')) && t.notes) {
@@ -23043,9 +23104,9 @@ function saveLocalUsersToStorage() {
         const newLooseStock = pQty > 1 ? (safeNewSt % pQty) : safeNewSt;
 
         return `
-          <tr ondblclick="openEditStockInModal('${escapeHtml(t.txId || '')}', '${escapeHtml(t.docNo || '')}', ${idx})"
+          <tr ondblclick="handleStockInRowDblClick(${idx})"
               class="hover:bg-emerald-50/70 transition-colors cursor-pointer select-none"
-              title="ចុច ២ដង (Double-Click) ដើម្បីកែតម្រូវ ឬលុបទិន្នន័យ">
+              title="ចុច ២ដង (Double-Click) ឬចុចប៊ូតុងកែ ដើម្បីកែតម្រូវ ឬលុបទិន្នន័យ">
             <!-- 1. ល.រ -->
             <td class="px-1 py-2.5 text-center text-[11px] font-bold text-slate-400 align-middle">
               ${idx + 1}
@@ -23053,7 +23114,15 @@ function saveLocalUsersToStorage() {
 
             <!-- 2. លេខឯកសារ & កាលបរិច្ឆេទ -->
             <td class="px-2 py-2.5 align-middle overflow-hidden">
-              <span class="bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200/90 font-mono font-bold text-emerald-800 text-[10.5px] inline-flex items-center max-w-full truncate shadow-3xs" title="${displayDocId}">${displayDocId}</span>
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200/90 font-mono font-bold text-emerald-800 text-[10.5px] inline-flex items-center max-w-full truncate shadow-3xs" title="${displayDocId}">${displayDocId}</span>
+                <button type="button" onclick="event.stopPropagation(); handleStockInRowDblClick(${idx})"
+                  class="px-1.5 py-0.5 rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300 text-[9.5px] font-bold inline-flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-3xs"
+                  title="ចុចកែសម្រួល ឬលុបប្រតិបត្តិការនេះ">
+                  <i class="fa-solid fa-pen-to-square text-[8.5px] text-emerald-700"></i>
+                  <span>កែ</span>
+                </button>
+              </div>
               <div class="text-[10px] text-slate-500 font-medium mt-0.5 flex items-center gap-1 truncate" title="${dStr}${timeStr ? ` ${timeStr}` : ''}">
                 <i class="fa-regular fa-calendar-days text-[9px] text-slate-400 shrink-0"></i>
                 <span class="truncate">${dStr}</span>
@@ -23407,10 +23476,12 @@ function saveLocalUsersToStorage() {
       if (!tbody) return;
 
       if (!txs || txs.length === 0) {
+        window._currentStockOutDisplayList = [];
         tbody.innerHTML = '<tr><td colspan="9" class="text-center py-8 text-slate-400 text-sm">មិនទាន់មានទិន្នន័យកត់ត្រាទំនិញចេញពីស្តុកនៅឡើយទេ</td></tr>';
         return;
       }
 
+      window._currentStockOutDisplayList = txs;
       tbody.innerHTML = txs.map((t, idx) => {
         let docId = t.docNo || t.txId || 'N/A';
         if ((!t.docNo || t.docNo === t.txId || t.docNo.startsWith('TX-')) && t.notes) {
@@ -23529,9 +23600,9 @@ function saveLocalUsersToStorage() {
         const remLooseStock = pQty > 1 ? (safeRemSt % pQty) : safeRemSt;
 
         return `
-          <tr ondblclick="openEditStockOutModal('${escapeHtml(t.txId || '')}', '${escapeHtml(t.docNo || '')}', ${idx})"
+          <tr ondblclick="handleStockOutRowDblClick(${idx})"
               class="hover:bg-amber-50/70 transition-colors cursor-pointer select-none"
-              title="ចុច ២ដង (Double-Click) ដើម្បីកែតម្រូវ ឬលុបទិន្នន័យ">
+              title="ចុច ២ដង (Double-Click) ឬចុចប៊ូតុងកែ ដើម្បីកែតម្រូវ ឬលុបទិន្នន័យ">
             <!-- 1. ល.រ -->
             <td class="px-1 py-2.5 text-center text-[11px] font-bold text-slate-400 align-middle">
               ${idx + 1}
@@ -23539,7 +23610,15 @@ function saveLocalUsersToStorage() {
 
             <!-- 2. លេខឯកសារ & កាលបរិច្ឆេទ -->
             <td class="px-2 py-2.5 align-middle overflow-hidden">
-              <span class="bg-amber-50 px-2.5 py-0.5 rounded-md border border-amber-200/90 font-mono font-bold text-amber-900 text-[10.5px] inline-flex items-center max-w-full truncate shadow-3xs" title="${displayDocId}">${displayDocId}</span>
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="bg-amber-50 px-2.5 py-0.5 rounded-md border border-amber-200/90 font-mono font-bold text-amber-900 text-[10.5px] inline-flex items-center max-w-full truncate shadow-3xs" title="${displayDocId}">${displayDocId}</span>
+                <button type="button" onclick="event.stopPropagation(); handleStockOutRowDblClick(${idx})"
+                  class="px-1.5 py-0.5 rounded bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 text-[9.5px] font-bold inline-flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-3xs"
+                  title="ចុចកែសម្រួល ឬលុបប្រតិបត្តិការនេះ">
+                  <i class="fa-solid fa-pen-to-square text-[8.5px] text-amber-700"></i>
+                  <span>កែ</span>
+                </button>
+              </div>
               <div class="text-[10px] text-slate-500 font-medium mt-0.5 flex items-center gap-1 truncate" title="${dStr}${timeStr ? ` ${timeStr}` : ''}">
                 <i class="fa-regular fa-calendar-days text-[9px] text-slate-400 shrink-0"></i>
                 <span class="truncate">${dStr}</span>
@@ -23690,6 +23769,28 @@ function saveLocalUsersToStorage() {
       return found;
     }
 
+    function handleStockInRowDblClick(idx) {
+      const list = window._currentStockInDisplayList || AppState.stockInHistory || [];
+      const tx = list[idx];
+      if (tx) {
+        openEditStockInModal(tx.txId, tx.docNo, tx);
+      } else {
+        openEditStockInModal('', '', idx);
+      }
+    }
+    window.handleStockInRowDblClick = handleStockInRowDblClick;
+
+    function handleStockOutRowDblClick(idx) {
+      const list = window._currentStockOutDisplayList || AppState.stockOutHistory || [];
+      const tx = list[idx];
+      if (tx) {
+        openEditStockOutModal(tx.txId, tx.docNo, tx);
+      } else {
+        openEditStockOutModal('', '', idx);
+      }
+    }
+    window.handleStockOutRowDblClick = handleStockOutRowDblClick;
+
     function openEditStockInModal(txId, docNo, rowIndex) {
       if (typeof isCurrentAdminInViewOnlyMode === 'function' && isCurrentAdminInViewOnlyMode()) {
         const curWh = AppState.selectedAdminWarehouseFilter || 'ស្ថានីយនេះ';
@@ -23707,9 +23808,16 @@ function saveLocalUsersToStorage() {
         });
         return;
       }
-      let tx = findTransactionRecord(txId, docNo, 'STOCK_IN');
-      if (!tx && typeof rowIndex === 'number' && AppState.stockInHistory && AppState.stockInHistory[rowIndex]) {
-        tx = AppState.stockInHistory[rowIndex];
+      let tx = null;
+      if (rowIndex && typeof rowIndex === 'object') {
+        tx = rowIndex;
+      }
+      if (!tx) {
+        tx = findTransactionRecord(txId, docNo, 'STOCK_IN');
+      }
+      if (!tx && typeof rowIndex === 'number') {
+        const dispList = window._currentStockInDisplayList || AppState.stockInHistory || [];
+        tx = dispList[rowIndex] || (AppState.stockInHistory && AppState.stockInHistory[rowIndex]);
       }
       if (!tx) {
         Swal.fire({ icon: 'error', title: 'រកមិនឃើញទិន្នន័យប្រតិបត្តិការទេ!', confirmButtonColor: '#047857' });
@@ -24245,9 +24353,16 @@ function saveLocalUsersToStorage() {
         });
         return;
       }
-      let tx = findTransactionRecord(txId, docNo, 'STOCK_OUT');
-      if (!tx && typeof rowIndex === 'number' && AppState.stockOutHistory && AppState.stockOutHistory[rowIndex]) {
-        tx = AppState.stockOutHistory[rowIndex];
+      let tx = null;
+      if (rowIndex && typeof rowIndex === 'object') {
+        tx = rowIndex;
+      }
+      if (!tx) {
+        tx = findTransactionRecord(txId, docNo, 'STOCK_OUT');
+      }
+      if (!tx && typeof rowIndex === 'number') {
+        const dispList = window._currentStockOutDisplayList || AppState.stockOutHistory || [];
+        tx = dispList[rowIndex] || (AppState.stockOutHistory && AppState.stockOutHistory[rowIndex]);
       }
       if (!tx) {
         Swal.fire({ icon: 'error', title: 'រកមិនឃើញទិន្នន័យប្រតិបត្តិការទេ!', confirmButtonColor: '#b45309' });
