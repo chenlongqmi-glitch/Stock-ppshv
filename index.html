@@ -11644,6 +11644,8 @@ function saveLocalUsersToStorage() {
         const newStockNum = Number(d.newStock || (oldStockNum + qtyNum));
         const matched = LOCAL_DB.items.find(i => i.sku === d.sku);
 
+        const locFinal = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(d.warehouse || d.toLocation || d.location || u?.warehouse) : (d.warehouse || d.toLocation || d.location || u?.warehouse)) || '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+
         LOCAL_DB.transactions.unshift({
           txId: d.docNo || ('TX-' + Date.now().toString().slice(-6)),
           docNo: d.docNo || '',
@@ -11661,7 +11663,9 @@ function saveLocalUsersToStorage() {
           unitPrice: Number(d.unitPrice || 0),
           totalAmount: qtyNum * Number(d.unitPrice || 0),
           fromLocation: d.supplier || 'Supplier',
-          toLocation: d.toLocation || d.location || (u?.warehouse || WAREHOUSES_LIST[0]),
+          toLocation: locFinal,
+          warehouse: locFinal,
+          location: locFinal,
           notes: notesFormatted || 'Stock In',
           user: u?.username || 'Staff',
           receivedBy: d.receivedBy || u?.fullName || u?.username || 'Staff',
@@ -11857,7 +11861,10 @@ function saveLocalUsersToStorage() {
           if (d.fromLocation) t.fromLocation = d.fromLocation;
           if (d.receivedBy) t.receivedBy = d.receivedBy;
           if (d.issuer) t.issuer = d.issuer;
-          if (d.notes !== undefined) t.notes = d.notes;
+          const cleanN = (typeof cleanDisplayNote === 'function') ? cleanDisplayNote(d.userNote !== undefined ? d.userNote : d.notes) : String(d.userNote || d.notes || '').trim();
+          if (cleanN && cleanN !== '-') t.notes = cleanN;
+          else if (d.notes !== undefined || d.userNote !== undefined) t.notes = '-';
+          t._lastEditedAt = Date.now();
         };
 
         const tx = (LOCAL_DB.transactions || []).find(t => (txId && t.txId === txId) || (d.docNo && t.docNo === d.docNo));
@@ -11867,10 +11874,16 @@ function saveLocalUsersToStorage() {
         }
 
         const hIn = (AppState.stockInHistory || []).find(t => (txId && t.txId === txId) || (d.docNo && t.docNo === d.docNo));
-        if (hIn) updateTxObj(hIn);
+        if (hIn) {
+          updateTxObj(hIn);
+          try { localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(AppState.stockInHistory || [])); } catch(e) {}
+        }
 
         const hOut = (AppState.stockOutHistory || []).find(t => (txId && t.txId === txId) || (d.docNo && t.docNo === d.docNo));
-        if (hOut) updateTxObj(hOut);
+        if (hOut) {
+          updateTxObj(hOut);
+          try { localStorage.setItem('inventory_stock_out_history_db', JSON.stringify(AppState.stockOutHistory || [])); } catch(e) {}
+        }
 
         return { success: true, message: 'បានកែសម្រួលប្រតិបត្តិការជោគជ័យ!' };
       }
@@ -19391,7 +19404,10 @@ function saveLocalUsersToStorage() {
       const newStock = oldStock + effectiveQty;
       const unitPrice = 0;
       const supplier = '';
-      const location = document.getElementById('stockInLocation')?.value || AppState.currentUser?.warehouse || 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
+      const rawLoc = document.getElementById('stockInLocation')?.value || '';
+      let location = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(rawLoc) : rawLoc)
+        || (AppState.currentUser?.warehouse ? (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(AppState.currentUser.warehouse) : AppState.currentUser.warehouse) : '')
+        || '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
       const receiver = AppState.currentUser?.fullName || AppState.currentUser?.username || document.getElementById('stockInReceiver')?.value.trim() || 'Admin';
       const rawNotes = document.getElementById('stockInNotes')?.value.trim();
       const notes = (!rawNotes || rawNotes === '') ? '-' : rawNotes;
@@ -19475,6 +19491,8 @@ function saveLocalUsersToStorage() {
           unitPrice, 
           supplier, 
           toLocation: location, 
+          warehouse: location,
+          location: location,
           receivedBy: receiver,
           notes: finalNotes
         },
@@ -19531,6 +19549,8 @@ function saveLocalUsersToStorage() {
         oldStock: oldStock,
         newStock: newStock,
         toLocation: location,
+        warehouse: location,
+        location: location,
         receivedBy: receiver,
         notes: finalNotes
       };
@@ -21710,6 +21730,8 @@ function saveLocalUsersToStorage() {
         supplier: `Admin (${dispatch.issuer})`,
         fromLocation: dispatch.fromLocation,
         toLocation: dispatch.toLocation,
+        warehouse: dispatch.toLocation,
+        location: dispatch.toLocation,
         receivedBy: receiver,
         notes: `[ទទួលពី Admin: ${dispatch.masterDocNo}] [ស្តុក: 0 ${dispatch.unit || 'ដើម'} ➔ ${actualTotal} ${dispatch.unit || 'ដើម'}] ${notes}`
       };
@@ -22318,13 +22340,42 @@ function saveLocalUsersToStorage() {
 
     function cleanDisplayNote(rawNote) {
       if (!rawNote || rawNote === '-' || rawNote === 'undefined' || rawNote === 'null') return '-';
-      let cleaned = String(rawNote)
-        .replace(/\[\s*(?:ឯកសារ|លេខឯកសារ|អ្នកទទួល|អ្នកបើក|អ្នកបើកចេញ|អ្នកបើកទំនិញ|ខ្នាត|ពណ៌|តំបន់|មូលហេតុ|ចូល|ចូលជាដុំ|ចូលជារាយ|ចេញ|ចេញជាដុំ|ចេញជារាយ|ដុំ|រាយ|ចែក|ស្តុក|ស្តុកចាស់|ស្តុកថ្មី|ស្តុកនៅសល់|Stock|OldStock|NewStock|RemainingStock|Movement|StockMovement|Doc|DocNo|Receiver|Issuer|Size|Color|Zone|Reason)\b[^\]]*\]/gi, '')
-        .replace(/\[\s*[^\]]*(?:➔|->)\s*[^\]]*\]/gi, '')
-        .trim();
-      cleaned = cleaned.replace(/^[\s\-–—:]+|[\s\-–—:]+$/g, '').trim();
-      return cleaned || '-';
+      let s = String(rawNote).trim();
+      if (!s || s === '-') return '-';
+
+      // 0. Handle potential JSON payload
+      if (s.startsWith('{') && s.endsWith('}')) {
+        try {
+          const p = JSON.parse(s);
+          if (p && typeof p === 'object') {
+            s = String(p.userNote || p.notes || p.note || '').trim();
+          }
+        } catch(e) {}
+      }
+
+      // 1. Extract note content if explicitly labeled [កំណត់សម្គាល់: ...] or [Note: ...] or [Notes: ...]
+      s = s.replace(/\[\s*(?:កំណត់សម្គាល់|Note|Notes)\s*[:=：]\s*([^\]]+)\]/gi, (m, p1) => ' ' + p1 + ' ');
+
+      // 2. Remove recognized system bracket tags (including unclosed bracket at end of string)
+      s = s.replace(/\[\s*(?:ឯកសារ|លេខឯកសារ|អ្នកទទួល|អ្នកបើក|អ្នកបើកចេញ|អ្នកបើកទំនិញ|ខ្នាត|ពណ៌|តំបន់|មូលហេតុ|ចូល|ចូលជាដុំ|ចូលជារាយ|ចេញ|ចេញជាដុំ|ចេញជារាយ|ដុំ|រាយ|ចែក|ស្តុក|ស្តុកចាស់|ស្តុកថ្មី|ស្តុកនៅសល់|Stock|OldStock|NewStock|RemainingStock|Movement|StockMovement|Doc|DocNo|Receiver|Issuer|Size|Color|Zone|Reason|ទទួលពី(?:\s*Admin)?|Station|Status|សរុប|Total|SKU|Item|ItemName|Warehouse|ឃ្លាំង|ទីតាំង|ស្ថានីយ|កាលបរិច្ឆេទ|Date|Time)(?:\s*[:=：]|\s)[^\]]*(?:\]|$)/gi, ' ');
+
+      // 3. Remove movement tags like [5 ➔ 3] or [0 ដើម ➔ 1 ដើម] or [->]
+      s = s.replace(/\[\s*[^\]]*(?:➔|->)\s*[^\]]*(?:\]|$)/gi, ' ');
+
+      // 4. Remove standalone doc ID brackets like [OUT-20261009-5110] or [IN-20261009-7128]
+      s = s.replace(/\[\s*(?:OUT|IN|DOC|TX)[\w\-]+[^\]]*(?:\]|$)/gi, ' ');
+
+      // 5. If everything left is only bracketed tokens, strip them
+      if (s.replace(/\[[^\]]*(?:\]|$)/g, '').trim() === '') {
+        return '-';
+      }
+
+      // 6. Clean leading/trailing punctuation and whitespace
+      s = s.replace(/^[\s\-–—:,;]+|[\s\-–—:,;]+$/g, '').trim();
+      s = s.replace(/^\[\s*\]$/, '').trim();
+      return s || '-';
     }
+    window.cleanDisplayNote = cleanDisplayNote;
 
     function renderStockInHistoryTable(rawTxs, isFiltered = false) {
       const activeWh = getStockInActiveWarehouseFilter();
@@ -22869,7 +22920,7 @@ function saveLocalUsersToStorage() {
                    (t.itemName || '').toLowerCase().includes(q) ||
                    (t.sku || '').toLowerCase().includes(q) ||
                    (t.toLocation || t.location || t.fromLocation || '').toLowerCase().includes(q) ||
-                   (t.user || t.receivedBy || '').toLowerCase().includes(q) ||
+                   (t.issuer || t.user || t.receivedBy || '').toLowerCase().includes(q) ||
                    (t.reason || '').toLowerCase().includes(q) ||
                    (t.notes || '').toLowerCase().includes(q);
           });
@@ -23183,16 +23234,17 @@ function saveLocalUsersToStorage() {
       let initialSize = (tx.size || '').trim();
       let initialColor = (tx.color || '').trim();
       let initialZone = (tx.zone || '').trim();
-      if (!initialSize && tx.notes) {
-        const sm = tx.notes.match(/\[(?:ខ្នាត|Size):\s*([^\]]+)\]/i);
+      const nStr = tx.rawNotes || tx.notes || '';
+      if (!initialSize && nStr) {
+        const sm = nStr.match(/\[(?:ខ្នាត|Size):\s*([^\]]+)\]/i);
         if (sm) initialSize = sm[1].trim();
       }
-      if (!initialColor && tx.notes) {
-        const cm = tx.notes.match(/\[(?:ពណ៌|Color):\s*([^\]]+)\]/i);
+      if (!initialColor && nStr) {
+        const cm = nStr.match(/\[(?:ពណ៌|Color):\s*([^\]]+)\]/i);
         if (cm) initialColor = cm[1].trim();
       }
-      if (!initialZone && tx.notes) {
-        const zm = tx.notes.match(/\[(?:តំបន់|Zone):\s*([^\]]+)\]/i);
+      if (!initialZone && nStr) {
+        const zm = nStr.match(/\[(?:តំបន់|Zone):\s*([^\]]+)\]/i);
         if (zm) initialZone = zm[1].trim();
       }
       if (!initialSize && item?.size) initialSize = String(item.size).trim();
@@ -23211,7 +23263,7 @@ function saveLocalUsersToStorage() {
       const pQty = Math.max(1, Number(tx.packQty || item?.packQty || 1));
       const pUnit = (tx.packUnit || item?.packUnit || 'ប្រអប់').trim();
       const rUnit = (tx.unit || item?.unit || 'គូ').trim() || 'គូ';
-      const rawCleanedNotes = cleanDisplayNote(tx.notes || '');
+      const rawCleanedNotes = cleanDisplayNote(tx.userNote !== undefined ? tx.userNote : (tx.notes || ''));
       const curNotes = escapeHtml(rawCleanedNotes === '-' ? '' : rawCleanedNotes);
 
       // Determine initial bulk & retail quantities
@@ -23220,10 +23272,10 @@ function saveLocalUsersToStorage() {
       if (tx.bulkQty !== undefined && tx.retailQty !== undefined && tx.bulkQty !== null && tx.retailQty !== null) {
         initialBulk = Number(tx.bulkQty);
         initialRetail = Number(tx.retailQty);
-      } else if (tx.notes) {
-        const cMatch = tx.notes.match(/\[(?:ចូល|ចេញ):\s*(\d+)\s*[^\+\d]+\+\s*(\d+)/);
-        const bMatch = tx.notes.match(/\[(?:ចូល|ចេញ)ជាដុំ:\s*(\d+)/);
-        const rMatch = tx.notes.match(/\[(?:ចូល|ចេញ)ជារាយ:\s*(\d+)/);
+      } else if (nStr) {
+        const cMatch = nStr.match(/\[(?:ចូល|ចេញ):\s*(\d+)\s*[^\+\d]+\+\s*(\d+)/);
+        const bMatch = nStr.match(/\[(?:ចូល|ចេញ)ជាដុំ:\s*(\d+)/);
+        const rMatch = nStr.match(/\[(?:ចូល|ចេញ)ជារាយ:\s*(\d+)/);
         if (cMatch) {
           initialBulk = Number(cMatch[1]);
           initialRetail = Number(cMatch[2]);
@@ -23572,6 +23624,8 @@ function saveLocalUsersToStorage() {
             color: v.color,
             zone: v.zone,
             toLocation: v.location,
+            warehouse: v.location,
+            location: v.location,
             receivedBy: v.receiver,
             notes: userNote,
             userNote: userNote
