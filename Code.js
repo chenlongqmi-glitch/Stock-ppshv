@@ -1095,6 +1095,8 @@ function onOpen() {
   try {
     const ui = SpreadsheetApp.getUi();
     ui.createMenu('⚡ Smart Inventory')
+      .addItem('🔄 កែសម្រួល Transactions (លុប Price និងតម្រឹម Location)', 'standardizeAndFormatTransactionsSheet')
+      .addSeparator()
       .addItem('🔄 ដំឡើងរចនាសម្ព័ន្ធតារាង និងទិន្នន័យ (Setup Database & Items)', 'setupDatabase')
       .addItem('🛠️ កែសម្រួល Google Sheet ឱ្យដូចប្រព័ន្ធ (Align Sheet to System)', 'migrateAndAlignItemsSheet')
       .addItem('📦 តម្រឹមជួរឈរ ស្តុកចាស់ ➔ ថ្មី (Align Stock Movement)', 'alignAndBackfillStockSheets')
@@ -1104,6 +1106,40 @@ function onOpen() {
   } catch (e) {
     if (typeof Logger !== 'undefined') Logger.log('onOpen menu notice: ' + e.toString());
   }
+
+  // ដំណើរការស្វ័យប្រវត្តិពិនិត្យ និងកែសម្រួល Transactions ភ្លាមៗពេលបើក Sheet
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    if (ss) {
+      const txSheet = ss.getSheetByName(SHEETS.TRANSACTIONS);
+      if (txSheet && txSheet.getLastRow() >= 1) {
+        const hRow = txSheet.getRange(1, 1, 1, Math.min(txSheet.getLastColumn(), 20)).getValues()[0] || [];
+        const hasUnitPrice = hRow.some(h => String(h || '').toLowerCase().includes('unitprice') || String(h || '').includes('តម្លៃ'));
+        const hasTotalAmount = hRow.some(h => String(h || '').toLowerCase().includes('totalamount') || String(h || '').includes('សរុប'));
+        const hasInvalidColCount = (hRow.length !== 12 && txSheet.getLastColumn() !== 12);
+        if (hasUnitPrice || hasTotalAmount || hasInvalidColCount) {
+          standardizeAndFormatTransactionsSheet(ss);
+        }
+      }
+    }
+  } catch(errAutoTx) {
+    if (typeof Logger !== 'undefined') Logger.log('onOpen auto tx fix error: ' + errAutoTx.toString());
+  }
+}
+
+/**
+ * 🛠️ ជួសជុល និងតម្រឹម Header គ្រប់ Sheet ឱ្យត្រឹមត្រូវ ១០០%
+ */
+function fixAllSheetHeaders(optSs) {
+  const ss = optSs || SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss) return { success: false, message: 'Spreadsheet not found' };
+
+  try { migrateAndAlignItemsSheet(ss); } catch(e1) {}
+  try { ensureStockSheetsInitialized(ss); } catch(e2) {}
+  try { alignAndBackfillStockSheets(ss); } catch(e3) {}
+  try { standardizeAndFormatTransactionsSheet(ss); } catch(e4) {}
+
+  return { success: true, message: 'ជួសជុល និងតម្រឹម Header គ្រប់ Sheet ជោគជ័យ (Items, Stock_in, Stock_out, Transactions)' };
 }
 
 /**
@@ -1154,6 +1190,8 @@ function setupDatabase() {
 
     formatHeaderRow(txSheet, headers.length, '#0f766e');
 
+  } else {
+    try { standardizeAndFormatTransactionsSheet(ss); } catch(eTx) {}
   }
 
 
@@ -1684,6 +1722,11 @@ function alignAndBackfillStockSheets(optSs) {
   try {
     standardizeAndFormatStockOutSheet(ss);
   } catch(eOut) {}
+
+  // 4. Transactions Sheet (12 ជួរឈរស្តង់ដារ - លុប UnitPrice/TotalAmount & តម្រឹម From/To)
+  try {
+    standardizeAndFormatTransactionsSheet(ss);
+  } catch(eTx) {}
 
   return { success: true, message: 'បានកែសម្រួលជួរឈរ ស្តុកចាស់ ➔ ថ្មី ក្នុង Google Sheet ជោគជ័យ' };
 }
@@ -10212,7 +10255,6 @@ function standardizeAndFormatTransactionsSheet(optSs) {
       let txId = String(row[idxTxId] || ('TX-' + Utilities.formatDate(new Date(), 'GMT+7', 'yyyyMMddHHmmss') + '-' + r)).trim();
       const sku = String(row[idxSku] || '').trim();
       const itemName = String(row[idxName] || sku).trim();
-      const txType = String(row[idxType] || 'STOCK_IN').trim().toUpperCase();
       const qty = Number(row[idxQty] || 0);
       const unit = String(row[idxUnit] || 'ដុំ').trim();
 
@@ -10230,7 +10272,7 @@ function standardizeAndFormatTransactionsSheet(optSs) {
       }
       if (!dateStr) dateStr = Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd');
 
-      // Format Notes
+      // Format Notes & DocNo
       const rawNotes = String(row[idxNotes] || '').trim();
       let docNo = (rawNotes.match(/\[(?:ឯកសារ|Doc|DocNo):\s*([^\]]+)\]/i) || [])[1] || '';
       const oldFrom = String(row[idxFrom] || '').trim();
@@ -10238,8 +10280,22 @@ function standardizeAndFormatTransactionsSheet(optSs) {
         const fromDocM = oldFrom.match(/Doc:\s*([^,\s]+)/i);
         if (fromDocM) docNo = fromDocM[1].trim();
       }
+      if (!docNo) {
+        const notesDocM = rawNotes.match(/(?:DOC-IN|IN-|OUT-)\d+-\d+/i);
+        if (notesDocM) docNo = notesDocM[0].trim();
+      }
       if (!docNo && (txId.startsWith('DOC-') || txId.startsWith('IN-') || txId.startsWith('OUT-'))) {
         docNo = txId;
+      }
+
+      // Determine TxType
+      let txType = String(row[idxType] || '').trim().toUpperCase();
+      if (!txType || txType === '-' || (!txType.includes('IN') && !txType.includes('OUT') && !txType.includes('TRANSFER') && !txType.includes('ADJUST'))) {
+        if (docNo.toUpperCase().includes('OUT-') || txId.toUpperCase().includes('OUT-') || rawNotes.toUpperCase().includes('OUT-')) {
+          txType = 'STOCK_OUT';
+        } else {
+          txType = 'STOCK_IN';
+        }
       }
 
       const sInMeta = (docNo && stockInMap[docNo.toUpperCase()]) || stockInMap[sku.toLowerCase() + '_' + qty] || null;
