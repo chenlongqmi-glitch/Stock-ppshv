@@ -11681,7 +11681,7 @@ function saveLocalUsersToStorage() {
           if (d.color && !matched.color) matched.color = d.color;
           if (d.zone && !matched.zone) matched.zone = d.zone;
         }
-        addNotification('STOCK_IN', 'នាំចូលស្តុកទំនិញ (Stock In)', `+${qtyNum} ${d.unit || 'ដុំ'} នៃ ${d.itemName || d.sku} (ឯកសារ: ${d.docNo || 'N/A'})`, d.toLocation || d.location || u?.warehouse, u?.username || 'Staff');
+        // មិនចាំបាច់មានសារជូនដំណឹងពេលបញ្ចូលទំនិញចូលស្តុកឡើយ (STOCK_IN)
         return { success: true, message: 'បានកត់ត្រាទំនិញចូលស្តុកជោគជ័យ!' };
       }
 
@@ -19582,29 +19582,17 @@ function saveLocalUsersToStorage() {
       // សម្អាត Form ភ្លាមៗ (កំណត់សម្គាល់ត្រឡប់ទៅ '-' & ទីតាំងឃ្លាំងរក្សា default)
       clearStockInAllFields();
 
-      // បង្ហាញការជូនដំណឹងជោគជ័យភ្លាមៗ
-      Swal.fire({
-        icon: 'success',
-        title: 'បានកត់ត្រាទំនិញចូលស្តុកជោគជ័យ!',
-        html: `<div class="text-left text-sm space-y-1.5 p-2">
-          <p class="text-slate-600 font-medium">ទិន្នន័យបានបង្ហាញនៅតារាងខាងក្រោមរួចរាល់!</p>
-          <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-xs space-y-1 mt-2">
-            <p><b>លេខឯកសារ:</b> <span class="font-mono text-emerald-800 font-bold">${escapeHtml(docNo)}</span></p>
-            <p><b>ទំនិញ:</b> <span class="font-bold text-slate-800">${escapeHtml(itemName)}</span> (${escapeHtml(sku)})</p>
-            <p><b>ខ្នាត/ពណ៌:</b> ${escapeHtml(size || baseUnit)} | ${escapeHtml(color || '-')}</p>
-            <p><b>តំបន់:</b> <span class="text-indigo-700 font-bold">${escapeHtml(zone || '-')}</span></p>
-            <p><b>ចំនួនចូល:</b> <span class="text-emerald-700 font-black">+${effectiveQty} ${escapeHtml(baseUnit)}${modeNote}</span></p>
-            <p><b>សរុបស្តុកចាស់:</b> ${oldStockStr} ➔ <b>សរុបស្តុកថ្មី:</b> <span class="text-emerald-700 font-black">${newStockStr}</span></p>
-            <p><b>ឃ្លាំង:</b> ${escapeHtml(location)}</p>
-            <p><b>អ្នកទទួល:</b> ${escapeHtml(receiver)}</p>
-            <p><b>កំណត់សម្គាល់:</b> ${escapeHtml(finalNotes)}</p>
-          </div>
-        </div>`,
-        timer: 3500,
-        timerProgressBar: true,
-        confirmButtonColor: '#046c4e',
-        confirmButtonText: 'យល់ព្រម'
-      });
+      // មិនបង្ហាញសារជូនដំណឹង (Popup/Toast) អ្វីទាំងអស់តាមការស្នើសុំ
+      const submitBtn = document.getElementById('btnSubmitStockIn');
+      if (submitBtn) {
+        const origBtnHtml = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fa-solid fa-circle-check text-xs text-white"></i> <span class="text-white font-khmer">បានរក្សាទុក!</span>';
+        submitBtn.classList.add('bg-emerald-700');
+        setTimeout(() => {
+          submitBtn.innerHTML = origBtnHtml;
+          submitBtn.classList.remove('bg-emerald-700');
+        }, 1200);
+      }
 
       // =========================================================================
       // 3. BACKGROUND UPDATE: ធ្វើការ update ក្នុងប្រព័ន្ធតាមក្រោយ
@@ -32163,6 +32151,9 @@ function saveLocalUsersToStorage() {
     function addNotification(type, title, message, warehouse, user, targetUserId = '', targetUsername = '') {
       const u = AppState.currentUser || {};
       const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(u) : (u.role === 'Admin' || u.role === 'SuperAdmin');
+
+      // មិនចាំបាច់មានសារជូនដំណឹងពេលបញ្ចូលទំនិញចូលស្តុកឡើយ (STOCK_IN)
+      if (type === 'STOCK_IN') return;
 
       // មិនចាំបាច់មានសារជូនដំណឹងមក super admin ឬក៏ admin ឡើយ (សម្រាប់ STOCK_DISPATCH ឬ STOCK_OUT)
       if (type === 'STOCK_DISPATCH' || type === 'STOCK_OUT') {
