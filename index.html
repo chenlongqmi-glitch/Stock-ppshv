@@ -22745,7 +22745,7 @@ function saveLocalUsersToStorage() {
         const newLooseStock = pQty > 1 ? (safeNewSt % pQty) : safeNewSt;
 
         return `
-          <tr ondblclick="openEditStockInModal('${escapeHtml(t.txId || '')}', '${escapeHtml(t.docNo || '')}')"
+          <tr ondblclick="openEditStockInModal('${escapeHtml(t.txId || '')}', '${escapeHtml(t.docNo || '')}', ${idx})"
               class="hover:bg-emerald-50/70 transition-colors cursor-pointer select-none"
               title="ចុច ២ដង (Double-Click) ដើម្បីកែតម្រូវ ឬលុបទិន្នន័យ">
             <!-- 1. ល.រ -->
@@ -23230,7 +23230,7 @@ function saveLocalUsersToStorage() {
         const remLooseStock = pQty > 1 ? (safeRemSt % pQty) : safeRemSt;
 
         return `
-          <tr ondblclick="openEditStockOutModal('${escapeHtml(t.txId || '')}', '${escapeHtml(t.docNo || '')}')"
+          <tr ondblclick="openEditStockOutModal('${escapeHtml(t.txId || '')}', '${escapeHtml(t.docNo || '')}', ${idx})"
               class="hover:bg-amber-50/70 transition-colors cursor-pointer select-none"
               title="ចុច ២ដង (Double-Click) ដើម្បីកែតម្រូវ ឬលុបទិន្នន័យ">
             <!-- 1. ល.រ -->
@@ -23370,15 +23370,28 @@ function saveLocalUsersToStorage() {
     // មុខងារកែត្រូវ (EDIT) និង លុបចេញ (DELETE) ប្រតិបត្តិការចូលស្តុក / ចេញស្តុក
     // =========================================================================
     function findTransactionRecord(txId, docNo, type) {
+      const cleanTxId = String(txId || '').trim();
+      const cleanDocNo = String(docNo || '').trim();
       const list = (type === 'STOCK_OUT') ? (AppState.stockOutHistory || []) : (AppState.stockInHistory || []);
-      let found = list.find(t => (txId && t.txId === txId) || (docNo && t.docNo === docNo));
-      if (!found && LOCAL_DB.transactions) {
-        found = LOCAL_DB.transactions.find(t => (!type || t.type === type) && ((txId && t.txId === txId) || (docNo && t.docNo === docNo)));
+      let found = list.find(t => {
+        const tTxId = String(t.txId || '').trim();
+        const tDocNo = String(t.docNo || '').trim();
+        return (cleanTxId && (tTxId === cleanTxId || tDocNo === cleanTxId)) ||
+               (cleanDocNo && (tDocNo === cleanDocNo || tTxId === cleanDocNo));
+      });
+      if (!found && Array.isArray(LOCAL_DB.transactions)) {
+        found = LOCAL_DB.transactions.find(t => {
+          if (type && t.type !== type) return false;
+          const tTxId = String(t.txId || '').trim();
+          const tDocNo = String(t.docNo || '').trim();
+          return (cleanTxId && (tTxId === cleanTxId || tDocNo === cleanTxId)) ||
+                 (cleanDocNo && (tDocNo === cleanDocNo || tTxId === cleanDocNo));
+        });
       }
       return found;
     }
 
-    function openEditStockInModal(txId, docNo) {
+    function openEditStockInModal(txId, docNo, rowIndex) {
       if (typeof isCurrentAdminInViewOnlyMode === 'function' && isCurrentAdminInViewOnlyMode()) {
         const curWh = AppState.selectedAdminWarehouseFilter || 'ស្ថានីយនេះ';
         Swal.fire({
@@ -23395,7 +23408,10 @@ function saveLocalUsersToStorage() {
         });
         return;
       }
-      const tx = findTransactionRecord(txId, docNo, 'STOCK_IN');
+      let tx = findTransactionRecord(txId, docNo, 'STOCK_IN');
+      if (!tx && typeof rowIndex === 'number' && AppState.stockInHistory && AppState.stockInHistory[rowIndex]) {
+        tx = AppState.stockInHistory[rowIndex];
+      }
       if (!tx) {
         Swal.fire({ icon: 'error', title: 'រកមិនឃើញទិន្នន័យប្រតិបត្តិការទេ!', confirmButtonColor: '#047857' });
         return;
@@ -23444,6 +23460,7 @@ function saveLocalUsersToStorage() {
       const rUnit = (tx.unit || item?.unit || 'គូ').trim() || 'គូ';
       const rawCleanedNotes = cleanDisplayNote(tx.userNote !== undefined ? tx.userNote : (tx.notes || ''));
       const curNotes = (rawCleanedNotes === '-' || !rawCleanedNotes) ? '' : escapeHtml(rawCleanedNotes);
+      const curReceiver = escapeHtml(tx.receivedBy || tx.receiver || tx.user || '');
 
       // Determine initial bulk & retail quantities
       let initialBulk = 0;
@@ -23912,7 +23929,7 @@ function saveLocalUsersToStorage() {
       });
     }
 
-    function openEditStockOutModal(txId, docNo) {
+    function openEditStockOutModal(txId, docNo, rowIndex) {
       if (typeof isCurrentAdminInViewOnlyMode === 'function' && isCurrentAdminInViewOnlyMode()) {
         const curWh = AppState.selectedAdminWarehouseFilter || 'ស្ថានីយនេះ';
         Swal.fire({
@@ -23929,7 +23946,10 @@ function saveLocalUsersToStorage() {
         });
         return;
       }
-      const tx = findTransactionRecord(txId, docNo, 'STOCK_OUT');
+      let tx = findTransactionRecord(txId, docNo, 'STOCK_OUT');
+      if (!tx && typeof rowIndex === 'number' && AppState.stockOutHistory && AppState.stockOutHistory[rowIndex]) {
+        tx = AppState.stockOutHistory[rowIndex];
+      }
       if (!tx) {
         Swal.fire({ icon: 'error', title: 'រកមិនឃើញទិន្នន័យប្រតិបត្តិការទេ!', confirmButtonColor: '#b45309' });
         return;
@@ -24361,6 +24381,13 @@ function saveLocalUsersToStorage() {
         });
       });
     }
+
+    // Expose transaction edit modal handlers to global window
+    window.findTransactionRecord = findTransactionRecord;
+    window.openEditStockInModal = openEditStockInModal;
+    window.confirmDeleteStockInRecord = confirmDeleteStockInRecord;
+    window.openEditStockOutModal = openEditStockOutModal;
+    window.confirmDeleteStockOutRecord = confirmDeleteStockOutRecord;
 
     function quickStockIn(sku) {
       navigateTab('stockin');
