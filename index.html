@@ -3308,14 +3308,20 @@
                   </div>
 
                   <!-- Col 2: នាំចេញទៅឃ្លាំងណា -->
-                  <div id="stockOutField_toLocation" class="w-full">
+                  <div id="stockOutField_toLocation" class="w-full relative">
                     <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center truncate" title="នាំចេញទៅឃ្លាំងណា">
                       <span id="stockOutToLocationLabel" class="truncate">នាំចេញទៅឃ្លាំងណា</span>
                     </label>
-                    <select id="stockOutToLocation" required
-                      class="w-full h-11 px-3 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-amber-500 focus:bg-white outline-none transition shadow-2xs">
-                      <option value="" disabled selected>-- ជ្រើសរើសទីតាំង --</option>
-                    </select>
+                    <div class="relative w-full">
+                      <button type="button" id="stockOutToLocationBtn" onclick="toggleStockOutToLocationDropdown(event)"
+                        class="w-full h-11 px-3 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-amber-500 focus:bg-white outline-none transition shadow-2xs flex items-center justify-between cursor-pointer text-left">
+                        <span id="stockOutToLocationText" class="truncate flex items-center gap-1.5">-- ជ្រើសរើសទីតាំង --</span>
+                        <i id="stockOutToLocationChevron" class="fa-solid fa-chevron-down text-slate-400 text-xs shrink-0 transition-transform duration-200 ml-2"></i>
+                      </button>
+                      <select id="stockOutToLocation" required class="sr-only pointer-events-none" tabindex="-1" aria-hidden="true">
+                        <option value="" disabled selected>-- ជ្រើសរើសទីតាំង --</option>
+                      </select>
+                    </div>
                   </div>
 
                   <!-- Col 3: សកម្មភាព (Clear Red Button) -->
@@ -14566,6 +14572,9 @@ function saveLocalUsersToStorage() {
       if (typeof AutoSyncEngine !== 'undefined' && AutoSyncEngine && typeof AutoSyncEngine.init === 'function') {
         AutoSyncEngine.init();
       }
+      if (typeof updateStockOutToLocationCustomDisplay === 'function') {
+        updateStockOutToLocationCustomDisplay();
+      }
     });
 
     function navigateTab(tabName) {
@@ -14900,6 +14909,7 @@ function saveLocalUsersToStorage() {
       } else if (tabName === 'stockout') {
         try { populateItemSelectDropdowns(); } catch(e) { console.warn(e); }
         try { initStockOutForm(); } catch(e) { console.warn(e); }
+        try { updateStockOutToLocationCustomDisplay(); } catch(e) {}
         loadStockOutHistory();
         if (typeof renderStockOutMultiStationGrid === 'function') renderStockOutMultiStationGrid();
       } else if (tabName === 'transfer') {
@@ -20075,6 +20085,7 @@ function saveLocalUsersToStorage() {
         if (modeSwitcher) modeSwitcher.classList.remove('hidden');
         const multiBtn = document.getElementById('btnStockOutModeMulti');
         if (multiBtn) multiBtn.style.display = '';
+        if (typeof updateStockOutToLocationCustomDisplay === 'function') updateStockOutToLocationCustomDisplay();
         return;
       }
 
@@ -20101,6 +20112,7 @@ function saveLocalUsersToStorage() {
       if (typeof setStockOutMode === 'function') {
         setStockOutMode('SINGLE');
       }
+      if (typeof updateStockOutToLocationCustomDisplay === 'function') updateStockOutToLocationCustomDisplay();
     }
     window.applyUserWarehouseToStockOutLocation = applyUserWarehouseToStockOutLocation;
 
@@ -20595,21 +20607,175 @@ function saveLocalUsersToStorage() {
       }
     }
 
-    // Close Stock Out Zone on outside click
-    document.addEventListener('mousedown', function(e) {
-      if (!stockOutZoneDropdownEl || stockOutZoneDropdownEl.classList.contains('hidden')) return;
-      const zoneField = document.getElementById('stockOutField_zone');
-      if (stockOutZoneDropdownEl.contains(e.target) || (zoneField && zoneField.contains(e.target))) {
-        return;
+    // --- CUSTOM DROPDOWN CONTROLLER FOR stockOutToLocation (ALWAYS OPENS DOWNWARDS) ---
+    let stockOutToLocationDropdownEl = null;
+
+    function ensureStockOutToLocationDropdown() {
+      if (stockOutToLocationDropdownEl && document.body.contains(stockOutToLocationDropdownEl)) {
+        return stockOutToLocationDropdownEl;
       }
-      closeStockOutZoneDropdown();
+      stockOutToLocationDropdownEl = document.createElement('div');
+      stockOutToLocationDropdownEl.id = 'stockOutToLocationDropdown';
+      stockOutToLocationDropdownEl.className = 'fixed bg-white/98 backdrop-blur-md border border-slate-200/90 rounded-2xl shadow-2xl z-[9999] p-2 transition-all duration-150 font-sans hidden animate-in fade-in zoom-in-95 custom-scrollbar';
+      stockOutToLocationDropdownEl.style.fontFamily = "'Kantumruy Pro', 'Battambang', sans-serif";
+      document.body.appendChild(stockOutToLocationDropdownEl);
+      return stockOutToLocationDropdownEl;
+    }
+
+    function renderStockOutToLocationDropdownContent() {
+      const dropdown = ensureStockOutToLocationDropdown();
+      const soTo = document.getElementById('stockOutToLocation');
+      if (!dropdown || !soTo) return;
+
+      const currentVal = soTo.value || '';
+      const options = Array.from(soTo.options);
+
+      let html = '<div class="space-y-1 max-h-64 overflow-y-auto pr-0.5 custom-scrollbar">';
+      options.forEach(opt => {
+        if (!opt.value) return;
+        const isSelected = (opt.value === currentVal);
+        const activeClass = isSelected
+          ? 'bg-amber-100 text-amber-950 font-bold border border-amber-300 shadow-2xs'
+          : 'text-slate-700 hover:bg-amber-50 hover:text-amber-900 border border-transparent';
+        const checkIcon = isSelected
+          ? '<i class="fa-solid fa-circle-check text-amber-600 text-xs ml-auto shrink-0"></i>'
+          : '';
+        html += `
+          <button type="button" onclick="selectStockOutToLocation('${escapeHtml(opt.value)}')"
+            class="w-full text-left px-3 py-2 text-xs rounded-xl transition flex items-center gap-2 cursor-pointer ${activeClass}">
+            <span class="truncate flex items-center gap-1.5">${opt.text}</span>
+            ${checkIcon}
+          </button>
+        `;
+      });
+      html += '</div>';
+      dropdown.innerHTML = html;
+    }
+
+    function positionStockOutToLocationDropdown() {
+      const btn = document.getElementById('stockOutToLocationBtn');
+      const dropdown = ensureStockOutToLocationDropdown();
+      if (!btn || !dropdown) return;
+
+      const rect = btn.getBoundingClientRect();
+      const dropdownWidth = Math.max(rect.width, 280);
+      dropdown.style.width = `${Math.min(dropdownWidth, window.innerWidth - 20)}px`;
+
+      let left = rect.left;
+      if (left + dropdownWidth > window.innerWidth - 10) {
+        left = Math.max(10, window.innerWidth - dropdownWidth - 10);
+      }
+
+      // CRITICAL: Always display DOWNWARDS (ចុះមកខាងក្រោម) directly below the trigger!
+      const top = rect.bottom + 6;
+      dropdown.style.top = `${top}px`;
+      dropdown.style.left = `${left}px`;
+
+      // Available vertical space downwards from rect.bottom to window bottom
+      const availableBelow = Math.max(160, window.innerHeight - top - 16);
+      dropdown.style.maxHeight = `${Math.min(320, availableBelow)}px`;
+    }
+
+    function openStockOutToLocationDropdown() {
+      const btn = document.getElementById('stockOutToLocationBtn');
+      if (!btn) return;
+      const dropdown = ensureStockOutToLocationDropdown();
+      renderStockOutToLocationDropdownContent();
+      dropdown.classList.remove('hidden');
+      positionStockOutToLocationDropdown();
+
+      const chevron = document.getElementById('stockOutToLocationChevron');
+      if (chevron) chevron.style.transform = 'rotate(180deg)';
+
+      btn.classList.add('ring-2', 'ring-amber-500', 'border-amber-400', 'bg-white');
+    }
+
+    function closeStockOutToLocationDropdown() {
+      if (stockOutToLocationDropdownEl) {
+        stockOutToLocationDropdownEl.classList.add('hidden');
+      }
+      const chevron = document.getElementById('stockOutToLocationChevron');
+      if (chevron) chevron.style.transform = '';
+      const btn = document.getElementById('stockOutToLocationBtn');
+      if (btn) {
+        btn.classList.remove('ring-2', 'ring-amber-500', 'border-amber-400');
+      }
+    }
+
+    function toggleStockOutToLocationDropdown(e) {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      const soTo = document.getElementById('stockOutToLocation');
+      if (soTo && soTo.disabled) return;
+      const field = document.getElementById('stockOutField_toLocation');
+      if (field && field.classList.contains('pointer-events-none')) return;
+
+      if (stockOutToLocationDropdownEl && !stockOutToLocationDropdownEl.classList.contains('hidden')) {
+        closeStockOutToLocationDropdown();
+      } else {
+        openStockOutToLocationDropdown();
+      }
+    }
+    window.toggleStockOutToLocationDropdown = toggleStockOutToLocationDropdown;
+
+    function selectStockOutToLocation(val) {
+      const soTo = document.getElementById('stockOutToLocation');
+      if (soTo) {
+        soTo.value = val;
+        soTo.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      updateStockOutToLocationCustomDisplay();
+      closeStockOutToLocationDropdown();
+    }
+    window.selectStockOutToLocation = selectStockOutToLocation;
+
+    function updateStockOutToLocationCustomDisplay() {
+      const soTo = document.getElementById('stockOutToLocation');
+      const textEl = document.getElementById('stockOutToLocationText');
+      if (!soTo || !textEl) return;
+      const selectedOpt = soTo.options[soTo.selectedIndex];
+      if (selectedOpt && selectedOpt.value) {
+        textEl.innerHTML = selectedOpt.text;
+      } else if (soTo.value) {
+        textEl.innerHTML = `📍 ${escapeHtml(soTo.value)}`;
+      } else {
+        textEl.innerHTML = '<span class="text-slate-400">-- ជ្រើសរើសទីតាំង --</span>';
+      }
+    }
+    window.updateStockOutToLocationCustomDisplay = updateStockOutToLocationCustomDisplay;
+
+    // Close Stock Out Zone & ToLocation on outside click
+    document.addEventListener('mousedown', function(e) {
+      if (stockOutZoneDropdownEl && !stockOutZoneDropdownEl.classList.contains('hidden')) {
+        const zoneField = document.getElementById('stockOutField_zone');
+        if (!stockOutZoneDropdownEl.contains(e.target) && (!zoneField || !zoneField.contains(e.target))) {
+          closeStockOutZoneDropdown();
+        }
+      }
+      if (stockOutToLocationDropdownEl && !stockOutToLocationDropdownEl.classList.contains('hidden')) {
+        const toLocField = document.getElementById('stockOutField_toLocation');
+        if (!stockOutToLocationDropdownEl.contains(e.target) && (!toLocField || !toLocField.contains(e.target))) {
+          closeStockOutToLocationDropdown();
+        }
+      }
     });
 
     window.addEventListener('resize', function() {
       if (stockOutZoneDropdownEl && !stockOutZoneDropdownEl.classList.contains('hidden')) {
         positionStockOutZoneDropdown();
       }
+      if (stockOutToLocationDropdownEl && !stockOutToLocationDropdownEl.classList.contains('hidden')) {
+        positionStockOutToLocationDropdown();
+      }
     });
+
+    window.addEventListener('scroll', function() {
+      if (stockOutToLocationDropdownEl && !stockOutToLocationDropdownEl.classList.contains('hidden')) {
+        positionStockOutToLocationDropdown();
+      }
+    }, true);
 
     function updateStockOutBadges(oldBulk, oldRetail, newBulk, newRetail, bulkUnit, retailUnit, isOverdrawn = false) {
       const bUnit = bulkUnit || 'ប្រអប់';
@@ -20910,6 +21076,7 @@ function saveLocalUsersToStorage() {
       if (typeof clearAllMultiStationQtys === 'function') clearAllMultiStationQtys();
       generateStockOutDocNo();
       applyUserWarehouseToStockOutLocation();
+      if (typeof closeStockOutToLocationDropdown === 'function') closeStockOutToLocationDropdown();
     }
 
 
@@ -20951,6 +21118,7 @@ function saveLocalUsersToStorage() {
         if (banner) banner.classList.remove('hidden'), banner.classList.add('flex');
         if (section) section.classList.remove('hidden');
         if (toLocField) toLocField.classList.add('opacity-40', 'pointer-events-none');
+        if (typeof closeStockOutToLocationDropdown === 'function') closeStockOutToLocationDropdown();
         if (bulkInp) bulkInp.setAttribute('readonly', 'readonly'), bulkInp.classList.add('bg-slate-100');
         if (retailInp) retailInp.setAttribute('readonly', 'readonly'), retailInp.classList.add('bg-slate-100');
 
