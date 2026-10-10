@@ -21309,24 +21309,224 @@ function saveLocalUsersToStorage() {
       renderPendingIncomingDispatches();
     }
 
+    /**
+     * 🔄 ធ្វើសមកាលកម្មប្រតិបត្តិការបើកទំនិញចេញ (Stock Out) ទាំងអស់ចូលក្នុង Dispatches Tracker
+     * ដើម្បីឱ្យ SuperAdmin និង Admin ទាំងពីរនាក់ អាចមើលឃើញរាល់ប្រតិបត្តិការទាំងអស់ ១០០%
+     */
+    function syncDispatchesWithOperations() {
+      loadLocalDispatchesFromStorage();
+      if (!LOCAL_DB.dispatches) LOCAL_DB.dispatches = [];
+
+      const existingMap = new Map();
+      LOCAL_DB.dispatches.forEach(d => {
+        if (d && d.dispatchId) existingMap.set(d.dispatchId, d);
+        if (d && d.masterDocNo && d.sku) {
+          existingMap.set(String(d.masterDocNo).trim().toUpperCase() + '_' + String(d.sku).trim().toLowerCase(), d);
+        }
+      });
+
+      // Gather all stock out transactions from all memory and storage caches
+      const allOutTxs = [];
+      const seenTxKeys = new Set();
+      const pushOutTx = (tx) => {
+        if (!tx) return;
+        const type = String(tx.type || '').toUpperCase();
+        const doc = String(tx.docNo || tx.txId || '').trim().toUpperCase();
+        if (type !== 'STOCK_OUT' && !doc.startsWith('OUT-') && !doc.startsWith('DSP-')) return;
+        const sku = String(tx.sku || '').trim().toLowerCase();
+        const loc = String(tx.toLocation || tx.location || tx.destination || '').trim().toLowerCase();
+        const k = doc + '_' + sku + '_' + loc;
+        if (!seenTxKeys.has(k)) {
+          seenTxKeys.add(k);
+          allOutTxs.push(tx);
+        }
+      };
+
+      (AppState.stockOutHistory || []).forEach(pushOutTx);
+      (LOCAL_DB.stockOutHistory || []).forEach(pushOutTx);
+      (AppState.transactions || []).forEach(pushOutTx);
+      (LOCAL_DB.transactions || []).forEach(pushOutTx);
+
+      try {
+        const rawOut = localStorage.getItem('inventory_stock_out_history_db');
+        if (rawOut) JSON.parse(rawOut).forEach(pushOutTx);
+      } catch(e) {}
+      try {
+        const rawTx = localStorage.getItem('inventory_transactions_db');
+        if (rawTx) JSON.parse(rawTx).forEach(pushOutTx);
+      } catch(e) {}
+
+      // Gather all stock in transactions to cross-check if already received at destination
+      const allInTxs = [];
+      const pushInTx = (tx) => {
+        if (!tx) return;
+        const type = String(tx.type || '').toUpperCase();
+        const doc = String(tx.docNo || tx.txId || '').trim().toUpperCase();
+        if (type === 'STOCK_IN' || doc.startsWith('IN-') || doc.startsWith('DOC-IN-')) {
+          allInTxs.push(tx);
+        }
+      };
+      (AppState.stockInHistory || []).forEach(pushInTx);
+      (AppState.transactions || []).forEach(pushInTx);
+      (LOCAL_DB.transactions || []).forEach(pushInTx);
+
+      let addedCount = 0;
+      allOutTxs.forEach(t => {
+        let toLoc = String(t.toLocation || t.location || t.destination || '').trim();
+        if (typeof toCanonicalWarehouseName === 'function') {
+          toLoc = toCanonicalWarehouseName(toLoc);
+        }
+        if (!toLoc || toLoc.includes('អតិថិជន') || toLoc.includes('ដកប្រើប្រាស់')) return;
+
+        const isStation = (Array.isArray(TOLL_STATIONS_LIST) && TOLL_STATIONS_LIST.some(st => 
+          (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(toLoc, st.name) : isSameWarehouse(st.name, toLoc)) || 
+          toLoc.includes(st.badge)
+        )) || toLoc.includes('ស្ថានីយ') || toLoc.includes('综合办') || toLoc.startsWith('K');
+
+        if (!isStation) return;
+
+        const docNo = String(t.docNo || t.txId || ('OUT-' + (t.date || '').replace(/-/g, ''))).trim();
+        const sku = String(t.sku || '').trim();
+        const sigKey = docNo.toUpperCase() + '_' + sku.toLowerCase();
+
+        let dsp = existingMap.get(sigKey);
+        if (!dsp && t.dispatchId) dsp = existingMap.get(t.dispatchId);
+
+        // Cross-check if matching Stock In exists at destination station
+        const matchedIn = allInTxs.find(inTx => {
+          const inDoc = String(inTx.docNo || inTx.txId || inTx.notes || '').toUpperCase();
+          const inLoc = String(inTx.toLocation || inTx.location || inTx.warehouse || '');
+          const inSku = String(inTx.sku || '');
+          return inSku.toLowerCase() === sku.toLowerCase() &&
+                 (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(inLoc, toLoc) : isSameWarehouse(inLoc, toLoc)) &&
+                 (inDoc.includes(docNo.toUpperCase()) || inDoc.includes('ទទួលពី'));
+        });
+
+        if (dsp) {
+          if (dsp.status === 'PENDING' && matchedIn) {
+            dsp.status = 'RECEIVED';
+            dsp.receivedBy = matchedIn.user || matchedIn.receivedBy || 'Staff';
+            dsp.receivedZone = matchedIn.zone || '-';
+            dsp.receivedAt = matchedIn.date || matchedIn.timestamp || '';
+            dsp.stockInDocNo = matchedIn.docNo || matchedIn.txId || '';
+          }
+          return;
+        }
+
+        const itemInfo = (AppState.items || LOCAL_DB.items || []).find(i => i.sku === sku) || {};
+        const dateStr = t.date || (t.timestamp ? String(t.timestamp).slice(0, 10) : '');
+        const timeStr = t.time || (t.timestamp && String(t.timestamp).length > 10 ? String(t.timestamp).slice(11, 19) : '');
+        const packQty = Math.max(1, Number(t.packQty || itemInfo.packQty || 1));
+        const qty = Number(t.quantity || t.qty || 0);
+
+        const newDsp = {
+          dispatchId: t.dispatchId || ('DSP-' + docNo.replace(/[^A-Za-z0-9]/g, '') + '-' + (sku || Math.floor(1000 + Math.random() * 9000))),
+          masterDocNo: docNo,
+          date: dateStr,
+          time: timeStr,
+          sku: sku,
+          code: t.code || itemInfo.code || '',
+          itemName: t.itemName || itemInfo.itemName || sku,
+          imageUrl: t.imageUrl || itemInfo.imageUrl || '',
+          size: t.size || itemInfo.size || '-',
+          color: t.color || itemInfo.color || '-',
+          unit: t.unit || itemInfo.unit || 'ដើម',
+          packUnit: t.packUnit || itemInfo.packUnit || 'ប្រអប់',
+          packQty: packQty,
+          bulkQty: Number(t.bulkQty || (packQty > 1 ? Math.floor(qty / packQty) : 0)),
+          retailQty: Number(t.retailQty || (packQty > 1 ? (qty % packQty) : qty)),
+          quantity: qty,
+          fromLocation: t.fromLocation || t.from || '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
+          toLocation: toLoc,
+          issuer: t.user || t.issuer || 'Admin',
+          reason: t.reason || '',
+          notes: t.notes || t.rawNotes || '-',
+          status: matchedIn ? 'RECEIVED' : 'PENDING',
+          receivedBy: matchedIn ? (matchedIn.user || matchedIn.receivedBy || 'Staff') : '',
+          receivedZone: matchedIn ? (matchedIn.zone || '-') : '',
+          receivedAt: matchedIn ? (matchedIn.date || matchedIn.timestamp || '') : '',
+          stockInDocNo: matchedIn ? (matchedIn.docNo || matchedIn.txId || '') : '',
+          createdAt: t.timestamp || new Date().toISOString()
+        };
+
+        LOCAL_DB.dispatches.push(newDsp);
+        existingMap.set(sigKey, newDsp);
+        existingMap.set(newDsp.dispatchId, newDsp);
+        addedCount++;
+      });
+
+      if (addedCount > 0) {
+        saveLocalDispatchesToStorage();
+      }
+    }
+
+    window.refreshPendingIncomingDispatches = async function(btn) {
+      if (btn) btn.classList.add('animate-spin');
+      try {
+        const [dRes, txRes] = await Promise.allSettled([
+          apiCall('getPendingDispatches', { warehouse: 'ALL' }),
+          apiCall('getTransactionHistory', { filters: { type: 'STOCK_OUT', limit: 200 } })
+        ]);
+        if (dRes.status === 'fulfilled' && dRes.value && Array.isArray(dRes.value.dispatches)) {
+          dRes.value.dispatches.forEach(d => {
+            const idx = (LOCAL_DB.dispatches || []).findIndex(x => x.dispatchId === d.dispatchId || (x.masterDocNo === d.masterDocNo && x.sku === d.sku));
+            if (idx >= 0) LOCAL_DB.dispatches[idx] = { ...LOCAL_DB.dispatches[idx], ...d };
+            else LOCAL_DB.dispatches.push(d);
+          });
+        }
+        if (txRes.status === 'fulfilled' && txRes.value && Array.isArray(txRes.value.transactions)) {
+          AppState.stockOutHistory = txRes.value.transactions;
+        }
+        syncDispatchesWithOperations();
+      } catch(e) {
+        console.warn('refreshPendingIncomingDispatches error:', e);
+      } finally {
+        if (btn) btn.classList.remove('animate-spin');
+        renderPendingIncomingDispatches();
+      }
+    };
+
     function renderPendingIncomingDispatches() {
       const card = document.getElementById('pendingIncomingDispatchesCard');
       if (!card) return;
 
+      syncDispatchesWithOperations();
       loadLocalDispatchesFromStorage();
       const allDispatches = LOCAL_DB.dispatches || [];
       const u = AppState.currentUser || {};
-      const isSuperAdmin = (u.role === 'SuperAdmin' || String(u.username).toLowerCase() === 'superadmin');
-      const isAdmin = !isSuperAdmin && (u.role === 'Admin' || String(u.username).toLowerCase() === 'admin' || String(u.username).toLowerCase() === 'singvan327@gmail.com');
-      const isPrivileged = isSuperAdmin || isAdmin;
+      const isSuperAdmin = (typeof isUserSuperAdmin === 'function' ? isUserSuperAdmin(u) : (u.role === 'SuperAdmin' || String(u.username).toLowerCase() === 'superadmin'));
+      const isAdmin = (typeof isUserAdmin === 'function' ? isUserAdmin(u) : (u.role === 'Admin' || String(u.username).toLowerCase() === 'admin' || String(u.username).toLowerCase() === 'singvan327@gmail.com' || String(u.username).toLowerCase() === 'ppshv2024@gmail.com'));
+      const isPrivileged = isSuperAdmin || isAdmin || (typeof isUserPrivilegedAdmin === 'function' && isUserPrivilegedAdmin(u));
       const userWarehouse = u.warehouse || '';
 
-      // Determine dispatches visible for this user
+      // កំណត់ទិន្នន័យបង្ហាញ៖ SuperAdmin និង Admin ទាំងពីរនាក់ អាចមើលឃើញរាល់ប្រតិបត្តិការទាំងអស់ ១០០% មិនជាប់ warehouse filter ឡើយ
       let userDispatches = allDispatches;
       if (!isPrivileged && userWarehouse && userWarehouse !== 'ALL') {
         userDispatches = allDispatches.filter(d => 
           (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(d.toLocation, userWarehouse) : isSameWarehouse(d.toLocation, userWarehouse))
         );
+      }
+
+      // Auto-fetch if privileged user sees 0 items on initial load
+      if (isPrivileged && allDispatches.length === 0 && !window._hasAutoFetchedDispatches) {
+        window._hasAutoFetchedDispatches = true;
+        Promise.allSettled([
+          apiCall('getPendingDispatches', { warehouse: 'ALL' }),
+          apiCall('getTransactionHistory', { filters: { type: 'STOCK_OUT', limit: 200 } })
+        ]).then(([dRes, txRes]) => {
+          if (dRes.status === 'fulfilled' && dRes.value && Array.isArray(dRes.value.dispatches)) {
+            dRes.value.dispatches.forEach(d => {
+              if (d && d.dispatchId && !LOCAL_DB.dispatches.some(x => x.dispatchId === d.dispatchId)) {
+                LOCAL_DB.dispatches.push(d);
+              }
+            });
+          }
+          if (txRes.status === 'fulfilled' && txRes.value && Array.isArray(txRes.value.transactions)) {
+            AppState.stockOutHistory = txRes.value.transactions;
+          }
+          syncDispatchesWithOperations();
+          renderPendingIncomingDispatches();
+        }).catch(() => {});
       }
 
       const pendingCount = userDispatches.filter(d => d.status === 'PENDING').length;
@@ -21379,7 +21579,7 @@ function saveLocalUsersToStorage() {
                 </button>
               </div>
 
-              <button type="button" onclick="renderPendingIncomingDispatches()" title="Refresh"
+              <button type="button" onclick="refreshPendingIncomingDispatches(this)" title="Refresh"
                 class="p-2 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-emerald-600 hover:border-emerald-300 shadow-2xs cursor-pointer transition">
                 <i class="fa-solid fa-arrows-rotate text-xs"></i>
               </button>
@@ -21429,9 +21629,16 @@ function saveLocalUsersToStorage() {
                 ${displayList.length === 0 ? `
                   <tr>
                     <td colspan="9" class="text-center py-8 text-slate-400">
-                      <div class="flex flex-col items-center justify-center space-y-1.5">
+                      <div class="flex flex-col items-center justify-center space-y-2">
                         <i class="fa-solid fa-box-open text-2xl text-slate-300"></i>
-                        <span>${pendingDispatchesFilterTab === 'PENDING' ? '✨ គ្មានទំនិញរង់ចាំទទួលចូលស្តុកទេនៅពេលនេះ (No Pending Dispatches)' : 'មិនទាន់មានប្រវត្តិទំនិញបានទទួលទេ'}</span>
+                        <span>${pendingDispatchesFilterTab === 'PENDING' ? (receivedCount > 0 ? `✨ គ្មានទំនិញកំពុងរង់ចាំទទួលទេ (មានទំនិញ ${receivedCount} មុខបានទទួលរួចរាល់)` : '✨ មិនទាន់មានប្រតិបត្តិការបើកទំនិញទៅកាន់ស្ថានីយនៅឡើយទេ') : 'មិនទាន់មានប្រវត្តិទំនិញបានទទួលទេ'}</span>
+                        ${receivedCount > 0 && pendingDispatchesFilterTab === 'PENDING' ? `
+                          <button type="button" onclick="switchPendingDispatchesTab('RECEIVED')"
+                            class="mt-1 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-xs flex items-center space-x-1 cursor-pointer">
+                            <i class="fa-solid fa-circle-check text-xs"></i>
+                            <span>មើលបញ្ជីទំនិញដែលបានទទួលរួចរាល់ (${receivedCount})</span>
+                          </button>
+                        ` : ''}
                       </div>
                     </td>
                   </tr>
@@ -23009,6 +23216,7 @@ function saveLocalUsersToStorage() {
           try {
             localStorage.setItem('inventory_stock_out_history_db', JSON.stringify(cleanTxs));
           } catch(e) {}
+          if (typeof syncDispatchesWithOperations === 'function') syncDispatchesWithOperations();
           filterStockOutHistoryTable();
           return;
         } else if (AppState.stockOutHistory && AppState.stockOutHistory.length > 0) {

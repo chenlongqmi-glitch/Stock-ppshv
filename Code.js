@@ -1121,6 +1121,10 @@ function onOpen() {
           standardizeAndFormatTransactionsSheet(ss);
         }
       }
+      try {
+        ensureDispatchesSheet(ss);
+        syncDispatchesFromStockOutGAS(ss);
+      } catch(eDis) {}
     }
   } catch(errAutoTx) {
     if (typeof Logger !== 'undefined') Logger.log('onOpen auto tx fix error: ' + errAutoTx.toString());
@@ -1138,8 +1142,9 @@ function fixAllSheetHeaders(optSs) {
   try { ensureStockSheetsInitialized(ss); } catch(e2) {}
   try { alignAndBackfillStockSheets(ss); } catch(e3) {}
   try { standardizeAndFormatTransactionsSheet(ss); } catch(e4) {}
+  try { syncDispatchesFromStockOutGAS(ss); } catch(e5) {}
 
-  return { success: true, message: 'ជួសជុល និងតម្រឹម Header គ្រប់ Sheet ជោគជ័យ (Items, Stock_in, Stock_out, Transactions)' };
+  return { success: true, message: 'ជួសជុល និងតម្រឹម Header គ្រប់ Sheet ជោគជ័យ (Items, Stock_in, Stock_out, Transactions, Dispatches)' };
 }
 
 /**
@@ -10625,10 +10630,223 @@ function confirmStationReception(payload, user) {
   };
 }
 
+/**
+ * 🔄 ធ្វើសមកាលកម្មប្រតិបត្តិការបើកទំនិញចេញ (Stock Out) ទៅកាន់ Dispatches Sheet
+ * ដើម្បីឱ្យ SuperAdmin និង Admin ទាំងពីររូប អាចមើលឃើញរាល់ប្រតិបត្តិការទាំងអស់ ១០០%
+ */
+function syncDispatchesFromStockOutGAS(optSs) {
+  const ss = optSs || SpreadsheetApp.getActiveSpreadsheet();
+  const dspSheet = ensureDispatchesSheet(ss);
+  const outSheet = ss.getSheetByName('Stock_out') || ss.getSheetByName(SHEETS.STOCK_OUT);
+  const txSheet = ss.getSheetByName(SHEETS.TRANSACTIONS);
+  const inSheet = ss.getSheetByName('Stock_in') || ss.getSheetByName(SHEETS.STOCK_IN);
+
+  const existingDispatches = new Set();
+  const dspData = dspSheet.getDataRange().getValues();
+  for (let i = 1; i < dspData.length; i++) {
+    const dId = String(dspData[i][0] || '').trim();
+    const docNo = String(dspData[i][1] || '').trim().toUpperCase();
+    const sku = String(dspData[i][4] || '').trim().toLowerCase();
+    const toLoc = String(dspData[i][14] || '').trim().toLowerCase();
+    if (dId) existingDispatches.add(dId);
+    if (docNo && sku) existingDispatches.add(docNo + '_' + sku);
+    if (docNo && toLoc) existingDispatches.add(docNo + '_' + toLoc);
+  }
+
+  // Set of received Stock_in docNos/notes
+  const receivedKeys = new Set();
+  if (inSheet && inSheet.getLastRow() > 1) {
+    const inData = inSheet.getDataRange().getValues();
+    for (let i = 1; i < inData.length; i++) {
+      const row = inData[i];
+      const inDoc = String(row[0] || '').trim().toUpperCase();
+      const inSku = String(row[2] || '').trim().toLowerCase();
+      const inWh = String(row[12] || '').trim().toLowerCase();
+      const inNotes = String(row[14] || '').trim().toUpperCase();
+      if (inDoc) receivedKeys.add(inDoc);
+      if (inSku && inWh) receivedKeys.add(inSku + '_' + inWh);
+      const mDoc = inNotes.match(/\[(?:ទទួលពី\s*Admin|Doc|ឯកសារ):\s*([^\]]+)\]/i);
+      if (mDoc) receivedKeys.add(mDoc[1].trim().toUpperCase());
+    }
+  }
+
+  const rowsToAppend = [];
+
+  // 1. Scan Stock_out sheet
+  if (outSheet && outSheet.getLastRow() > 1) {
+    const outData = outSheet.getDataRange().getValues();
+    const outHeaders = (outData[0] || []).map(h => String(h || '').trim().toLowerCase());
+    const idxDoc = outHeaders.indexOf('docno') >= 0 ? outHeaders.indexOf('docno') : 0;
+    const idxDate = outHeaders.indexOf('date') >= 0 ? outHeaders.indexOf('date') : 1;
+    const idxSku = outHeaders.indexOf('sku') >= 0 ? outHeaders.indexOf('sku') : 2;
+    const idxName = outHeaders.indexOf('itemname') >= 0 ? outHeaders.indexOf('itemname') : 3;
+    const idxSize = outHeaders.indexOf('size') >= 0 ? outHeaders.indexOf('size') : 4;
+    const idxColor = outHeaders.indexOf('color') >= 0 ? outHeaders.indexOf('color') : 5;
+    const idxQty = outHeaders.indexOf('quantity') >= 0 ? outHeaders.indexOf('quantity') : 7;
+    const idxUnit = outHeaders.indexOf('unit') >= 0 ? outHeaders.indexOf('unit') : 8;
+    const idxFrom = outHeaders.indexOf('from') >= 0 ? outHeaders.indexOf('from') : 12;
+    const idxTo = outHeaders.indexOf('tolocation') >= 0 ? outHeaders.indexOf('tolocation') : 13;
+    const idxNotes = outHeaders.indexOf('notes') >= 0 ? outHeaders.indexOf('notes') : 14;
+    const idxUser = outHeaders.indexOf('user') >= 0 ? outHeaders.indexOf('user') : 15;
+    const idxTs = outHeaders.indexOf('timestamp') >= 0 ? outHeaders.indexOf('timestamp') : 16;
+
+    for (let r = 1; r < outData.length; r++) {
+      const row = outData[r];
+      if (!row || !row[idxSku]) continue;
+      const docNo = String(row[idxDoc] || '').trim().toUpperCase();
+      const toLoc = String(row[idxTo] || '').trim();
+      const sku = String(row[idxSku] || '').trim();
+
+      const isStation = toLoc && !toLoc.includes('អតិថិជន') && !toLoc.includes('ដកប្រើប្រាស់') && (
+        toLoc.includes('ស្ថានីយ') || toLoc.includes('K3') || toLoc.includes('K26') || toLoc.includes('K43') ||
+        toLoc.includes('K76') || toLoc.includes('K114') || toLoc.includes('K135') || toLoc.includes('K172') || toLoc.includes('K182') || toLoc.includes('综合办')
+      );
+      if (!isStation) continue;
+
+      const sigKey = docNo + '_' + sku.toLowerCase();
+      if (existingDispatches.has(sigKey) || (docNo && existingDispatches.has(docNo + '_' + toLoc.toLowerCase()))) continue;
+
+      const dspId = 'DSP-' + (docNo ? docNo.replace(/[^A-Za-z0-9]/g, '') : Date.now()) + '-' + sku;
+      existingDispatches.add(sigKey);
+
+      let dDate = row[idxDate];
+      let dDateStr = '';
+      if (dDate instanceof Date) dDateStr = Utilities.formatDate(dDate, 'GMT+7', 'yyyy-MM-dd');
+      else dDateStr = String(dDate || '').slice(0, 10);
+      if (!dDateStr) dDateStr = Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd');
+
+      let dTime = Utilities.formatDate(new Date(), 'GMT+7', 'HH:mm:ss');
+      const tsVal = row[idxTs];
+      if (tsVal instanceof Date) dTime = Utilities.formatDate(tsVal, 'GMT+7', 'HH:mm:ss');
+
+      const isRcv = receivedKeys.has(docNo) || receivedKeys.has(sku.toLowerCase() + '_' + toLoc.toLowerCase());
+
+      rowsToAppend.push([
+        dspId,
+        docNo,
+        dDateStr,
+        dTime,
+        sku,
+        String(row[idxName] || sku).trim(),
+        String(row[idxSize] || '-').trim(),
+        String(row[idxColor] || '-').trim(),
+        Number(row[idxQty] || 0),
+        0, // BulkQty
+        Number(row[idxQty] || 0), // RetailQty
+        String(row[idxUnit] || 'ដើម').trim(),
+        'ប្រអប់', // PackUnit
+        String(row[idxFrom] || '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)').trim(),
+        toLoc,
+        String(row[idxUser] || 'Admin').trim(),
+        isRcv ? 'RECEIVED' : 'PENDING',
+        '', // ReceivedZone
+        isRcv ? Number(row[idxQty] || 0) : 0, // ReceivedQty
+        isRcv ? 'Staff' : '', // ReceivedBy
+        isRcv ? dDateStr : '', // ReceivedAt
+        isRcv ? docNo : '', // StockInDocNo
+        String(row[idxNotes] || '-').trim(),
+        new Date().toISOString()
+      ]);
+    }
+  }
+
+  // 2. Scan Transactions sheet
+  if (txSheet && txSheet.getLastRow() > 1) {
+    const txData = txSheet.getDataRange().getValues();
+    const txHeaders = (txData[0] || []).map(h => String(h || '').trim().toLowerCase());
+    const idxTxId = txHeaders.indexOf('txid') >= 0 ? txHeaders.indexOf('txid') : 0;
+    const idxDate = txHeaders.indexOf('date') >= 0 ? txHeaders.indexOf('date') : 1;
+    const idxType = txHeaders.indexOf('type') >= 0 ? txHeaders.indexOf('type') : 2;
+    const idxSku = txHeaders.indexOf('sku') >= 0 ? txHeaders.indexOf('sku') : 3;
+    const idxName = txHeaders.indexOf('itemname') >= 0 ? txHeaders.indexOf('itemname') : 4;
+    const idxQty = txHeaders.indexOf('quantity') >= 0 ? txHeaders.indexOf('quantity') : 5;
+    const idxUnit = txHeaders.indexOf('unit') >= 0 ? txHeaders.indexOf('unit') : 6;
+    const idxFrom = txHeaders.indexOf('fromlocation') >= 0 ? txHeaders.indexOf('fromlocation') : 7;
+    const idxTo = txHeaders.indexOf('tolocation') >= 0 ? txHeaders.indexOf('tolocation') : 8;
+    const idxNotes = txHeaders.indexOf('reason_notes') >= 0 ? txHeaders.indexOf('reason_notes') : 9;
+    const idxUser = txHeaders.indexOf('user') >= 0 ? txHeaders.indexOf('user') : 10;
+
+    for (let r = 1; r < txData.length; r++) {
+      const row = txData[r];
+      if (!row || !row[idxSku]) continue;
+      const type = String(row[idxType] || '').toUpperCase();
+      const rawNotes = String(row[idxNotes] || '');
+      const txId = String(row[idxTxId] || '').trim();
+      let docNo = (rawNotes.match(/\[(?:ឯកសារ|Doc|DocNo):\s*([^\]]+)\]/i) || [])[1] || '';
+      if (!docNo && txId.startsWith('OUT-')) docNo = txId;
+
+      if (type !== 'STOCK_OUT' && !docNo.includes('OUT-') && !txId.includes('OUT-')) continue;
+
+      const toLoc = String(row[idxTo] || '').trim();
+      const sku = String(row[idxSku] || '').trim();
+      const isStation = toLoc && !toLoc.includes('អតិថិជន') && !toLoc.includes('ដកប្រើប្រាស់') && (
+        toLoc.includes('ស្ថានីយ') || toLoc.includes('K3') || toLoc.includes('K26') || toLoc.includes('K43') ||
+        toLoc.includes('K76') || toLoc.includes('K114') || toLoc.includes('K135') || toLoc.includes('K172') || toLoc.includes('K182') || toLoc.includes('综合办')
+      );
+      if (!isStation) continue;
+
+      const sigKey = (docNo || txId).toUpperCase() + '_' + sku.toLowerCase();
+      if (existingDispatches.has(sigKey)) continue;
+
+      existingDispatches.add(sigKey);
+      const dspId = 'DSP-' + (docNo ? docNo.replace(/[^A-Za-z0-9]/g, '') : Date.now()) + '-' + sku;
+
+      let dDate = row[idxDate];
+      let dDateStr = '';
+      if (dDate instanceof Date) dDateStr = Utilities.formatDate(dDate, 'GMT+7', 'yyyy-MM-dd');
+      else dDateStr = String(dDate || '').slice(0, 10);
+      if (!dDateStr) dDateStr = Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd');
+
+      const isRcv = receivedKeys.has((docNo || txId).toUpperCase()) || receivedKeys.has(sku.toLowerCase() + '_' + toLoc.toLowerCase());
+
+      rowsToAppend.push([
+        dspId,
+        docNo || txId,
+        dDateStr,
+        Utilities.formatDate(new Date(), 'GMT+7', 'HH:mm:ss'),
+        sku,
+        String(row[idxName] || sku).trim(),
+        '-',
+        '-',
+        Number(row[idxQty] || 0),
+        0,
+        Number(row[idxQty] || 0),
+        String(row[idxUnit] || 'ដើម').trim(),
+        'ប្រអប់',
+        String(row[idxFrom] || '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)').trim(),
+        toLoc,
+        String(row[idxUser] || 'Admin').trim(),
+        isRcv ? 'RECEIVED' : 'PENDING',
+        '',
+        isRcv ? Number(row[idxQty] || 0) : 0,
+        isRcv ? 'Staff' : '',
+        isRcv ? dDateStr : '',
+        isRcv ? (docNo || txId) : '',
+        rawNotes || '-',
+        new Date().toISOString()
+      ]);
+    }
+  }
+
+  if (rowsToAppend.length > 0) {
+    dspSheet.getRange(dspSheet.getLastRow() + 1, 1, rowsToAppend.length, 24).setValues(rowsToAppend);
+  }
+
+  return { success: true, count: rowsToAppend.length };
+}
+
 function getPendingDispatches(targetWarehouse) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName(SHEETS.DISPATCHES || 'Dispatches');
-  if (!sheet) return { success: true, dispatches: [] };
+  const sheet = ensureDispatchesSheet(ss);
+
+  // Auto-backfill existing Stock_out dispatches if Dispatches sheet has few rows
+  try {
+    if (sheet.getLastRow() <= 1) {
+      syncDispatchesFromStockOutGAS(ss);
+    }
+  } catch(eSync) {
+    Logger.log('getPendingDispatches sync error: ' + eSync.toString());
+  }
 
   const values = sheet.getDataRange().getValues();
   if (values.length <= 1) return { success: true, dispatches: [] };
