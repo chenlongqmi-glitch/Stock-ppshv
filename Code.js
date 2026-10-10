@@ -6215,14 +6215,21 @@ function cleanDisplayNoteGAS(rawNote) {
   // 4. Remove standalone doc ID brackets like [OUT-20261009-5110] or [IN-20261009-7128]
   s = s.replace(/\[\s*(?:OUT|IN|DOC|TX)[\w\-]+[^\]]*(?:\]|$)/gi, ' ');
 
-  // 5. If everything left is only bracketed tokens, strip them
+  // 5. Remove any remaining bracket containing key metadata delimiters
+  s = s.replace(/\[[^\]]*(?:[:=：]|➔|->|OUT|IN|DOC|TX)[^\]]*(?:\]|$)/gi, ' ');
+
+  // 6. If the entire string is just bracket tokens or unclosed brackets, return '-'
   if (s.replace(/\[[^\]]*(?:\]|$)/g, '').trim() === '') {
     return '-';
   }
 
-  // 6. Clean leading/trailing punctuation and whitespace
+  // 7. Strip any remaining brackets and unclosed brackets
+  s = s.replace(/\[[^\]]*\]/g, ' ');
+  s = s.replace(/\[.*$/g, ' ');
+
+  // 8. Clean leading/trailing punctuation and whitespace
   s = s.replace(/^[\s\-–—:,;]+|[\s\-–—:,;]+$/g, '').trim();
-  s = s.replace(/^\[\s*\]$/, '').trim();
+  s = s.replace(/\s+/g, ' ');
   return s || '-';
 }
 

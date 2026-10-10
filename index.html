@@ -11864,6 +11864,7 @@ function saveLocalUsersToStorage() {
           const cleanN = (typeof cleanDisplayNote === 'function') ? cleanDisplayNote(d.userNote !== undefined ? d.userNote : d.notes) : String(d.userNote || d.notes || '').trim();
           if (cleanN && cleanN !== '-') t.notes = cleanN;
           else if (d.notes !== undefined || d.userNote !== undefined) t.notes = '-';
+          t.userNote = t.notes;
           t._lastEditedAt = Date.now();
         };
 
@@ -22236,6 +22237,19 @@ function saveLocalUsersToStorage() {
             if (!t.size && item?.size) t.size = String(item.size).trim();
             if (!t.color && item?.color) t.color = String(item.color).trim();
             if (!t.zone && item?.zone) t.zone = String(item.zone).trim();
+
+            // Sanitize notes so raw bracket metadata is NEVER stored or displayed
+            const cleanN = cleanDisplayNote(t.userNote || t.notes || '');
+            t.userNote = cleanN;
+            t.notes = cleanN;
+
+            // Preserve local recent edit if edited within 60 seconds
+            const localExisting = (AppState.stockInHistory || []).find(e => (e.txId && e.txId === t.txId) || (e.docNo && e.docNo === t.docNo));
+            if (localExisting && localExisting._lastEditedAt && (Date.now() - localExisting._lastEditedAt < 60000)) {
+              t.notes = localExisting.notes;
+              t.userNote = localExisting.userNote || localExisting.notes;
+              t._lastEditedAt = localExisting._lastEditedAt;
+            }
           });
 
           AppState.stockInHistory = cleanTxs;
@@ -22356,7 +22370,7 @@ function saveLocalUsersToStorage() {
       // 1. Extract note content if explicitly labeled [កំណត់សម្គាល់: ...] or [Note: ...] or [Notes: ...]
       s = s.replace(/\[\s*(?:កំណត់សម្គាល់|Note|Notes)\s*[:=：]\s*([^\]]+)\]/gi, (m, p1) => ' ' + p1 + ' ');
 
-      // 2. Remove recognized system bracket tags (including unclosed bracket at end of string)
+      // 2. Remove recognized system bracket tags (both closed and unclosed at string end)
       s = s.replace(/\[\s*(?:ឯកសារ|លេខឯកសារ|អ្នកទទួល|អ្នកបើក|អ្នកបើកចេញ|អ្នកបើកទំនិញ|ខ្នាត|ពណ៌|តំបន់|មូលហេតុ|ចូល|ចូលជាដុំ|ចូលជារាយ|ចេញ|ចេញជាដុំ|ចេញជារាយ|ដុំ|រាយ|ចែក|ស្តុក|ស្តុកចាស់|ស្តុកថ្មី|ស្តុកនៅសល់|Stock|OldStock|NewStock|RemainingStock|Movement|StockMovement|Doc|DocNo|Receiver|Issuer|Size|Color|Zone|Reason|ទទួលពី(?:\s*Admin)?|Station|Status|សរុប|Total|SKU|Item|ItemName|Warehouse|ឃ្លាំង|ទីតាំង|ស្ថានីយ|កាលបរិច្ឆេទ|Date|Time)(?:\s*[:=：]|\s)[^\]]*(?:\]|$)/gi, ' ');
 
       // 3. Remove movement tags like [5 ➔ 3] or [0 ដើម ➔ 1 ដើម] or [->]
@@ -22365,14 +22379,19 @@ function saveLocalUsersToStorage() {
       // 4. Remove standalone doc ID brackets like [OUT-20261009-5110] or [IN-20261009-7128]
       s = s.replace(/\[\s*(?:OUT|IN|DOC|TX)[\w\-]+[^\]]*(?:\]|$)/gi, ' ');
 
-      // 5. If everything left is only bracketed tokens, strip them
-      if (s.replace(/\[[^\]]*(?:\]|$)/g, '').trim() === '') {
-        return '-';
-      }
+      // 5. Remove ANY bracket containing a key-value pattern (like [anything: anything])
+      s = s.replace(/\[\s*[^\]:=：]+[:=：][^\]]*(?:\]|$)/g, ' ');
 
-      // 6. Clean leading/trailing punctuation and whitespace
+      // 6. Remove any remaining closed brackets [...]
+      s = s.replace(/\[[^\]]*\]/g, ' ');
+
+      // 7. Remove any trailing unclosed bracket like "[..." up to end of string
+      s = s.replace(/\[.*$/g, ' ');
+
+      // 8. If everything left is only bracket characters or whitespace or '-', return '-'
+      s = s.replace(/[\[\]]/g, ' ').trim();
       s = s.replace(/^[\s\-–—:,;]+|[\s\-–—:,;]+$/g, '').trim();
-      s = s.replace(/^\[\s*\]$/, '').trim();
+
       return s || '-';
     }
     window.cleanDisplayNote = cleanDisplayNote;
@@ -22520,7 +22539,7 @@ function saveLocalUsersToStorage() {
         if (!receiver) receiver = t.user || '-';
         receiver = escapeHtml(receiver);
 
-        const note = escapeHtml(cleanDisplayNote(t.notes));
+        const note = escapeHtml(cleanDisplayNote(t.userNote !== undefined ? t.userNote : t.notes));
         const noteId = `note_in_${idx}_${Math.random().toString(36).slice(2, 7)}`;
         let rawImg = t.imageUrl || item?.imageUrl || '';
         if (rawImg.includes('GMT') || rawImg.includes('2026') || (!rawImg.startsWith('http') && !rawImg.startsWith('data:') && !rawImg.startsWith('blob:') && !rawImg.startsWith('assets/'))) {
@@ -22827,6 +22846,19 @@ function saveLocalUsersToStorage() {
             if (!t.toLocation) {
               t.toLocation = t.warehouse || t.location || 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
             }
+
+            // Sanitize notes so raw bracket metadata is NEVER stored or displayed
+            const cleanN = cleanDisplayNote(t.userNote || t.notes || '');
+            t.userNote = cleanN;
+            t.notes = cleanN;
+
+            // Preserve local recent edit if edited within 60 seconds
+            const localExisting = (AppState.stockOutHistory || []).find(e => (e.txId && e.txId === t.txId) || (e.docNo && e.docNo === t.docNo));
+            if (localExisting && localExisting._lastEditedAt && (Date.now() - localExisting._lastEditedAt < 60000)) {
+              t.notes = localExisting.notes;
+              t.userNote = localExisting.userNote || localExisting.notes;
+              t._lastEditedAt = localExisting._lastEditedAt;
+            }
           });
 
           AppState.stockOutHistory = cleanTxs;
@@ -22983,7 +23015,7 @@ function saveLocalUsersToStorage() {
         }
         if (!reasonStr) reasonStr = 'ដកប្រើប្រាស់';
 
-        const note = escapeHtml(cleanDisplayNote(t.notes));
+        const note = escapeHtml(cleanDisplayNote(t.userNote !== undefined ? t.userNote : t.notes));
         const noteId = `note_out_${idx}_${Math.random().toString(36).slice(2, 7)}`;
 
         // Resolve product thumbnail image
@@ -23559,6 +23591,8 @@ function saveLocalUsersToStorage() {
         const userNoteRaw = v.notes ? String(v.notes).trim() : '';
         const userNote = (userNoteRaw && userNoteRaw !== '-') ? userNoteRaw : '-';
         tx.notes = userNote;
+        tx.userNote = userNote;
+        tx._lastEditedAt = Date.now();
 
         // Update item in AppState.items & LOCAL_DB.items
         const itm = (AppState.items || []).find(i => (i.sku && tx.sku && i.sku.toLowerCase() === tx.sku.toLowerCase()));
@@ -23581,16 +23615,16 @@ function saveLocalUsersToStorage() {
         if (AppState.stockInHistory) {
           const sIdx = AppState.stockInHistory.findIndex(t => (tx.txId && t.txId === tx.txId) || (tx.docNo && t.docNo === tx.docNo));
           if (sIdx !== -1) {
-            AppState.stockInHistory[sIdx] = { ...AppState.stockInHistory[sIdx], ...tx, size: tx.size, color: tx.color, zone: tx.zone, notes: userNote };
+            AppState.stockInHistory[sIdx] = { ...AppState.stockInHistory[sIdx], ...tx, size: tx.size, color: tx.color, zone: tx.zone, notes: userNote, userNote: userNote, _lastEditedAt: Date.now() };
           }
         }
         if (AppState.transactions) {
           const tIdx = AppState.transactions.findIndex(t => (tx.txId && t.txId === tx.txId) || (tx.docNo && t.docNo === tx.docNo));
-          if (tIdx !== -1) AppState.transactions[tIdx] = { ...AppState.transactions[tIdx], ...tx, size: tx.size, color: tx.color, zone: tx.zone, notes: userNote };
+          if (tIdx !== -1) AppState.transactions[tIdx] = { ...AppState.transactions[tIdx], ...tx, size: tx.size, color: tx.color, zone: tx.zone, notes: userNote, userNote: userNote, _lastEditedAt: Date.now() };
         }
         if (LOCAL_DB.transactions) {
           const ltIdx = LOCAL_DB.transactions.findIndex(t => (tx.txId && t.txId === tx.txId) || (tx.docNo && t.docNo === tx.docNo));
-          if (ltIdx !== -1) LOCAL_DB.transactions[ltIdx] = { ...LOCAL_DB.transactions[ltIdx], ...tx, size: tx.size, color: tx.color, zone: tx.zone, notes: userNote };
+          if (ltIdx !== -1) LOCAL_DB.transactions[ltIdx] = { ...LOCAL_DB.transactions[ltIdx], ...tx, size: tx.size, color: tx.color, zone: tx.zone, notes: userNote, userNote: userNote, _lastEditedAt: Date.now() };
         }
 
         try {
@@ -23604,6 +23638,11 @@ function saveLocalUsersToStorage() {
         }
         if (typeof renderItemsTable === 'function') renderItemsTable();
         if (typeof loadDashboard === 'function') loadDashboard();
+
+        // Clear query cache immediately to prevent background polling reversion
+        if (typeof API_CACHE !== 'undefined' && API_CACHE.clear) {
+          API_CACHE.clear();
+        }
 
         // 2. Background cloud sync
         apiCall('updateStockTransaction', {
@@ -23631,8 +23670,12 @@ function saveLocalUsersToStorage() {
             userNote: userNote
           }
         }).then(r => {
+          if (typeof API_CACHE !== 'undefined' && API_CACHE.clear) API_CACHE.clear();
           if (!r || !r.success) console.warn('Update stock in cloud warning:', r?.message);
-        }).catch(e => console.warn('Update stock in cloud error:', e));
+        }).catch(e => {
+          if (typeof API_CACHE !== 'undefined' && API_CACHE.clear) API_CACHE.clear();
+          console.warn('Update stock in cloud error:', e);
+        });
 
         Swal.fire({
           icon: 'success',
@@ -23757,8 +23800,8 @@ function saveLocalUsersToStorage() {
       const pQty = Math.max(1, Number(tx.packQty || item?.packQty || 1));
       const pUnit = (tx.packUnit || item?.packUnit || 'ប្រអប់').trim();
       const rUnit = (tx.unit || item?.unit || 'គូ').trim() || 'គូ';
-      const rawCleanedNotes = cleanDisplayNote(tx.notes || '');
-      const curNotes = escapeHtml(rawCleanedNotes === '-' ? '' : rawCleanedNotes);
+      const rawCleanedNotes = cleanDisplayNote(tx.userNote !== undefined ? tx.userNote : (tx.notes || ''));
+      const curNotes = (rawCleanedNotes === '-' || !rawCleanedNotes) ? '' : escapeHtml(rawCleanedNotes);
 
       // Determine initial bulk & retail quantities
       let initialBulk = 0;
@@ -24006,6 +24049,8 @@ function saveLocalUsersToStorage() {
         const userNoteRaw = v.notes ? String(v.notes).trim() : '';
         const userNote = (userNoteRaw && userNoteRaw !== '-') ? userNoteRaw : '-';
         tx.notes = userNote;
+        tx.userNote = userNote;
+        tx._lastEditedAt = Date.now();
 
         if (qtyDiff !== 0) {
           const itm = (AppState.items || []).find(i => (i.sku && tx.sku && i.sku.toLowerCase() === tx.sku.toLowerCase()));
@@ -24019,19 +24064,19 @@ function saveLocalUsersToStorage() {
         if (AppState.stockOutHistory) {
           const sIdx = AppState.stockOutHistory.findIndex(t => (tx.txId && t.txId === tx.txId) || (tx.docNo && t.docNo === tx.docNo));
           if (sIdx !== -1) {
-            AppState.stockOutHistory[sIdx] = { ...AppState.stockOutHistory[sIdx], ...tx, notes: userNote };
+            AppState.stockOutHistory[sIdx] = { ...AppState.stockOutHistory[sIdx], ...tx, notes: userNote, userNote: userNote, _lastEditedAt: Date.now() };
           }
         }
         if (AppState.transactions) {
           const tIdx = AppState.transactions.findIndex(t => (tx.txId && t.txId === tx.txId) || (tx.docNo && t.docNo === tx.docNo));
           if (tIdx !== -1) {
-            AppState.transactions[tIdx] = { ...AppState.transactions[tIdx], ...tx, notes: userNote };
+            AppState.transactions[tIdx] = { ...AppState.transactions[tIdx], ...tx, notes: userNote, userNote: userNote, _lastEditedAt: Date.now() };
           }
         }
         if (LOCAL_DB.transactions) {
           const ltIdx = LOCAL_DB.transactions.findIndex(t => (tx.txId && t.txId === tx.txId) || (tx.docNo && t.docNo === tx.docNo));
           if (ltIdx !== -1) {
-            LOCAL_DB.transactions[ltIdx] = { ...LOCAL_DB.transactions[ltIdx], ...tx, notes: userNote };
+            LOCAL_DB.transactions[ltIdx] = { ...LOCAL_DB.transactions[ltIdx], ...tx, notes: userNote, userNote: userNote, _lastEditedAt: Date.now() };
           }
         }
 
@@ -24046,6 +24091,11 @@ function saveLocalUsersToStorage() {
         }
         if (typeof renderItemsTable === 'function') renderItemsTable();
         if (typeof loadDashboard === 'function') loadDashboard();
+
+        // Clear query cache immediately to prevent background polling reversion
+        if (typeof API_CACHE !== 'undefined' && API_CACHE.clear) {
+          API_CACHE.clear();
+        }
 
         // 2. Background cloud sync
         apiCall('updateStockTransaction', {
@@ -24070,8 +24120,12 @@ function saveLocalUsersToStorage() {
             userNote: userNote
           }
         }).then(r => {
+          if (typeof API_CACHE !== 'undefined' && API_CACHE.clear) API_CACHE.clear();
           if (!r || !r.success) console.warn('Update stock out cloud warning:', r?.message);
-        }).catch(e => console.warn('Update stock out cloud error:', e));
+        }).catch(e => {
+          if (typeof API_CACHE !== 'undefined' && API_CACHE.clear) API_CACHE.clear();
+          console.warn('Update stock out cloud error:', e);
+        });
 
         Swal.fire({
           icon: 'success',
