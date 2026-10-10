@@ -675,7 +675,8 @@ function executeLocalApiAction(req) {
       'createProductRequest': true, 'updateProductRequestStatus': true, 'deleteProductRequest': true,
       'saveSystemSettings': true, 'saveSettings': true, 'addWarehouse': true, 'deleteWarehouse': true, 'updateWarehouse': true,
       'resetUserDevice': true, 'disconnectDevice': true, 'resetDevice': true, 'sendChatMessage': true,
-      'updateStockTransaction': true, 'updateTransaction': true, 'deleteStockTransaction': true, 'deleteTransaction': true
+      'updateStockTransaction': true, 'updateTransaction': true, 'deleteStockTransaction': true, 'deleteTransaction': true,
+      'deleteDispatch': true, 'deletePendingDispatch': true
     };
     if (MUTATIONS[action]) {
       const actor = payload.user || payload.actor;
@@ -922,6 +923,10 @@ function executeLocalApiAction(req) {
       case 'confirmStationReception':
       case 'confirmDispatch':
         return confirmStationReception(payload.data || payload, payload.user);
+
+      case 'deleteDispatch':
+      case 'deletePendingDispatch':
+        return deleteDispatch(payload.data || payload, payload.user);
 
       case 'getPendingDispatches':
       case 'getDispatches':
@@ -10822,6 +10827,69 @@ function confirmStationReception(payload, user) {
 }
 
 /**
+ * 🗑️ លុបទិន្នន័យបញ្ជូនទំនិញចេញពី Dispatches Sheet (សម្រាប់តែ SuperAdmin និង Admin)
+ */
+function deleteDispatch(payloadOrData, user) {
+  const data = (payloadOrData && payloadOrData.data) ? payloadOrData.data : (payloadOrData || {});
+  const u = user || (payloadOrData && payloadOrData.user);
+
+  // Check privileges: Super Admin or Admin only
+  const role = String(u ? u.role : '').toLowerCase();
+  const uName = String(u ? u.username : '').toLowerCase();
+  const uEmail = String(u ? u.email : '').toLowerCase();
+  const isPrivileged = (
+    role.includes('admin') || role.includes('អ្នកគ្រប់គ្រង') || role.includes('superadmin') ||
+    uName.includes('admin') || uName.includes('superadmin') ||
+    uEmail === 'chenlongqmi@gmail.com' || uEmail === 'singvan327@gmail.com' || uEmail.includes('ppshv')
+  );
+  if (!isPrivileged) {
+    return { success: false, message: 'គ្មានសិទ្ធិលុបទិន្នន័យនេះឡើយ (សម្រាប់តែ SuperAdmin និង Admin តែប៉ុណ្ណោះ)' };
+  }
+
+  const dId = String(data.dispatchId || '').trim();
+  const docNo = String(data.masterDocNo || data.docNo || '').trim();
+  if (!dId && !docNo) {
+    return { success: false, message: 'ពុំមាន DispatchId ឬ DocNo ដើម្បីលុបឡើយ' };
+  }
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SHEETS.DISPATCHES || 'Dispatches');
+  let deletedCount = 0;
+  if (sheet && sheet.getLastRow() > 1) {
+    const rows = sheet.getDataRange().getValues();
+    for (let i = rows.length - 1; i >= 1; i--) {
+      const rowDId = String(rows[i][0] || '').trim();
+      const rowDocNo = String(rows[i][1] || '').trim();
+      const matchDId = dId && (rowDId.toLowerCase() === dId.toLowerCase() || rowDId.toLowerCase() === ('dsp-' + dId.toLowerCase()));
+      const matchDocNo = docNo && rowDocNo.toLowerCase() === docNo.toLowerCase();
+      if (matchDId || (matchDocNo && (!dId || !rowDId || rowDId.startsWith('DSP-')))) {
+        sheet.deleteRow(i + 1);
+        deletedCount++;
+        if (matchDId) break;
+      }
+    }
+  }
+
+  // Record deleted dispatch key so sync won't recreate it
+  try {
+    const userProperties = PropertiesService.getScriptProperties();
+    let delList = JSON.parse(userProperties.getProperty('DELETED_DISPATCHES') || '[]');
+    if (dId && !delList.includes(dId)) delList.push(dId);
+    if (docNo && !delList.includes(docNo)) delList.push(docNo);
+    if (delList.length > 500) delList = delList.slice(-500);
+    userProperties.setProperty('DELETED_DISPATCHES', JSON.stringify(delList));
+  } catch(eProp) {}
+
+  logActivity(u ? (u.fullName || u.username) : 'Admin', 'Admin', 'DELETE_DISPATCH', `Deleted dispatch ${dId || docNo}`);
+
+  return {
+    success: true,
+    message: `បានលុបទិន្នន័យបញ្ជូនទំនិញ ${docNo || dId} ជោគជ័យ!`,
+    deletedCount: deletedCount
+  };
+}
+
+/**
  * 🔄 ធ្វើសមកាលកម្មប្រតិបត្តិការបើកទំនិញចេញ (Stock Out) ទៅកាន់ Dispatches Sheet
  * ដើម្បីឱ្យ SuperAdmin និង Admin ទាំងពីររូប អាចមើលឃើញរាល់ប្រតិបត្តិការទាំងអស់ ១០០%
  */
@@ -10831,6 +10899,14 @@ function syncDispatchesFromStockOutGAS(optSs) {
   const outSheet = ss.getSheetByName('Stock_out') || ss.getSheetByName(SHEETS.STOCK_OUT);
   const txSheet = ss.getSheetByName(SHEETS.TRANSACTIONS);
   const inSheet = ss.getSheetByName('Stock_in') || ss.getSheetByName(SHEETS.STOCK_IN);
+
+  // Deleted dispatches keys
+  const deletedKeys = new Set();
+  try {
+    const userProperties = PropertiesService.getScriptProperties();
+    const delList = JSON.parse(userProperties.getProperty('DELETED_DISPATCHES') || '[]');
+    delList.forEach(k => { if (k) deletedKeys.add(String(k).trim().toUpperCase()); });
+  } catch(eProp) {}
 
   const existingDispatches = new Set();
   const dspData = dspSheet.getDataRange().getValues();
@@ -10901,6 +10977,7 @@ function syncDispatchesFromStockOutGAS(optSs) {
       if (existingDispatches.has(sigKey) || (docNo && existingDispatches.has(docNo + '_' + toLoc.toLowerCase()))) continue;
 
       const dspId = 'DSP-' + (docNo ? docNo.replace(/[^A-Za-z0-9]/g, '') : Date.now()) + '-' + sku;
+      if (deletedKeys.has(docNo) || deletedKeys.has(dspId.toUpperCase())) continue;
       existingDispatches.add(sigKey);
 
       let dDate = row[idxDate];
@@ -11016,8 +11093,6 @@ function getPendingDispatches(targetWarehouse) {
     const row = values[i];
     if (!row || !row[0]) continue;
     const toLoc = String(row[14] || '').trim();
-    const isInternalHqDest = toLoc.includes('机电') || toLoc.includes('អគ្គិសនី') || toLoc.includes('中心库房') || toLoc.includes('ឃ្លាំងស្តុកនៅចុងស៊ីង') || toLoc.includes('ចុងស៊ីង') || toLoc.includes('ចុងស៊ីន') || toLoc.includes('អតិថិជន') || toLoc.includes('ដកប្រើប្រាស់');
-    if (isInternalHqDest) continue;
 
     if (wh && (typeof matchesTargetWarehouseGAS === 'function' ? !matchesTargetWarehouseGAS(toLoc, wh) : (toLoc !== wh && !toLoc.includes(wh) && !wh.includes(toLoc)))) {
       continue;

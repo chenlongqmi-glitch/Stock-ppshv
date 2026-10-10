@@ -2616,13 +2616,13 @@
                     autocomplete="one-time-code" autocorrect="off" autocapitalize="off" spellcheck="false"
                     data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other" role="searchbox"
                     onfocus="this.removeAttribute('readonly'); this.readOnly = false; if (typeof sanitizeSearchElement === 'function') sanitizeSearchElement(this, filterItemsTable);"
-                    onblur="if (!this.value) { this.setAttribute('readonly', 'readonly'); }"
-                    oninput="if (typeof sanitizeSearchElement === 'function' && sanitizeSearchElement(this, filterItemsTable)) return; this.dataset.userTyped = 'true'; filterItemsTable();"
-                    onchange="if (typeof sanitizeSearchElement === 'function' && sanitizeSearchElement(this, filterItemsTable)) return; this.dataset.userTyped = 'true'; filterItemsTable();"
+                    onblur="if (!this.value && !AppState.itemSearchQuery) { this.setAttribute('readonly', 'readonly'); }"
+                    oninput="if (typeof handleItemSearchInput === 'function') handleItemSearchInput(this); else { this.dataset.userTyped = 'true'; filterItemsTable(); }"
+                    onchange="if (typeof handleItemSearchInput === 'function') handleItemSearchInput(this); else { this.dataset.userTyped = 'true'; filterItemsTable(); }"
                     onkeydown="this.dataset.userTyped = 'true';"
                     placeholder="ស្វែងរកតាម ឈ្មោះទំនិញ, ខ្នាត, ពណ៌, ឬ SKU..."
                     class="w-full pl-9 pr-8 py-1.5 sm:py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none">
-                  <button type="button" onclick="const el = document.getElementById('itemSearchInput'); if (el) { el.value = ''; delete el.dataset.userTyped; el.setAttribute('readonly', 'readonly'); filterItemsTable(); }" class="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs p-0.5 rounded transition" title="សម្អាតការស្វែងរក">
+                  <button type="button" onclick="if (typeof clearItemSearchQuery === 'function') clearItemSearchQuery(); else { const el = document.getElementById('itemSearchInput'); if (el) { el.value = ''; delete el.dataset.userTyped; el.setAttribute('readonly', 'readonly'); filterItemsTable(); } }" class="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs p-0.5 rounded transition cursor-pointer" title="សម្អាតការស្វែងរក">
                     <i class="fa-solid fa-xmark"></i>
                   </button>
                 </div>
@@ -6823,6 +6823,7 @@
       dashboardStats: null,
       transactions: [],
       currentTab: 'dashboard',
+      itemSearchQuery: (function() { try { return sessionStorage.getItem('inventory_item_search_query') || ''; } catch(e) { return ''; } })(),
       html5QrCode: null,
       lastScannedCode: null,
       scannerActive: false,
@@ -7613,17 +7614,26 @@ function saveLocalUsersToStorage() {
         if (raw) {
           const parsed = JSON.parse(raw);
           if (Array.isArray(parsed)) {
-            // Strictly purge fake or corrupted records from localStorage cache
-            LOCAL_DB.dispatches = parsed.filter(d => {
+            let delKeys = new Set();
+            try {
+              const arr = JSON.parse(localStorage.getItem('inventory_deleted_dispatches_db') || '[]');
+              arr.forEach(k => { if (k) delKeys.add(String(k).trim().toUpperCase()); });
+            } catch(e) {}
+
+            // Strictly purge fake or corrupted records, or deleted records
+            const cleaned = parsed.filter(d => {
               if (!d) return false;
               const dId = String(d.dispatchId || '');
               const doc = String(d.masterDocNo || '');
               const fl = String(d.fromLocation || '');
-              const tl = String(d.toLocation || '');
               const isCorrupt = dId.startsWith('DSP-TX-') || doc.startsWith('TX-') || fl.startsWith('[') || fl === '-2' || /^\d+$/.test(fl);
-              const isInternalHq = tl.includes('机电') || tl.includes('អគ្គិសនី') || tl.includes('中心库房') || tl.includes('ឃ្លាំងស្តុកនៅចុងស៊ីង') || tl.includes('ចុងស៊ីង') || tl.includes('ចុងស៊ីន') || tl.includes('អតិថិជន') || tl.includes('ដកប្រើប្រាស់');
-              return !isCorrupt && !isInternalHq;
+              const isDeleted = (doc && delKeys.has(doc.toUpperCase())) || (dId && delKeys.has(dId.toUpperCase()));
+              return !isCorrupt && !isDeleted;
             });
+            LOCAL_DB.dispatches = cleaned;
+            if (cleaned.length !== parsed.length) {
+              try { localStorage.setItem('inventory_dispatches_db', JSON.stringify(cleaned)); } catch(e) {}
+            }
             return LOCAL_DB.dispatches;
           }
         }
@@ -10146,7 +10156,8 @@ function saveLocalUsersToStorage() {
       'updateUserStatus', 'deleteUser', 'requestUserDeletion', 'approveUserDeletion',
       'rejectUserDeletion', 'createProductRequest', 'updateProductRequestStatus',
       'saveSettings', 'sendChatMessage', 'sendChat', 'logoutUser', 'logout',
-      'updateStockTransaction', 'updateTransaction', 'deleteStockTransaction', 'deleteTransaction'
+      'updateStockTransaction', 'updateTransaction', 'deleteStockTransaction', 'deleteTransaction',
+      'deleteDispatch', 'deletePendingDispatch'
     ]);
 
     async function apiCall(action, payload = {}) {
@@ -11846,6 +11857,21 @@ function saveLocalUsersToStorage() {
         }
 
         return { success: true, message: 'បានលុបប្រតិបត្តិការជោគជ័យ!' };
+      }
+
+      if (action === 'deleteDispatch' || action === 'deletePendingDispatch') {
+        const d = payload.data || payload;
+        const dspId = String(d.dispatchId || '').trim();
+        const docNo = String(d.masterDocNo || d.docNo || '').trim();
+        if (LOCAL_DB.dispatches) {
+          LOCAL_DB.dispatches = LOCAL_DB.dispatches.filter(x => {
+            if (dspId && x.dispatchId === dspId) return false;
+            if (docNo && (x.masterDocNo === docNo || x.dispatchId === docNo)) return false;
+            return true;
+          });
+          if (typeof saveLocalDispatchesToStorage === 'function') saveLocalDispatchesToStorage();
+        }
+        return { success: true, message: 'បានលុបទិន្នន័យបញ្ជូនទំនិញរួចរាល់' };
       }
 
       if (action === 'updateStockTransaction' || action === 'updateTransaction') {
@@ -13888,6 +13914,8 @@ function saveLocalUsersToStorage() {
           localStorage.removeItem('inventory_user');
           sessionStorage.removeItem('inventory_active_tab');
           sessionStorage.removeItem('inventory_scroll_top');
+          sessionStorage.removeItem('inventory_item_search_query');
+          AppState.itemSearchQuery = '';
           AppState.currentUser = null;
           AppState.loginTimestamp = null;
           document.documentElement.classList.remove('app-authenticated');
@@ -14448,6 +14476,12 @@ function saveLocalUsersToStorage() {
       ];
       searchIds.forEach(id => {
         const el = document.getElementById(id);
+        if (id === 'itemSearchInput') {
+          const savedQuery = (typeof AppState.itemSearchQuery !== 'undefined' ? AppState.itemSearchQuery : sessionStorage.getItem('inventory_item_search_query')) || '';
+          if (savedQuery && el && el.value === savedQuery) {
+            return; // Never purge active user search in Product Inventory
+          }
+        }
         if (el && isGarbageSearchInput(el.value, id)) {
           el.value = '';
           delete el.dataset.userTyped;
@@ -14474,10 +14508,18 @@ function saveLocalUsersToStorage() {
     // Repeatedly purge browser password autofill from search inputs
     window.addEventListener('DOMContentLoaded', () => {
       const initItemInp = document.getElementById('itemSearchInput');
+      const savedItemQuery = (typeof AppState !== 'undefined' && AppState.itemSearchQuery) || sessionStorage.getItem('inventory_item_search_query') || '';
       if (initItemInp) {
-        initItemInp.value = '';
-        delete initItemInp.dataset.userTyped;
-        initItemInp.setAttribute('readonly', 'readonly');
+        if (savedItemQuery) {
+          initItemInp.value = savedItemQuery;
+          initItemInp.dataset.userTyped = 'true';
+          initItemInp.removeAttribute('readonly');
+          initItemInp.readOnly = false;
+        } else {
+          initItemInp.value = '';
+          delete initItemInp.dataset.userTyped;
+          initItemInp.setAttribute('readonly', 'readonly');
+        }
       }
       purgeAutofillFromSearchInputs();
       setTimeout(purgeAutofillFromSearchInputs, 50);
@@ -14501,10 +14543,18 @@ function saveLocalUsersToStorage() {
     function navigateTab(tabName) {
       if (tabName === 'items') {
         const itemInp = document.getElementById('itemSearchInput');
+        const savedItemQuery = (typeof AppState !== 'undefined' && AppState.itemSearchQuery) || sessionStorage.getItem('inventory_item_search_query') || '';
         if (itemInp) {
-          itemInp.value = '';
-          delete itemInp.dataset.userTyped;
-          itemInp.setAttribute('readonly', 'readonly');
+          if (savedItemQuery) {
+            itemInp.value = savedItemQuery;
+            itemInp.dataset.userTyped = 'true';
+            itemInp.removeAttribute('readonly');
+            itemInp.readOnly = false;
+          } else {
+            itemInp.value = '';
+            delete itemInp.dataset.userTyped;
+            itemInp.setAttribute('readonly', 'readonly');
+          }
         }
         purgeAutofillFromSearchInputs();
         if (typeof renderItemsTable === 'function') {
@@ -21457,16 +21507,21 @@ function saveLocalUsersToStorage() {
       loadLocalDispatchesFromStorage();
       if (!LOCAL_DB.dispatches) LOCAL_DB.dispatches = [];
 
+      let delKeys = new Set();
+      try {
+        const arr = JSON.parse(localStorage.getItem('inventory_deleted_dispatches_db') || '[]');
+        arr.forEach(k => { if (k) delKeys.add(String(k).trim().toUpperCase()); });
+      } catch(e) {}
+
       // Strictly purge any legacy synthetic or corrupted records (never fabricate from transactions)
       LOCAL_DB.dispatches = LOCAL_DB.dispatches.filter(d => {
         if (!d) return false;
         const dId = String(d.dispatchId || '');
         const doc = String(d.masterDocNo || '');
         const fl = String(d.fromLocation || '');
-        const tl = String(d.toLocation || '');
         const isCorrupt = dId.startsWith('DSP-TX-') || doc.startsWith('TX-') || fl.startsWith('[') || fl === '-2' || /^\d+$/.test(fl);
-        const isInternalHq = tl.includes('机电') || tl.includes('អគ្គិសនី') || tl.includes('中心库房') || tl.includes('ឃ្លាំងស្តុកនៅចុងស៊ីង') || tl.includes('ចុងស៊ីង') || tl.includes('ចុងស៊ីន') || tl.includes('អតិថិជន') || tl.includes('ដកប្រើប្រាស់');
-        return !isCorrupt && !isInternalHq;
+        const isDeleted = (doc && delKeys.has(doc.toUpperCase())) || (dId && delKeys.has(dId.toUpperCase()));
+        return !isCorrupt && !isDeleted;
       });
 
       LOCAL_DB.dispatches.forEach(d => {
@@ -21487,15 +21542,20 @@ function saveLocalUsersToStorage() {
           apiCall('getTransactionHistory', { filters: { type: 'STOCK_IN', limit: 200 } })
         ]);
         if (dRes.status === 'fulfilled' && dRes.value && Array.isArray(dRes.value.dispatches)) {
+          let delKeys = new Set();
+          try {
+            const arr = JSON.parse(localStorage.getItem('inventory_deleted_dispatches_db') || '[]');
+            arr.forEach(k => { if (k) delKeys.add(String(k).trim().toUpperCase()); });
+          } catch(e) {}
+
           LOCAL_DB.dispatches = dRes.value.dispatches.filter(d => {
             if (!d) return false;
             const dId = String(d.dispatchId || '');
             const doc = String(d.masterDocNo || '');
             const fl = String(d.fromLocation || '');
-            const tl = String(d.toLocation || '');
             const isCorrupt = dId.startsWith('DSP-TX-') || doc.startsWith('TX-') || fl.startsWith('[') || fl === '-2' || /^\d+$/.test(fl);
-            const isInternalHq = tl.includes('机电') || tl.includes('អគ្គិសនី') || tl.includes('中心库房') || tl.includes('ឃ្លាំងស្តុកនៅចុងស៊ីង') || tl.includes('ចុងស៊ីង') || tl.includes('ចុងស៊ីន') || tl.includes('អតិថិជន') || tl.includes('ដកប្រើប្រាស់');
-            return !isCorrupt && !isInternalHq;
+            const isDeleted = (doc && delKeys.has(doc.toUpperCase())) || (dId && delKeys.has(dId.toUpperCase()));
+            return !isCorrupt && !isDeleted;
           });
         }
         if (txOutRes.status === 'fulfilled' && txOutRes.value && Array.isArray(txOutRes.value.transactions)) {
@@ -21547,15 +21607,20 @@ function saveLocalUsersToStorage() {
         ]).then(([dRes, txOutRes, txInRes]) => {
           let hasChange = false;
           if (dRes.status === 'fulfilled' && dRes.value && Array.isArray(dRes.value.dispatches)) {
+            let delKeys = new Set();
+            try {
+              const arr = JSON.parse(localStorage.getItem('inventory_deleted_dispatches_db') || '[]');
+              arr.forEach(k => { if (k) delKeys.add(String(k).trim().toUpperCase()); });
+            } catch(e) {}
+
             LOCAL_DB.dispatches = dRes.value.dispatches.filter(d => {
               if (!d) return false;
               const dId = String(d.dispatchId || '');
               const doc = String(d.masterDocNo || '');
               const fl = String(d.fromLocation || '');
-              const tl = String(d.toLocation || '');
               const isCorrupt = dId.startsWith('DSP-TX-') || doc.startsWith('TX-') || fl.startsWith('[') || fl === '-2' || /^\d+$/.test(fl);
-              const isInternalHq = tl.includes('机电') || tl.includes('អគ្គិសនី') || tl.includes('中心库房') || tl.includes('ឃ្លាំងស្តុកនៅចុងស៊ីង') || tl.includes('ចុងស៊ីង') || tl.includes('ចុងស៊ីន') || tl.includes('អតិថិជន') || tl.includes('ដកប្រើប្រាស់');
-              return !isCorrupt && !isInternalHq;
+              const isDeleted = (doc && delKeys.has(doc.toUpperCase())) || (dId && delKeys.has(dId.toUpperCase()));
+              return !isCorrupt && !isDeleted;
             });
             saveLocalDispatchesToStorage();
             hasChange = true;
@@ -21753,10 +21818,18 @@ function saveLocalUsersToStorage() {
                       <td class="py-2.5 px-3 text-center">
                         ${isPending ? (
                           isPrivileged ? `
-                            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 text-slate-500 border border-slate-200 text-xs font-semibold cursor-default" title="គណនី Admin / SuperAdmin អាចត្រឹមតែតាមដានមើលទិន្នន័យប៉ុណ្ណោះ មិនអាចប្រតិបត្តិការជំនួសស្ថានីយបានឡើយ">
-                              <i class="fa-solid fa-hourglass-half text-amber-500 text-[11px]"></i>
-                              <span>រង់ចាំស្ថានីយទទួល</span>
-                            </span>
+                            <div class="flex items-center justify-center gap-1.5 flex-wrap">
+                              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-500 border border-slate-200 text-xs font-semibold cursor-default" title="រង់ចាំស្ថានីយទទួល">
+                                <i class="fa-solid fa-hourglass-half text-amber-500 text-[10px]"></i>
+                                <span>រង់ចាំស្ថានីយទទួល</span>
+                              </span>
+                              <button type="button" onclick="deleteDispatchRecord('${escapeHtml(d.dispatchId)}', '${escapeHtml(d.masterDocNo || '')}', '${escapeHtml(d.itemName || '')}')"
+                                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 text-xs font-bold transition shadow-2xs cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+                                title="លុបចេញពីបញ្ជី (Super Admin & Admin តែប៉ុណ្ណោះ)">
+                                <i class="fa-solid fa-trash-can text-xs text-rose-500"></i>
+                                <span>លុបចេញ</span>
+                              </button>
+                            </div>
                           ` : `
                             <button type="button" onclick="openStationReceptionModal('${escapeHtml(d.dispatchId)}')"
                               class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-bold transition shadow-xs flex items-center justify-center space-x-1.5 cursor-pointer hover:scale-[1.02] active:scale-[0.98]">
@@ -21765,10 +21838,20 @@ function saveLocalUsersToStorage() {
                             </button>
                           `
                         ) : `
-                          <div class="text-left text-[11px] text-slate-600 space-y-0.5">
-                            <div>ទទួលដោយ: <b class="text-slate-800">${escapeHtml(d.receivedBy || '-')}</b></div>
-                            <div>📍 តំបន់: <b class="text-emerald-700 font-mono">${escapeHtml(d.receivedZone || '-')}</b></div>
-                            <div class="text-[10px] text-slate-400 font-mono">DOC: ${escapeHtml(d.stockInDocNo || '-')}</div>
+                          <div class="flex items-center justify-between gap-2">
+                            <div class="text-left text-[11px] text-slate-600 space-y-0.5">
+                              <div>ទទួលដោយ: <b class="text-slate-800">${escapeHtml(d.receivedBy || '-')}</b></div>
+                              <div>📍 តំបន់: <b class="text-emerald-700 font-mono">${escapeHtml(d.receivedZone || '-')}</b></div>
+                              <div class="text-[10px] text-slate-400 font-mono">DOC: ${escapeHtml(d.stockInDocNo || '-')}</div>
+                            </div>
+                            ${isPrivileged ? `
+                              <button type="button" onclick="deleteDispatchRecord('${escapeHtml(d.dispatchId)}', '${escapeHtml(d.masterDocNo || '')}', '${escapeHtml(d.itemName || '')}')"
+                                class="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 text-[11px] font-bold transition shadow-2xs cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+                                title="លុបចេញពីបញ្ជី (Super Admin & Admin តែប៉ុណ្ណោះ)">
+                                <i class="fa-solid fa-trash-can text-xs text-rose-500"></i>
+                                <span>លុបចេញ</span>
+                              </button>
+                            ` : ''}
                           </div>
                         `}
                       </td>
@@ -21783,6 +21866,85 @@ function saveLocalUsersToStorage() {
 
       if (typeof updateIncomingDispatchesBadge === 'function') updateIncomingDispatchesBadge();
     }
+
+    /**
+     * 🗑️ មុខងារលុបទិន្នន័យបញ្ជូនទំនិញចេញពី Tracker និង Google Sheets (SuperAdmin & Admin តែប៉ុណ្ណោះ)
+     */
+    window.deleteDispatchRecord = async function(dispatchId, masterDocNo, itemName) {
+      const u = AppState.currentUser || {};
+      const isSuperAdmin = (typeof isUserSuperAdmin === 'function' ? isUserSuperAdmin(u) : (u.role === 'SuperAdmin' || String(u.username).toLowerCase() === 'superadmin'));
+      const isAdmin = (typeof isUserAdmin === 'function' ? isUserAdmin(u) : (u.role === 'Admin' || String(u.username).toLowerCase() === 'admin' || String(u.username).toLowerCase() === 'singvan327@gmail.com' || String(u.username).toLowerCase() === 'ppshv2024@gmail.com'));
+      const isPrivileged = isSuperAdmin || isAdmin || (typeof isUserPrivilegedAdmin === 'function' && isUserPrivilegedAdmin(u));
+
+      if (!isPrivileged) {
+        Swal.fire({
+          icon: 'error',
+          title: 'គ្មានសិទ្ធិលុបឡើយ',
+          text: 'មានតែគណនី Super Admin និង Admin ប៉ុណ្ណោះដែលអាចលុបទិន្នន័យបញ្ជូនទំនិញបាន'
+        });
+        return;
+      }
+
+      const docDisplay = masterDocNo || dispatchId || 'ប្រតិបត្តិការនេះ';
+      const itemDisplay = itemName ? ` លើទំនិញ៖ <b>${escapeHtml(itemName)}</b>` : '';
+
+      const confirmRes = await Swal.fire({
+        title: 'តើអ្នកប្រាកដជាចង់លុបទិន្នន័យនេះមែនទេ?',
+        html: `អ្នកកំពុងរៀបចំលុបទិន្នន័យបញ្ជូនទំនិញលេខ៖ <b class="text-rose-600 font-mono">${escapeHtml(docDisplay)}</b>${itemDisplay}<br><br><span class="text-xs text-slate-500">ទិន្នន័យនេះនឹងត្រូវលុបចេញពីតារាងតាមដាន និង Google Sheets Dispatches ភ្លាមៗ</span>`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#e11d48',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: '<i class="fa-solid fa-trash-can mr-1.5"></i> បាទ/ចាស, លុបចេញ',
+        cancelButtonText: 'បោះបង់'
+      });
+
+      if (!confirmRes.isConfirmed) return;
+
+      // Optimistically remove from LOCAL_DB.dispatches
+      if (LOCAL_DB.dispatches) {
+        LOCAL_DB.dispatches = LOCAL_DB.dispatches.filter(d => {
+          if (!d) return false;
+          if (dispatchId && d.dispatchId === dispatchId) return false;
+          if (masterDocNo && (d.masterDocNo === masterDocNo || d.dispatchId === masterDocNo)) return false;
+          return true;
+        });
+        saveLocalDispatchesToStorage();
+      }
+
+      // Record in local deleted keys to prevent any re-sync
+      try {
+        let delArr = JSON.parse(localStorage.getItem('inventory_deleted_dispatches_db') || '[]');
+        if (dispatchId && !delArr.includes(dispatchId)) delArr.push(dispatchId);
+        if (masterDocNo && !delArr.includes(masterDocNo)) delArr.push(masterDocNo);
+        localStorage.setItem('inventory_deleted_dispatches_db', JSON.stringify(delArr));
+      } catch(e) {}
+
+      // Re-render UI immediately
+      renderPendingIncomingDispatches();
+      if (typeof updateIncomingDispatchesBadge === 'function') updateIncomingDispatchesBadge();
+
+      // Send delete request to backend Google Sheets
+      try {
+        const res = await apiCall('deleteDispatch', {
+          data: { dispatchId: dispatchId, masterDocNo: masterDocNo },
+          user: u
+        });
+        if (res && res.success) {
+          Swal.fire({
+            icon: 'success',
+            title: 'បានលុបទិន្នន័យជោគជ័យ!',
+            text: res.message || `ទិន្នន័យ ${docDisplay} ត្រូវបានលុបចេញពីប្រព័ន្ធ និង Google Sheets រួចរាល់`,
+            timer: 2000,
+            showConfirmButton: false
+          });
+        } else {
+          console.warn('Backend delete response:', res);
+        }
+      } catch(err) {
+        console.error('Delete dispatch error:', err);
+      }
+    };
 
     let _lastAudiblePendingDispatches = -1;
     function updateIncomingDispatchesBadge(triggerSound = true) {
