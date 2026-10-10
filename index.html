@@ -122,6 +122,14 @@
   <script src="https://cdn.jsdelivr.net/npm/@thyrith/momentkh@3.0.3/momentkh.js"></script>
 
   <style>
+    /* Hide native search cancel button so custom clear button is clean */
+    input[type="search"]::-webkit-search-cancel-button,
+    input[type="search"]::-webkit-search-decoration {
+      -webkit-appearance: none;
+      appearance: none;
+      display: none;
+    }
+
     /* Avatar circular crop box preview */
     .cropper-avatar-mode .cropper-view-box,
     .cropper-avatar-mode .cropper-face {
@@ -2617,24 +2625,25 @@
                     data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other" role="searchbox"
                     onfocus="this.removeAttribute('readonly'); this.readOnly = false; if (typeof sanitizeSearchElement === 'function') sanitizeSearchElement(this, filterItemsTable);"
                     onblur="if (!this.value && !AppState.itemSearchQuery) { this.setAttribute('readonly', 'readonly'); }"
-                    oninput="if (typeof handleItemSearchInput === 'function') handleItemSearchInput(this); else { this.dataset.userTyped = 'true'; filterItemsTable(); }"
-                    onchange="if (typeof handleItemSearchInput === 'function') handleItemSearchInput(this); else { this.dataset.userTyped = 'true'; filterItemsTable(); }"
+                    oninput="handleItemSearchInput(this)"
+                    onchange="handleItemSearchInput(this)"
+                    onsearch="handleItemSearchInput(this)"
                     onkeydown="this.dataset.userTyped = 'true';"
                     placeholder="ស្វែងរកតាម ឈ្មោះទំនិញ, ខ្នាត, ពណ៌, ឬ SKU..."
                     class="w-full pl-9 pr-8 py-1.5 sm:py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none">
-                  <button type="button" onclick="if (typeof clearItemSearchQuery === 'function') clearItemSearchQuery(); else { const el = document.getElementById('itemSearchInput'); if (el) { el.value = ''; delete el.dataset.userTyped; el.setAttribute('readonly', 'readonly'); filterItemsTable(); } }" class="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs p-0.5 rounded transition cursor-pointer" title="សម្អាតការស្វែងរក">
+                  <button type="button" onclick="clearItemSearchQuery()" class="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs p-0.5 rounded transition cursor-pointer" title="សម្អាតការស្វែងរក">
                     <i class="fa-solid fa-xmark"></i>
                   </button>
                 </div>
 
 
 
-                <select id="itemCategoryFilter" onchange="filterItemsTable()"
+                <select id="itemCategoryFilter" onchange="handleItemCategoryChange(this)"
                   class="px-2.5 py-1.5 sm:py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none">
                   <option value="ALL">គ្រប់ប្រភេទទាំងអស់</option>
                 </select>
 
-                <select id="itemStatusFilter" onchange="filterItemsTable()"
+                <select id="itemStatusFilter" onchange="handleItemStatusChange(this)"
                   class="px-2.5 py-1.5 sm:py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none">
                   <option value="ALL">គ្រប់ស្ថានភាពស្តុក</option>
                   <option value="NORMAL">ស្តុកធម្មតា</option>
@@ -6824,6 +6833,8 @@
       transactions: [],
       currentTab: 'dashboard',
       itemSearchQuery: (function() { try { return sessionStorage.getItem('inventory_item_search_query') || ''; } catch(e) { return ''; } })(),
+      itemCategoryFilter: (function() { try { return sessionStorage.getItem('inventory_item_category_filter') || 'ALL'; } catch(e) { return 'ALL'; } })(),
+      itemStatusFilter: (function() { try { return sessionStorage.getItem('inventory_item_status_filter') || 'ALL'; } catch(e) { return 'ALL'; } })(),
       html5QrCode: null,
       lastScannedCode: null,
       scannerActive: false,
@@ -13914,8 +13925,13 @@ function saveLocalUsersToStorage() {
           localStorage.removeItem('inventory_user');
           sessionStorage.removeItem('inventory_active_tab');
           sessionStorage.removeItem('inventory_scroll_top');
+          sessionStorage.removeItem('inventory_items_scroll_top');
           sessionStorage.removeItem('inventory_item_search_query');
+          sessionStorage.removeItem('inventory_item_category_filter');
+          sessionStorage.removeItem('inventory_item_status_filter');
           AppState.itemSearchQuery = '';
+          AppState.itemCategoryFilter = 'ALL';
+          AppState.itemStatusFilter = 'ALL';
           AppState.currentUser = null;
           AppState.loginTimestamp = null;
           document.documentElement.classList.remove('app-authenticated');
@@ -14411,6 +14427,13 @@ function saveLocalUsersToStorage() {
      */
     function isGarbageSearchInput(val, elId) {
       if (!val || val === '-') return false;
+      if (elId === 'itemSearchInput') {
+        const itemEl = document.getElementById('itemSearchInput');
+        const savedQuery = (typeof AppState !== 'undefined' && AppState.itemSearchQuery) || sessionStorage.getItem('inventory_item_search_query') || '';
+        if ((itemEl && itemEl.dataset.userTyped === 'true') || (savedQuery && String(val).trim() === String(savedQuery).trim())) {
+          return false;
+        }
+      }
       const s = String(val).trim().toLowerCase();
       const cleanDigits = s.replace(/\D/g, '');
       const curPhone = String(AppState?.currentUser?.phone || '').replace(/\D/g, '');
@@ -14477,9 +14500,14 @@ function saveLocalUsersToStorage() {
       searchIds.forEach(id => {
         const el = document.getElementById(id);
         if (id === 'itemSearchInput') {
-          const savedQuery = (typeof AppState.itemSearchQuery !== 'undefined' ? AppState.itemSearchQuery : sessionStorage.getItem('inventory_item_search_query')) || '';
-          if (savedQuery && el && el.value === savedQuery) {
-            return; // Never purge active user search in Product Inventory
+          const savedQuery = (typeof AppState !== 'undefined' && AppState.itemSearchQuery) || sessionStorage.getItem('inventory_item_search_query') || '';
+          if (savedQuery && el) {
+            if (el.value === savedQuery || el.value.trim() === savedQuery.trim()) {
+              return; // Never purge active user search in Product Inventory
+            }
+          }
+          if (el && el.dataset.userTyped === 'true' && el.value && el.value.trim()) {
+            return; // Never purge active user typed search in Product Inventory
           }
         }
         if (el && isGarbageSearchInput(el.value, id)) {
@@ -14541,24 +14569,65 @@ function saveLocalUsersToStorage() {
     });
 
     function navigateTab(tabName) {
+      // 1. Preserve active Product Inventory search & filters before leaving
+      const curItemInp = document.getElementById('itemSearchInput');
+      if (curItemInp && curItemInp.value && curItemInp.value.trim()) {
+        AppState.itemSearchQuery = curItemInp.value.trim();
+        sessionStorage.setItem('inventory_item_search_query', AppState.itemSearchQuery);
+      }
+      const curCatSelect = document.getElementById('itemCategoryFilter');
+      if (curCatSelect && curCatSelect.value) {
+        AppState.itemCategoryFilter = curCatSelect.value;
+        sessionStorage.setItem('inventory_item_category_filter', curCatSelect.value);
+      }
+      const curStatusSelect = document.getElementById('itemStatusFilter');
+      if (curStatusSelect && curStatusSelect.value) {
+        AppState.itemStatusFilter = curStatusSelect.value;
+        sessionStorage.setItem('inventory_item_status_filter', curStatusSelect.value);
+      }
+      const curItemsScroll = document.getElementById('itemsTableScrollContainer');
+      if (curItemsScroll && AppState.currentTab === 'items') {
+        sessionStorage.setItem('inventory_items_scroll_top', String(curItemsScroll.scrollTop || 0));
+      }
+
       if (tabName === 'items') {
         const itemInp = document.getElementById('itemSearchInput');
-        const savedItemQuery = (typeof AppState !== 'undefined' && AppState.itemSearchQuery) || sessionStorage.getItem('inventory_item_search_query') || '';
+        const savedItemQuery = (typeof AppState !== 'undefined' && AppState.itemSearchQuery) || sessionStorage.getItem('inventory_item_search_query') || (itemInp ? itemInp.value : '') || '';
         if (itemInp) {
           if (savedItemQuery) {
             itemInp.value = savedItemQuery;
             itemInp.dataset.userTyped = 'true';
             itemInp.removeAttribute('readonly');
             itemInp.readOnly = false;
+            AppState.itemSearchQuery = savedItemQuery;
+            sessionStorage.setItem('inventory_item_search_query', savedItemQuery);
           } else {
             itemInp.value = '';
             delete itemInp.dataset.userTyped;
             itemInp.setAttribute('readonly', 'readonly');
+            AppState.itemSearchQuery = '';
+            sessionStorage.removeItem('inventory_item_search_query');
           }
         }
+
+        const savedCat = (typeof AppState !== 'undefined' && AppState.itemCategoryFilter) || sessionStorage.getItem('inventory_item_category_filter') || '';
+        const catEl = document.getElementById('itemCategoryFilter');
+        if (catEl && savedCat) {
+          catEl.value = savedCat;
+        }
+        const savedStatus = (typeof AppState !== 'undefined' && AppState.itemStatusFilter) || sessionStorage.getItem('inventory_item_status_filter') || '';
+        const statusEl = document.getElementById('itemStatusFilter');
+        if (statusEl && savedStatus) {
+          statusEl.value = savedStatus;
+        }
+
         purgeAutofillFromSearchInputs();
         if (typeof renderItemsTable === 'function') {
           renderItemsTable();
+        }
+        const savedScroll = sessionStorage.getItem('inventory_items_scroll_top');
+        if (savedScroll && curItemsScroll) {
+          setTimeout(() => { curItemsScroll.scrollTop = Number(savedScroll); }, 40);
         }
         if (!AppState.items || AppState.items.length <= 7) {
           if (typeof loadItems === 'function') {
@@ -16409,15 +16478,22 @@ function saveLocalUsersToStorage() {
       }
 
       const searchEl = document.getElementById('itemSearchInput');
+      const savedQuery = (typeof AppState !== 'undefined' && AppState.itemSearchQuery) || sessionStorage.getItem('inventory_item_search_query') || '';
+      if (searchEl && savedQuery && !searchEl.value) {
+        searchEl.value = savedQuery;
+        searchEl.dataset.userTyped = 'true';
+        searchEl.removeAttribute('readonly');
+        searchEl.readOnly = false;
+      }
       if (searchEl && typeof isGarbageSearchInput === 'function' && isGarbageSearchInput(searchEl.value, 'itemSearchInput')) {
         searchEl.value = '';
         delete searchEl.dataset.userTyped;
         searchEl.setAttribute('readonly', 'readonly');
       }
-      let rawSearch = (searchEl?.value || '').trim();
+      let rawSearch = (searchEl?.value || savedQuery || '').trim();
       let search = rawSearch.toLowerCase().trim();
-      const catFilter = document.getElementById('itemCategoryFilter')?.value || 'ALL';
-      const statusFilter = document.getElementById('itemStatusFilter')?.value || 'ALL';
+      const catFilter = document.getElementById('itemCategoryFilter')?.value || AppState.itemCategoryFilter || 'ALL';
+      const statusFilter = document.getElementById('itemStatusFilter')?.value || AppState.itemStatusFilter || 'ALL';
 
       const isSpecificStation = activeWhFilter && 
         activeWhFilter !== 'ALL' && 
@@ -16509,12 +16585,19 @@ function saveLocalUsersToStorage() {
       }
 
       const searchEl = document.getElementById('itemSearchInput');
+      const savedQuery = (typeof AppState !== 'undefined' && AppState.itemSearchQuery) || sessionStorage.getItem('inventory_item_search_query') || '';
+      if (searchEl && savedQuery && !searchEl.value) {
+        searchEl.value = savedQuery;
+        searchEl.dataset.userTyped = 'true';
+        searchEl.removeAttribute('readonly');
+        searchEl.readOnly = false;
+      }
       if (searchEl && typeof isGarbageSearchInput === 'function' && isGarbageSearchInput(searchEl.value, 'itemSearchInput')) {
         searchEl.value = '';
         delete searchEl.dataset.userTyped;
         searchEl.setAttribute('readonly', 'readonly');
       }
-      let rawSearch = (searchEl?.value || '').trim();
+      let rawSearch = (searchEl?.value || savedQuery || '').trim();
       const cleanDigits = rawSearch.replace(/\D/g, '');
       const curPhone = String(AppState?.currentUser?.phone || '').replace(/\D/g, '');
       const curEmail = String(AppState?.currentUser?.email || '').trim().toLowerCase();
@@ -16534,9 +16617,11 @@ function saveLocalUsersToStorage() {
         rawSearch.toLowerCase() === 'superadmin' || rawSearch.toLowerCase() === 'super admin' || rawSearch.toLowerCase() === 'admin' ||
         (!searchEl?.dataset?.userTyped && document.activeElement !== searchEl && (rawSearch.includes('@') || (LOCAL_DB.users || []).some(u => (u.username && u.username.toLowerCase() === rawSearch.toLowerCase()) || (u.email && u.email.toLowerCase() === rawSearch.toLowerCase()))));
 
+      const isExplicitUserSearch = (savedQuery && rawSearch === savedQuery) || (searchEl?.dataset?.userTyped === 'true' && rawSearch);
+
       if (document.activeElement === searchEl) {
         searchEl.dataset.userTyped = 'true';
-      } else if (isPhoneAutofill || isUserAutofill) {
+      } else if (!isExplicitUserSearch && (isPhoneAutofill || isUserAutofill)) {
         if (searchEl) {
           searchEl.value = '';
           delete searchEl.dataset.userTyped;
@@ -16892,6 +16977,58 @@ function saveLocalUsersToStorage() {
         renderItemsTable();
       }, 100);
     }
+
+    function handleItemSearchInput(inputEl) {
+      const el = inputEl || document.getElementById('itemSearchInput');
+      if (!el) return;
+      const val = el.value || '';
+      if (val.trim()) {
+        el.dataset.userTyped = 'true';
+        el.removeAttribute('readonly');
+        el.readOnly = false;
+        AppState.itemSearchQuery = val;
+        sessionStorage.setItem('inventory_item_search_query', val);
+      } else {
+        delete el.dataset.userTyped;
+        AppState.itemSearchQuery = '';
+        sessionStorage.removeItem('inventory_item_search_query');
+      }
+      filterItemsTable();
+    }
+    window.handleItemSearchInput = handleItemSearchInput;
+
+    function clearItemSearchQuery() {
+      const el = document.getElementById('itemSearchInput');
+      AppState.itemSearchQuery = '';
+      sessionStorage.removeItem('inventory_item_search_query');
+      if (el) {
+        el.value = '';
+        delete el.dataset.userTyped;
+        el.removeAttribute('readonly');
+        el.readOnly = false;
+        try { el.focus(); } catch(e) {}
+      }
+      filterItemsTable();
+    }
+    window.clearItemSearchQuery = clearItemSearchQuery;
+
+    function handleItemCategoryChange(el) {
+      const select = el || document.getElementById('itemCategoryFilter');
+      const val = select ? select.value : 'ALL';
+      AppState.itemCategoryFilter = val;
+      sessionStorage.setItem('inventory_item_category_filter', val);
+      filterItemsTable();
+    }
+    window.handleItemCategoryChange = handleItemCategoryChange;
+
+    function handleItemStatusChange(el) {
+      const select = el || document.getElementById('itemStatusFilter');
+      const val = select ? select.value : 'ALL';
+      AppState.itemStatusFilter = val;
+      sessionStorage.setItem('inventory_item_status_filter', val);
+      filterItemsTable();
+    }
+    window.handleItemStatusChange = handleItemStatusChange;
 
     // --- PRODUCT IMAGE UPLOAD HANDLERS ---
     function toggleImageUrlInput() {
