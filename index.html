@@ -16103,6 +16103,8 @@ function saveLocalUsersToStorage() {
       const seenTxIds = new Set();
       const seenSignatures = new Set();
       const whNetMap = {};
+      const stationStockedInWarehouses = new Set();
+      const stationAllTxWarehouses = new Set();
 
       allTxList.forEach(t => {
         if (!t) return;
@@ -16140,10 +16142,38 @@ function saveLocalUsersToStorage() {
           seenSignatures.add(sig);
         }
 
+        if (cleanWh) {
+          stationAllTxWarehouses.add(cleanWh);
+          if (isStockIn) stationStockedInWarehouses.add(cleanWh);
+        }
+        if (t.toLocation) {
+          const toWh = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(t.toLocation) : t.toLocation);
+          if (toWh) {
+            stationAllTxWarehouses.add(toWh);
+            if (isStockIn) stationStockedInWarehouses.add(toWh);
+          }
+        }
+        if (t.fromLocation) {
+          const fromWh = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(t.fromLocation) : t.fromLocation);
+          if (fromWh) stationAllTxWarehouses.add(fromWh);
+        }
+
         if (isStockIn) {
           whNetMap[cleanWh] = (whNetMap[cleanWh] || 0) + q;
         } else if (isStockOut) {
           whNetMap[cleanWh] = (whNetMap[cleanWh] || 0) - q;
+        }
+      });
+
+      (LOCAL_DB.dispatches || []).forEach(d => {
+        if (!d) return;
+        const dSku = String(d.sku || '').trim().toLowerCase();
+        if (dSku === sku && d.toLocation) {
+          const dWh = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(d.toLocation) : d.toLocation);
+          if (dWh) {
+            stationStockedInWarehouses.add(dWh);
+            stationAllTxWarehouses.add(dWh);
+          }
         }
       });
 
@@ -16262,6 +16292,14 @@ function saveLocalUsersToStorage() {
           effectiveTotal = 0;
         }
 
+        const matchesTarget = (wh) => (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(wh, targetWh) : isSameWarehouse(wh, targetWh));
+        const hasStockedIn = Array.from(stationStockedInWarehouses).some(matchesTarget);
+        const hasAnyTx = Array.from(stationAllTxWarehouses).some(matchesTarget);
+        if (hasStockedIn || hasAnyTx) {
+          hasStationTx = true;
+          hasExactStationTx = true;
+        }
+
         if (zoneSum > 0 && Array.isArray(item.zoneBreakdown)) {
           const matchingZones = item.zoneBreakdown.filter(z => {
             let zWh = z.warehouse ? (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(z.warehouse) : z.warehouse) : '';
@@ -16296,6 +16334,7 @@ function saveLocalUsersToStorage() {
         total: effectiveTotal,
         hasStationTx,
         hasExactStationTx,
+        hasStockedIn: (typeof hasStockedIn !== 'undefined') ? hasStockedIn : (effectiveTotal > 0 || hasExactStationTx),
         isGeneralStock: false,
         breakdowns,
         pUnit,
@@ -16310,11 +16349,11 @@ function saveLocalUsersToStorage() {
       const isPrivilegedAdmin = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(u) : (isSuperAdmin || isAdmin);
 
       let activeWhFilter = 'ALL';
-      if (isPrivilegedAdmin || AppState.selectedAdminWarehouseFilter) {
-        activeWhFilter = AppState.selectedAdminWarehouseFilter || ADMIN_DEFAULT_COMBO_WH;
+      if (isPrivilegedAdmin) {
+        activeWhFilter = AppState.selectedAdminWarehouseFilter || 'ALL';
       } else {
         // អ្នកប្រើប្រាស់តាមស្ថានីយ: មើលឃើញតែមុខទំនិញក្នុងស្ថានីយរបស់ខ្លួនឯងប៉ុណ្ណោះ!
-        activeWhFilter = u?.warehouse || '';
+        activeWhFilter = u?.warehouse || AppState.selectedAdminWarehouseFilter || '';
       }
 
       const searchEl = document.getElementById('itemSearchInput');
@@ -16328,20 +16367,16 @@ function saveLocalUsersToStorage() {
       const catFilter = document.getElementById('itemCategoryFilter')?.value || 'ALL';
       const statusFilter = document.getElementById('itemStatusFilter')?.value || 'ALL';
 
-      // ពេល Super admin និង admin វាយបញ្ចូលស្វែងរកមុខទំនិញ -> បង្ហាញមុខទំនិញដែលមានទាំងអស់ (មិនខ្វល់ថាបានជ្រើសរើសស្ថានីយណាឡើយ)
-      const isSearchingGlobalAdmin = (isPrivilegedAdmin || isSuperAdmin || isAdmin || !!AppState.selectedAdminWarehouseFilter) && !!search;
+      const isSpecificStation = activeWhFilter && 
+        activeWhFilter !== 'ALL' && 
+        activeWhFilter !== '🏢 គ្រប់ស្ថានីយទាំងអស់' && 
+        activeWhFilter !== 'គ្រប់ឃ្លាំង';
 
       return (AppState.items || []).filter(item => {
-        // ច្រោះតាមស្ថានីយ (សម្រាប់ស្ថានីយផ្ទាល់ខ្លួន ឬតាមការជ្រើសរើសរបស់ Admin / SuperAdmin)
-        // ប្រសិនបើ Super admin ឬ admin កំពុងវាយស្វែងរកទំនិញ -> បង្ហាញមុខទំនិញទាំងអស់ពីគ្រប់ស្ថានីយ ដោយមិនខ្វល់ថាបានជ្រើសរើសស្ថានីយណាឡើយ
-        if (!isSearchingGlobalAdmin && activeWhFilter && activeWhFilter !== 'ALL' && activeWhFilter !== '🏢 គ្រប់ស្ថានីយទាំងអស់' && activeWhFilter !== 'គ្រប់ឃ្លាំង') {
+        // ១. ច្រោះតាមស្ថានីយ៖ ធានាថាទោះបីជាកំពុង Search ឬមិនទាន់ Search ក៏ដោយ តាមស្ថានីយគឺអាចរកឃើញតែទំនិញដែលខ្លួនបានចូលស្តុករបស់ស្ថានីយខ្លួនតែប៉ុណ្ណោះ!
+        if (isSpecificStation) {
           const st = (typeof getItemStationStock === 'function') ? getItemStationStock(item, activeWhFilter) : { total: 0, breakdowns: [] };
           const isCombo = (typeof isAdminComboWarehouse === 'function') && isAdminComboWarehouse(activeWhFilter);
-
-          // If an item has 0 stock at this warehouse and no transactions at this warehouse, it MUST NOT appear!
-          if (st.total <= 0 && !st.hasExactStationTx) {
-            return false;
-          }
 
           if (isCombo) {
             // Combo: 中心库房 & 机电 (Admin / SuperAdmin default)
@@ -16353,7 +16388,7 @@ function saveLocalUsersToStorage() {
             const belongsToCombo = st.total > 0 || st.hasExactStationTx || hasCentralBreakdown || isAssigned || isWhBreakdown;
             if (!belongsToCombo) return false;
           } else {
-            // Specific toll station or specific individual warehouse
+            // Specific toll station or individual warehouse
             const isCentralWh = activeWhFilter.includes('中心库房');
             const isMeWh = activeWhFilter.includes('机电');
             const isItemMe = (item.category && (item.category.includes('机电') || item.category.includes('អគ្គិសនី'))) || (item.name && item.name.includes('机电'));
@@ -16367,13 +16402,15 @@ function saveLocalUsersToStorage() {
               const hasMeBreakdown = (st.breakdowns || []).some(b => (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(b.warehouse, activeWhFilter) : isSameWarehouse(b.warehouse, activeWhFilter)) && b.total > 0);
               if (st.total <= 0 && !hasMeBreakdown && !st.hasExactStationTx) return false;
             } else {
-              // Toll station: must have actual stock or transaction record at this station!
+              // Toll station: ត្រូវតែជាទំនិញដែលបានចូលស្តុករបស់ស្ថានីយនេះផ្ទាល់ (មានស្តុក > 0, ធ្លាប់ចូលស្តុក ឬមានប្រតិបត្តិការនៅស្ថានីយនេះ)
               const hasStationBreakdown = (st.breakdowns || []).some(b => (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(b.warehouse, activeWhFilter) : isSameWarehouse(b.warehouse, activeWhFilter)) && b.total > 0);
-              if (st.total <= 0 && !hasStationBreakdown && !st.hasExactStationTx) return false;
+              const hasEnteredStationStock = (st.total > 0) || hasStationBreakdown || st.hasExactStationTx || st.hasStockedIn;
+              if (!hasEnteredStationStock) return false;
             }
           }
         }
 
+        // ២. ស្វែងរកតាមពាក្យគន្លឹះក្នុងចំណោមទំនិញរបស់ស្ថានីយនោះ
         if (search) {
           const itemZones = (typeof getItemZoneBreakdown === 'function') ? getItemZoneBreakdown(item) : [];
           const zoneText = [item.zone, ...itemZones.map(z => z.zone)].filter(Boolean).join(' ').toLowerCase();
@@ -16397,9 +16434,8 @@ function saveLocalUsersToStorage() {
         if (catFilter !== 'ALL' && item.category !== catFilter) return false;
 
         // Effective stock for status filter
-        const effectiveWhForStatus = isSearchingGlobalAdmin ? 'ALL' : activeWhFilter;
-        const currentEffectiveStock = (effectiveWhForStatus && effectiveWhForStatus !== 'ALL')
-          ? ((typeof getItemStationStock === 'function') ? getItemStationStock(item, effectiveWhForStatus).total : Number(item.currentStock || 0))
+        const currentEffectiveStock = isSpecificStation
+          ? ((typeof getItemStationStock === 'function') ? getItemStationStock(item, activeWhFilter).total : Number(item.currentStock || 0))
           : Number(item.currentStock || 0);
 
         const itemMin = Number(item.minStock || 1);
@@ -16472,11 +16508,11 @@ function saveLocalUsersToStorage() {
 
       // 2. កំណត់ស្ថានីយដែលត្រូវច្រោះ (Admin/SuperAdmin តាមរយៈ Top Bar Selector, អ្នកប្រើប្រាស់តាមស្ថានីយជាប់ស្ថានីយខ្លួនឯង)
       let activeWhFilter = 'ALL';
-      if (isPrivilegedAdmin || AppState.selectedAdminWarehouseFilter) {
-        activeWhFilter = AppState.selectedAdminWarehouseFilter || ADMIN_DEFAULT_COMBO_WH;
+      if (isPrivilegedAdmin) {
+        activeWhFilter = AppState.selectedAdminWarehouseFilter || 'ALL';
       } else {
         // អ្នកប្រើប្រាស់តាមស្ថានីយ: មើលឃើញតែមុខទំនិញក្នុងស្ថានីយរបស់ខ្លួនឯងប៉ុណ្ណោះ!
-        activeWhFilter = u?.warehouse || '';
+        activeWhFilter = u?.warehouse || AppState.selectedAdminWarehouseFilter || '';
       }
 
       // 3. យកបញ្ជីមុខទំនិញដែលបានច្រោះរួច (តាមស្ថានីយ, ពាក្យស្វែងរក, ប្រភេទ និងស្ថានភាពស្តុក)
@@ -16528,13 +16564,21 @@ function saveLocalUsersToStorage() {
       }
 
       const search = rawSearch.toLowerCase().trim();
-      const isSearchingGlobalAdmin = (isPrivilegedAdmin || isSuperAdmin || isAdmin || !!AppState.selectedAdminWarehouseFilter) && !!search;
+      const isSpecificStation = activeWhFilter && 
+        activeWhFilter !== 'ALL' && 
+        activeWhFilter !== '🏢 គ្រប់ស្ថានីយទាំងអស់' && 
+        activeWhFilter !== 'គ្រប់ឃ្លាំង';
 
       const summaryText = document.getElementById('itemsFilterSummaryText');
       if (summaryText) {
-        if (isSearchingGlobalAdmin) {
+        if (search) {
           summaryText.classList.remove('hidden');
-          summaryText.innerHTML = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 text-[11px] font-semibold"><i class="fa-solid fa-earth-americas text-blue-500"></i> លទ្ធផលស្វែងរកពីគ្រប់ស្ថានីយទាំងអស់ (${filteredCount} មុខទំនិញ)</span>`;
+          if (isSpecificStation) {
+            const whClean = (typeof sanitizeStationName === 'function') ? sanitizeStationName(activeWhFilter) : activeWhFilter;
+            summaryText.innerHTML = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-semibold"><i class="fa-solid fa-warehouse text-emerald-500"></i> លទ្ធផលស្វែងរកក្នុង ${whClean} (${filteredCount} មុខទំនិញ)</span>`;
+          } else {
+            summaryText.innerHTML = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 text-[11px] font-semibold"><i class="fa-solid fa-earth-americas text-blue-500"></i> លទ្ធផលស្វែងរកពីគ្រប់ស្ថានីយទាំងអស់ (${filteredCount} មុខទំនិញ)</span>`;
+          }
         } else {
           summaryText.classList.add('hidden');
           summaryText.innerHTML = '';
@@ -16546,7 +16590,7 @@ function saveLocalUsersToStorage() {
         return;
       }
 
-      const effectiveWhForDisplay = isSearchingGlobalAdmin ? 'ALL' : activeWhFilter;
+      const effectiveWhForDisplay = isSpecificStation ? activeWhFilter : 'ALL';
 
       tbody.innerHTML = filtered.map((item, idx) => {
         const stStock = (typeof getItemStationStock === 'function') ? getItemStationStock(item, effectiveWhForDisplay) : { total: Number(item.currentStock || 0), bulk: 0, loose: 0, breakdowns: [] };
