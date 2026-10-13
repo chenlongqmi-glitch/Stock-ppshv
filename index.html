@@ -6904,7 +6904,7 @@
           minStock: 1,
           minStockPercent: 10,
           currentStock: 96,
-          location: 'គ្រប់ស្ថានីយទាំងអស់',
+          location: '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
           notes: 'សាកល្បង',
           createdBy: 'ចាន់ តារា',
           createdAt: '2026-09-22',
@@ -6928,7 +6928,7 @@
           minStock: 1,
           minStockPercent: 10,
           currentStock: 0,
-          location: 'គ្រប់ស្ថានីយទាំងអស់',
+          location: '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
           notes: 'សាកល្បង',
           createdBy: 'ចាន់ ឌី',
           createdAt: '2026-09-22',
@@ -6952,7 +6952,7 @@
           minStock: 1,
           minStockPercent: 10,
           currentStock: 0,
-          location: 'គ្រប់ស្ថានីយទាំងអស់',
+          location: '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
           notes: 'សាកល្បង',
           createdBy: 'ឌិត វ៉ាន់ស៊ីញ',
           createdAt: '2026-09-22',
@@ -6976,7 +6976,7 @@
           minStock: 1,
           minStockPercent: 10,
           currentStock: 0,
-          location: 'គ្រប់ស្ថានីយទាំងអស់',
+          location: '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
           notes: 'ចំណាំសិន',
           createdBy: 'ឌិត វ៉ាន់ស៊ីញ',
           createdAt: '2026-09-22',
@@ -7000,7 +7000,7 @@
           minStock: 1,
           minStockPercent: 10,
           currentStock: 5,
-          location: 'គ្រប់ស្ថានីយទាំងអស់',
+          location: '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
           notes: 'សាកល្បង',
           createdBy: '陈龙',
           createdAt: '2026-09-22',
@@ -7024,7 +7024,7 @@
           minStock: 1,
           minStockPercent: 10,
           currentStock: 4,
-          location: 'គ្រប់ស្ថានីយទាំងអស់',
+          location: '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)',
           notes: '-',
           createdBy: 'ឌិត វ៉ាន់ស៊ីញ',
           createdAt: '2026-09-22',
@@ -7189,9 +7189,27 @@
       if (s.includes('External Customer') || s.includes('អតិថិជនក្រៅ')) {
         return 'អតិថិជនក្រៅ (External Customer)';
       }
+      // If it's a username, role, single digit, notes bracket, or invalid station text, default to Central Warehouse
+      if (
+        sLower === '陈龙' || sLower === 'admin' || sLower === 'superadmin' || sLower.includes('admin') ||
+        sLower.includes('singvan') || sLower.includes('chenlong') ||
+        /^\d+$/.test(s) || s.startsWith('[') || s.includes('DOC-') || s.includes('TX-') ||
+        !s || s === '-' || s === 'undefined' || s === 'null'
+      ) {
+        return '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+      }
       return s;
     }
     window.toCanonicalWarehouseName = toCanonicalWarehouseName;
+
+    function isTollStationWarehouse(wh) {
+      if (!wh) return false;
+      const s = String(wh).toUpperCase();
+      return /K(?:3|26|43|76|114|135|172|182)\b/.test(s) ||
+        s.includes('ភ្នំពេញ') || s.includes('កំពង់ស្ពឺ') || s.includes('ត្រែងត្រយឹង') ||
+        s.includes('កំពង់សីលា') || s.includes('ស្រែអំបិល') || s.includes('ស្ទឹងហាវ') || s.includes('ព្រះសីហនុ');
+    }
+    window.isTollStationWarehouse = isTollStationWarehouse;
 
     function deductItemZoneBreakdown(item, zoneToDeduct, qtyToDeduct) {
       if (!item) return;
@@ -16389,9 +16407,9 @@ function saveLocalUsersToStorage() {
         if (remCentral > 0 && !breakdowns.some(b => b.warehouse.includes('中心库房') || b.warehouse.includes('机电'))) {
           breakdowns.unshift({ warehouse: defaultCentralWh, shortWh: defaultCentralShort, total: remCentral });
         }
-      } else if (breakdowns.length === 0 && catalogStock > 0) {
+      } else if (breakdowns.length === 0) {
         // Pure catalog product with no dispatch transactions: 100% of stock is at central warehouse
-        breakdowns.push({ warehouse: defaultCentralWh, shortWh: defaultCentralShort, total: catalogStock });
+        breakdowns.push({ warehouse: defaultCentralWh, shortWh: defaultCentralShort, total: Math.max(0, catalogStock) });
       }
 
       breakdowns.sort((a, b) => b.total - a.total);
@@ -16528,20 +16546,22 @@ function saveLocalUsersToStorage() {
 
           if (isCombo) {
             // Combo: 中心库房 & 机电 (Admin / SuperAdmin default)
-            const hasCentralBreakdown = (st.breakdowns || []).some(b => (b.warehouse.includes('中心库房') || b.warehouse.includes('机电') || b.warehouse === 'ALL' || b.warehouse.includes('គ្រប់')) && b.total > 0);
+            // មុខទំនិញទាំងអស់ក្នុង Master Catalog គឺជាទំនិញរបស់មជ្ឈមណ្ឌលកណ្តាល (中心库房 / 机电)
+            // លើកលែងតែទំនិញដែលត្រូវបានចាត់ចែងដាក់ផ្ដាច់មុខសម្រាប់ស្ថានីយគិតលុយជាក់លាក់ (K3..K182) ហើយគ្មានស្តុកកណ្តាល
             const itemLoc = item.toLocation || item.location || item.warehouse || '';
-            const isAssigned = itemLoc && (itemLoc.includes('中心库房') || itemLoc.includes('机电') || itemLoc.includes('គ្រប់') || itemLoc === 'ALL');
-            const isWhBreakdown = Array.isArray(item.warehouses) && item.warehouses.some(w => w.includes('中心库房') || w.includes('机电') || w.includes('គ្រប់') || w === 'ALL');
-            const hasCentralZones = Array.isArray(item.zoneBreakdown) && item.zoneBreakdown.some(z => {
-              const zw = z.warehouse || '';
-              return !zw || zw.includes('中心库房') || zw.includes('机电') || zw.includes('គ្រប់') || zw === 'ALL';
-            });
+            const isTollStationOnly = Boolean(
+              itemLoc &&
+              (typeof isTollStationWarehouse === 'function' ? isTollStationWarehouse(itemLoc) : /K(?:3|26|43|76|114|135|172|182)\b/i.test(itemLoc)) &&
+              !itemLoc.includes('中心库房') &&
+              !itemLoc.includes('机电') &&
+              !itemLoc.includes('គ្រប់') &&
+              itemLoc !== 'ALL' &&
+              !(st.breakdowns || []).some(b => (b.warehouse.includes('中心库房') || b.warehouse.includes('机电') || b.warehouse === 'ALL' || b.warehouse.includes('គ្រប់')) && b.total > 0) &&
+              st.total <= 0
+            );
 
-            // For privileged admins (Admin & SuperAdmin), if actively searching by SKU or name, never hide matching inventory items
             const isSearching = !!search && isPrivilegedAdmin;
-
-            const belongsToCombo = st.total > 0 || st.hasExactStationTx || hasCentralBreakdown || isAssigned || isWhBreakdown || hasCentralZones || isSearching;
-            if (!belongsToCombo) return false;
+            if (isTollStationOnly && !isSearching) return false;
           } else {
             // Specific toll station or individual warehouse
             const isCentralWh = activeWhFilter.includes('中心库房');
@@ -16551,17 +16571,13 @@ function saveLocalUsersToStorage() {
 
             if (isCentralWh) {
               if (!isSearching && isItemMe && !st.hasExactStationTx) return false;
-              const hasCentralBreakdown = (st.breakdowns || []).some(b => (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(b.warehouse, activeWhFilter) : isSameWarehouse(b.warehouse, activeWhFilter)) && b.total > 0);
-              if (!isSearching && st.total <= 0 && !hasCentralBreakdown && !st.hasExactStationTx) return false;
             } else if (isMeWh) {
               if (!isSearching && !isItemMe && !st.hasExactStationTx) return false;
-              const hasMeBreakdown = (st.breakdowns || []).some(b => (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(b.warehouse, activeWhFilter) : isSameWarehouse(b.warehouse, activeWhFilter)) && b.total > 0);
-              if (!isSearching && st.total <= 0 && !hasMeBreakdown && !st.hasExactStationTx) return false;
             } else {
               // Toll station: ត្រូវតែជាទំនិញដែលបានចូលស្តុករបស់ស្ថានីយនេះផ្ទាល់ (មានស្តុក > 0, ធ្លាប់ចូលស្តុក ឬមានប្រតិបត្តិការនៅស្ថានីយនេះ)
               const hasStationBreakdown = (st.breakdowns || []).some(b => (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(b.warehouse, activeWhFilter) : isSameWarehouse(b.warehouse, activeWhFilter)) && b.total > 0);
               const hasEnteredStationStock = (st.total > 0) || hasStationBreakdown || st.hasExactStationTx || st.hasStockedIn;
-              if (!hasEnteredStationStock) return false;
+              if (!hasEnteredStationStock && !isSearching) return false;
             }
           }
         }
@@ -23134,6 +23150,10 @@ function saveLocalUsersToStorage() {
           try {
             localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(cleanTxs));
           } catch(e) {}
+          if (typeof syncItemStockFromHistory === 'function') {
+            syncItemStockFromHistory(AppState.items);
+            syncItemStockFromHistory(LOCAL_DB.items);
+          }
           filterStockInHistoryTable();
           if (typeof renderItemsTable === 'function') renderItemsTable();
           return;
@@ -23785,6 +23805,10 @@ function saveLocalUsersToStorage() {
             localStorage.setItem('inventory_stock_out_history_db', JSON.stringify(cleanTxs));
           } catch(e) {}
           if (typeof syncDispatchesWithOperations === 'function') syncDispatchesWithOperations();
+          if (typeof syncItemStockFromHistory === 'function') {
+            syncItemStockFromHistory(AppState.items);
+            syncItemStockFromHistory(LOCAL_DB.items);
+          }
           filterStockOutHistoryTable();
           if (typeof renderItemsTable === 'function') renderItemsTable();
           return;

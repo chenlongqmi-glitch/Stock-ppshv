@@ -4859,6 +4859,7 @@ function getItemsList(userOrPayload, warehouseFilter, optSs) {
   const idxCreatedBy = colIdx('createdby', idxPackStock >= 0 ? 14 : 13);
   const idxStatus = colIdx('status', idxPackStock >= 0 ? 15 : 14);
   const idxUpdatedAt = colIdx('updatedat', idxPackStock >= 0 ? 16 : 15);
+  const idxLocation = colIdx('location', colIdx('warehouse', colIdx('ឃ្លាំង', -1)));
 
   // Pre-calculate Zone breakdowns and net transaction quantities from Stock_in & Stock_out sheets
   const itemZoneMap = {}; // skuLower -> { zones: { A02: 42, A08: 3 }, totalIn: 45, totalOut: 0 }
@@ -5039,6 +5040,13 @@ function getItemsList(userOrPayload, warehouseFilter, optSs) {
 
       const calculatedPackStock = packStockNum >= 0 ? packStockNum : (packQtyNum > 1 ? Math.floor(stockNum / packQtyNum) : stockNum);
 
+      let rawLoc = idxLocation >= 0 ? String(row[idxLocation] || '').trim() : '';
+      if (!rawLoc || rawLoc === 'ALL' || rawLoc === 'គ្រប់ស្ថានីយទាំងអស់' || rawLoc === 'គ្រប់ឃ្លាំង') {
+        const isItemMe = (row[idxCategory] && (String(row[idxCategory]).includes('机电') || String(row[idxCategory]).includes('អគ្គិសនី'))) || (row[idxName] && String(row[idxName]).includes('机电'));
+        rawLoc = isItemMe ? '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)' : '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+      }
+      const itemCanonicalWhs = (zInfo && zInfo.warehouses && zInfo.warehouses.length > 0) ? zInfo.warehouses : [rawLoc];
+
       items.push({
         sku: rowSku,
         barcode: String(row[idxBarcode] || rowSku),
@@ -5057,7 +5065,10 @@ function getItemsList(userOrPayload, warehouseFilter, optSs) {
         zone: zn,
         zoneBreakdown: itemZoneBreakdown,
         zones: itemZonesList,
-        warehouses: (zInfo && zInfo.warehouses) ? zInfo.warehouses : [],
+        location: rawLoc,
+        toLocation: rawLoc,
+        warehouse: rawLoc,
+        warehouses: itemCanonicalWhs,
         imageUrl: img,
         notes: String(row[idxNotes] || '-'),
         createdBy: crBy,
