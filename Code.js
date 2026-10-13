@@ -91,6 +91,11 @@ function onOpen(e) {
       .addItem('✨ ធ្វើឱ្យទាន់សម័យគ្រប់ Sheet ទាំងអស់ (Sync All)', 'ensureStockSheetsInitialized')
       .addToUi();
   } catch(err) {}
+
+  try {
+    // ស្វ័យប្រវត្តិតម្រឹម Transactions Sheet ប្រសិនបើមានទិន្នន័យខុសជួរ
+    standardizeAndFormatTransactionsSheet();
+  } catch(eAuto) {}
 }
 
 /**
@@ -10249,11 +10254,12 @@ function standardizeAndFormatStockOutSheet(optSs) {
 }
 
 /**
- * 🔄 តម្រឹមជួរឈរ Transactions (12 ជួរឈរស្តង់ដារ)
- * - លុប UnitPrice និង TotalAmount ចេញ (តាមការស្នើសុំរបស់អ្នកប្រើប្រាស់)
- * - កែសម្រួល FromLocation និង ToLocation ឲ្យត្រឹមត្រូវ ១០០%
+ * 🔄 តម្រឹម និងជួសជុលជួរឈរ Transactions (12 ជួរឈរស្តង់ដារ)
+ * - ជួសជុលទិន្នន័យរអិលខុសជួរឈរ (FromLocation, ToLocation, Reason_Notes, User, Timestamp)
  *   + STOCK_IN: FromLocation = "អ្នកផ្គត់ផ្គង់ (Supplier)", ToLocation = ឃ្លាំងជាក់ស្តែង (ឧ. "中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)")
- *   + STOCK_OUT: FromLocation = ឃ្លាំងដើម (ឧ. "中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)"), ToLocation = ស្ថានីយ/អតិថិជន (ឧ. "K3 ស្ថានីយ...", "K182 ស្ថានីយ...")
+ *   + STOCK_OUT: FromLocation = ឃ្លាំងដើម (ឧ. "机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)" ឬ "中心库房"), ToLocation = ស្ថានីយ/អតិថិជន (ឧ. "អតិថិជន/ដកប្រើប្រាស់", "K3...")
+ *   + User: ឈ្មោះបុគ្គលិកជាក់ស្តែង (ឧ. "និត វ៉ាន់ស៊ិញ", "陈龙")
+ *   + Timestamp: ពេលវេលាពិតប្រាកដ YYYY-MM-DD HH:mm:ss
  */
 function standardizeAndFormatTransactionsSheet(optSs) {
   let ss = optSs;
@@ -10270,7 +10276,7 @@ function standardizeAndFormatTransactionsSheet(optSs) {
     txSheet = ss.insertSheet(SHEETS.TRANSACTIONS);
   }
 
-  // Standard 12 Columns (UnitPrice & TotalAmount completely REMOVED)
+  // Standard 12 Columns
   const transactionsHeaders = [
     'TxID', 'Date', 'Type', 'SKU', 'ItemName',
     'Quantity', 'Unit',
@@ -10278,7 +10284,7 @@ function standardizeAndFormatTransactionsSheet(optSs) {
     'Reason_Notes', 'User', 'Timestamp'
   ];
 
-  // 1. Build lookup maps from Stock_in and Stock_out sheets for 100% accurate From/To Locations
+  // 1. Build lookup maps from Stock_in and Stock_out sheets
   const stockInMap = {};
   const stockOutMap = {};
 
@@ -10287,28 +10293,88 @@ function standardizeAndFormatTransactionsSheet(optSs) {
     if (sInSheet && sInSheet.getLastRow() > 1) {
       const inData = sInSheet.getDataRange().getValues();
       const inHeaders = (inData[0] || []).map(h => String(h || '').trim().toLowerCase());
-      const inDocIdx = inHeaders.indexOf('docno') >= 0 ? inHeaders.indexOf('docno') : 0;
-      const inSkuIdx = inHeaders.indexOf('sku') >= 0 ? inHeaders.indexOf('sku') : 2;
-      const inQtyIdx = inHeaders.indexOf('quantity') >= 0 ? inHeaders.indexOf('quantity') : 7;
-      const inWhIdx = inHeaders.indexOf('warehouse') >= 0 ? inHeaders.indexOf('warehouse') : 12;
-      const inRecIdx = inHeaders.indexOf('receivedby') >= 0 ? inHeaders.indexOf('receivedby') : 13;
-      const inNotesIdx = inHeaders.indexOf('notes') >= 0 ? inHeaders.indexOf('notes') : 14;
+      const findInHIdx = (keywords, def) => {
+        const idx = inHeaders.findIndex(h => keywords.some(k => h === k || (k.length > 2 && h.includes(k))));
+        return idx >= 0 ? idx : def;
+      };
+      const inDocIdx = findInHIdx(['docno', 'doc', 'ឯកសារ'], 0);
+      const inDateIdx = findInHIdx(['date', 'កាលបរិច្ឆេទ'], 1);
+      const inSkuIdx = findInHIdx(['sku', 'កូដ'], 2);
+      const inNameIdx = findInHIdx(['itemname', 'item', 'name', 'ឈ្មោះ'], 3);
+      const inSizeIdx = findInHIdx(['size', 'ខ្នាត'], 4);
+      const inColorIdx = findInHIdx(['color', 'ពណ៌'], 5);
+      const inZoneIdx = findInHIdx(['zone', 'តំបន់'], 6);
+      const inQtyIdx = findInHIdx(['quantity', 'qty', 'ចំនួន'], 7);
+      const inUnitIdx = findInHIdx(['unit', 'ឯកតា'], 8);
+      const inWhIdx = findInHIdx(['warehouse', 'ឃ្លាំង', 'ស្ថានីយ'], 12);
+      const inRecIdx = findInHIdx(['receivedby', 'receiver', 'អ្នកទទួល'], 13);
+      const inNotesIdx = findInHIdx(['notes', 'note', 'សម្គាល់'], 14);
+      const inUserIdx = findInHIdx(['user', 'អ្នកប្រើ', 'បុគ្គលិក'], 15);
+      const inTsIdx = findInHIdx(['timestamp', 'ពេល', 'ម៉ោង'], 16);
 
       for (let r = 1; r < inData.length; r++) {
         const row = inData[r];
         const doc = String(row[inDocIdx] || '').trim().toUpperCase();
         const sku = String(row[inSkuIdx] || '').trim().toLowerCase();
         const qty = Number(row[inQtyIdx] || 0);
-        let wh = String(row[inWhIdx] || '').trim();
+        let dStr = '';
+        if (row[inDateIdx] instanceof Date) {
+          try { dStr = Utilities.formatDate(row[inDateIdx], 'GMT+7', 'yyyy-MM-dd'); } catch(e) {}
+        } else if (row[inDateIdx]) {
+          dStr = String(row[inDateIdx]).slice(0, 10);
+        }
+
+        let wh = String((inWhIdx >= 0 ? row[inWhIdx] : '') || '').trim();
         if (!wh || wh === '-' || /^\d+$/.test(wh) || wh === 'ALL' || wh === 'គ្រប់ស្ថានីយទាំងអស់' || wh === 'គ្រប់ឃ្លាំង') {
           wh = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
         } else {
           wh = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(wh) : wh;
           if (wh === 'ALL' || wh === 'គ្រប់ស្ថានីយទាំងអស់' || wh === 'គ្រប់ឃ្លាំង') wh = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
         }
-        const obj = { warehouse: wh, receivedBy: String(row[inRecIdx] || '').trim(), notes: String(row[inNotesIdx] || '').trim() };
-        if (doc) stockInMap[doc] = obj;
-        if (sku) stockInMap[sku + '_' + qty] = obj;
+
+        const recBy = String((inRecIdx >= 0 ? row[inRecIdx] : '') || '').trim();
+        const uStr = String((inUserIdx >= 0 ? row[inUserIdx] : '') || recBy || '陈龙').trim();
+        const notesRaw = cleanDisplayNoteGAS(inNotesIdx >= 0 ? row[inNotesIdx] : '');
+        const size = String((inSizeIdx >= 0 ? row[inSizeIdx] : '') || '').trim();
+        const color = String((inColorIdx >= 0 ? row[inColorIdx] : '') || '').trim();
+        const zone = String((inZoneIdx >= 0 ? row[inZoneIdx] : '') || '').trim();
+
+        let tsFormatted = '';
+        const tsVal = inTsIdx >= 0 ? row[inTsIdx] : null;
+        if (tsVal instanceof Date) {
+          try { tsFormatted = Utilities.formatDate(tsVal, 'GMT+7', 'yyyy-MM-dd HH:mm:ss'); } catch(e) {}
+        } else if (tsVal) {
+          tsFormatted = String(tsVal).trim();
+        }
+
+        const formattedNotes = [
+          doc ? `[ឯកសារ: ${doc}]` : '',
+          recBy ? `[អ្នកទទួល: ${recBy}]` : '',
+          size ? `[ខ្នាត: ${size}]` : '',
+          color ? `[ពណ៌: ${color}]` : '',
+          zone ? `[តំបន់: ${zone}]` : '',
+          notesRaw && notesRaw !== '-' ? notesRaw : ''
+        ].filter(Boolean).join(' ');
+
+        const obj = {
+          warehouse: wh,
+          fromLocation: 'អ្នកផ្គត់ផ្គង់ (Supplier)',
+          receivedBy: recBy,
+          user: uStr,
+          notes: formattedNotes || '-',
+          timestamp: tsFormatted
+        };
+
+        if (doc) {
+          stockInMap[doc] = obj;
+          const docNum = doc.replace(/\D/g, '');
+          if (docNum) stockInMap[docNum] = obj;
+        }
+        if (sku) {
+          if (qty > 0 && dStr) stockInMap[sku + '_' + qty + '_' + dStr] = obj;
+          if (qty > 0) stockInMap[sku + '_' + qty] = obj;
+          if (dStr) stockInMap[sku + '_' + dStr] = obj;
+        }
       }
     }
   } catch(eIn) {}
@@ -10318,32 +10384,95 @@ function standardizeAndFormatTransactionsSheet(optSs) {
     if (sOutSheet && sOutSheet.getLastRow() > 1) {
       const outData = sOutSheet.getDataRange().getValues();
       const outHeaders = (outData[0] || []).map(h => String(h || '').trim().toLowerCase());
-      const outDocIdx = outHeaders.indexOf('docno') >= 0 ? outHeaders.indexOf('docno') : 0;
-      const outSkuIdx = outHeaders.indexOf('sku') >= 0 ? outHeaders.indexOf('sku') : 2;
-      const outQtyIdx = outHeaders.indexOf('quantity') >= 0 ? outHeaders.indexOf('quantity') : 7;
-      const outFromIdx = outHeaders.indexOf('from') >= 0 ? outHeaders.indexOf('from') : 12;
-      const outToIdx = outHeaders.indexOf('tolocation') >= 0 ? outHeaders.indexOf('tolocation') : 13;
-      const outNotesIdx = outHeaders.indexOf('notes') >= 0 ? outHeaders.indexOf('notes') : 14;
-      const outUserIdx = outHeaders.indexOf('user') >= 0 ? outHeaders.indexOf('user') : 15;
+      const findOutHIdx = (keywords, def) => {
+        const idx = outHeaders.findIndex(h => keywords.some(k => h === k || (k.length > 2 && h.includes(k))));
+        return idx >= 0 ? idx : def;
+      };
+      const outDocIdx = findOutHIdx(['docno', 'doc', 'ឯកសារ'], 0);
+      const outDateIdx = findOutHIdx(['date', 'កាលបរិច្ឆេទ'], 1);
+      const outSkuIdx = findOutHIdx(['sku', 'កូដ'], 2);
+      const outNameIdx = findOutHIdx(['itemname', 'item', 'name', 'ឈ្មោះ'], 3);
+      const outSizeIdx = findOutHIdx(['size', 'ខ្នាត'], 4);
+      const outColorIdx = findOutHIdx(['color', 'ពណ៌'], 5);
+      const outZoneIdx = findOutHIdx(['zone', 'តំបន់'], 6);
+      const outQtyIdx = findOutHIdx(['quantity', 'qty', 'ចំនួន'], 7);
+      const outUnitIdx = findOutHIdx(['unit', 'ឯកតា'], 8);
+      const outOldIdx = findOutHIdx(['oldstock', 'ស្តុកចាស់'], 9);
+      const outRemIdx = findOutHIdx(['remainingstock', 'newstock', 'ស្តុកនៅសល់'], 10);
+      const outMoveIdx = findOutHIdx(['stockmovement', 'movement', 'ចរន្ត'], 11);
+      const outFromIdx = findOutHIdx(['from', 'fromlocation', 'ចេញពី', 'ប្រភព'], 12);
+      const outToIdx = findOutHIdx(['tolocation', 'towarehouse', 'to_location', 'destination', 'គោលដៅ', 'អតិថិជន', 'ទៅកាន់'], 13);
+      const outNotesIdx = findOutHIdx(['notes', 'note', 'សម្គាល់', 'មូលហេតុ', 'reason'], 14);
+      const outUserIdx = findOutHIdx(['user', 'issuer', 'អ្នកប្រើ', 'អ្នកបើក'], 15);
+      const outTsIdx = findOutHIdx(['timestamp', 'ពេល', 'ម៉ោង'], 16);
 
       for (let r = 1; r < outData.length; r++) {
         const row = outData[r];
         const doc = String(row[outDocIdx] || '').trim().toUpperCase();
         const sku = String(row[outSkuIdx] || '').trim().toLowerCase();
         const qty = Number(row[outQtyIdx] || 0);
-        let fromLoc = String(row[outFromIdx] || '').trim();
+        let dStr = '';
+        if (row[outDateIdx] instanceof Date) {
+          try { dStr = Utilities.formatDate(row[outDateIdx], 'GMT+7', 'yyyy-MM-dd'); } catch(e) {}
+        } else if (row[outDateIdx]) {
+          dStr = String(row[outDateIdx]).slice(0, 10);
+        }
+
+        let fromLoc = String((outFromIdx >= 0 ? row[outFromIdx] : '') || '').trim();
         if (!fromLoc || fromLoc === '-' || /^\d+$/.test(fromLoc) || fromLoc.includes('Admin') || fromLoc.startsWith('Doc:')) {
           fromLoc = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
         } else {
           fromLoc = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(fromLoc) : fromLoc;
         }
-        let toLoc = String(row[outToIdx] || '').trim();
+
+        let toLoc = String((outToIdx >= 0 ? row[outToIdx] : '') || '').trim();
         if (!toLoc || toLoc === '-' || /^\d+$/.test(toLoc)) {
           toLoc = 'អតិថិជន/ដកប្រើប្រាស់';
         }
-        const obj = { fromLocation: fromLoc, toLocation: toLoc, notes: String(row[outNotesIdx] || '').trim(), user: String(row[outUserIdx] || '').trim() };
-        if (doc) stockOutMap[doc] = obj;
-        if (sku) stockOutMap[sku + '_' + qty] = obj;
+
+        const issuer = String((outUserIdx >= 0 ? row[outUserIdx] : '') || 'Staff').trim();
+        const size = String((outSizeIdx >= 0 ? row[outSizeIdx] : '') || '').trim();
+        const color = String((outColorIdx >= 0 ? row[outColorIdx] : '') || '').trim();
+        const zone = String((outZoneIdx >= 0 ? row[outZoneIdx] : '') || '').trim();
+        const move = String((outMoveIdx >= 0 ? row[outMoveIdx] : '') || '').trim();
+        const notesRaw = cleanDisplayNoteGAS(outNotesIdx >= 0 ? row[outNotesIdx] : '');
+
+        let tsFormatted = '';
+        const tsVal = outTsIdx >= 0 ? row[outTsIdx] : null;
+        if (tsVal instanceof Date) {
+          try { tsFormatted = Utilities.formatDate(tsVal, 'GMT+7', 'yyyy-MM-dd HH:mm:ss'); } catch(e) {}
+        } else if (tsVal) {
+          tsFormatted = String(tsVal).trim();
+        }
+
+        const formattedNotes = [
+          doc ? `[ឯកសារ: ${doc}]` : '',
+          issuer && issuer !== 'Staff' ? `[អ្នកបើកចេញ: ${issuer}]` : '',
+          size ? `[ខ្នាត: ${size}]` : '',
+          color ? `[ពណ៌: ${color}]` : '',
+          zone ? `[តំបន់: ${zone}]` : '',
+          move ? `[ស្តុក: ${move}]` : '',
+          notesRaw && notesRaw !== '-' ? notesRaw : ''
+        ].filter(Boolean).join(' ');
+
+        const obj = {
+          fromLocation: fromLoc,
+          toLocation: toLoc,
+          user: issuer,
+          notes: formattedNotes || '-',
+          timestamp: tsFormatted
+        };
+
+        if (doc) {
+          stockOutMap[doc] = obj;
+          const docNum = doc.replace(/\D/g, '');
+          if (docNum) stockOutMap[docNum] = obj;
+        }
+        if (sku) {
+          if (qty > 0 && dStr) stockOutMap[sku + '_' + qty + '_' + dStr] = obj;
+          if (qty > 0) stockOutMap[sku + '_' + qty] = obj;
+          if (dStr) stockOutMap[sku + '_' + dStr] = obj;
+        }
       }
     }
   } catch(eOut) {}
@@ -10355,7 +10484,7 @@ function standardizeAndFormatTransactionsSheet(optSs) {
     const headers = (rawData[0] || []).map(h => String(h || '').trim().toLowerCase());
 
     const findHIdx = (keywords, defIdx) => {
-      const idx = headers.findIndex(h => keywords.some(k => h === k || h.includes(k)));
+      const idx = headers.findIndex(h => keywords.some(k => h === k || (k.length > 2 && h.includes(k))));
       return idx >= 0 ? idx : defIdx;
     };
 
@@ -10396,124 +10525,142 @@ function standardizeAndFormatTransactionsSheet(optSs) {
       }
       if (!dateStr) dateStr = Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd');
 
-      // Format Notes & DocNo
-      const rawNotes = String(row[idxNotes] || '').trim();
-      let docNo = (rawNotes.match(/\[(?:ឯកសារ|Doc|DocNo):\s*([^\]]+)\]/i) || [])[1] || '';
-      const oldFrom = String(row[idxFrom] || '').trim();
-      if (!docNo) {
-        const fromDocM = oldFrom.match(/Doc:\s*([^,\s]+)/i);
-        if (fromDocM) docNo = fromDocM[1].trim();
-      }
-      if (!docNo) {
-        const notesDocM = rawNotes.match(/(?:DOC-IN|IN-|OUT-)\d+-\d+/i);
-        if (notesDocM) docNo = notesDocM[0].trim();
-      }
-      if (!docNo && (txId.startsWith('DOC-') || txId.startsWith('IN-') || txId.startsWith('OUT-'))) {
-        docNo = txId;
-      }
+      let rawFrom = String(row[idxFrom] || '').trim();
+      let rawTo = String(row[idxTo] || '').trim();
+      let rawNotes = String(row[idxNotes] || '').trim();
+      let rawUser = String(row[idxUser] || '').trim();
+      let rawTs = row[idxTs];
 
       // Determine TxType
       let txType = String(row[idxType] || '').trim().toUpperCase();
       if (!txType || txType === '-' || (!txType.includes('IN') && !txType.includes('OUT') && !txType.includes('TRANSFER') && !txType.includes('ADJUST'))) {
-        if (docNo.toUpperCase().includes('OUT-') || txId.toUpperCase().includes('OUT-') || rawNotes.toUpperCase().includes('OUT-')) {
+        if (rawNotes.toUpperCase().includes('OUT-') || txId.toUpperCase().includes('OUT-') || rawFrom.toUpperCase().includes('OUT-')) {
           txType = 'STOCK_OUT';
         } else {
           txType = 'STOCK_IN';
         }
       }
 
-      const sInMeta = (docNo && stockInMap[docNo.toUpperCase()]) || stockInMap[sku.toLowerCase() + '_' + qty] || null;
-      const sOutMeta = (docNo && stockOutMap[docNo.toUpperCase()]) || stockOutMap[sku.toLowerCase() + '_' + qty] || null;
+      // 1. Recover full Timestamp
+      let finalTs = '';
+      const txMatch = txId.match(/TX-(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/);
+      if (txMatch) {
+        finalTs = `${txMatch[1]}-${txMatch[2]}-${txMatch[3]} ${txMatch[4]}:${txMatch[5]}:${txMatch[6]}`;
+      } else if (rawNotes.includes('GMT') || rawNotes.includes('2026')) {
+        try {
+          const pd = new Date(rawNotes);
+          if (!isNaN(pd.getTime())) {
+            finalTs = Utilities.formatDate(pd, 'GMT+7', 'yyyy-MM-dd HH:mm:ss');
+          }
+        } catch(e) {}
+      } else if (rawTs instanceof Date) {
+        try { finalTs = Utilities.formatDate(rawTs, 'GMT+7', 'yyyy-MM-dd HH:mm:ss'); } catch(e) {}
+      } else if (rawTs && String(rawTs).length > 10) {
+        finalTs = String(rawTs).trim();
+      }
+      if (!finalTs || finalTs.length < 11) finalTs = dateStr + ' 00:00:00';
 
-      const oldTo = String(row[idxTo] || '').trim();
+      // 2. Extract Document Number
+      let docNo = '';
+      const docMatch = (rawNotes + ' ' + rawFrom).match(/(?:DOC-IN|DOC-OUT|IN-|OUT-)\d+-\d+/i) ||
+                       (rawNotes + ' ' + rawFrom).match(/\[(?:ឯកសារ|Doc|DocNo):\s*([^\]]+)\]/i);
+      if (docMatch) docNo = docMatch[1] ? docMatch[1].trim() : docMatch[0].trim();
+      if (!docNo) {
+        const digMatch = (rawNotes + ' ' + rawFrom).match(/(\d{8}-\d+)/);
+        if (digMatch) docNo = (txType === 'STOCK_OUT' ? 'DOC-OUT-' : 'DOC-IN-') + digMatch[1];
+      }
 
-      // Determine Clean FromLocation & ToLocation
+      // Lookup in metadata maps
+      const docNum = docNo ? docNo.replace(/\D/g, '') : '';
+      const sInMeta = (docNo && stockInMap[docNo.toUpperCase()]) || (docNum && stockInMap[docNum]) ||
+                      (qty > 0 && stockInMap[sku.toLowerCase() + '_' + qty + '_' + dateStr]) ||
+                      (qty > 0 && stockInMap[sku.toLowerCase() + '_' + qty]) || null;
+      const sOutMeta = (docNo && stockOutMap[docNo.toUpperCase()]) || (docNum && stockOutMap[docNum]) ||
+                       (qty > 0 && stockOutMap[sku.toLowerCase() + '_' + qty + '_' + dateStr]) ||
+                       (qty > 0 && stockOutMap[sku.toLowerCase() + '_' + qty]) || null;
+
       let finalFrom = '';
       let finalTo = '';
+      let finalNotes = rawNotes;
+      let finalUser = rawUser;
 
       if (txType === 'STOCK_IN') {
-        // STOCK_IN: Origin is Supplier! (NEVER Doc: ..., NEVER User Name, NEVER Number)
         finalFrom = 'អ្នកផ្គត់ផ្គង់ (Supplier)';
 
-        // Destination is the warehouse
-        if (sInMeta && sInMeta.warehouse && sInMeta.warehouse !== 'ALL' && sInMeta.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
+        if (rawFrom.startsWith('[') || rawFrom.includes('Doc:') || rawFrom.includes('ឯកសារ')) {
+          finalNotes = rawFrom;
+        }
+
+        if (sInMeta && sInMeta.warehouse) {
           finalTo = sInMeta.warehouse;
-        } else if (oldTo && oldTo !== '-' && oldTo !== 'ALL' && oldTo !== 'គ្រប់ស្ថានីយទាំងអស់' && oldTo !== 'គ្រប់ឃ្លាំង' && !/^\d+$/.test(oldTo)) {
-          finalTo = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(oldTo) : oldTo;
-          if (finalTo === 'ALL' || finalTo === 'គ្រប់ស្ថានីយទាំងអស់' || finalTo === 'គ្រប់ឃ្លាំង') {
-            finalTo = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
-          }
+        } else if (rawTo === '陈龙' || rawTo === 'Admin' || rawTo === 'Staff' || rawTo === '聂稳新') {
+          finalUser = rawTo;
+          finalTo = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+        } else if (!rawTo || rawTo === '-' || rawTo === 'ALL' || rawTo === 'គ្រប់ស្ថានីយទាំងអស់' || rawTo === 'គ្រប់ឃ្លាំង' || /^\d+$/.test(rawTo)) {
+          finalTo = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
         } else {
-          const stMatch = rawNotes.match(/(?:K\d+[^\]\n\r]+)/i);
-          if (stMatch) {
-            finalTo = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(stMatch[0]) : stMatch[0];
-          } else {
-            finalTo = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+          finalTo = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(rawTo) : rawTo;
+        }
+
+        if (!finalUser) {
+          if (sInMeta && (sInMeta.user || sInMeta.receivedBy)) finalUser = sInMeta.user || sInMeta.receivedBy;
+          else {
+            const uM = finalNotes.match(/\[(?:អ្នកទទួល|Receiver):\s*([^\]]+)\]/);
+            finalUser = uM ? uM[1].trim() : '陈龙';
           }
         }
       } else if (txType === 'STOCK_OUT') {
-        // STOCK_OUT: Origin is Warehouse!
         if (sOutMeta && sOutMeta.fromLocation) {
           finalFrom = sOutMeta.fromLocation;
-        } else if (oldFrom && oldFrom !== '-' && !/^\d+$/.test(oldFrom) && !oldFrom.includes('Admin') && !oldFrom.startsWith('Doc:')) {
-          finalFrom = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(oldFrom) : oldFrom;
-        } else {
+        } else if (/^\d+$/.test(rawFrom) && (rawTo.includes('机电') || rawTo.includes('中心库房') || rawTo.includes('ឃ្លាំង'))) {
+          finalFrom = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(rawTo) : rawTo;
+          finalTo = 'អតិថិជន/ដកប្រើប្រាស់';
+        } else if (rawFrom.startsWith('[') || rawFrom.includes('Doc:') || rawFrom.includes('ឯកសារ')) {
+          finalNotes = rawFrom;
           finalFrom = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+          if (rawTo === '陈龙' || rawTo === 'Admin' || rawTo === 'Staff') {
+            finalUser = rawTo;
+            finalTo = 'អតិថិជន/ដកប្រើប្រាស់';
+          }
+        } else if (!rawFrom || rawFrom === '-' || /^\d+$/.test(rawFrom) || rawFrom.includes('Admin') || rawFrom.startsWith('Doc:')) {
+          finalFrom = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+        } else {
+          finalFrom = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(rawFrom) : rawFrom;
         }
 
-        // Destination is Station or Customer
         if (sOutMeta && sOutMeta.toLocation) {
           finalTo = sOutMeta.toLocation;
-        } else if (oldTo && oldTo !== '-' && !/^\d+$/.test(oldTo)) {
-          finalTo = oldTo;
-          if (finalTo === finalFrom || finalTo.includes('中心库房')) {
-            const stM = rawNotes.match(/(?:K\d+\s*ស្ថានីយ[^\],]+)/i);
-            if (stM) finalTo = stM[0].trim();
-            else finalTo = 'អតិថិជន/ដកប្រើប្រាស់';
+        } else if (!finalTo) {
+          if (rawTo && rawTo !== '-' && !/^\d+$/.test(rawTo) && rawTo !== finalFrom) {
+            finalTo = rawTo;
+          } else {
+            finalTo = 'អតិថិជន/ដកប្រើប្រាស់';
           }
-        } else {
-          const stM = rawNotes.match(/(?:K\d+\s*ស្ថានីយ[^\],]+)/i);
-          finalTo = stM ? stM[0].trim() : 'អតិថិជន/ដកប្រើប្រាស់';
         }
-      } else if (txType === 'TRANSFER') {
-        finalFrom = (oldFrom && !/^\d+$/.test(oldFrom)) ? oldFrom : '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
-        finalTo = (oldTo && !/^\d+$/.test(oldTo)) ? oldTo : 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
+
+        if (finalNotes.match(/\d{8}-\d+\]/)) {
+          const docDigits = finalNotes.match(/(\d{8}-\d+)\]/)[1];
+          finalNotes = `[ឯកសារ: DOC-OUT-${docDigits}] ` + finalNotes.replace(/^.*?\d{8}-\d+\]\s*/, '');
+        }
+
+        if (!finalUser) {
+          if (sOutMeta && sOutMeta.user) finalUser = sOutMeta.user;
+          else {
+            const uM = finalNotes.match(/\[(?:អ្នកបើកចេញ|Issuer|អ្នកប្រើ):\s*([^\]]+)\]/);
+            finalUser = uM ? uM[1].trim() : 'Staff';
+          }
+        }
       } else {
-        finalFrom = 'ស្តុកជាក់ស្តែង (Audit)';
-        finalTo = (oldTo && !/^\d+$/.test(oldTo)) ? oldTo : '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+        finalFrom = rawFrom || '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+        finalTo = rawTo || '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+        if (!finalUser) finalUser = 'Staff';
       }
 
-      // Preserve Reason_Notes with metadata tags
-      let formattedNotes = rawNotes;
-      if (docNo && !formattedNotes.includes('[ឯកសារ:')) {
-        formattedNotes = `[ឯកសារ: ${docNo}] ` + formattedNotes;
+      // Guarantee clean notes
+      if (docNo && !finalNotes.includes('[ឯកសារ:')) {
+        finalNotes = `[ឯកសារ: ${docNo}] ` + finalNotes;
       }
-      formattedNotes = formattedNotes.trim() || '-';
-
-      // User
-      let userStr = String(row[idxUser] || '').trim();
-      if (!userStr || userStr === '-') {
-        if (sOutMeta && sOutMeta.user) userStr = sOutMeta.user;
-        else if (sInMeta && sInMeta.receivedBy) userStr = sInMeta.receivedBy;
-        else userStr = '陈龙';
-      }
-
-      // Timestamp
-      let tsVal = row[idxTs] || row[idxDate] || new Date();
-      let tsFormatted = '';
-      if (tsVal instanceof Date) {
-        try { tsFormatted = Utilities.formatDate(tsVal, 'GMT+7', 'yyyy-MM-dd HH:mm:ss'); } catch(e) {}
-      } else if (tsVal) {
-        const tsStr = String(tsVal).trim();
-        if (tsStr.length >= 10) {
-          try {
-            const pd = new Date(tsStr);
-            if (!isNaN(pd.getTime())) tsFormatted = Utilities.formatDate(pd, 'GMT+7', 'yyyy-MM-dd HH:mm:ss');
-            else tsFormatted = dateStr + ' ' + (tsStr.includes(':') ? tsStr.slice(11) : '00:00:00');
-          } catch(e) { tsFormatted = dateStr + ' 00:00:00'; }
-        }
-      }
-      if (!tsFormatted) tsFormatted = dateStr + ' 00:00:00';
+      finalNotes = finalNotes.trim() || '-';
 
       cleanRows.push([
         txId,
@@ -10525,109 +10672,10 @@ function standardizeAndFormatTransactionsSheet(optSs) {
         unit,
         finalFrom,
         finalTo,
-        formattedNotes,
-        userStr,
-        tsFormatted
+        finalNotes,
+        finalUser || 'Staff',
+        finalTs
       ]);
-    }
-  }
-
-  // Fallback to complete accurate historical transaction records if sheet was cleared
-  if (cleanRows.length === 0) {
-    const defaultStandardTxRows = [
-      [
-        'TX-20260928-1178', '2026-09-28', 'STOCK_IN', 'SKU-4984', '圆珠笔',
-        34, 'ដើម', 'អ្នកផ្គត់ផ្គង់ (Supplier)', '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
-        '[ឯកសារ: DOC-IN-20260928-1178] 陈龙', '陈龙', '2026-09-28 20:39:00'
-      ],
-      [
-        'TX-20260929-6058', '2026-09-29', 'STOCK_IN', 'SKU-4984', '圆珠笔',
-        61, 'ដើម', 'អ្នកផ្គត់ផ្គង់ (Supplier)', '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
-        '[ឯកសារ: DOC-IN-20260929-6058] 陈龙', '陈龙', '2026-09-29 06:40:00'
-      ],
-      [
-        'TX-20260929-4949', '2026-09-29', 'STOCK_IN', 'SKU-2089', 'កន្សែងផ្ដិតមាត់-抽纸',
-        5, 'ដុំ', 'អ្នកផ្គត់ផ្គង់ (Supplier)', '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)',
-        '[ឯកសារ: DOC-IN-20260929-4949] 陈龙', '陈龙', '2026-09-29 09:58:20'
-      ],
-      [
-        'TX-20260930-1203', '2026-09-30', 'STOCK_IN', 'SKU-9816', 'i-母卡',
-        4, 'សន្លឹក', 'អ្នកផ្គត់ផ្គង់ (Supplier)', 'K182 ស្ថានីយ (ព្រះសីហនុ) 08',
-        '[ឯកសារ: DOC-IN-20260930-1203] 陈龙', '陈龙', '2026-09-30 19:52:00'
-      ],
-      [
-        'TX-20261007-2298', '2026-10-07', 'STOCK_IN', 'SKU-3037', 'ស្រោមដៃ-手套',
-        42, 'គូ', 'អ្នកផ្គត់ផ្គង់ (Supplier)', 'K76 ស្ថានីយ (ព្រែកជ្រៃយើង) 04',
-        '[ឯកសារ: DOC-IN-20261007-2298] 陈龙', '陈龙', '2026-10-07 21:26:00'
-      ],
-      [
-        'TX-20261009-0001', '2026-10-09', 'STOCK_OUT', 'SKU-4984', '圆珠笔',
-        1, 'ដើម', '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)', 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
-        '[ឯកសារ: OUT-20261009-0001] 陈龙', '陈龙', '2026-10-09 19:04:00'
-      ],
-      [
-        'TX-20261009-0002', '2026-10-09', 'STOCK_OUT', 'SKU-4984', '圆珠笔',
-        1, 'ដើម', '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)', 'អតិថិជន/ដកប្រើប្រាស់',
-        '[ឯកសារ: OUT-20261009-0002] ហុង គឹមលី', 'ហុង គឹមលី', '2026-10-09 19:25:00'
-      ],
-      [
-        'TX-20261009-0003', '2026-10-09', 'STOCK_OUT', 'SKU-2021', 'ម៉ាស៊ីនគិតលេខ-计算器',
-        2, 'គ្រឿង', '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)', 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
-        '[ឯកសារ: OUT-20261009-0003] 陈龙', '陈龙', '2026-10-09 20:19:00'
-      ],
-      [
-        'TX-20261009-0004', '2026-10-09', 'STOCK_IN', 'SKU-2021', 'ម៉ាស៊ីនគិតលេខ-计算器',
-        1, 'គ្រឿង', 'អ្នកផ្គត់ផ្គង់ (Supplier)', '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
-        '[ឯកសារ: IN-20261009-0001] ហុង គឹមលី', 'ហុង គឹមលី', '2026-10-09 20:25:00'
-      ],
-      [
-        'TX-20261010-8879', '2026-10-10', 'STOCK_IN', 'SKU-2021', 'ម៉ាស៊ីនគិតលេខ-计算器',
-        50, 'គ្រឿង', 'អ្នកផ្គត់ផ្គង់ (Supplier)', '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
-        '[ឯកសារ: IN-20261010-8879] 陈龙', '陈龙', '2026-10-10 08:04:00'
-      ],
-      [
-        'TX-20261010-2889', '2026-10-10', 'STOCK_IN', 'SKU-2021', 'ម៉ាស៊ីនគិតលេខ-计算器',
-        2, 'គ្រឿង', 'អ្នកផ្គត់ផ្គង់ (Supplier)', '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
-        '[ឯកសារ: IN-20261010-2889] 陈龙', '陈龙', '2026-10-10 08:05:00'
-      ],
-      [
-        'TX-20261010-5966', '2026-10-10', 'STOCK_IN', 'SKU-9859', 'ក្រដាស - A4纸',
-        20, 'ដុំ', 'អ្នកផ្គត់ផ្គង់ (Supplier)', '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
-        '[ឯកសារ: IN-20261010-5966] និង កាត់ស្តុក', '陈龙', '2026-10-10 09:16:00'
-      ],
-      [
-        'TX-20261010-7150', '2026-10-10', 'STOCK_IN', 'SKU-2021', 'ម៉ាស៊ីនគិតលេខ-计算器',
-        2, 'គ្រឿង', 'អ្នកផ្គត់ផ្គង់ (Supplier)', '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
-        '[ឯកសារ: IN-20261010-7150] 陈龙', '陈龙', '2026-10-10 12:52:00'
-      ],
-      [
-        'TX-20261010-1328', '2026-10-10', 'STOCK_IN', 'SKU-2089', 'កន្សែងផ្ដិតមាត់-抽纸',
-        14, 'ដុំ', 'អ្នកផ្គត់ផ្គង់ (Supplier)', '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
-        '[ឯកសារ: IN-20261010-1328] 陈龙', '陈龙', '2026-10-10 13:06:00'
-      ],
-      [
-        'TX-20261010-9367', '2026-10-10', 'STOCK_IN', 'SKU-2089', 'កន្សែងផ្ដិតមាត់-抽纸',
-        1, 'ដុំ', 'អ្នកផ្គត់ផ្គង់ (Supplier)', '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
-        '[ឯកសារ: IN-20261010-9367] 陈龙', '陈龙', '2026-10-10 13:06:00'
-      ],
-      [
-        'TX-20261010-4912', '2026-10-10', 'STOCK_IN', 'SKU-2089', 'កន្សែងផ្ដិតមាត់-抽纸',
-        7, 'ដុំ', 'អ្នកផ្គត់ផ្គង់ (Supplier)', '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
-        '[ឯកសារ: IN-20261010-4912] 陈龙', '陈龙', '2026-10-10 13:06:00'
-      ],
-      [
-        'TX-20261010-9684', '2026-10-10', 'STOCK_IN', 'SKU-9816', 'i-母卡',
-        1, 'សន្លឹក', 'អ្នកផ្គត់ផ្គង់ (Supplier)', '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
-        '[ឯកសារ: IN-20261010-9684] 陈龙', '陈龙', '2026-10-10 14:07:00'
-      ],
-      [
-        'TX-20261010-2382', '2026-10-10', 'STOCK_IN', 'SKU-9859', 'ក្រដាស - A4纸',
-        1, 'ដុំ', 'អ្នកផ្គត់ផ្គង់ (Supplier)', '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
-        '[ឯកសារ: IN-20261010-2382] 陈龙', '陈龙', '2026-10-10 18:11:05'
-      ]
-    ];
-    for (let i = 0; i < defaultStandardTxRows.length; i++) {
-      cleanRows.push(defaultStandardTxRows[i]);
     }
   }
 
@@ -10703,17 +10751,16 @@ function standardizeAndFormatTransactionsSheet(optSs) {
     200, // 5: ItemName
     80,  // 6: Quantity
     70,  // 7: Unit
-    200, // 8: FromLocation (ប្រភព)
-    200, // 9: ToLocation (គោលដៅ)
-    260, // 10: Reason_Notes
-    100, // 11: User
+    220, // 8: FromLocation (ប្រភព)
+    220, // 9: ToLocation (គោលដៅ)
+    280, // 10: Reason_Notes
+    120, // 11: User
     160  // 12: Timestamp
   ];
   for (let c = 0; c < colWidths.length; c++) {
     txSheet.setColumnWidth(c + 1, colWidths[c]);
   }
 
-  // Delete all extra columns beyond column 12 (removes old UnitPrice & TotalAmount columns completely)
   try {
     if (txSheet.getMaxColumns() > numCols) {
       txSheet.deleteColumns(numCols + 1, txSheet.getMaxColumns() - numCols);
@@ -10727,7 +10774,7 @@ function standardizeAndFormatTransactionsSheet(optSs) {
 
   return {
     success: true,
-    message: `Transactions sheet standardized to 12 columns! UnitPrice and TotalAmount removed. FromLocation and ToLocation healed for ${cleanRows.length} rows.`
+    message: `Transactions sheet standardized to 12 columns! FromLocation, ToLocation, Reason_Notes, User, and Timestamp healed for ${cleanRows.length} rows.`
   };
 }
 
