@@ -7071,10 +7071,10 @@
           sellingPrice: 1.50,
           minStock: 5,
           minStockPercent: 10,
-          currentStock: 0,
-          location: 'K76 ស្ថានីយ (ត្រែងត្រយឹង) 04',
+          currentStock: 69,
+          location: '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
           notes: 'ស្រោមដៃការពារ',
-          createdBy: 'Admin',
+          createdBy: '陈龙',
           createdAt: '2026-09-22',
           imageUrl: 'https://lh3.googleusercontent.com/d/1Yo9HGMr3NkbOIieI8ccxhgaaPNNksPs9',
           status: 'Active'
@@ -8035,8 +8035,28 @@ function saveLocalUsersToStorage() {
         }
       } catch (e) {}
       if (Array.isArray(LOCAL_DB.transactions)) txs = txs.concat(LOCAL_DB.transactions);
-      if (Array.isArray(AppState.stockInHistory)) txs = txs.concat(AppState.stockInHistory);
-      if (Array.isArray(AppState.stockOutHistory)) txs = txs.concat(AppState.stockOutHistory);
+      if (Array.isArray(AppState.stockInHistory) && AppState.stockInHistory.length > 0) {
+        txs = txs.concat(AppState.stockInHistory);
+      } else {
+        try {
+          const s1 = localStorage.getItem('inventory_stock_in_history_db');
+          if (s1) {
+            const p1 = JSON.parse(s1);
+            if (Array.isArray(p1)) txs = txs.concat(p1);
+          }
+        } catch (e) {}
+      }
+      if (Array.isArray(AppState.stockOutHistory) && AppState.stockOutHistory.length > 0) {
+        txs = txs.concat(AppState.stockOutHistory);
+      } else {
+        try {
+          const s2 = localStorage.getItem('inventory_stock_out_history_db');
+          if (s2) {
+            const p2 = JSON.parse(s2);
+            if (Array.isArray(p2)) txs = txs.concat(p2);
+          }
+        } catch (e) {}
+      }
       if (!txs.length) return;
 
       const seenDocNos = new Set();
@@ -16187,19 +16207,29 @@ function saveLocalUsersToStorage() {
       const catalogStock = Math.max(0, Number(item.currentStock || 0));
 
       let allTxList = [];
-      if (Array.isArray(AppState.stockInHistory) && AppState.stockInHistory.length > 0) allTxList = allTxList.concat(AppState.stockInHistory);
-      if (Array.isArray(AppState.stockOutHistory) && AppState.stockOutHistory.length > 0) allTxList = allTxList.concat(AppState.stockOutHistory);
-      if (Array.isArray(AppState.transactions) && AppState.transactions.length > 0) allTxList = allTxList.concat(AppState.transactions);
-      if (Array.isArray(LOCAL_DB.transactions) && LOCAL_DB.transactions.length > 0) allTxList = allTxList.concat(LOCAL_DB.transactions);
-      if (allTxList.length === 0) {
+      if (Array.isArray(AppState.stockInHistory) && AppState.stockInHistory.length > 0) {
+        allTxList = allTxList.concat(AppState.stockInHistory);
+      } else {
         try {
           const s1 = localStorage.getItem('inventory_stock_in_history_db');
           if (s1) { const p1 = JSON.parse(s1); if (Array.isArray(p1)) allTxList = allTxList.concat(p1); }
         } catch(e) {}
+      }
+      if (Array.isArray(AppState.stockOutHistory) && AppState.stockOutHistory.length > 0) {
+        allTxList = allTxList.concat(AppState.stockOutHistory);
+      } else {
         try {
           const s2 = localStorage.getItem('inventory_stock_out_history_db');
           if (s2) { const p2 = JSON.parse(s2); if (Array.isArray(p2)) allTxList = allTxList.concat(p2); }
         } catch(e) {}
+      }
+      if (Array.isArray(AppState.transactions) && AppState.transactions.length > 0) {
+        allTxList = allTxList.concat(AppState.transactions);
+      }
+      if (Array.isArray(LOCAL_DB.transactions) && LOCAL_DB.transactions.length > 0) {
+        allTxList = allTxList.concat(LOCAL_DB.transactions);
+      }
+      if ((!AppState.transactions || AppState.transactions.length === 0) && (!LOCAL_DB.transactions || LOCAL_DB.transactions.length === 0)) {
         try {
           const s3 = localStorage.getItem('inventory_transactions_db');
           if (s3) { const p3 = JSON.parse(s3); if (Array.isArray(p3)) allTxList = allTxList.concat(p3); }
@@ -16233,7 +16263,10 @@ function saveLocalUsersToStorage() {
         let rawWh = isStockIn ? (t.toLocation || t.location || t.warehouse || '') : (t.fromLocation || t.location || t.warehouse || '');
         let cleanWh = rawWh ? (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(rawWh) : rawWh) : '';
 
-        if (!cleanWh) {
+        // For Stock In, any missing, ALL, or general warehouse belongs to Central Warehouse (HQ)
+        if (isStockIn && (!cleanWh || cleanWh === 'ALL' || cleanWh === 'គ្រប់ស្ថានីយទាំងអស់' || cleanWh === 'គ្រប់ឃ្លាំង')) {
+          cleanWh = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+        } else if (!cleanWh) {
           cleanWh = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
         }
         
@@ -16296,7 +16329,7 @@ function saveLocalUsersToStorage() {
           const shortWh = (typeof getStationShortCode === 'function') ? getStationShortCode(whKey) : (whKey.split(' ')[0] || whKey);
           breakdowns.push({ warehouse: whKey, shortWh, total: netQ });
 
-          const isCentralOrMe = whKey.includes('中心库房') || whKey.includes('机电');
+          const isCentralOrMe = whKey.includes('中心库房') || whKey.includes('机电') || whKey === 'ALL' || whKey === 'គ្រប់ស្ថានីយទាំងអស់' || whKey === 'គ្រប់ឃ្លាំង';
           if (isCentralOrMe) {
             centralTxNet += netQ;
           } else {
@@ -16326,10 +16359,10 @@ function saveLocalUsersToStorage() {
             if (!zWh && Array.isArray(item.warehouses) && item.warehouses.length > 0) {
               zWh = toCanonicalWarehouseName(item.warehouses[0]);
             }
-            if (!zWh) {
+            if (!zWh || zWh === 'ALL' || zWh === 'គ្រប់ស្ថានីយទាំងអស់' || zWh === 'គ្រប់ឃ្លាំង') {
               zWh = defaultCentralWh;
             }
-            if (zWh && zWh !== 'ALL') {
+            if (zWh) {
               zoneWhMap[zWh] = (zoneWhMap[zWh] || 0) + zQty;
             }
           }
@@ -16378,7 +16411,7 @@ function saveLocalUsersToStorage() {
         hasStationTx = true;
       } else if (typeof isAdminComboWarehouse === 'function' && isAdminComboWarehouse(targetWh)) {
         // Combo: 中心库房 & 机电
-        const centralBks = breakdowns.filter(b => b.warehouse.includes('中心库房') || b.warehouse.includes('机电'));
+        const centralBks = breakdowns.filter(b => b.warehouse.includes('中心库房') || b.warehouse.includes('机电') || b.warehouse === 'ALL' || b.warehouse === 'គ្រប់ស្ថានីយទាំងអស់' || b.warehouse === 'គ្រប់ឃ្លាំង');
         if (centralBks.length > 0) {
           effectiveTotal = centralBks.reduce((sum, b) => sum + b.total, 0);
           hasStationTx = true;
@@ -16495,27 +16528,35 @@ function saveLocalUsersToStorage() {
 
           if (isCombo) {
             // Combo: 中心库房 & 机电 (Admin / SuperAdmin default)
-            const hasCentralBreakdown = (st.breakdowns || []).some(b => (b.warehouse.includes('中心库房') || b.warehouse.includes('机电')) && b.total > 0);
+            const hasCentralBreakdown = (st.breakdowns || []).some(b => (b.warehouse.includes('中心库房') || b.warehouse.includes('机电') || b.warehouse === 'ALL' || b.warehouse.includes('គ្រប់')) && b.total > 0);
             const itemLoc = item.toLocation || item.location || item.warehouse || '';
-            const isAssigned = itemLoc && !itemLoc.includes('គ្រប់') && (itemLoc.includes('中心库房') || itemLoc.includes('机电'));
-            const isWhBreakdown = Array.isArray(item.warehouses) && item.warehouses.some(w => w.includes('中心库房') || w.includes('机电'));
+            const isAssigned = itemLoc && (itemLoc.includes('中心库房') || itemLoc.includes('机电') || itemLoc.includes('គ្រប់') || itemLoc === 'ALL');
+            const isWhBreakdown = Array.isArray(item.warehouses) && item.warehouses.some(w => w.includes('中心库房') || w.includes('机电') || w.includes('គ្រប់') || w === 'ALL');
+            const hasCentralZones = Array.isArray(item.zoneBreakdown) && item.zoneBreakdown.some(z => {
+              const zw = z.warehouse || '';
+              return !zw || zw.includes('中心库房') || zw.includes('机电') || zw.includes('គ្រប់') || zw === 'ALL';
+            });
 
-            const belongsToCombo = st.total > 0 || st.hasExactStationTx || hasCentralBreakdown || isAssigned || isWhBreakdown;
+            // For privileged admins (Admin & SuperAdmin), if actively searching by SKU or name, never hide matching inventory items
+            const isSearching = !!search && isPrivilegedAdmin;
+
+            const belongsToCombo = st.total > 0 || st.hasExactStationTx || hasCentralBreakdown || isAssigned || isWhBreakdown || hasCentralZones || isSearching;
             if (!belongsToCombo) return false;
           } else {
             // Specific toll station or individual warehouse
             const isCentralWh = activeWhFilter.includes('中心库房');
             const isMeWh = activeWhFilter.includes('机电');
             const isItemMe = (item.category && (item.category.includes('机电') || item.category.includes('អគ្គិសនី'))) || (item.name && item.name.includes('机电'));
+            const isSearching = !!search && isPrivilegedAdmin;
 
             if (isCentralWh) {
-              if (isItemMe && !st.hasExactStationTx) return false;
+              if (!isSearching && isItemMe && !st.hasExactStationTx) return false;
               const hasCentralBreakdown = (st.breakdowns || []).some(b => (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(b.warehouse, activeWhFilter) : isSameWarehouse(b.warehouse, activeWhFilter)) && b.total > 0);
-              if (st.total <= 0 && !hasCentralBreakdown && !st.hasExactStationTx) return false;
+              if (!isSearching && st.total <= 0 && !hasCentralBreakdown && !st.hasExactStationTx) return false;
             } else if (isMeWh) {
-              if (!isItemMe && !st.hasExactStationTx) return false;
+              if (!isSearching && !isItemMe && !st.hasExactStationTx) return false;
               const hasMeBreakdown = (st.breakdowns || []).some(b => (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(b.warehouse, activeWhFilter) : isSameWarehouse(b.warehouse, activeWhFilter)) && b.total > 0);
-              if (st.total <= 0 && !hasMeBreakdown && !st.hasExactStationTx) return false;
+              if (!isSearching && st.total <= 0 && !hasMeBreakdown && !st.hasExactStationTx) return false;
             } else {
               // Toll station: ត្រូវតែជាទំនិញដែលបានចូលស្តុករបស់ស្ថានីយនេះផ្ទាល់ (មានស្តុក > 0, ធ្លាប់ចូលស្តុក ឬមានប្រតិបត្តិការនៅស្ថានីយនេះ)
               const hasStationBreakdown = (st.breakdowns || []).some(b => (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(b.warehouse, activeWhFilter) : isSameWarehouse(b.warehouse, activeWhFilter)) && b.total > 0);
@@ -23094,6 +23135,7 @@ function saveLocalUsersToStorage() {
             localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(cleanTxs));
           } catch(e) {}
           filterStockInHistoryTable();
+          if (typeof renderItemsTable === 'function') renderItemsTable();
           return;
         } else if (AppState.stockInHistory && AppState.stockInHistory.length > 0) {
           filterStockInHistoryTable();
@@ -23744,6 +23786,7 @@ function saveLocalUsersToStorage() {
           } catch(e) {}
           if (typeof syncDispatchesWithOperations === 'function') syncDispatchesWithOperations();
           filterStockOutHistoryTable();
+          if (typeof renderItemsTable === 'function') renderItemsTable();
           return;
         } else if (AppState.stockOutHistory && AppState.stockOutHistory.length > 0) {
           filterStockOutHistoryTable();

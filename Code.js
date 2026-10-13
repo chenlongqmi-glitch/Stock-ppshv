@@ -4892,12 +4892,16 @@ function getItemsList(userOrPayload, warehouseFilter, optSs) {
         if (!itemZoneMap[skuKey]) itemZoneMap[skuKey] = { zones: {}, zoneWarehouses: {}, warehouses: [], totalIn: 0, totalOut: 0 };
         itemZoneMap[skuKey].totalIn += rQty;
         itemZoneMap[skuKey].zones[rZone] = (itemZoneMap[skuKey].zones[rZone] || 0) + rQty;
+        let canonicalWh = '';
         if (rWh) {
-          const canonicalWh = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(rWh) : ((typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(rWh) : rWh);
-          itemZoneMap[skuKey].zoneWarehouses[rZone] = canonicalWh;
-          if (!itemZoneMap[skuKey].warehouses.includes(canonicalWh)) {
-            itemZoneMap[skuKey].warehouses.push(canonicalWh);
-          }
+          canonicalWh = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(rWh) : ((typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(rWh) : rWh);
+        }
+        if (!canonicalWh || canonicalWh === 'ALL' || canonicalWh === 'គ្រប់ស្ថានីយទាំងអស់' || canonicalWh === 'គ្រប់ឃ្លាំង') {
+          canonicalWh = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+        }
+        itemZoneMap[skuKey].zoneWarehouses[rZone] = canonicalWh;
+        if (!itemZoneMap[skuKey].warehouses.includes(canonicalWh)) {
+          itemZoneMap[skuKey].warehouses.push(canonicalWh);
         }
       }
     }
@@ -7298,7 +7302,12 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
     const notesIdx = findIdx(['notes', 'note', 'សម្គាល់'], 14);
 
     let targetWarehouse = null;
-    if (user && user.role !== 'Admin' && user.role !== 'SuperAdmin' && user.warehouse && user.warehouse !== 'ALL' && user.warehouse !== 'គ្រប់ឃ្លាំង' && user.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
+    const uRole = String(user && user.role || '').toLowerCase();
+    const uName = String(user && user.username || '').toLowerCase();
+    const uEmail = String(user && user.email || '').toLowerCase();
+    const isSA = uRole === 'superadmin' || uName === 'superadmin' || (user && user.isSuperAdmin === true);
+    const isAdm = isSA || uRole.includes('admin') || uName === 'admin' || uName === 'singvan327@gmail.com' || uEmail === 'singvan327@gmail.com';
+    if (!isAdm && user && user.warehouse && user.warehouse !== 'ALL' && user.warehouse !== 'គ្រប់ឃ្លាំង' && user.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
       targetWarehouse = user.warehouse;
     } else if (filters && filters.warehouse && filters.warehouse !== 'ALL' && filters.warehouse !== 'គ្រប់ឃ្លាំង' && filters.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
       targetWarehouse = filters.warehouse;
@@ -7444,7 +7453,12 @@ function getStockOutTransactionsFromSheet(ss, filters, user) {
     const reasonIdx = findIdx(['reason', 'មូលហេតុ'], -1);
 
     let targetWarehouse = null;
-    if (user && user.role !== 'Admin' && user.role !== 'SuperAdmin' && user.warehouse && user.warehouse !== 'ALL' && user.warehouse !== 'គ្រប់ឃ្លាំង' && user.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
+    const uRoleOut = String(user && user.role || '').toLowerCase();
+    const uNameOut = String(user && user.username || '').toLowerCase();
+    const uEmailOut = String(user && user.email || '').toLowerCase();
+    const isSAOut = uRoleOut === 'superadmin' || uNameOut === 'superadmin' || (user && user.isSuperAdmin === true);
+    const isAdmOut = isSAOut || uRoleOut.includes('admin') || uNameOut === 'admin' || uNameOut === 'singvan327@gmail.com' || uEmailOut === 'singvan327@gmail.com';
+    if (!isAdmOut && user && user.warehouse && user.warehouse !== 'ALL' && user.warehouse !== 'គ្រប់ឃ្លាំង' && user.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
       targetWarehouse = user.warehouse;
     } else if (filters && filters.warehouse && filters.warehouse !== 'ALL' && filters.warehouse !== 'គ្រប់ឃ្លាំង' && filters.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
       targetWarehouse = filters.warehouse;
