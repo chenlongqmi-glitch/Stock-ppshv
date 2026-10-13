@@ -7061,17 +7061,17 @@
           name: 'ស្រោមដៃ-手套',
           size: 'M',
           color: 'ស',
-          category: 'សម្ភារៈប្រើប្រាស់ទូទៅ-常用物资',
+          category: 'គ្រឿងបរិក្ខារអេឡិចត្រូនិច និងអគ្គិសនី-机电设备',
           unit: 'គូ',
           packUnit: 'ប្រអប់',
           packQty: 6,
-          zone: 'A02',
-          zoneNumber: 'A02',
+          zone: '-',
+          zoneNumber: '-',
           costPrice: 1.00,
           sellingPrice: 1.50,
-          minStock: 5,
+          minStock: 2,
           minStockPercent: 10,
-          currentStock: 69,
+          currentStock: 0,
           location: '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
           notes: 'ស្រោមដៃការពារ',
           createdBy: '陈龙',
@@ -8014,6 +8014,16 @@ function saveLocalUsersToStorage() {
             if ((k === 'SKU-3037' || String(item.name || '').includes('ស្រោមដៃ')) && (!img || !img.startsWith('http'))) {
               img = 'https://lh3.googleusercontent.com/d/1Yo9HGMr3NkbOIieI8ccxhgaaPNNksPs9';
             }
+            if (k === 'SKU-3037' || String(item.name || '').includes('ស្រោមដៃ')) {
+              if (Number(item.currentStock) === 69) {
+                item.currentStock = 0;
+                item.packStock = 0;
+                item.zone = '-';
+                item.minStock = 2;
+                item.category = 'គ្រឿងបរិក្ខារអេឡិចត្រូនិច និងអគ្គិសនី-机电设备';
+                if (Array.isArray(item.zoneBreakdown)) item.zoneBreakdown = [];
+              }
+            }
             let clr = String(item.color || '').trim();
             if (clr.startsWith('http') || clr.includes('GMT') || clr === 'សាកល្បង' || clr === 'ចំណាំសិន') clr = '-';
 
@@ -8032,6 +8042,20 @@ function saveLocalUsersToStorage() {
           }
         });
         cleanedItems = Array.from(uniqueItemsMap.values());
+
+        // Purge legacy mock stock-in records from localStorage if present
+        try {
+          const sIn = localStorage.getItem('inventory_stock_in_history_db');
+          if (sIn) {
+            const arr = JSON.parse(sIn);
+            if (Array.isArray(arr)) {
+              const cleaned = arr.filter(t => !['DOC-IN-20261007-2298', 'DOC-IN-20261007-3624', 'DOC-IN-20261008-1222'].includes(t.docNo));
+              if (cleaned.length !== arr.length) {
+                localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(cleaned));
+              }
+            }
+          }
+        } catch(e) {}
 
         LOCAL_DB.items = cleanedItems;
         saveLocalItemsToStorage();
@@ -8089,7 +8113,13 @@ function saveLocalUsersToStorage() {
 
         const docNo = String(t.docNo || '').trim();
         const txId = String(t.txId || t.id || '').trim();
-        if (docNo === 'DOC-IN-20260929-5181') return;
+        const isLegacyMockDoc = (
+          docNo === 'DOC-IN-20260929-5181' ||
+          docNo === 'DOC-IN-20261007-2298' ||
+          docNo === 'DOC-IN-20261007-3624' ||
+          docNo === 'DOC-IN-20261008-1222'
+        );
+        if (isLegacyMockDoc) return;
         const isRealDoc = docNo && docNo !== '-' && docNo !== 'undefined';
         const isRealTx = txId && txId !== '-' && txId !== 'undefined';
         
@@ -16269,6 +16299,13 @@ function saveLocalUsersToStorage() {
 
         const docNo = String(t.docNo || '').trim();
         const txId = String(t.txId || t.id || '').trim();
+        const isLegacyMockDoc = (
+          docNo === 'DOC-IN-20260929-5181' ||
+          docNo === 'DOC-IN-20261007-2298' ||
+          docNo === 'DOC-IN-20261007-3624' ||
+          docNo === 'DOC-IN-20261008-1222'
+        );
+        if (isLegacyMockDoc) return;
         const isRealDoc = docNo && docNo !== '-' && docNo !== 'undefined';
         const isRealTx = txId && txId !== '-' && txId !== 'undefined';
 
@@ -16409,7 +16446,9 @@ function saveLocalUsersToStorage() {
         }
       } else if (breakdowns.length === 0) {
         // Pure catalog product with no dispatch transactions: 100% of stock is at central warehouse
-        breakdowns.push({ warehouse: defaultCentralWh, shortWh: defaultCentralShort, total: Math.max(0, catalogStock) });
+        if (catalogStock > 0) {
+          breakdowns.push({ warehouse: defaultCentralWh, shortWh: defaultCentralShort, total: catalogStock });
+        }
       }
 
       breakdowns.sort((a, b) => b.total - a.total);
@@ -16597,9 +16636,15 @@ function saveLocalUsersToStorage() {
             item.notes || '',
             item.createdBy || ''
           ].join(' ').toLowerCase();
+          const itemTextNoDash = itemText.replace(/[-\s_]/g, '');
 
           const tokens = search.split(/\s+/).filter(Boolean);
-          const match = tokens.every(tok => itemText.includes(tok));
+          const match = tokens.every(tok => {
+            if (itemText.includes(tok)) return true;
+            const tokNoDash = tok.replace(/[-\s_]/g, '');
+            if (tokNoDash && itemTextNoDash.includes(tokNoDash)) return true;
+            return false;
+          });
           if (!match) return false;
         }
 
@@ -16913,7 +16958,7 @@ function saveLocalUsersToStorage() {
                 }
               } else {
                 // ករណី "គ្រប់ស្ថានីយទាំងអស់ (ALL)": បង្ហាញគ្រប់ស្ថានីយទាំងអស់
-                const bksToDisplay = stStock.breakdowns || [];
+                const bksToDisplay = (stStock.breakdowns || []).filter(sb => Number(sb.total || 0) > 0);
                 if (bksToDisplay.length > 0) {
                   return `
                     <div class="flex flex-col items-center gap-1 w-full max-w-[125px] mx-auto">
@@ -23201,11 +23246,14 @@ function saveLocalUsersToStorage() {
         renderStockInHistoryTable(baseList, true);
         return;
       }
+      const qClean = q.replace(/[-\s_]/g, '');
       const filtered = baseList.filter(t => {
+        const skuClean = String(t.sku || t.code || t.itemCode || '').toLowerCase().replace(/[-\s_]/g, '');
         return (t.docNo || t.txId || '').toLowerCase().includes(q) ||
                (t.itemName || '').toLowerCase().includes(q) ||
                (t.sku || '').toLowerCase().includes(q) ||
                (t.code || t.itemCode || '').toLowerCase().includes(q) ||
+               (qClean && skuClean.includes(qClean)) ||
                (t.zone || '').toLowerCase().includes(q) ||
                (t.toLocation || t.location || '').toLowerCase().includes(q) ||
                (t.receivedBy || t.user || '').toLowerCase().includes(q) ||
@@ -23858,10 +23906,13 @@ function saveLocalUsersToStorage() {
         renderStockOutHistoryTable(baseList, true);
         return;
       }
+      const qClean = q.replace(/[-\s_]/g, '');
       const filtered = baseList.filter(t => {
+        const skuClean = String(t.sku || t.code || t.itemCode || '').toLowerCase().replace(/[-\s_]/g, '');
         return (t.docNo || t.txId || '').toLowerCase().includes(q) ||
                (t.itemName || '').toLowerCase().includes(q) ||
                (t.sku || '').toLowerCase().includes(q) ||
+               (qClean && skuClean.includes(qClean)) ||
                (t.toLocation || t.location || t.fromLocation || '').toLowerCase().includes(q) ||
                (t.user || t.receivedBy || '').toLowerCase().includes(q) ||
                (t.reason || '').toLowerCase().includes(q) ||
