@@ -2902,8 +2902,8 @@
                     </label>
                     <select id="stockInLocation" required
                       class="w-full h-11 px-3 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition shadow-2xs">
-                      <option value="中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)" selected>中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)</option>
-                      <option value="机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)">机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
+                      <option value="中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)" selected>📍 中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)</option>
+                      <option value="机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)">📍 机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
                     </select>
                   </div>
 
@@ -19452,7 +19452,7 @@ function saveLocalUsersToStorage() {
       const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(u) : false;
 
       if (isPrivileged) {
-        // សម្រាប់ account super admin និង admin អាចជ្រើសរើសបានតែ (中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)) និង (机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន))
+        // សម្រាប់ account super admin និង admin មិនត្រូវបង្ហាញ default ទេ ទុកឱ្យជ្រើសរើស (placeholder: -- ជ្រើសរើសទីតាំងឃ្លាំង --)
         locEl.disabled = false;
         locEl.classList.remove('pointer-events-none', 'bg-slate-100', 'cursor-not-allowed');
         const allowed = [
@@ -19460,13 +19460,15 @@ function saveLocalUsersToStorage() {
           '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)'
         ];
         const curVal = locEl.value ? (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(locEl.value) : locEl.value) : '';
-        locEl.innerHTML = allowed.map(w => `<option value="${escapeHtml(w)}">📍 ${escapeHtml(w)}</option>`).join('');
+        
+        let optionsHtml = `<option value="" disabled ${!curVal || !allowed.includes(curVal) ? 'selected' : ''}>-- ជ្រើសរើសទីតាំងឃ្លាំង --</option>`;
+        optionsHtml += allowed.map(w => `<option value="${escapeHtml(w)}" ${curVal === w ? 'selected' : ''}>📍 ${escapeHtml(w)}</option>`).join('');
+        locEl.innerHTML = optionsHtml;
+
         if (curVal && allowed.includes(curVal)) {
           locEl.value = curVal;
-        } else if (AppState.selectedAdminWarehouseFilter && allowed.includes(AppState.selectedAdminWarehouseFilter)) {
-          locEl.value = AppState.selectedAdminWarehouseFilter;
         } else {
-          locEl.value = allowed[0];
+          locEl.value = '';
         }
         return;
       }
@@ -19893,16 +19895,22 @@ function saveLocalUsersToStorage() {
       const supplier = 'អ្នកផ្គត់ផ្គង់ (Supplier)';
       const rawLoc = document.getElementById('stockInLocation')?.value || '';
       let location = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(rawLoc) : rawLoc);
-      if (!location || location === 'ALL' || location === 'គ្រប់ស្ថានីយទាំងអស់' || location === 'គ្រប់ឃ្លាំង' || /^\d+$/.test(location)) {
-        const uWh = AppState.currentUser?.warehouse ? (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(AppState.currentUser.warehouse) : AppState.currentUser.warehouse) : '';
-        if (uWh && uWh !== 'ALL' && uWh !== 'គ្រប់ស្ថានីយទាំងអស់' && uWh !== 'គ្រប់ឃ្លាំង' && !/^\d+$/.test(uWh)) {
-          location = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(uWh) : uWh;
-        } else {
-          location = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+      const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(AppState.currentUser) : false;
+
+      if (!isPrivileged) {
+        if (!location || location === 'ALL' || location === 'គ្រប់ស្ថានីយទាំងអស់' || location === 'គ្រប់ឃ្លាំង' || /^\d+$/.test(location)) {
+          const uWh = AppState.currentUser?.warehouse ? (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(AppState.currentUser.warehouse) : AppState.currentUser.warehouse) : '';
+          if (uWh && uWh !== 'ALL' && uWh !== 'គ្រប់ស្ថានីយទាំងអស់' && uWh !== 'គ្រប់ឃ្លាំង' && !/^\d+$/.test(uWh)) {
+            location = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(uWh) : uWh;
+          } else {
+            location = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+          }
         }
-      }
-      if (!location || location === 'ALL' || location === 'គ្រប់ស្ថានីយទាំងអស់' || location === 'គ្រប់ឃ្លាំង' || /^\d+$/.test(location)) {
-        location = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+      } else {
+        // សម្រាប់ Super Admin & Admin មិនត្រូវ auto-fill ឡើយ ទុកឱ្យជ្រើសរើសដោយផ្ទាល់
+        if (location === 'ALL' || location === 'គ្រប់ស្ថានីយទាំងអស់' || location === 'គ្រប់ឃ្លាំង' || /^\d+$/.test(location)) {
+          location = '';
+        }
       }
       const receiver = AppState.currentUser?.fullName || AppState.currentUser?.username || document.getElementById('stockInReceiver')?.value.trim() || 'Admin';
       const rawNotes = document.getElementById('stockInNotes')?.value.trim();
@@ -23277,16 +23285,17 @@ function saveLocalUsersToStorage() {
               } else {
                 rawWh = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
               }
-              // Background heal Google Sheets if missing or corrupted
-              if (!origWh || origWh === '-' || /^\d+$/.test(origWh)) {
+              // Background heal Google Sheets if missing or corrupted (numbers like 8, -, ALL, etc.)
+              if (!origWh || origWh === '-' || /^\d+$/.test(origWh) || origWh === 'ALL' || origWh === 'គ្រប់ស្ថានីយទាំងអស់' || origWh === 'គ្រប់ឃ្លាំង') {
                 apiCall('updateStockTransaction', {
                   data: {
                     txId: t.txId,
                     docNo: t.docNo,
                     type: 'STOCK_IN',
                     sku: t.sku,
+                    warehouse: rawWh,
                     location: rawWh,
-                    fromLocation: rawWh,
+                    fromLocation: 'អ្នកផ្គត់ផ្គង់ (Supplier)',
                     toLocation: rawWh
                   }
                 }).catch(() => {});
