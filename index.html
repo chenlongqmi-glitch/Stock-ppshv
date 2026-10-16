@@ -7527,7 +7527,10 @@
 
     function matchesTargetWarehouse(loc, targetWh) {
       if (!targetWh || targetWh === 'ALL' || targetWh === '🏢 គ្រប់ស្ថានីយទាំងអស់' || targetWh === 'គ្រប់ឃ្លាំង') return true;
-      if (!loc) return false;
+      if (!loc || loc === '-' || loc === 'undefined') {
+        if (isAdminComboWarehouse(targetWh) || (typeof targetWh === 'string' && targetWh.includes('中心库房'))) return true;
+        return false;
+      }
       const isGlobalLoc = (loc === 'ALL' || loc === 'គ្រប់ស្ថានីយទាំងអស់' || loc === 'គ្រប់ឃ្លាំង' || loc === '🏢 គ្រប់ស្ថានីយទាំងអស់');
       if (isAdminComboWarehouse(targetWh)) {
         if (isGlobalLoc) return true;
@@ -7787,9 +7790,7 @@ function saveLocalUsersToStorage() {
         allTxs.forEach(t => {
           if (!t || isTransactionDeleted(t)) return;
           const doc = String(t.docNo || t.txId || '').toUpperCase();
-          const notes = String(t.notes || '').toLowerCase();
-          if (doc.includes('TEST') || notes.includes('test') || notes.includes('សាកល្បង')) return;
-          if (doc === 'DOC-IN-20260929-5181') return; // Purge stale ghost test transaction
+          if (doc.startsWith('MOCK-TEST-') || doc.startsWith('TEST-TX-') || doc === 'DOC-IN-20260929-5181') return;
           const key = t.txId || t.docNo;
           if (key && seen.has(key)) return;
           if (key) seen.add(key);
@@ -20084,13 +20085,20 @@ function saveLocalUsersToStorage() {
 
       if (!AppState.stockInHistory) AppState.stockInHistory = [];
       AppState.stockInHistory.unshift(newTx);
+      try {
+        localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(AppState.stockInHistory));
+      } catch(e) {}
 
       if (!LOCAL_DB.transactions) LOCAL_DB.transactions = [];
       LOCAL_DB.transactions.unshift(newTx);
       if (typeof saveLocalTransactionsToStorage === 'function') saveLocalTransactionsToStorage();
 
       // បង្ហាញក្នុងតារាងភ្លាមៗ
-      renderStockInHistoryTable(AppState.stockInHistory);
+      if (typeof filterStockInHistoryTable === 'function') {
+        filterStockInHistoryTable();
+      } else {
+        renderStockInHistoryTable(AppState.stockInHistory);
+      }
 
       // កែប្រែចំនួនស្តុកជាក់ស្តែងភ្លាមៗ (Instant local stock update)
       if (item) {
@@ -20127,7 +20135,14 @@ function saveLocalUsersToStorage() {
         if (res && res.success) {
           if (res.docNo && res.docNo !== docNo) newTx.docNo = res.docNo;
           if (res.txId) newTx.txId = res.txId;
-          renderStockInHistoryTable(AppState.stockInHistory);
+          try {
+            localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(AppState.stockInHistory));
+          } catch(e) {}
+          if (typeof filterStockInHistoryTable === 'function') {
+            filterStockInHistoryTable();
+          } else {
+            renderStockInHistoryTable(AppState.stockInHistory);
+          }
           if (typeof loadDashboard === 'function') loadDashboard();
           if (typeof broadcastInventoryMutation === 'function') {
             broadcastInventoryMutation('STOCK_IN', { items: AppState.items });
@@ -23073,12 +23088,19 @@ function saveLocalUsersToStorage() {
 
       if (!AppState.stockOutHistory) AppState.stockOutHistory = [];
       AppState.stockOutHistory.unshift(newTx);
+      try {
+        localStorage.setItem('inventory_stock_out_history_db', JSON.stringify(AppState.stockOutHistory));
+      } catch(e) {}
 
       if (!LOCAL_DB.transactions) LOCAL_DB.transactions = [];
       LOCAL_DB.transactions.unshift(newTx);
       if (typeof saveLocalTransactionsToStorage === 'function') saveLocalTransactionsToStorage();
 
-      if (typeof renderStockOutHistoryTable === 'function') renderStockOutHistoryTable(AppState.stockOutHistory);
+      if (typeof filterStockOutHistoryTable === 'function') {
+        filterStockOutHistoryTable();
+      } else if (typeof renderStockOutHistoryTable === 'function') {
+        renderStockOutHistoryTable(AppState.stockOutHistory);
+      }
 
       if (item) {
         item.currentStock = remainingStock;
@@ -23128,7 +23150,14 @@ function saveLocalUsersToStorage() {
         if (res && res.success) {
           if (res.docNo && res.docNo !== docNo) newTx.docNo = res.docNo;
           if (res.txId) newTx.txId = res.txId;
-          if (typeof renderStockOutHistoryTable === 'function') renderStockOutHistoryTable(AppState.stockOutHistory);
+          try {
+            localStorage.setItem('inventory_stock_out_history_db', JSON.stringify(AppState.stockOutHistory));
+          } catch(e) {}
+          if (typeof filterStockOutHistoryTable === 'function') {
+            filterStockOutHistoryTable();
+          } else if (typeof renderStockOutHistoryTable === 'function') {
+            renderStockOutHistoryTable(AppState.stockOutHistory);
+          }
           if (typeof loadDashboard === 'function') loadDashboard();
           if (typeof broadcastInventoryMutation === 'function') {
             broadcastInventoryMutation('STOCK_OUT', { items: AppState.items });
@@ -23161,11 +23190,10 @@ function saveLocalUsersToStorage() {
           const stored = localStorage.getItem('inventory_stock_in_history_db');
           if (stored !== null) {
             const parsed = JSON.parse(stored);
-            if (Array.isArray(parsed)) {
+            if (Array.isArray(parsed) && parsed.length > 0) {
               cachedTxs = parsed.filter(t => {
                 const doc = String(t.docNo || t.txId || '').toUpperCase();
-                const notes = String(t.notes || '').toLowerCase();
-                const isTest = doc.includes('TEST') || notes.includes('test') || notes.includes('សាកល្បង');
+                const isTest = doc.startsWith('MOCK-TEST-') || doc.startsWith('TEST-TX-');
                 return !isTest && !isTransactionDeleted(t);
               });
             }
@@ -23181,8 +23209,7 @@ function saveLocalUsersToStorage() {
             if (Array.isArray(parsedGen) && parsedGen.length > 0) {
               cachedTxs = parsedGen.filter(t => {
                 const doc = String(t.docNo || t.txId || '').toUpperCase();
-                const notes = String(t.notes || '').toLowerCase();
-                const isTest = doc.includes('TEST') || notes.includes('test') || notes.includes('សាកល្បង');
+                const isTest = doc.startsWith('MOCK-TEST-') || doc.startsWith('TEST-TX-');
                 return t.type === 'STOCK_IN' && !isTest && !isTransactionDeleted(t);
               });
             }
@@ -23214,8 +23241,7 @@ function saveLocalUsersToStorage() {
         if (res && res.success && Array.isArray(res.transactions)) {
           const cleanTxs = res.transactions.filter(t => {
             const doc = String(t.docNo || t.txId || '').toUpperCase();
-            const notes = String(t.notes || '').toLowerCase();
-            const isTest = doc.includes('TEST') || notes.includes('test') || notes.includes('សាកល្បង');
+            const isTest = doc.startsWith('MOCK-TEST-') || doc.startsWith('TEST-TX-');
             return !isTest && !isTransactionDeleted(t);
           });
 
@@ -23840,11 +23866,10 @@ function saveLocalUsersToStorage() {
           const stored = localStorage.getItem('inventory_stock_out_history_db');
           if (stored !== null) {
             const parsed = JSON.parse(stored);
-            if (Array.isArray(parsed)) {
+            if (Array.isArray(parsed) && parsed.length > 0) {
               cachedTxs = parsed.filter(t => {
                 const doc = String(t.docNo || t.txId || '').toUpperCase();
-                const notes = String(t.notes || '').toLowerCase();
-                const isTest = doc.includes('TEST') || notes.includes('test') || notes.includes('សាកល្បង');
+                const isTest = doc.startsWith('MOCK-TEST-') || doc.startsWith('TEST-TX-');
                 return !isTest && !isTransactionDeleted(t);
               });
             }
@@ -23860,8 +23885,7 @@ function saveLocalUsersToStorage() {
             if (Array.isArray(parsedGen) && parsedGen.length > 0) {
               cachedTxs = parsedGen.filter(t => {
                 const doc = String(t.docNo || t.txId || '').toUpperCase();
-                const notes = String(t.notes || '').toLowerCase();
-                const isTest = doc.includes('TEST') || notes.includes('test') || notes.includes('សាកល្បង');
+                const isTest = doc.startsWith('MOCK-TEST-') || doc.startsWith('TEST-TX-');
                 return t.type === 'STOCK_OUT' && !isTest && !isTransactionDeleted(t);
               });
             }
@@ -23893,8 +23917,7 @@ function saveLocalUsersToStorage() {
         if (res && res.success && Array.isArray(res.transactions)) {
           const cleanTxs = res.transactions.filter(t => {
             const doc = String(t.docNo || t.txId || '').toUpperCase();
-            const notes = String(t.notes || '').toLowerCase();
-            const isTest = doc.includes('TEST') || notes.includes('test') || notes.includes('សាកល្បង');
+            const isTest = doc.startsWith('MOCK-TEST-') || doc.startsWith('TEST-TX-');
             return !isTest && !isTransactionDeleted(t);
           });
 
