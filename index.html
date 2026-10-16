@@ -19890,7 +19890,7 @@ function saveLocalUsersToStorage() {
       const oldStock = Number(document.getElementById('stockInOldStockValue')?.value || 0);
       const newStock = oldStock + effectiveQty;
       const unitPrice = 0;
-      const supplier = '';
+      const supplier = 'អ្នកផ្គត់ផ្គង់ (Supplier)';
       const rawLoc = document.getElementById('stockInLocation')?.value || '';
       let location = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(rawLoc) : rawLoc);
       if (!location || location === 'ALL' || location === 'គ្រប់ស្ថានីយទាំងអស់' || location === 'គ្រប់ឃ្លាំង') {
@@ -20017,7 +20017,8 @@ function saveLocalUsersToStorage() {
           oldStock,
           newStock,
           unitPrice, 
-          supplier, 
+          supplier: supplier, 
+          fromLocation: supplier,
           toLocation: location, 
           warehouse: location,
           location: location,
@@ -20076,6 +20077,8 @@ function saveLocalUsersToStorage() {
         packQty: packQty,
         oldStock: oldStock,
         newStock: newStock,
+        supplier: supplier,
+        fromLocation: supplier,
         toLocation: location,
         warehouse: location,
         location: location,
@@ -23264,7 +23267,8 @@ function saveLocalUsersToStorage() {
             if (!t.zone && item?.zone) t.zone = String(item.zone).trim();
 
             // Sanitize warehouse: Stock In must NEVER be "ALL" or "គ្រប់ស្ថានីយទាំងអស់"
-            let rawWh = String(t.toLocation || t.location || t.warehouse || '').trim();
+            const origWh = String(t.toLocation || t.location || t.warehouse || '').trim();
+            let rawWh = origWh;
             if (!rawWh || rawWh === '-' || rawWh === 'ALL' || rawWh === 'គ្រប់ស្ថានីយទាំងអស់' || rawWh === 'គ្រប់ឃ្លាំង' || /^\d+$/.test(rawWh)) {
               const nStr = t.rawNotes || t.notes || '';
               const stMatch = nStr.match(/(?:K\d+[^\]\n\r]+)/i);
@@ -23272,6 +23276,20 @@ function saveLocalUsersToStorage() {
                 rawWh = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(stMatch[0]) : stMatch[0];
               } else {
                 rawWh = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+              }
+              // Background heal Google Sheets if missing or corrupted
+              if (!origWh || origWh === '-' || /^\d+$/.test(origWh)) {
+                apiCall('updateStockTransaction', {
+                  data: {
+                    txId: t.txId,
+                    docNo: t.docNo,
+                    type: 'STOCK_IN',
+                    sku: t.sku,
+                    location: rawWh,
+                    fromLocation: rawWh,
+                    toLocation: rawWh
+                  }
+                }).catch(() => {});
               }
             } else {
               rawWh = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(rawWh) : rawWh;
