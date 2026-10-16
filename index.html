@@ -2901,7 +2901,7 @@
                       <span class="truncate">ទីតាំងឃ្លាំងណា</span>
                     </label>
                     <select id="stockInLocation" required
-                      onchange="clearStockInSingleFieldError(this)"
+                      onchange="handleStockInLocationChange(this)"
                       class="w-full h-11 px-3 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition shadow-2xs">
                       <option value="" disabled selected>-- ជ្រើសរើសទីតាំងឃ្លាំង --</option>
                       <option value="中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)">📍 中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)</option>
@@ -19420,6 +19420,12 @@ function saveLocalUsersToStorage() {
       });
     }
 
+    function handleStockInLocationChange(inputEl) {
+      if (typeof clearStockInSingleFieldError === 'function') {
+        clearStockInSingleFieldError(inputEl);
+      }
+    }
+
     function clearStockInSingleFieldError(inputEl) {
       if (!inputEl) return;
       inputEl.classList.remove('has-stock-error', '!border-rose-500', '!ring-2', '!ring-rose-400', '!bg-rose-50/50');
@@ -19940,7 +19946,7 @@ function saveLocalUsersToStorage() {
         setStockInFieldError(document.getElementById('stockInDocNo'), 'សូមបញ្ចូលលេខឯកសារ!');
         hasError = true;
       }
-      if (!location) {
+      if (!location || location === 'ALL' || location === 'គ្រប់ស្ថានីយទាំងអស់' || /^\d+$/.test(location)) {
         setStockInFieldError(document.getElementById('stockInLocation'), 'សូមជ្រើសរើសទីតាំងឃ្លាំង!');
         hasError = true;
       }
@@ -23297,7 +23303,7 @@ function saveLocalUsersToStorage() {
                     sku: t.sku,
                     warehouse: rawWh,
                     location: rawWh,
-                    fromLocation: 'អ្នកផ្គត់ផ្គង់ (Supplier)',
+                    fromLocation: rawWh,
                     toLocation: rawWh
                   }
                 }).catch(() => {});
@@ -24867,6 +24873,7 @@ function saveLocalUsersToStorage() {
             size: v.size,
             color: v.color,
             zone: v.zone,
+            fromLocation: v.location,
             toLocation: v.location,
             warehouse: v.location,
             location: v.location,
