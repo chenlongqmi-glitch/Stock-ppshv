@@ -2975,7 +2975,7 @@
                     <i class="fa-solid fa-xmark"></i>
                   </button>
                 </div>
-                <button type="button" onclick="loadStockInHistory(true)" title="ផ្ទុកទិន្នន័យឡើងវិញ"
+                <button type="button" onclick="loadStockInHistory(true, this)" title="ផ្ទុកទិន្នន័យឡើងវិញ"
                   class="h-9 px-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs sm:text-sm font-bold transition flex items-center space-x-1.5 border border-slate-200 shadow-3xs shrink-0">
                   <i class="fa-solid fa-rotate text-xs"></i>
                   <span class="hidden sm:inline">Refresh</span>
@@ -3407,7 +3407,7 @@
                     <i class="fa-solid fa-xmark"></i>
                   </button>
                 </div>
-                <button type="button" onclick="loadStockOutHistory(true)" title="ផ្ទុកទិន្នន័យឡើងវិញ"
+                <button type="button" onclick="loadStockOutHistory(true, this)" title="ផ្ទុកទិន្នន័យឡើងវិញ"
                   class="h-9 px-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs sm:text-sm font-bold transition flex items-center space-x-1.5 border border-slate-200 shadow-3xs shrink-0">
                   <i class="fa-solid fa-rotate text-xs"></i>
                   <span class="hidden sm:inline">Refresh</span>
@@ -6824,6 +6824,39 @@
       movementChartInstance: null
     };
 
+    // Immediate self-healing cleanup of ghost deleted stock out transactions
+    (() => {
+      try {
+        const ghostList = ['TX-20261010214533-646', 'TX-20261010192242-919', 'TX-20261010190529-308'];
+        const ghostSet = new Set(ghostList.map(k => k.toUpperCase()));
+        try {
+          const raw = localStorage.getItem('inventory_deleted_txs_db');
+          if (raw) {
+            const arr = JSON.parse(raw);
+            if (Array.isArray(arr)) arr.forEach(k => { if (k) ghostSet.add(String(k).trim().toUpperCase()); });
+          }
+        } catch(e) {}
+        localStorage.setItem('inventory_deleted_txs_db', JSON.stringify(Array.from(ghostSet)));
+
+        ['inventory_stock_out_history_db', 'inventory_transactions_db', 'inventory_stock_in_history_db'].forEach(key => {
+          const raw = localStorage.getItem(key);
+          if (raw) {
+            try {
+              const list = JSON.parse(raw);
+              if (Array.isArray(list)) {
+                const filtered = list.filter(t => {
+                  const doc = String(t.docNo || '').trim().toUpperCase();
+                  const tx = String(t.txId || t.id || '').trim().toUpperCase();
+                  return (!doc || !ghostSet.has(doc)) && (!tx || !ghostSet.has(tx));
+                });
+                localStorage.setItem(key, JSON.stringify(filtered));
+              }
+            } catch(e) {}
+          }
+        });
+      } catch(e) {}
+    })();
+
     // Helper to detect dummy / unregistered seed demo accounts (wh01-wh11, @inventory.local, USR-PENDING-01)
     function isUnregisteredDummyUser(u) {
       if (!u) return false;
@@ -7656,10 +7689,47 @@ function saveLocalUsersToStorage() {
       return LOCAL_DB.dispatches;
     }
 
+    // Persistent Deleted Transactions Registry (Prevents ghost deleted transactions from resurrecting)
+    function getDeletedTransactionKeys() {
+      const knownDeleted = ['TX-20261010214533-646', 'TX-20261010192242-919', 'TX-20261010190529-308', 'DOC-IN-20260929-5181'];
+      const set = new Set(knownDeleted.map(k => k.toUpperCase()));
+      try {
+        const raw = localStorage.getItem('inventory_deleted_txs_db');
+        if (raw) {
+          const arr = JSON.parse(raw);
+          if (Array.isArray(arr)) {
+            arr.forEach(k => { if (k) set.add(String(k).trim().toUpperCase()); });
+          }
+        }
+      } catch (e) {}
+      return set;
+    }
+
+    function recordDeletedTransaction(txId, docNo) {
+      try {
+        const set = getDeletedTransactionKeys();
+        if (txId) set.add(String(txId).trim().toUpperCase());
+        if (docNo) set.add(String(docNo).trim().toUpperCase());
+        localStorage.setItem('inventory_deleted_txs_db', JSON.stringify(Array.from(set)));
+      } catch (e) {}
+    }
+
+    function isTransactionDeleted(t) {
+      if (!t) return false;
+      const set = getDeletedTransactionKeys();
+      const doc = String(t.docNo || '').trim().toUpperCase();
+      const tx = String(t.txId || t.id || '').trim().toUpperCase();
+      if (doc && set.has(doc)) return true;
+      if (tx && set.has(tx)) return true;
+      return false;
+    }
+
     // Persistent Local Transactions Database
     function saveLocalTransactionsToStorage() {
       try {
-        localStorage.setItem('inventory_transactions_db', JSON.stringify(LOCAL_DB.transactions || []));
+        const cleanTxs = (LOCAL_DB.transactions || []).filter(t => !isTransactionDeleted(t));
+        LOCAL_DB.transactions = cleanTxs;
+        localStorage.setItem('inventory_transactions_db', JSON.stringify(cleanTxs));
       } catch (e) {
         console.warn('Could not save transactions to localStorage', e);
       }
@@ -7688,34 +7758,34 @@ function saveLocalUsersToStorage() {
         if (storedTxs) {
           try {
             const parsed = JSON.parse(storedTxs);
-            if (Array.isArray(parsed)) allTxs = allTxs.concat(parsed);
+            if (Array.isArray(parsed)) allTxs = allTxs.concat(parsed.filter(t => !isTransactionDeleted(t)));
           } catch(e) {}
         }
         const storedIn = localStorage.getItem('inventory_stock_in_history_db');
         if (storedIn) {
           try {
             const parsedIn = JSON.parse(storedIn);
-            if (Array.isArray(parsedIn)) allTxs = allTxs.concat(parsedIn);
+            if (Array.isArray(parsedIn)) allTxs = allTxs.concat(parsedIn.filter(t => !isTransactionDeleted(t)));
           } catch(e) {}
         }
         const storedOut = localStorage.getItem('inventory_stock_out_history_db');
         if (storedOut) {
           try {
             const parsedOut = JSON.parse(storedOut);
-            if (Array.isArray(parsedOut)) allTxs = allTxs.concat(parsedOut);
+            if (Array.isArray(parsedOut)) allTxs = allTxs.concat(parsedOut.filter(t => !isTransactionDeleted(t)));
           } catch(e) {}
         }
         if (Array.isArray(AppState.stockInHistory) && AppState.stockInHistory.length > 0) {
-          allTxs = allTxs.concat(AppState.stockInHistory);
+          allTxs = allTxs.concat(AppState.stockInHistory.filter(t => !isTransactionDeleted(t)));
         }
         if (Array.isArray(AppState.stockOutHistory) && AppState.stockOutHistory.length > 0) {
-          allTxs = allTxs.concat(AppState.stockOutHistory);
+          allTxs = allTxs.concat(AppState.stockOutHistory.filter(t => !isTransactionDeleted(t)));
         }
 
         const seen = new Set();
         const unique = [];
         allTxs.forEach(t => {
-          if (!t) return;
+          if (!t || isTransactionDeleted(t)) return;
           const doc = String(t.docNo || t.txId || '').toUpperCase();
           const notes = String(t.notes || '').toLowerCase();
           if (doc.includes('TEST') || notes.includes('test') || notes.includes('សាកល្បង')) return;
@@ -8107,7 +8177,7 @@ function saveLocalUsersToStorage() {
       const netPerSku = {};
 
       txs.forEach(t => {
-        if (!t) return;
+        if (!t || (typeof isTransactionDeleted === 'function' && isTransactionDeleted(t))) return;
         const s = String(t.sku || t.itemCode || t.code || '').trim();
         if (!s) return;
 
@@ -11561,6 +11631,7 @@ function saveLocalUsersToStorage() {
         if (filters.type && filters.type !== 'ALL') {
           txs = txs.filter(t => t.type === filters.type);
         }
+        txs = txs.filter(t => typeof isTransactionDeleted !== 'function' || !isTransactionDeleted(t));
         if (filters.startDate) {
           txs = txs.filter(t => (t.date || '') >= filters.startDate);
         }
@@ -11893,9 +11964,12 @@ function saveLocalUsersToStorage() {
         const sku = d.sku;
         const qty = Number(d.quantity || 0);
 
-        const txIdx = (LOCAL_DB.transactions || []).findIndex(t => (txId && t.txId === txId) || (d.docNo && t.docNo === d.docNo));
-        if (txIdx >= 0) {
-          LOCAL_DB.transactions.splice(txIdx, 1);
+        if (typeof recordDeletedTransaction === 'function') {
+          recordDeletedTransaction(d.txId, d.docNo);
+        }
+
+        if (LOCAL_DB.transactions) {
+          LOCAL_DB.transactions = LOCAL_DB.transactions.filter(t => (txId && t.txId !== txId) && (!d.docNo || t.docNo !== d.docNo) && (!isTransactionDeleted(t)));
           if (typeof saveLocalTransactionsToStorage === 'function') saveLocalTransactionsToStorage();
         }
 
@@ -11912,10 +11986,12 @@ function saveLocalUsersToStorage() {
         }
 
         if (AppState.stockInHistory) {
-          AppState.stockInHistory = AppState.stockInHistory.filter(t => (txId && t.txId !== txId) && (!d.docNo || t.docNo !== d.docNo));
+          AppState.stockInHistory = AppState.stockInHistory.filter(t => (txId && t.txId !== txId) && (!d.docNo || t.docNo !== d.docNo) && (!isTransactionDeleted(t)));
+          try { localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(AppState.stockInHistory)); } catch(e) {}
         }
         if (AppState.stockOutHistory) {
-          AppState.stockOutHistory = AppState.stockOutHistory.filter(t => (txId && t.txId !== txId) && (!d.docNo || t.docNo !== d.docNo));
+          AppState.stockOutHistory = AppState.stockOutHistory.filter(t => (txId && t.txId !== txId) && (!d.docNo || t.docNo !== d.docNo) && (!isTransactionDeleted(t)));
+          try { localStorage.setItem('inventory_stock_out_history_db', JSON.stringify(AppState.stockOutHistory)); } catch(e) {}
         }
 
         return { success: true, message: 'បានលុបប្រតិបត្តិការជោគជ័យ!' };
@@ -23069,31 +23145,35 @@ function saveLocalUsersToStorage() {
     AppState.stockInHistory = [];
     AppState.stockOutHistory = [];
 
-    async function loadStockInHistory(forceRefresh = false) {
+    async function loadStockInHistory(forceRefresh = false, btn = null) {
+      const refreshIcon = btn ? btn.querySelector('i') : null;
+      if (refreshIcon) refreshIcon.classList.add('fa-spin');
       if (forceRefresh) {
         API_CACHE.clear();
+        AppState.stockInHistory = [];
+        try { localStorage.removeItem('inventory_stock_in_history_db'); } catch(e) {}
       }
-      let cachedTxs = (AppState.stockInHistory && AppState.stockInHistory.length > 0)
-        ? AppState.stockInHistory
+      let cachedTxs = (!forceRefresh && AppState.stockInHistory && AppState.stockInHistory.length > 0)
+        ? AppState.stockInHistory.filter(t => !isTransactionDeleted(t))
         : null;
-      if (!cachedTxs) {
+      if (!cachedTxs && !forceRefresh) {
         try {
           const stored = localStorage.getItem('inventory_stock_in_history_db');
-          if (stored) {
+          if (stored !== null) {
             const parsed = JSON.parse(stored);
-            if (Array.isArray(parsed) && parsed.length > 0) {
+            if (Array.isArray(parsed)) {
               cachedTxs = parsed.filter(t => {
                 const doc = String(t.docNo || t.txId || '').toUpperCase();
                 const notes = String(t.notes || '').toLowerCase();
                 const isTest = doc.includes('TEST') || notes.includes('test') || notes.includes('សាកល្បង');
-                return !isTest;
+                return !isTest && !isTransactionDeleted(t);
               });
             }
           }
         } catch(e) {}
       }
 
-      if (!cachedTxs || cachedTxs.length === 0) {
+      if (!cachedTxs && !forceRefresh) {
         try {
           const storedGen = localStorage.getItem('inventory_transactions_db');
           if (storedGen) {
@@ -23103,7 +23183,7 @@ function saveLocalUsersToStorage() {
                 const doc = String(t.docNo || t.txId || '').toUpperCase();
                 const notes = String(t.notes || '').toLowerCase();
                 const isTest = doc.includes('TEST') || notes.includes('test') || notes.includes('សាកល្បង');
-                return t.type === 'STOCK_IN' && !isTest;
+                return t.type === 'STOCK_IN' && !isTest && !isTransactionDeleted(t);
               });
             }
           }
@@ -23136,7 +23216,7 @@ function saveLocalUsersToStorage() {
             const doc = String(t.docNo || t.txId || '').toUpperCase();
             const notes = String(t.notes || '').toLowerCase();
             const isTest = doc.includes('TEST') || notes.includes('test') || notes.includes('សាកល្បង');
-            return !isTest;
+            return !isTest && !isTransactionDeleted(t);
           });
 
           cleanTxs.forEach(t => {
@@ -23195,6 +23275,11 @@ function saveLocalUsersToStorage() {
           try {
             localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(cleanTxs));
           } catch(e) {}
+          // Synchronize LOCAL_DB.transactions with cleanTxs so deleted items are completely purged from storage
+          if (LOCAL_DB.transactions) {
+            LOCAL_DB.transactions = LOCAL_DB.transactions.filter(t => t.type !== 'STOCK_IN' && !isTransactionDeleted(t)).concat(cleanTxs);
+            saveLocalTransactionsToStorage();
+          }
           if (typeof syncItemStockFromHistory === 'function') {
             syncItemStockFromHistory(AppState.items);
             syncItemStockFromHistory(LOCAL_DB.items);
@@ -23210,6 +23295,8 @@ function saveLocalUsersToStorage() {
       } catch (err) {
         console.warn('loadStockInHistory error:', err);
         filterStockInHistoryTable();
+      } finally {
+        if (refreshIcon) refreshIcon.classList.remove('fa-spin');
       }
     }
 
@@ -23737,31 +23824,35 @@ function saveLocalUsersToStorage() {
       }).join('');
     }
 
-    async function loadStockOutHistory(forceRefresh = false) {
+    async function loadStockOutHistory(forceRefresh = false, btn = null) {
+      const refreshIcon = btn ? btn.querySelector('i') : null;
+      if (refreshIcon) refreshIcon.classList.add('fa-spin');
       if (forceRefresh) {
         API_CACHE.clear();
+        AppState.stockOutHistory = [];
+        try { localStorage.removeItem('inventory_stock_out_history_db'); } catch(e) {}
       }
-      let cachedTxs = (AppState.stockOutHistory && AppState.stockOutHistory.length > 0)
-        ? AppState.stockOutHistory
+      let cachedTxs = (!forceRefresh && AppState.stockOutHistory && AppState.stockOutHistory.length > 0)
+        ? AppState.stockOutHistory.filter(t => !isTransactionDeleted(t))
         : null;
-      if (!cachedTxs) {
+      if (!cachedTxs && !forceRefresh) {
         try {
           const stored = localStorage.getItem('inventory_stock_out_history_db');
-          if (stored) {
+          if (stored !== null) {
             const parsed = JSON.parse(stored);
-            if (Array.isArray(parsed) && parsed.length > 0) {
+            if (Array.isArray(parsed)) {
               cachedTxs = parsed.filter(t => {
                 const doc = String(t.docNo || t.txId || '').toUpperCase();
                 const notes = String(t.notes || '').toLowerCase();
                 const isTest = doc.includes('TEST') || notes.includes('test') || notes.includes('សាកល្បង');
-                return !isTest;
+                return !isTest && !isTransactionDeleted(t);
               });
             }
           }
         } catch(e) {}
       }
 
-      if (!cachedTxs || cachedTxs.length === 0) {
+      if (!cachedTxs && !forceRefresh) {
         try {
           const storedGen = localStorage.getItem('inventory_transactions_db');
           if (storedGen) {
@@ -23771,7 +23862,7 @@ function saveLocalUsersToStorage() {
                 const doc = String(t.docNo || t.txId || '').toUpperCase();
                 const notes = String(t.notes || '').toLowerCase();
                 const isTest = doc.includes('TEST') || notes.includes('test') || notes.includes('សាកល្បង');
-                return t.type === 'STOCK_OUT' && !isTest;
+                return t.type === 'STOCK_OUT' && !isTest && !isTransactionDeleted(t);
               });
             }
           }
@@ -23804,7 +23895,7 @@ function saveLocalUsersToStorage() {
             const doc = String(t.docNo || t.txId || '').toUpperCase();
             const notes = String(t.notes || '').toLowerCase();
             const isTest = doc.includes('TEST') || notes.includes('test') || notes.includes('សាកល្បង');
-            return !isTest;
+            return !isTest && !isTransactionDeleted(t);
           });
 
           // Enrich metadata (Size, Color, Zone, Warehouse) from notes or AppState.items if missing
@@ -23852,6 +23943,11 @@ function saveLocalUsersToStorage() {
           try {
             localStorage.setItem('inventory_stock_out_history_db', JSON.stringify(cleanTxs));
           } catch(e) {}
+          // Synchronize LOCAL_DB.transactions with cleanTxs so deleted items are completely purged from storage
+          if (LOCAL_DB.transactions) {
+            LOCAL_DB.transactions = LOCAL_DB.transactions.filter(t => t.type !== 'STOCK_OUT' && !isTransactionDeleted(t)).concat(cleanTxs);
+            saveLocalTransactionsToStorage();
+          }
           if (typeof syncDispatchesWithOperations === 'function') syncDispatchesWithOperations();
           if (typeof syncItemStockFromHistory === 'function') {
             syncItemStockFromHistory(AppState.items);
@@ -23868,6 +23964,8 @@ function saveLocalUsersToStorage() {
       } catch (err) {
         console.warn('loadStockOutHistory error:', err);
         filterStockOutHistoryTable();
+      } finally {
+        if (refreshIcon) refreshIcon.classList.remove('fa-spin');
       }
     }
 
@@ -24784,9 +24882,15 @@ function saveLocalUsersToStorage() {
         if (localItm) localItm.currentStock = itm ? itm.currentStock : Math.max(0, Number(localItm.currentStock || 0) - qtyNum);
         if (typeof saveLocalItemsToStorage === 'function') saveLocalItemsToStorage();
 
-        AppState.stockInHistory = (AppState.stockInHistory || []).filter(t => t !== tx && t.txId !== tx.txId && (!tx.docNo || t.docNo !== tx.docNo));
+        if (typeof recordDeletedTransaction === 'function') {
+          recordDeletedTransaction(tx.txId, tx.docNo);
+        }
+        AppState.stockInHistory = (AppState.stockInHistory || []).filter(t => t !== tx && t.txId !== tx.txId && (!tx.docNo || t.docNo !== tx.docNo) && !isTransactionDeleted(t));
+        try {
+          localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(AppState.stockInHistory || []));
+        } catch(e) {}
         if (LOCAL_DB.transactions) {
-          LOCAL_DB.transactions = LOCAL_DB.transactions.filter(t => t !== tx && t.txId !== tx.txId && (!tx.docNo || t.docNo !== tx.docNo));
+          LOCAL_DB.transactions = LOCAL_DB.transactions.filter(t => t !== tx && t.txId !== tx.txId && (!tx.docNo || t.docNo !== tx.docNo) && !isTransactionDeleted(t));
           if (typeof saveLocalTransactionsToStorage === 'function') saveLocalTransactionsToStorage();
         }
 
@@ -25244,9 +25348,15 @@ function saveLocalUsersToStorage() {
         if (localItm) localItm.currentStock = itm ? itm.currentStock : Number(localItm.currentStock || 0) + qtyNum;
         if (typeof saveLocalItemsToStorage === 'function') saveLocalItemsToStorage();
 
-        AppState.stockOutHistory = (AppState.stockOutHistory || []).filter(t => t !== tx && t.txId !== tx.txId && (!tx.docNo || t.docNo !== tx.docNo));
+        if (typeof recordDeletedTransaction === 'function') {
+          recordDeletedTransaction(tx.txId, tx.docNo);
+        }
+        AppState.stockOutHistory = (AppState.stockOutHistory || []).filter(t => t !== tx && t.txId !== tx.txId && (!tx.docNo || t.docNo !== tx.docNo) && !isTransactionDeleted(t));
+        try {
+          localStorage.setItem('inventory_stock_out_history_db', JSON.stringify(AppState.stockOutHistory || []));
+        } catch(e) {}
         if (LOCAL_DB.transactions) {
-          LOCAL_DB.transactions = LOCAL_DB.transactions.filter(t => t !== tx && t.txId !== tx.txId && (!tx.docNo || t.docNo !== tx.docNo));
+          LOCAL_DB.transactions = LOCAL_DB.transactions.filter(t => t !== tx && t.txId !== tx.txId && (!tx.docNo || t.docNo !== tx.docNo) && !isTransactionDeleted(t));
           if (typeof saveLocalTransactionsToStorage === 'function') saveLocalTransactionsToStorage();
         }
 
