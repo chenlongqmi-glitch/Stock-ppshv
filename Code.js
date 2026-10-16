@@ -3016,14 +3016,6 @@ function toCanonicalWarehouseNameGAS(wh) {
   if (!wh) return '';
   var raw = String(wh).trim();
   if (/^\d+$/.test(raw)) {
-    if (raw === '1' || raw === '01') return 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
-    if (raw === '2' || raw === '02') return 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02';
-    if (raw === '3' || raw === '03') return 'K43 ស្ថានីយ (កំពង់ស្ពឺ លិច) 03';
-    if (raw === '4' || raw === '04') return 'K76 ស្ថានីយ (ត្រែងត្រយឹង) 04';
-    if (raw === '5' || raw === '05') return 'K114 ស្ថានីយ (កំពង់សីលា) 05';
-    if (raw === '6' || raw === '06') return 'K135 ស្ថានីយ (ស្រែអំបិល) 06';
-    if (raw === '7' || raw === '07') return 'K172 ស្ថានីយ (ស្ទឹងហាវ) 07';
-    if (raw === '8' || raw === '08') return 'K182 ស្ថានីយ (ព្រះសីហនុ) 08';
     return '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
   }
   var s = raw.replace(/^[📍🏢\s]+/, '').replace(/^[\d]+[-\s]+/, '').replace(/[\u200b\ufeff]/g, '').trim();

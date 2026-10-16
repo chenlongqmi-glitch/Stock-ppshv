@@ -63,14 +63,16 @@ class InventoryClient:
     def get_items(self):
         return self.post("getItems")
 
-    def stock_in(self, sku, qty, unit_price=0.0, supplier="", to_location="ឃ្លាំងកណ្តាល A", notes=""):
+    def stock_in(self, sku, qty, unit_price=0.0, supplier="", to_location="中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)", notes=""):
         payload = {
             "data": {
                 "sku": sku,
                 "quantity": float(qty),
                 "unitPrice": float(unit_price),
-                "supplier": supplier,
+                "supplier": supplier or "អ្នកផ្គត់ផ្គង់ (Supplier)",
                 "toLocation": to_location,
+                "warehouse": to_location,
+                "location": to_location,
                 "notes": notes
             },
             "user": {"username": "Python_CLI", "role": "Stock Keeper"}

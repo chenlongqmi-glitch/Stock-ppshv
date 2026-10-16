@@ -20154,6 +20154,20 @@ function saveLocalUsersToStorage() {
         if (res && res.success) {
           if (res.docNo && res.docNo !== docNo) newTx.docNo = res.docNo;
           if (res.txId) newTx.txId = res.txId;
+          const finalDocNo = (res && res.docNo) ? res.docNo : docNo;
+          // Ensure Google Sheets Stock_in column M (Warehouse) is set to the destination warehouse
+          apiCall('updateStockTransaction', {
+            data: {
+              docNo: finalDocNo,
+              txId: res.txId || tempTxId,
+              type: 'STOCK_IN',
+              sku: sku,
+              toLocation: location,
+              warehouse: location,
+              location: location,
+              fromLocation: 'អ្នកផ្គត់ផ្គង់ (Supplier)'
+            }
+          }).catch(() => {});
           try {
             localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(AppState.stockInHistory));
           } catch(e) {}
@@ -23303,7 +23317,7 @@ function saveLocalUsersToStorage() {
                     sku: t.sku,
                     warehouse: rawWh,
                     location: rawWh,
-                    fromLocation: rawWh,
+                    fromLocation: 'អ្នកផ្គត់ផ្គង់ (Supplier)',
                     toLocation: rawWh
                   }
                 }).catch(() => {});
