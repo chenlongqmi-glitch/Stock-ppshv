@@ -2903,7 +2903,7 @@
                     <select id="stockInLocation" required
                       onchange="handleStockInLocationChange(this)"
                       class="w-full h-11 px-3 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition shadow-2xs">
-                      <option value="" disabled selected>-- ជ្រើសរើសទីតាំងឃ្លាំង --</option>
+                      <option value="" selected>-- ជ្រើសរើសទីតាំងឃ្លាំង --</option>
                       <option value="中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)">📍 中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)</option>
                       <option value="机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)">📍 机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
                     </select>
@@ -14144,7 +14144,7 @@ function saveLocalUsersToStorage() {
       }
 
       // 2. Sync Stock-In (ស្តុកចូល) Location
-      if (typeof applyUserWarehouseToStockInLocation === 'function') applyUserWarehouseToStockInLocation();
+      if (typeof applyUserWarehouseToStockInLocation === 'function') applyUserWarehouseToStockInLocation(null, false);
 
       // 3. Sync Stock-Out (ស្តុកចេញ)
       if (typeof applyUserWarehouseToStockOutLocation === 'function') applyUserWarehouseToStockOutLocation();
@@ -19446,7 +19446,7 @@ function saveLocalUsersToStorage() {
       }
     }
 
-    function applyUserWarehouseToStockInLocation(targetEl) {
+    function applyUserWarehouseToStockInLocation(targetEl, preserveSelection = false) {
       const locEl = targetEl || document.getElementById('stockInLocation');
       if (!locEl) return;
       let u = AppState.currentUser;
@@ -19457,27 +19457,23 @@ function saveLocalUsersToStorage() {
         } catch(e) {}
       }
       u = u || {};
-      const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(u) : false;
+      const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(u) : (u.role === 'Admin' || u.role === 'SuperAdmin');
 
       if (isPrivileged) {
-        // សម្រាប់ account super admin និង admin មិនត្រូវបង្ហាញ default ទេ ទុកឱ្យជ្រើសរើស (placeholder: -- ជ្រើសរើសទីតាំងឃ្លាំង --)
+        // សម្រាប់ account super admin និង admin មិនត្រូវបង្ហាញ default ឡើយ ត្រូវទុកទទេឱ្យជ្រើសរើស (placeholder: -- ជ្រើសរើសទីតាំងឃ្លាំង --)
         locEl.disabled = false;
         locEl.classList.remove('pointer-events-none', 'bg-slate-100', 'cursor-not-allowed');
         const allowed = [
           '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
           '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)'
         ];
-        const curVal = locEl.value ? (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(locEl.value) : locEl.value) : '';
+        const curVal = (preserveSelection && locEl.value) ? (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(locEl.value) : locEl.value) : '';
+        const isSelected = curVal && allowed.includes(curVal);
         
-        let optionsHtml = `<option value="" disabled ${!curVal || !allowed.includes(curVal) ? 'selected' : ''}>-- ជ្រើសរើសទីតាំងឃ្លាំង --</option>`;
-        optionsHtml += allowed.map(w => `<option value="${escapeHtml(w)}" ${curVal === w ? 'selected' : ''}>📍 ${escapeHtml(w)}</option>`).join('');
+        let optionsHtml = `<option value="" ${!isSelected ? 'selected' : ''}>-- ជ្រើសរើសទីតាំងឃ្លាំង --</option>`;
+        optionsHtml += allowed.map(w => `<option value="${escapeHtml(w)}" ${isSelected && curVal === w ? 'selected' : ''}>📍 ${escapeHtml(w)}</option>`).join('');
         locEl.innerHTML = optionsHtml;
-
-        if (curVal && allowed.includes(curVal)) {
-          locEl.value = curVal;
-        } else {
-          locEl.value = '';
-        }
+        locEl.value = isSelected ? curVal : '';
         return;
       }
 
@@ -19501,8 +19497,8 @@ function saveLocalUsersToStorage() {
         recEl.value = AppState.currentUser?.fullName || AppState.currentUser?.username || 'Admin';
       }
 
-      // ទីតាំងឃ្លាំងណា 默认តាមស្ថានាម account ដែលបាន login ប្រើប្រាស់
-      applyUserWarehouseToStockInLocation();
+      // ទីតាំងឃ្លាំងណា សម្រាប់ admin និង super admin មិនត្រូវបង្ហាញ default ឡើយ (ត្រូវទុកទទេឱ្យជ្រើសរើស)
+      applyUserWarehouseToStockInLocation(null, false);
       
       const zoneEl = document.getElementById('stockInZone');
       if (zoneEl) zoneEl.value = '';
@@ -19741,8 +19737,8 @@ function saveLocalUsersToStorage() {
 
         updateStockInBadges(oldBulk, oldRetail, oldBulk, oldRetail, packUnit, baseUnit);
 
-        // ទីតាំងឃ្លាំងណា 默认តាមស្ថានាម account ដែលបាន login ប្រើប្រាស់
-        applyUserWarehouseToStockInLocation();
+        // ទីតាំងឃ្លាំងណា រក្សាទុកជម្រើសប្រសិនបើ user បានជ្រើសរើសរួច (សម្រាប់ admin/superadmin មិន auto-fill ឡើយ)
+        applyUserWarehouseToStockInLocation(null, true);
         clearStockInSingleFieldError(document.getElementById('stockInSku'));
 
         updateStockInImagePreview(item);
@@ -19849,8 +19845,12 @@ function saveLocalUsersToStorage() {
       const notesEl = document.getElementById('stockInNotes');
       if (notesEl) notesEl.value = '-';
 
-      // ទីតាំងឃ្លាំងណា 默认តាមស្ថានាម account ដែលបាន login ប្រើប្រាស់
-      applyUserWarehouseToStockInLocation();
+      // ទីតាំងឃ្លាំងណា សម្រាប់ admin និង super admin ត្រូវទុកទទេឱ្យជ្រើសរើស
+      applyUserWarehouseToStockInLocation(null, false);
+      const stockInLocEl = document.getElementById('stockInLocation');
+      if (stockInLocEl && (typeof isUserPrivilegedAdmin === 'function' ? isUserPrivilegedAdmin(AppState.currentUser) : false)) {
+        stockInLocEl.value = '';
+      }
       clearStockInFieldErrors();
       updateStockInBadges(0, 0, 0, 0, 'ប្រអប់', 'ដើម');
       updateStockInImagePreview(null);
@@ -32620,7 +32620,7 @@ function saveLocalUsersToStorage() {
       // 5. Stock In Location Selector (Admin: only 中心库房 & 机电)
       const stockInLoc = document.getElementById('stockInLocation');
       if (stockInLoc) {
-        applyUserWarehouseToStockInLocation(stockInLoc);
+        applyUserWarehouseToStockInLocation(stockInLoc, true);
       }
 
       // 5.1 Stock Out To Location Selector
