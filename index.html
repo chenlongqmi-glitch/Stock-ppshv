@@ -19551,7 +19551,7 @@ function saveLocalUsersToStorage() {
       const userWh = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(u.warehouse) : u.warehouse) || 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
       locEl.innerHTML = `<option value="${escapeHtml(userWh)}" selected>📍 ${escapeHtml(userWh)}</option>`;
       locEl.value = userWh;
-      locEl.disabled = true;
+      locEl.disabled = false;
       locEl.classList.add('pointer-events-none', 'bg-slate-100', 'cursor-not-allowed');
     }
 
@@ -19989,13 +19989,11 @@ function saveLocalUsersToStorage() {
       const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(AppState.currentUser) : false;
 
       if (!isPrivileged) {
-        if (!location || location === 'ALL' || location === 'គ្រប់ស្ថានីយទាំងអស់' || location === 'គ្រប់ឃ្លាំង' || /^\d+$/.test(location)) {
-          const uWh = AppState.currentUser?.warehouse ? (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(AppState.currentUser.warehouse) : AppState.currentUser.warehouse) : '';
-          if (uWh && uWh !== 'ALL' && uWh !== 'គ្រប់ស្ថានីយទាំងអស់' && uWh !== 'គ្រប់ឃ្លាំង' && !/^\d+$/.test(uWh)) {
-            location = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(uWh) : uWh;
-          } else {
-            location = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
-          }
+        const uWh = AppState.currentUser?.warehouse ? (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(AppState.currentUser.warehouse) : AppState.currentUser.warehouse) : '';
+        if (uWh && uWh !== 'ALL' && uWh !== 'គ្រប់ស្ថានីយទាំងអស់' && uWh !== 'គ្រប់ឃ្លាំង' && !/^\d+$/.test(uWh)) {
+          location = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(uWh) : uWh;
+        } else if (!location || location === 'ALL' || location === 'គ្រប់ស្ថានីយទាំងអស់' || location === 'គ្រប់ឃ្លាំង' || /^\d+$/.test(location)) {
+          location = 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
         }
       } else {
         // សម្រាប់ Super Admin & Admin មិនត្រូវ auto-fill ឡើយ ទុកឱ្យជ្រើសរើសដោយផ្ទាល់
@@ -23367,12 +23365,15 @@ function saveLocalUsersToStorage() {
           'ហុងគិមលី': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
           'hongkimly': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
           'ទូចជីវី': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+          'ទូចជីវិ': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
           'touchvgvy': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
           'ស្រីមាស': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
           'sreymeas': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
           'សុផាដាឡែន': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
           'sophadalen': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
           'តារាទើបរៀន': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+          'ដារាទើបរៀន': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+          'ដារាទើបរ៖': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
           'draternjk': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02'
         };
         (LOCAL_DB.users || []).concat(AppState.users || []).forEach(u => {
@@ -23471,26 +23472,30 @@ function saveLocalUsersToStorage() {
                   const stMatch = nStr.match(/(?:K\d+[^\]\n\r]+)/i);
                   if (stMatch) {
                     rawWh = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(stMatch[0]) : stMatch[0];
+                  } else if (tUserClean === 'superadmin' || tUserClean === 'admin' || tUserClean.includes('singvan') || tUserClean.includes('chenlong')) {
+                    rawWh = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
                   } else {
-                    rawWh = isPrivileged ? '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)' : (myStationWh || 'K3 ស្ថានីយ (ភ្នំពេញ) 01');
+                    rawWh = myStationWh || 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
                   }
                 }
               }
               // Background heal Google Sheets if missing or corrupted (numbers like 8, -, ALL, etc.)
               if (!origWh || origWh === '-' || /^\d+$/.test(origWh) || origWh === 'ALL' || origWh === 'គ្រប់ស្ថានីយទាំងអស់' || origWh === 'គ្រប់ឃ្លាំង' || origWhNorm === uFull || userWhMap[origWhNorm]) {
-                apiCall('updateStockTransaction', {
-                  data: {
-                    txId: t.txId,
-                    docNo: t.docNo,
-                    type: 'STOCK_IN',
-                    sku: t.sku,
-                    warehouse: rawWh,
-                    location: rawWh,
-                    fromLocation: 'អ្នកផ្គត់ផ្គង់ (Supplier)',
-                    toLocation: rawWh,
-                    receivedBy: t.receivedBy || origWh || (curU.fullName || curU.username)
-                  }
-                }).catch(() => {});
+                if (rawWh && rawWh !== origWh) {
+                  apiCall('updateStockTransaction', {
+                    data: {
+                      txId: t.txId,
+                      docNo: t.docNo,
+                      type: 'STOCK_IN',
+                      sku: t.sku,
+                      warehouse: rawWh,
+                      location: rawWh,
+                      fromLocation: 'អ្នកផ្គត់ផ្គង់ (Supplier)',
+                      toLocation: rawWh,
+                      receivedBy: t.receivedBy || origWh || (curU.fullName || curU.username)
+                    }
+                  }).catch(() => {});
+                }
               }
             } else {
               rawWh = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(rawWh) : rawWh;
