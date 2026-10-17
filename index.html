@@ -14611,24 +14611,29 @@ function saveLocalUsersToStorage() {
         }
       }
       const s = String(val).trim().toLowerCase();
+      const sNorm = s.replace(/[\u200b\ufeff\s_-]/g, '');
       const cleanDigits = s.replace(/\D/g, '');
       const curPhone = String(AppState?.currentUser?.phone || '').replace(/\D/g, '');
-      const curEmail = String(AppState?.currentUser?.email || '').trim().toLowerCase();
-      const curUname = String(AppState?.currentUser?.username || '').replace(/^@+/, '').trim().toLowerCase();
+      const curEmail = String(AppState?.currentUser?.email || '').trim().toLowerCase().replace(/[\u200b\ufeff]/g, '');
+      const curUname = String(AppState?.currentUser?.username || '').replace(/[\u200b\ufeff\s_-]/g, '').replace(/^@+/, '').trim().toLowerCase();
+      const curFull = String(AppState?.currentUser?.fullName || '').replace(/[\u200b\ufeff\s_-]/g, '').trim().toLowerCase();
 
       // 1. លេខទូរសព្ទ, Email, Username របស់ User បច្ចុប្បន្ន ឬ Admin credentials
       if (curPhone && cleanDigits === curPhone) return true;
-      if (curEmail && s === curEmail) return true;
-      if (curUname && s === curUname) return true;
-      if (s === 'superadmin' || s === 'super admin' || s === 'admin' || s === 'staff') return true;
+      if (curEmail && (s === curEmail || sNorm === curEmail)) return true;
+      if (curUname && (s === curUname || sNorm === curUname)) return true;
+      if (curFull && (s === curFull || sNorm === curFull)) return true;
+      if (s === 'superadmin' || s === 'super admin' || s === 'admin' || s === 'staff' || sNorm === 'superadmin' || sNorm === 'admin' || sNorm === 'hongkimly') return true;
       if (s.includes('@') && elId !== 'userSearchInput') return true;
 
       // 2. លេខទូរសព្ទ ឬ ព័ត៌មាន User ណាម្នាក់ក្នុង LOCAL_DB.users
-      const isKnownUser = (LOCAL_DB.users || []).some(u => {
+      const isKnownUser = (LOCAL_DB.users || []).concat(AppState.users || []).some(u => {
+        if (!u) return false;
         const uPhone = String(u.phone || '').replace(/\D/g, '');
-        const uEmail = String(u.email || '').toLowerCase().trim();
-        const uName = String(u.username || '').toLowerCase().trim();
-        return (uPhone && uPhone === cleanDigits) || (uEmail && uEmail === s) || (uName && uName === s);
+        const uEmail = String(u.email || '').toLowerCase().trim().replace(/[\u200b\ufeff]/g, '');
+        const uName = String(u.username || '').toLowerCase().trim().replace(/[\u200b\ufeff\s_-]/g, '').replace(/^@+/, '');
+        const uFull = String(u.fullName || '').toLowerCase().trim().replace(/[\u200b\ufeff\s_-]/g, '');
+        return (uPhone && uPhone === cleanDigits) || (uEmail && (uEmail === s || uEmail === sNorm)) || (uName && (uName === s || uName === sNorm)) || (uFull && (uFull === s || uFull === sNorm));
       });
       if (isKnownUser && elId !== 'userSearchInput') return true;
 
@@ -23296,14 +23301,15 @@ function saveLocalUsersToStorage() {
     async function loadStockInHistory(forceRefresh = false, btn = null) {
       const refreshIcon = btn ? btn.querySelector('i') : null;
       if (refreshIcon) refreshIcon.classList.add('fa-spin');
+      const recentPendingToKeep = (AppState.stockInHistory || []).filter(t => t && (t._isLocalPending || (t._createdAt && Date.now() - t._createdAt < 300000)));
       if (forceRefresh) {
         API_CACHE.clear();
-        AppState.stockInHistory = [];
+        AppState.stockInHistory = recentPendingToKeep;
         try { localStorage.removeItem('inventory_stock_in_history_db'); } catch(e) {}
       }
       let cachedTxs = (!forceRefresh && AppState.stockInHistory && AppState.stockInHistory.length > 0)
         ? AppState.stockInHistory.filter(t => !isTransactionDeleted(t))
-        : null;
+        : (recentPendingToKeep.length > 0 ? recentPendingToKeep : null);
       if (!cachedTxs && !forceRefresh) {
         try {
           const stored = localStorage.getItem('inventory_stock_in_history_db');
@@ -23632,13 +23638,20 @@ function saveLocalUsersToStorage() {
         });
       }
       const sInp = document.getElementById('stockInHistorySearch');
-      if (sInp && typeof isGarbageSearchInput === 'function' && isGarbageSearchInput(sInp.value, 'stockInHistorySearch')) {
-        sInp.value = '';
-        delete sInp.dataset.userTyped;
-        sInp.setAttribute('readonly', 'readonly');
+      if (sInp) {
+        if (typeof isGarbageSearchInput === 'function' && isGarbageSearchInput(sInp.value, 'stockInHistorySearch')) {
+          sInp.value = '';
+          delete sInp.dataset.userTyped;
+          sInp.setAttribute('readonly', 'readonly');
+        } else if (sInp.dataset.userTyped !== 'true' && document.activeElement !== sInp) {
+          const sVal = (sInp.value || '').trim().toLowerCase();
+          if (sVal === 'hongkimly' || sVal === 'superadmin' || sVal === 'admin' || sVal === 'staff' || sVal.includes('@')) {
+            sInp.value = '';
+          }
+        }
       }
       let q = (sInp?.value || '').trim().toLowerCase();
-      if ((q === 'superadmin' || q === 'super admin' || q === 'admin') && document.activeElement !== sInp) {
+      if ((q === 'superadmin' || q === 'super admin' || q === 'admin' || q === 'hongkimly') && document.activeElement !== sInp) {
         if (sInp) sInp.value = '';
         q = '';
       }
@@ -23649,6 +23662,8 @@ function saveLocalUsersToStorage() {
       const qClean = q.replace(/[-\s_]/g, '');
       const filtered = baseList.filter(t => {
         const skuClean = String(t.sku || t.code || t.itemCode || '').toLowerCase().replace(/[-\s_]/g, '');
+        const uClean = String(t.user || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+        const rClean = String(t.receivedBy || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
         return (t.docNo || t.txId || '').toLowerCase().includes(q) ||
                (t.itemName || '').toLowerCase().includes(q) ||
                (t.sku || '').toLowerCase().includes(q) ||
@@ -23656,7 +23671,9 @@ function saveLocalUsersToStorage() {
                (qClean && skuClean.includes(qClean)) ||
                (t.zone || '').toLowerCase().includes(q) ||
                (t.toLocation || t.location || '').toLowerCase().includes(q) ||
-               (t.receivedBy || t.user || '').toLowerCase().includes(q) ||
+               (t.receivedBy || '').toLowerCase().includes(q) ||
+               (t.user || '').toLowerCase().includes(q) ||
+               (qClean && (uClean.includes(qClean) || rClean.includes(qClean))) ||
                (t.notes || '').toLowerCase().includes(q);
       });
       renderStockInHistoryTable(filtered, true);
@@ -23754,26 +23771,45 @@ function saveLocalUsersToStorage() {
     function renderStockInHistoryTable(rawTxs, isFiltered = false) {
       const activeWh = getStockInActiveWarehouseFilter();
       const sInp = document.getElementById('stockInHistorySearch');
-      if (sInp && typeof isGarbageSearchInput === 'function' && isGarbageSearchInput(sInp.value, 'stockInHistorySearch')) {
-        sInp.value = '';
-        delete sInp.dataset.userTyped;
-        sInp.setAttribute('readonly', 'readonly');
+      if (sInp) {
+        if (typeof isGarbageSearchInput === 'function' && isGarbageSearchInput(sInp.value, 'stockInHistorySearch')) {
+          sInp.value = '';
+          delete sInp.dataset.userTyped;
+          sInp.setAttribute('readonly', 'readonly');
+        } else if (sInp.dataset.userTyped !== 'true' && document.activeElement !== sInp) {
+          const sVal = (sInp.value || '').trim().toLowerCase();
+          if (sVal === 'hongkimly' || sVal === 'superadmin' || sVal === 'admin' || sVal === 'staff' || sVal.includes('@')) {
+            sInp.value = '';
+          }
+        }
       }
       const q = (sInp?.value || '').trim().toLowerCase();
       let txs = rawTxs || AppState.stockInHistory || [];
       if (!isFiltered) {
         if (activeWh && activeWh !== 'ALL' && activeWh !== 'គ្រប់ស្ថានីយទាំងអស់') {
-          txs = txs.filter(t => (typeof matchesTargetWarehouse === 'function') ? matchesTargetWarehouse(t.toLocation || t.location || t.warehouse || '', activeWh) : true);
-        }
-        if (q) {
           txs = txs.filter(t => {
+            const loc = t.toLocation || t.location || t.warehouse || '';
+            if (typeof matchesTargetWarehouse === 'function' && matchesTargetWarehouse(loc, activeWh)) return true;
+            if (typeof isSameWarehouse === 'function' && isSameWarehouse(loc, activeWh)) return true;
+            return false;
+          });
+        }
+        if (q && (q !== 'superadmin' && q !== 'admin' && q !== 'hongkimly')) {
+          const qClean = q.replace(/[-\s_]/g, '');
+          txs = txs.filter(t => {
+            const skuClean = String(t.sku || t.code || t.itemCode || '').toLowerCase().replace(/[-\s_]/g, '');
+            const uClean = String(t.user || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+            const rClean = String(t.receivedBy || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
             return (t.docNo || t.txId || '').toLowerCase().includes(q) ||
                    (t.itemName || '').toLowerCase().includes(q) ||
                    (t.sku || '').toLowerCase().includes(q) ||
                    (t.code || t.itemCode || '').toLowerCase().includes(q) ||
+                   (qClean && skuClean.includes(qClean)) ||
                    (t.zone || '').toLowerCase().includes(q) ||
                    (t.toLocation || t.location || '').toLowerCase().includes(q) ||
-                   (t.receivedBy || t.user || '').toLowerCase().includes(q) ||
+                   (t.receivedBy || '').toLowerCase().includes(q) ||
+                   (t.user || '').toLowerCase().includes(q) ||
+                   (qClean && (uClean.includes(qClean) || rClean.includes(qClean))) ||
                    (t.notes || '').toLowerCase().includes(q);
           });
         }
