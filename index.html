@@ -1780,7 +1780,7 @@
     window.sanitizeStationName = sanitizeStationName;
 
     function isUserSuperAdmin(user) {
-      const u = user || AppState?.currentUser || {};
+      const u = user || AppState?.currentUser || (function(){ try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch(e){ return null; } })() || {};
       const r = String(u.role || '').trim().toLowerCase().replace(/[\s_]+/g, '');
       const name = String(u.username || '').trim().toLowerCase().replace(/[\u200b\ufeff\s]/g, '');
       const email = String(u.email || '').trim().toLowerCase().replace(/[\u200b\ufeff\s]/g, '');
@@ -1801,7 +1801,7 @@
     window.isUserSuperAdmin = isUserSuperAdmin;
 
     function isUserAdmin(user) {
-      const u = user || AppState?.currentUser || {};
+      const u = user || AppState?.currentUser || (function(){ try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch(e){ return null; } })() || {};
       if (isUserSuperAdmin(u)) return false;
       const r = String(u.role || '').trim().toLowerCase().replace(/[\s_]+/g, '');
       const name = String(u.username || '').trim().toLowerCase().replace(/[\u200b\ufeff\s]/g, '');
@@ -2916,6 +2916,7 @@
                       <span class="truncate">ទីតាំងឃ្លាំងណា</span>
                     </label>
                     <select id="stockInLocation" required
+                      autocomplete="off"
                       onchange="handleStockInLocationChange(this)"
                       class="w-full h-11 px-3 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition shadow-2xs">
                       <option value="" selected>-- ជ្រើសរើសទីតាំងឃ្លាំង --</option>
@@ -14844,9 +14845,13 @@ function saveLocalUsersToStorage() {
 
       if (tabName === 'stockin') {
         const stockInLocEl = document.getElementById('stockInLocation');
-        if (stockInLocEl && (typeof isUserPrivilegedAdmin === 'function' ? isUserPrivilegedAdmin(AppState.currentUser) : false)) {
+        const curU = AppState.currentUser || (function(){ try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch(e){ return null; } })() || {};
+        const isPriv = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : (curU.role === 'Admin' || curU.role === 'SuperAdmin');
+        if (stockInLocEl && isPriv) {
           delete stockInLocEl.dataset.userChosen;
+          applyUserWarehouseToStockInLocation(stockInLocEl, false);
           stockInLocEl.value = '';
+          stockInLocEl.selectedIndex = 0;
         }
       }
       purgeAutofillFromSearchInputs();
@@ -15084,16 +15089,23 @@ function saveLocalUsersToStorage() {
       if (tabName === 'items') renderItemsTable();
       if (tabName === 'stockin') {
         const stockInLocEl = document.getElementById('stockInLocation');
-        if (stockInLocEl && (typeof isUserPrivilegedAdmin === 'function' ? isUserPrivilegedAdmin(AppState.currentUser) : false)) {
+        const curU = AppState.currentUser || (function(){ try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch(e){ return null; } })() || {};
+        const isPriv = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : (curU.role === 'Admin' || curU.role === 'SuperAdmin');
+        if (stockInLocEl && isPriv) {
           delete stockInLocEl.dataset.userChosen;
+          applyUserWarehouseToStockInLocation(stockInLocEl, false);
           stockInLocEl.value = '';
+          stockInLocEl.selectedIndex = 0;
         }
         try { populateItemSelectDropdowns(); } catch(e) { console.warn(e); }
         try { initStockInForm(); } catch(e) { console.warn(e); }
         try { loadStockInHistory(); } catch(e) { console.warn(e); }
         try { initStockInLayoutCustomizer(); } catch(e) { console.warn(e); }
-        if (stockInLocEl && (typeof isUserPrivilegedAdmin === 'function' ? isUserPrivilegedAdmin(AppState.currentUser) : false)) {
+        if (stockInLocEl && isPriv) {
+          delete stockInLocEl.dataset.userChosen;
+          applyUserWarehouseToStockInLocation(stockInLocEl, false);
           stockInLocEl.value = '';
+          stockInLocEl.selectedIndex = 0;
         }
       } else if (tabName === 'incoming') {
         if (typeof renderPendingIncomingDispatches === 'function') renderPendingIncomingDispatches();
@@ -19541,6 +19553,9 @@ function saveLocalUsersToStorage() {
           '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
           '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)'
         ];
+        if (!preserveSelection) {
+          delete locEl.dataset.userChosen;
+        }
         const userExplicitlyChosen = locEl.dataset.userChosen === 'true';
         const curVal = (preserveSelection && userExplicitlyChosen && locEl.value) ? (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(locEl.value) : locEl.value) : '';
         const isSelected = !!(curVal && allowed.includes(curVal));
@@ -19549,6 +19564,10 @@ function saveLocalUsersToStorage() {
         optionsHtml += allowed.map(w => `<option value="${escapeHtml(w)}" ${isSelected && curVal === w ? 'selected' : ''}>📍 ${escapeHtml(w)}</option>`).join('');
         locEl.innerHTML = optionsHtml;
         locEl.value = isSelected ? curVal : '';
+        if (!isSelected) {
+          delete locEl.dataset.userChosen;
+          locEl.selectedIndex = 0;
+        }
         return;
       }
 
@@ -19934,10 +19953,13 @@ function saveLocalUsersToStorage() {
 
       // ទីតាំងឃ្លាំងណា សម្រាប់ admin និង super admin ត្រូវទុកទទេឱ្យជ្រើសរើស
       const stockInLocEl = document.getElementById('stockInLocation');
+      const curU = AppState.currentUser || (function(){ try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch(e){ return null; } })() || {};
+      const isPriv = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : (curU.role === 'Admin' || curU.role === 'SuperAdmin');
       if (stockInLocEl) delete stockInLocEl.dataset.userChosen;
       applyUserWarehouseToStockInLocation(null, false);
-      if (stockInLocEl && (typeof isUserPrivilegedAdmin === 'function' ? isUserPrivilegedAdmin(AppState.currentUser) : false)) {
+      if (stockInLocEl && isPriv) {
         stockInLocEl.value = '';
+        stockInLocEl.selectedIndex = 0;
       }
       clearStockInFieldErrors();
       updateStockInBadges(0, 0, 0, 0, 'ប្រអប់', 'ដើម');
