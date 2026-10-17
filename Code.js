@@ -183,9 +183,9 @@ function doGet(e) {
   try {
     let template;
     try {
-      template = HtmlService.createTemplateFromFile('Index');
-    } catch (e1) {
       template = HtmlService.createTemplateFromFile('index');
+    } catch (e1) {
+      template = HtmlService.createTemplateFromFile('Index');
     }
     return template.evaluate()
       .setTitle('ប្រព័ន្ធគ្រប់គ្រងស្តុកទំនិញ | Smart Inventory')
@@ -2000,7 +2000,7 @@ function loginUser(usernameOrData, password, extraDeviceInfo) {
     return { success: false, message: 'សូមបញ្ចូលឈ្មោះគណនី អ៊ីមែល ឬលេខទូរស័ព្ទ និងពាក្យសម្ងាត់' };
   }
 
-  const lowerInput = uInput.toLowerCase();
+  const lowerInput = uInput.toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
   const cleanInput = lowerInput.replace(/^@/, '');
   const cleanDigits = uInput.replace(/\D/g, '');
   const phoneInput = cleanDigits.startsWith('855') ? ('0' + cleanDigits.slice(3)) : cleanDigits;
@@ -2012,8 +2012,8 @@ function loginUser(usernameOrData, password, extraDeviceInfo) {
   // Headers: UserID, Username, FullName, Email, PasswordHash, Salt, Role, Status, CreatedAt, Warehouse, Avatar, Phone, DeleteReason, DeleteRequestedBy, DeleteRequestedAt, BoundDevices
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
-    const uName = String(row[1] || '').trim().toLowerCase().replace(/^@/, '');
-    const uEmail = String(row[3] || '').trim().toLowerCase();
+    const uName = String(row[1] || '').trim().toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '').replace(/^@/, '');
+    const uEmail = String(row[3] || '').trim().toLowerCase().replace(/[\u200b\ufeff]/g, '');
     const uPhone = String(row[11] || '').replace(/\D/g, '').replace(/^855/, '0');
 
     const isUserMatch = (cleanInput && uName === cleanInput);
