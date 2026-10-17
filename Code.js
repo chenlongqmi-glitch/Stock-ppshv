@@ -3060,6 +3060,22 @@ function toCanonicalWarehouseNameGAS(wh) {
   if (s.indexOf('External Customer') !== -1 || s.indexOf('អតិថិជនក្រៅ') !== -1) {
     return 'អតិថិជនក្រៅ (External Customer)';
   }
+  var sNorm = sLower.replace(/[\u200b\ufeff\s_-]/g, '');
+  var personWhMap = {
+    'ហុងគិមលី': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+    'hongkimly': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+    'ទូចជីវី': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+    'touchvgvy': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+    'ស្រីមាស': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+    'sreymeas': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+    'សុផាដាឡែន': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+    'sophadalen': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+    'តារាទើបរៀន': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+    'draternjk': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02'
+  };
+  if (personWhMap[sNorm]) {
+    return personWhMap[sNorm];
+  }
   if (!s || s === '-' || s === 'undefined' || s === 'null' || /^\d+$/.test(s)) {
     return '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
   }
