@@ -6322,18 +6322,65 @@ function repairStockInWarehouses(optSs) {
       const data = sInSheet.getDataRange().getValues();
       const headers = (data[0] || []).map(h => String(h || '').trim().toLowerCase());
       const whIdx = headers.findIndex(h => h.includes('warehouse') || h.includes('ឃ្លាំង') || h.includes('ស្ថានីយ'));
-      const finalWhIdx = whIdx >= 0 ? whIdx : 12;
+      const recIdx = headers.findIndex(h => h.includes('receivedby') || h.includes('receiver') || h.includes('អ្នកទទួល'));
+      const userIdx = headers.findIndex(h => h === 'user' || h.includes('អ្នកប្រើ') || h.includes('បុគ្គលិក'));
       const notesIdx = headers.findIndex(h => h.includes('notes') || h.includes('note') || h.includes('សម្គាល់'));
+      const finalWhIdx = whIdx >= 0 ? whIdx : 12;
+      const finalRecIdx = recIdx >= 0 ? recIdx : 13;
+
+      const userWhMap = {};
+      try {
+        const uSheet = ss.getSheetByName('Users') || ss.getSheetByName(SHEETS.USERS);
+        if (uSheet && uSheet.getLastRow() > 1) {
+          const uData = uSheet.getDataRange().getValues();
+          const uHeaders = (uData[0] || []).map(h => String(h || '').trim().toLowerCase());
+          const uNameIdx = uHeaders.findIndex(h => h === 'username' || h.includes('user'));
+          const fNameIdx = uHeaders.findIndex(h => h === 'fullname' || h.includes('name'));
+          const whColIdx = uHeaders.findIndex(h => h.includes('warehouse') || h.includes('ស្ថានីយ'));
+          if (whColIdx >= 0) {
+            for (let i = 1; i < uData.length; i++) {
+              const rowWh = String(uData[i][whColIdx] || '').trim();
+              if (rowWh && rowWh !== 'ALL' && rowWh !== '-') {
+                if (uNameIdx >= 0 && uData[i][uNameIdx]) userWhMap[String(uData[i][uNameIdx]).trim().toLowerCase()] = rowWh;
+                if (fNameIdx >= 0 && uData[i][fNameIdx]) userWhMap[String(uData[i][fNameIdx]).trim().toLowerCase()] = rowWh;
+              }
+            }
+          }
+        }
+      } catch(eU) {}
 
       for (let r = 1; r < data.length; r++) {
-        const curWh = String(data[r][finalWhIdx] || '').trim();
-        if (!curWh || curWh === '-' || /^\d+$/.test(curWh) || curWh.toUpperCase() === 'ALL') {
-          let fixedWh = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
-          const rawNote = notesIdx >= 0 ? String(data[r][notesIdx] || '') : '';
-          const stationMatch = rawNote.match(/(?:K\d+[^\]\n\r]+)/i);
-          if (stationMatch) {
-            fixedWh = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(stationMatch[0]) : stationMatch[0];
+        let curWh = String(data[r][finalWhIdx] || '').trim();
+        const rUser = userIdx >= 0 ? String(data[r][userIdx] || '').trim() : '';
+        const rRec = recIdx >= 0 ? String(data[r][recIdx] || '').trim() : '';
+
+        // Auto-fix if warehouse was mistakenly stored as receiver's name
+        if (curWh && userWhMap[curWh.toLowerCase()]) {
+          const properWh = userWhMap[curWh.toLowerCase()];
+          if (!rRec || rRec === 'undefined' || rRec === '-') {
+            try { sInSheet.getRange(r + 1, finalRecIdx + 1).setValue(curWh); } catch(eFixRec) {}
           }
+          sInSheet.getRange(r + 1, finalWhIdx + 1).setValue(properWh);
+          curWh = properWh;
+          fixedCount++;
+        }
+
+        if (!curWh || curWh === '-' || /^\d+$/.test(curWh) || curWh.toUpperCase() === 'ALL' || curWh === 'គ្រប់ស្ថានីយទាំងអស់' || curWh === 'គ្រប់ឃ្លាំង') {
+          let fixedWh = '';
+          if (rUser && userWhMap[rUser.toLowerCase()]) {
+            fixedWh = userWhMap[rUser.toLowerCase()];
+          } else if (rRec && userWhMap[rRec.toLowerCase()]) {
+            fixedWh = userWhMap[rRec.toLowerCase()];
+          } else {
+            const rawNote = notesIdx >= 0 ? String(data[r][notesIdx] || '') : '';
+            const stationMatch = rawNote.match(/(?:K\d+[^\]\n\r]+)/i);
+            if (stationMatch) {
+              fixedWh = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(stationMatch[0]) : stationMatch[0];
+            } else {
+              fixedWh = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+            }
+          }
+          fixedWh = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(fixedWh) : fixedWh;
           sInSheet.getRange(r + 1, finalWhIdx + 1).setValue(fixedWh);
           fixedCount++;
         }
@@ -7346,6 +7393,29 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
       return m ? Number(m[0]) : null;
     };
 
+    const userColIdx = headers.findIndex(h => h === 'user' || h.includes('អ្នកប្រើ') || h.includes('បុគ្គលិក'));
+
+    const userWhMap = {};
+    try {
+      const uSheet = ss.getSheetByName('Users') || ss.getSheetByName(SHEETS.USERS);
+      if (uSheet && uSheet.getLastRow() > 1) {
+        const uData = uSheet.getDataRange().getValues();
+        const uHeaders = (uData[0] || []).map(h => String(h || '').trim().toLowerCase());
+        const uNameIdx = uHeaders.findIndex(h => h === 'username' || h.includes('user'));
+        const fNameIdx = uHeaders.findIndex(h => h === 'fullname' || h.includes('name'));
+        const whColIdx = uHeaders.findIndex(h => h.includes('warehouse') || h.includes('ស្ថានីយ'));
+        if (whColIdx >= 0) {
+          for (let i = 1; i < uData.length; i++) {
+            const rowWh = String(uData[i][whColIdx] || '').trim();
+            if (rowWh && rowWh !== 'ALL' && rowWh !== '-') {
+              if (uNameIdx >= 0 && uData[i][uNameIdx]) userWhMap[String(uData[i][uNameIdx]).trim().toLowerCase()] = rowWh;
+              if (fNameIdx >= 0 && uData[i][fNameIdx]) userWhMap[String(uData[i][fNameIdx]).trim().toLowerCase()] = rowWh;
+            }
+          }
+        }
+      }
+    } catch(e) {}
+
     for (let r = data.length - 1; r >= 1; r--) {
       const row = data[r];
       if (!row) continue;
@@ -7373,9 +7443,45 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
       if (filters && filters.startDate && dStr && dStr < filters.startDate) continue;
       if (filters && filters.endDate && dStr && dStr > filters.endDate) continue;
 
-      const wh = String(row[whIdx] || '').trim();
+      let recBy = String(row[recIdx] || '').trim();
+      const rowUser = String(userColIdx >= 0 ? (row[userColIdx] || '') : '').trim();
+      let wh = String(row[whIdx] || '').trim();
+
+      // If wh is actually a user's name (e.g. Hong Kimly)
+      if (wh && userWhMap[wh.toLowerCase()]) {
+        if (!recBy || recBy === 'undefined' || recBy === '-') {
+          recBy = wh;
+        }
+        wh = userWhMap[wh.toLowerCase()];
+      }
+
+      // Robust warehouse resolution if blank, numeric, or ALL
+      if (!wh || wh === '-' || /^\d+$/.test(wh) || wh.toUpperCase() === 'ALL' || wh === 'គ្រប់ស្ថានីយទាំងអស់' || wh === 'គ្រប់ឃ្លាំង') {
+        if (rowUser && userWhMap[rowUser.toLowerCase()]) {
+          wh = userWhMap[rowUser.toLowerCase()];
+        } else if (recBy && userWhMap[recBy.toLowerCase()]) {
+          wh = userWhMap[recBy.toLowerCase()];
+        } else if (user && user.warehouse && user.warehouse !== 'ALL' && (rowUser.toLowerCase() === uName || recBy.toLowerCase() === String(user.fullName || '').toLowerCase())) {
+          wh = user.warehouse;
+        } else {
+          const rawNote = notesIdx >= 0 ? String(row[notesIdx] || '') : '';
+          const stMatch = rawNote.match(/(?:K\d+[^\]\n\r]+)/i);
+          if (stMatch) {
+            wh = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(stMatch[0]) : stMatch[0];
+          } else {
+            wh = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+          }
+        }
+        wh = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(wh) : wh;
+        try { sInSheet.getRange(r + 1, whIdx + 1).setValue(wh); } catch(eFixWh) {}
+      } else {
+        wh = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(wh) : wh;
+      }
+
       if (targetWarehouse) {
-        if (!matchesTargetWarehouseGAS(wh, targetWarehouse)) {
+        const matchesTarget = matchesTargetWarehouseGAS(wh, targetWarehouse);
+        const isMyTx = (uName && rowUser.toLowerCase() === uName) || (user && user.fullName && recBy.toLowerCase() === String(user.fullName).toLowerCase()) || (user && user.username && rowUser.toLowerCase() === String(user.username).toLowerCase()) || (user && user.fullName && String(rowUser).toLowerCase() === String(user.fullName).toLowerCase());
+        if (!matchesTarget && !isMyTx) {
           continue;
         }
       }
@@ -7388,7 +7494,6 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
       const unit = String(row[unitIdx] || 'ដុំ').trim();
       const oldSt = parseNum(row[oldStIdx]);
       const newSt = parseNum(row[newStIdx]);
-      const recBy = String(row[recIdx] || '').trim();
       const notes = cleanDisplayNoteGAS(notesIdx >= 0 ? row[notesIdx] : '');
 
       if (filters && filters.search) {
@@ -7418,8 +7523,8 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
         toLocation: wh,
         warehouse: wh,
         location: wh,
-        receivedBy: recBy,
-        user: recBy,
+        receivedBy: (recBy && recBy !== 'undefined') ? recBy : (rowUser || (user && (user.fullName || user.username)) || 'Staff'),
+        user: (rowUser && rowUser !== 'undefined') ? rowUser : ((user && (user.username || user.fullName)) || recBy || 'Staff'),
         notes: notes,
         userNote: notes,
         rawNotes: String(notesIdx >= 0 ? row[notesIdx] : '')

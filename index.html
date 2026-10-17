@@ -19421,6 +19421,13 @@ function saveLocalUsersToStorage() {
     }
 
     function handleStockInLocationChange(inputEl) {
+      if (inputEl) {
+        if (inputEl.value) {
+          inputEl.dataset.userChosen = 'true';
+        } else {
+          delete inputEl.dataset.userChosen;
+        }
+      }
       if (typeof clearStockInSingleFieldError === 'function') {
         clearStockInSingleFieldError(inputEl);
       }
@@ -19467,7 +19474,8 @@ function saveLocalUsersToStorage() {
           '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
           '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)'
         ];
-        const curVal = (preserveSelection && locEl.value) ? (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(locEl.value) : locEl.value) : '';
+        const userExplicitlyChosen = locEl.dataset.userChosen === 'true';
+        const curVal = (preserveSelection && userExplicitlyChosen && locEl.value) ? (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(locEl.value) : locEl.value) : '';
         const isSelected = curVal && allowed.includes(curVal);
         
         let optionsHtml = `<option value="" ${!isSelected ? 'selected' : ''}>-- ជ្រើសរើសទីតាំងឃ្លាំង --</option>`;
@@ -19498,6 +19506,8 @@ function saveLocalUsersToStorage() {
       }
 
       // ទីតាំងឃ្លាំងណា សម្រាប់ admin និង super admin មិនត្រូវបង្ហាញ default ឡើយ (ត្រូវទុកទទេឱ្យជ្រើសរើស)
+      const stockInLocEl = document.getElementById('stockInLocation');
+      if (stockInLocEl) delete stockInLocEl.dataset.userChosen;
       applyUserWarehouseToStockInLocation(null, false);
       
       const zoneEl = document.getElementById('stockInZone');
@@ -19846,8 +19856,9 @@ function saveLocalUsersToStorage() {
       if (notesEl) notesEl.value = '-';
 
       // ទីតាំងឃ្លាំងណា សម្រាប់ admin និង super admin ត្រូវទុកទទេឱ្យជ្រើសរើស
-      applyUserWarehouseToStockInLocation(null, false);
       const stockInLocEl = document.getElementById('stockInLocation');
+      if (stockInLocEl) delete stockInLocEl.dataset.userChosen;
+      applyUserWarehouseToStockInLocation(null, false);
       if (stockInLocEl && (typeof isUserPrivilegedAdmin === 'function' ? isUserPrivilegedAdmin(AppState.currentUser) : false)) {
         stockInLocEl.value = '';
       }
@@ -20099,7 +20110,10 @@ function saveLocalUsersToStorage() {
         warehouse: location,
         location: location,
         receivedBy: receiver,
-        notes: finalNotes
+        user: AppState.currentUser?.username || receiver,
+        notes: finalNotes,
+        _createdAt: Date.now(),
+        _isLocalPending: true
       };
 
       if (!AppState.stockInHistory) AppState.stockInHistory = [];
@@ -23267,6 +23281,12 @@ function saveLocalUsersToStorage() {
       }
 
       try {
+        const curU = AppState.currentUser || {};
+        const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : (curU.role === 'Admin' || curU.role === 'SuperAdmin');
+        const myStationWh = (!isPrivileged && curU.warehouse && curU.warehouse !== 'ALL') ? ((typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(curU.warehouse) : curU.warehouse) : '';
+        const uName = String(curU.username || '').toLowerCase();
+        const uFull = String(curU.fullName || '').toLowerCase();
+
         // Query Google Sheets directly for STOCK_IN transactions (limit: 200)
         // All active station filtering is handled client-side by matchesTargetWarehouse
         // so that combo warehouses (中心库房 & 机电) and individual stations render accurately.
@@ -23296,19 +23316,43 @@ function saveLocalUsersToStorage() {
             if (!t.color && item?.color) t.color = String(item.color).trim();
             if (!t.zone && item?.zone) t.zone = String(item.zone).trim();
 
+            const tUser = String(t.user || '').toLowerCase();
+            const tRec = String(t.receivedBy || '').toLowerCase();
+            const isMyTx = (tUser && (tUser === uName || tUser === uFull)) || (tRec && (tRec === uName || tRec === uFull));
+
             // Sanitize warehouse: Stock In must NEVER be "ALL" or "គ្រប់ស្ថានីយទាំងអស់"
             const origWh = String(t.toLocation || t.location || t.warehouse || '').trim();
             let rawWh = origWh;
+
+            // If origWh was recorded as a person's name (e.g. Hong Kimly)
+            if (rawWh && (rawWh.toLowerCase() === uFull || rawWh.toLowerCase() === uName)) {
+              t.receivedBy = origWh;
+              rawWh = myStationWh || '';
+            }
+
             if (!rawWh || rawWh === '-' || rawWh === 'ALL' || rawWh === 'គ្រប់ស្ថានីយទាំងអស់' || rawWh === 'គ្រប់ឃ្លាំង' || /^\d+$/.test(rawWh)) {
-              const nStr = t.rawNotes || t.notes || '';
-              const stMatch = nStr.match(/(?:K\d+[^\]\n\r]+)/i);
-              if (stMatch) {
-                rawWh = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(stMatch[0]) : stMatch[0];
+              if (isMyTx && myStationWh) {
+                rawWh = myStationWh;
               } else {
-                rawWh = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+                const matchedUser = (LOCAL_DB.users || []).find(u => {
+                  const un = String(u.username || '').toLowerCase();
+                  const fn = String(u.fullName || '').toLowerCase();
+                  return (tUser && (un === tUser || fn === tUser)) || (tRec && (un === tRec || fn === tRec));
+                });
+                if (matchedUser && matchedUser.warehouse && matchedUser.warehouse !== 'ALL') {
+                  rawWh = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(matchedUser.warehouse) : matchedUser.warehouse;
+                } else {
+                  const nStr = t.rawNotes || t.notes || '';
+                  const stMatch = nStr.match(/(?:K\d+[^\]\n\r]+)/i);
+                  if (stMatch) {
+                    rawWh = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(stMatch[0]) : stMatch[0];
+                  } else {
+                    rawWh = isPrivileged ? '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)' : (myStationWh || '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)');
+                  }
+                }
               }
               // Background heal Google Sheets if missing or corrupted (numbers like 8, -, ALL, etc.)
-              if (!origWh || origWh === '-' || /^\d+$/.test(origWh) || origWh === 'ALL' || origWh === 'គ្រប់ស្ថានីយទាំងអស់' || origWh === 'គ្រប់ឃ្លាំង') {
+              if (!origWh || origWh === '-' || /^\d+$/.test(origWh) || origWh === 'ALL' || origWh === 'គ្រប់ស្ថានីយទាំងអស់' || origWh === 'គ្រប់ឃ្លាំង' || origWh.toLowerCase() === uFull) {
                 apiCall('updateStockTransaction', {
                   data: {
                     txId: t.txId,
@@ -23325,7 +23369,7 @@ function saveLocalUsersToStorage() {
             } else {
               rawWh = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(rawWh) : rawWh;
               if (rawWh === 'ALL' || rawWh === 'គ្រប់ស្ថានីយទាំងអស់' || rawWh === 'គ្រប់ឃ្លាំង' || /^\d+$/.test(rawWh)) {
-                rawWh = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+                rawWh = isPrivileged ? '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)' : (myStationWh || '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)');
               }
             }
             t.toLocation = rawWh;
@@ -23346,13 +23390,27 @@ function saveLocalUsersToStorage() {
             }
           });
 
-          AppState.stockInHistory = cleanTxs;
+          // PRESERVE RECENT LOCAL PENDING TRANSACTIONS (so newly submitted items NEVER disappear)
+          const nowTs = Date.now();
+          const localPending = (AppState.stockInHistory || []).filter(loc => {
+            if (isTransactionDeleted(loc)) return false;
+            const existsInClean = cleanTxs.some(c => 
+              (c.docNo && loc.docNo && String(c.docNo).trim().toUpperCase() === String(loc.docNo).trim().toUpperCase()) ||
+              (c.txId && loc.txId && String(c.txId).trim().toUpperCase() === String(loc.txId).trim().toUpperCase())
+            );
+            if (existsInClean) return false;
+            const created = loc._createdAt || 0;
+            return loc._isLocalPending || (nowTs - created < 600000);
+          });
+
+          const finalHistory = [...localPending, ...cleanTxs];
+          AppState.stockInHistory = finalHistory;
           try {
-            localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(cleanTxs));
+            localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(finalHistory));
           } catch(e) {}
           // Synchronize LOCAL_DB.transactions with cleanTxs so deleted items are completely purged from storage
           if (LOCAL_DB.transactions) {
-            LOCAL_DB.transactions = LOCAL_DB.transactions.filter(t => t.type !== 'STOCK_IN' && !isTransactionDeleted(t)).concat(cleanTxs);
+            LOCAL_DB.transactions = LOCAL_DB.transactions.filter(t => t.type !== 'STOCK_IN' && !isTransactionDeleted(t)).concat(finalHistory);
             saveLocalTransactionsToStorage();
           }
           if (typeof syncItemStockFromHistory === 'function') {
@@ -23390,8 +23448,26 @@ function saveLocalUsersToStorage() {
     function filterStockInHistoryTable() {
       const activeWh = getStockInActiveWarehouseFilter();
       let baseList = AppState.stockInHistory || [];
+      const curU = AppState.currentUser || {};
+      const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : false;
+      const uName = String(curU.username || '').toLowerCase();
+      const uFull = String(curU.fullName || '').toLowerCase();
+
       if (activeWh && activeWh !== 'ALL' && activeWh !== 'គ្រប់ស្ថានីយទាំងអស់') {
-        baseList = baseList.filter(t => (typeof matchesTargetWarehouse === 'function') ? matchesTargetWarehouse(t.toLocation || t.location || t.warehouse || '', activeWh) : isSameWarehouse(t.toLocation || t.location || t.warehouse || '', activeWh));
+        baseList = baseList.filter(t => {
+          const tWh = t.toLocation || t.location || t.warehouse || '';
+          if (typeof matchesTargetWarehouse === 'function' && matchesTargetWarehouse(tWh, activeWh)) return true;
+          if (typeof isSameWarehouse === 'function' && isSameWarehouse(tWh, activeWh)) return true;
+          // Fallback for station manager: if current user created or received this transaction and their station matches activeWh
+          if (!isPrivileged && curU.warehouse && (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(curU.warehouse, activeWh) : isSameWarehouse(curU.warehouse, activeWh))) {
+            const tUser = String(t.user || '').toLowerCase();
+            const tRec = String(t.receivedBy || '').toLowerCase();
+            if ((tUser && (tUser === uName || tUser === uFull)) || (tRec && (tRec === uName || tRec === uFull))) {
+              return true;
+            }
+          }
+          return false;
+        });
       }
       const sInp = document.getElementById('stockInHistorySearch');
       if (sInp && typeof isGarbageSearchInput === 'function' && isGarbageSearchInput(sInp.value, 'stockInHistorySearch')) {
