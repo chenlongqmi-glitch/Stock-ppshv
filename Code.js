@@ -912,6 +912,20 @@ function executeLocalApiAction(req) {
       case 'repairStockIn':
         return repairStockInWarehouses();
 
+      case 'inspectStockInSheet': {
+        const _ss = SpreadsheetApp.getActiveSpreadsheet() || SpreadsheetApp.openById('1zIK2d2uF3EYzaM9f4N2eOzR-HAmBihfxfHzK3xdgV_A');
+        const _sIn = _ss.getSheetByName('Stock_in');
+        const _txSheet = _ss.getSheetByName('Transactions');
+        return {
+          success: true,
+          spreadsheetId: _ss.getId(),
+          spreadsheetName: _ss.getName(),
+          sheetNames: _ss.getSheets().map(s => s.getName()),
+          stockInRows: _sIn ? _sIn.getDataRange().getValues() : [],
+          txRowsCount: _txSheet ? _txSheet.getLastRow() : 0
+        };
+      }
+
       case 'recordBatchDispatch':
       case 'batchDispatch':
         return recordBatchDispatch(payload.data || payload, payload.user, payload.dispatches);

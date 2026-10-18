@@ -1862,6 +1862,80 @@
     window.isUserPrivilegedAdmin = isUserPrivilegedAdmin;
     window.isPrivilegedAdmin = isUserPrivilegedAdmin;
 
+    const KNOWN_USER_ALIASES_MAP = {
+      'hongkimly': ['hongkimly', 'ហុងគិមលី', 'ហុង គិមលី', 'hong kimly', 'hong', 'kimly'],
+      'ហុងគិមលី': ['hongkimly', 'ហុងគិមលី', 'ហុង គិមលី', 'hong kimly', 'hong', 'kimly'],
+      'touchvgvy': ['touchvgvy', 'ទូចជីវិ', 'ទូចជីវី', 'ទូច ជីវិ', 'ទូច ជីវី', 'touch', 'vgvy'],
+      'ទូចជីវិ': ['touchvgvy', 'ទូចជីវិ', 'ទូចជីវី', 'ទូច ជីវិ', 'ទូច ជីវី', 'touch', 'vgvy'],
+      'chandara': ['chandara', 'ចាន់តារា', 'ចាន់ តារា', 'chan dara'],
+      'ចាន់តារា': ['chandara', 'ចាន់តារា', 'ចាន់ តារា', 'chan dara'],
+      'chandy': ['chandy', 'ចាន់ឌី', 'ចាន់ ឌី', 'chan dy'],
+      'ចាន់ឌី': ['chandy', 'ចាន់ឌី', 'ចាន់ ឌី', 'chan dy'],
+      'sreymeas': ['sreymeas', 'ស្រីមាស', 'ស្រី មាស', 'srey meas'],
+      'ស្រីមាស': ['sreymeas', 'ស្រីមាស', 'ស្រី មាស', 'srey meas'],
+      'sophadalen': ['sophadalen', 'សុផាដាឡែន', 'សុផា ដាឡែន', 'sopha dalen'],
+      'សុផាដាឡែន': ['sophadalen', 'សុផាដាឡែន', 'សុផា ដាឡែន', 'sopha dalen'],
+      'draternjk': ['draternjk', 'ដារាទើបរ៖', 'ដារា ទើបរ៖', 'ដារាទើបរៀន', 'dara'],
+      'ដារាទើបរ៖': ['draternjk', 'ដារាទើបរ៖', 'ដារា ទើបរ៖', 'ដារាទើបរៀន', 'dara']
+    };
+
+    function isSameUserOrAlias(uA, uB) {
+      if (!uA || !uB) return false;
+      const getStrings = (x) => {
+        if (!x) return [];
+        if (typeof x === 'string') return [x];
+        const res = [];
+        if (x.username) res.push(x.username);
+        if (x.fullName) res.push(x.fullName);
+        if (x.name) res.push(x.name);
+        return res;
+      };
+      const clean = (s) => String(s || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+      const listA = getStrings(uA).map(clean).filter(Boolean);
+      const listB = getStrings(uB).map(clean).filter(Boolean);
+      if (!listA.length || !listB.length) return false;
+
+      for (const a of listA) {
+        for (const b of listB) {
+          if (a === b) return true;
+          const aliasesA = KNOWN_USER_ALIASES_MAP[a] || [];
+          if (aliasesA.some(al => clean(al) === b)) return true;
+          const aliasesB = KNOWN_USER_ALIASES_MAP[b] || [];
+          if (aliasesB.some(al => clean(al) === a)) return true;
+        }
+      }
+      return false;
+    }
+    window.isSameUserOrAlias = isSameUserOrAlias;
+
+    function getUserStationWarehouse(userStrOrObj) {
+      if (!userStrOrObj) return '';
+      const clean = (s) => String(s || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+      const target = (typeof userStrOrObj === 'object') ? (userStrOrObj.warehouse || userStrOrObj.username || userStrOrObj.fullName) : userStrOrObj;
+      if (typeof userStrOrObj === 'object' && userStrOrObj.warehouse && userStrOrObj.warehouse !== 'ALL') {
+        return (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(userStrOrObj.warehouse) : userStrOrObj.warehouse;
+      }
+      const tClean = clean(target);
+      if (KNOWN_USER_ALIASES_MAP['hongkimly'].some(al => clean(al) === tClean) ||
+          KNOWN_USER_ALIASES_MAP['touchvgvy'].some(al => clean(al) === tClean) ||
+          KNOWN_USER_ALIASES_MAP['chandara'].some(al => clean(al) === tClean) ||
+          KNOWN_USER_ALIASES_MAP['chandy'].some(al => clean(al) === tClean)) {
+        return 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
+      }
+      if (KNOWN_USER_ALIASES_MAP['sreymeas'].some(al => clean(al) === tClean) ||
+          KNOWN_USER_ALIASES_MAP['sophadalen'].some(al => clean(al) === tClean) ||
+          KNOWN_USER_ALIASES_MAP['draternjk'].some(al => clean(al) === tClean)) {
+        return 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02';
+      }
+      const allUsers = (typeof LOCAL_DB !== 'undefined' ? LOCAL_DB.users : []).concat(typeof AppState !== 'undefined' ? AppState.users : []);
+      const matched = (allUsers || []).find(u => u && (clean(u.username) === tClean || clean(u.fullName) === tClean));
+      if (matched && matched.warehouse && matched.warehouse !== 'ALL') {
+        return (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(matched.warehouse) : matched.warehouse;
+      }
+      return '';
+    }
+    window.getUserStationWarehouse = getUserStationWarehouse;
+
         (function() {
           try {
             var raw = sessionStorage.getItem('inventory_user');
@@ -19343,8 +19417,29 @@ function saveLocalUsersToStorage() {
             curRetail = stStock ? stStock.loose : (pQty > 1 ? (curStock % pQty) : curStock);
           }
         } else {
-          curBulk = pQty > 1 ? Math.floor(curStock / pQty) : 0;
-          curRetail = pQty > 1 ? (curStock % pQty) : curStock;
+          let inWh = '';
+          const locEl = document.getElementById('stockInLocation');
+          if (locEl && locEl.value) {
+            inWh = locEl.value;
+          } else if (!isPrivileged && curU && curU.warehouse && curU.warehouse !== 'ALL') {
+            inWh = curU.warehouse;
+          }
+          if (inWh && typeof toCanonicalWarehouseName === 'function') {
+            inWh = toCanonicalWarehouseName(inWh);
+          }
+          if (inWh && typeof getItemStationStock === 'function') {
+            const stStock = getItemStationStock(item, inWh);
+            curStock = stStock ? stStock.total : 0;
+            curBulk = stStock ? stStock.bulk : (pQty > 1 ? Math.floor(curStock / pQty) : 0);
+            curRetail = stStock ? stStock.loose : (pQty > 1 ? (curStock % pQty) : curStock);
+          } else if (inWh) {
+            curBulk = pQty > 1 ? Math.floor(curStock / pQty) : 0;
+            curRetail = pQty > 1 ? (curStock % pQty) : curStock;
+          } else {
+            curStock = 0;
+            curBulk = 0;
+            curRetail = 0;
+          }
         }
 
         const isOutOfStock = mode === 'stockOut' && curStock <= 0;
@@ -19515,6 +19610,14 @@ function saveLocalUsersToStorage() {
       }
       if (typeof clearStockInSingleFieldError === 'function') {
         clearStockInSingleFieldError(inputEl);
+      }
+      // Re-calculate old stock & new stock badges based on newly chosen warehouse!
+      const itemCodeEl = document.getElementById('stockInItemCode');
+      const skuInput = document.getElementById('stockInSku');
+      if ((itemCodeEl && itemCodeEl.value) || (skuInput && skuInput.value)) {
+        if (typeof onStockInItemChange === 'function') {
+          onStockInItemChange();
+        }
       }
     }
 
@@ -19832,21 +19935,6 @@ function saveLocalUsersToStorage() {
         document.getElementById('stockInPackUnitVal').value = packUnit;
         document.getElementById('stockInPackQtyVal').value = packQty;
 
-        const oldStock = Number(item.currentStock || 0);
-        const oldStockValEl = document.getElementById('stockInOldStockValue');
-        if (oldStockValEl) oldStockValEl.value = oldStock;
-
-        let oldBulk = 0, oldRetail = 0;
-        if (packQty > 1) {
-          oldBulk = Math.floor(oldStock / packQty);
-          oldRetail = oldStock % packQty;
-        } else {
-          oldBulk = 0;
-          oldRetail = oldStock;
-        }
-
-        updateStockInBadges(oldBulk, oldRetail, oldBulk, oldRetail, packUnit, baseUnit);
-
         // ទីតាំងឃ្លាំងណា រក្សាទុកជម្រើសប្រសិនបើ user បានជ្រើសរើសរួច (សម្រាប់ admin/superadmin មិន auto-fill ឡើយ)
         const stockInLocEl = document.getElementById('stockInLocation');
         const curU = AppState.currentUser || (function(){ try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch(e){ return null; } })() || {};
@@ -19863,6 +19951,43 @@ function saveLocalUsersToStorage() {
         } else {
           applyUserWarehouseToStockInLocation(stockInLocEl, true);
         }
+
+        // គណនាស្តុកចាស់ជាក់ស្តែងតាមស្ថានីយដែលត្រូវបញ្ចូលស្តុក (Station-Specific Old Stock)
+        let currentTargetWh = '';
+        if (stockInLocEl && stockInLocEl.value) {
+          currentTargetWh = stockInLocEl.value;
+        } else if (!isPriv && curU && curU.warehouse && curU.warehouse !== 'ALL') {
+          currentTargetWh = curU.warehouse;
+        }
+        if (currentTargetWh && typeof toCanonicalWarehouseName === 'function') {
+          currentTargetWh = toCanonicalWarehouseName(currentTargetWh);
+        }
+
+        let oldStock = 0;
+        let oldBulk = 0, oldRetail = 0;
+
+        if (currentTargetWh) {
+          if (typeof getItemStationStock === 'function') {
+            const stStock = getItemStationStock(item, currentTargetWh);
+            oldStock = stStock ? stStock.total : 0;
+            oldBulk = stStock ? stStock.bulk : (packQty > 1 ? Math.floor(oldStock / packQty) : 0);
+            oldRetail = stStock ? stStock.loose : (packQty > 1 ? (oldStock % packQty) : oldStock);
+          } else {
+            oldStock = Number(item.currentStock || 0);
+            oldBulk = packQty > 1 ? Math.floor(oldStock / packQty) : 0;
+            oldRetail = packQty > 1 ? (oldStock % packQty) : oldStock;
+          }
+        } else {
+          // ប្រសិនបើ Admin មិនទាន់បានជ្រើសរើសឃ្លាំងណា មិនទាន់មានបង្ហាញស្តុកចាស់ទេ (ស្មើ 0)
+          oldStock = 0;
+          oldBulk = 0;
+          oldRetail = 0;
+        }
+
+        const oldStockValEl = document.getElementById('stockInOldStockValue');
+        if (oldStockValEl) oldStockValEl.value = oldStock;
+
+        updateStockInBadges(oldBulk, oldRetail, oldBulk, oldRetail, packUnit, baseUnit);
         clearStockInSingleFieldError(document.getElementById('stockInSku'));
 
         updateStockInImagePreview(item);
@@ -23358,7 +23483,20 @@ function saveLocalUsersToStorage() {
     async function loadStockInHistory(forceRefresh = false, btn = null) {
       const refreshIcon = btn ? btn.querySelector('i') : null;
       if (refreshIcon) refreshIcon.classList.add('fa-spin');
-      const recentPendingToKeep = (AppState.stockInHistory || []).filter(t => t && (t._isLocalPending || (t._createdAt && Date.now() - t._createdAt < 300000)));
+      const seenRecent = new Set();
+      const recentPendingToKeep = [];
+      [(AppState.stockInHistory || []), (LOCAL_DB.transactions || [])].forEach(list => {
+        (list || []).forEach(t => {
+          if (!t || (t.type && t.type !== 'STOCK_IN') || (typeof isTransactionDeleted === 'function' && isTransactionDeleted(t))) return;
+          const k = String(t.docNo || t.txId || '').trim().toUpperCase();
+          if (k && seenRecent.has(k)) return;
+          const created = t._createdAt || 0;
+          if (t._isLocalPending || (created && Date.now() - created < 900000)) {
+            if (k) seenRecent.add(k);
+            recentPendingToKeep.push(t);
+          }
+        });
+      });
       if (forceRefresh) {
         API_CACHE.clear();
         AppState.stockInHistory = recentPendingToKeep;
@@ -23491,9 +23629,10 @@ function saveLocalUsersToStorage() {
                (loc.txId && t.txId && String(loc.txId).trim().toUpperCase() === String(t.txId).trim().toUpperCase()))
             );
 
+            const isMyTx = isSameUserOrAlias(t.user, curU) || isSameUserOrAlias(t.receivedBy, curU);
+            const userSt = getUserStationWarehouse(t.user) || getUserStationWarehouse(t.receivedBy);
             const tUserClean = normalizeStr(t.user);
             const tRecClean = normalizeStr(t.receivedBy);
-            const isMyTx = (tUserClean && (tUserClean === uName || tUserClean === uFull)) || (tRecClean && (tRecClean === uName || tRecClean === uFull));
 
             // Sanitize warehouse: Stock In must NEVER be "ALL" or "គ្រប់ស្ថានីយទាំងអស់"
             const origWh = String(t.toLocation || t.location || t.warehouse || '').trim();
@@ -23501,7 +23640,13 @@ function saveLocalUsersToStorage() {
             let rawWh = origWh;
 
             // If origWh was recorded as a person's name (e.g. Hong Kimly)
-            if (userWhMap[origWhNorm]) {
+            const origWhSt = getUserStationWarehouse(origWh);
+            if (origWhSt) {
+              if (!t.receivedBy || t.receivedBy === 'undefined' || t.receivedBy === '-') {
+                t.receivedBy = origWh;
+              }
+              rawWh = origWhSt;
+            } else if (userWhMap[origWhNorm]) {
               if (!t.receivedBy || t.receivedBy === 'undefined' || t.receivedBy === '-') {
                 t.receivedBy = origWh;
               }
@@ -23513,14 +23658,16 @@ function saveLocalUsersToStorage() {
               rawWh = myStationWh || 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
             }
 
-            // For station managers: if this transaction was submitted/received by them, or local pending matches, or server returned ALL/every-station/Central Warehouse mistakenly:
-            if (!isPrivileged && myStationWh && (isMyTx || origWh === 'ALL' || origWh === 'គ្រប់ស្ថានីយទាំងអស់' || origWh === 'គ្រប់ឃ្លាំង' || (origWh === '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)' && isMyTx) || userWhMap[tUserClean] === myStationWh || userWhMap[tRecClean] === myStationWh)) {
+            // For station managers: if this transaction was submitted/received by them or their station:
+            if (!isPrivileged && myStationWh && (isMyTx || userSt === myStationWh || origWh === 'ALL' || origWh === 'គ្រប់ស្ថានីយទាំងអស់' || origWh === 'គ្រប់ឃ្លាំង' || (origWh === '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)' && (isMyTx || userSt === myStationWh)))) {
               rawWh = myStationWh;
             }
 
             if (!rawWh || rawWh === '-' || rawWh === 'ALL' || rawWh === 'គ្រប់ស្ថានីយទាំងអស់' || rawWh === 'គ្រប់ឃ្លាំង' || /^\d+$/.test(rawWh)) {
               if (localMatch && localMatch.toLocation && !userWhMap[normalizeStr(localMatch.toLocation)]) {
                 rawWh = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(localMatch.toLocation) : localMatch.toLocation;
+              } else if (userSt) {
+                rawWh = userSt;
               } else if (userWhMap[tUserClean]) {
                 rawWh = userWhMap[tUserClean];
               } else if (userWhMap[tRecClean]) {
@@ -23528,41 +23675,14 @@ function saveLocalUsersToStorage() {
               } else if (isMyTx && myStationWh) {
                 rawWh = myStationWh;
               } else {
-                const matchedUser = (LOCAL_DB.users || []).find(u => {
-                  const un = normalizeStr(u.username);
-                  const fn = normalizeStr(u.fullName);
-                  return (tUserClean && (un === tUserClean || fn === tUserClean)) || (tRecClean && (un === tRecClean || fn === tRecClean));
-                });
-                if (matchedUser && matchedUser.warehouse && matchedUser.warehouse !== 'ALL') {
-                  rawWh = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(matchedUser.warehouse) : matchedUser.warehouse;
+                const nStr = t.rawNotes || t.notes || '';
+                const stMatch = nStr.match(/(?:K\d+[^\]\n\r]+)/i);
+                if (stMatch) {
+                  rawWh = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(stMatch[0]) : stMatch[0];
+                } else if (tUserClean === 'superadmin' || tUserClean === 'admin' || tUserClean.includes('singvan') || tUserClean.includes('chenlong')) {
+                  rawWh = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
                 } else {
-                  const nStr = t.rawNotes || t.notes || '';
-                  const stMatch = nStr.match(/(?:K\d+[^\]\n\r]+)/i);
-                  if (stMatch) {
-                    rawWh = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(stMatch[0]) : stMatch[0];
-                  } else if (tUserClean === 'superadmin' || tUserClean === 'admin' || tUserClean.includes('singvan') || tUserClean.includes('chenlong')) {
-                    rawWh = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
-                  } else {
-                    rawWh = myStationWh || 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
-                  }
-                }
-              }
-              // Background heal Google Sheets if missing or corrupted (numbers like 8, -, ALL, etc.)
-              if (!origWh || origWh === '-' || /^\d+$/.test(origWh) || origWh === 'ALL' || origWh === 'គ្រប់ស្ថានីយទាំងអស់' || origWh === 'គ្រប់ឃ្លាំង' || origWhNorm === uFull || userWhMap[origWhNorm]) {
-                if (rawWh && rawWh !== origWh) {
-                  apiCall('updateStockTransaction', {
-                    data: {
-                      txId: t.txId,
-                      docNo: t.docNo,
-                      type: 'STOCK_IN',
-                      sku: t.sku,
-                      warehouse: rawWh,
-                      location: rawWh,
-                      fromLocation: 'អ្នកផ្គត់ផ្គង់ (Supplier)',
-                      toLocation: rawWh,
-                      receivedBy: t.receivedBy || origWh || (curU.fullName || curU.username)
-                    }
-                  }).catch(() => {});
+                  rawWh = myStationWh || 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
                 }
               }
             } else {
@@ -23572,7 +23692,7 @@ function saveLocalUsersToStorage() {
               }
             }
 
-            if (!isPrivileged && myStationWh && (isMyTx || userWhMap[tUserClean] === myStationWh || userWhMap[tRecClean] === myStationWh)) {
+            if (!isPrivileged && myStationWh && (isMyTx || userSt === myStationWh || userWhMap[tUserClean] === myStationWh || userWhMap[tRecClean] === myStationWh)) {
               rawWh = myStationWh;
             }
             if (localMatch && localMatch.toLocation && !isPrivileged) {
@@ -23703,9 +23823,8 @@ function saveLocalUsersToStorage() {
           if (typeof matchesTargetWarehouse === 'function' && matchesTargetWarehouse(tWh, activeWh)) return true;
           if (typeof isSameWarehouse === 'function' && isSameWarehouse(tWh, activeWh)) return true;
 
-          const tWhClean = normalizeStr(tWh);
           // If tWh is user's name matching current user
-          if (tWhClean && (tWhClean === uNameClean || tWhClean === uFullClean)) {
+          if (isSameUserOrAlias(tWh, curU)) {
             if (myWhCanonical && (matchesTargetWarehouse(myWhCanonical, activeWh) || isSameWarehouse(myWhCanonical, activeWh))) {
               return true;
             }
@@ -23713,16 +23832,17 @@ function saveLocalUsersToStorage() {
 
           // Fallback for station manager: if current user created or received this transaction and their station matches activeWh
           if (!isPrivileged && curU.warehouse && (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(curU.warehouse, activeWh) : isSameWarehouse(curU.warehouse, activeWh))) {
-            const tUser = normalizeStr(t.user);
-            const tRec = normalizeStr(t.receivedBy);
-            const isUserMatch = (tUser && (tUser === uNameClean || tUser === uFullClean)) || 
-                                (tRec && (tRec === uNameClean || tRec === uFullClean)) ||
-                                (tWhClean && (tWhClean === uNameClean || tWhClean === uFullClean));
-            if (isUserMatch) {
+            const isUserMatch = isSameUserOrAlias(t.user, curU) || 
+                                isSameUserOrAlias(t.receivedBy, curU) ||
+                                isSameUserOrAlias(tWh, curU);
+            const userSt = getUserStationWarehouse(t.user) || getUserStationWarehouse(t.receivedBy) || getUserStationWarehouse(tWh);
+            const isStMatch = userSt && (matchesTargetWarehouse(userSt, activeWh) || isSameWarehouse(userSt, activeWh));
+
+            if (isUserMatch || isStMatch) {
               return true;
             }
             const isGlobal = (tWh === 'ALL' || tWh === 'គ្រប់ស្ថានីយទាំងអស់' || tWh === 'គ្រប់ឃ្លាំង');
-            if (isGlobal && (isUserMatch || (tUser && !tUser.includes('admin') && !tUser.includes('superadmin')))) {
+            if (isGlobal && (isUserMatch || isStMatch || (!String(t.user || '').toLowerCase().includes('admin') && !String(t.user || '').toLowerCase().includes('superadmin')))) {
               return true;
             }
             // Preserve local pending transactions for this station manager
@@ -23882,53 +24002,29 @@ function saveLocalUsersToStorage() {
       const q = (sInp?.value || '').trim().toLowerCase();
       let txs = rawTxs || AppState.stockInHistory || [];
       if (!isFiltered) {
-        if (typeof filterStockInHistoryTable === 'function' && (!rawTxs || rawTxs === AppState.stockInHistory)) {
+        if (typeof filterStockInHistoryTable === 'function') {
           filterStockInHistoryTable();
           return;
         }
-        if (activeWh && activeWh !== 'ALL' && activeWh !== 'គ្រប់ស្ថានីយទាំងអស់') {
-          txs = txs.filter(t => {
-            const loc = t.toLocation || t.location || t.warehouse || '';
-            if (typeof matchesTargetWarehouse === 'function' && matchesTargetWarehouse(loc, activeWh)) return true;
-            if (typeof isSameWarehouse === 'function' && isSameWarehouse(loc, activeWh)) return true;
-
-            const curU = AppState.currentUser || {};
-            const isPriv = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : false;
-            const uNameClean = String(curU.username || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
-            const uFullClean = String(curU.fullName || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
-            const tWhClean = String(loc || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
-            const tUser = String(t.user || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
-            const tRec = String(t.receivedBy || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
-
-            const isUserMatch = (tUser && (tUser === uNameClean || tUser === uFullClean)) || 
-                                (tRec && (tRec === uNameClean || tRec === uFullClean)) ||
-                                (tWhClean && (tWhClean === uNameClean || tWhClean === uFullClean));
-            if (!isPriv && isUserMatch) return true;
-            if ((loc === 'ALL' || loc === 'គ្រប់ស្ថានីយទាំងអស់' || loc === 'គ្រប់ឃ្លាំង') && isUserMatch) return true;
-            if (!isPriv && (t._isLocalPending || (t._createdAt && Date.now() - t._createdAt < 900000))) return true;
-
-            return false;
-          });
-        }
-        if (q && (q !== 'superadmin' && q !== 'admin' && q !== 'hongkimly')) {
-          const qClean = q.replace(/[-\s_]/g, '');
-          txs = txs.filter(t => {
-            const skuClean = String(t.sku || t.code || t.itemCode || '').toLowerCase().replace(/[-\s_]/g, '');
-            const uClean = String(t.user || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
-            const rClean = String(t.receivedBy || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
-            return (t.docNo || t.txId || '').toLowerCase().includes(q) ||
-                   (t.itemName || '').toLowerCase().includes(q) ||
-                   (t.sku || '').toLowerCase().includes(q) ||
-                   (t.code || t.itemCode || '').toLowerCase().includes(q) ||
-                   (qClean && skuClean.includes(qClean)) ||
-                   (t.zone || '').toLowerCase().includes(q) ||
-                   (t.toLocation || t.location || '').toLowerCase().includes(q) ||
-                   (t.receivedBy || '').toLowerCase().includes(q) ||
-                   (t.user || '').toLowerCase().includes(q) ||
-                   (qClean && (uClean.includes(qClean) || rClean.includes(qClean))) ||
-                   (t.notes || '').toLowerCase().includes(q);
-          });
-        }
+      }
+      if (q && (q !== 'superadmin' && q !== 'admin' && q !== 'hongkimly')) {
+        const qClean = q.replace(/[-\s_]/g, '');
+        txs = txs.filter(t => {
+          const skuClean = String(t.sku || t.code || t.itemCode || '').toLowerCase().replace(/[-\s_]/g, '');
+          const uClean = String(t.user || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+          const rClean = String(t.receivedBy || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+          return (t.docNo || t.txId || '').toLowerCase().includes(q) ||
+                 (t.itemName || '').toLowerCase().includes(q) ||
+                 (t.sku || '').toLowerCase().includes(q) ||
+                 (t.code || t.itemCode || '').toLowerCase().includes(q) ||
+                 (qClean && skuClean.includes(qClean)) ||
+                 (t.zone || '').toLowerCase().includes(q) ||
+                 (t.toLocation || t.location || '').toLowerCase().includes(q) ||
+                 (t.receivedBy || '').toLowerCase().includes(q) ||
+                 (t.user || '').toLowerCase().includes(q) ||
+                 (qClean && (uClean.includes(qClean) || rClean.includes(qClean))) ||
+                 (t.notes || '').toLowerCase().includes(q);
+        });
       }
       const tbody = document.getElementById('stockInHistoryTableBody');
       const countEl = document.getElementById('stockInHistoryCount');
