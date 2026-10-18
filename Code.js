@@ -3099,6 +3099,7 @@ function isComboWarehouseGAS(wh) {
 function matchesTargetWarehouseGAS(loc, targetWh) {
   if (!targetWh || targetWh === 'ALL' || targetWh === 'គ្រប់ឃ្លាំង' || targetWh === 'គ្រប់ស្ថានីយទាំងអស់') return true;
   if (!loc) return false;
+  if (loc === 'ALL' || loc === 'គ្រប់ស្ថានីយទាំងអស់' || loc === 'គ្រប់ឃ្លាំង') return true;
   if (isComboWarehouseGAS(targetWh)) {
     return loc.indexOf('中心库房') !== -1 || loc.indexOf('机电') !== -1 || loc === 'គ្រប់ស្ថានីយទាំងអស់' || loc === 'ALL';
   }
