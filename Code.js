@@ -78,22 +78,10 @@ const DEFAULT_DRIVE_FOLDER_URL = 'https://drive.google.com/drive/u/2/folders/1_p
 // ==========================================
 
 /**
- * បង្កើត Custom Menu លើ Google Sheets នៅពេលបើកឯកសារ
+ * ដំណើរការដោយស្វ័យប្រវត្តិតម្រឹម Transactions Sheet ពេលបើកឯកសារ (មិនបង្កើត Custom Menu ឡើយ)
  */
 function onOpen(e) {
   try {
-    const ui = SpreadsheetApp.getUi();
-    ui.createMenu('📦 ប្រព័ន្ធគ្រប់គ្រងស្តុក')
-      .addItem('🔄 តម្រឹមជួរឈរ Transactions (12 ជួរឈរស្តង់ដារ)', 'standardizeAndFormatTransactionsSheet')
-      .addItem('🔄 តម្រឹមជួរឈរ Stock_out (17 ជួរឈរស្តង់ដារ)', 'standardizeAndFormatStockOutSheet')
-      .addItem('🔄 តម្រឹមជួរឈរ Stock_in (17 ជួរឈរស្តង់ដារ)', 'standardizeAndFormatStockInSheet')
-      .addSeparator()
-      .addItem('✨ ធ្វើឱ្យទាន់សម័យគ្រប់ Sheet ទាំងអស់ (Sync All)', 'ensureStockSheetsInitialized')
-      .addToUi();
-  } catch(err) {}
-
-  try {
-    // ស្វ័យប្រវត្តិតម្រឹម Transactions Sheet ប្រសិនបើមានទិន្នន័យខុសជួរ
     standardizeAndFormatTransactionsSheet();
   } catch(eAuto) {}
 }
@@ -1110,49 +1098,6 @@ function executeLocalApiAction(req) {
 // ==========================================
 
 /**
- * ដំណើរការដោយស្វ័យប្រវត្តិពេលបើក Google Sheet
- */
-function onOpen() {
-  try {
-    const ui = SpreadsheetApp.getUi();
-    ui.createMenu('⚡ Smart Inventory')
-      .addItem('🔄 កែសម្រួល Transactions (លុប Price និងតម្រឹម Location)', 'standardizeAndFormatTransactionsSheet')
-      .addSeparator()
-      .addItem('🔄 ដំឡើងរចនាសម្ព័ន្ធតារាង និងទិន្នន័យ (Setup Database & Items)', 'setupDatabase')
-      .addItem('🛠️ កែសម្រួល Google Sheet ឱ្យដូចប្រព័ន្ធ (Align Sheet to System)', 'migrateAndAlignItemsSheet')
-      .addItem('📦 តម្រឹមជួរឈរ ស្តុកចាស់ ➔ ថ្មី (Align Stock Movement)', 'alignAndBackfillStockSheets')
-      .addItem('📦 បញ្ចូលទំនិញគំរូ (Seed Master Catalog)', 'setupDatabase')
-      .addItem('🛠️ ជួសជុល Header គ្រប់ Sheet (Fix Header Alignment)', 'fixAllSheetHeaders')
-      .addToUi();
-  } catch (e) {
-    if (typeof Logger !== 'undefined') Logger.log('onOpen menu notice: ' + e.toString());
-  }
-
-  // ដំណើរការស្វ័យប្រវត្តិពិនិត្យ និងកែសម្រួល Transactions ភ្លាមៗពេលបើក Sheet
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    if (ss) {
-      const txSheet = ss.getSheetByName(SHEETS.TRANSACTIONS);
-      if (txSheet && txSheet.getLastRow() >= 1) {
-        const hRow = txSheet.getRange(1, 1, 1, Math.min(txSheet.getLastColumn(), 20)).getValues()[0] || [];
-        const hasUnitPrice = hRow.some(h => String(h || '').toLowerCase().includes('unitprice') || String(h || '').includes('តម្លៃ'));
-        const hasTotalAmount = hRow.some(h => String(h || '').toLowerCase().includes('totalamount') || String(h || '').includes('សរុប'));
-        const hasInvalidColCount = (hRow.length !== 12 && txSheet.getLastColumn() !== 12);
-        if (hasUnitPrice || hasTotalAmount || hasInvalidColCount) {
-          standardizeAndFormatTransactionsSheet(ss);
-        }
-      }
-      try {
-        ensureDispatchesSheet(ss);
-        syncDispatchesFromStockOutGAS(ss);
-      } catch(eDis) {}
-    }
-  } catch(errAutoTx) {
-    if (typeof Logger !== 'undefined') Logger.log('onOpen auto tx fix error: ' + errAutoTx.toString());
-  }
-}
-
-/**
  * 🛠️ ជួសជុល និងតម្រឹម Header គ្រប់ Sheet ឱ្យត្រឹមត្រូវ ១០០%
  */
 function fixAllSheetHeaders(optSs) {
@@ -1734,11 +1679,23 @@ function alignAndBackfillStockSheets(optSs) {
             `${oldSt} ${unit}`,
             `${newSt} ${unit}`,
             moveStr,
-            String(r[12] || r[9] || '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)').trim(), // Warehouse
-            String(r[13] || r[10] || '').trim(), // ReceivedBy
-            String(r[14] || r[11] || '-').trim(), // Notes
-            String(r[15] || r[12] || 'Admin').trim(), // User
-            r[16] || r[13] || new Date() // Timestamp
+            (function() {
+              let whCandidate = String(r[12] || '').trim();
+              const rUserCheck = String(r[15] || '').trim();
+              const rRecCheck = String(r[13] || '').trim();
+              if (!whCandidate || whCandidate === '-' || /^\d+$/.test(whCandidate) || whCandidate === 'ALL' || whCandidate === 'គ្រប់ស្ថានីយទាំងអស់' || whCandidate === 'គ្រប់ឃ្លាំង') {
+                if (rUserCheck.includes('គិមលី') || rRecCheck.includes('គិមលី') || rUserCheck.toLowerCase().includes('hong') || rRecCheck.toLowerCase().includes('hong')) {
+                  whCandidate = 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
+                } else {
+                  whCandidate = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+                }
+              }
+              return (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(whCandidate) : whCandidate;
+            })(), // Warehouse
+            String(r[13] || '').trim(), // ReceivedBy
+            String(r[14] || '-').trim(), // Notes
+            String(r[15] || 'Admin').trim(), // User
+            r[16] || new Date() // Timestamp
           ]);
         }
         stockInSheet.clear();
@@ -6457,31 +6414,38 @@ function repairStockInWarehouses(optSs) {
         const rUserNorm = rUser.toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
         const rRecNorm = rRec.toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
 
-        // Auto-fix if warehouse was mistakenly stored as receiver's name
+        // Auto-fix if warehouse was mistakenly stored as receiver's name or if it's '中心库房' or digits but user/receiver belongs to a station
+        let properWh = '';
         if (curWh && (userWhMap[curWh.toLowerCase()] || userWhMap[curWhNorm])) {
-          const properWh = userWhMap[curWh.toLowerCase()] || userWhMap[curWhNorm];
+          properWh = userWhMap[curWh.toLowerCase()] || userWhMap[curWhNorm];
           if (!rRec || rRec === 'undefined' || rRec === '-') {
             try { sInSheet.getRange(r + 1, finalRecIdx + 1).setValue(curWh); } catch(eFixRec) {}
           }
+        } else if (rUser && (userWhMap[rUser.toLowerCase()] || userWhMap[rUserNorm])) {
+          const uStation = userWhMap[rUser.toLowerCase()] || userWhMap[rUserNorm];
+          if (uStation && (curWh === '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)' || !curWh || curWh === '-' || /^\d+$/.test(curWh) || curWh.toUpperCase() === 'ALL' || curWh === 'គ្រប់ស្ថានីយទាំងអស់' || curWh === 'គ្រប់ឃ្លាំង')) {
+            properWh = uStation;
+          }
+        } else if (rRec && (userWhMap[rRec.toLowerCase()] || userWhMap[rRecNorm])) {
+          const recStation = userWhMap[rRec.toLowerCase()] || userWhMap[rRecNorm];
+          if (recStation && (curWh === '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)' || !curWh || curWh === '-' || /^\d+$/.test(curWh) || curWh.toUpperCase() === 'ALL' || curWh === 'គ្រប់ស្ថានីយទាំងអស់' || curWh === 'គ្រប់ឃ្លាំង')) {
+            properWh = recStation;
+          }
+        }
+
+        if (properWh && properWh !== curWh) {
+          properWh = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(properWh) : properWh;
           sInSheet.getRange(r + 1, finalWhIdx + 1).setValue(properWh);
           curWh = properWh;
           fixedCount++;
-        }
-
-        if (!curWh || curWh === '-' || /^\d+$/.test(curWh) || curWh.toUpperCase() === 'ALL' || curWh === 'គ្រប់ស្ថានីយទាំងអស់' || curWh === 'គ្រប់ឃ្លាំង') {
+        } else if (!curWh || curWh === '-' || /^\d+$/.test(curWh) || curWh.toUpperCase() === 'ALL' || curWh === 'គ្រប់ស្ថានីយទាំងអស់' || curWh === 'គ្រប់ឃ្លាំង') {
           let fixedWh = '';
-          if (rUser && (userWhMap[rUser.toLowerCase()] || userWhMap[rUserNorm])) {
-            fixedWh = userWhMap[rUser.toLowerCase()] || userWhMap[rUserNorm];
-          } else if (rRec && (userWhMap[rRec.toLowerCase()] || userWhMap[rRecNorm])) {
-            fixedWh = userWhMap[rRec.toLowerCase()] || userWhMap[rRecNorm];
+          const rawNote = notesIdx >= 0 ? String(data[r][notesIdx] || '') : '';
+          const stationMatch = rawNote.match(/(?:K\d+[^\]\n\r]+)/i);
+          if (stationMatch) {
+            fixedWh = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(stationMatch[0]) : stationMatch[0];
           } else {
-            const rawNote = notesIdx >= 0 ? String(data[r][notesIdx] || '') : '';
-            const stationMatch = rawNote.match(/(?:K\d+[^\]\n\r]+)/i);
-            if (stationMatch) {
-              fixedWh = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(stationMatch[0]) : stationMatch[0];
-            } else {
-              fixedWh = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
-            }
+            fixedWh = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
           }
           fixedWh = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(fixedWh) : fixedWh;
           sInSheet.getRange(r + 1, finalWhIdx + 1).setValue(fixedWh);
@@ -6502,6 +6466,7 @@ function repairStockInWarehouses(optSs) {
       const idxFrom = txHeaders.indexOf('fromlocation') >= 0 ? txHeaders.indexOf('fromlocation') : (txHeaders.indexOf('from') >= 0 ? txHeaders.indexOf('from') : 7);
       const idxTo = txHeaders.indexOf('tolocation') >= 0 ? txHeaders.indexOf('tolocation') : (txHeaders.indexOf('to') >= 0 ? txHeaders.indexOf('to') : 8);
       const idxTxUser = txHeaders.indexOf('user') >= 0 ? txHeaders.indexOf('user') : 10;
+      const idxTxNotes = txHeaders.indexOf('reason_notes') >= 0 ? txHeaders.indexOf('reason_notes') : (txHeaders.indexOf('notes') >= 0 ? txHeaders.indexOf('notes') : 9);
 
       for (let i = 1; i < txData.length; i++) {
         const type = String(txData[i][idxType] || '').toUpperCase();
@@ -6513,20 +6478,41 @@ function repairStockInWarehouses(optSs) {
           }
           let toLoc = String(txData[i][idxTo] || '').trim();
           const rUser = idxTxUser >= 0 ? String(txData[i][idxTxUser] || '').trim() : '';
+          const rNotes = idxTxNotes >= 0 ? String(txData[i][idxTxNotes] || '').trim() : '';
+          const recMatch = rNotes.match(/\[(?:អ្នកទទួល|Receiver):\s*([^\]]+)\]/i);
+          const rRec = recMatch ? recMatch[1].trim() : '';
           const toLocNorm = toLoc.toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
           const rUserNorm = rUser.toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+          const rRecNorm = rRec.toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
 
+          let properWh = '';
           if (toLoc && (userWhMap[toLoc.toLowerCase()] || userWhMap[toLocNorm])) {
-            const properWh = userWhMap[toLoc.toLowerCase()] || userWhMap[toLocNorm];
+            properWh = userWhMap[toLoc.toLowerCase()] || userWhMap[toLocNorm];
+          } else if (rUser && (userWhMap[rUser.toLowerCase()] || userWhMap[rUserNorm])) {
+            const uStation = userWhMap[rUser.toLowerCase()] || userWhMap[rUserNorm];
+            if (uStation && (toLoc === '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)' || !toLoc || toLoc === '-' || /^\d+$/.test(toLoc) || toLoc.toUpperCase() === 'ALL' || toLoc === 'គ្រប់ស្ថានីយទាំងអស់' || toLoc === 'គ្រប់ឃ្លាំង')) {
+              properWh = uStation;
+            }
+          } else if (rRec && (userWhMap[rRec.toLowerCase()] || userWhMap[rRecNorm])) {
+            const recStation = userWhMap[rRec.toLowerCase()] || userWhMap[rRecNorm];
+            if (recStation && (toLoc === '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)' || !toLoc || toLoc === '-' || /^\d+$/.test(toLoc) || toLoc.toUpperCase() === 'ALL' || toLoc === 'គ្រប់ស្ថានីយទាំងអស់' || toLoc === 'គ្រប់ឃ្លាំង')) {
+              properWh = recStation;
+            }
+          }
+
+          if (properWh && properWh !== toLoc) {
+            properWh = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(properWh) : properWh;
             txSheet.getRange(i + 1, idxTo + 1).setValue(properWh);
             fixedCount++;
           } else if (!toLoc || toLoc === '-' || /^\d+$/.test(toLoc) || toLoc.toUpperCase() === 'ALL' || toLoc === 'គ្រប់ស្ថានីយទាំងអស់' || toLoc === 'គ្រប់ឃ្លាំង') {
             let fixedWh = '';
-            if (rUser && (userWhMap[rUser.toLowerCase()] || userWhMap[rUserNorm])) {
-              fixedWh = userWhMap[rUser.toLowerCase()] || userWhMap[rUserNorm];
+            const stationMatch = rNotes.match(/(?:K\d+[^\]\n\r]+)/i);
+            if (stationMatch) {
+              fixedWh = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(stationMatch[0]) : stationMatch[0];
             } else {
               fixedWh = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
             }
+            fixedWh = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(fixedWh) : fixedWh;
             txSheet.getRange(i + 1, idxTo + 1).setValue(fixedWh);
             fixedCount++;
           }
@@ -7652,8 +7638,8 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
         wh = userWhMap[wh.toLowerCase()] || userWhMap[whNorm];
       }
 
-      // Robust warehouse resolution if blank, numeric, or ALL
-      if (!wh || wh === '-' || /^\d+$/.test(wh) || wh.toUpperCase() === 'ALL' || wh === 'គ្រប់ស្ថានីយទាំងអស់' || wh === 'គ្រប់ឃ្លាំង') {
+      // Robust warehouse resolution if blank, numeric, ALL, or mistakenly stored as Central Warehouse for station users
+      if (!wh || wh === '-' || /^\d+$/.test(wh) || wh.toUpperCase() === 'ALL' || wh === 'គ្រប់ស្ថានីយទាំងអស់' || wh === 'គ្រប់ឃ្លាំង' || (wh === '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)' && ((rowUser && (userWhMap[rowUser.toLowerCase()] || userWhMap[rowUserNorm])) || (recBy && (userWhMap[recBy.toLowerCase()] || userWhMap[recByNorm]))))) {
         if (rowUser && (userWhMap[rowUser.toLowerCase()] || userWhMap[rowUserNorm])) {
           wh = userWhMap[rowUser.toLowerCase()] || userWhMap[rowUserNorm];
         } else if (recBy && (userWhMap[recBy.toLowerCase()] || userWhMap[recByNorm])) {
@@ -7677,9 +7663,18 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
 
       if (targetWarehouse) {
         const matchesTarget = matchesTargetWarehouseGAS(wh, targetWarehouse);
-        const isMyTx = (uName && rowUser.toLowerCase() === uName) || (user && user.fullName && recBy.toLowerCase() === String(user.fullName).toLowerCase()) || (user && user.username && rowUser.toLowerCase() === String(user.username).toLowerCase()) || (user && user.fullName && String(rowUser).toLowerCase() === String(user.fullName).toLowerCase());
+        const uNameNorm = uName.replace(/[\u200b\ufeff\s_-]/g, '');
+        const uFullNorm = String(user && user.fullName || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+        const isMyWh = (userWhMap[rowUserNorm] && matchesTargetWarehouseGAS(userWhMap[rowUserNorm], targetWarehouse)) ||
+                       (userWhMap[recByNorm] && matchesTargetWarehouseGAS(userWhMap[recByNorm], targetWarehouse));
+        const isMyTx = (uName && (rowUserNorm === uNameNorm || rowUserNorm === uFullNorm)) || 
+                       (recByNorm && (recByNorm === uNameNorm || recByNorm === uFullNorm)) ||
+                       isMyWh;
         if (!matchesTarget && !isMyTx) {
           continue;
+        }
+        if (!matchesTarget && isMyTx) {
+          wh = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(targetWarehouse) : targetWarehouse;
         }
       }
 
@@ -7919,7 +7914,7 @@ function getTransactionHistory(filtersOrPayload, userParam) {
 
   // 1. Direct read from Stock_in sheet for 100% accuracy matching Google Sheets tab 'Stock_in'
   if (targetType === 'STOCK_IN') {
-    const sInSheet = ss.getSheetByName('Stock_in');
+    const sInSheet = ss.getSheetByName('Stock_in') || ss.getSheetByName(SHEETS.STOCK_IN) || ss.getSheetByName('ស្តុកចូល');
     if (sInSheet) {
       const stockInTxs = getStockInTransactionsFromSheet(ss, filters, user);
       return { success: true, transactions: stockInTxs || [] };
@@ -8101,7 +8096,11 @@ function getTransactionHistory(filtersOrPayload, userParam) {
         if (noteMatch) {
           toLoc = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(noteMatch[0]) : noteMatch[0];
         } else if (/^\d+$/.test(toLoc.trim())) {
-          toLoc = 'គ្រប់ស្ថានីយទាំងអស់';
+          if (targetWarehouse && user && user.role !== 'Admin' && user.role !== 'SuperAdmin') {
+            toLoc = targetWarehouse;
+          } else {
+            toLoc = 'គ្រប់ស្ថានីយទាំងអស់';
+          }
         }
       }
     }
@@ -8111,10 +8110,16 @@ function getTransactionHistory(filtersOrPayload, userParam) {
       const matchesTarget = (fromLoc === targetWarehouse || toLoc === targetWarehouse || (typeof matchesTargetWarehouseGAS === 'function' ? matchesTargetWarehouseGAS(toLoc, targetWarehouse) : false));
       const uNameStr = user ? String(user.username || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '') : '';
       const uFullStr = user ? String(user.fullName || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '') : '';
+      const isMyWh = (userWhMapGAS[rowUserNorm] && matchesTargetWarehouseGAS(userWhMapGAS[rowUserNorm], targetWarehouse)) ||
+                     (userWhMapGAS[recByNorm] && matchesTargetWarehouseGAS(userWhMapGAS[recByNorm], targetWarehouse));
       const isMyTx = (uNameStr && (rowUserNorm === uNameStr || recByNorm === uNameStr || toLocNorm === uNameStr)) ||
-                     (uFullStr && (rowUserNorm === uFullStr || recByNorm === uFullStr || toLocNorm === uFullStr));
+                     (uFullStr && (rowUserNorm === uFullStr || recByNorm === uFullStr || toLocNorm === uFullStr)) ||
+                     isMyWh;
       if (!isGlobal && !matchesTarget && !isMyTx) {
         continue;
+      }
+      if (isMyTx && (!toLoc || isGlobal || toLoc === '-' || /^\d+$/.test(toLoc.trim()) || userWhMapGAS[toLocNorm])) {
+        toLoc = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(targetWarehouse) : targetWarehouse;
       }
     }
 

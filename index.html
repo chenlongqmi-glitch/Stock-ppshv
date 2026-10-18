@@ -2920,8 +2920,6 @@
                       onchange="handleStockInLocationChange(this)"
                       class="w-full h-11 px-3 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition shadow-2xs">
                       <option value="" selected>-- ជ្រើសរើសទីតាំងឃ្លាំង --</option>
-                      <option value="中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)">📍 中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)</option>
-                      <option value="机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)">📍 机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
                     </select>
                   </div>
 
@@ -19544,7 +19542,7 @@ function saveLocalUsersToStorage() {
       }
       u = u || {};
       const isPrivileged = (typeof isUserPrivilegedAdmin === 'function' && isUserPrivilegedAdmin(u)) ||
-        (u && (u.role === 'Admin' || u.role === 'SuperAdmin' || String(u.username).toLowerCase() === 'admin' || String(u.username).toLowerCase() === 'superadmin' || u.warehouse === 'ALL'));
+        (!u || !u.username || u.role === 'Admin' || u.role === 'SuperAdmin' || String(u.username).toLowerCase() === 'admin' || String(u.username).toLowerCase() === 'superadmin' || u.warehouse === 'ALL');
 
       if (isPrivileged) {
         // សម្រាប់ account super admin និង admin មិនត្រូវបង្ហាញ default ឡើយ ត្រូវទុកទទេឱ្យជ្រើសរើស (placeholder: -- ជ្រើសរើសទីតាំងឃ្លាំង --)
@@ -19572,7 +19570,7 @@ function saveLocalUsersToStorage() {
         return;
       }
 
-      // សម្រាប់ account ផ្សេងៗគឺយក default ទៅតាមស្ថានីយ៍រៀងៗខ្លួនមិនចាំបាច់selectយកទេ
+      // សម្រាប់ account តាមស្ថានីយ៍គឺយក default ទៅតាមស្ថានីយ៍រៀងៗខ្លួនមិនចាំបាច់selectយកទេ
       const userWh = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(u.warehouse) : u.warehouse) || 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
       locEl.innerHTML = `<option value="${escapeHtml(userWh)}" selected>📍 ${escapeHtml(userWh)}</option>`;
       locEl.value = userWh;
@@ -23492,8 +23490,8 @@ function saveLocalUsersToStorage() {
               rawWh = myStationWh || 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
             }
 
-            // For station managers: if this transaction was submitted/received by them, or local pending matches, or server returned ALL/every-station:
-            if (!isPrivileged && myStationWh && (isMyTx || origWh === 'ALL' || origWh === 'គ្រប់ស្ថានីយទាំងអស់' || origWh === 'គ្រប់ឃ្លាំង' || userWhMap[tUserClean] === myStationWh || userWhMap[tRecClean] === myStationWh)) {
+            // For station managers: if this transaction was submitted/received by them, or local pending matches, or server returned ALL/every-station/Central Warehouse mistakenly:
+            if (!isPrivileged && myStationWh && (isMyTx || origWh === 'ALL' || origWh === 'គ្រប់ស្ថានីយទាំងអស់' || origWh === 'គ្រប់ឃ្លាំង' || (origWh === '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)' && isMyTx) || userWhMap[tUserClean] === myStationWh || userWhMap[tRecClean] === myStationWh)) {
               rawWh = myStationWh;
             }
 
