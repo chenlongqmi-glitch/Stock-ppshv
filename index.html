@@ -19979,6 +19979,10 @@ function saveLocalUsersToStorage() {
 
     async function handleStockInSubmit(e) {
       if (e) e.preventDefault();
+      if (window._isStockInSubmitting) {
+        console.warn('Stock-In submit already in progress. Ignoring duplicate click.');
+        return;
+      }
       if (typeof isCurrentAdminInViewOnlyMode === 'function' && isCurrentAdminInViewOnlyMode()) {
         const curWh = AppState.selectedAdminWarehouseFilter || 'ស្ថានីយនេះ';
         Swal.fire({
@@ -20070,6 +20074,7 @@ function saveLocalUsersToStorage() {
       }
 
       if (hasError) {
+        window._isStockInSubmitting = false;
         window._suppressZoneDropdown = true;
         if (typeof closeStockInZoneDropdown === 'function') {
           closeStockInZoneDropdown();
@@ -20115,6 +20120,13 @@ function saveLocalUsersToStorage() {
           }
         });
         return;
+      }
+
+      window._isStockInSubmitting = true;
+      const submitBtn = document.getElementById('btnSubmitStockIn');
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.classList.add('opacity-60', 'pointer-events-none');
       }
 
       const itemName = item?.name || sku;
@@ -20257,15 +20269,18 @@ function saveLocalUsersToStorage() {
       clearStockInAllFields();
 
       // មិនបង្ហាញសារជូនដំណឹង (Popup/Toast) អ្វីទាំងអស់តាមការស្នើសុំ
-      const submitBtn = document.getElementById('btnSubmitStockIn');
       if (submitBtn) {
         const origBtnHtml = submitBtn.innerHTML;
         submitBtn.innerHTML = '<i class="fa-solid fa-circle-check text-xs text-white"></i> <span class="text-white font-khmer">បានរក្សាទុក!</span>';
         submitBtn.classList.add('bg-emerald-700');
         setTimeout(() => {
           submitBtn.innerHTML = origBtnHtml;
-          submitBtn.classList.remove('bg-emerald-700');
+          submitBtn.classList.remove('bg-emerald-700', 'opacity-60', 'pointer-events-none');
+          submitBtn.disabled = false;
+          window._isStockInSubmitting = false;
         }, 1200);
+      } else {
+        setTimeout(() => { window._isStockInSubmitting = false; }, 1200);
       }
 
       // =========================================================================
@@ -23613,14 +23628,23 @@ function saveLocalUsersToStorage() {
             });
           });
 
-          const finalHistory = [...localPending, ...cleanTxs];
-          AppState.stockInHistory = finalHistory;
+          const uniqueFinalHistory = [];
+          const seenHistoryKeys = new Set();
+          [...localPending, ...cleanTxs].forEach(t => {
+            const k = String(t.docNo || t.txId || '').trim().toUpperCase();
+            if (k) {
+              if (seenHistoryKeys.has(k)) return;
+              seenHistoryKeys.add(k);
+            }
+            uniqueFinalHistory.push(t);
+          });
+          AppState.stockInHistory = uniqueFinalHistory;
           try {
-            localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(finalHistory));
+            localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(uniqueFinalHistory));
           } catch(e) {}
           // Synchronize LOCAL_DB.transactions with cleanTxs so deleted items are completely purged from storage
           if (LOCAL_DB.transactions) {
-            LOCAL_DB.transactions = LOCAL_DB.transactions.filter(t => t.type !== 'STOCK_IN' && !isTransactionDeleted(t)).concat(finalHistory);
+            LOCAL_DB.transactions = LOCAL_DB.transactions.filter(t => t.type !== 'STOCK_IN' && !isTransactionDeleted(t)).concat(uniqueFinalHistory);
             saveLocalTransactionsToStorage();
           }
           if (typeof syncItemStockFromHistory === 'function') {
