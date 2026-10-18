@@ -6518,11 +6518,15 @@ function repairStockInWarehouses(optSs) {
     if (txSheet && txSheet.getLastRow() > 1) {
       const txData = txSheet.getDataRange().getValues();
       const txHeaders = (txData[0] || []).map(h => String(h || '').trim().toLowerCase());
-      const idxType = txHeaders.indexOf('type') >= 0 ? txHeaders.indexOf('type') : 2;
-      const idxFrom = txHeaders.indexOf('fromlocation') >= 0 ? txHeaders.indexOf('fromlocation') : (txHeaders.indexOf('from') >= 0 ? txHeaders.indexOf('from') : 7);
-      const idxTo = txHeaders.indexOf('tolocation') >= 0 ? txHeaders.indexOf('tolocation') : (txHeaders.indexOf('to') >= 0 ? txHeaders.indexOf('to') : 8);
-      const idxTxUser = txHeaders.indexOf('user') >= 0 ? txHeaders.indexOf('user') : 10;
-      const idxTxNotes = txHeaders.indexOf('reason_notes') >= 0 ? txHeaders.indexOf('reason_notes') : (txHeaders.indexOf('notes') >= 0 ? txHeaders.indexOf('notes') : 9);
+      const findHIdx = (keywords, def) => {
+        const idx = txHeaders.findIndex(h => keywords.some(k => h === k || (k.length > 2 && h.includes(k))));
+        return idx >= 0 ? idx : def;
+      };
+      const idxType = findHIdx(['type', 'ប្រភេទ'], 2);
+      const idxFrom = findHIdx(['fromlocation', 'from', 'ចេញពី', 'ប្រភព'], 7);
+      const idxTo = findHIdx(['tolocation', 'to', 'ទៅកាន់', 'គោលដៅ', 'ឃ្លាំង'], 8);
+      const idxTxUser = findHIdx(['user', 'អ្នកប្រើ', 'បុគ្គលិក'], 10);
+      const idxTxNotes = findHIdx(['reason_notes', 'reason', 'notes', 'note', 'សម្គាល់'], 9);
 
       for (let i = 1; i < txData.length; i++) {
         const type = String(txData[i][idxType] || '').toUpperCase();
@@ -7798,16 +7802,20 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
       if (txSheet && txSheet.getLastRow() > 1) {
         const txData = txSheet.getDataRange().getValues();
         const txHeaders = (txData[0] || []).map(h => String(h || '').trim().toLowerCase());
-        const tIdIdx = txHeaders.indexOf('txid') >= 0 ? txHeaders.indexOf('txid') : 0;
-        const tDateIdx = txHeaders.indexOf('date') >= 0 ? txHeaders.indexOf('date') : 1;
-        const tTypeIdx = txHeaders.indexOf('type') >= 0 ? txHeaders.indexOf('type') : 2;
-        const tSkuIdx = txHeaders.indexOf('sku') >= 0 ? txHeaders.indexOf('sku') : 3;
-        const tNameIdx = txHeaders.indexOf('itemname') >= 0 ? txHeaders.indexOf('itemname') : 4;
-        const tQtyIdx = txHeaders.indexOf('quantity') >= 0 ? txHeaders.indexOf('quantity') : 5;
-        const tUnitIdx = txHeaders.indexOf('unit') >= 0 ? txHeaders.indexOf('unit') : 6;
-        const tToIdx = txHeaders.indexOf('tolocation') >= 0 ? txHeaders.indexOf('tolocation') : 8;
-        const tNotesIdx = txHeaders.indexOf('reason_notes') >= 0 ? txHeaders.indexOf('reason_notes') : (txHeaders.indexOf('notes') >= 0 ? txHeaders.indexOf('notes') : 9);
-        const tUserIdx = txHeaders.indexOf('user') >= 0 ? txHeaders.indexOf('user') : 10;
+        const findTxHIdx = (keywords, def) => {
+          const idx = txHeaders.findIndex(h => keywords.some(k => h === k || (k.length > 2 && h.includes(k))));
+          return idx >= 0 ? idx : def;
+        };
+        const tIdIdx = findTxHIdx(['txid', 'id'], 0);
+        const tDateIdx = findTxHIdx(['date', 'កាលបរិច្ឆេទ'], 1);
+        const tTypeIdx = findTxHIdx(['type', 'ប្រភេទ'], 2);
+        const tSkuIdx = findTxHIdx(['sku', 'កូដ'], 3);
+        const tNameIdx = findTxHIdx(['itemname', 'name', 'item', 'ឈ្មោះ'], 4);
+        const tQtyIdx = findTxHIdx(['quantity', 'qty', 'ចំនួន'], 5);
+        const tUnitIdx = findTxHIdx(['unit', 'ឯកតា'], 6);
+        const tToIdx = findTxHIdx(['tolocation', 'to', 'ទៅកាន់', 'គោលដៅ', 'ឃ្លាំង'], 8);
+        const tNotesIdx = findTxHIdx(['reason_notes', 'reason', 'notes', 'note', 'សម្គាល់'], 9);
+        const tUserIdx = findTxHIdx(['user', 'អ្នកប្រើ', 'បុគ្គលិក'], 10);
 
         const seenDocKeys = new Set();
         transactions.forEach(t => {
@@ -7817,7 +7825,8 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
 
         for (let i = txData.length - 1; i >= 1; i--) {
           const tRow = txData[i];
-          if (String(tRow[tTypeIdx] || '').toUpperCase() !== 'STOCK_IN') continue;
+          const rType = String(tRow[tTypeIdx] || '').toUpperCase().replace(/[\s_-]/g, '');
+          if (rType !== 'STOCKIN' && rType !== 'IN') continue;
           const rTxId = String(tRow[tIdIdx] || '').trim();
           const rNotes = String(tRow[tNotesIdx] || '');
           let rDoc = (rNotes.match(/\[(?:ឯកសារ|Doc|DocNo):\s*([^\]]+)\]/i) || [])[1] || rTxId;
@@ -7838,6 +7847,11 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
               toLoc = userWhMap[rUserNorm] || userWhMap[rUser.toLowerCase()];
             } else if (userWhMap[rRecNorm] || userWhMap[rRec.toLowerCase()]) {
               toLoc = userWhMap[rRecNorm] || userWhMap[rRec.toLowerCase()];
+            } else {
+              const noteMatch = rNotes.match(/(?:K\d+[^\]\n\r]+)/i);
+              if (noteMatch) {
+                toLoc = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(noteMatch[0]) : noteMatch[0];
+              }
             }
           }
           toLoc = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(toLoc) : toLoc;
@@ -7847,12 +7861,14 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
             const uNameNorm = uName.replace(/[\u200b\ufeff\s_-]/g, '');
             const uFullNorm = String(user && user.fullName || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
             const isMyWh = (userWhMap[rUserNorm] && matchesTargetWarehouseGAS(userWhMap[rUserNorm], targetWarehouse)) ||
-                           (userWhMap[rRecNorm] && matchesTargetWarehouseGAS(userWhMap[rRecNorm], targetWarehouse));
-            const isMyTx = (uName && (rUserNorm === uNameNorm || rUserNorm === uFullNorm)) || 
-                           (rRecNorm && (rRecNorm === uNameNorm || rRecNorm === uFullNorm)) ||
+                           (userWhMap[rRecNorm] && matchesTargetWarehouseGAS(userWhMap[rRecNorm], targetWarehouse)) ||
+                           (userWhMap[toLocNorm] && matchesTargetWarehouseGAS(userWhMap[toLocNorm], targetWarehouse));
+            const isMyTx = (uName && (rUserNorm === uNameNorm || rUserNorm === uFullNorm || toLocNorm === uNameNorm)) || 
+                           (rRecNorm && (rRecNorm === uNameNorm || rRecNorm === uFullNorm || toLocNorm === uFullNorm)) ||
                            isMyWh;
-            if (!matchesTarget && !isMyTx) continue;
-            if (!matchesTarget && isMyTx) toLoc = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(targetWarehouse) : targetWarehouse;
+            const isGlobal = (toLoc === 'ALL' || toLoc === 'គ្រប់ស្ថានីយទាំងអស់' || toLoc === 'គ្រប់ឃ្លាំង');
+            if (!matchesTarget && !isMyTx && !isGlobal) continue;
+            if (!matchesTarget && (isMyTx || isGlobal)) toLoc = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(targetWarehouse) : targetWarehouse;
           }
 
           let dStr = '';
@@ -8170,20 +8186,24 @@ function getTransactionHistory(filtersOrPayload, userParam) {
 
   const data = sheet.getDataRange().getValues();
   const txHeaders = (data[0] || []).map(h => String(h || '').trim().toLowerCase());
-  const idxTxId = txHeaders.indexOf('txid') >= 0 ? txHeaders.indexOf('txid') : 0;
-  const idxDate = txHeaders.indexOf('date') >= 0 ? txHeaders.indexOf('date') : 1;
-  const idxType = txHeaders.indexOf('type') >= 0 ? txHeaders.indexOf('type') : 2;
-  const idxSku = txHeaders.indexOf('sku') >= 0 ? txHeaders.indexOf('sku') : 3;
-  const idxName = txHeaders.indexOf('itemname') >= 0 ? txHeaders.indexOf('itemname') : 4;
-  const idxQty = txHeaders.indexOf('quantity') >= 0 ? txHeaders.indexOf('quantity') : 5;
-  const idxUnit = txHeaders.indexOf('unit') >= 0 ? txHeaders.indexOf('unit') : 6;
-  const idxFrom = txHeaders.indexOf('fromlocation') >= 0 ? txHeaders.indexOf('fromlocation') : (txHeaders.indexOf('from') >= 0 ? txHeaders.indexOf('from') : 7);
-  const idxTo = txHeaders.indexOf('tolocation') >= 0 ? txHeaders.indexOf('tolocation') : (txHeaders.indexOf('to') >= 0 ? txHeaders.indexOf('to') : 8);
-  const idxNotes = txHeaders.indexOf('reason_notes') >= 0 ? txHeaders.indexOf('reason_notes') : (txHeaders.indexOf('notes') >= 0 ? txHeaders.indexOf('notes') : 9);
-  const idxUser = txHeaders.indexOf('user') >= 0 ? txHeaders.indexOf('user') : 10;
-  const idxTs = txHeaders.indexOf('timestamp') >= 0 ? txHeaders.indexOf('timestamp') : 11;
-  const idxPrice = txHeaders.indexOf('unitprice');
-  const idxTotal = txHeaders.indexOf('totalamount');
+  const findTxHIdx = (keywords, def) => {
+    const idx = txHeaders.findIndex(h => keywords.some(k => h === k || (k.length > 2 && h.includes(k))));
+    return idx >= 0 ? idx : def;
+  };
+  const idxTxId = findTxHIdx(['txid', 'id'], 0);
+  const idxDate = findTxHIdx(['date', 'កាលបរិច្ឆេទ'], 1);
+  const idxType = findTxHIdx(['type', 'ប្រភេទ'], 2);
+  const idxSku = findTxHIdx(['sku', 'កូដ'], 3);
+  const idxName = findTxHIdx(['itemname', 'name', 'item', 'ឈ្មោះ'], 4);
+  const idxQty = findTxHIdx(['quantity', 'qty', 'ចំនួន'], 5);
+  const idxUnit = findTxHIdx(['unit', 'ឯកតា'], 6);
+  const idxFrom = findTxHIdx(['fromlocation', 'from', 'ចេញពី', 'ប្រភព'], 7);
+  const idxTo = findTxHIdx(['tolocation', 'to', 'ទៅកាន់', 'គោលដៅ', 'ឃ្លាំង'], 8);
+  const idxNotes = findTxHIdx(['reason_notes', 'reason', 'notes', 'note', 'សម្គាល់'], 9);
+  const idxUser = findTxHIdx(['user', 'អ្នកប្រើ', 'បុគ្គលិក'], 10);
+  const idxTs = findTxHIdx(['timestamp', 'ពេល', 'ម៉ោង'], 11);
+  const idxPrice = findTxHIdx(['unitprice', 'price', 'តម្លៃ'], -1);
+  const idxTotal = findTxHIdx(['totalamount', 'total', 'សរុប'], -1);
 
   const transactions = [];
 

@@ -1936,6 +1936,42 @@
     }
     window.getUserStationWarehouse = getUserStationWarehouse;
 
+    function getUserWarehouseMap() {
+      const clean = (s) => String(s || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+      const map = {
+        'ហុងគិមលី': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+        'hongkimly': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+        'ទូចជីវី': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+        'ទូចជីវិ': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+        'touchvgvy': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+        'ស្រីមាស': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+        'sreymeas': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+        'សុផាដាឡែន': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+        'sophadalen': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+        'តារាទើបរៀន': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+        'ដារាទើបរៀន': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+        'ដារាទើបរ៖': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+        'draternjk': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02'
+      };
+      const allUsers = (typeof LOCAL_DB !== 'undefined' ? (LOCAL_DB.users || []) : []).concat(typeof AppState !== 'undefined' ? (AppState.users || []) : []);
+      allUsers.forEach(u => {
+        if (!u) return;
+        const uWh = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(u.warehouse) : u.warehouse);
+        if (uWh && uWh !== 'ALL' && uWh !== 'គ្រប់ស្ថានីយទាំងអស់' && uWh !== 'គ្រប់ឃ្លាំង') {
+          if (u.username) map[clean(u.username)] = uWh;
+          if (u.fullName) map[clean(u.fullName)] = uWh;
+        }
+      });
+      const curU = (typeof AppState !== 'undefined' && AppState.currentUser) ? AppState.currentUser : {};
+      if (curU.warehouse && curU.warehouse !== 'ALL' && curU.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់' && curU.warehouse !== 'គ្រប់ឃ្លាំង') {
+        const curWh = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(curU.warehouse) : curU.warehouse);
+        if (curU.username) map[clean(curU.username)] = curWh;
+        if (curU.fullName) map[clean(curU.fullName)] = curWh;
+      }
+      return map;
+    }
+    window.getUserWarehouseMap = getUserWarehouseMap;
+
         (function() {
           try {
             var raw = sessionStorage.getItem('inventory_user');
@@ -7660,15 +7696,23 @@
         if (isAdminComboWarehouse(targetWh) || (typeof targetWh === 'string' && targetWh.includes('中心库房'))) return true;
         return false;
       }
-      const isGlobalLoc = (loc === 'ALL' || loc === 'គ្រប់ស្ថានីយទាំងអស់' || loc === 'គ្រប់ឃ្លាំង' || loc === '🏢 គ្រប់ស្ថានីយទាំងអស់');
-      if (isAdminComboWarehouse(targetWh)) {
+      const canLoc = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(loc) : loc;
+      const canTarget = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(targetWh) : targetWh;
+      if (canLoc === canTarget) return true;
+
+      const isGlobalLoc = (canLoc === 'ALL' || canLoc === 'គ្រប់ស្ថានីយទាំងអស់' || canLoc === 'គ្រប់ឃ្លាំង' || canLoc === '🏢 គ្រប់ស្ថានីយទាំងអស់');
+      if (isAdminComboWarehouse(canTarget)) {
         if (isGlobalLoc) return true;
-        return ADMIN_ALLOWED_WAREHOUSES.some(aw => (typeof isSameWarehouse === 'function') ? isSameWarehouse(loc, aw) : loc === aw);
+        return ADMIN_ALLOWED_WAREHOUSES.some(aw => (typeof isSameWarehouse === 'function') ? isSameWarehouse(canLoc, aw) : canLoc === aw);
       }
-      if (isGlobalLoc && (targetWh.includes('中心库房') || targetWh.includes('机电'))) {
+      if (isGlobalLoc && (canTarget.includes('中心库房') || canTarget.includes('机电'))) {
         return true;
       }
-      return (typeof isSameWarehouse === 'function') ? isSameWarehouse(loc, targetWh) : (loc === targetWh);
+      const stWhFromLoc = (typeof getUserStationWarehouse === 'function') ? getUserStationWarehouse(loc) : '';
+      if (stWhFromLoc && (typeof isSameWarehouse === 'function') && isSameWarehouse(stWhFromLoc, canTarget)) {
+        return true;
+      }
+      return (typeof isSameWarehouse === 'function') ? isSameWarehouse(canLoc, canTarget) : (canLoc === canTarget);
     }
     window.matchesTargetWarehouse = matchesTargetWarehouse;
 
@@ -18327,42 +18371,53 @@
         return cz.length > 0 ? cz.join(', ') : rawVal.trim();
       };
 
+      const isWhMatch = (loc, targetWh) => {
+        if (!loc || !targetWh) return false;
+        if (targetWh === 'ALL' || targetWh === 'គ្រប់ស្ថានីយទាំងអស់' || targetWh === 'គ្រប់ឃ្លាំង') return true;
+        if (typeof matchesTargetWarehouse === 'function' && matchesTargetWarehouse(loc, targetWh)) return true;
+        if (typeof isSameWarehouse === 'function' && isSameWarehouse(loc, targetWh)) return true;
+        return false;
+      };
+
       // 1. Check in dispatches previously RECEIVED at this warehouse
       const dispatches = LOCAL_DB.dispatches || [];
       for (const d of dispatches) {
         if (d.sku && d.sku.trim().toLowerCase() === cleanSku && d.status === 'RECEIVED' && d.receivedZone && d.receivedZone.trim()) {
-          if (!warehouse || warehouse === 'ALL' || (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(d.toLocation, warehouse) : isSameWarehouse(d.toLocation, warehouse))) {
+          if (!warehouse || warehouse === 'ALL' || isWhMatch(d.toLocation, warehouse)) {
             return formatReturnZone(d.receivedZone);
           }
         }
       }
 
-      // 2. Check in stockInHistory transactions
+      // 2. Check in stockInHistory transactions specifically at this warehouse
       const stockIns = AppState.stockInHistory || [];
       for (const tx of stockIns) {
         if (tx.sku && tx.sku.trim().toLowerCase() === cleanSku && tx.zone && tx.zone.trim()) {
           const loc = tx.warehouse || tx.location || tx.toLocation || '';
-          if (!warehouse || warehouse === 'ALL' || (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(loc, warehouse) : isSameWarehouse(loc, warehouse))) {
+          if (!warehouse || warehouse === 'ALL' || isWhMatch(loc, warehouse)) {
             return formatReturnZone(tx.zone);
           }
         }
       }
 
-      // 3. Check in general transactions
+      // 3. Check in general transactions specifically at this warehouse
       const txs = AppState.transactions || [];
       for (const tx of txs) {
         if (tx.sku && tx.sku.trim().toLowerCase() === cleanSku && tx.zone && tx.zone.trim()) {
-          const loc = tx.fromLocation || tx.toLocation || tx.warehouse || tx.location || '';
-          if (!warehouse || warehouse === 'ALL' || (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(loc, warehouse) : isSameWarehouse(loc, warehouse))) {
+          const loc = tx.toLocation || tx.warehouse || tx.location || tx.fromLocation || '';
+          if (!warehouse || warehouse === 'ALL' || isWhMatch(loc, warehouse)) {
             return formatReturnZone(tx.zone);
           }
         }
       }
 
-      // 4. Check in AppState.items
-      const it = (AppState.items || []).find(i => (i.sku && i.sku.trim().toLowerCase() === cleanSku) || (i.name && i.name.trim().toLowerCase() === cleanSku));
-      if (it && it.zone && it.zone.trim() && it.zone.trim() !== '-') {
-        return formatReturnZone(it.zone);
+      // 4. Check in AppState.items ONLY if warehouse is Central Warehouse or global
+      const isCentral = !warehouse || warehouse === 'ALL' || (typeof isCentralWarehouse === 'function' ? isCentralWarehouse(warehouse) : (warehouse.includes('中心库房') || warehouse.includes('ចុងស៊ីង') || warehouse.includes('机电')));
+      if (isCentral) {
+        const it = (AppState.items || []).find(i => (i.sku && i.sku.trim().toLowerCase() === cleanSku) || (i.name && i.name.trim().toLowerCase() === cleanSku));
+        if (it && it.zone && it.zone.trim() && it.zone.trim() !== '-') {
+          return formatReturnZone(it.zone);
+        }
       }
 
       return '';
@@ -18377,7 +18432,7 @@
         targetWarehouse = document.getElementById('receptionModalStationBadge')?.innerText || AppState.currentUser?.warehouse || '';
       } else if (currentZonePickerTargetInputId === 'stockInZone') {
         sku = document.getElementById('stockInSku')?.value || '';
-        targetWarehouse = document.getElementById('stockInWarehouse')?.value || AppState.currentUser?.warehouse || '';
+        targetWarehouse = document.getElementById('stockInLocation')?.value || AppState.currentUser?.warehouse || '';
       } else if (currentZonePickerTargetInputId === 'swalEditZone') {
         sku = document.getElementById('swalEditSku')?.value || '';
         targetWarehouse = AppState.currentUser?.warehouse || '';
@@ -19884,12 +19939,45 @@
     }
 
     // ស្វែងរកតំបន់ស្តុកចុងក្រោយដែលទំនិញនេះធ្លាប់បានចូលស្តុកពីមុន (Find previous Stock In zone for this item)
-    function findItemPreviousZone(item) {
+    function findItemPreviousZone(item, targetWh = '') {
       if (!item) return '';
       const itemSku = String(item.sku || '').trim().toLowerCase();
       const itemName = String(item.name || '').trim().toLowerCase();
 
-      // 1. ស្វែងរកក្នុងប្រវត្តិកត់ត្រាទំនិញចូលស្តុក (AppState.stockInHistory) - យកប្រតិបត្តិការចុងក្រោយគេបង្អស់ដែលមានកំណត់តំបន់
+      // Resolve target warehouse
+      const curU = AppState.currentUser || (function(){ try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch(e){ return null; } })() || {};
+      const isPriv = (typeof isUserPrivilegedAdmin === 'function' && isUserPrivilegedAdmin(curU)) ||
+        (curU && (curU.role === 'Admin' || curU.role === 'SuperAdmin' || String(curU.username).toLowerCase() === 'admin' || String(curU.username).toLowerCase() === 'superadmin' || curU.warehouse === 'ALL'));
+
+      let wh = targetWh;
+      if (!wh) {
+        const stockInLocEl = document.getElementById('stockInLocation');
+        if (stockInLocEl && stockInLocEl.value) {
+          wh = stockInLocEl.value;
+        } else if (!isPriv && curU && curU.warehouse && curU.warehouse !== 'ALL') {
+          wh = curU.warehouse;
+        }
+      }
+      if (wh && typeof toCanonicalWarehouseName === 'function') {
+        wh = toCanonicalWarehouseName(wh);
+      }
+
+      // ប្រសិនបើមិនទាន់បានជ្រើសរើសឃ្លាំងណាទេ (ឧទាហរណ៍ Admin មិនទាន់ជ្រើសរើសឃ្លាំង) មិនត្រូវបង្ហាញតំបន់ណាឡើយ
+      if (!wh) return '';
+
+      const isWhMatch = (loc, target) => {
+        if (!loc || !target) return false;
+        if (target === 'ALL' || target === 'គ្រប់ស្ថានីយទាំងអស់' || target === 'គ្រប់ឃ្លាំង') return true;
+        if (typeof matchesTargetWarehouse === 'function' && matchesTargetWarehouse(loc, target)) return true;
+        if (typeof isSameWarehouse === 'function' && isSameWarehouse(loc, target)) return true;
+        return false;
+      };
+
+      const isCentral = (typeof isCentralWarehouse === 'function') 
+        ? isCentralWarehouse(wh) 
+        : (wh.includes('中心库房') || wh.includes('ចុងស៊ីង') || wh.includes('机电'));
+
+      // 1. ស្វែងរកក្នុងប្រវត្តិកត់ត្រាទំនិញចូលស្តុក (AppState.stockInHistory) តាមស្ថានីយជាក់លាក់
       let historyList = (AppState.stockInHistory && AppState.stockInHistory.length > 0) ? AppState.stockInHistory : null;
       if (!historyList) {
         try {
@@ -19906,6 +19994,10 @@
 
       if (historyList && historyList.length > 0) {
         const prevTx = historyList.find(t => {
+          if (!t) return false;
+          const tWh = t.toLocation || t.warehouse || t.location || '';
+          if (!isWhMatch(tWh, wh)) return false;
+
           const tSku = String(t.sku || t.itemCode || t.code || '').trim().toLowerCase();
           const tName = String(t.itemName || '').trim().toLowerCase();
           const isMatch = (itemSku && tSku) ? (tSku === itemSku) : (itemName && tName && itemName === tName);
@@ -19917,12 +20009,16 @@
         }
       }
 
-      // 2. ពិនិត្យក្នុងប្រតិបត្តិការទូទៅ (AppState.transactions ឬ LOCAL_DB.transactions)
+      // 2. ពិនិត្យក្នុងប្រតិបត្តិការទូទៅ (AppState.transactions ឬ LOCAL_DB.transactions) តាមស្ថានីយជាក់លាក់
       const allTxs = (AppState.transactions && AppState.transactions.length > 0)
         ? AppState.transactions
         : (LOCAL_DB.transactions || []);
       if (allTxs && allTxs.length > 0) {
         const prevTx = allTxs.find(t => {
+          if (!t) return false;
+          const tWh = t.toLocation || t.warehouse || t.location || '';
+          if (!isWhMatch(tWh, wh)) return false;
+
           const tSku = String(t.sku || t.itemCode || t.code || '').trim().toLowerCase();
           const tName = String(t.itemName || '').trim().toLowerCase();
           const isMatch = (itemSku && tSku) ? (tSku === itemSku) : (itemName && tName && itemName === tName);
@@ -19934,14 +20030,27 @@
         }
       }
 
-      // 3. ពិនិត្យក្នុងទិន្នន័យទំនិញផ្ទាល់ (item.zone)
-      if (item.zone) {
+      // 3. ពិនិត្យក្នុង zoneBreakdown របស់ទំនិញសម្រាប់ស្ថានីយនេះ
+      if (Array.isArray(item.zoneBreakdown) && item.zoneBreakdown.length > 0) {
+        const zbMatch = item.zoneBreakdown.find(z => {
+          const zWh = z.warehouse || z.station || z.location || '';
+          const isMatch = zWh ? isWhMatch(zWh, wh) : false;
+          return isMatch && z.zone && z.zone !== '-' && Number(z.quantity || 0) > 0;
+        });
+        if (zbMatch && zbMatch.zone) {
+          return String(zbMatch.zone).trim();
+        }
+      }
+
+      // 4. ប្រសិនបើជាឃ្លាំងកណ្តាល (Central Warehouse) ទើបអាចយកពី item.zone បាន
+      if (isCentral && item.zone) {
         const iz = String(item.zone).trim();
-        if (iz && iz !== '-' && iz !== 'គ្មាន' && iz !== 'null' && iz !== 'undefined') {
+        if (iz && iz !== '-' && iz !== 'គ្មាន' && iz !== 'null' && iz !== 'undefined' && !iz.includes(':') && !iz.includes(',')) {
           return iz;
         }
       }
 
+      // សម្រាប់ស្ថានីយតាមខេត្ត/សាខា បើមិនធ្លាប់មានស្តុកចូលនៅស្ថានីយនេះទេ ត្រូវទុកទទេដាច់ខាត!
       return '';
     }
 
@@ -19964,20 +20073,6 @@
 
         const colorEl = document.getElementById('stockInColor');
         if (colorEl) colorEl.value = item.color || '';
-
-        // ប្រសិនបើទំនិញនោះធ្លាប់បានចូលស្តុករួចពីមុន និងមានកំណត់តំបន់ យកមកបញ្ចូលក្នុងប្រអប់តំបន់ស្តុកដោយស្វ័យប្រវត្តិ បើគ្មានទុកទទេឱ្យ user កំណត់ខ្លួនឯង
-        const prevZone = findItemPreviousZone(item);
-        const zoneEl = document.getElementById('stockInZone');
-        const zoneClearBtn = document.getElementById('stockInZoneClearBtn');
-        if (zoneEl) {
-          if (prevZone) {
-            zoneEl.value = prevZone;
-            if (zoneClearBtn) zoneClearBtn.classList.remove('hidden');
-          } else {
-            zoneEl.value = '';
-            if (zoneClearBtn) zoneClearBtn.classList.add('hidden');
-          }
-        }
 
         const baseUnit = item.unit || 'ដើម';
         const packUnit = (item.packUnit || '').trim() || 'ប្រអប់';
@@ -20038,6 +20133,20 @@
 
         const oldStockValEl = document.getElementById('stockInOldStockValue');
         if (oldStockValEl) oldStockValEl.value = oldStock;
+
+        // ប្រសិនបើទំនិញនោះធ្លាប់បានចូលស្តុករួចពីមុននៅស្ថានីយជាក់លាក់នេះ ទើបបង្ហាញតំបន់ បើគ្មានត្រូវទុកទទេដាច់ខាត!
+        const prevZone = findItemPreviousZone(item, currentTargetWh);
+        const zoneEl = document.getElementById('stockInZone');
+        const zoneClearBtn = document.getElementById('stockInZoneClearBtn');
+        if (zoneEl) {
+          if (prevZone) {
+            zoneEl.value = prevZone;
+            if (zoneClearBtn) zoneClearBtn.classList.remove('hidden');
+          } else {
+            zoneEl.value = '';
+            if (zoneClearBtn) zoneClearBtn.classList.add('hidden');
+          }
+        }
 
         updateStockInBadges(oldBulk, oldRetail, oldBulk, oldRetail, packUnit, baseUnit);
         clearStockInSingleFieldError(document.getElementById('stockInSku'));
@@ -20494,6 +20603,12 @@
           try {
             localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(AppState.stockInHistory));
           } catch(e) {}
+          if (LOCAL_DB.transactions) {
+            const exIdx = LOCAL_DB.transactions.findIndex(t => (t.txId && t.txId === newTx.txId) || (t.docNo && t.docNo === newTx.docNo));
+            if (exIdx >= 0) LOCAL_DB.transactions[exIdx] = { ...newTx };
+            else LOCAL_DB.transactions.unshift({ ...newTx });
+            if (typeof saveLocalTransactionsToStorage === 'function') saveLocalTransactionsToStorage();
+          }
           if (typeof filterStockInHistoryTable === 'function') {
             filterStockInHistoryTable();
           } else {
@@ -23612,35 +23727,7 @@
         const normalizeStr = (s) => String(s || '').replace(/[\u200b\ufeff\s_-]/g, '').toLowerCase();
         const uName = normalizeStr(curU.username);
         const uFull = normalizeStr(curU.fullName);
-
-        // Build comprehensive map of known users to station warehouses
-        const userWhMap = {
-          'ហុងគិមលី': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
-          'hongkimly': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
-          'ទូចជីវី': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
-          'ទូចជីវិ': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
-          'touchvgvy': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
-          'ស្រីមាស': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
-          'sreymeas': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
-          'សុផាដាឡែន': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
-          'sophadalen': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
-          'តារាទើបរៀន': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
-          'ដារាទើបរៀន': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
-          'ដារាទើបរ៖': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
-          'draternjk': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02'
-        };
-        (LOCAL_DB.users || []).concat(AppState.users || []).forEach(u => {
-          if (!u) return;
-          const uWh = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(u.warehouse) : u.warehouse);
-          if (uWh && uWh !== 'ALL' && uWh !== 'គ្រប់ស្ថានីយទាំងអស់' && uWh !== 'គ្រប់ឃ្លាំង') {
-            if (u.username) userWhMap[normalizeStr(u.username)] = uWh;
-            if (u.fullName) userWhMap[normalizeStr(u.fullName)] = uWh;
-          }
-        });
-        if (myStationWh) {
-          if (curU.username) userWhMap[normalizeStr(curU.username)] = myStationWh;
-          if (curU.fullName) userWhMap[normalizeStr(curU.fullName)] = myStationWh;
-        }
+        const userWhMap = (typeof getUserWarehouseMap === 'function') ? getUserWarehouseMap() : {};
 
         // Query Google Sheets directly for STOCK_IN transactions (limit: 200)
         // All active station filtering is handled client-side by matchesTargetWarehouse
@@ -23802,26 +23889,31 @@
               const matchingServerTx = cleanTxs.find(c => 
                 (c.docNo && loc.docNo && String(c.docNo).trim().toUpperCase() === String(loc.docNo).trim().toUpperCase()) ||
                 (c.txId && loc.txId && String(c.txId).trim().toUpperCase() === String(loc.txId).trim().toUpperCase()) ||
-                (c.sku && loc.sku && c.sku.toLowerCase() === loc.sku.toLowerCase() && Number(c.quantity) === Number(loc.quantity) && Math.abs((loc._createdAt || nowTs) - (c._createdAt || nowTs)) < 600000)
+                (c.sku && loc.sku && c.sku.toLowerCase() === loc.sku.toLowerCase() && Number(c.quantity) === Number(loc.quantity) && (c.date === loc.date || (!c.date && Math.abs((loc._createdAt || nowTs) - (c._createdAt || nowTs)) < 300000)))
               );
               if (matchingServerTx) {
-                // Ensure server record retains station warehouse from verified local transaction
+                // Ensure server record retains station warehouse and creation timestamp from verified local transaction
+                matchingServerTx._isLocalPending = false;
+                matchingServerTx._createdAt = loc._createdAt || nowTs;
+                matchingServerTx._verifiedStationWh = myStationWh || loc.toLocation;
                 if (!isPrivileged && myStationWh) {
                   matchingServerTx.toLocation = myStationWh;
                   matchingServerTx.warehouse = myStationWh;
                   matchingServerTx.location = myStationWh;
+                  if (loc.user) matchingServerTx.user = loc.user;
+                  if (loc.receivedBy) matchingServerTx.receivedBy = loc.receivedBy;
                 } else if (loc.toLocation && (!matchingServerTx.toLocation || matchingServerTx.toLocation === 'ALL' || matchingServerTx.toLocation === 'គ្រប់ស្ថានីយទាំងអស់')) {
                   matchingServerTx.toLocation = loc.toLocation;
                   matchingServerTx.warehouse = loc.toLocation;
                   matchingServerTx.location = loc.toLocation;
                 }
-                if (loc.docNo && (!matchingServerTx.docNo || matchingServerTx.docNo.startsWith('TX-IN-'))) {
+                if (loc.docNo && (!matchingServerTx.docNo || matchingServerTx.docNo.startsWith('TX-IN-') || matchingServerTx.docNo === matchingServerTx.txId)) {
                   matchingServerTx.docNo = loc.docNo;
                 }
                 return;
               }
               const created = loc._createdAt || 0;
-              if (loc._isLocalPending || (created && nowTs - created < 900000)) {
+              if (loc._isLocalPending || (created && nowTs - created < 1800000)) {
                 localPending.push(loc);
               }
             });
@@ -23887,31 +23979,46 @@
       const uNameClean = normalizeStr(curU.username);
       const uFullClean = normalizeStr(curU.fullName);
       const myWhCanonical = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(curU.warehouse) : curU.warehouse;
+      const userWhMap = (typeof getUserWarehouseMap === 'function') ? getUserWarehouseMap() : {};
 
       if (activeWh && activeWh !== 'ALL' && activeWh !== 'គ្រប់ស្ថានីយទាំងអស់') {
         baseList = baseList.filter(t => {
           if (!t) return false;
-          // 1. Pending local or recent transactions for this station manager (< 15 mins) ALWAYS persist
-          if (t._isLocalPending || (t._createdAt && Date.now() - t._createdAt < 900000)) {
-            return true;
+          const tWh = t.toLocation || t.location || t.warehouse || '';
+          const tWhNorm = normalizeStr(tWh);
+          const tUserNorm = normalizeStr(t.user);
+          const tRecNorm = normalizeStr(t.receivedBy);
+
+          // 1. Pending local or recent transactions (< 30 mins) ALWAYS persist for this station manager
+          if (t._isLocalPending || (t._createdAt && Date.now() - t._createdAt < 1800000)) {
+            if (!isPrivileged) {
+              if (matchesTargetWarehouse(tWh, activeWh) || isSameWarehouse(tWh, activeWh) || isSameUserOrAlias(t.user, curU) || isSameUserOrAlias(t.receivedBy, curU) || isSameUserOrAlias(tWh, curU) || userWhMap[tUserNorm] === activeWh || userWhMap[tRecNorm] === activeWh || userWhMap[tWhNorm] === activeWh) {
+                return true;
+              }
+            } else {
+              return true;
+            }
           }
 
-          const tWh = t.toLocation || t.location || t.warehouse || '';
+          // 2. Direct warehouse match
           if (typeof matchesTargetWarehouse === 'function' && matchesTargetWarehouse(tWh, activeWh)) return true;
           if (typeof isSameWarehouse === 'function' && isSameWarehouse(tWh, activeWh)) return true;
 
-          // If tWh is user's name matching current user
+          // 3. If tWh is user's name matching current user
           if (isSameUserOrAlias(tWh, curU)) {
             if (myWhCanonical && (matchesTargetWarehouse(myWhCanonical, activeWh) || isSameWarehouse(myWhCanonical, activeWh))) {
               return true;
             }
           }
 
-          // Fallback for station manager: if current user created or received this transaction and their station matches activeWh
+          // 4. Fallback for station manager: if current user created or received this transaction and their station matches activeWh
           if (!isPrivileged) {
             const isUserMatch = isSameUserOrAlias(t.user, curU) || 
                                 isSameUserOrAlias(t.receivedBy, curU) ||
-                                isSameUserOrAlias(tWh, curU);
+                                isSameUserOrAlias(tWh, curU) ||
+                                (userWhMap[tUserNorm] === activeWh) ||
+                                (userWhMap[tRecNorm] === activeWh) ||
+                                (userWhMap[tWhNorm] === activeWh);
             const userSt = getUserStationWarehouse(t.user) || getUserStationWarehouse(t.receivedBy) || getUserStationWarehouse(tWh);
             const isStMatch = userSt && (matchesTargetWarehouse(userSt, activeWh) || isSameWarehouse(userSt, activeWh));
 
@@ -23933,16 +24040,16 @@
           delete sInp.dataset.userTyped;
           sInp.setAttribute('readonly', 'readonly');
         } else if (sInp.dataset.userTyped !== 'true' && document.activeElement !== sInp) {
-          const sVal = (sInp.value || '').trim().toLowerCase();
-          if (sVal === 'hongkimly' || sVal === 'superadmin' || sVal === 'admin' || sVal === 'staff' || sVal.includes('@')) {
-            sInp.value = '';
-          }
+          sInp.value = '';
         }
       }
-      let q = (sInp?.value || '').trim().toLowerCase();
-      if ((q === 'superadmin' || q === 'super admin' || q === 'admin' || q === 'hongkimly') && document.activeElement !== sInp) {
-        if (sInp) sInp.value = '';
-        q = '';
+      let q = '';
+      if (sInp && sInp.dataset.userTyped === 'true' && document.activeElement === sInp) {
+        q = (sInp.value || '').trim().toLowerCase();
+        if (q === 'superadmin' || q === 'super admin' || q === 'admin' || q === 'hongkimly' || q === 'staff' || q.includes('@')) {
+          sInp.value = '';
+          q = '';
+        }
       }
       if (!q) {
         renderStockInHistoryTable(baseList, true);
@@ -24206,19 +24313,37 @@
         }
 
         let rawLoc = String(t.toLocation || t.location || t.warehouse || '').trim();
-        if (!rawLoc || rawLoc === '-' || rawLoc === 'ALL' || rawLoc === 'គ្រប់ស្ថានីយទាំងអស់' || rawLoc === 'គ្រប់ឃ្លាំង' || /^\d+$/.test(rawLoc)) {
-          const nStr = t.rawNotes || t.notes || '';
-          const stMatch = nStr.match(/(?:K\d+[^\]\n\r]+)/i);
-          if (stMatch) {
-            rawLoc = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(stMatch[0]) : stMatch[0];
+        const userWhMapRender = (typeof getUserWarehouseMap === 'function') ? getUserWarehouseMap() : {};
+        const uStWh = (typeof getUserStationWarehouse === 'function' ? (getUserStationWarehouse(t.user) || getUserStationWarehouse(t.receivedBy) || getUserStationWarehouse(rawLoc)) : '') || userWhMapRender[String(rawLoc).toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '')] || userWhMapRender[String(t.user || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '')] || userWhMapRender[String(t.receivedBy || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '')];
+        const curU = AppState.currentUser || (function(){ try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch(e){ return null; } })() || {};
+        const isPriv = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : false;
+        const isCurU = (typeof isSameUserOrAlias === 'function') && (isSameUserOrAlias(t.user, curU) || isSameUserOrAlias(t.receivedBy, curU));
+        const curUStationWh = (!isPriv && curU.warehouse && curU.warehouse !== 'ALL') ? ((typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(curU.warehouse) : curU.warehouse) : '';
+
+        if (!rawLoc || rawLoc === '-' || rawLoc === 'ALL' || rawLoc === 'គ្រប់ស្ថានីយទាំងអស់' || rawLoc === 'គ្រប់ឃ្លាំង' || /^\d+$/.test(rawLoc) || userWhMapRender[String(rawLoc).toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '')]) {
+          if (uStWh) {
+            rawLoc = uStWh;
+          } else if (isCurU && curUStationWh) {
+            rawLoc = curUStationWh;
           } else {
-            rawLoc = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+            const nStr = t.rawNotes || t.notes || '';
+            const stMatch = nStr.match(/(?:K\d+[^\]\n\r]+)/i);
+            if (stMatch) {
+              rawLoc = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(stMatch[0]) : stMatch[0];
+            } else if (!isPriv && curUStationWh) {
+              rawLoc = curUStationWh;
+            } else {
+              rawLoc = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+            }
           }
         } else {
           rawLoc = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(rawLoc) : rawLoc;
           if (rawLoc === 'ALL' || rawLoc === 'គ្រប់ស្ថានីយទាំងអស់' || rawLoc === 'គ្រប់ឃ្លាំង') {
-            rawLoc = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+            rawLoc = (!isPriv && curUStationWh) ? curUStationWh : (uStWh || '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)');
           }
+        }
+        if (!isPriv && curUStationWh && (isCurU || uStWh === curUStationWh)) {
+          rawLoc = curUStationWh;
         }
         t.toLocation = rawLoc;
         t.warehouse = rawLoc;
