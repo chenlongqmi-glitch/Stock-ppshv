@@ -6142,10 +6142,70 @@ function recordStockIn(dataOrPayload, user) {
     location = String(candidateWh).trim();
   }
 
+  const userWhMapInGAS = {
+    'ហុងគិមលី': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+    'hongkimly': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+    'ទូចជីវី': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+    'ទូចជីវិ': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+    'touchvgvy': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+    'ស្រីមាស': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+    'sreymeas': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+    'សុផាដាឡែន': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+    'sophadalen': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+    'តារាទើបរៀន': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+    'ដារាទើបរៀន': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+    'ដារាទើបរ៖': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+    'draternjk': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02'
+  };
+
+  try {
+    const uSheet = ss.getSheetByName('Users') || ss.getSheetByName(SHEETS.USERS);
+    if (uSheet && uSheet.getLastRow() > 1) {
+      const uData = uSheet.getDataRange().getValues();
+      const uHeaders = (uData[0] || []).map(h => String(h || '').trim().toLowerCase());
+      const uNameIdx = uHeaders.findIndex(h => h === 'username' || h.includes('user'));
+      const fNameIdx = uHeaders.findIndex(h => h === 'fullname' || h.includes('name'));
+      const whColIdx = uHeaders.findIndex(h => h.includes('warehouse') || h.includes('ស្ថានីយ'));
+      if (whColIdx >= 0) {
+        for (let i = 1; i < uData.length; i++) {
+          let rowWh = String(uData[i][whColIdx] || '').trim();
+          if (rowWh && rowWh !== 'ALL' && rowWh !== '-') {
+            rowWh = toCanonicalWarehouseNameGAS(rowWh);
+            if (uNameIdx >= 0 && uData[i][uNameIdx]) {
+              const uN = String(uData[i][uNameIdx]).trim().toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+              userWhMapInGAS[uN] = rowWh;
+              userWhMapInGAS[String(uData[i][uNameIdx]).trim().toLowerCase()] = rowWh;
+            }
+            if (fNameIdx >= 0 && uData[i][fNameIdx]) {
+              const fN = String(uData[i][fNameIdx]).trim().toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+              userWhMapInGAS[fN] = rowWh;
+              userWhMapInGAS[String(uData[i][fNameIdx]).trim().toLowerCase()] = rowWh;
+            }
+          }
+        }
+      }
+    }
+  } catch(eU) {}
+
+  const locNorm = location.toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+  if (userWhMapInGAS[locNorm] || userWhMapInGAS[location.toLowerCase()]) {
+    location = userWhMapInGAS[locNorm] || userWhMapInGAS[location.toLowerCase()];
+  }
+
   if (!location || location === 'ALL' || location === 'គ្រប់ស្ថានីយទាំងអស់' || location === 'គ្រប់ឃ្លាំង') {
     const userWh = u ? String(u.warehouse || '').trim() : '';
+    const uNameClean = u ? String(u.username || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '') : '';
+    const uFullClean = u ? String(u.fullName || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '') : '';
+    const recClean = data.receivedBy ? String(data.receivedBy).toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '') : '';
+
     if (userWh && userWh !== 'ALL' && userWh !== 'គ្រប់ស្ថានីយទាំងអស់' && userWh !== 'គ្រប់ឃ្លាំង') {
       location = userWh;
+    } else if (userWhMapInGAS[uNameClean]) {
+      location = userWhMapInGAS[uNameClean];
+    } else if (userWhMapInGAS[uFullClean]) {
+      location = userWhMapInGAS[uFullClean];
+    } else if (userWhMapInGAS[recClean]) {
+      location = userWhMapInGAS[recClean];
     } else {
       location = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
     }
@@ -6153,7 +6213,8 @@ function recordStockIn(dataOrPayload, user) {
 
   location = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(location) : location;
   if (!location || location === 'ALL' || location === 'គ្រប់ស្ថានីយទាំងអស់' || /^\d+$/.test(location)) {
-    location = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+    const uWh2 = u ? String(u.warehouse || '').trim() : '';
+    location = (uWh2 && uWh2 !== 'ALL' && uWh2 !== 'គ្រប់ស្ថានីយទាំងអស់') ? toCanonicalWarehouseNameGAS(uWh2) : '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
   }
 
   const headers = (itemsData[0] || []).map(h => String(h || '').trim().toLowerCase());
@@ -7086,8 +7147,61 @@ function recordTransactionInternal(ss, tx) {
     if (!fromLoc || fromLoc.startsWith('Doc:') || fromLoc === '-' || /^\d+$/.test(fromLoc) || fromLoc.includes('Admin')) {
       fromLoc = 'អ្នកផ្គត់ផ្គង់ (Supplier)';
     }
-    if (!toLoc || toLoc === '-' || toLoc === 'ALL' || toLoc === 'គ្រប់ស្ថានីយទាំងអស់' || toLoc === 'គ្រប់ឃ្លាំង' || /^\d+$/.test(toLoc)) {
-      toLoc = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+    const userWhMapInGAS = {
+      'ហុងគិមលី': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+      'hongkimly': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+      'ទូចជីវី': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+      'ទូចជីវិ': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+      'touchvgvy': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+      'ស្រីមាស': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+      'sreymeas': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+      'សុផាដាឡែន': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+      'sophadalen': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+      'តារាទើបរៀន': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+      'ដារាទើបរៀន': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+      'ដារាទើបរ៖': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+      'draternjk': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02'
+    };
+
+    try {
+      const uSheet = ss.getSheetByName('Users') || ss.getSheetByName(SHEETS.USERS);
+      if (uSheet && uSheet.getLastRow() > 1) {
+        const uData = uSheet.getDataRange().getValues();
+        const uHeaders = (uData[0] || []).map(h => String(h || '').trim().toLowerCase());
+        const uNameIdx = uHeaders.findIndex(h => h === 'username' || h.includes('user'));
+        const fNameIdx = uHeaders.findIndex(h => h === 'fullname' || h.includes('name'));
+        const whColIdx = uHeaders.findIndex(h => h.includes('warehouse') || h.includes('ស្ថានីយ'));
+        if (whColIdx >= 0) {
+          for (let i = 1; i < uData.length; i++) {
+            let rowWh = String(uData[i][whColIdx] || '').trim();
+            if (rowWh && rowWh !== 'ALL' && rowWh !== '-') {
+              rowWh = toCanonicalWarehouseNameGAS(rowWh);
+              if (uNameIdx >= 0 && uData[i][uNameIdx]) {
+                const uN = String(uData[i][uNameIdx]).trim().toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+                userWhMapInGAS[uN] = rowWh;
+                userWhMapInGAS[String(uData[i][uNameIdx]).trim().toLowerCase()] = rowWh;
+              }
+              if (fNameIdx >= 0 && uData[i][fNameIdx]) {
+                const fN = String(uData[i][fNameIdx]).trim().toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+                userWhMapInGAS[fN] = rowWh;
+                userWhMapInGAS[String(uData[i][fNameIdx]).trim().toLowerCase()] = rowWh;
+              }
+            }
+          }
+        }
+      }
+    } catch(eU) {}
+
+    const toNorm = String(toLoc || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+    const uNorm = String(tx.user || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+    if (userWhMapInGAS[toNorm] || userWhMapInGAS[String(toLoc).toLowerCase()]) {
+      toLoc = userWhMapInGAS[toNorm] || userWhMapInGAS[String(toLoc).toLowerCase()];
+    } else if (!toLoc || toLoc === '-' || toLoc === 'ALL' || toLoc === 'គ្រប់ស្ថានីយទាំងអស់' || toLoc === 'គ្រប់ឃ្លាំង' || /^\d+$/.test(toLoc)) {
+      if (userWhMapInGAS[uNorm] || userWhMapInGAS[String(tx.user).toLowerCase()]) {
+        toLoc = userWhMapInGAS[uNorm] || userWhMapInGAS[String(tx.user).toLowerCase()];
+      } else {
+        toLoc = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+      }
     }
     toLoc = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(toLoc) : toLoc;
   } else if (tx.type === 'STOCK_OUT') {
@@ -7910,6 +8024,50 @@ function getTransactionHistory(filtersOrPayload, userParam) {
     targetWarehouse = filters.warehouse;
   }
 
+  const userWhMapGAS = {
+    'ហុងគិមលី': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+    'hongkimly': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+    'ទូចជីវី': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+    'ទូចជីវិ': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+    'touchvgvy': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+    'ស្រីមាស': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+    'sreymeas': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+    'សុផាដាឡែន': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+    'sophadalen': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+    'តារាទើបរៀន': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+    'ដារាទើបរៀន': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+    'ដារាទើបរ៖': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+    'draternjk': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02'
+  };
+  try {
+    const uSheet = ss.getSheetByName('Users') || ss.getSheetByName(SHEETS.USERS);
+    if (uSheet && uSheet.getLastRow() > 1) {
+      const uData = uSheet.getDataRange().getValues();
+      const uHeaders = (uData[0] || []).map(h => String(h || '').trim().toLowerCase());
+      const uNameIdx = uHeaders.findIndex(h => h === 'username' || h.includes('user'));
+      const fNameIdx = uHeaders.findIndex(h => h === 'fullname' || h.includes('name'));
+      const whColIdx = uHeaders.findIndex(h => h.includes('warehouse') || h.includes('ស្ថានីយ'));
+      if (whColIdx >= 0) {
+        for (let i = 1; i < uData.length; i++) {
+          let rowWh = String(uData[i][whColIdx] || '').trim();
+          if (rowWh && rowWh !== 'ALL' && rowWh !== '-') {
+            rowWh = toCanonicalWarehouseNameGAS(rowWh);
+            if (uNameIdx >= 0 && uData[i][uNameIdx]) {
+              const uN = String(uData[i][uNameIdx]).trim().toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+              userWhMapGAS[uN] = rowWh;
+              userWhMapGAS[String(uData[i][uNameIdx]).trim().toLowerCase()] = rowWh;
+            }
+            if (fNameIdx >= 0 && uData[i][fNameIdx]) {
+              const fN = String(uData[i][fNameIdx]).trim().toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+              userWhMapGAS[fN] = rowWh;
+              userWhMapGAS[String(uData[i][fNameIdx]).trim().toLowerCase()] = rowWh;
+            }
+          }
+        }
+      }
+    }
+  } catch(eU) {}
+
   for (let i = data.length - 1; i >= 1; i--) {
     const row = data[i];
     if (!row[0] && !row[idxSku]) continue;
@@ -7921,13 +8079,41 @@ function getTransactionHistory(filtersOrPayload, userParam) {
 
     const fromLoc = String(row[idxFrom] || '');
     let toLoc = String(row[idxTo] || '');
-    if (/^\d+$/.test(toLoc.trim())) {
-      toLoc = 'គ្រប់ស្ថានីយទាំងអស់';
+
+    const rowUser = String(row[idxUser] || '').trim();
+    const rowNotes = String(row[idxNotes] || '').trim();
+    const recMatch = rowNotes.match(/\[(?:អ្នកទទួល|Receiver):\s*([^\]]+)\]/i);
+    const recBy = recMatch ? recMatch[1].trim() : '';
+
+    const toLocNorm = toLoc.toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+    const rowUserNorm = rowUser.toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+    const recByNorm = recBy.toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+
+    if (userWhMapGAS[toLocNorm] || userWhMapGAS[toLoc.toLowerCase()]) {
+      toLoc = userWhMapGAS[toLocNorm] || userWhMapGAS[toLoc.toLowerCase()];
+    } else if (!toLoc || toLoc === '-' || /^\d+$/.test(toLoc.trim()) || toLoc === 'ALL' || toLoc === 'គ្រប់ស្ថានីយទាំងអស់' || toLoc === 'គ្រប់ឃ្លាំង') {
+      if (userWhMapGAS[rowUserNorm] || userWhMapGAS[rowUser.toLowerCase()]) {
+        toLoc = userWhMapGAS[rowUserNorm] || userWhMapGAS[rowUser.toLowerCase()];
+      } else if (userWhMapGAS[recByNorm] || userWhMapGAS[recBy.toLowerCase()]) {
+        toLoc = userWhMapGAS[recByNorm] || userWhMapGAS[recBy.toLowerCase()];
+      } else {
+        const noteMatch = rowNotes.match(/(?:K\d+[^\]\n\r]+)/i);
+        if (noteMatch) {
+          toLoc = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(noteMatch[0]) : noteMatch[0];
+        } else if (/^\d+$/.test(toLoc.trim())) {
+          toLoc = 'គ្រប់ស្ថានីយទាំងអស់';
+        }
+      }
     }
 
     if (targetWarehouse) {
       const isGlobal = toLoc === 'គ្រប់ស្ថានីយទាំងអស់' || toLoc === 'ALL' || toLoc === 'គ្រប់ឃ្លាំង' || fromLoc === 'គ្រប់ស្ថានីយទាំងអស់' || fromLoc === 'ALL' || fromLoc === 'គ្រប់ឃ្លាំង';
-      if (!isGlobal && fromLoc !== targetWarehouse && toLoc !== targetWarehouse) {
+      const matchesTarget = (fromLoc === targetWarehouse || toLoc === targetWarehouse || (typeof matchesTargetWarehouseGAS === 'function' ? matchesTargetWarehouseGAS(toLoc, targetWarehouse) : false));
+      const uNameStr = user ? String(user.username || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '') : '';
+      const uFullStr = user ? String(user.fullName || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '') : '';
+      const isMyTx = (uNameStr && (rowUserNorm === uNameStr || recByNorm === uNameStr || toLocNorm === uNameStr)) ||
+                     (uFullStr && (rowUserNorm === uFullStr || recByNorm === uFullStr || toLocNorm === uFullStr));
+      if (!isGlobal && !matchesTarget && !isMyTx) {
         continue;
       }
     }
@@ -10786,8 +10972,36 @@ function standardizeAndFormatTransactionsSheet(optSs) {
           finalNotes = rawFrom;
         }
 
+        const uWhMapInStandardize = {
+          'ហុងគិមលី': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+          'hongkimly': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+          'ទូចជីវី': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+          'ទូចជីវិ': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+          'touchvgvy': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+          'ស្រីមាស': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+          'sreymeas': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+          'សុផាដាឡែន': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+          'sophadalen': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+          'តារាទើបរៀន': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+          'ដារាទើបរៀន': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+          'ដារាទើបរ៖': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+          'draternjk': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02'
+        };
+
+        const rawToNorm = rawTo.toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+        const rawUserNorm = rawUser.toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+        const recMatchFromNotes = finalNotes.match(/\[(?:អ្នកទទួល|Receiver):\s*([^\]]+)\]/i);
+        const recNorm = recMatchFromNotes ? recMatchFromNotes[1].toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '') : '';
+
         if (sInMeta && sInMeta.warehouse) {
           finalTo = sInMeta.warehouse;
+        } else if (uWhMapInStandardize[rawToNorm] || uWhMapInStandardize[rawTo.toLowerCase()]) {
+          finalTo = uWhMapInStandardize[rawToNorm] || uWhMapInStandardize[rawTo.toLowerCase()];
+          if (!finalUser) finalUser = rawTo;
+        } else if (uWhMapInStandardize[rawUserNorm] || uWhMapInStandardize[rawUser.toLowerCase()]) {
+          finalTo = uWhMapInStandardize[rawUserNorm] || uWhMapInStandardize[rawUser.toLowerCase()];
+        } else if (uWhMapInStandardize[recNorm]) {
+          finalTo = uWhMapInStandardize[recNorm];
         } else if (rawTo === '陈龙' || rawTo === 'Admin' || rawTo === 'Staff' || rawTo === '聂稳新') {
           finalUser = rawTo;
           finalTo = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';

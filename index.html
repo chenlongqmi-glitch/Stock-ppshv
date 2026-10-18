@@ -19543,7 +19543,8 @@ function saveLocalUsersToStorage() {
         } catch(e) {}
       }
       u = u || {};
-      const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(u) : false;
+      const isPrivileged = (typeof isUserPrivilegedAdmin === 'function' && isUserPrivilegedAdmin(u)) ||
+        (u && (u.role === 'Admin' || u.role === 'SuperAdmin' || String(u.username).toLowerCase() === 'admin' || String(u.username).toLowerCase() === 'superadmin' || u.warehouse === 'ALL'));
 
       if (isPrivileged) {
         // សម្រាប់ account super admin និង admin មិនត្រូវបង្ហាញ default ឡើយ ត្រូវទុកទទេឱ្យជ្រើសរើស (placeholder: -- ជ្រើសរើសទីតាំងឃ្លាំង --)
@@ -19593,10 +19594,14 @@ function saveLocalUsersToStorage() {
 
       // ទីតាំងឃ្លាំងណា សម្រាប់ admin និង super admin មិនត្រូវបង្ហាញ default ឡើយ (ត្រូវទុកទទេឱ្យជ្រើសរើស)
       const stockInLocEl = document.getElementById('stockInLocation');
+      const curU = AppState.currentUser || (function(){ try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch(e){ return null; } })() || {};
+      const isPriv = (typeof isUserPrivilegedAdmin === 'function' && isUserPrivilegedAdmin(curU)) ||
+        (curU && (curU.role === 'Admin' || curU.role === 'SuperAdmin' || String(curU.username).toLowerCase() === 'admin' || String(curU.username).toLowerCase() === 'superadmin' || curU.warehouse === 'ALL'));
       if (stockInLocEl) delete stockInLocEl.dataset.userChosen;
       applyUserWarehouseToStockInLocation(null, false);
-      if (stockInLocEl && (typeof isUserPrivilegedAdmin === 'function' ? isUserPrivilegedAdmin(AppState.currentUser) : false)) {
+      if (stockInLocEl && isPriv) {
         stockInLocEl.value = '';
+        stockInLocEl.selectedIndex = 0;
       }
       
       const zoneEl = document.getElementById('stockInZone');
@@ -19838,12 +19843,19 @@ function saveLocalUsersToStorage() {
 
         // ទីតាំងឃ្លាំងណា រក្សាទុកជម្រើសប្រសិនបើ user បានជ្រើសរើសរួច (សម្រាប់ admin/superadmin មិន auto-fill ឡើយ)
         const stockInLocEl = document.getElementById('stockInLocation');
-        const isPriv = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(AppState.currentUser) : false;
-        if (isPriv && stockInLocEl && stockInLocEl.dataset.userChosen !== 'true') {
-          applyUserWarehouseToStockInLocation(null, false);
-          stockInLocEl.value = '';
+        const curU = AppState.currentUser || (function(){ try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch(e){ return null; } })() || {};
+        const isPriv = (typeof isUserPrivilegedAdmin === 'function' && isUserPrivilegedAdmin(curU)) ||
+          (curU && (curU.role === 'Admin' || curU.role === 'SuperAdmin' || String(curU.username).toLowerCase() === 'admin' || String(curU.username).toLowerCase() === 'superadmin' || curU.warehouse === 'ALL'));
+        if (isPriv) {
+          if (stockInLocEl && stockInLocEl.dataset.userChosen === 'true' && stockInLocEl.value) {
+            applyUserWarehouseToStockInLocation(stockInLocEl, true);
+          } else if (stockInLocEl) {
+            applyUserWarehouseToStockInLocation(stockInLocEl, false);
+            stockInLocEl.value = '';
+            stockInLocEl.selectedIndex = 0;
+          }
         } else {
-          applyUserWarehouseToStockInLocation(null, true);
+          applyUserWarehouseToStockInLocation(stockInLocEl, true);
         }
         clearStockInSingleFieldError(document.getElementById('stockInSku'));
 
@@ -22144,7 +22156,7 @@ function saveLocalUsersToStorage() {
         const [dRes, txOutRes, txInRes] = await Promise.allSettled([
           apiCall('getPendingDispatches', { warehouse: 'ALL' }),
           apiCall('getTransactionHistory', { filters: { type: 'STOCK_OUT', limit: 200 } }),
-          apiCall('getTransactionHistory', { filters: { type: 'STOCK_IN', limit: 200 } })
+          apiCall('getTransactionHistory', { filters: { type: 'STOCK_IN', limit: 200, warehouse: 'ALL' } })
         ]);
         if (dRes.status === 'fulfilled' && dRes.value && Array.isArray(dRes.value.dispatches)) {
           let delKeys = new Set();
@@ -22168,8 +22180,9 @@ function saveLocalUsersToStorage() {
           try { localStorage.setItem('inventory_stock_out_history_db', JSON.stringify(txOutRes.value.transactions)); } catch(e) {}
         }
         if (txInRes.status === 'fulfilled' && txInRes.value && Array.isArray(txInRes.value.transactions)) {
-          AppState.stockInHistory = txInRes.value.transactions;
-          try { localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(txInRes.value.transactions)); } catch(e) {}
+          if (typeof loadStockInHistory === 'function') {
+            loadStockInHistory(false).catch(() => {});
+          }
         }
         saveLocalDispatchesToStorage();
       } catch(e) {
@@ -22208,7 +22221,7 @@ function saveLocalUsersToStorage() {
         Promise.allSettled([
           apiCall('getPendingDispatches', { warehouse: 'ALL' }),
           apiCall('getTransactionHistory', { filters: { type: 'STOCK_OUT', limit: 200 } }),
-          apiCall('getTransactionHistory', { filters: { type: 'STOCK_IN', limit: 200 } })
+          apiCall('getTransactionHistory', { filters: { type: 'STOCK_IN', limit: 200, warehouse: 'ALL' } })
         ]).then(([dRes, txOutRes, txInRes]) => {
           let hasChange = false;
           if (dRes.status === 'fulfilled' && dRes.value && Array.isArray(dRes.value.dispatches)) {
@@ -22236,8 +22249,9 @@ function saveLocalUsersToStorage() {
             hasChange = true;
           }
           if (txInRes.status === 'fulfilled' && txInRes.value && Array.isArray(txInRes.value.transactions)) {
-            AppState.stockInHistory = txInRes.value.transactions;
-            try { localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(txInRes.value.transactions)); } catch(e) {}
+            if (typeof loadStockInHistory === 'function') {
+              loadStockInHistory(false).catch(() => {});
+            }
             hasChange = true;
           }
           if (hasChange) {
@@ -23420,7 +23434,7 @@ function saveLocalUsersToStorage() {
         // Query Google Sheets directly for STOCK_IN transactions (limit: 200)
         // All active station filtering is handled client-side by matchesTargetWarehouse
         // so that combo warehouses (中心库房 & 机电) and individual stations render accurately.
-        const res = await apiCall('getTransactionHistory', { filters: { type: 'STOCK_IN', limit: 200 } });
+        const res = await apiCall('getTransactionHistory', { filters: { type: 'STOCK_IN', limit: 200, warehouse: 'ALL' } });
         if (res && res.success && Array.isArray(res.transactions)) {
           const cleanTxs = res.transactions.filter(t => {
             const doc = String(t.docNo || t.txId || '').toUpperCase();
@@ -23478,6 +23492,11 @@ function saveLocalUsersToStorage() {
               rawWh = myStationWh || 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
             }
 
+            // For station managers: if this transaction was submitted/received by them, or local pending matches, or server returned ALL/every-station:
+            if (!isPrivileged && myStationWh && (isMyTx || origWh === 'ALL' || origWh === 'គ្រប់ស្ថានីយទាំងអស់' || origWh === 'គ្រប់ឃ្លាំង' || userWhMap[tUserClean] === myStationWh || userWhMap[tRecClean] === myStationWh)) {
+              rawWh = myStationWh;
+            }
+
             if (!rawWh || rawWh === '-' || rawWh === 'ALL' || rawWh === 'គ្រប់ស្ថានីយទាំងអស់' || rawWh === 'គ្រប់ឃ្លាំង' || /^\d+$/.test(rawWh)) {
               if (localMatch && localMatch.toLocation && !userWhMap[normalizeStr(localMatch.toLocation)]) {
                 rawWh = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(localMatch.toLocation) : localMatch.toLocation;
@@ -23531,6 +23550,17 @@ function saveLocalUsersToStorage() {
                 rawWh = isPrivileged ? '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)' : (myStationWh || 'K3 ស្ថានីយ (ភ្នំពេញ) 01');
               }
             }
+
+            if (!isPrivileged && myStationWh && (isMyTx || userWhMap[tUserClean] === myStationWh || userWhMap[tRecClean] === myStationWh)) {
+              rawWh = myStationWh;
+            }
+            if (localMatch && localMatch.toLocation && !isPrivileged) {
+              const localWhCan = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(localMatch.toLocation) : localMatch.toLocation;
+              if (localWhCan && localWhCan !== 'ALL' && localWhCan !== 'គ្រប់ស្ថានីយទាំងអស់' && localWhCan !== 'គ្រប់ឃ្លាំង') {
+                rawWh = localWhCan;
+              }
+            }
+
             t.toLocation = rawWh;
             t.warehouse = rawWh;
             t.location = rawWh;
@@ -23565,15 +23595,24 @@ function saveLocalUsersToStorage() {
 
           // PRESERVE RECENT LOCAL PENDING TRANSACTIONS (so newly submitted items NEVER disappear)
           const nowTs = Date.now();
-          const localPending = (AppState.stockInHistory || []).filter(loc => {
-            if (isTransactionDeleted(loc)) return false;
-            const existsInClean = cleanTxs.some(c => 
-              (c.docNo && loc.docNo && String(c.docNo).trim().toUpperCase() === String(loc.docNo).trim().toUpperCase()) ||
-              (c.txId && loc.txId && String(c.txId).trim().toUpperCase() === String(loc.txId).trim().toUpperCase())
-            );
-            if (existsInClean) return false;
-            const created = loc._createdAt || 0;
-            return loc._isLocalPending || (nowTs - created < 600000);
+          const seenPendingKeys = new Set();
+          const localPending = [];
+          [(AppState.stockInHistory || []), (LOCAL_DB.transactions || [])].forEach(sourceList => {
+            sourceList.forEach(loc => {
+              if (!loc || loc.type !== 'STOCK_IN' || isTransactionDeleted(loc)) return;
+              const k = String(loc.docNo || loc.txId || '').trim().toUpperCase();
+              if (k && seenPendingKeys.has(k)) return;
+              if (k) seenPendingKeys.add(k);
+              const existsInClean = cleanTxs.some(c => 
+                (c.docNo && loc.docNo && String(c.docNo).trim().toUpperCase() === String(loc.docNo).trim().toUpperCase()) ||
+                (c.txId && loc.txId && String(c.txId).trim().toUpperCase() === String(loc.txId).trim().toUpperCase())
+              );
+              if (existsInClean) return;
+              const created = loc._createdAt || 0;
+              if (loc._isLocalPending || (created && nowTs - created < 900000)) {
+                localPending.push(loc);
+              }
+            });
           });
 
           const finalHistory = [...localPending, ...cleanTxs];
@@ -23646,13 +23685,18 @@ function saveLocalUsersToStorage() {
           if (!isPrivileged && curU.warehouse && (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(curU.warehouse, activeWh) : isSameWarehouse(curU.warehouse, activeWh))) {
             const tUser = normalizeStr(t.user);
             const tRec = normalizeStr(t.receivedBy);
-            if ((tUser && (tUser === uNameClean || tUser === uFullClean)) || 
-                (tRec && (tRec === uNameClean || tRec === uFullClean)) ||
-                (tWhClean && (tWhClean === uNameClean || tWhClean === uFullClean))) {
+            const isUserMatch = (tUser && (tUser === uNameClean || tUser === uFullClean)) || 
+                                (tRec && (tRec === uNameClean || tRec === uFullClean)) ||
+                                (tWhClean && (tWhClean === uNameClean || tWhClean === uFullClean));
+            if (isUserMatch) {
+              return true;
+            }
+            const isGlobal = (tWh === 'ALL' || tWh === 'គ្រប់ស្ថានីយទាំងអស់' || tWh === 'គ្រប់ឃ្លាំង');
+            if (isGlobal && (isUserMatch || (tUser && !tUser.includes('admin') && !tUser.includes('superadmin')))) {
               return true;
             }
             // Preserve local pending transactions for this station manager
-            if (t._isLocalPending || (t._createdAt && Date.now() - t._createdAt < 600000)) {
+            if (t._isLocalPending || (t._createdAt && Date.now() - t._createdAt < 900000)) {
               return true;
             }
           }
@@ -23808,11 +23852,31 @@ function saveLocalUsersToStorage() {
       const q = (sInp?.value || '').trim().toLowerCase();
       let txs = rawTxs || AppState.stockInHistory || [];
       if (!isFiltered) {
+        if (typeof filterStockInHistoryTable === 'function' && (!rawTxs || rawTxs === AppState.stockInHistory)) {
+          filterStockInHistoryTable();
+          return;
+        }
         if (activeWh && activeWh !== 'ALL' && activeWh !== 'គ្រប់ស្ថានីយទាំងអស់') {
           txs = txs.filter(t => {
             const loc = t.toLocation || t.location || t.warehouse || '';
             if (typeof matchesTargetWarehouse === 'function' && matchesTargetWarehouse(loc, activeWh)) return true;
             if (typeof isSameWarehouse === 'function' && isSameWarehouse(loc, activeWh)) return true;
+
+            const curU = AppState.currentUser || {};
+            const isPriv = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : false;
+            const uNameClean = String(curU.username || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+            const uFullClean = String(curU.fullName || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+            const tWhClean = String(loc || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+            const tUser = String(t.user || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+            const tRec = String(t.receivedBy || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+
+            const isUserMatch = (tUser && (tUser === uNameClean || tUser === uFullClean)) || 
+                                (tRec && (tRec === uNameClean || tRec === uFullClean)) ||
+                                (tWhClean && (tWhClean === uNameClean || tWhClean === uFullClean));
+            if (!isPriv && isUserMatch) return true;
+            if ((loc === 'ALL' || loc === 'គ្រប់ស្ថានីយទាំងអស់' || loc === 'គ្រប់ឃ្លាំង') && isUserMatch) return true;
+            if (!isPriv && (t._isLocalPending || (t._createdAt && Date.now() - t._createdAt < 900000))) return true;
+
             return false;
           });
         }
@@ -32916,10 +32980,14 @@ function saveLocalUsersToStorage() {
       // 5. Stock In Location Selector (Admin: only 中心库房 & 机电)
       const stockInLoc = document.getElementById('stockInLocation');
       if (stockInLoc) {
-        const isPriv = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(AppState.currentUser) : false;
-        if (isPriv && stockInLoc.dataset.userChosen !== 'true') {
-          applyUserWarehouseToStockInLocation(stockInLoc, false);
-          stockInLoc.value = '';
+        if (isPrivilegedAdmin) {
+          if (stockInLoc.dataset.userChosen === 'true' && stockInLoc.value) {
+            applyUserWarehouseToStockInLocation(stockInLoc, true);
+          } else {
+            applyUserWarehouseToStockInLocation(stockInLoc, false);
+            stockInLoc.value = '';
+            stockInLoc.selectedIndex = 0;
+          }
         } else {
           applyUserWarehouseToStockInLocation(stockInLoc, true);
         }
