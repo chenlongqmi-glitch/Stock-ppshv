@@ -7682,8 +7682,53 @@
     }
     window.getEffectiveStationFilter = getEffectiveStationFilter;
 
-function saveLocalUsersToStorage() {
+    function getDeletedUserKeys() {
       try {
+        const stored = localStorage.getItem('inventory_deleted_users_db');
+        if (!stored) return new Set();
+        const arr = JSON.parse(stored);
+        return new Set(Array.isArray(arr) ? arr : []);
+      } catch (e) {
+        return new Set();
+      }
+    }
+    window.getDeletedUserKeys = getDeletedUserKeys;
+
+    function recordDeletedUser(u) {
+      if (!u) return;
+      try {
+        const set = getDeletedUserKeys();
+        const id = String(u.userId || u.id || '').trim().toUpperCase();
+        const un = String(u.username || '').replace(/^@+/, '').trim().toLowerCase();
+        const em = String(u.email || '').trim().toLowerCase();
+        if (id) set.add(id);
+        if (un) set.add(un);
+        if (em) set.add(em);
+        localStorage.setItem('inventory_deleted_users_db', JSON.stringify(Array.from(set)));
+      } catch (e) {}
+    }
+    window.recordDeletedUser = recordDeletedUser;
+
+    function isUserDeleted(u) {
+      if (!u) return false;
+      if (u.status === 'Deleted' || u.status === 'deleted') return true;
+      const set = getDeletedUserKeys();
+      if (!set || set.size === 0) return false;
+      const id = String(u.userId || u.id || '').trim().toUpperCase();
+      const un = String(u.username || '').replace(/^@+/, '').trim().toLowerCase();
+      const em = String(u.email || '').trim().toLowerCase();
+      if (id && set.has(id)) return true;
+      if (un && set.has(un)) return true;
+      if (em && set.has(em)) return true;
+      return false;
+    }
+    window.isUserDeleted = isUserDeleted;
+
+    function saveLocalUsersToStorage() {
+      try {
+        if (Array.isArray(LOCAL_DB.users)) {
+          LOCAL_DB.users = LOCAL_DB.users.filter(u => !isUserDeleted(u));
+        }
         localStorage.setItem('inventory_users_db', JSON.stringify(LOCAL_DB.users));
       } catch (e) {
         console.warn('Could not save users to localStorage', e);
@@ -7719,6 +7764,7 @@ function saveLocalUsersToStorage() {
             const validUsers = parsed.filter(p => {
               if (!p) return false;
               if (isUnregisteredDummyUser(p)) return false;
+              if (isUserDeleted(p)) return false;
               if (p.username === 'sdfsdf' || p.userId === 'USR-01' || p.userId === 'USR-02' || p.userId === 'USR-03' || p.userId === 'USR-00' || p.username === 'bengkaka') return false;
               if (p.status === 'Deleted' || p.status === 'deleted') return false;
               const un = String(p.username || '').replace(/^@+/, '').trim().toLowerCase();
@@ -14706,6 +14752,12 @@ function saveLocalUsersToStorage() {
       if (curFull && (s === curFull || sNorm === curFull)) return true;
       if (s === 'superadmin' || s === 'super admin' || s === 'admin' || s === 'staff' || sNorm === 'superadmin' || sNorm === 'admin' || sNorm === 'hongkimly') return true;
       if (s.includes('@') && elId !== 'userSearchInput') return true;
+
+      // 1b. Password autofill check (prevent password manager autofill from filtering lists)
+      const isUserPassword = (LOCAL_DB.users || []).concat(AppState.users || []).concat(AppState.currentUser ? [AppState.currentUser] : []).some(u => {
+        return u && u.password && String(u.password).trim() && (String(val).trim() === String(u.password).trim() || s === String(u.password).trim().toLowerCase());
+      });
+      if (isUserPassword && elId !== 'passwordInput' && elId !== 'loginPassword') return true;
 
       // 2. លេខទូរសព្ទ ឬ ព័ត៌មាន User ណាម្នាក់ក្នុង LOCAL_DB.users
       const isKnownUser = (LOCAL_DB.users || []).concat(AppState.users || []).some(u => {
@@ -23593,7 +23645,7 @@ function saveLocalUsersToStorage() {
         // Query Google Sheets directly for STOCK_IN transactions (limit: 200)
         // All active station filtering is handled client-side by matchesTargetWarehouse
         // so that combo warehouses (中心库房 & 机电) and individual stations render accurately.
-        const res = await apiCall('getTransactionHistory', { filters: { type: 'STOCK_IN', limit: 200, warehouse: 'ALL' } });
+        const res = await apiCall('getTransactionHistory', { filters: { type: 'STOCK_IN', limit: 200, warehouse: 'ALL' }, user: AppState.currentUser });
         if (res && res.success && Array.isArray(res.transactions)) {
           const cleanTxs = res.transactions.filter(t => {
             const doc = String(t.docNo || t.txId || '').toUpperCase();
@@ -23622,11 +23674,13 @@ function saveLocalUsersToStorage() {
             // Find matching local transaction if any (to preserve optimistic client-side data)
             const localMatch = (AppState.stockInHistory || []).find(loc => 
               (loc.docNo && t.docNo && String(loc.docNo).trim().toUpperCase() === String(t.docNo).trim().toUpperCase()) ||
-              (loc.txId && t.txId && String(loc.txId).trim().toUpperCase() === String(t.txId).trim().toUpperCase())
+              (loc.txId && t.txId && String(loc.txId).trim().toUpperCase() === String(t.txId).trim().toUpperCase()) ||
+              (loc.sku && t.sku && loc.sku.toLowerCase() === t.sku.toLowerCase() && Number(loc.quantity) === Number(t.quantity) && Math.abs((loc._createdAt || 0) - (t._createdAt || Date.now())) < 600000)
             ) || (LOCAL_DB.transactions || []).find(loc =>
               loc.type === 'STOCK_IN' &&
               ((loc.docNo && t.docNo && String(loc.docNo).trim().toUpperCase() === String(t.docNo).trim().toUpperCase()) ||
-               (loc.txId && t.txId && String(loc.txId).trim().toUpperCase() === String(t.txId).trim().toUpperCase()))
+               (loc.txId && t.txId && String(loc.txId).trim().toUpperCase() === String(t.txId).trim().toUpperCase()) ||
+               (loc.sku && t.sku && loc.sku.toLowerCase() === t.sku.toLowerCase() && Number(loc.quantity) === Number(t.quantity) && Math.abs((loc._createdAt || 0) - (t._createdAt || Date.now())) < 600000))
             );
 
             const isMyTx = isSameUserOrAlias(t.user, curU) || isSameUserOrAlias(t.receivedBy, curU);
@@ -23708,6 +23762,7 @@ function saveLocalUsersToStorage() {
 
             // Merge fields from localMatch so optimistic details are never overwritten
             if (localMatch) {
+              if (localMatch.docNo && (!t.docNo || t.docNo.startsWith('TX-IN-'))) t.docNo = localMatch.docNo;
               if (localMatch.bulkQty !== undefined) t.bulkQty = localMatch.bulkQty;
               if (localMatch.retailQty !== undefined) t.retailQty = localMatch.retailQty;
               if (localMatch.inUnitMode) t.inUnitMode = localMatch.inUnitMode;
@@ -23744,11 +23799,27 @@ function saveLocalUsersToStorage() {
               const k = String(loc.docNo || loc.txId || '').trim().toUpperCase();
               if (k && seenPendingKeys.has(k)) return;
               if (k) seenPendingKeys.add(k);
-              const existsInClean = cleanTxs.some(c => 
+              const matchingServerTx = cleanTxs.find(c => 
                 (c.docNo && loc.docNo && String(c.docNo).trim().toUpperCase() === String(loc.docNo).trim().toUpperCase()) ||
-                (c.txId && loc.txId && String(c.txId).trim().toUpperCase() === String(loc.txId).trim().toUpperCase())
+                (c.txId && loc.txId && String(c.txId).trim().toUpperCase() === String(loc.txId).trim().toUpperCase()) ||
+                (c.sku && loc.sku && c.sku.toLowerCase() === loc.sku.toLowerCase() && Number(c.quantity) === Number(loc.quantity) && Math.abs((loc._createdAt || nowTs) - (c._createdAt || nowTs)) < 600000)
               );
-              if (existsInClean) return;
+              if (matchingServerTx) {
+                // Ensure server record retains station warehouse from verified local transaction
+                if (!isPrivileged && myStationWh) {
+                  matchingServerTx.toLocation = myStationWh;
+                  matchingServerTx.warehouse = myStationWh;
+                  matchingServerTx.location = myStationWh;
+                } else if (loc.toLocation && (!matchingServerTx.toLocation || matchingServerTx.toLocation === 'ALL' || matchingServerTx.toLocation === 'គ្រប់ស្ថានីយទាំងអស់')) {
+                  matchingServerTx.toLocation = loc.toLocation;
+                  matchingServerTx.warehouse = loc.toLocation;
+                  matchingServerTx.location = loc.toLocation;
+                }
+                if (loc.docNo && (!matchingServerTx.docNo || matchingServerTx.docNo.startsWith('TX-IN-'))) {
+                  matchingServerTx.docNo = loc.docNo;
+                }
+                return;
+              }
               const created = loc._createdAt || 0;
               if (loc._isLocalPending || (created && nowTs - created < 900000)) {
                 localPending.push(loc);
@@ -23819,6 +23890,12 @@ function saveLocalUsersToStorage() {
 
       if (activeWh && activeWh !== 'ALL' && activeWh !== 'គ្រប់ស្ថានីយទាំងអស់') {
         baseList = baseList.filter(t => {
+          if (!t) return false;
+          // 1. Pending local or recent transactions for this station manager (< 15 mins) ALWAYS persist
+          if (t._isLocalPending || (t._createdAt && Date.now() - t._createdAt < 900000)) {
+            return true;
+          }
+
           const tWh = t.toLocation || t.location || t.warehouse || '';
           if (typeof matchesTargetWarehouse === 'function' && matchesTargetWarehouse(tWh, activeWh)) return true;
           if (typeof isSameWarehouse === 'function' && isSameWarehouse(tWh, activeWh)) return true;
@@ -23831,7 +23908,7 @@ function saveLocalUsersToStorage() {
           }
 
           // Fallback for station manager: if current user created or received this transaction and their station matches activeWh
-          if (!isPrivileged && curU.warehouse && (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(curU.warehouse, activeWh) : isSameWarehouse(curU.warehouse, activeWh))) {
+          if (!isPrivileged) {
             const isUserMatch = isSameUserOrAlias(t.user, curU) || 
                                 isSameUserOrAlias(t.receivedBy, curU) ||
                                 isSameUserOrAlias(tWh, curU);
@@ -23843,10 +23920,6 @@ function saveLocalUsersToStorage() {
             }
             const isGlobal = (tWh === 'ALL' || tWh === 'គ្រប់ស្ថានីយទាំងអស់' || tWh === 'គ្រប់ឃ្លាំង');
             if (isGlobal && (isUserMatch || isStMatch || (!String(t.user || '').toLowerCase().includes('admin') && !String(t.user || '').toLowerCase().includes('superadmin')))) {
-              return true;
-            }
-            // Preserve local pending transactions for this station manager
-            if (t._isLocalPending || (t._createdAt && Date.now() - t._createdAt < 900000)) {
               return true;
             }
           }
@@ -27823,7 +27896,7 @@ function saveLocalUsersToStorage() {
       };
 
       const userSource = (Array.isArray(optUsers) && optUsers.length > 0) ? optUsers : (LOCAL_DB.users || []);
-      let filteredUsers = userSource.filter(u => u && !isUnregisteredDummyUser(u) && u.status !== 'Deleted' && u.status !== 'deleted' && u.username !== 'bengkaka');
+      let filteredUsers = userSource.filter(u => u && !isUnregisteredDummyUser(u) && !isUserDeleted(u) && u.status !== 'Deleted' && u.status !== 'deleted' && u.username !== 'bengkaka');
 
       if (isActorSuperAdmin) {
         filteredUsers = filteredUsers.filter(u => !isSelfUser(u));
@@ -27863,7 +27936,7 @@ function saveLocalUsersToStorage() {
       try {
         // Clean out ghost records and deleted users from local memory
         LOCAL_DB.users = (LOCAL_DB.users || []).filter(u => {
-          if (!u || u.username === 'bengkaka' || isUnregisteredDummyUser(u)) return false;
+          if (!u || u.username === 'bengkaka' || isUnregisteredDummyUser(u) || isUserDeleted(u)) return false;
           if (u.status === 'Deleted' || u.status === 'deleted') return false;
           const un = String(u.username || '').replace(/^@+/, '').trim().toLowerCase();
           if (un === 'sopher' && (u.status === 'Pending_Deletion' || u.status === 'Deleted')) return false;
@@ -27880,7 +27953,7 @@ function saveLocalUsersToStorage() {
               }
             });
             const cleanReturned = res.users.filter(ru => {
-              if (!ru || isUnregisteredDummyUser(ru) || ru.status === 'Deleted' || ru.status === 'deleted') return false;
+              if (!ru || isUnregisteredDummyUser(ru) || isUserDeleted(ru) || ru.status === 'Deleted' || ru.status === 'deleted') return false;
               const un = String(ru.username || '').replace(/^@+/, '').trim().toLowerCase();
               if (un === 'sopher' && (ru.status === 'Pending_Deletion' || ru.status === 'Deleted')) return false;
               return true;
@@ -27894,7 +27967,7 @@ function saveLocalUsersToStorage() {
 
             const cleanReturnedUsernames = new Set(cleanReturned.map(u => String(u.username || '').replace(/^@+/, '').trim().toLowerCase()));
             const preservedExisting = (LOCAL_DB.users || []).filter(u => {
-              if (!u || u.status === 'Deleted' || u.status === 'deleted') return false;
+              if (!u || isUserDeleted(u) || u.status === 'Deleted' || u.status === 'deleted') return false;
               const un = String(u.username || '').replace(/^@+/, '').trim().toLowerCase();
               return un && !cleanReturnedUsernames.has(un) && !isUnregisteredDummyUser(u);
             });
@@ -27903,11 +27976,12 @@ function saveLocalUsersToStorage() {
               LOCAL_DB.users = [...cleanReturned, ...preservedExisting];
             } else if (isActorStationManager) {
               const myWh = actor?.warehouse;
-              const otherWhUsers = (LOCAL_DB.users || []).filter(u => !isSameWarehouse(myWh, u.warehouse) && u.status !== 'Deleted');
+              const otherWhUsers = (LOCAL_DB.users || []).filter(u => !isSameWarehouse(myWh, u.warehouse) && !isUserDeleted(u) && u.status !== 'Deleted');
               LOCAL_DB.users = [...otherWhUsers, ...cleanReturned];
             } else {
               LOCAL_DB.users = [...cleanReturned, ...preservedExisting];
             }
+            LOCAL_DB.users = (LOCAL_DB.users || []).filter(u => !isUserDeleted(u));
             saveLocalUsersToStorage();
           }
 
@@ -30829,28 +30903,37 @@ function saveLocalUsersToStorage() {
       });
 
       try {
-        let res = await apiCall('updateUserStatus', {
+        recordDeletedUser({ userId: uId, username: uName, email: targetUser?.email });
+        LOCAL_DB.users = (LOCAL_DB.users || []).filter(u => !isUserDeleted(u));
+        saveLocalUsersToStorage();
+        if (typeof updateRenderableUsersFromDb === 'function') {
+          updateRenderableUsersFromDb();
+        }
+        if (typeof filterUsersList === 'function') {
+          filterUsersList();
+        }
+
+        let res = await apiCall('deleteUser', {
           userId: uId,
           username: uName,
-          status: 'Deleted',
-          role: targetRole,
-          warehouse: targetWh,
+          email: targetUser?.email || '',
           adminUser: actor?.username || 'Admin'
         });
 
         if (!res || !res.success) {
-          res = await apiCall('deleteUser', {
+          res = await apiCall('updateUserStatus', {
             userId: uId,
             username: uName,
+            status: 'Deleted',
+            role: targetRole,
+            warehouse: targetWh,
             adminUser: actor?.username || 'Admin'
           });
         }
 
         if (res && res.success) {
-          // Remove from LOCAL_DB immediately
-          LOCAL_DB.users = (LOCAL_DB.users || []).filter(u => 
-            (!uId || u.userId !== uId) && (!uName || u.username !== uName)
-          );
+          recordDeletedUser({ userId: uId, username: uName, email: targetUser?.email });
+          LOCAL_DB.users = (LOCAL_DB.users || []).filter(u => !isUserDeleted(u));
           saveLocalUsersToStorage();
           if (typeof updateRenderableUsersFromDb === 'function') {
             updateRenderableUsersFromDb();
@@ -30863,6 +30946,7 @@ function saveLocalUsersToStorage() {
           broadcastInventoryMutation('USER_DELETED', {
             userId: uId,
             username: uName,
+            email: targetUser?.email,
             userList: LOCAL_DB.users
           });
 
@@ -31090,14 +31174,23 @@ function saveLocalUsersToStorage() {
       });
 
       try {
-        let res = await apiCall('updateUserStatus', {
+        let res = await apiCall('deleteUser', {
           userId: uId,
           username: uName,
-          status: 'Deleted',
-          superAdminReason: superAdminReason,
-          reason: superAdminReason,
+          email: targetUser?.email || '',
           adminUser: actor?.username || 'superadmin'
         });
+
+        if (!res || !res.success) {
+          res = await apiCall('updateUserStatus', {
+            userId: uId,
+            username: uName,
+            status: 'Deleted',
+            superAdminReason: superAdminReason,
+            reason: superAdminReason,
+            adminUser: actor?.username || 'superadmin'
+          });
+        }
 
         if (!res || (!res.success && res.message && (res.message.includes('Unknown action') || res.message.includes('not found')))) {
           res = await apiCall('approveUserDeletion', {
@@ -31110,13 +31203,8 @@ function saveLocalUsersToStorage() {
         }
 
         if (res && res.success) {
-          const normUName = String(uName || '').replace(/[\u200B-\u200D\uFEFF]/g, '').toLowerCase();
-          LOCAL_DB.users = (LOCAL_DB.users || []).filter(u => {
-            if (uId && u.userId === uId) return false;
-            const curUName = String(u.username || '').replace(/[\u200B-\u200D\uFEFF]/g, '').toLowerCase();
-            if (normUName && curUName === normUName) return false;
-            return true;
-          });
+          recordDeletedUser({ userId: uId, username: uName, email: targetUser?.email });
+          LOCAL_DB.users = (LOCAL_DB.users || []).filter(u => !isUserDeleted(u));
           saveLocalUsersToStorage();
 
           // Broadcast deletion mutation immediately across all tabs/windows

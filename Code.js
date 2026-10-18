@@ -912,6 +912,9 @@ function executeLocalApiAction(req) {
       case 'repairStockIn':
         return repairStockInWarehouses();
 
+      case 'cleanupDuplicateUsers':
+        return cleanupDuplicateUsers();
+
       case 'inspectStockInSheet': {
         const _ss = SpreadsheetApp.getActiveSpreadsheet() || SpreadsheetApp.openById('1zIK2d2uF3EYzaM9f4N2eOzR-HAmBihfxfHzK3xdgV_A');
         const _sIn = _ss.getSheetByName('Stock_in');
@@ -1949,77 +1952,13 @@ function ensureUsersInitialized(ss) {
         }
       }
 
-      // Verify and ensure all core registered users exist in Google Sheets Users sheet
-      const existingUsernames = new Set();
-      const normalizeU = (s) => String(s || '').replace(/[\u200b\ufeff\s_-]/g, '').toLowerCase();
-
       for (let i = 1; i < data.length; i++) {
         const rowUName = String(data[i][1] || '').trim();
-        const normU = normalizeU(rowUName);
-        if (normU) existingUsernames.add(normU);
-
         // Clean zero-width spaces in username if present (e.g. hong\u200bKimly -> hongkimly)
         if (rowUName.includes('\u200b') || rowUName.includes('\ufeff')) {
           sheet.getRange(i + 1, 2).setValue(rowUName.replace(/[\u200b\ufeff]/g, ''));
         }
-
-        // Align admin details matching Screenshot 1: 范胜听 / ppshv210pv034@gmail.com / 098 987 653
-        if (normU === 'admin') {
-          if (String(data[i][2] || '').trim() !== '范胜听') sheet.getRange(i + 1, 3).setValue('范胜听');
-          if (String(data[i][3] || '').trim() !== 'ppshv210pv034@gmail.com') sheet.getRange(i + 1, 4).setValue('ppshv210pv034@gmail.com');
-          if (String(data[i][11] || '').trim() !== '098 987 653') sheet.getRange(i + 1, 12).setValue('098 987 653');
-        }
       }
-
-      const coreUsersToEnsure = [
-        {
-          userId: 'USR-001',
-          username: 'admin',
-          fullName: '范胜听',
-          email: 'ppshv210pv034@gmail.com',
-          password: 'admin123',
-          role: 'Admin',
-          status: 'Active',
-          warehouse: 'ALL',
-          avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
-          phone: '098 987 653'
-        },
-        {
-          userId: 'USR-20260919123637',
-          username: 'chandara',
-          fullName: 'ចាន់ តារា',
-          email: '',
-          password: '123456',
-          role: 'ប្រធានក្រុម',
-          status: 'Active',
-          warehouse: '1-K3 ស្ថានីយ (ភ្នំពេញ)',
-          avatar: '',
-          phone: '098 666 154'
-        },
-        {
-          userId: 'USR-20260921215746',
-          username: 'chandy',
-          fullName: 'ចាន់ ឌី',
-          email: '',
-          password: '123456',
-          role: 'ប្រធានក្រុម',
-          status: 'Active',
-          warehouse: '1-K3 ស្ថានីយ (ភ្នំពេញ)',
-          avatar: '',
-          phone: '095 645 854'
-        }
-      ];
-
-      coreUsersToEnsure.forEach(cu => {
-        if (!existingUsernames.has(normalizeU(cu.username))) {
-          const salt = Utilities.getUuid().slice(0, 16);
-          const initialBound = JSON.stringify({ desktop: null, mobile: null });
-          sheet.appendRow([
-            cu.userId, cu.username, cu.fullName, cu.email, cu.password, salt, cu.role, cu.status, new Date(), cu.warehouse, cu.avatar, cu.phone, '', '', '', initialBound, cu.password, ''
-          ]);
-          existingUsernames.add(normalizeU(cu.username));
-        }
-      });
     } catch (syncErr) {}
   }
   return sheet;
@@ -3199,17 +3138,30 @@ function getUsersList(userOrPayload) {
   );
   const isStationManager = !isSuperAdmin && !isAdmin && actor && (actor.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || actor.role === 'អ្នកគ្រប់គ្រង' || String(actor.role).toLowerCase() === 'station manager');
   const isPrivileged = !!(isSuperAdmin || isAdmin);
+  const seenUsernames = new Set();
+  const seenUserIds = new Set();
 
   for (let i = 1; i < data.length; i++) {
     if (data[i][0]) {
       const uName = String(data[i][1] || '').trim().toLowerCase();
       const uEmail = String(data[i][3] || '').trim().toLowerCase();
       const uId = String(data[i][0] || '').trim().toUpperCase();
+      const uStatus = String(data[i][7] || 'Active').trim();
 
-      // Filter out unregistered dummy seeded demo users
-      if (/^wh\d+$/i.test(uName) || uEmail.endsWith('@inventory.local') || /^USR-\d{2}$/.test(uId) || uId === 'USR-PENDING-01') {
+      // Filter out unregistered dummy seeded demo users or deleted users
+      if (/^wh\d+$/i.test(uName) || uEmail.endsWith('@inventory.local') || /^USR-\d{2}$/.test(uId) || uId === 'USR-PENDING-01' || uStatus === 'Deleted' || uStatus.toLowerCase() === 'deleted') {
         continue;
       }
+
+      const normU = uName.replace(/[\u200b\ufeff\s_-]/g, '');
+      if (normU && seenUsernames.has(normU)) {
+        continue;
+      }
+      if (uId && seenUserIds.has(uId)) {
+        continue;
+      }
+      if (normU) seenUsernames.add(normU);
+      if (uId) seenUserIds.add(uId);
 
       let rawPassword = '';
       const valE = String(data[i][4] || '').trim();
@@ -3717,32 +3669,7 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
         r = 'ប្រធានក្រុម';
       }
       if (st === 'Deleted' || st === 'deleted' || st === 'delete') {
-        const deletedUName = String(data[i][1]);
-        const deletedFName = String(data[i][2] || deletedUName);
-        const deletedRole = String(data[i][6] || 'User');
-        const deletedWh = String(data[i][9] || '-');
-        sheet.deleteRow(i + 1);
-        try {
-          invalidateAppCache();
-          setGlobalDataVersion();
-        } catch (cErr) {}
-        logActivity(admin || 'Admin', admin === 'superadmin' ? 'SuperAdmin' : 'Admin', 'DELETE_USER', `Deleted User ${uId} (@${deletedUName})`);
-
-        // Send alert to SuperAdmin via Telegram
-        try {
-          const alertMsg = `🗑️ <b>[ដំណឹងលុបគណនីអ្នកប្រើប្រាស់]</b>\n` +
-            `👤 <b>ឈ្មោះបុគ្គលិក:</b> ${deletedFName}\n` +
-            `🆔 <b>Username:</b> <code>@${deletedUName}</code>\n` +
-            `💼 <b>តួនាទី:</b> ${deletedRole}\n` +
-            `🏢 <b>ឃ្លាំង/ស្ថានីយ:</b> ${deletedWh}\n` +
-            `👮 <b>លុបដោយ:</b> ${admin || 'Admin'}\n` +
-            `🕒 <b>កាលបរិច្ឆេទ:</b> ${Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd HH:mm:ss')}\n` +
-            `🚦 <b>ស្ថានភាព:</b> ❌ <b>បានលុបចេញពីប្រព័ន្ធភ្លាមៗ</b>`;
-
-          sendTelegramAlert(alertMsg);
-        } catch (e) {}
-
-        return { success: true, message: `បានលុបអ្នកប្រើប្រាស់ ${deletedUName} ចេញពីប្រព័ន្ធជោគជ័យ` };
+        return deleteUser(userIdOrPayload, admin, deleteReason);
       }
       if (fullName && String(fullName).trim() !== '') sheet.getRange(i + 1, 3).setValue(String(fullName).trim());
       if (email && String(email).trim() !== '') sheet.getRange(i + 1, 4).setValue(String(email).trim());
@@ -3959,143 +3886,160 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
 
 
 function deleteUser(userIdOrPayload, adminUser, deleteReason) {
-
   let uId = userIdOrPayload;
-
   let admin = adminUser;
-
   let reason = deleteReason;
-
-
+  let targetUsername = '';
+  let targetEmail = '';
 
   if (userIdOrPayload && typeof userIdOrPayload === 'object') {
-
-    uId = userIdOrPayload.userId || userIdOrPayload.username || userIdOrPayload.id;
-
+    uId = userIdOrPayload.userId || userIdOrPayload.id;
+    targetUsername = userIdOrPayload.username || '';
+    targetEmail = userIdOrPayload.email || '';
     admin = userIdOrPayload.adminUser || userIdOrPayload.user;
-
     reason = userIdOrPayload.reason || userIdOrPayload.deleteReason;
-
   }
 
+  const rawTargetId = String(uId || '').trim();
+  const rawTargetUser = String(targetUsername || (!rawTargetId.startsWith('USR-') ? rawTargetId : '')).replace(/^@/, '').trim().toLowerCase();
+  const rawTargetEmail = String(targetEmail || '').trim().toLowerCase();
 
-
-  if (!uId) {
-
+  if (!rawTargetId && !rawTargetUser && !rawTargetEmail) {
     return { success: false, message: 'សូមបញ្ជាក់អ្នកប្រើប្រាស់ដែលត្រូវលុប' };
-
   }
-
-
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-
   const sheet = ensureUsersInitialized(ss);
-
   const data = sheet.getDataRange().getValues();
 
-
-
   let adminUsername = '';
-
   if (admin && typeof admin === 'object') {
-
     adminUsername = String(admin.username || '').toLowerCase();
-
   } else if (admin) {
-
     adminUsername = String(admin).toLowerCase();
-
   }
-
-
 
   const isActorSuperAdmin = (adminUsername === 'superadmin' || (admin && admin.role === 'SuperAdmin'));
 
+  const cleanTargetId = rawTargetId.toLowerCase();
+  const cleanTargetUser = rawTargetUser.replace(/[\u200b\ufeff\s_-]/g, '');
 
+  let deletedCount = 0;
+  let deletedFullName = '';
+  let deletedRole = '';
+  let deletedWh = '';
+  let finalUsername = '';
 
-  for (let i = 1; i < data.length; i++) {
-
-    const rowUserId = String(data[i][0] || '');
-
-    const rowUsername = String(data[i][1] || '');
-
+  for (let i = data.length - 1; i >= 1; i--) {
+    const rowUserId = String(data[i][0] || '').trim();
+    const rowUsername = String(data[i][1] || '').trim().replace(/^@/, '');
+    const rowEmail = String(data[i][3] || '').trim().toLowerCase();
     const rowRole = String(data[i][6] || '');
 
+    const rowUserClean = rowUsername.toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
 
+    const isMatch = (rawTargetId && rowUserId && (rowUserId === rawTargetId || rowUserId.toLowerCase() === cleanTargetId)) ||
+                    (cleanTargetUser && rowUserClean && (rowUserClean === cleanTargetUser)) ||
+                    (rawTargetEmail && rowEmail && rowEmail === rawTargetEmail);
 
-    const cleanTarget = String(uId || '').replace(/^@/, '').trim().toLowerCase();
-    const isDeleteMatch = (rowUserId && (rowUserId === String(uId).trim() || rowUserId.toLowerCase() === cleanTarget)) ||
-                          (rowUsername && (rowUsername.toLowerCase() === cleanTarget || rowUsername.replace(/^@/, '').toLowerCase() === cleanTarget));
-    if (isDeleteMatch) {
-
-      // Prevent deleting self
-
+    if (isMatch) {
       if (rowUsername.toLowerCase() === adminUsername) {
-
         return { success: false, message: 'អ្នកមិនអាចលុបគណនីផ្ទាល់ខ្លួនរបស់អ្នកបានឡើយ' };
-
       }
-
-
-
-      // Protect SuperAdmin
-
       if ((rowRole === 'SuperAdmin' || rowUserId === 'USR-SA' || rowUsername.toLowerCase() === 'superadmin') && !isActorSuperAdmin) {
-
         return { success: false, message: 'អ្នកគ្មានសិទ្ធិលុបគណនី SuperAdmin ឡើយ' };
-
       }
 
-
-
-      // Admin and SuperAdmin delete directly and alert SuperAdmin
-
-
-
-      const deletedFullName = data[i][2] || rowUsername;
-      const deletedRole = String(data[i][6] || 'User');
-      const deletedWh = String(data[i][9] || '-');
+      deletedFullName = data[i][2] || rowUsername;
+      deletedRole = String(data[i][6] || 'User');
+      deletedWh = String(data[i][9] || '-');
+      finalUsername = rowUsername;
 
       sheet.deleteRow(i + 1);
-
-      try {
-        invalidateAppCache();
-        setGlobalDataVersion();
-      } catch (cErr) {}
-
-      logActivity('USERS', adminUsername || 'Admin', 'DELETE_USER', `លុបអ្នកប្រើប្រាស់: ${deletedFullName} (@${rowUsername})`);
-
-      // Alert SuperAdmin via Telegram
-      try {
-        const delAlert = `🗑️ <b>[ដំណឹងលុបគណនីអ្នកប្រើប្រាស់]</b>\n` +
-          `👤 <b>ឈ្មោះបុគ្គលិក:</b> ${deletedFullName}\n` +
-          `🆔 <b>Username:</b> <code>@${rowUsername}</code>\n` +
-          `💼 <b>តួនាទី:</b> ${deletedRole}\n` +
-          `🏢 <b>ឃ្លាំង/ស្ថានីយ:</b> ${deletedWh}\n` +
-          `👮 <b>លុបដោយ:</b> ${adminUsername || 'Admin'} (${isActorSuperAdmin ? 'SuperAdmin' : 'Admin'})\n` +
-          `🕒 <b>កាលបរិច្ឆេទ:</b> ${Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd HH:mm:ss')}\n` +
-          `🚦 <b>ស្ថានភាព:</b> ❌ <b>បានលុបចេញពីប្រព័ន្ធភ្លាមៗ</b>`;
-
-        sendTelegramAlert(delAlert);
-      } catch (tgErr) {}
-
-      return {
-
-        success: true,
-
-        message: `បានលុបគណនី ${deletedFullName} (@${rowUsername}) ចេញពីប្រព័ន្ធជោគជ័យ!`
-
-      };
-
+      deletedCount++;
     }
-
   }
 
+  if (deletedCount > 0) {
+    try {
+      invalidateAppCache();
+      setGlobalDataVersion();
+    } catch (cErr) {}
 
+    logActivity('USERS', adminUsername || 'Admin', 'DELETE_USER', `លុបអ្នកប្រើប្រាស់: ${deletedFullName} (@${finalUsername}) [${deletedCount} ជួរ]`);
+
+    // Alert SuperAdmin via Telegram
+    try {
+      const delAlert = `🗑️ <b>[ដំណឹងលុបគណនីអ្នកប្រើប្រាស់]</b>\n` +
+        `👤 <b>ឈ្មោះបុគ្គលិក:</b> ${deletedFullName}\n` +
+        `🆔 <b>Username:</b> <code>@${finalUsername}</code>\n` +
+        `💼 <b>តួនាទី:</b> ${deletedRole}\n` +
+        `🏢 <b>ឃ្លាំង/ស្ថានីយ:</b> ${deletedWh}\n` +
+        `👮 <b>លុបដោយ:</b> ${adminUsername || 'Admin'} (${isActorSuperAdmin ? 'SuperAdmin' : 'Admin'})\n` +
+        `🕒 <b>កាលបរិច្ឆេទ:</b> ${Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd HH:mm:ss')}\n` +
+        `🚦 <b>ស្ថានភាព:</b> ❌ <b>បានលុបចេញពីប្រព័ន្ធភ្លាមៗ</b>`;
+
+      sendTelegramAlert(delAlert);
+    } catch (tgErr) {}
+
+    return {
+      success: true,
+      deletedCount: deletedCount,
+      message: `បានលុបគណនី ${deletedFullName} (@${finalUsername}) ចេញពីប្រព័ន្ធជោគជ័យ!`
+    };
+  }
 
   return { success: false, message: 'រកមិនឃើញអ្នកប្រើប្រាស់ដែលត្រូវលុបឡើយ' };
+}
 
+function cleanupDuplicateUsers(optSs) {
+  let ss = optSs;
+  if (!ss) {
+    try { ss = SpreadsheetApp.getActiveSpreadsheet(); } catch(e) {}
+  }
+  if (!ss) {
+    try { ss = SpreadsheetApp.openById('1zIK2d2uF3EYzaM9f4N2eOzR-HAmBihfxfHzK3xdgV_A'); } catch(e) {}
+  }
+  if (!ss) return { success: false, message: 'Spreadsheet not accessible' };
+
+  const sheet = ss.getSheetByName(SHEETS.USERS) || ss.getSheetByName('Users');
+  if (!sheet || sheet.getLastRow() <= 1) return { success: true, removedCount: 0 };
+
+  const data = sheet.getDataRange().getValues();
+  const seenUsers = new Set();
+  let removedCount = 0;
+
+  for (let i = data.length - 1; i >= 1; i--) {
+    const uId = String(data[i][0] || '').trim().toUpperCase();
+    const uName = String(data[i][1] || '').trim().toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+    const uEmail = String(data[i][3] || '').trim().toLowerCase();
+    const uStatus = String(data[i][7] || 'Active').trim();
+
+    // If marked as Deleted or a dummy seeded demo user, remove it
+    if (uStatus === 'Deleted' || uStatus === 'deleted' || /^wh\d+$/i.test(uName) || uEmail.endsWith('@inventory.local') || /^USR-\d{2}$/.test(uId) || uId === 'USR-PENDING-01') {
+      sheet.deleteRow(i + 1);
+      removedCount++;
+      continue;
+    }
+
+    const key = uId ? `ID_${uId}` : `UN_${uName}`;
+    if (seenUsers.has(key) || (uName && seenUsers.has(`UN_${uName}`))) {
+      sheet.deleteRow(i + 1);
+      removedCount++;
+    } else {
+      if (key) seenUsers.add(key);
+      if (uName) seenUsers.add(`UN_${uName}`);
+    }
+  }
+
+  if (removedCount > 0) {
+    try {
+      invalidateAppCache();
+      setGlobalDataVersion();
+    } catch(e) {}
+  }
+
+  return { success: true, removedCount: removedCount };
 }
 
 
@@ -6320,8 +6264,14 @@ function recordStockIn(dataOrPayload, user) {
   const newStockVal = Number(data.newStock !== undefined ? data.newStock : newStock);
   const movementStr = `${oldStockVal} ${unit} ➔ ${newStockVal} ${unit}`;
 
+  const now = new Date();
+  const dateFormatted = Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd');
+  const dCompact = Utilities.formatDate(now, 'GMT+7', 'yyyyMMdd');
+  const rand4 = Math.floor(1000 + Math.random() * 9000);
+  const finalDocNo = (data.docNo && String(data.docNo).trim()) ? String(data.docNo).trim() : `IN-${dCompact}-${rand4}`;
+
   const notesFormatted = [
-    data.docNo ? `[ឯកសារ: ${data.docNo}]` : '',
+    `[ឯកសារ: ${finalDocNo}]`,
     data.receivedBy ? `[អ្នកទទួល: ${data.receivedBy}]` : '',
     data.size ? `[ខ្នាត: ${data.size}]` : '',
     data.color ? `[ពណ៌: ${data.color}]` : '',
@@ -6333,6 +6283,7 @@ function recordStockIn(dataOrPayload, user) {
   const cleanSupplier = (data.supplier && !data.supplier.startsWith('Doc:') && !data.supplier.includes('Admin') && !/^\d+$/.test(data.supplier) && data.supplier !== '-') ? data.supplier : 'អ្នកផ្គត់ផ្គង់ (Supplier)';
 
   const tx = recordTransactionInternal(ss, {
+    txId: finalDocNo,
     type: 'STOCK_IN',
     sku: sku,
     itemName: itemName,
@@ -6343,7 +6294,7 @@ function recordStockIn(dataOrPayload, user) {
     fromLocation: cleanSupplier,
     toLocation: location,
     notes: notesFormatted,
-    user: u ? (u.fullName || u.username) : 'Staff'
+    user: u ? (u.fullName || u.username) : (data.receivedBy || 'Staff')
   });
 
   // កត់ត្រាចូលក្នុង Sheet 'Stock_in' ដោយផ្ទាល់ (17 ជួរឈរ តាម Standard Headers មិនឲ្យរអិលខុសជួរ)
@@ -6351,8 +6302,6 @@ function recordStockIn(dataOrPayload, user) {
     const stockSheets = ensureStockSheetsInitialized(ss);
     if (stockSheets && stockSheets.stockInSheet) {
       const sInSheet = stockSheets.stockInSheet;
-      const now = new Date();
-      const dateFormatted = Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd');
       const tsFormatted = Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd HH:mm:ss');
       const cleanUserNote = cleanDisplayNoteGAS(data.userNote !== undefined ? data.userNote : (data.notes || ''));
       const finalNote = (cleanUserNote && cleanUserNote !== '-') ? cleanUserNote : '-';
@@ -6363,7 +6312,7 @@ function recordStockIn(dataOrPayload, user) {
       let inRowToAppend;
       if (inHeaders.length >= 17 && inHeaders[0]) {
         inRowToAppend = inHeaders.map(h => {
-          if (h.includes('docno') || h.includes('doc') || h.includes('លេខឯកសារ')) return data.docNo || '';
+          if (h.includes('docno') || h.includes('doc') || h.includes('លេខឯកសារ')) return finalDocNo;
           if (h === 'date' || h.includes('កាលបរិច្ឆេទ')) return dateFormatted;
           if (h === 'sku' || h.includes('កូដ')) return sku;
           if (h.includes('itemname') || h === 'item' || h === 'name' || h.includes('ឈ្មោះ')) return itemName;
@@ -6378,13 +6327,13 @@ function recordStockIn(dataOrPayload, user) {
           if (h.includes('warehouse') || h.includes('ឃ្លាំង') || h.includes('ស្ថានីយ')) return location;
           if (h.includes('receivedby') || h.includes('receiver') || h.includes('អ្នកទទួល')) return data.receivedBy || (u ? (u.fullName || u.username) : 'Staff');
           if (h.includes('notes') || h.includes('note') || h.includes('សម្គាល់')) return finalNote;
-          if (h === 'user' || h.includes('អ្នកប្រើ') || h.includes('បុគ្គលិក')) return u ? (u.fullName || u.username) : 'Staff';
+          if (h === 'user' || h.includes('អ្នកប្រើ') || h.includes('បុគ្គលិក')) return u ? (u.fullName || u.username) : (data.receivedBy || 'Staff');
           if (h.includes('timestamp') || h.includes('ពេល') || h.includes('ម៉ោង')) return tsFormatted;
           return '';
         });
       } else {
         inRowToAppend = [
-          data.docNo || '',
+          finalDocNo,
           dateFormatted,
           sku,
           itemName,
@@ -6399,7 +6348,7 @@ function recordStockIn(dataOrPayload, user) {
           location,
           data.receivedBy || (u ? (u.fullName || u.username) : 'Staff'),
           finalNote,
-          u ? (u.fullName || u.username) : 'Staff',
+          u ? (u.fullName || u.username) : (data.receivedBy || 'Staff'),
           tsFormatted
         ];
       }
@@ -6409,7 +6358,7 @@ function recordStockIn(dataOrPayload, user) {
     Logger.log('Error writing to Stock_in sheet: ' + errIn.toString());
   }
 
-  logActivity(u ? (u.fullName || u.username) : 'Staff', 'Staff', 'STOCK_IN', `Stock In +${qty} ${unit} of ${itemName} (${sku}) [${data.docNo || 'N/A'}]`);
+  logActivity(u ? (u.fullName || u.username) : 'Staff', 'Staff', 'STOCK_IN', `Stock In +${qty} ${unit} of ${itemName} (${sku}) [${finalDocNo}]`);
 
   try {
     CacheService.getScriptCache().removeAll(['ITEMS_ALL', 'TX_SHEETS_SYNC_ALL', 'TX_SHEETS_SYNC_STOCK_IN']);
@@ -6423,7 +6372,8 @@ function recordStockIn(dataOrPayload, user) {
     success: true,
     message: `បាននាំចូលស្តុក +${qty} ${unit} នៃ ${itemName} ជោគជ័យ! ស្តុកបច្ចុប្បន្ន: ${newStock}`,
     currentStock: newStock,
-    txId: tx.txId
+    docNo: finalDocNo,
+    txId: tx.txId || finalDocNo
   };
 
 }
@@ -6526,6 +6476,20 @@ function repairStockInWarehouses(optSs) {
           }
         }
 
+        const finalDocIdx = (headers.findIndex(h => h.includes('docno') || h.includes('doc') || h.includes('លេខឯកសារ')) >= 0) ? headers.findIndex(h => h.includes('docno') || h.includes('doc') || h.includes('លេខឯកសារ')) : 0;
+        let curDoc = String(data[r][finalDocIdx] || '').trim();
+        const rawNote = notesIdx >= 0 ? String(data[r][notesIdx] || '') : '';
+        if (!curDoc) {
+          const docMatch = rawNote.match(/\[(?:ឯកសារ|Doc|DocNo):\s*([^\]]+)\]/i);
+          if (docMatch) {
+            curDoc = docMatch[1].trim();
+          } else {
+            curDoc = 'IN-20261018-' + (1000 + r);
+          }
+          try { sInSheet.getRange(r + 1, finalDocIdx + 1).setValue(curDoc); } catch(eFixDoc) {}
+          fixedCount++;
+        }
+
         if (properWh && properWh !== curWh) {
           properWh = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(properWh) : properWh;
           sInSheet.getRange(r + 1, finalWhIdx + 1).setValue(properWh);
@@ -6533,7 +6497,6 @@ function repairStockInWarehouses(optSs) {
           fixedCount++;
         } else if (!curWh || curWh === '-' || /^\d+$/.test(curWh) || curWh.toUpperCase() === 'ALL' || curWh === 'គ្រប់ស្ថានីយទាំងអស់' || curWh === 'គ្រប់ឃ្លាំង') {
           let fixedWh = '';
-          const rawNote = notesIdx >= 0 ? String(data[r][notesIdx] || '') : '';
           const stationMatch = rawNote.match(/(?:K\d+[^\]\n\r]+)/i);
           if (stationMatch) {
             fixedWh = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(stationMatch[0]) : stationMatch[0];
@@ -7627,7 +7590,9 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
     const uEmail = String(user && user.email || '').toLowerCase();
     const isSA = uRole === 'superadmin' || uName === 'superadmin' || (user && user.isSuperAdmin === true);
     const isAdm = isSA || uRole.includes('admin') || uName === 'admin' || uName === 'singvan327@gmail.com' || uEmail === 'singvan327@gmail.com';
-    if (!isAdm && user && user.warehouse && user.warehouse !== 'ALL' && user.warehouse !== 'គ្រប់ឃ្លាំង' && user.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
+    if (filters && (filters.warehouse === 'ALL' || filters.warehouse === 'គ្រប់ស្ថានីយទាំងអស់' || filters.warehouse === 'គ្រប់ឃ្លាំង')) {
+      targetWarehouse = null;
+    } else if (!isAdm && user && user.warehouse && user.warehouse !== 'ALL' && user.warehouse !== 'គ្រប់ឃ្លាំង' && user.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
       targetWarehouse = user.warehouse;
     } else if (filters && filters.warehouse && filters.warehouse !== 'ALL' && filters.warehouse !== 'គ្រប់ឃ្លាំង' && filters.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
       targetWarehouse = filters.warehouse;
@@ -7692,8 +7657,13 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
     for (let r = data.length - 1; r >= 1; r--) {
       const row = data[r];
       if (!row) continue;
-      const docNo = String(row[docIdx] || '').trim();
+      let docNo = String(row[docIdx] || '').trim();
       const sku = String(row[skuIdx] || '').trim();
+      const rawNote = notesIdx >= 0 ? String(row[notesIdx] || '') : '';
+      if (!docNo) {
+        const docMatch = rawNote.match(/\[(?:ឯកសារ|Doc|DocNo):\s*([^\]]+)\]/i);
+        if (docMatch) docNo = docMatch[1].trim();
+      }
       if (!sku && !docNo) continue;
       if (docNo.toUpperCase().startsWith('TEST-')) continue;
 
@@ -7711,6 +7681,11 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
         } catch(e) {
           dStr = String(row[dateIdx]).slice(0, 10);
         }
+      }
+
+      if (!docNo) {
+        docNo = 'IN-' + (dStr ? dStr.replace(/-/g, '') : '20261018') + '-' + (1000 + r);
+        try { sInSheet.getRange(r + 1, docIdx + 1).setValue(docNo); } catch(eFixDoc) {}
       }
 
       if (filters && filters.startDate && dStr && dStr < filters.startDate) continue;
@@ -7740,7 +7715,6 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
         } else if (user && user.warehouse && user.warehouse !== 'ALL' && (rowUserNorm === uName.replace(/[\u200b\ufeff\s_-]/g, '') || recByNorm === String(user.fullName || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, ''))) {
           wh = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(user.warehouse) : user.warehouse;
         } else {
-          const rawNote = notesIdx >= 0 ? String(row[notesIdx] || '') : '';
           const stMatch = rawNote.match(/(?:K\d+[^\]\n\r]+)/i);
           if (stMatch) {
             wh = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(stMatch[0]) : stMatch[0];
@@ -7818,6 +7792,112 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
       if (transactions.length >= limit) break;
     }
 
+    // Merge any STOCK_IN records from Transactions sheet not already in transactions
+    try {
+      const txSheet = ss.getSheetByName(SHEETS.TRANSACTIONS);
+      if (txSheet && txSheet.getLastRow() > 1) {
+        const txData = txSheet.getDataRange().getValues();
+        const txHeaders = (txData[0] || []).map(h => String(h || '').trim().toLowerCase());
+        const tIdIdx = txHeaders.indexOf('txid') >= 0 ? txHeaders.indexOf('txid') : 0;
+        const tDateIdx = txHeaders.indexOf('date') >= 0 ? txHeaders.indexOf('date') : 1;
+        const tTypeIdx = txHeaders.indexOf('type') >= 0 ? txHeaders.indexOf('type') : 2;
+        const tSkuIdx = txHeaders.indexOf('sku') >= 0 ? txHeaders.indexOf('sku') : 3;
+        const tNameIdx = txHeaders.indexOf('itemname') >= 0 ? txHeaders.indexOf('itemname') : 4;
+        const tQtyIdx = txHeaders.indexOf('quantity') >= 0 ? txHeaders.indexOf('quantity') : 5;
+        const tUnitIdx = txHeaders.indexOf('unit') >= 0 ? txHeaders.indexOf('unit') : 6;
+        const tToIdx = txHeaders.indexOf('tolocation') >= 0 ? txHeaders.indexOf('tolocation') : 8;
+        const tNotesIdx = txHeaders.indexOf('reason_notes') >= 0 ? txHeaders.indexOf('reason_notes') : (txHeaders.indexOf('notes') >= 0 ? txHeaders.indexOf('notes') : 9);
+        const tUserIdx = txHeaders.indexOf('user') >= 0 ? txHeaders.indexOf('user') : 10;
+
+        const seenDocKeys = new Set();
+        transactions.forEach(t => {
+          if (t.docNo) seenDocKeys.add(String(t.docNo).trim().toUpperCase());
+          if (t.txId) seenDocKeys.add(String(t.txId).trim().toUpperCase());
+        });
+
+        for (let i = txData.length - 1; i >= 1; i--) {
+          const tRow = txData[i];
+          if (String(tRow[tTypeIdx] || '').toUpperCase() !== 'STOCK_IN') continue;
+          const rTxId = String(tRow[tIdIdx] || '').trim();
+          const rNotes = String(tRow[tNotesIdx] || '');
+          let rDoc = (rNotes.match(/\[(?:ឯកសារ|Doc|DocNo):\s*([^\]]+)\]/i) || [])[1] || rTxId;
+          if (seenDocKeys.has(String(rDoc).trim().toUpperCase()) || seenDocKeys.has(String(rTxId).trim().toUpperCase())) continue;
+
+          let toLoc = String(tRow[tToIdx] || '').trim();
+          const rUser = String(tRow[tUserIdx] || '').trim();
+          const recMatch = rNotes.match(/\[(?:អ្នកទទួល|Receiver):\s*([^\]]+)\]/i);
+          const rRec = recMatch ? recMatch[1].trim() : '';
+          const toLocNorm = toLoc.toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+          const rUserNorm = rUser.toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+          const rRecNorm = rRec.toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+
+          if (userWhMap[toLocNorm] || userWhMap[toLoc.toLowerCase()]) {
+            toLoc = userWhMap[toLocNorm] || userWhMap[toLoc.toLowerCase()];
+          } else if (!toLoc || toLoc === '-' || /^\d+$/.test(toLoc.trim()) || toLoc === 'ALL' || toLoc === 'គ្រប់ស្ថានីយទាំងអស់' || toLoc === 'គ្រប់ឃ្លាំង') {
+            if (userWhMap[rUserNorm] || userWhMap[rUser.toLowerCase()]) {
+              toLoc = userWhMap[rUserNorm] || userWhMap[rUser.toLowerCase()];
+            } else if (userWhMap[rRecNorm] || userWhMap[rRec.toLowerCase()]) {
+              toLoc = userWhMap[rRecNorm] || userWhMap[rRec.toLowerCase()];
+            }
+          }
+          toLoc = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(toLoc) : toLoc;
+
+          if (targetWarehouse) {
+            const matchesTarget = matchesTargetWarehouseGAS(toLoc, targetWarehouse);
+            const uNameNorm = uName.replace(/[\u200b\ufeff\s_-]/g, '');
+            const uFullNorm = String(user && user.fullName || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+            const isMyWh = (userWhMap[rUserNorm] && matchesTargetWarehouseGAS(userWhMap[rUserNorm], targetWarehouse)) ||
+                           (userWhMap[rRecNorm] && matchesTargetWarehouseGAS(userWhMap[rRecNorm], targetWarehouse));
+            const isMyTx = (uName && (rUserNorm === uNameNorm || rUserNorm === uFullNorm)) || 
+                           (rRecNorm && (rRecNorm === uNameNorm || rRecNorm === uFullNorm)) ||
+                           isMyWh;
+            if (!matchesTarget && !isMyTx) continue;
+            if (!matchesTarget && isMyTx) toLoc = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(targetWarehouse) : targetWarehouse;
+          }
+
+          let dStr = '';
+          if (tRow[tDateIdx] instanceof Date) {
+            try { dStr = Utilities.formatDate(tRow[tDateIdx], 'GMT+7', 'yyyy-MM-dd'); } catch(e) {}
+          } else if (tRow[tDateIdx]) {
+            dStr = String(tRow[tDateIdx]).slice(0, 10);
+          }
+
+          const sm = rNotes.match(/\[(?:ខ្នាត|Size):\s*([^\]]+)\]/i);
+          const cm = rNotes.match(/\[(?:ពណ៌|Color):\s*([^\]]+)\]/i);
+          const zm = rNotes.match(/\[(?:តំបន់|Zone):\s*([^\]]+)\]/i);
+          const stm = rNotes.match(/\[(?:ស្តុក):\s*(\d+)\s*(?:[^\➔]+)➔\s*(\d+)/i);
+
+          seenDocKeys.add(String(rDoc).trim().toUpperCase());
+          seenDocKeys.add(String(rTxId).trim().toUpperCase());
+
+          transactions.push({
+            txId: rTxId || rDoc,
+            docNo: rDoc,
+            date: dStr,
+            type: 'STOCK_IN',
+            sku: String(tRow[tSkuIdx] || '').trim(),
+            itemName: String(tRow[tNameIdx] || '').trim(),
+            size: sm ? sm[1].trim() : '',
+            color: cm ? cm[1].trim() : '',
+            zone: zm ? zm[1].trim() : '',
+            quantity: parseNum(tRow[tQtyIdx]) || 0,
+            unit: String(tRow[tUnitIdx] || 'ដុំ').trim(),
+            oldStock: stm ? parseNum(stm[1]) : null,
+            newStock: stm ? parseNum(stm[2]) : null,
+            toLocation: toLoc,
+            warehouse: toLoc,
+            location: toLoc,
+            receivedBy: rRec || rUser || 'Staff',
+            user: rUser || rRec || 'Staff',
+            notes: cleanDisplayNoteGAS(rNotes),
+            userNote: cleanDisplayNoteGAS(rNotes),
+            rawNotes: rNotes
+          });
+          if (transactions.length >= limit) break;
+        }
+      }
+    } catch(eTxMerge) {}
+
     return transactions;
   } catch (err) {
     Logger.log('getStockInTransactionsFromSheet error: ' + err.toString());
@@ -7871,7 +7951,9 @@ function getStockOutTransactionsFromSheet(ss, filters, user) {
     const uEmailOut = String(user && user.email || '').toLowerCase();
     const isSAOut = uRoleOut === 'superadmin' || uNameOut === 'superadmin' || (user && user.isSuperAdmin === true);
     const isAdmOut = isSAOut || uRoleOut.includes('admin') || uNameOut === 'admin' || uNameOut === 'singvan327@gmail.com' || uEmailOut === 'singvan327@gmail.com';
-    if (!isAdmOut && user && user.warehouse && user.warehouse !== 'ALL' && user.warehouse !== 'គ្រប់ឃ្លាំង' && user.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
+    if (filters && (filters.warehouse === 'ALL' || filters.warehouse === 'គ្រប់ស្ថានីយទាំងអស់' || filters.warehouse === 'គ្រប់ឃ្លាំង')) {
+      targetWarehouse = null;
+    } else if (!isAdmOut && user && user.warehouse && user.warehouse !== 'ALL' && user.warehouse !== 'គ្រប់ឃ្លាំង' && user.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
       targetWarehouse = user.warehouse;
     } else if (filters && filters.warehouse && filters.warehouse !== 'ALL' && filters.warehouse !== 'គ្រប់ឃ្លាំង' && filters.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
       targetWarehouse = filters.warehouse;
