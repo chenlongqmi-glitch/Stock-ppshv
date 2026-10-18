@@ -7702,12 +7702,12 @@
       if (canLoc === canTarget) return true;
 
       const isGlobalLoc = (canLoc === 'ALL' || canLoc === 'គ្រប់ស្ថានីយទាំងអស់' || canLoc === 'គ្រប់ឃ្លាំង' || canLoc === '🏢 គ្រប់ស្ថានីយទាំងអស់');
+      if (isGlobalLoc) return true;
       if (isAdminComboWarehouse(canTarget)) {
-        if (isGlobalLoc) return true;
         return ADMIN_ALLOWED_WAREHOUSES.some(aw => (typeof isSameWarehouse === 'function') ? isSameWarehouse(canLoc, aw) : canLoc === aw);
       }
-      if (isGlobalLoc) {
-        return true;
+      if (isAdminComboWarehouse(canLoc)) {
+        return ADMIN_ALLOWED_WAREHOUSES.some(aw => (typeof isSameWarehouse === 'function') ? isSameWarehouse(canTarget, aw) : canTarget === aw);
       }
       const stWhFromLoc = (typeof getUserStationWarehouse === 'function') ? getUserStationWarehouse(loc) : '';
       if (stWhFromLoc && (typeof isSameWarehouse === 'function') && isSameWarehouse(stWhFromLoc, canTarget)) {
@@ -11860,10 +11860,18 @@
           txs = txs.filter(t => (t.date || '') <= filters.endDate);
         }
         if (targetWarehouse && targetWarehouse !== 'ALL' && targetWarehouse !== 'គ្រប់ឃ្លាំង' && targetWarehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
+          const uNameClean = String(u?.username || '').toLowerCase().replace(/[\u200b\ufeff\s_@-]/g, '');
+          const uFullClean = String(u?.fullName || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
           txs = txs.filter(t => {
-            return (typeof matchesTargetWarehouse === 'function') 
+            const matchesLoc = (typeof matchesTargetWarehouse === 'function') 
               ? (matchesTargetWarehouse(t.toLocation, targetWarehouse) || matchesTargetWarehouse(t.fromLocation, targetWarehouse))
               : (t.fromLocation === targetWarehouse || t.toLocation === targetWarehouse);
+            if (matchesLoc) return true;
+            const tUserClean = String(t.user || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+            const tRecClean = String(t.receivedBy || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+            const isCreatorOrRec = (uNameClean && (tUserClean === uNameClean || tRecClean === uNameClean)) ||
+                                   (uFullClean && (tUserClean === uFullClean || tRecClean === uFullClean));
+            return isCreatorOrRec;
           });
         }
         return { success: true, transactions: txs, isLocalFallback: true };
@@ -20532,7 +20540,10 @@
 
       if (!AppState.stockInHistory) AppState.stockInHistory = [];
       AppState.stockInHistory.unshift(newTx);
+      const userStorageKey = (AppState.currentUser?.username) ? String(AppState.currentUser.username).trim().toLowerCase() : 'guest';
+      const scopedHistoryKey = `inventory_stock_in_history_db_${userStorageKey}`;
       try {
+        localStorage.setItem(scopedHistoryKey, JSON.stringify(AppState.stockInHistory));
         localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(AppState.stockInHistory));
       } catch(e) {}
 
@@ -20585,12 +20596,36 @@
         if (res && res.success) {
           if (res.docNo && res.docNo !== docNo) newTx.docNo = res.docNo;
           if (res.txId) newTx.txId = res.txId;
+          newTx._isLocalPending = false;
           const finalDocNo = (res && res.docNo) ? res.docNo : docNo;
+          const finalTxId = res.txId || tempTxId;
+
+          // Update in AppState.stockInHistory
+          if (AppState.stockInHistory) {
+            const hIdx = AppState.stockInHistory.findIndex(t => (t.txId && (t.txId === tempTxId || t.txId === finalTxId)) || (t.docNo && (t.docNo === docNo || t.docNo === finalDocNo)));
+            if (hIdx >= 0) {
+              AppState.stockInHistory[hIdx] = { ...newTx };
+            } else {
+              AppState.stockInHistory.unshift({ ...newTx });
+            }
+          }
+
+          // Update in LOCAL_DB.transactions
+          if (LOCAL_DB.transactions) {
+            const exIdx = LOCAL_DB.transactions.findIndex(t => (t.txId && (t.txId === tempTxId || t.txId === finalTxId)) || (t.docNo && (t.docNo === docNo || t.docNo === finalDocNo)));
+            if (exIdx >= 0) {
+              LOCAL_DB.transactions[exIdx] = { ...newTx };
+            } else {
+              LOCAL_DB.transactions.unshift({ ...newTx });
+            }
+            if (typeof saveLocalTransactionsToStorage === 'function') saveLocalTransactionsToStorage();
+          }
+
           // Ensure Google Sheets Stock_in column M (Warehouse) and N (ReceivedBy) are cleanly populated
           apiCall('updateStockTransaction', {
             data: {
               docNo: finalDocNo,
-              txId: res.txId || tempTxId,
+              txId: finalTxId,
               type: 'STOCK_IN',
               sku: sku,
               toLocation: location,
@@ -20601,15 +20636,12 @@
               fromLocation: 'អ្នកផ្គត់ផ្គង់ (Supplier)'
             }
           }).catch(() => {});
+
           try {
+            localStorage.setItem(scopedHistoryKey, JSON.stringify(AppState.stockInHistory));
             localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(AppState.stockInHistory));
           } catch(e) {}
-          if (LOCAL_DB.transactions) {
-            const exIdx = LOCAL_DB.transactions.findIndex(t => (t.txId && t.txId === newTx.txId) || (t.docNo && t.docNo === newTx.docNo));
-            if (exIdx >= 0) LOCAL_DB.transactions[exIdx] = { ...newTx };
-            else LOCAL_DB.transactions.unshift({ ...newTx });
-            if (typeof saveLocalTransactionsToStorage === 'function') saveLocalTransactionsToStorage();
-          }
+
           if (typeof filterStockInHistoryTable === 'function') {
             filterStockInHistoryTable();
           } else {
@@ -23651,15 +23683,37 @@
     async function loadStockInHistory(forceRefresh = false, btn = null) {
       const refreshIcon = btn ? btn.querySelector('i') : null;
       if (refreshIcon) refreshIcon.classList.add('fa-spin');
+      const curU = AppState.currentUser || {};
+      const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : (curU.role === 'Admin' || curU.role === 'SuperAdmin');
+      const myStationWh = (!isPrivileged && curU.warehouse && curU.warehouse !== 'ALL') ? ((typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(curU.warehouse) : curU.warehouse) : '';
+      const userStorageKey = curU.username ? String(curU.username).trim().toLowerCase() : 'guest';
+      const scopedHistoryKey = `inventory_stock_in_history_db_${userStorageKey}`;
+
       const seenRecent = new Set();
       const recentPendingToKeep = [];
       [(AppState.stockInHistory || []), (LOCAL_DB.transactions || [])].forEach(list => {
         (list || []).forEach(t => {
           if (!t || (t.type && t.type !== 'STOCK_IN') || (typeof isTransactionDeleted === 'function' && isTransactionDeleted(t))) return;
+          if (!isPrivileged && myStationWh) {
+            const tWh = t.toLocation || t.location || t.warehouse;
+            const tUserSt = (typeof getUserStationWarehouse === 'function') ? (getUserStationWarehouse(t.user) || getUserStationWarehouse(t.receivedBy)) : '';
+            const isCreatorOrRec = (typeof isSameUserOrAlias === 'function') ? (isSameUserOrAlias(t.user, curU) || isSameUserOrAlias(t.receivedBy, curU)) : false;
+            const tUNorm = String(t.user || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+            const tRNorm = String(t.receivedBy || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+            const curUNorm = String(curU.username || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+            const curFNorm = String(curU.fullName || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+            const isMyUserTx = (curUNorm && (tUNorm === curUNorm || tRNorm === curUNorm)) ||
+                               (curFNorm && (tUNorm === curFNorm || tRNorm === curFNorm));
+            const isForMyStation = (tWh && (matchesTargetWarehouse(tWh, myStationWh) || isSameWarehouse(tWh, myStationWh))) ||
+                                   (tUserSt && isSameWarehouse(tUserSt, myStationWh)) ||
+                                   isCreatorOrRec ||
+                                   isMyUserTx;
+            if (!isForMyStation) return;
+          }
           const k = String(t.docNo || t.txId || '').trim().toUpperCase();
           if (k && seenRecent.has(k)) return;
           const created = t._createdAt || 0;
-          if (t._isLocalPending || (created && Date.now() - created < 900000)) {
+          if (t._isLocalPending || (created && Date.now() - created < 1800000)) {
             if (k) seenRecent.add(k);
             recentPendingToKeep.push(t);
           }
@@ -23667,15 +23721,16 @@
       });
       if (forceRefresh) {
         API_CACHE.clear();
-        AppState.stockInHistory = recentPendingToKeep;
-        try { localStorage.removeItem('inventory_stock_in_history_db'); } catch(e) {}
+        if (recentPendingToKeep.length > 0) {
+          AppState.stockInHistory = recentPendingToKeep;
+        }
       }
       let cachedTxs = (!forceRefresh && AppState.stockInHistory && AppState.stockInHistory.length > 0)
         ? AppState.stockInHistory.filter(t => !isTransactionDeleted(t))
         : (recentPendingToKeep.length > 0 ? recentPendingToKeep : null);
       if (!cachedTxs && !forceRefresh) {
         try {
-          const stored = localStorage.getItem('inventory_stock_in_history_db');
+          const stored = localStorage.getItem(scopedHistoryKey) || localStorage.getItem('inventory_stock_in_history_db');
           if (stored !== null) {
             const parsed = JSON.parse(stored);
             if (Array.isArray(parsed) && parsed.length > 0) {
@@ -23689,20 +23744,16 @@
         } catch(e) {}
       }
 
-      if (!cachedTxs && !forceRefresh) {
-        try {
-          const storedGen = localStorage.getItem('inventory_transactions_db');
-          if (storedGen) {
-            const parsedGen = JSON.parse(storedGen);
-            if (Array.isArray(parsedGen) && parsedGen.length > 0) {
-              cachedTxs = parsedGen.filter(t => {
-                const doc = String(t.docNo || t.txId || '').toUpperCase();
-                const isTest = doc.startsWith('MOCK-TEST-') || doc.startsWith('TEST-TX-');
-                return t.type === 'STOCK_IN' && !isTest && !isTransactionDeleted(t);
-              });
-            }
-          }
-        } catch(e) {}
+      // Strictly purge any cached transactions not belonging to this station
+      if (!isPrivileged && myStationWh && cachedTxs && cachedTxs.length > 0) {
+        cachedTxs = cachedTxs.filter(t => {
+          const tWh = t.toLocation || t.location || t.warehouse;
+          const uSt = (typeof getUserStationWarehouse === 'function') ? (getUserStationWarehouse(t.user) || getUserStationWarehouse(t.receivedBy)) : '';
+          const isCreatorOrRec = (typeof isSameUserOrAlias === 'function') ? (isSameUserOrAlias(t.user, curU) || isSameUserOrAlias(t.receivedBy, curU)) : false;
+          return (tWh && (matchesTargetWarehouse(tWh, myStationWh) || isSameWarehouse(tWh, myStationWh))) ||
+                 (uSt && isSameWarehouse(uSt, myStationWh)) ||
+                 isCreatorOrRec;
+        });
       }
 
       if (cachedTxs && cachedTxs.length > 0) {
@@ -23722,18 +23773,16 @@
       }
 
       try {
-        const curU = AppState.currentUser || {};
-        const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : (curU.role === 'Admin' || curU.role === 'SuperAdmin');
-        const myStationWh = (!isPrivileged && curU.warehouse && curU.warehouse !== 'ALL') ? ((typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(curU.warehouse) : curU.warehouse) : '';
         const normalizeStr = (s) => String(s || '').replace(/[\u200b\ufeff\s_-]/g, '').toLowerCase();
         const uName = normalizeStr(curU.username);
         const uFull = normalizeStr(curU.fullName);
         const userWhMap = (typeof getUserWarehouseMap === 'function') ? getUserWarehouseMap() : {};
 
-        // Query Google Sheets directly for STOCK_IN transactions (limit: 200)
-        // All active station filtering is handled client-side by matchesTargetWarehouse
-        // so that combo warehouses (中心库房 & 机电) and individual stations render accurately.
-        const res = await apiCall('getTransactionHistory', { filters: { type: 'STOCK_IN', limit: 200, warehouse: 'ALL' }, user: AppState.currentUser });
+        // Query Google Sheets: Station managers only query their station! Admins query their selected filter or ALL.
+        const queryWh = isPrivileged 
+          ? (AppState.selectedAdminWarehouseFilter || 'ALL')
+          : (myStationWh || curU.warehouse || 'ALL');
+        const res = await apiCall('getTransactionHistory', { filters: { type: 'STOCK_IN', limit: 200, warehouse: queryWh }, user: AppState.currentUser });
         if (res && res.success && Array.isArray(res.transactions)) {
           const cleanTxs = res.transactions.filter(t => {
             const doc = String(t.docNo || t.txId || '').toUpperCase();
@@ -23779,40 +23828,27 @@
             // Sanitize warehouse: Stock In must NEVER be "ALL" or "គ្រប់ស្ថានីយទាំងអស់"
             const origWh = String(t.toLocation || t.location || t.warehouse || '').trim();
             const origWhNorm = normalizeStr(origWh);
+            
+            const isKnownWarehouse = (w) => {
+              if (!w || w === '-' || w === 'ALL' || w === 'គ្រប់ស្ថានីយទាំងអស់' || w === 'គ្រប់ឃ្លាំង' || /^\d+$/.test(w)) return false;
+              if (userWhMap[normalizeStr(w)]) return false; // Name of a person
+              if (getUserStationWarehouse(w)) return false; // Name of a person
+              return true;
+            };
+
             let rawWh = origWh;
-
-            // If origWh was recorded as a person's name (e.g. Hong Kimly)
-            const origWhSt = getUserStationWarehouse(origWh);
-            if (origWhSt) {
-              if (!t.receivedBy || t.receivedBy === 'undefined' || t.receivedBy === '-') {
-                t.receivedBy = origWh;
-              }
-              rawWh = origWhSt;
-            } else if (userWhMap[origWhNorm]) {
-              if (!t.receivedBy || t.receivedBy === 'undefined' || t.receivedBy === '-') {
-                t.receivedBy = origWh;
-              }
-              rawWh = userWhMap[origWhNorm];
-            } else if (origWhNorm && (origWhNorm === uFull || origWhNorm === uName)) {
-              if (!t.receivedBy || t.receivedBy === 'undefined' || t.receivedBy === '-') {
-                t.receivedBy = origWh;
-              }
-              rawWh = myStationWh || 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
-            }
-
-            // For station managers: ONLY assign myStationWh if this transaction was submitted/received by them or their station
-            if (!isPrivileged && myStationWh && (isMyTx || userSt === myStationWh)) {
-              rawWh = myStationWh;
-            } else if (userSt) {
-              rawWh = userSt;
-            } else if (userWhMap[tUserClean]) {
-              rawWh = userWhMap[tUserClean];
-            } else if (userWhMap[tRecClean]) {
-              rawWh = userWhMap[tRecClean];
-            }
-
-            if (!rawWh || rawWh === '-' || rawWh === 'ALL' || rawWh === 'គ្រប់ស្ថានីយទាំងអស់' || rawWh === 'គ្រប់ឃ្លាំង' || /^\d+$/.test(rawWh)) {
-              if (localMatch && localMatch.toLocation && !userWhMap[normalizeStr(localMatch.toLocation)]) {
+            if (isKnownWarehouse(origWh)) {
+              rawWh = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(origWh) : origWh;
+            } else {
+              // If origWh was recorded as a person's name (e.g. Hong Kimly)
+              const origWhSt = getUserStationWarehouse(origWh);
+              if (origWhSt) {
+                if (!t.receivedBy || t.receivedBy === 'undefined' || t.receivedBy === '-') t.receivedBy = origWh;
+                rawWh = origWhSt;
+              } else if (userWhMap[origWhNorm]) {
+                if (!t.receivedBy || t.receivedBy === 'undefined' || t.receivedBy === '-') t.receivedBy = origWh;
+                rawWh = userWhMap[origWhNorm];
+              } else if (localMatch && localMatch.toLocation && isKnownWarehouse(localMatch.toLocation)) {
                 rawWh = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(localMatch.toLocation) : localMatch.toLocation;
               } else if (userSt) {
                 rawWh = userSt;
@@ -23827,26 +23863,9 @@
                 const stMatch = nStr.match(/(?:K\d+[^\]\n\r]+)/i);
                 if (stMatch) {
                   rawWh = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(stMatch[0]) : stMatch[0];
-                } else if (tUserClean === 'superadmin' || tUserClean === 'admin' || tUserClean.includes('singvan') || tUserClean.includes('chenlong')) {
-                  rawWh = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
                 } else {
-                  rawWh = (isMyTx && myStationWh) ? myStationWh : (userSt || '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)');
+                  rawWh = isPrivileged ? '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)' : (myStationWh || '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)');
                 }
-              }
-            } else {
-              rawWh = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(rawWh) : rawWh;
-              if (rawWh === 'ALL' || rawWh === 'គ្រប់ស្ថានីយទាំងអស់' || rawWh === 'គ្រប់ឃ្លាំង' || /^\d+$/.test(rawWh)) {
-                rawWh = isPrivileged ? '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)' : ((isMyTx && myStationWh) ? myStationWh : (userSt || '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)'));
-              }
-            }
-
-            if (!isPrivileged && myStationWh && (isMyTx || userSt === myStationWh || userWhMap[tUserClean] === myStationWh || userWhMap[tRecClean] === myStationWh)) {
-              rawWh = myStationWh;
-            }
-            if (localMatch && localMatch.toLocation && !isPrivileged && (isMyTx || userSt === myStationWh)) {
-              const localWhCan = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(localMatch.toLocation) : localMatch.toLocation;
-              if (localWhCan && localWhCan !== 'ALL' && localWhCan !== 'គ្រប់ស្ថានីយទាំងអស់' && localWhCan !== 'គ្រប់ឃ្លាំង') {
-                rawWh = localWhCan;
               }
             }
 
@@ -23890,26 +23909,35 @@
           [(AppState.stockInHistory || []), (LOCAL_DB.transactions || [])].forEach(sourceList => {
             sourceList.forEach(loc => {
               if (!loc || loc.type !== 'STOCK_IN' || isTransactionDeleted(loc)) return;
+              if (!isPrivileged && myStationWh) {
+                const locWh = loc.toLocation || loc.location || loc.warehouse;
+                const locUserSt = (typeof getUserStationWarehouse === 'function') ? (getUserStationWarehouse(loc.user) || getUserStationWarehouse(loc.receivedBy)) : '';
+                const isCreatorOrRec = (typeof isSameUserOrAlias === 'function') ? (isSameUserOrAlias(loc.user, curU) || isSameUserOrAlias(loc.receivedBy, curU)) : false;
+                const lUNorm = normalizeStr(loc.user);
+                const lRNorm = normalizeStr(loc.receivedBy);
+                const isMyUserTx = (uName && (lUNorm === uName || lRNorm === uName)) ||
+                                   (uFull && (lUNorm === uFull || lRNorm === uFull));
+                const isForMyStation = (locWh && (matchesTargetWarehouse(locWh, myStationWh) || isSameWarehouse(locWh, myStationWh))) ||
+                                      (locUserSt && isSameWarehouse(locUserSt, myStationWh)) ||
+                                      isCreatorOrRec ||
+                                      isMyUserTx;
+                if (!isForMyStation) return;
+              }
               const k = String(loc.docNo || loc.txId || '').trim().toUpperCase();
               if (k && seenPendingKeys.has(k)) return;
               if (k) seenPendingKeys.add(k);
               const matchingServerTx = cleanTxs.find(c => 
                 (c.docNo && loc.docNo && String(c.docNo).trim().toUpperCase() === String(loc.docNo).trim().toUpperCase()) ||
                 (c.txId && loc.txId && String(c.txId).trim().toUpperCase() === String(loc.txId).trim().toUpperCase()) ||
-                (c.sku && loc.sku && c.sku.toLowerCase() === loc.sku.toLowerCase() && Number(c.quantity) === Number(loc.quantity) && (c.date === loc.date || (!c.date && Math.abs((loc._createdAt || nowTs) - (c._createdAt || nowTs)) < 300000)))
+                (c.sku && loc.sku && String(c.sku).trim().toLowerCase() === String(loc.sku).trim().toLowerCase() && 
+                 Number(c.quantity) === Number(loc.quantity) && 
+                 Math.abs((loc._createdAt || nowTs) - (c._createdAt || nowTs)) < 1800000)
               );
               if (matchingServerTx) {
-                // Ensure server record retains station warehouse and creation timestamp from verified local transaction
+                // Server record confirmed
                 matchingServerTx._isLocalPending = false;
                 matchingServerTx._createdAt = loc._createdAt || nowTs;
-                matchingServerTx._verifiedStationWh = myStationWh || loc.toLocation;
-                if (!isPrivileged && myStationWh) {
-                  matchingServerTx.toLocation = myStationWh;
-                  matchingServerTx.warehouse = myStationWh;
-                  matchingServerTx.location = myStationWh;
-                  if (loc.user) matchingServerTx.user = loc.user;
-                  if (loc.receivedBy) matchingServerTx.receivedBy = loc.receivedBy;
-                } else if (loc.toLocation && (!matchingServerTx.toLocation || matchingServerTx.toLocation === 'ALL' || matchingServerTx.toLocation === 'គ្រប់ស្ថានីយទាំងអស់')) {
+                if ((!isKnownWarehouse(matchingServerTx.toLocation) || matchingServerTx.toLocation === 'ALL' || matchingServerTx.toLocation === 'គ្រប់ស្ថានីយទាំងអស់') && loc.toLocation) {
                   matchingServerTx.toLocation = loc.toLocation;
                   matchingServerTx.warehouse = loc.toLocation;
                   matchingServerTx.location = loc.toLocation;
@@ -23926,7 +23954,7 @@
             });
           });
 
-          const uniqueFinalHistory = [];
+          let uniqueFinalHistory = [];
           const seenHistoryKeys = new Set();
           [...localPending, ...cleanTxs].forEach(t => {
             const k = String(t.docNo || t.txId || '').trim().toUpperCase();
@@ -23936,8 +23964,27 @@
             }
             uniqueFinalHistory.push(t);
           });
+
+          // Strictly isolate station history: Non-admin station users NEVER see other stations/warehouses!
+          if (!isPrivileged && myStationWh) {
+            uniqueFinalHistory = uniqueFinalHistory.filter(t => {
+              const tWh = t.toLocation || t.location || t.warehouse;
+              const uSt = (typeof getUserStationWarehouse === 'function') ? (getUserStationWarehouse(t.user) || getUserStationWarehouse(t.receivedBy)) : '';
+              const isCreatorOrRec = (typeof isSameUserOrAlias === 'function') ? (isSameUserOrAlias(t.user, curU) || isSameUserOrAlias(t.receivedBy, curU)) : false;
+              const tUNorm = normalizeStr(t.user);
+              const tRNorm = normalizeStr(t.receivedBy);
+              const isMyUserTx = (uName && (tUNorm === uName || tRNorm === uName)) ||
+                                 (uFull && (tUNorm === uFull || tRNorm === uFull));
+              return (tWh && (matchesTargetWarehouse(tWh, myStationWh) || isSameWarehouse(tWh, myStationWh))) ||
+                     (uSt && isSameWarehouse(uSt, myStationWh)) ||
+                     isCreatorOrRec ||
+                     isMyUserTx;
+            });
+          }
+
           AppState.stockInHistory = uniqueFinalHistory;
           try {
+            localStorage.setItem(scopedHistoryKey, JSON.stringify(uniqueFinalHistory));
             localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(uniqueFinalHistory));
           } catch(e) {}
           // Synchronize LOCAL_DB.transactions with cleanTxs so deleted items are completely purged from storage
@@ -24016,28 +24063,14 @@
           // 2. Station Managers (!isPrivileged):
           // Whichever station entered stock in, ONLY that station sees it! Other stations CANNOT see it!
           if (!isPrivileged) {
-            // A. If direct warehouse matches the user's station
-            if (isDirectWhMatch) return true;
-            if (isRawWhMatch && !tWh.includes('គ្រប់') && tWh !== 'ALL') return true;
-
-            // B. If current user created or received this transaction, verify station alignment
-            const isMyTx = isSameUserOrAlias(t.user, curU) || isSameUserOrAlias(t.receivedBy, curU) || isSameUserOrAlias(tWh, curU);
-            if (isMyTx) {
-              const userSt = (typeof getUserStationWarehouse === 'function') ? (getUserStationWarehouse(t.user) || getUserStationWarehouse(t.receivedBy)) : '';
-              if (!userSt || matchesTargetWarehouse(userSt, activeWh) || isSameWarehouse(userSt, activeWh) || matchesTargetWarehouse(myWhCanonical, activeWh)) {
-                return true;
-              }
-            }
-
-            // C. Pending local or recent transactions (< 30 mins) for this user's station
-            if (t._isLocalPending || (t._createdAt && Date.now() - t._createdAt < 1800000)) {
-              if (isDirectWhMatch || isMyTx || (resolvedTxWh && isSameWarehouse(resolvedTxWh, myWhCanonical))) {
-                return true;
-              }
-            }
-
-            // Strictly reject transactions belonging to any other station!
-            return false;
+            const isCreatorOrRec = (typeof isSameUserOrAlias === 'function') ? (isSameUserOrAlias(t.user, curU) || isSameUserOrAlias(t.receivedBy, curU)) : false;
+            const isMyUserTx = (uNameClean && (tUserNorm === uNameClean || tRecNorm === uNameClean || tWhNorm === uNameClean)) ||
+                               (uFullClean && (tUserNorm === uFullClean || tRecNorm === uFullClean || tWhNorm === uFullClean));
+            const isStationMatch = (resolvedTxWh && (isSameWarehouse(resolvedTxWh, myWhCanonical) || matchesTargetWarehouse(resolvedTxWh, activeWh))) ||
+                                   (tWh && (isSameWarehouse(tWh, myWhCanonical) || matchesTargetWarehouse(tWh, activeWh))) ||
+                                   isCreatorOrRec ||
+                                   isMyUserTx;
+            return Boolean(isStationMatch);
           }
 
           // 3. Admin / SuperAdmin (isPrivileged):
