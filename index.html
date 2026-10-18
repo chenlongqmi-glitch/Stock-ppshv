@@ -3765,6 +3765,10 @@
                   <i class="fa-solid fa-xmark"></i>
                 </button>
               </div>
+              <select id="userWarehouseFilter" onchange="filterUsersList()"
+                class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>
+              </select>
               <select id="userRoleFilter" onchange="filterUsersList()"
                 class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="ALL">គ្រប់តួនាទីទាំងអស់</option>
@@ -6876,18 +6880,17 @@
     // Helper to detect dummy / unregistered seed demo accounts (wh01-wh11, @inventory.local, USR-PENDING-01)
     function isUnregisteredDummyUser(u) {
       if (!u) return false;
-      const uname = String(u.username || '').trim().toLowerCase();
+      const uname = String(u.username || '').replace(/^@+/, '').trim().toLowerCase();
       const email = String(u.email || '').trim().toLowerCase();
       const uid = String(u.userId || '').trim().toUpperCase();
       const fullName = String(u.fullName || '').trim();
 
       // Explicitly allow actual users from Google Sheets & SuperAdmin
-      const realUsernames = ['superadmin', 'admin', 'chandara', 'singvan327@gmail.com', 'chandy'];
+      const realUsernames = ['superadmin', 'admin', 'chandara', 'singvan327@gmail.com', 'chandy', 'hongkimly', 'touchvgvy', 'sophadalen', 'sreymeas', 'draternjk'];
       if (realUsernames.includes(uname)) return false;
 
       // Filter out dummy/mock accounts created in local
-      if (uname === 'sdfsdf' || uname.startsWith('wh') || email.endsWith('@inventory.local')) return true;
-      if (/^USR-\d{2}$/.test(uid) && !realUsernames.includes(uname)) return true; // USR-01, USR-02, ...
+      if (uname === 'sdfsdf' || uname === 'bengkaka' || email.endsWith('@inventory.local')) return true;
       if (uid === 'USR-PENDING-01' || uname === 'chan sovannak') return true;
       if (fullName.startsWith('បុគ្គលិក ') && fullName.includes('ស្ថានីយ') && /^wh\d+$/i.test(uname)) return true;
 
@@ -6930,10 +6933,15 @@
       dispatches: [],
       users: [
         { userId: 'USR-SA', username: 'superadmin', fullName: '陈龙', email: 'chenlongqmi@gmail.com', phone: '066 966 606', role: 'SuperAdmin', status: 'Active', warehouse: 'ALL', avatar: 'assets/superadmin_avatar.jpg', isRegistered: true },
-        { userId: 'USR-001', username: 'admin', fullName: '聂稳新', email: 'ppshv21qw024@gmail.com', phone: '098 987 653', role: 'Admin', status: 'Active', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', isRegistered: true },
-        { userId: 'USR-20260919123637', username: 'chandara', fullName: 'ចាន់ ដារា', email: '', phone: '098 666 154', role: 'អ្នកកាន់ស្តុក', status: 'Active', warehouse: 'K3 ស្ថានីយ (ភ្នំពេញ) 01', avatar: '', isRegistered: true },
+        { userId: 'USR-001', username: 'admin', fullName: '范胜听', email: 'ppshv210pv034@gmail.com', phone: '098 987 653', role: 'Admin', status: 'Active', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', isRegistered: true },
+        { userId: 'USR-20260919123637', username: 'chandara', fullName: 'ចាន់ តារា', email: '', phone: '098 666 154', role: 'ប្រធានក្រុម', status: 'Active', warehouse: 'K3 ស្ថានីយ (ភ្នំពេញ) 01', avatar: '', isRegistered: true },
         { userId: 'USR-20260921160928', username: 'singvan327@gmail.com', fullName: 'និត វ៉ាន់ស៊ិញ', email: 'singvan327@gmail.com', phone: '088 663 3966', role: 'Admin', status: 'Active', warehouse: 'ALL', avatar: '', isRegistered: true },
-        { userId: 'USR-20260921215746', username: 'chandy', fullName: 'ចាន់ ឌី', email: '', phone: '095 645 854', role: 'ប្រធានក្រុម', status: 'Active', warehouse: 'K3 ស្ថានីយ (ភ្នំពេញ) 01', avatar: '', isRegistered: true }
+        { userId: 'USR-20260921215746', username: 'chandy', fullName: 'ចាន់ ឌី', email: '', phone: '095 645 854', role: 'ប្រធានក្រុម', status: 'Active', warehouse: 'K3 ស្ថានីយ (ភ្នំពេញ) 01', avatar: '', isRegistered: true },
+        { userId: 'USR-20260927140020', username: 'hongkimly', fullName: 'ហុង គិមលី', email: 'hongkhimly@gmail.com', phone: '012 987 898', role: 'អ្នកគ្រប់គ្រងស្ថានីយ', status: 'Active', warehouse: 'K3 ស្ថានីយ (ភ្នំពេញ) 01', avatar: '', isRegistered: true },
+        { userId: 'USR-20260928064517', username: 'Touchvgvy', fullName: 'ទូច ជីវី', email: 'Touchvgvy12@gmail.com', phone: '089 656 695', role: 'ប្រធានក្រុម', status: 'Active', warehouse: 'K3 ស្ថានីយ (ភ្នំពេញ) 01', avatar: '', isRegistered: true },
+        { userId: 'USR-20260927201657', username: 'sophadalen', fullName: 'សុផា ដាឡែន', email: 'sophadalenw@gmail.com', phone: '016 956 225', role: 'ប្រធានក្រុម', status: 'Active', warehouse: 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02', avatar: '', isRegistered: true },
+        { userId: 'USR-20260928120850', username: 'sreymeas', fullName: 'ស្រី មាស', email: 'sreymeas123@gmail.com', phone: '099 656 588', role: 'អ្នកគ្រប់គ្រងស្ថានីយ', status: 'Active', warehouse: 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02', avatar: '', isRegistered: true },
+        { userId: 'USR-20260928133337', username: 'draternjk', fullName: 'ដារា ទើបរៀន', email: 'draternjk555@gmail.com', phone: '098 565 477', role: 'ប្រធានក្រុម', status: 'Active', warehouse: 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02', avatar: '', isRegistered: true }
       ],
       items: [
         {
@@ -27788,14 +27796,21 @@ function saveLocalUsersToStorage() {
             const isActorAdmin = isActorSuperAdmin || actorRoleLower.includes('admin') || String(actor?.username || '').toLowerCase() === 'admin' || String(actor?.username || '').toLowerCase() === 'singvan327@gmail.com';
             const isActorStationManager = !isActorAdmin && (actorRoleLower.includes('អ្នកគ្រប់គ្រងស្ថានីយ') || actorRoleLower.includes('អ្នកគ្រប់គ្រង') || actorRoleLower.includes('station manager'));
 
+            const cleanReturnedUsernames = new Set(cleanReturned.map(u => String(u.username || '').replace(/^@+/, '').trim().toLowerCase()));
+            const preservedExisting = (LOCAL_DB.users || []).filter(u => {
+              if (!u || u.status === 'Deleted' || u.status === 'deleted') return false;
+              const un = String(u.username || '').replace(/^@+/, '').trim().toLowerCase();
+              return un && !cleanReturnedUsernames.has(un) && !isUnregisteredDummyUser(u);
+            });
+
             if (isActorAdmin) {
-              LOCAL_DB.users = cleanReturned;
+              LOCAL_DB.users = [...cleanReturned, ...preservedExisting];
             } else if (isActorStationManager) {
               const myWh = actor?.warehouse;
               const otherWhUsers = (LOCAL_DB.users || []).filter(u => !isSameWarehouse(myWh, u.warehouse) && u.status !== 'Deleted');
               LOCAL_DB.users = [...otherWhUsers, ...cleanReturned];
             } else {
-              LOCAL_DB.users = cleanReturned;
+              LOCAL_DB.users = [...cleanReturned, ...preservedExisting];
             }
             saveLocalUsersToStorage();
           }
@@ -27962,6 +27977,7 @@ function saveLocalUsersToStorage() {
         search = '';
       }
       const roleFilter = document.getElementById('userRoleFilter')?.value || 'ALL';
+      const whFilter = document.getElementById('userWarehouseFilter')?.value || 'ALL';
       const all = updateRenderableUsersFromDb();
 
       const filtered = all.filter(u => {
@@ -27985,6 +28001,12 @@ function saveLocalUsersToStorage() {
           if (roleFilter === 'អ្នកគ្រប់គ្រងស្ថានីយ' && !r.includes('អ្នកគ្រប់គ្រង')) return false;
           if (roleFilter === 'ប្រធានក្រុម' && !r.includes('ប្រធាន') && !r.includes('team leader')) return false;
           if (roleFilter === 'អ្នកកាន់ស្តុក' && !r.includes('អ្នកកាន់ស្តុក') && !r.includes('stock keeper') && !r.includes('staff')) return false;
+        }
+        if (whFilter && whFilter !== 'ALL' && whFilter !== '🏢 គ្រប់ស្ថានីយទាំងអស់' && whFilter !== 'គ្រប់ឃ្លាំង') {
+          const isActorPrivileged = typeof isUserPrivilegedAdmin === 'function' ? isUserPrivilegedAdmin(AppState.currentUser) : false;
+          const isUserAdminOrSA = (u.role === 'Admin' || u.role === 'SuperAdmin' || u.warehouse === 'ALL');
+          const whMatches = (typeof isSameWarehouse === 'function') ? isSameWarehouse(u.warehouse, whFilter) : (u.warehouse === whFilter);
+          if (!whMatches && !isUserAdminOrSA) return false;
         }
         return true;
       });
@@ -32947,6 +32969,24 @@ function saveLocalUsersToStorage() {
       const itemWhSelect = document.getElementById('itemWarehouseFilter');
       if (itemWhSelect) {
         itemWhSelect.innerHTML = `<option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>`;
+      }
+
+      // 1.2 Users Tab Warehouse Filter Dropdown (#userWarehouseFilter)
+      const userWhFilter = document.getElementById('userWarehouseFilter');
+      if (userWhFilter) {
+        let curVal = userWhFilter.value || AppState.selectedAdminWarehouseFilter || 'ALL';
+        if (curVal !== 'ALL' && typeof toCanonicalWarehouseName === 'function') {
+          curVal = toCanonicalWarehouseName(curVal);
+        }
+        userWhFilter.innerHTML = `
+          <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>
+          ${currentList.map(w => `<option value="${escapeHtml(w)}">📍 ${escapeHtml(w)}</option>`).join('')}
+        `;
+        if (curVal === 'ALL' || currentList.includes(curVal)) {
+          userWhFilter.value = curVal;
+        } else {
+          userWhFilter.value = 'ALL';
+        }
       }
 
       // 2. User Registration Modal Warehouse Selector

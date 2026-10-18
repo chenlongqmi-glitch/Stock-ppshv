@@ -810,7 +810,10 @@ function executeLocalApiAction(req) {
           transactions: getDetails('Transactions'),
           stockIn: getDetails('Stock_in'),
           stockOut: getDetails('Stock_out'),
-          dispatches: getDetails('Dispatches')
+          dispatches: getDetails('Dispatches'),
+          users: getDetails('Users'),
+          loginUser: getDetails('login user'),
+          allSheetNames: ss.getSheets().map(s => s.getName())
         };
       }
 
@@ -1931,6 +1934,78 @@ function ensureUsersInitialized(ss) {
           sheet.getRange(i + 1, 4).setValue('sreyLaLa@gmail.com');
         }
       }
+
+      // Verify and ensure all core registered users exist in Google Sheets Users sheet
+      const existingUsernames = new Set();
+      const normalizeU = (s) => String(s || '').replace(/[\u200b\ufeff\s_-]/g, '').toLowerCase();
+
+      for (let i = 1; i < data.length; i++) {
+        const rowUName = String(data[i][1] || '').trim();
+        const normU = normalizeU(rowUName);
+        if (normU) existingUsernames.add(normU);
+
+        // Clean zero-width spaces in username if present (e.g. hong\u200bKimly -> hongkimly)
+        if (rowUName.includes('\u200b') || rowUName.includes('\ufeff')) {
+          sheet.getRange(i + 1, 2).setValue(rowUName.replace(/[\u200b\ufeff]/g, ''));
+        }
+
+        // Align admin details matching Screenshot 1: 范胜听 / ppshv210pv034@gmail.com / 098 987 653
+        if (normU === 'admin') {
+          if (String(data[i][2] || '').trim() !== '范胜听') sheet.getRange(i + 1, 3).setValue('范胜听');
+          if (String(data[i][3] || '').trim() !== 'ppshv210pv034@gmail.com') sheet.getRange(i + 1, 4).setValue('ppshv210pv034@gmail.com');
+          if (String(data[i][11] || '').trim() !== '098 987 653') sheet.getRange(i + 1, 12).setValue('098 987 653');
+        }
+      }
+
+      const coreUsersToEnsure = [
+        {
+          userId: 'USR-001',
+          username: 'admin',
+          fullName: '范胜听',
+          email: 'ppshv210pv034@gmail.com',
+          password: 'admin123',
+          role: 'Admin',
+          status: 'Active',
+          warehouse: 'ALL',
+          avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
+          phone: '098 987 653'
+        },
+        {
+          userId: 'USR-20260919123637',
+          username: 'chandara',
+          fullName: 'ចាន់ តារា',
+          email: '',
+          password: '123456',
+          role: 'ប្រធានក្រុម',
+          status: 'Active',
+          warehouse: '1-K3 ស្ថានីយ (ភ្នំពេញ)',
+          avatar: '',
+          phone: '098 666 154'
+        },
+        {
+          userId: 'USR-20260921215746',
+          username: 'chandy',
+          fullName: 'ចាន់ ឌី',
+          email: '',
+          password: '123456',
+          role: 'ប្រធានក្រុម',
+          status: 'Active',
+          warehouse: '1-K3 ស្ថានីយ (ភ្នំពេញ)',
+          avatar: '',
+          phone: '095 645 854'
+        }
+      ];
+
+      coreUsersToEnsure.forEach(cu => {
+        if (!existingUsernames.has(normalizeU(cu.username))) {
+          const salt = Utilities.getUuid().slice(0, 16);
+          const initialBound = JSON.stringify({ desktop: null, mobile: null });
+          sheet.appendRow([
+            cu.userId, cu.username, cu.fullName, cu.email, cu.password, salt, cu.role, cu.status, new Date(), cu.warehouse, cu.avatar, cu.phone, '', '', '', initialBound, cu.password, ''
+          ]);
+          existingUsernames.add(normalizeU(cu.username));
+        }
+      });
     } catch (syncErr) {}
   }
   return sheet;
@@ -3138,16 +3213,20 @@ function getUsersList(userOrPayload) {
       }
 
       users.push({
-        userId: data[i][0],
-        username: data[i][1],
-        fullName: data[i][2],
-        email: data[i][3],
-        role: data[i][6],
-        status: data[i][7],
+        userId: String(data[i][0] || '').trim(),
+        username: String(data[i][1] || '').replace(/[\u200b\ufeff]/g, '').trim(),
+        fullName: String(data[i][2] || '').replace(/[\u200b\ufeff]/g, '').trim(),
+        email: String(data[i][3] || '').trim(),
+        role: String(data[i][6] || '').trim(),
+        status: String(data[i][7] || 'Active').trim(),
         createdAt: data[i][8],
-        warehouse: data[i][9] || (data[i][6] === 'Admin' || data[i][6] === 'SuperAdmin' ? 'ALL' : 'K3 ស្ថានីយ (ភ្នំពេញ) 01'),
+        warehouse: (function(){
+          const rawW = String(data[i][9] || '').replace(/[\u200b\ufeff]/g, '').trim();
+          if (rawW) return rawW;
+          return (data[i][6] === 'Admin' || data[i][6] === 'SuperAdmin') ? 'ALL' : '1-K3 ស្ថានីយ (ភ្នំពេញ)';
+        })(),
         avatar: data[i][10] || '',
-        phone: data[i][11] || '',
+        phone: String(data[i][11] || '').trim(),
         deleteReason: data[i][12] || '',
         deleteRequestedBy: data[i][13] || '',
         deleteRequestedAt: data[i][14] || '',
