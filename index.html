@@ -1402,6 +1402,7 @@
               <select id="regWarehouse" onchange="clearRegFieldError('Warehouse')"
                 class="w-full px-3.5 py-2.5 sm:py-3 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none font-medium text-slate-700">
                 <option value="" selected>-- សូមជ្រើសរើសស្ថានីយ/ឃ្លាំង --</option>
+                <option value="中心库房 & 机电">🏢 中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង) & 机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
                 <option value="K3 ស្ថានីយ (ភ្នំពេញ) 01">K3 ស្ថានីយ (ភ្នំពេញ) 01</option>
                 <option value="K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02">K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02</option>
                 <option value="K43 ស្ថានីយ (កំពង់ស្ពឺ លិច) 03">K43 ស្ថានីយ (កំពង់ស្ពឺ លិច) 03</option>
@@ -5595,6 +5596,7 @@
             <select id="addWarehouse" onchange="clearAddUserFieldError('Warehouse')"
               class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 transition-all">
               <option value="" selected>-- សូមជ្រើសរើសស្ថានីយ/ឃ្លាំង --</option>
+              <option value="中心库房 & 机电">🏢 中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង) & 机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
               <option value="K3 ស្ថានីយ (ភ្នំពេញ) 01">📍 K3 ស្ថានីយ (ភ្នំពេញ) 01</option>
               <option value="K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02">📍 K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02</option>
               <option value="K43 ស្ថានីយ (កំពង់ស្ពឺ លិច) 03">📍 K43 ស្ថានីយ (កំពង់ស្ពឺ លិច) 03</option>
@@ -12791,9 +12793,9 @@
       const whSelect = document.getElementById('regWarehouse');
       if (whSelect) {
         if (role === 'Admin' || role === 'SuperAdmin') {
-          whSelect.value = 'ALL';
-        } else if (whSelect.value === 'ALL') {
-          whSelect.value = WAREHOUSES_LIST[0];
+          whSelect.value = ADMIN_DEFAULT_COMBO_WH;
+        } else if (whSelect.value === 'ALL' || whSelect.value === ADMIN_DEFAULT_COMBO_WH) {
+          whSelect.value = '';
         }
       }
     }
@@ -29231,6 +29233,7 @@
           addWhSelect.disabled = false;
           addWhSelect.innerHTML = `
             <option value="" selected>-- សូមជ្រើសរើសស្ថានីយ/ឃ្លាំង --</option>
+            <option value="${escapeHtml(ADMIN_DEFAULT_COMBO_WH)}">🏢 中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង) & 机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
             ${stations.map(w => `<option value="${escapeHtml(w)}">📍 ${escapeHtml(w)}</option>`).join('')}
             <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>
           `;
@@ -29268,8 +29271,8 @@
       const whSelect = document.getElementById('addWarehouse');
       if (whSelect && !whSelect.disabled) {
         if (role === 'SuperAdmin' || role === 'Admin') {
-          whSelect.value = 'ALL';
-        } else if (whSelect.value === 'ALL') {
+          whSelect.value = ADMIN_DEFAULT_COMBO_WH;
+        } else if (whSelect.value === 'ALL' || whSelect.value === ADMIN_DEFAULT_COMBO_WH) {
           whSelect.value = '';
         }
       }
@@ -29279,8 +29282,8 @@
       const whSelect = document.getElementById('regWarehouse');
       if (whSelect && !whSelect.disabled) {
         if (role === 'Admin' || role === 'SuperAdmin') {
-          whSelect.value = 'ALL';
-        } else if (whSelect.value === 'ALL') {
+          whSelect.value = ADMIN_DEFAULT_COMBO_WH;
+        } else if (whSelect.value === 'ALL' || whSelect.value === ADMIN_DEFAULT_COMBO_WH) {
           whSelect.value = '';
         }
       }
@@ -30593,6 +30596,7 @@
         whDisabled = 'disabled';
       } else {
         whOptions = `
+          <option value="${escapeHtml(ADMIN_DEFAULT_COMBO_WH)}" ${(u.warehouse === ADMIN_DEFAULT_COMBO_WH || isAdminComboWarehouse(u.warehouse)) ? 'selected' : ''}>🏢 中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង) & 机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
           ${allStations.map(wh => `<option value="${escapeHtml(wh)}" ${u.warehouse === wh ? 'selected' : ''}>📍 ${escapeHtml(wh)}</option>`).join('')}
           <option value="ALL" ${u.warehouse === 'ALL' ? 'selected' : ''}>🏢 គ្រប់ស្ថានីយទាំងអស់ (${u.role === 'SuperAdmin' ? 'SuperAdmin Only' : 'Admin Only'})</option>
         `;
@@ -33349,10 +33353,11 @@
         let curVal = regWh.value ? (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(regWh.value) : regWh.value) : '';
         regWh.innerHTML = `
           <option value="" selected>-- សូមជ្រើសរើសស្ថានីយ/ឃ្លាំង --</option>
+          <option value="${escapeHtml(ADMIN_DEFAULT_COMBO_WH)}">🏢 中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង) & 机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
           ${currentList.map(w => `<option value="${escapeHtml(w)}">📍 ${escapeHtml(w)}</option>`).join('')}
           <option value="ALL" disabled class="text-slate-400 bg-slate-100">គ្រប់ស្ថានីយទាំងអស់ (Admin Only)</option>
         `;
-        if (curVal && currentList.includes(curVal)) {
+        if (curVal && (currentList.includes(curVal) || curVal === ADMIN_DEFAULT_COMBO_WH)) {
           regWh.value = curVal;
         } else {
           regWh.value = '';
@@ -33372,10 +33377,11 @@
           userWh.disabled = false;
           userWh.innerHTML = `
             <option value="" selected>-- សូមជ្រើសរើសស្ថានីយ/ឃ្លាំង --</option>
+            <option value="${escapeHtml(ADMIN_DEFAULT_COMBO_WH)}">🏢 中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង) & 机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)</option>
             ${currentList.map(w => `<option value="${escapeHtml(w)}">📍 ${escapeHtml(w)}</option>`).join('')}
             <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>
           `;
-          if (curVal && (currentList.includes(curVal) || curVal === 'ALL')) {
+          if (curVal && (currentList.includes(curVal) || curVal === 'ALL' || curVal === ADMIN_DEFAULT_COMBO_WH)) {
             userWh.value = curVal;
           } else {
             userWh.value = '';
