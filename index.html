@@ -37176,6 +37176,23 @@
     }
     window.renderAdminPendingBanner = renderAdminPendingBanner;
 
+    function getDismissedRegToasts() {
+      try {
+        return JSON.parse(localStorage.getItem('inventory_dismissed_reg_toasts') || '{}');
+      } catch (e) {
+        return {};
+      }
+    }
+
+    function markRegToastDismissed(userIdOrName) {
+      try {
+        if (!userIdOrName) return;
+        const map = getDismissedRegToasts();
+        map[String(userIdOrName).trim().toLowerCase()] = Date.now();
+        localStorage.setItem('inventory_dismissed_reg_toasts', JSON.stringify(map));
+      } catch (e) {}
+    }
+
     function checkPendingRegistrationsForAdmin(silent = false) {
       const actor = AppState.currentUser;
       if (!actor) return;
@@ -37304,59 +37321,91 @@
 
       // 5. Audio Alert & Browser Notifications for Admin
       if (pendingUsers.length > 0) {
-        const currentSig = pendingUsers.map(u => String(u.userId || u.username).trim().toLowerCase()).sort().join('|');
-        const lastSeenSig = sessionStorage.getItem('last_seen_registration_signature') || '';
-        const lastAlertTimestamp = parseInt(sessionStorage.getItem('reg_alert_dismissed_until') || '0', 10);
-        const now = Date.now();
+        // If an active toast is showing but that user is no longer pending, close it
+        if (window.activeRegToastUserId && !pendingUsers.some(u => String(u.userId || u.username).trim().toLowerCase() === window.activeRegToastUserId)) {
+          try { Swal.close(); } catch(e) {}
+          window.activeRegToastUserId = null;
+        }
 
-        const isNewRegistration = (currentSig !== lastSeenSig);
-        const isReminderDue = (!silent && (now - lastAlertTimestamp > 75000));
+        const dismissedMap = getDismissedRegToasts();
+        const unalertedPending = pendingUsers.filter(u => {
+          const k1 = String(u.userId || '').trim().toLowerCase();
+          const k2 = String(u.username || '').trim().toLowerCase();
+          return (!k1 || !dismissedMap[k1]) && (!k2 || !dismissedMap[k2]);
+        });
 
-        if (isNewRegistration || isReminderDue || (lastSeenSig === '' && !silent)) {
-          sessionStorage.setItem('last_seen_registration_signature', currentSig);
-          sessionStorage.setItem('reg_alert_dismissed_until', String(now));
+        if (unalertedPending.length > 0) {
+          const latestUser = unalertedPending[0];
+          const userKey = String(latestUser.userId || latestUser.username).trim().toLowerCase();
 
-          // Play Loud Crystal Chime
-          playNewRegistrationAlertSound();
+          // Only fire once if not already actively displayed on screen
+          if (window.activeRegToastUserId !== userKey) {
+            window.activeRegToastUserId = userKey;
 
-          // Native Desktop Notification if permitted
-          try {
-            if ('Notification' in window && Notification.permission === 'granted') {
-              const latestUser = pendingUsers[0];
-              new Notification('📋 សំណើសុំចុះឈ្មោះគណនីថ្មី (PPSHV Stock)', {
-                body: `ឈ្មោះ៖ ${latestUser.fullName || latestUser.username} (@${latestUser.username}) | ស្ថានីយ៖ ${latestUser.warehouse || '-'}`,
-                icon: latestUser.avatar || 'assets/logo.png',
-                tag: 'new-reg-' + (latestUser.userId || latestUser.username)
+            // Play Chime ONLY ONCE per new registration
+            playNewRegistrationAlertSound();
+
+            // Native Desktop Notification if permitted (only once)
+            try {
+              if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification('📋 សំណើសុំចុះឈ្មោះគណនីថ្មី (PPSHV Stock)', {
+                  body: `ឈ្មោះ៖ ${latestUser.fullName || latestUser.username} (@${latestUser.username}) | ស្ថានីយ៖ ${latestUser.warehouse || '-'}`,
+                  icon: latestUser.avatar || 'assets/logo.png',
+                  tag: 'new-reg-' + userKey
+                });
+              }
+            } catch(ne) {}
+
+            // Toast Alert: Displays continuously until Admin/SuperAdmin clicks on it
+            if (typeof Swal !== 'undefined') {
+              const Toast = Swal.mixin({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: true,
+                confirmButtonText: 'ពិនិត្យ',
+                confirmButtonColor: '#2563eb',
+                showCancelButton: true,
+                cancelButtonText: 'បិទ',
+                cancelButtonColor: '#64748b',
+                showCloseButton: true,
+                timer: false, // មិនទាន់បានចុច សារគឺត្រូវបង្ហាញជាប់រហូត (Permanent until clicked)
+                timerProgressBar: false,
+                didOpen: (toast) => {
+                  toast.style.cursor = 'pointer';
+                  toast.addEventListener('click', (e) => {
+                    if (e.target.closest('.swal2-cancel') || e.target.closest('.swal2-close')) {
+                      markRegToastDismissed(userKey);
+                      window.activeRegToastUserId = null;
+                      return;
+                    }
+                    markRegToastDismissed(userKey);
+                    window.activeRegToastUserId = null;
+                    Swal.close();
+                    openPendingRegistrationsModal(latestUser.userId);
+                  });
+                }
+              });
+
+              Toast.fire({
+                icon: 'info',
+                title: `🔔 សំណើគណនីថ្មី: ${latestUser.fullName || latestUser.username}`,
+                text: `ស្ថានីយ៖ ${latestUser.warehouse || '-'} | តួនាទី៖ ${latestUser.role || 'បុគ្គលិក'}`
+              }).then((res) => {
+                markRegToastDismissed(userKey);
+                window.activeRegToastUserId = null;
+                if (res.isConfirmed) {
+                  openPendingRegistrationsModal(latestUser.userId);
+                }
               });
             }
-          } catch(ne) {}
-
-          // Toast Alert on new registration
-          if (isNewRegistration && typeof Swal !== 'undefined') {
-            const latestUser = pendingUsers[0];
-            const Toast = Swal.mixin({
-              toast: true,
-              position: 'top-end',
-              showConfirmButton: true,
-              confirmButtonText: 'ពិនិត្យ',
-              confirmButtonColor: '#2563eb',
-              showCancelButton: true,
-              cancelButtonText: 'បិទ',
-              timer: 8000,
-              timerProgressBar: true
-            });
-            Toast.fire({
-              icon: 'info',
-              title: `🔔 សំណើគណនីថ្មី: ${latestUser.fullName || latestUser.username}`,
-              text: `ស្ថានីយ៖ ${latestUser.warehouse || '-'} | តួនាទី៖ ${latestUser.role || 'បុគ្គលិក'}`
-            }).then((res) => {
-              if (res.isConfirmed) {
-                openPendingRegistrationsModal(latestUser.userId);
-              }
-            });
           }
         }
       } else {
+        if (window.activeRegToastUserId) {
+          try { Swal.close(); } catch(e) {}
+          window.activeRegToastUserId = null;
+        }
+        try { localStorage.removeItem('inventory_dismissed_reg_toasts'); } catch(e) {}
         sessionStorage.removeItem('last_seen_registration_signature');
         dismissPendingAlertBanner();
       }
