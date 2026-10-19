@@ -6805,6 +6805,20 @@
       return true;
     };
 
+    // Role Approval Hierarchy: SuperAdmin ONLY approves Admin and Station Manager roles.
+    // Admin approves other roles (ប្រធានក្រុម, អ្នកកាន់ស្តុក, etc.).
+    window.isRoleForSuperAdminApproval = function(role) {
+      const r = String(role || '').trim().toLowerCase();
+      return (
+        r.includes('admin') ||
+        r.includes('superadmin') ||
+        r.includes('អ្នកគ្រប់គ្រងស្ថានីយ') ||
+        r.includes('អ្នកគ្រប់គ្រង') ||
+        r.includes('station manager') ||
+        r.includes('stationmanager')
+      );
+    };
+
     const TOLL_STATIONS_LIST = [
       { id: 'K3', name: 'K3 ស្ថានីយ (ភ្នំពេញ) 01', shortName: 'K3 01', badge: 'K3', icon: '🛣️' },
       { id: 'K26', name: 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02', shortName: 'K26 02', badge: 'K26', icon: '🛣️' },
@@ -13410,10 +13424,13 @@
       }
 
       try {
-        const res = await apiCall('registerUser', { ...userData, status: 'Pending_Admin' });
+        const reqSAApproval = (typeof isRoleForSuperAdminApproval === 'function') ? isRoleForSuperAdminApproval(userData.role) : false;
+        const initialStatus = reqSAApproval ? 'Pending_SuperAdmin' : 'Pending_Admin';
+        const res = await apiCall('registerUser', { ...userData, status: initialStatus });
 
-        // Note: User self-registration requests are reviewed & approved by Admin in Web App / LiveChat.
-        // No approval request is sent to SuperAdmin's Telegram. Once Admin approves, an alert is sent to SuperAdmin.
+        // Note: User self-registration requests:
+        // - Admin & Station Manager roles: SuperAdmin reviews & approves.
+        // - Staff / Stock Keeper roles: Admin reviews & approves. SuperAdmin receives informational alert upon approval.
 
         // 2. Real-Time Email Dispatch to Admin so Admin is notified to check the app
         try {
@@ -13432,7 +13449,7 @@
                 'អ៊ីមែល (Email)': userData.email || '-',
                 'ស្ថានីយ/ឃ្លាំង (Warehouse)': userData.warehouse || '-',
                 'តួនាទី (Role)': userData.role || 'Stock Keeper',
-                'ស្ថានភាព (Status)': 'Pending (រង់ចាំ Admin singvan327@gmail.com ពិនិត្យអនុម័ត)',
+                'ស្ថានភាព (Status)': reqSAApproval ? 'Pending SuperAdmin (រង់ចាំ SuperAdmin ពិនិត្យអនុម័ត)' : 'Pending Admin (រង់ចាំ Admin ពិនិត្យអនុម័ត)',
                 'ពេលវេលា (Timestamp)': new Date().toLocaleString('en-GB')
               })
             }).catch(() => {});
@@ -13445,7 +13462,7 @@
         }
 
         if (res && res.success) {
-        // Push registration card to Live Chat for regular Admin approval
+        // Push registration card to Live Chat for approval
         try {
           const chatCardPayload = {
             channelId: 'ADMIN_DIRECT',
@@ -13465,7 +13482,7 @@
               role: userData.role || 'Stock Keeper',
               warehouse: userData.warehouse,
               avatar: userData.avatar,
-              status: 'Pending_Admin',
+              status: initialStatus,
               createdAt: new Date().toISOString().slice(0, 16).replace('T', ' ')
             },
             itemReference: {
@@ -13478,7 +13495,7 @@
               role: userData.role || 'Stock Keeper',
               warehouse: userData.warehouse,
               avatar: userData.avatar,
-              status: 'Pending_Admin',
+              status: initialStatus,
               createdAt: new Date().toISOString().slice(0, 16).replace('T', ' ')
             }
           };
@@ -28602,10 +28619,13 @@
               </span>
             </div>
           `;
-        } else if (u.status === 'Pending' || u.status === 'Pending_Admin') {
-          statusBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-amber-100 text-amber-800 border border-amber-300 shadow-sm inline-flex items-center"><i class="fa-solid fa-clock mr-1 text-amber-600"></i>Pending Admin</span>`;
-        } else if (u.status === 'Pending_SuperAdmin') {
-          statusBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-indigo-100 text-indigo-800 border border-indigo-300 shadow-sm inline-flex items-center"><i class="fa-solid fa-crown mr-1 text-amber-500"></i>Pending SuperAdmin</span>`;
+        } else if (u.status === 'Pending' || u.status === 'Pending_Admin' || u.status === 'Pending_SuperAdmin') {
+          const reqSA = (typeof isRoleForSuperAdminApproval === 'function') ? isRoleForSuperAdminApproval(u.role) : (u.status === 'Pending_SuperAdmin');
+          if (reqSA) {
+            statusBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-indigo-100 text-indigo-800 border border-indigo-300 shadow-sm inline-flex items-center"><i class="fa-solid fa-crown mr-1 text-amber-500"></i>Pending SuperAdmin</span>`;
+          } else {
+            statusBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-amber-100 text-amber-800 border border-amber-300 shadow-sm inline-flex items-center"><i class="fa-solid fa-clock mr-1 text-amber-600"></i>Pending Admin</span>`;
+          }
         } else if (u.status === 'Rejected') {
           statusBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-rose-100 text-rose-700 border border-rose-300 inline-flex items-center"><i class="fa-solid fa-ban mr-1 text-rose-600"></i>Rejected</span>`;
         } else {
@@ -28703,8 +28723,10 @@
               </div>
             `;
           }
-        } else if (u.status === 'Pending' || u.status === 'Pending_Admin') {
-          if (isActorSuperAdmin || isActorAdmin) {
+        } else if (u.status === 'Pending' || u.status === 'Pending_Admin' || u.status === 'Pending_SuperAdmin') {
+          const isTargetSA = (typeof isRoleForSuperAdminApproval === 'function') ? isRoleForSuperAdminApproval(u.role) : false;
+          const canApprove = isActorSuperAdmin ? isTargetSA : (isActorAdmin && !isTargetSA);
+          if (canApprove) {
             actionsHtml = `
               <div class="inline-flex flex-wrap items-center gap-1.5">
                 <button onclick="approveUserDirectly('${u.userId || ''}', '${u.username || ''}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition active:scale-95 flex items-center space-x-1">
@@ -28722,45 +28744,18 @@
               </div>
             `;
           } else {
-            actionsHtml = `<span class="text-xs text-amber-600 font-semibold italic flex items-center gap-1"><i class="fa-solid fa-clock text-amber-500"></i>រង់ចាំ Admin អនុម័ត</span>`;
-          }
-        } else if (u.status === 'Pending_SuperAdmin') {
-          const r = String(u.role || '').toLowerCase();
-          const canAdminApproveThis = isActorAdmin && (
-            r.includes('អ្នកគ្រប់គ្រងស្ថានីយ') || r.includes('អ្នកគ្រប់គ្រង') || r.includes('station manager') ||
-            r.includes('ប្រធានក្រុម') || r.includes('ប្រធាន') || r.includes('team leader') ||
-            r.includes('អ្នកកាន់ស្តុក') || r.includes('បុគ្គលិកស្តុក') || r.includes('stock keeper') || r.includes('staff') ||
-            r === ''
-          );
-          if (isActorSuperAdmin || canAdminApproveThis) {
-            actionsHtml = `
-              <div class="inline-flex flex-wrap items-center gap-1.5">
-                <button onclick="approveUserDirectly('${u.userId || ''}', '${u.username || ''}')" class="px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl text-xs font-bold shadow-sm transition active:scale-95 flex items-center space-x-1">
-                  <i class="fa-solid fa-circle-check text-xs"></i>
-                  <span>អនុម័ត (Active)</span>
-                </button>
-                <button onclick="rejectUserDirectly('${u.userId || ''}', '${u.username || ''}')" class="px-2.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-sm transition active:scale-95 flex items-center space-x-1">
-                  <i class="fa-solid fa-circle-xmark text-xs"></i>
-                  <span>បដិសេធ</span>
-                </button>
-                <button onclick="handleDeleteUser('${u.userId || ''}', '${u.username || ''}')" class="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold shadow-sm transition active:scale-95 inline-flex items-center space-x-1">
-                  <i class="fa-solid fa-trash-can text-[11px]"></i>
-                  <span>លុប</span>
-                </button>
-              </div>
-            `;
-          } else if (isActorAdmin) {
             actionsHtml = `
               <div class="inline-flex items-center space-x-1.5">
-                <span class="text-[10px] text-indigo-700 font-bold bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">រង់ចាំ SuperAdmin</span>
+                <span class="text-[10px] text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 flex items-center gap-1">
+                  <i class="fa-solid fa-clock text-amber-500"></i>${isTargetSA ? 'រង់ចាំ SuperAdmin អនុម័ត' : 'រង់ចាំ Admin អនុម័ត'}
+                </span>
+                ${(isActorSuperAdmin || isActorAdmin) ? `
                 <button onclick="handleDeleteUser('${u.userId || ''}', '${u.username || ''}')" class="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg text-[10px] font-bold shadow-sm transition">
                   <i class="fa-solid fa-trash-can text-[10px]"></i>
                   <span>លុប</span>
-                </button>
+                </button>` : ''}
               </div>
             `;
-          } else {
-            actionsHtml = `<span class="text-xs text-indigo-600 font-semibold italic">រង់ចាំការអនុម័ត</span>`;
           }
         } else if (isActorSuperAdmin) {
           const editBtn = `
@@ -32428,28 +32423,35 @@
       const finalIdentifier = uId || uName;
 
       // Permission Enforcement:
-      // 1. Admin accounts can approve: អ្នកគ្រប់គ្រងស្ថានីយ (Station Manager), ប្រធានក្រុម (Team Leader), អ្នកកាន់ស្តុក (Stock Keeper)
-      if (isActorAdmin) {
-        const r = String(resolvedRole || '').trim().toLowerCase();
-        const isTargetSA = (r === 'superadmin' || r.includes('superadmin'));
-        const isTargetAdmin = (r === 'admin' || r.includes('admin') || r === 'administrator');
-        if (isTargetSA || isTargetAdmin) {
-          Swal.fire('គ្មានសិទ្ធិ', 'គណនី Admin អាចអនុម័តបានតែ អ្នកគ្រប់គ្រងស្ថានីយ, ប្រធានក្រុម, និងអ្នកកាន់ស្តុក ប៉ុណ្ណោះ! សម្រាប់គណនី Admin ឬ SuperAdmin ត្រូវតែ SuperAdmin ជាអ្នកអនុម័ត។', 'warning');
+      // SuperAdmin ONLY approves Admin and Station Manager!
+      // Admin accounts approve: ប្រធានក្រុម (Team Leader), អ្នកកាន់ស្តុក (Stock Keeper), etc.
+      const r = String(resolvedRole || '').trim().toLowerCase();
+      const isTargetRequiringSA = (typeof isRoleForSuperAdminApproval === 'function') ? isRoleForSuperAdminApproval(resolvedRole) : (
+        r.includes('admin') || r.includes('superadmin') || r.includes('អ្នកគ្រប់គ្រងស្ថានីយ') || r.includes('អ្នកគ្រប់គ្រង') || r.includes('station manager')
+      );
+
+      if (isActorSuperAdmin) {
+        if (!isTargetRequiringSA) {
+          Swal.fire('ការអនុម័តដោយ Admin', 'គណនីនេះជាតួនាទី «' + (resolvedRole || 'បុគ្គលិក') + '» ដែលស្ថិតក្រោមការអនុម័តរបស់ Admin! SuperAdmin ទទួលបានតែសារ Alert ឱ្យឃើញប៉ុណ្ណោះ។', 'info');
+          return;
+        }
+      } else if (isActorAdmin) {
+        if (isTargetRequiringSA) {
+          Swal.fire('គ្មានសិទ្ធិ', 'គណនី Admin ឬ អ្នកគ្រប់គ្រងស្ថានីយ ត្រូវតែ SuperAdmin ជាអ្នកអនុម័តប៉ុណ្ណោះ!', 'warning');
           return;
         }
       } else if (isActorStationManager) {
-        // 2. Station Manager can only approve: ប្រធានក្រុម, អ្នកកាន់ស្តុក inside their own station
+        // Station Manager can only approve: ប្រធានក្រុម, អ្នកកាន់ស្តុក inside their own station
         const myWh = String(AppState.currentUser?.warehouse || '').trim();
         const uWh = String(resolvedWarehouse || '').trim();
         const isSameWh = (typeof isSameWarehouse === 'function') ? isSameWarehouse(myWh, uWh) : (myWh.toLowerCase() === uWh.toLowerCase());
-        const r = String(resolvedRole || '').trim().toLowerCase();
         const isTL = (r.includes('ប្រធានក្រុម') || r.includes('ប្រធាន') || r.includes('team leader') || r.includes('teamleader') || r.includes('manager'));
         const isSK = (r.includes('អ្នកកាន់ស្តុក') || r.includes('បុគ្គលិកស្តុក') || r.includes('stock keeper') || r.includes('stockkeeper') || r.includes('staff') || r === '' || !resolvedRole);
         if (!isSameWh || (!isTL && !isSK)) {
           Swal.fire('គ្មានសិទ្ធិ', 'លោកអ្នកជាអ្នកគ្រប់គ្រងស្ថានីយ អាចអនុម័តបានតែបុគ្គលិកស្តុក ឬ ប្រធានក្រុមក្នុងស្ថានីយរបស់លោកអ្នកប៉ុណ្ណោះ!', 'warning');
           return;
         }
-      } else if (!isActorSuperAdmin) {
+      } else {
         Swal.fire('គ្មានសិទ្ធិ', 'លោកអ្នកពុំមានសិទ្ធិក្នុងការអនុម័តគណនីឡើយ!', 'error');
         return;
       }
@@ -32527,7 +32529,15 @@
       try {
         if (typeof BroadcastChannel !== 'undefined') {
           const ch = new BroadcastChannel('stock_system_channel');
-          ch.postMessage({ type: 'USER_APPROVED', userId: uId, username: uName });
+          ch.postMessage({
+            type: 'USER_APPROVED',
+            userId: uId,
+            username: uName,
+            fullName: resolvedFullName || uName,
+            role: resolvedRole || 'បុគ្គលិក',
+            warehouse: resolvedWarehouse || '-',
+            approver: approverDisplay
+          });
           ch.close();
         }
       } catch (e) {}
@@ -34083,10 +34093,12 @@
             (regUser.userId && u.userId === regUser.userId) || 
             (regUser.username && u.username && u.username.toLowerCase() === String(regUser.username).toLowerCase())
           );
+          const regRole = regUser.role || '';
+          const targetStatus = regUser.status || ((typeof isRoleForSuperAdminApproval === 'function' && isRoleForSuperAdminApproval(regRole)) ? 'Pending_SuperAdmin' : 'Pending_Admin');
           if (existingIdx !== -1) {
-            LOCAL_DB.users[existingIdx] = { ...LOCAL_DB.users[existingIdx], ...regUser, status: 'Pending_Admin' };
+            LOCAL_DB.users[existingIdx] = { ...LOCAL_DB.users[existingIdx], ...regUser, status: targetStatus };
           } else {
-            LOCAL_DB.users.unshift({ ...regUser, status: 'Pending_Admin' });
+            LOCAL_DB.users.unshift({ ...regUser, status: targetStatus });
           }
           saveLocalUsersToStorage();
         }
@@ -34217,6 +34229,23 @@
         const isActorAdmin = isSuperAdmin || String(actor?.role || '').toLowerCase().includes('admin') || String(actor?.username || '').toLowerCase() === 'admin' || String(actor?.username || '').toLowerCase() === 'singvan327@gmail.com';
         if ((isSuperAdmin || isActorAdmin) && typeof checkPendingDeletionsForSuperAdmin === 'function') {
           checkPendingDeletionsForSuperAdmin(false);
+        }
+
+        if (msg.type === 'USER_APPROVED' && isSuperAdmin && typeof Swal !== 'undefined') {
+          const approverTxt = msg.approver ? ` (អនុម័តដោយ៖ ${msg.approver})` : ' (អនុម័តដោយ Admin)';
+          Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'info',
+            title: `🔔 ដំណឹងគណនីបានអនុម័ត: ${msg.fullName || msg.username || ''}`,
+            text: `ស្ថានីយ៖ ${msg.warehouse || '-'} | តួនាទី៖ ${msg.role || 'បុគ្គលិក'}${approverTxt}`,
+            showConfirmButton: false, // មិនចាំបាច់មានប៊ូតុងត្រួតពិនិត្យអ្វីទេ
+            showCancelButton: true,
+            cancelButtonText: 'បិទ',
+            showCloseButton: true,
+            timer: 8000,
+            timerProgressBar: true
+          });
         }
       }
 
@@ -36311,10 +36340,10 @@
             });
           }
 
-          // If current channel is ADMIN_DIRECT, ensure pending registrations are included for Admin
+          // If current channel is ADMIN_DIRECT, ensure pending registrations are included
           if (currentChatChannel === 'ADMIN_DIRECT') {
             const allUsers = [...(LOCAL_DB.users || []), ...(AppState.users || [])];
-            const pendingUsers = allUsers.filter(u => u.status === 'Pending_Admin' || u.status === 'Pending');
+            const pendingUsers = allUsers.filter(u => u.status === 'Pending_Admin' || u.status === 'Pending' || u.status === 'Pending_SuperAdmin');
 
             pendingUsers.forEach(pu => {
               const alreadyInMsgs = msgs.some(m =>
@@ -36514,7 +36543,10 @@
           } else {
             statusBadge = `<span class="px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-black border border-amber-300 flex items-center space-x-1 animate-pulse"><i class="fa-solid fa-hourglass-half text-amber-600"></i><span>រង់ចាំ Admin ពិនិត្យ (Step 1)</span></span>`;
 
-            if (isActorAdmin) {
+            const isTargetSARole = (typeof isRoleForSuperAdminApproval === 'function') ? isRoleForSuperAdminApproval(finalRole) : false;
+            const canActorApproveThis = isActorSuperAdmin ? isTargetSARole : (!isTargetSARole && isActorAdmin);
+
+            if (canActorApproveThis) {
               actionButtons = `
                 <div class="mt-3 pt-3 border-t border-amber-200/80 flex items-center justify-end space-x-2">
                   <button type="button" onclick="rejectUserDirectly('${escapeHtml(finalUserId)}', '${escapeHtml(finalUsername)}')"
@@ -37226,21 +37258,43 @@
     function getPendingAdminUsers() {
       loadLocalUsersFromStorage();
       const allUsers = LOCAL_DB.users || [];
-      return allUsers.filter(u => u.status === 'Pending_Admin' || u.status === 'Pending');
+      return allUsers.filter(u => u.status === 'Pending_Admin' || u.status === 'Pending' || u.status === 'Pending_SuperAdmin');
     }
+
+    function isRoleForSuperAdminApproval(role) {
+      const r = String(role || '').trim().toLowerCase();
+      return (
+        r.includes('admin') ||
+        r.includes('superadmin') ||
+        r.includes('អ្នកគ្រប់គ្រងស្ថានីយ') ||
+        r.includes('អ្នកគ្រប់គ្រង') ||
+        r.includes('station manager') ||
+        r.includes('stationmanager')
+      );
+    }
+    window.isRoleForSuperAdminApproval = isRoleForSuperAdminApproval;
 
     // Real-Time High-Impact Top Dashboard Alert Banner for Admin
     function renderAdminPendingBanner(pendingUsers) {
       const banner = document.getElementById('adminPendingAlertBanner');
       if (!banner) return;
-      if (!pendingUsers || pendingUsers.length === 0) {
+      const actor = AppState.currentUser;
+      const isSuperAdmin = (typeof isUserSuperAdmin === 'function') ? isUserSuperAdmin(actor) : (actor?.role === 'SuperAdmin' || String(actor?.username).toLowerCase() === 'superadmin');
+
+      // SuperAdmin only approves Admin & Station Manager!
+      // Admin approves other roles (ប្រធានក្រុម, អ្នកកាន់ស្តុក, etc.).
+      const relevantUsers = (pendingUsers || []).filter(u => {
+        return isSuperAdmin ? isRoleForSuperAdminApproval(u.role) : !isRoleForSuperAdminApproval(u.role);
+      });
+
+      if (relevantUsers.length === 0) {
         banner.innerHTML = '';
         banner.classList.add('hidden');
         return;
       }
 
-      const count = pendingUsers.length;
-      const latest = pendingUsers[0];
+      const count = relevantUsers.length;
+      const latest = relevantUsers[0];
       const displayName = escapeHtml(latest.fullName || latest.username);
       const whName = escapeHtml(latest.warehouse || '-');
       const timeStr = latest.createdAt ? escapeHtml(latest.createdAt) : 'ថ្មីៗនេះ';
@@ -37263,7 +37317,7 @@
                 សំណើសុំចុះឈ្មោះ៖ <span class="underline decoration-white/60">${displayName}</span> (@${escapeHtml(latest.username)}) - ស្ថានីយ៖ ${whName}
               </h4>
               <p class="text-[11px] text-amber-100/90 mt-0.5">
-                សូម Admin ពិនិត្យព័ត៌មានបុគ្គលិក និងចុច Approve ដើម្បីអនុញ្ញាតឱ្យចូលប្រើប្រាស់ប្រព័ន្ធស្តុក
+                ${isSuperAdmin ? 'សូម SuperAdmin ពិនិត្យព័ត៌មាន Admin / អ្នកគ្រប់គ្រងស្ថានីយ និងចុច Approve' : 'សូម Admin ពិនិត្យព័ត៌មានបុគ្គលិក និងចុច Approve ដើម្បីអនុញ្ញាតឱ្យចូលប្រើប្រាស់ប្រព័ន្ធស្តុក'}
               </p>
             </div>
           </div>
@@ -37351,13 +37405,20 @@
         return false;
       });
 
+      // Actionable pending users for the current actor:
+      // SuperAdmin ONLY approves Admin and Station Manager!
+      // Admin approves other roles (ប្រធានក្រុម, អ្នកកាន់ស្តុក, etc.).
+      const actionableUsers = isSuperAdmin
+        ? pendingUsers.filter(u => isRoleForSuperAdminApproval(u.role))
+        : pendingUsers.filter(u => !isRoleForSuperAdminApproval(u.role));
+
       // 1. Update LiveChat Tab Badge in Sidebar
       const chatBadge = document.getElementById('chatBadge');
       if (chatBadge) {
-        if (pendingUsers.length > 0) {
-          chatBadge.innerText = pendingUsers.length;
+        if (actionableUsers.length > 0) {
+          chatBadge.innerText = actionableUsers.length;
           chatBadge.classList.remove('hidden');
-          chatBadge.title = `មាន ${pendingUsers.length} សំណើចុះឈ្មោះរង់ចាំ Admin ពិនិត្យក្នុង Admin Support`;
+          chatBadge.title = `មាន ${actionableUsers.length} សំណើចុះឈ្មោះរង់ចាំពិនិត្យក្នុង Admin Support`;
         } else {
           chatBadge.classList.add('hidden');
         }
@@ -37366,8 +37427,8 @@
       // Update Admin Support channel badge inside Live Chat sidebar
       const adminDirectBadge = document.getElementById('adminDirectBadge');
       if (adminDirectBadge) {
-        if (pendingUsers.length > 0) {
-          adminDirectBadge.innerText = `${pendingUsers.length}`;
+        if (actionableUsers.length > 0) {
+          adminDirectBadge.innerText = `${actionableUsers.length}`;
           adminDirectBadge.classList.remove('hidden');
         } else {
           adminDirectBadge.classList.add('hidden');
@@ -37428,9 +37489,9 @@
       // 3. Update Pending Users Badge on Sidebar
       const pendingBadge = document.getElementById('pendingUsersBadge');
       const pendingModalCountBadge = document.getElementById('pendingModalCountBadge');
-      if (pendingModalCountBadge) pendingModalCountBadge.innerText = `${pendingUsers.length} សំណើ`;
+      if (pendingModalCountBadge) pendingModalCountBadge.innerText = `${actionableUsers.length} សំណើ`;
 
-      const totalPending = pendingUsers.length;
+      const totalPending = actionableUsers.length;
       if (totalPending > 0) {
         if (pendingBadge) {
           pendingBadge.textContent = totalPending;
@@ -37487,12 +37548,18 @@
               }
             } catch(ne) {}
 
+            // SuperAdmin ONLY approves Admin and Station Manager!
+            // Other roles (ប្រធានក្រុម, អ្នកកាន់ស្តុក, etc.) are approved by Admin.
+            const targetRole = latestUser.role || '';
+            const isTargetSARole = (typeof isRoleForSuperAdminApproval === 'function') ? isRoleForSuperAdminApproval(targetRole) : false;
+            const canActorApprove = isSuperAdmin ? isTargetSARole : (!isTargetSARole);
+
             // Toast Alert: Shows once for 8 seconds (or until clicked)
             if (typeof Swal !== 'undefined') {
               const Toast = Swal.mixin({
                 toast: true,
                 position: 'top-end',
-                showConfirmButton: true,
+                showConfirmButton: canActorApprove, // មិនចាំបាច់មានប៊ូតុងត្រួតពិនិត្យអ្វីទេ ប្រសិនបើគ្មានសិទ្ធិអនុម័ត
                 confirmButtonText: 'ពិនិត្យ',
                 confirmButtonColor: '#2563eb',
                 showCancelButton: true,
@@ -37502,27 +37569,37 @@
                 timer: 8000,
                 timerProgressBar: true,
                 didOpen: (toast) => {
-                  toast.style.cursor = 'pointer';
+                  toast.style.cursor = canActorApprove ? 'pointer' : 'default';
                   toast.addEventListener('click', (e) => {
                     if (e.target.closest('.swal2-cancel') || e.target.closest('.swal2-close')) {
                       window.activeRegToastUserId = null;
                       try { Swal.close(); } catch(err) {}
                       return;
                     }
-                    window.activeRegToastUserId = null;
-                    try { Swal.close(); } catch(err) {}
-                    openPendingRegistrationsModal(latestUser.userId);
+                    if (canActorApprove && (e.target.closest('.swal2-confirm') || !e.target.closest('button'))) {
+                      window.activeRegToastUserId = null;
+                      try { Swal.close(); } catch(err) {}
+                      openPendingRegistrationsModal(latestUser.userId);
+                    }
                   });
                 }
               });
 
+              const toastTitle = canActorApprove
+                ? `🔔 សំណើគណនីថ្មី: ${latestUser.fullName || latestUser.username}`
+                : `🔔 ដំណឹងគណនីថ្មី: ${latestUser.fullName || latestUser.username}`;
+
+              const toastSubtitle = canActorApprove
+                ? `ស្ថានីយ៖ ${latestUser.warehouse || '-'} | តួនាទី៖ ${latestUser.role || 'បុគ្គលិក'}`
+                : `ស្ថានីយ៖ ${latestUser.warehouse || '-'} | តួនាទី៖ ${latestUser.role || 'បុគ្គលិក'} (រង់ចាំ Admin អនុម័ត)`;
+
               Toast.fire({
                 icon: 'info',
-                title: `🔔 សំណើគណនីថ្មី: ${latestUser.fullName || latestUser.username}`,
-                text: `ស្ថានីយ៖ ${latestUser.warehouse || '-'} | តួនាទី៖ ${latestUser.role || 'បុគ្គលិក'}`
+                title: toastTitle,
+                text: toastSubtitle
               }).then((res) => {
                 window.activeRegToastUserId = null;
-                if (res.isConfirmed) {
+                if (res.isConfirmed && canActorApprove) {
                   openPendingRegistrationsModal(latestUser.userId);
                 }
               });
@@ -37546,17 +37623,12 @@
 
     function openPendingRegistrationsModal(targetUserId) {
       loadLocalUsersFromStorage();
+      const actor = AppState.currentUser;
+      const isSuperAdmin = (typeof isUserSuperAdmin === 'function') ? isUserSuperAdmin(actor) : (actor?.role === 'SuperAdmin' || String(actor?.username).toLowerCase() === 'superadmin');
       const allUsers = deduplicateUsersList(LOCAL_DB.users || []);
       let pendingUsers = allUsers.filter(u => {
-        if (u.status === 'Pending_Admin' || u.status === 'Pending') return true;
-        if (u.status === 'Pending_SuperAdmin') {
-          const r = String(u.role || '').toLowerCase();
-          return (
-            r.includes('អ្នកគ្រប់គ្រងស្ថានីយ') || r.includes('អ្នកគ្រប់គ្រង') || r.includes('station manager') ||
-            r.includes('ប្រធានក្រុម') || r.includes('ប្រធាន') || r.includes('team leader') ||
-            r.includes('អ្នកកាន់ស្តុក') || r.includes('បុគ្គលិកស្តុក') || r.includes('stock keeper') || r.includes('staff') ||
-            r === ''
-          );
+        if (u.status === 'Pending_Admin' || u.status === 'Pending' || u.status === 'Pending_SuperAdmin') {
+          return isSuperAdmin ? isRoleForSuperAdminApproval(u.role) : !isRoleForSuperAdminApproval(u.role);
         }
         return false;
       });
