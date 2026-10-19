@@ -34107,11 +34107,6 @@
         if (typeof checkPendingRegistrationsForAdmin === 'function') {
           checkPendingRegistrationsForAdmin(false);
         }
-        if (typeof playNewRegistrationAlertSound === 'function') {
-          playNewRegistrationAlertSound();
-        } else if (typeof playChatIncomingSound === 'function') {
-          playChatIncomingSound();
-        }
         if (AppState.currentTab === 'chat') {
           if (typeof renderChatMessages === 'function') renderChatMessages();
           if (typeof loadChatMessages === 'function') loadChatMessages(true);
@@ -37299,7 +37294,12 @@
       try {
         if (!userIdOrName) return;
         const map = getDismissedRegToasts();
-        map[String(userIdOrName).trim().toLowerCase()] = Date.now();
+        if (typeof userIdOrName === 'object' && userIdOrName !== null) {
+          if (userIdOrName.userId) map[String(userIdOrName.userId).trim().toLowerCase()] = Date.now();
+          if (userIdOrName.username) map[String(userIdOrName.username).trim().toLowerCase()] = Date.now();
+        } else {
+          map[String(userIdOrName).trim().toLowerCase()] = Date.now();
+        }
         localStorage.setItem('inventory_dismissed_reg_toasts', JSON.stringify(map));
       } catch (e) {}
     }
@@ -37466,8 +37466,15 @@
           if (window.activeRegToastUserId !== userKey) {
             window.activeRegToastUserId = userKey;
 
+            // Mark dismissed IMMEDIATELY so it will NEVER alert again even on reload or background polling
+            markRegToastDismissed(latestUser);
+            if (latestUser.userId) markRegToastDismissed(latestUser.userId);
+            if (latestUser.username) markRegToastDismissed(latestUser.username);
+
             // Play Chime ONLY ONCE per new registration
-            playNewRegistrationAlertSound();
+            if (!silent) {
+              playNewRegistrationAlertSound();
+            }
 
             // Native Desktop Notification if permitted (only once)
             try {
@@ -37480,7 +37487,7 @@
               }
             } catch(ne) {}
 
-            // Toast Alert: Displays continuously until Admin/SuperAdmin clicks on it
+            // Toast Alert: Shows once for 8 seconds (or until clicked)
             if (typeof Swal !== 'undefined') {
               const Toast = Swal.mixin({
                 toast: true,
@@ -37492,19 +37499,18 @@
                 cancelButtonText: 'បិទ',
                 cancelButtonColor: '#64748b',
                 showCloseButton: true,
-                timer: false, // មិនទាន់បានចុច សារគឺត្រូវបង្ហាញជាប់រហូត (Permanent until clicked)
-                timerProgressBar: false,
+                timer: 8000,
+                timerProgressBar: true,
                 didOpen: (toast) => {
                   toast.style.cursor = 'pointer';
                   toast.addEventListener('click', (e) => {
                     if (e.target.closest('.swal2-cancel') || e.target.closest('.swal2-close')) {
-                      markRegToastDismissed(userKey);
                       window.activeRegToastUserId = null;
+                      try { Swal.close(); } catch(err) {}
                       return;
                     }
-                    markRegToastDismissed(userKey);
                     window.activeRegToastUserId = null;
-                    Swal.close();
+                    try { Swal.close(); } catch(err) {}
                     openPendingRegistrationsModal(latestUser.userId);
                   });
                 }
@@ -37515,7 +37521,6 @@
                 title: `🔔 សំណើគណនីថ្មី: ${latestUser.fullName || latestUser.username}`,
                 text: `ស្ថានីយ៖ ${latestUser.warehouse || '-'} | តួនាទី៖ ${latestUser.role || 'បុគ្គលិក'}`
               }).then((res) => {
-                markRegToastDismissed(userKey);
                 window.activeRegToastUserId = null;
                 if (res.isConfirmed) {
                   openPendingRegistrationsModal(latestUser.userId);
@@ -37529,7 +37534,6 @@
           try { Swal.close(); } catch(e) {}
           window.activeRegToastUserId = null;
         }
-        try { localStorage.removeItem('inventory_dismissed_reg_toasts'); } catch(e) {}
         sessionStorage.removeItem('last_seen_registration_signature');
         dismissPendingAlertBanner();
       }
