@@ -31301,8 +31301,15 @@
 
     async function openSuperAdminDeletionReviewModal(userId, username, defaultDecision = '') {
       const actor = AppState.currentUser;
-      const isActorSuperAdmin = (actor?.role === 'SuperAdmin') || (String(actor?.username).toLowerCase() === 'superadmin');
-      const isActorAdmin = !isActorSuperAdmin && (actor?.role === 'Admin' || String(actor?.username).toLowerCase() === 'admin');
+      const isActorSuperAdmin = (typeof isUserSuperAdmin === 'function') ? isUserSuperAdmin(actor) : (actor?.role === 'SuperAdmin' || String(actor?.username).toLowerCase() === 'superadmin');
+      const isActorAdmin = !isActorSuperAdmin && ((typeof isUserAdmin === 'function') ? isUserAdmin(actor) : (
+        String(actor?.role || '').toLowerCase().includes('admin') ||
+        String(actor?.username || '').toLowerCase() === 'admin' ||
+        String(actor?.username || '').toLowerCase() === 'singvan' ||
+        String(actor?.username || '').toLowerCase() === 'singvan327@gmail.com' ||
+        String(actor?.email || '').toLowerCase() === 'singvan327@gmail.com' ||
+        actor?.warehouse === 'ALL'
+      ));
 
       // SuperAdmin only receives alert and views details, no approve required!
       if (isActorSuperAdmin) {
@@ -32313,8 +32320,15 @@
         Swal.fire('ព័ត៌មាន', 'រកមិនឃើញទិន្នន័យគណនីនេះឡើយ', 'info');
         return;
       }
-      const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin');
-      const isActorAdmin = !isActorSuperAdmin && (AppState.currentUser?.role === 'Admin' || String(AppState.currentUser?.username).toLowerCase() === 'admin' || String(AppState.currentUser?.username).toLowerCase() === 'singvan327@gmail.com');
+      const isActorSuperAdmin = (typeof isUserSuperAdmin === 'function') ? isUserSuperAdmin(AppState.currentUser) : ((AppState.currentUser?.role === 'SuperAdmin') || (String(AppState.currentUser?.username).toLowerCase() === 'superadmin'));
+      const isActorAdmin = !isActorSuperAdmin && ((typeof isUserAdmin === 'function') ? isUserAdmin(AppState.currentUser) : (
+        String(AppState.currentUser?.role || '').toLowerCase().includes('admin') ||
+        String(AppState.currentUser?.username || '').toLowerCase() === 'admin' ||
+        String(AppState.currentUser?.username || '').toLowerCase() === 'singvan' ||
+        String(AppState.currentUser?.username || '').toLowerCase() === 'singvan327@gmail.com' ||
+        String(AppState.currentUser?.email || '').toLowerCase() === 'singvan327@gmail.com' ||
+        AppState.currentUser?.warehouse === 'ALL'
+      ));
 
       if (isActorSuperAdmin) {
         dismissSuperAdminDeletionAlert();
@@ -32372,13 +32386,15 @@
       const actorRoleLower = actorRole.toLowerCase();
       const actorNameLower = String(actor?.username || '').trim().toLowerCase();
 
-      const isActorSuperAdmin = (actorRoleLower === 'superadmin' || actorNameLower === 'superadmin' || actor?.userId === 'USR-SA');
-      const isActorAdmin = !isActorSuperAdmin && (
-        actorRoleLower === 'admin' ||
+      const isActorSuperAdmin = (typeof isUserSuperAdmin === 'function') ? isUserSuperAdmin(actor) : (actorRoleLower === 'superadmin' || actorNameLower === 'superadmin' || actor?.userId === 'USR-SA');
+      const isActorAdmin = !isActorSuperAdmin && ((typeof isUserAdmin === 'function') ? isUserAdmin(actor) : (
         actorRoleLower.includes('admin') ||
         actorNameLower === 'admin' ||
-        (actorRole.includes('គ្រប់គ្រង') && !actorRole.includes('ស្ថានីយ'))
-      );
+        actorNameLower === 'singvan' ||
+        actorNameLower === 'singvan327@gmail.com' ||
+        String(actor?.email || '').toLowerCase() === 'singvan327@gmail.com' ||
+        actor?.warehouse === 'ALL'
+      ));
       const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (
         actorRole.includes('អ្នកគ្រប់គ្រងស្ថានីយ') ||
         actorRole.includes('ស្ថានីយ') ||
@@ -32414,7 +32430,7 @@
       const resolvedEmail = String(targetUser.email || regData.email || (cleanUsername.toLowerCase() === 'sreylala' ? 'sreyLaLa@gmail.com' : '')).trim();
       const resolvedPhone = String(targetUser.phone || regData.phone || '').trim();
       const resolvedFullName = String(targetUser.fullName || regData.fullName || cleanUsername).trim();
-      const resolvedRole = targetUser.role || regData.role || 'Stock Keeper';
+      const resolvedRole = targetUser.role || regData.role || 'អ្នកកាន់ស្តុក';
       const resolvedWarehouse = targetUser.warehouse || regData.warehouse || '-';
       const resolvedAvatar = targetUser.avatar || regData.avatar || '';
 
@@ -32422,17 +32438,31 @@
       const uName = String(targetUser.username || regData.username || cleanUsername || '').replace(/^@/, '').trim();
       const finalIdentifier = uId || uName;
 
-      if (isActorStationManager) {
-        const myWh = String(AppState.currentUser?.warehouse || '').trim().toLowerCase();
-        const uWh = String(targetUser.warehouse || '').trim().toLowerCase();
-        const r = String(targetUser.role || '').trim().toLowerCase();
-        const isTL = (r === 'ប្រធានក្រុម' || r === 'ប្រធាន' || r === 'team leader' || r === 'teamleader' || r === 'manager');
-        const isSK = (r === 'បុគ្គលិកស្តុក' || r === 'stock keeper' || r === 'stockkeeper' || r === 'staff' || r === '' || !targetUser.role);
-        const isForbidden = (r === 'superadmin' || r === 'admin' || r === 'អ្នកគ្រប់គ្រងទូទៅ' || r === 'ប្រធានផ្នែក' || r === 'station manager');
-        if (uWh !== myWh || (!isTL && !isSK) || isForbidden) {
-          Swal.fire('គ្មានសិទ្ធិ', 'លោកអ្នកអាចអនុម័តបានតែបុគ្គលិកស្តុក ឬ ប្រធានក្រុមក្នុងស្ថានីយរបស់លោកអ្នកប៉ុណ្ណោះ!', 'warning');
+      // Permission Enforcement:
+      // 1. Admin accounts can approve: អ្នកគ្រប់គ្រងស្ថានីយ (Station Manager), ប្រធានក្រុម (Team Leader), អ្នកកាន់ស្តុក (Stock Keeper)
+      if (isActorAdmin) {
+        const r = String(resolvedRole || '').trim().toLowerCase();
+        const isTargetSA = (r === 'superadmin' || r.includes('superadmin'));
+        const isTargetAdmin = (r === 'admin' || r.includes('admin') || r === 'administrator');
+        if (isTargetSA || isTargetAdmin) {
+          Swal.fire('គ្មានសិទ្ធិ', 'គណនី Admin អាចអនុម័តបានតែ អ្នកគ្រប់គ្រងស្ថានីយ, ប្រធានក្រុម, និងអ្នកកាន់ស្តុក ប៉ុណ្ណោះ! សម្រាប់គណនី Admin ឬ SuperAdmin ត្រូវតែ SuperAdmin ជាអ្នកអនុម័ត។', 'warning');
           return;
         }
+      } else if (isActorStationManager) {
+        // 2. Station Manager can only approve: ប្រធានក្រុម, អ្នកកាន់ស្តុក inside their own station
+        const myWh = String(AppState.currentUser?.warehouse || '').trim();
+        const uWh = String(resolvedWarehouse || '').trim();
+        const isSameWh = (typeof isSameWarehouse === 'function') ? isSameWarehouse(myWh, uWh) : (myWh.toLowerCase() === uWh.toLowerCase());
+        const r = String(resolvedRole || '').trim().toLowerCase();
+        const isTL = (r.includes('ប្រធានក្រុម') || r.includes('ប្រធាន') || r.includes('team leader') || r.includes('teamleader') || r.includes('manager'));
+        const isSK = (r.includes('អ្នកកាន់ស្តុក') || r.includes('បុគ្គលិកស្តុក') || r.includes('stock keeper') || r.includes('stockkeeper') || r.includes('staff') || r === '' || !resolvedRole);
+        if (!isSameWh || (!isTL && !isSK)) {
+          Swal.fire('គ្មានសិទ្ធិ', 'លោកអ្នកជាអ្នកគ្រប់គ្រងស្ថានីយ អាចអនុម័តបានតែបុគ្គលិកស្តុក ឬ ប្រធានក្រុមក្នុងស្ថានីយរបស់លោកអ្នកប៉ុណ្ណោះ!', 'warning');
+          return;
+        }
+      } else if (!isActorSuperAdmin) {
+        Swal.fire('គ្មានសិទ្ធិ', 'លោកអ្នកពុំមានសិទ្ធិក្នុងការអនុម័តគណនីឡើយ!', 'error');
+        return;
       }
 
       const approverRole = isActorSuperAdmin ? 'SuperAdmin' : (isActorStationManager ? 'Station Manager' : 'Admin');
@@ -32623,10 +32653,26 @@
     }
 
     async function rejectUserDirectly(userId, username) {
-      const actor = AppState.currentUser;
-      const isActorSuperAdmin = (actor?.role === 'SuperAdmin') || (String(actor?.username).toLowerCase() === 'superadmin');
-      const isActorAdmin = !isActorSuperAdmin && (actor?.role === 'Admin' || String(actor?.username).toLowerCase() === 'admin');
-      const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (actor?.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || actor?.role === 'អ្នកគ្រប់គ្រង');
+      const actor = AppState.currentUser || {};
+      const actorRole = String(actor?.role || '').trim();
+      const actorRoleLower = actorRole.toLowerCase();
+      const actorNameLower = String(actor?.username || '').trim().toLowerCase();
+
+      const isActorSuperAdmin = (typeof isUserSuperAdmin === 'function') ? isUserSuperAdmin(actor) : (actorRoleLower === 'superadmin' || actorNameLower === 'superadmin' || actor?.userId === 'USR-SA');
+      const isActorAdmin = !isActorSuperAdmin && ((typeof isUserAdmin === 'function') ? isUserAdmin(actor) : (
+        actorRoleLower.includes('admin') ||
+        actorNameLower === 'admin' ||
+        actorNameLower === 'singvan' ||
+        actorNameLower === 'singvan327@gmail.com' ||
+        String(actor?.email || '').toLowerCase() === 'singvan327@gmail.com' ||
+        actor?.warehouse === 'ALL'
+      ));
+      const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (
+        actorRole.includes('អ្នកគ្រប់គ្រងស្ថានីយ') ||
+        actorRole.includes('ស្ថានីយ') ||
+        actorRoleLower.includes('station manager') ||
+        actorRoleLower.includes('stationmanager')
+      );
 
       const cleanUsername = String(username || '').replace(/^@/, '').trim();
       const cleanUserId = String(userId || '').trim();
@@ -32655,17 +32701,31 @@
       const uName = String(target.username || cleanUsername || '').replace(/^@/, '').trim();
       const finalIdentifier = uId || uName;
 
-      if (isActorStationManager) {
-        const myWh = String(actor?.warehouse || '').trim().toLowerCase();
-        const uWh = String(target?.warehouse || '').trim().toLowerCase();
-        const r = String(target?.role || '').trim().toLowerCase();
-        const isTL = (r === 'ប្រធានក្រុម' || r === 'ប្រធាន' || r === 'team leader' || r === 'teamleader' || r === 'manager');
-        const isSK = (r === 'បុគ្គលិកស្តុក' || r === 'stock keeper' || r === 'stockkeeper' || r === 'staff' || r === '' || !target?.role);
-        const isForbidden = (r === 'superadmin' || r === 'admin' || r === 'អ្នកគ្រប់គ្រងទូទៅ' || r === 'ប្រធានផ្នែក' || r === 'station manager');
-        if (uWh !== myWh || (!isTL && !isSK) || isForbidden) {
-          Swal.fire('គ្មានសិទ្ធិ', 'លោកអ្នកអាចបដិសេធបានតែបុគ្គលិកស្តុក ឬ ប្រធានក្រុមក្នុងស្ថានីយរបស់លោកអ្នកប៉ុណ្ណោះ!', 'warning');
+      // Permission Enforcement for Reject:
+      // 1. Admin accounts can reject: អ្នកគ្រប់គ្រងស្ថានីយ, ប្រធានក្រុម, អ្នកកាន់ស្តុក
+      if (isActorAdmin) {
+        const r = String(target.role || '').trim().toLowerCase();
+        const isTargetSA = (r === 'superadmin' || r.includes('superadmin'));
+        const isTargetAdmin = (r === 'admin' || r.includes('admin') || r === 'administrator');
+        if (isTargetSA || isTargetAdmin) {
+          Swal.fire('គ្មានសិទ្ធិ', 'គណនី Admin អាចបដិសេធបានតែ អ្នកគ្រប់គ្រងស្ថានីយ, ប្រធានក្រុម, និងអ្នកកាន់ស្តុក ប៉ុណ្ណោះ!', 'warning');
           return;
         }
+      } else if (isActorStationManager) {
+        // 2. Station Manager can only reject within their station
+        const myWh = String(actor?.warehouse || '').trim();
+        const uWh = String(target?.warehouse || '').trim();
+        const isSameWh = (typeof isSameWarehouse === 'function') ? isSameWarehouse(myWh, uWh) : (myWh.toLowerCase() === uWh.toLowerCase());
+        const r = String(target?.role || '').trim().toLowerCase();
+        const isTL = (r.includes('ប្រធានក្រុម') || r.includes('ប្រធាន') || r.includes('team leader') || r.includes('teamleader') || r.includes('manager'));
+        const isSK = (r.includes('អ្នកកាន់ស្តុក') || r.includes('បុគ្គលិកស្តុក') || r.includes('stock keeper') || r.includes('stockkeeper') || r.includes('staff') || r === '' || !target?.role);
+        if (!isSameWh || (!isTL && !isSK)) {
+          Swal.fire('គ្មានសិទ្ធិ', 'លោកអ្នកជាអ្នកគ្រប់គ្រងស្ថានីយ អាចបដិសេធបានតែបុគ្គលិកស្តុក ឬ ប្រធានក្រុមក្នុងស្ថានីយរបស់លោកអ្នកប៉ុណ្ណោះ!', 'warning');
+          return;
+        }
+      } else if (!isActorSuperAdmin) {
+        Swal.fire('គ្មានសិទ្ធិ', 'លោកអ្នកពុំមានសិទ្ធិក្នុងការបដិសេធគណនីឡើយ!', 'error');
+        return;
       }
 
       const result = await Swal.fire({
@@ -37259,7 +37319,7 @@
       const actor = AppState.currentUser;
       if (!actor) return;
 
-      const isSuperAdmin = (actor.role === 'SuperAdmin' || String(actor.username).toLowerCase() === 'superadmin');
+      const isSuperAdmin = (typeof isUserSuperAdmin === 'function') ? isUserSuperAdmin(actor) : (actor.role === 'SuperAdmin' || String(actor.username).toLowerCase() === 'superadmin');
       if (isSuperAdmin && typeof checkPendingDeletionsForSuperAdmin === 'function') {
         checkPendingDeletionsForSuperAdmin(silent);
       }
@@ -37267,7 +37327,14 @@
       const actorRole = String(actor.role || '').toLowerCase();
       const actorName = String(actor.username || '').toLowerCase();
       const actorEmail = String(actor.email || '').toLowerCase();
-      const isActorAdmin = isSuperAdmin || actorRole.includes('admin') || actorName === 'admin' || actorName === 'singvan327@gmail.com' || actorEmail === 'singvan327@gmail.com';
+      const isActorAdmin = isSuperAdmin || ((typeof isUserAdmin === 'function') ? isUserAdmin(actor) : (
+        actorRole.includes('admin') ||
+        actorName === 'admin' ||
+        actorName === 'singvan' ||
+        actorName === 'singvan327@gmail.com' ||
+        actorEmail === 'singvan327@gmail.com' ||
+        actor.warehouse === 'ALL'
+      ));
       if (!isActorAdmin) {
         const chatBadge = document.getElementById('chatBadge');
         if (chatBadge) chatBadge.classList.add('hidden');
@@ -37480,7 +37547,7 @@
 
     function openPendingRegistrationsModal(targetUserId) {
       loadLocalUsersFromStorage();
-      const allUsers = LOCAL_DB.users || [];
+      const allUsers = deduplicateUsersList(LOCAL_DB.users || []);
       let pendingUsers = allUsers.filter(u => u.status === 'Pending_Admin' || u.status === 'Pending');
 
       if (targetUserId) {
