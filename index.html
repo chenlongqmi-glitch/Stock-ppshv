@@ -7794,12 +7794,39 @@
     }
     window.isUserDeleted = isUserDeleted;
 
+    // Strict deduplication helper: guarantees every user account appears at most ONCE
+    function deduplicateUsersList(usersList) {
+      if (!Array.isArray(usersList)) return [];
+      const seenIds = new Set();
+      const seenUsernames = new Set();
+      const seenEmails = new Set();
+      const result = [];
+      for (const u of usersList) {
+        if (!u) continue;
+        const uid = String(u.userId || u.id || '').trim().toUpperCase();
+        const uname = String(u.username || '').replace(/^@+/, '').replace(/[\u200B-\u200D\uFEFF\s]/g, '').trim().toLowerCase();
+        const email = String(u.email || '').trim().toLowerCase();
+
+        if (uid && seenIds.has(uid)) continue;
+        if (uname && seenUsernames.has(uname)) continue;
+        if (email && email.includes('@') && !email.endsWith('@inventory.local') && seenEmails.has(email)) continue;
+
+        if (uid) seenIds.add(uid);
+        if (uname) seenUsernames.add(uname);
+        if (email && email.includes('@') && !email.endsWith('@inventory.local')) seenEmails.add(email);
+
+        result.push(u);
+      }
+      return result;
+    }
+    window.deduplicateUsersList = deduplicateUsersList;
+
     function saveLocalUsersToStorage() {
       try {
         if (Array.isArray(LOCAL_DB.users)) {
-          LOCAL_DB.users = LOCAL_DB.users.filter(u => !isUserDeleted(u));
+          LOCAL_DB.users = deduplicateUsersList(LOCAL_DB.users.filter(u => !isUserDeleted(u) && u.status !== 'Deleted' && u.status !== 'deleted'));
         }
-        localStorage.setItem('inventory_users_db', JSON.stringify(LOCAL_DB.users));
+        localStorage.setItem('inventory_users_db', JSON.stringify(LOCAL_DB.users || []));
       } catch (e) {
         console.warn('Could not save users to localStorage', e);
       }
@@ -7865,13 +7892,13 @@
           }
         }
         // Purge any dummy demo users, deleted users, and sopher if pending/deleted from LOCAL_DB.users and re-save
-        LOCAL_DB.users = LOCAL_DB.users.filter(u => {
+        LOCAL_DB.users = deduplicateUsersList((LOCAL_DB.users || []).filter(u => {
           if (!u || isUnregisteredDummyUser(u)) return false;
           if (u.status === 'Deleted' || u.status === 'deleted') return false;
           const un = String(u.username || '').replace(/^@+/, '').trim().toLowerCase();
           if (un === 'sopher' && (u.status === 'Pending_Deletion' || u.status === 'Deleted')) return false;
           return true;
-        });
+        }));
         saveLocalUsersToStorage();
       } catch (e) {
         console.warn('Could not load users from localStorage', e);
@@ -14747,26 +14774,41 @@
 
           // E. Users (if admin or station manager)
           if (Array.isArray(res.users)) {
-            const cleanUsers = res.users.filter(ru => {
+            const cleanUsers = deduplicateUsersList(res.users.filter(ru => {
               if (!ru || isUnregisteredDummyUser(ru) || ru.status === 'Deleted' || ru.status === 'deleted') return false;
               const un = String(ru.username || '').replace(/^@+/, '').trim().toLowerCase();
               if (un === 'sopher' && (ru.status === 'Pending_Deletion' || ru.status === 'Deleted')) return false;
               return true;
-            });
+            }));
             const actor = AppState.currentUser;
             const actorRoleLower = String(actor?.role || '').toLowerCase();
-            const isActorSuperAdmin = (actorRoleLower === 'superadmin' || String(actor?.username || '').toLowerCase() === 'superadmin');
-            const isActorAdmin = isActorSuperAdmin || actorRoleLower.includes('admin') || String(actor?.username || '').toLowerCase() === 'admin' || String(actor?.username || '').toLowerCase() === 'singvan327@gmail.com';
-            const isActorStationManager = !isActorAdmin && (actorRoleLower.includes('អ្នកគ្រប់គ្រងស្ថានីយ') || actorRoleLower.includes('អ្នកគ្រប់គ្រង') || actorRoleLower.includes('station manager'));
+            const isActorSuperAdmin = (typeof isUserSuperAdmin === 'function') ? isUserSuperAdmin(actor) : (actorRoleLower === 'superadmin' || String(actor?.username || '').toLowerCase() === 'superadmin');
+            const isActorAdmin = !isActorSuperAdmin && ((typeof isUserAdmin === 'function') ? isUserAdmin(actor) : (
+              actorRoleLower.includes('admin') ||
+              String(actor?.username || '').toLowerCase() === 'admin' ||
+              String(actor?.username || '').toLowerCase() === 'singvan' ||
+              String(actor?.username || '').toLowerCase() === 'singvan327@gmail.com' ||
+              String(actor?.email || '').toLowerCase() === 'singvan327@gmail.com' ||
+              actor?.warehouse === 'ALL'
+            ));
+            const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (actorRoleLower.includes('អ្នកគ្រប់គ្រងស្ថានីយ') || actorRoleLower.includes('អ្នកគ្រប់គ្រង') || actorRoleLower.includes('station manager'));
 
-            if (isActorAdmin) {
+            if (isActorAdmin || isActorSuperAdmin) {
               AppState.users = cleanUsers;
               LOCAL_DB.users = cleanUsers;
             } else if (isActorStationManager) {
               const myWh = actor?.warehouse;
-              // Remove any user belonging to this station that is not in cleanUsers, then merge cleanUsers
-              const otherWhUsers = (LOCAL_DB.users || []).filter(u => !isSameWarehouse(myWh, u.warehouse) && u.status !== 'Deleted' && String(u.username || '').replace(/^@+/, '').toLowerCase() !== 'sopher');
-              LOCAL_DB.users = [...otherWhUsers, ...cleanUsers];
+              const cleanUsernames = new Set(cleanUsers.map(u => String(u.username || '').replace(/^@+/, '').trim().toLowerCase()));
+              const cleanIds = new Set(cleanUsers.map(u => String(u.userId || '').trim().toUpperCase()));
+              // Keep other warehouse users that are not in cleanUsers
+              const otherWhUsers = (LOCAL_DB.users || []).filter(u => {
+                if (!u || isUserDeleted(u) || u.status === 'Deleted') return false;
+                const un = String(u.username || '').replace(/^@+/, '').trim().toLowerCase();
+                const uid = String(u.userId || '').trim().toUpperCase();
+                if (cleanUsernames.has(un) || (uid && cleanIds.has(uid))) return false;
+                return !isSameWarehouse(myWh, u.warehouse);
+              });
+              LOCAL_DB.users = deduplicateUsersList([...otherWhUsers, ...cleanUsers]);
               AppState.users = [...LOCAL_DB.users];
             } else {
               AppState.users = cleanUsers;
@@ -14782,8 +14824,15 @@
           }
 
           const actor = AppState.currentUser;
-          const isSuperAdmin = (actor?.role === 'SuperAdmin' || String(actor?.username).toLowerCase() === 'superadmin');
-          const isActorAdmin = isSuperAdmin || String(actor?.role || '').toLowerCase().includes('admin') || String(actor?.username || '').toLowerCase() === 'admin' || String(actor?.username || '').toLowerCase() === 'singvan327@gmail.com';
+          const isSuperAdmin = (typeof isUserSuperAdmin === 'function') ? isUserSuperAdmin(actor) : (actor?.role === 'SuperAdmin' || String(actor?.username).toLowerCase() === 'superadmin');
+          const isActorAdmin = !isSuperAdmin && ((typeof isUserAdmin === 'function') ? isUserAdmin(actor) : (
+            String(actor?.role || '').toLowerCase().includes('admin') ||
+            String(actor?.username || '').toLowerCase() === 'admin' ||
+            String(actor?.username || '').toLowerCase() === 'singvan' ||
+            String(actor?.username || '').toLowerCase() === 'singvan327@gmail.com' ||
+            String(actor?.email || '').toLowerCase() === 'singvan327@gmail.com' ||
+            actor?.warehouse === 'ALL'
+          ));
 
           if ((isSuperAdmin || isActorAdmin) && typeof checkPendingDeletionsForSuperAdmin === 'function') {
             checkPendingDeletionsForSuperAdmin(false);
@@ -28102,8 +28151,15 @@
     function updateRenderableUsersFromDb(optUsers) {
       const actorLul = AppState.currentUser || {};
       const actorLulRoleLower = String(actorLul.role || '').trim().toLowerCase();
-      const isActorSuperAdmin = (typeof isUserSuperAdmin === 'function') ? isUserSuperAdmin(actorLul) : (actorLulRoleLower === 'superadmin' || actorLulNameLower === 'superadmin' || actorLul.userId === 'USR-SA');
-      const isActorAdmin = !isActorSuperAdmin && ((typeof isUserAdmin === 'function') ? isUserAdmin(actorLul) : (actorLulRoleLower === 'admin' || actorLulNameLower === 'admin'));
+      const isActorSuperAdmin = (typeof isUserSuperAdmin === 'function') ? isUserSuperAdmin(actorLul) : (actorLulRoleLower === 'superadmin' || String(actorLul.username || '').toLowerCase() === 'superadmin' || actorLul.userId === 'USR-SA');
+      const isActorAdmin = !isActorSuperAdmin && ((typeof isUserAdmin === 'function') ? isUserAdmin(actorLul) : (
+        actorLulRoleLower.includes('admin') ||
+        String(actorLul.username || '').toLowerCase() === 'admin' ||
+        String(actorLul.username || '').toLowerCase() === 'singvan' ||
+        String(actorLul.username || '').toLowerCase() === 'singvan327@gmail.com' ||
+        String(actorLul.email || '').toLowerCase() === 'singvan327@gmail.com' ||
+        actorLul.warehouse === 'ALL'
+      ));
       const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (
         String(actorLul.role || '').includes('អ្នកគ្រប់គ្រងស្ថានីយ') ||
         String(actorLul.role || '').includes('ស្ថានីយ') ||
@@ -28121,7 +28177,7 @@
       };
 
       const userSource = (Array.isArray(optUsers) && optUsers.length > 0) ? optUsers : (LOCAL_DB.users || []);
-      let filteredUsers = userSource.filter(u => u && !isUnregisteredDummyUser(u) && !isUserDeleted(u) && u.status !== 'Deleted' && u.status !== 'deleted' && u.username !== 'bengkaka');
+      let filteredUsers = deduplicateUsersList(userSource).filter(u => u && !isUnregisteredDummyUser(u) && !isUserDeleted(u) && u.status !== 'Deleted' && u.status !== 'deleted' && u.username !== 'bengkaka');
 
       if (isActorSuperAdmin) {
         filteredUsers = filteredUsers.filter(u => !isSelfUser(u));
@@ -28152,21 +28208,21 @@
         filteredUsers = [];
       }
 
-      window._allRenderableUsers = filteredUsers;
-      return filteredUsers;
+      window._allRenderableUsers = deduplicateUsersList(filteredUsers);
+      return window._allRenderableUsers;
     }
 
     // Users Management & Warehouse Assignment
     async function loadUsersList() {
       try {
-        // Clean out ghost records and deleted users from local memory
-        LOCAL_DB.users = (LOCAL_DB.users || []).filter(u => {
+        // Clean out ghost records, deleted users, and deduplicate local memory
+        LOCAL_DB.users = deduplicateUsersList((LOCAL_DB.users || []).filter(u => {
           if (!u || u.username === 'bengkaka' || isUnregisteredDummyUser(u) || isUserDeleted(u)) return false;
           if (u.status === 'Deleted' || u.status === 'deleted') return false;
           const un = String(u.username || '').replace(/^@+/, '').trim().toLowerCase();
           if (un === 'sopher' && (u.status === 'Pending_Deletion' || u.status === 'Deleted')) return false;
           return true;
-        });
+        }));
         const res = await apiCall('getUsersList', { user: AppState.currentUser });
         if (res && res.success) {
           // Synchronize fresh user records directly from Google Sheet into LOCAL_DB.users and localStorage
@@ -28177,36 +28233,44 @@
                 ru.email = 'sreyLaLa@gmail.com';
               }
             });
-            const cleanReturned = res.users.filter(ru => {
+            const cleanReturned = deduplicateUsersList(res.users.filter(ru => {
               if (!ru || isUnregisteredDummyUser(ru) || isUserDeleted(ru) || ru.status === 'Deleted' || ru.status === 'deleted') return false;
               const un = String(ru.username || '').replace(/^@+/, '').trim().toLowerCase();
               if (un === 'sopher' && (ru.status === 'Pending_Deletion' || ru.status === 'Deleted')) return false;
               return true;
-            });
+            }));
 
             const actor = AppState.currentUser;
             const actorRoleLower = String(actor?.role || '').toLowerCase();
-            const isActorSuperAdmin = (actorRoleLower === 'superadmin' || String(actor?.username || '').toLowerCase() === 'superadmin');
-            const isActorAdmin = isActorSuperAdmin || actorRoleLower.includes('admin') || String(actor?.username || '').toLowerCase() === 'admin' || String(actor?.username || '').toLowerCase() === 'singvan327@gmail.com';
-            const isActorStationManager = !isActorAdmin && (actorRoleLower.includes('អ្នកគ្រប់គ្រងស្ថានីយ') || actorRoleLower.includes('អ្នកគ្រប់គ្រង') || actorRoleLower.includes('station manager'));
+            const isActorSuperAdmin = (typeof isUserSuperAdmin === 'function') ? isUserSuperAdmin(actor) : (actorRoleLower === 'superadmin' || String(actor?.username || '').toLowerCase() === 'superadmin');
+            const isActorAdmin = !isActorSuperAdmin && ((typeof isUserAdmin === 'function') ? isUserAdmin(actor) : (
+              actorRoleLower.includes('admin') ||
+              String(actor?.username || '').toLowerCase() === 'admin' ||
+              String(actor?.username || '').toLowerCase() === 'singvan' ||
+              String(actor?.username || '').toLowerCase() === 'singvan327@gmail.com' ||
+              String(actor?.email || '').toLowerCase() === 'singvan327@gmail.com' ||
+              actor?.warehouse === 'ALL'
+            ));
+            const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (actorRoleLower.includes('អ្នកគ្រប់គ្រងស្ថានីយ') || actorRoleLower.includes('អ្នកគ្រប់គ្រង') || actorRoleLower.includes('station manager'));
 
-            const cleanReturnedUsernames = new Set(cleanReturned.map(u => String(u.username || '').replace(/^@+/, '').trim().toLowerCase()));
-            const preservedExisting = (LOCAL_DB.users || []).filter(u => {
-              if (!u || isUserDeleted(u) || u.status === 'Deleted' || u.status === 'deleted') return false;
-              const un = String(u.username || '').replace(/^@+/, '').trim().toLowerCase();
-              return un && !cleanReturnedUsernames.has(un) && !isUnregisteredDummyUser(u);
-            });
-
-            if (isActorAdmin) {
-              LOCAL_DB.users = [...cleanReturned];
+            if (isActorAdmin || isActorSuperAdmin) {
+              LOCAL_DB.users = cleanReturned;
             } else if (isActorStationManager) {
               const myWh = actor?.warehouse;
-              const otherWhUsers = (LOCAL_DB.users || []).filter(u => !isSameWarehouse(myWh, u.warehouse) && !isUserDeleted(u) && u.status !== 'Deleted');
-              LOCAL_DB.users = [...otherWhUsers, ...cleanReturned];
+              const cleanReturnedUsernames = new Set(cleanReturned.map(u => String(u.username || '').replace(/^@+/, '').trim().toLowerCase()));
+              const cleanReturnedIds = new Set(cleanReturned.map(u => String(u.userId || '').trim().toUpperCase()));
+              const otherWhUsers = (LOCAL_DB.users || []).filter(u => {
+                if (!u || isUserDeleted(u) || u.status === 'Deleted') return false;
+                const un = String(u.username || '').replace(/^@+/, '').trim().toLowerCase();
+                const uid = String(u.userId || '').trim().toUpperCase();
+                if (cleanReturnedUsernames.has(un) || (uid && cleanReturnedIds.has(uid))) return false;
+                return !isSameWarehouse(myWh, u.warehouse);
+              });
+              LOCAL_DB.users = deduplicateUsersList([...otherWhUsers, ...cleanReturned]);
             } else {
-              LOCAL_DB.users = [...cleanReturned];
+              LOCAL_DB.users = cleanReturned;
             }
-            LOCAL_DB.users = (LOCAL_DB.users || []).filter(u => !isUserDeleted(u));
+            LOCAL_DB.users = deduplicateUsersList(LOCAL_DB.users.filter(u => !isUserDeleted(u)));
             saveLocalUsersToStorage();
           }
 
@@ -28416,8 +28480,15 @@
 
       const actor = AppState.currentUser || {};
       const actorRulRoleLower = String(actor.role || '').trim().toLowerCase();
-      const isActorSuperAdmin = (typeof isUserSuperAdmin === 'function') ? isUserSuperAdmin(actor) : (actorRulRoleLower === 'superadmin' || actorRulNameLower === 'superadmin' || actor.userId === 'USR-SA');
-      const isActorAdmin = !isActorSuperAdmin && ((typeof isUserAdmin === 'function') ? isUserAdmin(actor) : (actorRulRoleLower === 'admin' || actorRulNameLower === 'admin'));
+      const isActorSuperAdmin = (typeof isUserSuperAdmin === 'function') ? isUserSuperAdmin(actor) : (actorRulRoleLower === 'superadmin' || String(actor.username || '').toLowerCase() === 'superadmin' || actor.userId === 'USR-SA');
+      const isActorAdmin = !isActorSuperAdmin && ((typeof isUserAdmin === 'function') ? isUserAdmin(actor) : (
+        actorRulRoleLower.includes('admin') ||
+        String(actor.username || '').toLowerCase() === 'admin' ||
+        String(actor.username || '').toLowerCase() === 'singvan' ||
+        String(actor.username || '').toLowerCase() === 'singvan327@gmail.com' ||
+        String(actor.email || '').toLowerCase() === 'singvan327@gmail.com' ||
+        actor.warehouse === 'ALL'
+      ));
       const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (
         String(actor.role || '').includes('អ្នកគ្រប់គ្រងស្ថានីយ') ||
         String(actor.role || '').includes('ស្ថានីយ') ||
@@ -28426,9 +28497,9 @@
       );
       const isPrivilegedViewer = isActorSuperAdmin || isActorAdmin;
 
-      // មិនចាំបាច់បង្ហាញ account របស់ខ្លួនឯងក្នុងតារាងគ្រប់គ្រងខាងក្រោមឡើយ (Always hide own account from table)
+      // មិនចាំបាច់បង្ហាញ account របស់ខ្លួនឯងក្នុងតារាងគ្រប់គ្រងខាងក្រោមឡើយ (Always hide own account from table & strictly deduplicate)
       if (Array.isArray(usersList)) {
-        usersList = usersList.filter(u => !isSelfUser(u, actor));
+        usersList = deduplicateUsersList(usersList).filter(u => !isSelfUser(u, actor));
       }
 
       // Double-enforce Admin visibility boundaries (Admin មិនអាចឃើញ SuperAdmin ហើយ Admin និង Admin មិនអាចឃើញគ្នាទេ)

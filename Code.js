@@ -3156,12 +3156,15 @@ function getUsersList(userOrPayload) {
   const actorNameLower = actor ? String(actor.username || '').toLowerCase() : '';
   const actorEmailLower = actor ? String(actor.email || '').toLowerCase() : '';
   const actorRoleLower = actor ? String(actor.role || '').toLowerCase() : '';
+  const actorWh = actor ? String(actor.warehouse || '').toUpperCase() : '';
   const isAdmin = !isSuperAdmin && actor && (
     actorRoleLower === 'admin' ||
     actorRoleLower.includes('admin') ||
     actorNameLower === 'admin' ||
+    actorNameLower === 'singvan' ||
     actorNameLower === 'singvan327@gmail.com' ||
-    actorEmailLower === 'singvan327@gmail.com'
+    actorEmailLower === 'singvan327@gmail.com' ||
+    actorWh === 'ALL'
   );
   const isStationManager = !isSuperAdmin && !isAdmin && actor && (actor.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || actor.role === 'អ្នកគ្រប់គ្រង' || String(actor.role).toLowerCase() === 'station manager');
   const isPrivileged = !!(isSuperAdmin || isAdmin);
@@ -4798,7 +4801,7 @@ function getBootstrapData(payload) {
   var uName = String(user && user.username || '').toLowerCase();
   var uEmail = String(user && user.email || '').toLowerCase();
   var isSuperAdmin = uRole === 'superadmin' || uName === 'superadmin';
-  var isAdmin = !isSuperAdmin && (uRole.includes('admin') || uName === 'admin' || uName === 'singvan327@gmail.com' || uEmail === 'singvan327@gmail.com');
+  var isAdmin = !isSuperAdmin && (uRole.includes('admin') || uName === 'admin' || uName === 'singvan' || uName === 'singvan327@gmail.com' || uEmail === 'singvan327@gmail.com' || (user && user.warehouse === 'ALL'));
   var isStationManager = !isSuperAdmin && !isAdmin && (
     uRole.includes('អ្នកគ្រប់គ្រងស្ថានីយ') ||
     uRole.includes('អ្នកគ្រប់គ្រង') ||
@@ -7651,7 +7654,7 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
     const uName = String(user && user.username || '').toLowerCase();
     const uEmail = String(user && user.email || '').toLowerCase();
     const isSA = uRole === 'superadmin' || uName === 'superadmin' || (user && user.isSuperAdmin === true);
-    const isAdm = isSA || uRole.includes('admin') || uName === 'admin' || uName === 'singvan327@gmail.com' || uEmail === 'singvan327@gmail.com';
+    const isAdm = isSA || uRole.includes('admin') || uName === 'admin' || uName === 'singvan' || uName === 'singvan327@gmail.com' || uEmail === 'singvan327@gmail.com' || (user && user.warehouse === 'ALL');
     // Strictly restrict station users to their own station warehouse!
     if (!isAdm && user && user.warehouse && user.warehouse !== 'ALL' && user.warehouse !== 'គ្រប់ឃ្លាំង' && user.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
       targetWarehouse = toCanonicalWarehouseNameGAS(user.warehouse);
@@ -8025,7 +8028,7 @@ function getStockOutTransactionsFromSheet(ss, filters, user) {
     const uNameOut = String(user && user.username || '').toLowerCase();
     const uEmailOut = String(user && user.email || '').toLowerCase();
     const isSAOut = uRoleOut === 'superadmin' || uNameOut === 'superadmin' || (user && user.isSuperAdmin === true);
-    const isAdmOut = isSAOut || uRoleOut.includes('admin') || uNameOut === 'admin' || uNameOut === 'singvan327@gmail.com' || uEmailOut === 'singvan327@gmail.com';
+    const isAdmOut = isSAOut || uRoleOut.includes('admin') || uNameOut === 'admin' || uNameOut === 'singvan' || uNameOut === 'singvan327@gmail.com' || uEmailOut === 'singvan327@gmail.com' || (user && user.warehouse === 'ALL');
     if (filters && (filters.warehouse === 'ALL' || filters.warehouse === 'គ្រប់ស្ថានីយទាំងអស់' || filters.warehouse === 'គ្រប់ឃ្លាំង')) {
       targetWarehouse = null;
     } else if (!isAdmOut && user && user.warehouse && user.warehouse !== 'ALL' && user.warehouse !== 'គ្រប់ឃ្លាំង' && user.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
