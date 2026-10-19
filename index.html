@@ -31092,7 +31092,9 @@
           userId: uId,
           username: uName,
           email: targetUser?.email || '',
-          adminUser: actor?.username || 'Admin'
+          adminUser: actor?.username || 'Admin',
+          adminName: actorName || actor?.fullName || actor?.username || 'Admin',
+          actorRole: actorRole || 'Admin'
         });
 
         if (!res || !res.success) {
@@ -31102,7 +31104,9 @@
             status: 'Deleted',
             role: targetRole,
             warehouse: targetWh,
-            adminUser: actor?.username || 'Admin'
+            adminUser: actor?.username || 'Admin',
+            adminName: actorName || actor?.fullName || actor?.username || 'Admin',
+            actorRole: actorRole || 'Admin'
           });
         }
 
@@ -31133,33 +31137,6 @@
             return true;
           });
           saveLocalChatMessagesToStorage();
-
-          // Send Telegram alert to SuperAdmin
-          const tgToken = AppState.settings?.TELEGRAM_BOT_TOKEN || localStorage.getItem('inventory_tg_token') || DEFAULT_TG_BOT_TOKEN;
-          const tgChatId = AppState.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid') || DEFAULT_TG_CHAT_ID;
-
-          if (tgToken && tgChatId) {
-            try {
-              const tgMsg = `🗑️ <b>[ដំណឹងលុបគណនីអ្នកប្រើប្រាស់]</b>\n` +
-                `👤 <b>ឈ្មោះបុគ្គលិក:</b> ${targetDisplayName}\n` +
-                `🆔 <b>Username:</b> <code>@${uName}</code>\n` +
-                `💼 <b>តួនាទី:</b> ${targetRole}\n` +
-                `🏢 <b>ឃ្លាំង/ស្ថានីយ:</b> ${targetWh}\n` +
-                `👮 <b>លុបដោយ:</b> ${actorName} (${actorRole})\n` +
-                `🕒 <b>កាលបរិច្ឆេទ:</b> ${new Date().toLocaleString('en-GB')}\n` +
-                `🚦 <b>ស្ថានភាព:</b> ❌ <b>បានលុបចេញពីប្រព័ន្ធភ្លាមៗ</b>`;
-
-              fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  chat_id: tgChatId,
-                  text: tgMsg,
-                  parse_mode: 'HTML'
-                })
-              }).catch(() => {});
-            } catch(e) {}
-          }
 
           await loadUsersList();
 

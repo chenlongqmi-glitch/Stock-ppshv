@@ -1058,7 +1058,7 @@ function executeLocalApiAction(req) {
         return updateWarehouse(payload, payload.user);
 
       case 'deleteUser':
-        return deleteUser(payload.userId || payload.username || payload.id, payload.adminUser || payload.user, payload.reason || payload.deleteReason);
+        return deleteUser(payload, payload.adminUser || payload.user, payload.reason || payload.deleteReason);
       case 'requestUserDeletion':
         return requestUserDeletion(payload);
       case 'approveUserDeletion':
@@ -3970,13 +3970,26 @@ function deleteUser(userIdOrPayload, adminUser, deleteReason) {
   const data = sheet.getDataRange().getValues();
 
   let adminUsername = '';
+  let adminDisplayName = '';
   if (admin && typeof admin === 'object') {
     adminUsername = String(admin.username || '').toLowerCase();
+    adminDisplayName = admin.fullName || admin.name || '';
   } else if (admin) {
     adminUsername = String(admin).toLowerCase();
   }
 
-  const isActorSuperAdmin = (adminUsername === 'superadmin' || (admin && admin.role === 'SuperAdmin'));
+  if (userIdOrPayload && typeof userIdOrPayload === 'object') {
+    if (!adminDisplayName) {
+      adminDisplayName = userIdOrPayload.adminName || userIdOrPayload.adminFullName || userIdOrPayload.actorName || '';
+    }
+  }
+
+  const isActorSuperAdmin = (adminUsername === 'superadmin' || (admin && admin.role === 'SuperAdmin') || (userIdOrPayload && typeof userIdOrPayload === 'object' && userIdOrPayload.actorRole === 'SuperAdmin'));
+
+  if (!adminDisplayName) {
+    if (adminUsername === 'superadmin') adminDisplayName = '陈龙';
+    else adminDisplayName = adminUsername || 'Admin';
+  }
 
   const cleanTargetId = rawTargetId.toLowerCase();
   const cleanTargetUser = rawTargetUser.replace(/[\u200b\ufeff\s_-]/g, '');
@@ -4032,7 +4045,7 @@ function deleteUser(userIdOrPayload, adminUser, deleteReason) {
         `🆔 <b>Username:</b> <code>@${finalUsername}</code>\n` +
         `💼 <b>តួនាទី:</b> ${deletedRole}\n` +
         `🏢 <b>ឃ្លាំង/ស្ថានីយ:</b> ${deletedWh}\n` +
-        `👮 <b>លុបដោយ:</b> ${adminUsername || 'Admin'} (${isActorSuperAdmin ? 'SuperAdmin' : 'Admin'})\n` +
+        `👮 <b>លុបដោយ:</b> ${adminDisplayName} (${isActorSuperAdmin ? 'SuperAdmin' : 'Admin'})\n` +
         `🕒 <b>កាលបរិច្ឆេទ:</b> ${Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd HH:mm:ss')}\n` +
         `🚦 <b>ស្ថានភាព:</b> ❌ <b>បានលុបចេញពីប្រព័ន្ធភ្លាមៗ</b>`;
 
