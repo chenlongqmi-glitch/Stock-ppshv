@@ -4096,30 +4096,6 @@
 
                 <!-- Management & Admin Contacts Container -->
                 <div id="managementChatChannelsContainer" class="space-y-1">
-                  <!-- Default initial contact is Admin Nie (not SuperAdmin) -->
-                  <div
-                    onclick="switchChatChannel('ADMIN_DIRECT', '🛡️ Admin (聂稳新)', 'ជជែកផ្ទាល់ជាមួយ Admin (@admin)', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150')"
-                    id="channel-ADMIN_DIRECT"
-                    class="chat-channel-item p-2.5 rounded-xl cursor-pointer transition-all flex items-center space-x-3 hover:bg-slate-50 border border-transparent">
-                    <div class="relative flex-shrink-0">
-                      <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150"
-                        onerror="this.src='https://api.dicebear.com/7.x/avataaars/svg?seed=AdminNie'"
-                        class="w-10 h-10 rounded-xl object-cover border border-blue-200 shadow-sm">
-                      <span
-                        class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full"></span>
-                    </div>
-                    <div class="flex-1 min-w-0">
-                      <div class="flex items-center justify-between">
-                        <p class="font-bold text-slate-800 truncate text-xs">🛡️ Admin (聂稳新)</p>
-                        <div class="flex items-center space-x-1">
-                          <span id="adminDirectBadge" class="hidden px-1.5 py-0.2 rounded-full text-[9px] bg-rose-500 text-white font-black animate-pulse">0</span>
-                          <span
-                            class="px-1.5 py-0.2 rounded text-[9px] bg-blue-100 text-blue-700 font-bold">Admin</span>
-                        </div>
-                      </div>
-                      <p class="text-[11px] text-slate-400 font-normal truncate">ជជែកផ្ទាល់ជាមួយ Admin (@admin)</p>
-                    </div>
-                  </div>
                 </div>
 
                 <div class="px-2 pt-2.5 pb-1 flex items-center justify-between text-[10px] font-bold uppercase text-slate-500 tracking-wider">
@@ -6890,7 +6866,7 @@
 
     /**
      * Resolves any user username, email, ID, or raw name to their actual full name
-     * Ensures "អ្នកបញ្ចូល" displays real user names: ឧ. 陈龙, 聂稳新, វិន វ៉ាន់ស៊ិញ, ចាន់ ឌី, ចាន់ ដារា
+     * Ensures "អ្នកបញ្ចូល" displays real user names: ឧ. 陈龙, វិន វ៉ាន់ស៊ិញ, ចាន់ ឌី, ចាន់ ដារា
      */
     function getUserDisplayName(val) {
       if (!val) return 'Admin';
@@ -6913,7 +6889,7 @@
 
       // Predefined real user identities (Image 1 & Image 2)
       if (lower === 'superadmin' || lower === 'super admin' || lower === 'usr-sa' || lower === 'chenlongqmi@gmail.com') return '陈龙';
-      if (lower === 'admin' || lower === 'usr-00' || lower === 'ppshv2024@gmail.com') return '聂稳新';
+      if (lower === 'admin' || lower === 'usr-00' || lower === 'ppshv2024@gmail.com') return 'Admin';
       if (lower.includes('singvan') || lower === 'usr-02') return 'ឌិត រ៉ាន់ស៊ីញ';
       if (lower.includes('chandy') || lower === 'usr-03') return 'ចាន់ ឌី';
       if (lower.includes('sdfsdf') || lower.includes('chandara') || lower === 'usr-01') return 'ចាន់ តារា';
@@ -7810,6 +7786,7 @@
               if (isUnregisteredDummyUser(p)) return false;
               if (isUserDeleted(p)) return false;
               if (p.username === 'sdfsdf' || p.userId === 'USR-01' || p.userId === 'USR-02' || p.userId === 'USR-03' || p.userId === 'USR-00' || p.username === 'bengkaka') return false;
+              if (String(p.fullName || '').includes('聂稳新') || String(p.avatar || '').includes('photo-1507003211169-0a1dd7228f2d')) return false;
               if (p.status === 'Deleted' || p.status === 'deleted') return false;
               const un = String(p.username || '').replace(/^@+/, '').trim().toLowerCase();
               if (un === 'sopher' && (p.status === 'Pending_Deletion' || p.status === 'Deleted')) return false;
@@ -7823,12 +7800,6 @@
                 if (!p.phone || p.phone === '012 345 678') p.phone = '066 966 606';
                 if (!p.avatar || p.avatar.includes('photo-1534528741775-53994a69daeb')) p.avatar = 'assets/superadmin_avatar.jpg';
                 if (p.password === 'superadmin123' || !p.password) p.password = '841453Bsm';
-              }
-              // Automatically upgrade Admin profile if holding stale default info
-              if (p.userId === 'USR-00' || (p.username && p.username.toLowerCase() === 'admin')) {
-                if (!p.fullName || p.fullName.includes('System Administrator')) p.fullName = '聂稳新';
-                if (!p.email) p.email = 'ppshv2024@gmail.com';
-                if (!p.phone || p.phone === '066 966 606' || p.phone === '066966606' || p.phone === '012 345 678') p.phone = '098 880 803';
               }
               p.phone = formatPhoneNumber(p.phone);
               const idx = LOCAL_DB.users.findIndex(u => 
@@ -9504,6 +9475,14 @@
       try {
         localStorage.removeItem('inventory_user');
         localStorage.removeItem('inventory_login_timestamp');
+        const cachedUsers = localStorage.getItem('inventory_users_db');
+        if (cachedUsers && (cachedUsers.includes('聂稳新') || cachedUsers.includes('photo-1507003211169-0a1dd7228f2d') || cachedUsers.includes('USR-00'))) {
+          const parsed = JSON.parse(cachedUsers);
+          if (Array.isArray(parsed)) {
+            const cleaned = parsed.filter(u => !(String(u.fullName || '').includes('聂稳新') || String(u.avatar || '').includes('photo-1507003211169-0a1dd7228f2d') || u.userId === 'USR-00'));
+            localStorage.setItem('inventory_users_db', JSON.stringify(cleaned));
+          }
+        }
       } catch (e) {}
 
       // Check for active logged-in session in sessionStorage ONLY
@@ -11008,7 +10987,7 @@
             };
           }
           if (!adUser) {
-            adUser = { userId: 'USR-00', username: 'admin', password: 'admin123', fullName: '聂稳新', email: 'ppshv2024@gmail.com', phone: '098 880 803', role: 'Admin', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', boundDevices: { desktop: null, mobile: null } };
+            adUser = { userId: 'USR-00', username: 'admin', password: 'admin123', fullName: 'Admin', email: 'ppshv2024@gmail.com', phone: '098 880 803', role: 'Admin', warehouse: 'ALL', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Admin', boundDevices: { desktop: null, mobile: null } };
             LOCAL_DB.users.push(adUser);
             saveLocalUsersToStorage();
           } else if (!adUser.password) {
@@ -35827,15 +35806,6 @@
 
       const allUsers = [...(LOCAL_DB.users || []), ...(AppState.users || [])];
 
-      // Find Admin user (聂稳新)
-      const adminUser = allUsers.find(u => (u.role === 'Admin' || String(u.username).toLowerCase() === 'admin') && String(u.username).toLowerCase() !== 'superadmin') || {
-        userId: 'USR-00',
-        username: 'admin',
-        fullName: '聂稳新',
-        role: 'Admin',
-        avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150'
-      };
-
       // Find SuperAdmin user (陈龙)
       const saUser = allUsers.find(u => u.role === 'SuperAdmin' || String(u.username).toLowerCase() === 'superadmin') || {
         userId: 'USR-SA',
@@ -35845,41 +35815,45 @@
         avatar: 'assets/superadmin_avatar.jpg'
       };
 
-      const adminAvatar = adminUser.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150';
       const saAvatar = saUser.avatar || 'assets/superadmin_avatar.jpg';
-
-      const isAdminOnline = isUserOnline('admin');
       const isSaOnline = isUserOnline('superadmin');
 
       let html = '';
 
       if (isSuperAdmin) {
-        html += `
-          <div
-            onclick="switchChatChannel('ADMIN_DIRECT', '🛡️ Admin (${escapeHtml(adminUser.fullName)})', 'ជជែកផ្ទាល់ជាមួយ Admin (@${escapeHtml(adminUser.username)})', '${adminAvatar}')"
-            id="channel-ADMIN_DIRECT"
-            class="chat-channel-item p-2.5 rounded-xl cursor-pointer transition-all flex items-center space-x-3 hover:bg-slate-50 border border-transparent ${currentChatChannel === 'ADMIN_DIRECT' ? 'bg-violet-50/80 border-violet-200 text-violet-950 font-bold' : ''}">
-            <div class="relative flex-shrink-0">
-              <img src="${adminAvatar}"
-                onerror="this.src='https://api.dicebear.com/7.x/avataaars/svg?seed=AdminNie'"
-                class="w-10 h-10 rounded-xl object-cover border border-blue-200 shadow-sm">
-              <span class="status-dot absolute -bottom-0.5 -right-0.5 w-3 h-3 ${isAdminOnline ? 'bg-emerald-500' : 'bg-slate-300'} border-2 border-white rounded-full"></span>
-            </div>
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center justify-between">
-                <p class="font-bold text-slate-800 truncate text-xs">🛡️ Admin (${escapeHtml(adminUser.fullName)})</p>
-                <div class="flex items-center space-x-1">
-                  <span id="adminDirectBadge" class="hidden px-1.5 py-0.2 rounded-full text-[9px] bg-rose-500 text-white font-black animate-pulse">0</span>
+        // SuperAdmin: No dummy admin card. Only display other real active Admin accounts if they exist.
+        const otherAdmins = allUsers.filter(u => {
+          const r = String(u.role || '');
+          const un = String(u.username || '').toLowerCase();
+          const fn = String(u.fullName || '');
+          return (r === 'Admin' || un === 'admin') && un !== myUsername && !fn.includes('聂稳新') && u.status === 'Active';
+        });
+        otherAdmins.forEach(adm => {
+          const isAdmOnline = isUserOnline(adm.username);
+          const admAvatar = adm.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${adm.username}`;
+          const chId = getDirectChannelId(myUsername, adm.username);
+          html += `
+            <div
+              onclick="switchChatChannel('${chId}', '🛡️ Admin (${escapeHtml(adm.fullName || adm.username)})', 'ជជែកផ្ទាល់ជាមួយ Admin (@${escapeHtml(adm.username)})', '${admAvatar}')"
+              id="channel-${chId}"
+              class="chat-channel-item p-2.5 rounded-xl cursor-pointer transition-all flex items-center space-x-3 hover:bg-slate-50 border border-transparent ${currentChatChannel === chId ? 'bg-violet-50/80 border-violet-200 text-violet-950 font-bold' : ''}">
+              <div class="relative flex-shrink-0">
+                <img src="${admAvatar}" class="w-10 h-10 rounded-xl object-cover border border-blue-200 shadow-sm" onerror="this.src='https://api.dicebear.com/7.x/bottts/svg?seed=${adm.username}'">
+                <span class="status-dot absolute -bottom-0.5 -right-0.5 w-3 h-3 ${isAdmOnline ? 'bg-emerald-500' : 'bg-slate-300'} border-2 border-white rounded-full"></span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between">
+                  <p class="font-bold text-slate-800 truncate text-xs">🛡️ Admin (${escapeHtml(adm.fullName || adm.username)})</p>
                   <span class="px-1.5 py-0.2 rounded text-[9px] bg-blue-100 text-blue-700 font-bold">Admin</span>
                 </div>
+                <p class="text-[11px] text-slate-400 font-normal truncate flex items-center space-x-1">
+                  <span>ជជែកផ្ទាល់</span>
+                  <span class="text-[9px] font-bold ${isAdmOnline ? 'text-emerald-600' : 'text-slate-400'}">• ${isAdmOnline ? 'Online' : 'Offline'}</span>
+                </p>
               </div>
-              <p class="text-[11px] text-slate-400 font-normal truncate flex items-center space-x-1">
-                <span>ជជែកផ្ទាល់ជាមួយ Admin</span>
-                <span class="text-[9px] font-bold ${isAdminOnline ? 'text-emerald-600' : 'text-slate-400'}">• ${isAdminOnline ? 'Online' : 'Offline'}</span>
-              </p>
             </div>
-          </div>
-        `;
+          `;
+        });
       } else if (isAdmin) {
         html += `
           <div
@@ -35902,55 +35876,10 @@
               </p>
             </div>
           </div>
-
-          <div
-            onclick="switchChatChannel('ADMIN_DIRECT', '📋 Admin Support & សំណើចុះឈ្មោះ', 'គ្រប់គ្រងសំណើចុះឈ្មោះ និងជំនួយបច្ចេកទេស', '${adminAvatar}')"
-            id="channel-ADMIN_DIRECT"
-            class="chat-channel-item p-2.5 rounded-xl cursor-pointer transition-all flex items-center space-x-3 hover:bg-slate-50 border border-transparent ${currentChatChannel === 'ADMIN_DIRECT' ? 'bg-violet-50/80 border-violet-200 text-violet-950 font-bold' : ''}">
-            <div class="relative flex-shrink-0">
-              <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-sm shadow-sm">
-                <i class="fa-solid fa-user-shield text-base"></i>
-              </div>
-              <span class="status-dot absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full"></span>
-            </div>
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center justify-between">
-                <p class="font-bold text-slate-800 truncate text-xs">📋 សំណើចុះឈ្មោះ (Direct)</p>
-                <span id="adminDirectBadge" class="hidden px-1.5 py-0.2 rounded-full text-[9px] bg-rose-500 text-white font-black animate-pulse">0</span>
-              </div>
-              <p class="text-[11px] text-slate-400 font-normal truncate">សំណើចុះឈ្មោះផ្ទាល់មកកាន់ Admin</p>
-            </div>
-          </div>
         `;
       } else {
-        const adminItem = `
-          <div
-            onclick="switchChatChannel('ADMIN_DIRECT', '🛡️ Admin (${escapeHtml(adminUser.fullName)})', 'ជជែកផ្ទាល់ជាមួយ Admin ប្រព័ន្ធ', '${adminAvatar}')"
-            id="channel-ADMIN_DIRECT"
-            class="chat-channel-item p-2.5 rounded-xl cursor-pointer transition-all flex items-center space-x-3 hover:bg-slate-50 border border-transparent ${currentChatChannel === 'ADMIN_DIRECT' ? 'bg-violet-50/80 border-violet-200 text-violet-950 font-bold' : ''}">
-            <div class="relative flex-shrink-0">
-              <img src="${adminAvatar}"
-                onerror="this.src='https://api.dicebear.com/7.x/avataaars/svg?seed=AdminNie'"
-                class="w-10 h-10 rounded-xl object-cover border border-blue-200 shadow-sm">
-              <span class="status-dot absolute -bottom-0.5 -right-0.5 w-3 h-3 ${isAdminOnline ? 'bg-emerald-500' : 'bg-slate-300'} border-2 border-white rounded-full"></span>
-            </div>
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center justify-between">
-                <p class="font-bold text-slate-800 truncate text-xs">🛡️ Admin (${escapeHtml(adminUser.fullName)})</p>
-                <div class="flex items-center space-x-1">
-                  <span id="adminDirectBadge" class="hidden px-1.5 py-0.2 rounded-full text-[9px] bg-rose-500 text-white font-black animate-pulse">0</span>
-                  <span class="px-1.5 py-0.2 rounded text-[9px] bg-blue-100 text-blue-700 font-bold">Admin</span>
-                </div>
-              </div>
-              <p class="text-[11px] text-slate-400 font-normal truncate flex items-center space-x-1">
-                <span>ជជែកផ្ទាល់ជាមួយ Admin</span>
-                <span class="text-[9px] font-bold ${isAdminOnline ? 'text-emerald-600' : 'text-slate-400'}">• ${isAdminOnline ? 'Online' : 'Offline'}</span>
-              </p>
-            </div>
-          </div>
-        `;
-
-        const saItem = `
+        // Staff and Station Managers: Direct contact to SuperAdmin
+        html += `
           <div
             onclick="switchChatChannel('SUPERADMIN_DIRECT', '👑 SuperAdmin (${escapeHtml(saUser.fullName)})', 'ជជែកផ្ទាល់ជាមួយ SuperAdmin', '${saAvatar}')"
             id="channel-SUPERADMIN_DIRECT"
@@ -35972,12 +35901,6 @@
             </div>
           </div>
         `;
-
-        if (isSaOnline && !isAdminOnline) {
-          html += saItem + adminItem;
-        } else {
-          html += adminItem + saItem;
-        }
       }
 
       container.innerHTML = html;

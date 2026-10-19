@@ -2188,10 +2188,10 @@ function loginUser(usernameOrData, password, extraDeviceInfo) {
   if (uInput === 'admin' && pInput === 'admin123') {
     const salt = generateSalt();
     const initialBound = JSON.stringify({ desktop: null, mobile: null });
-    sheet.appendRow(['USR-001', 'admin', '聂稳新', 'ppshv2024@gmail.com', 'admin123', salt, 'Admin', 'Active', new Date(), 'ALL', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', '098880803', '', '', '', initialBound, 'admin123']);
+    sheet.appendRow(['USR-001', 'admin', 'Admin', 'ppshv2024@gmail.com', 'admin123', salt, 'Admin', 'Active', new Date(), 'ALL', 'https://api.dicebear.com/7.x/bottts/svg?seed=Admin', '098880803', '', '', '', initialBound, 'admin123']);
     return {
       success: true,
-      user: { userId: 'USR-001', username: 'admin', fullName: '聂稳新', email: 'ppshv2024@gmail.com', phone: '098880803', role: 'Admin', warehouse: 'ALL', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', boundDevices: { desktop: null, mobile: null } }
+      user: { userId: 'USR-001', username: 'admin', fullName: 'Admin', email: 'ppshv2024@gmail.com', phone: '098880803', role: 'Admin', warehouse: 'ALL', avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Admin', boundDevices: { desktop: null, mobile: null } }
     };
   }
 
@@ -2690,7 +2690,7 @@ function resetPasswordWithOtp(payload) {
   } else {
     // If user was built-in admin or superadmin not yet in sheet, append row
     if (account === 'admin') {
-      sheet.appendRow(['USR-001', 'admin', '聂稳新', 'ppshv2024@gmail.com', newPassword, newSalt, 'Admin', 'Active', new Date(), 'ALL', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', '098880803', '', '', '', JSON.stringify({ desktop: null, mobile: null }), newPassword]);
+      sheet.appendRow(['USR-001', 'admin', 'Admin', 'ppshv2024@gmail.com', newPassword, newSalt, 'Admin', 'Active', new Date(), 'ALL', 'https://api.dicebear.com/7.x/bottts/svg?seed=Admin', '098880803', '', '', '', JSON.stringify({ desktop: null, mobile: null }), newPassword]);
     } else if (account === 'superadmin') {
       sheet.appendRow(['USR-SA', 'superadmin', '陈龙', 'chenlongqmi@gmail.com', newPassword, newSalt, 'SuperAdmin', 'Active', new Date(), 'ALL', 'assets/superadmin_avatar.jpg', '066966606', '', '', '', JSON.stringify({ desktop: null, mobile: null }), newPassword]);
     } else {
@@ -11263,7 +11263,7 @@ function standardizeAndFormatTransactionsSheet(optSs) {
           finalTo = uWhMapInStandardize[rawUserNorm] || uWhMapInStandardize[rawUser.toLowerCase()];
         } else if (uWhMapInStandardize[recNorm]) {
           finalTo = uWhMapInStandardize[recNorm];
-        } else if (rawTo === '陈龙' || rawTo === 'Admin' || rawTo === 'Staff' || rawTo === '聂稳新') {
+        } else if (rawTo === '陈龙' || rawTo === 'Admin' || rawTo === 'Staff') {
           finalUser = rawTo;
           finalTo = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
         } else if (!rawTo || rawTo === '-' || rawTo === 'ALL' || rawTo === 'គ្រប់ស្ថានីយទាំងអស់' || rawTo === 'គ្រប់ឃ្លាំង' || /^\d+$/.test(rawTo)) {
