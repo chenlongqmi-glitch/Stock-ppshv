@@ -1812,6 +1812,11 @@
       const name = String(u.username || '').trim().toLowerCase().replace(/[\u200b\ufeff\s]/g, '');
       const email = String(u.email || '').trim().toLowerCase().replace(/[\u200b\ufeff\s]/g, '');
       const roleRaw = String(u.role || '').trim().toLowerCase();
+      const wh = String(u.warehouse || '').trim().toUpperCase();
+
+      if (wh === 'ALL' || wh === 'គ្រប់ស្ថានីយទាំងអស់' || name === 'admin' || name === 'singvan' || email === 'singvan327@gmail.com' || name === 'singvan327@gmail.com' || name === 'ppshv2024@gmail.com' || email === 'ppshv2024@gmail.com') {
+        return true;
+      }
 
       // Reject ALL station-level roles and regular users (Station Manager, Team Leader, Stock Keeper, Staff, User, etc.)
       if (
@@ -29109,6 +29114,8 @@
         actorRoleLower === 'admin' ||
         actorRoleLower.includes('admin') ||
         actorNameLower === 'admin' ||
+        actor?.warehouse === 'ALL' ||
+        (typeof isAdminComboWarehouse === 'function' && isAdminComboWarehouse(actor?.warehouse)) ||
         (actorRole.includes('គ្រប់គ្រង') && !actorRole.includes('ស្ថានីយ'))
       );
       const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (
@@ -29183,16 +29190,11 @@
             <option value="ប្រធានក្រុម">👤 ប្រធានក្រុម (Team Leader)</option>
             <option value="អ្នកកាន់ស្តុក">📦 អ្នកកាន់ស្តុក (Stock Keeper)</option>
           `;
-        } else if (isActorAdmin) {
+        } else {
+          // Admin & Station Manager: អាចជ្រើសរើសតួនាទី អ្នកគ្រប់គ្រងស្ថានីយ, ប្រធានក្រុម, អ្នកកាន់ស្តុក
           addRoleSelect.innerHTML = `
             <option value="" selected>-- សូមជ្រើសរើសតួនាទី --</option>
             <option value="អ្នកគ្រប់គ្រងស្ថានីយ">🏢 អ្នកគ្រប់គ្រងស្ថានីយ (Station Manager)</option>
-            <option value="ប្រធានក្រុម">👤 ប្រធានក្រុម (Team Leader)</option>
-            <option value="អ្នកកាន់ស្តុក">📦 អ្នកកាន់ស្តុក (Stock Keeper)</option>
-          `;
-        } else if (isActorStationManager) {
-          addRoleSelect.innerHTML = `
-            <option value="" selected>-- សូមជ្រើសរើសតួនាទី --</option>
             <option value="ប្រធានក្រុម">👤 ប្រធានក្រុម (Team Leader)</option>
             <option value="អ្នកកាន់ស្តុក">📦 អ្នកកាន់ស្តុក (Stock Keeper)</option>
           `;
@@ -29414,6 +29416,8 @@
         actorRoleLower === 'admin' ||
         actorRoleLower.includes('admin') ||
         actorNameLower === 'admin' ||
+        actor?.warehouse === 'ALL' ||
+        (typeof isAdminComboWarehouse === 'function' && isAdminComboWarehouse(actor?.warehouse)) ||
         (actorRole.includes('គ្រប់គ្រង') && !actorRole.includes('ស្ថានីយ'))
       );
       const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (
@@ -29441,7 +29445,7 @@
 
       if (isActorStationManager) {
         userData.warehouse = (AppState.currentUser?.warehouse || WAREHOUSES_LIST[0]).trim();
-        if (userData.role !== 'ប្រធានក្រុម' && userData.role !== 'អ្នកកាន់ស្តុក') {
+        if (userData.role !== 'អ្នកគ្រប់គ្រងស្ថានីយ' && userData.role !== 'ប្រធានក្រុម' && userData.role !== 'អ្នកកាន់ស្តុក') {
           userData.role = 'អ្នកកាន់ស្តុក';
         }
       }
@@ -30508,6 +30512,8 @@
         actorRoleLower === 'admin' ||
         actorRoleLower.includes('admin') ||
         actorNameLower === 'admin' ||
+        actor?.warehouse === 'ALL' ||
+        (typeof isAdminComboWarehouse === 'function' && isAdminComboWarehouse(actor?.warehouse)) ||
         (actorRole.includes('គ្រប់គ្រង') && !actorRole.includes('ស្ថានីយ'))
       );
       const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (
@@ -30529,17 +30535,18 @@
         return;
       }
 
-      // If actor is Station Manager, they can only edit Team Leader or Stock Keeper in their own warehouse!
+      // If actor is Station Manager, they can only edit users in their own warehouse!
       if (isActorStationManager) {
         const myWh = String(AppState.currentUser?.warehouse || '').trim().toLowerCase();
         const uWh = String(u.warehouse || '').trim().toLowerCase();
         const isSameWh = myWh && (uWh === myWh || uWh.includes(myWh) || myWh.includes(uWh));
         const r = String(u.role || '').trim().toLowerCase();
+        const isSM = (r === 'អ្នកគ្រប់គ្រងស្ថានីយ' || r === 'អ្នកគ្រប់គ្រង' || r === 'station manager' || r === 'stationmanager');
         const isTL = (r === 'ប្រធានក្រុម' || r === 'ប្រធាន' || r === 'team leader' || r === 'teamleader' || r === 'manager');
         const isSK = (r === 'អ្នកកាន់ស្តុក' || r === 'stock keeper' || r === 'stockkeeper' || r === 'staff' || r === '' || !u.role);
-        const isForbidden = (r === 'superadmin' || r === 'admin' || r === 'អ្នកគ្រប់គ្រងស្ថានីយ' || r === 'អ្នកគ្រប់គ្រង' || r === 'station manager');
-        if (!isSameWh || (!isTL && !isSK) || isForbidden) {
-          Swal.fire('គ្មានសិទ្ធិ', 'អ្នកគ្រប់គ្រងស្ថានីយអាចកែប្រែបានតែប្រធានក្រុម និងអ្នកកាន់ស្តុកក្នុងស្ថានីយរបស់ខ្លួនប៉ុណ្ណោះ!', 'warning');
+        const isForbidden = (r === 'superadmin' || r === 'admin');
+        if (!isSameWh || (!isSM && !isTL && !isSK) || isForbidden) {
+          Swal.fire('គ្មានសិទ្ធិ', 'អ្នកគ្រប់គ្រងស្ថានីយអាចកែប្រែបានតែបុគ្គលិកក្នុងស្ថានីយរបស់ខ្លួនប៉ុណ្ណោះ!', 'warning');
           return;
         }
       }
@@ -30553,14 +30560,10 @@
           <option value="ប្រធានក្រុម" ${u.role === 'ប្រធានក្រុម' || u.role === 'ប្រធាន' || u.role === 'Manager' || u.role === 'Team Leader' ? 'selected' : ''}>👤 ប្រធានក្រុម (Team Leader)</option>
           <option value="អ្នកកាន់ស្តុក" ${u.role === 'អ្នកកាន់ស្តុក' || u.role === 'Stock Keeper' ? 'selected' : ''}>📦 អ្នកកាន់ស្តុក (Stock Keeper)</option>
         `;
-      } else if (isActorAdmin) {
+      } else {
+        // Admin & Station Manager: អាចជ្រើសរើសតួនាទី អ្នកគ្រប់គ្រងស្ថានីយ, ប្រធានក្រុម, អ្នកកាន់ស្តុក
         roleOptions = `
           <option value="អ្នកគ្រប់គ្រងស្ថានីយ" ${u.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || u.role === 'អ្នកគ្រប់គ្រង' ? 'selected' : ''}>🏢 អ្នកគ្រប់គ្រងស្ថានីយ (Station Manager)</option>
-          <option value="ប្រធានក្រុម" ${u.role === 'ប្រធានក្រុម' || u.role === 'ប្រធាន' || u.role === 'Manager' || u.role === 'Team Leader' ? 'selected' : ''}>👤 ប្រធានក្រុម (Team Leader)</option>
-          <option value="អ្នកកាន់ស្តុក" ${u.role === 'អ្នកកាន់ស្តុក' || u.role === 'Stock Keeper' ? 'selected' : ''}>📦 អ្នកកាន់ស្តុក (Stock Keeper)</option>
-        `;
-      } else if (isActorStationManager) {
-        roleOptions = `
           <option value="ប្រធានក្រុម" ${u.role === 'ប្រធានក្រុម' || u.role === 'ប្រធាន' || u.role === 'Manager' || u.role === 'Team Leader' ? 'selected' : ''}>👤 ប្រធានក្រុម (Team Leader)</option>
           <option value="អ្នកកាន់ស្តុក" ${u.role === 'អ្នកកាន់ស្តុក' || u.role === 'Stock Keeper' ? 'selected' : ''}>📦 អ្នកកាន់ស្តុក (Stock Keeper)</option>
         `;
