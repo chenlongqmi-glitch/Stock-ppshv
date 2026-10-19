@@ -8529,6 +8529,12 @@
         if (typeof alignItemZoneBreakdownWithStock === 'function') {
           alignItemZoneBreakdownWithStock(item);
         }
+        if (Number(item.currentStock || 0) <= 0 && (!Array.isArray(item.zoneBreakdown) || item.zoneBreakdown.length === 0)) {
+          if (item.zone && (item.zone === 'តំបន់ A' || item.zone === 'តំបន់ A (A01)')) {
+            item.zone = '-';
+            changed = true;
+          }
+        }
       });
       if (changed && typeof saveLocalItemsToStorage === 'function') {
         saveLocalItemsToStorage();
@@ -14699,8 +14705,8 @@
                 notes: rem.notes || loc.notes || '',
                 createdBy: rem.createdBy || loc.createdBy || 'Admin',
                 createdAt: rem.createdAt || loc.createdAt || '2026-09-22',
-                zone: rem.zone || loc.zone || 'តំបន់ A',
-                zoneNumber: rem.zoneNumber || loc.zoneNumber || 'Z-01',
+                zone: rem.zone || loc.zone || '-',
+                zoneNumber: rem.zoneNumber || loc.zoneNumber || '-',
                 imageUrl: rem.imageUrl || loc.imageUrl || 'assets/' + rem.sku + '.jpg'
               };
             });
@@ -16075,7 +16081,7 @@
               notes: (rem.notes && rem.notes !== '-') ? rem.notes : (loc.notes || '-'),
               createdBy: rem.createdBy || loc.createdBy || 'Admin',
               createdAt: rem.createdAt || loc.createdAt || '2026-09-22',
-              zone: rem.zone || loc.zone || 'តំបន់ A (A01)',
+              zone: rem.zone || loc.zone || '-',
               zoneBreakdown: rem.zoneBreakdown || loc.zoneBreakdown || [],
               zones: rem.zones || loc.zones || [],
               imageUrl: img
@@ -18537,12 +18543,17 @@
         }
       }
 
-      // 4. Check in AppState.items ONLY if warehouse is Central Warehouse or global
+      // 4. Check in AppState.items ONLY if item currently has stock or verified stock breakdown at Central Warehouse
       const isCentral = !warehouse || warehouse === 'ALL' || (typeof isCentralWarehouse === 'function' ? isCentralWarehouse(warehouse) : (warehouse.includes('中心库房') || warehouse.includes('ចុងស៊ីង') || warehouse.includes('机电')));
       if (isCentral) {
         const it = (AppState.items || []).find(i => (i.sku && i.sku.trim().toLowerCase() === cleanSku) || (i.name && i.name.trim().toLowerCase() === cleanSku));
-        if (it && it.zone && it.zone.trim() && it.zone.trim() !== '-') {
-          return formatReturnZone(it.zone);
+        if (it) {
+          const stockVal = Number(it.currentStock || 0);
+          const hasBreakdown = Array.isArray(it.zoneBreakdown) && it.zoneBreakdown.some(zb => Number(zb.quantity || 0) > 0);
+          // ប្រសិនបើទំនិញនេះមិនទាន់មានចូលស្តុកទាល់តែសោះ (ស្តុក ០ និងគ្មានប្រវត្តិកត់ត្រាចូលស្តុកពីមុន) មិនត្រូវបង្ហាញតំបន់ស្តុកចាស់ឡើយ!
+          if ((stockVal > 0 || hasBreakdown) && it.zone && it.zone.trim() && it.zone.trim() !== '-' && it.zone.trim() !== 'គ្មាន') {
+            return formatReturnZone(it.zone);
+          }
         }
       }
 
@@ -18557,7 +18568,7 @@
         sku = document.getElementById('receptionSku')?.value || '';
         targetWarehouse = document.getElementById('receptionModalStationBadge')?.innerText || AppState.currentUser?.warehouse || '';
       } else if (currentZonePickerTargetInputId === 'stockInZone') {
-        sku = document.getElementById('stockInSku')?.value || '';
+        sku = document.getElementById('stockInItemCode')?.value || document.getElementById('stockInSku')?.value || '';
         targetWarehouse = document.getElementById('stockInLocation')?.value || AppState.currentUser?.warehouse || '';
       } else if (currentZonePickerTargetInputId === 'swalEditZone') {
         sku = document.getElementById('swalEditSku')?.value || '';
@@ -20168,15 +20179,19 @@
         }
       }
 
-      // 4. ប្រសិនបើជាឃ្លាំងកណ្តាល (Central Warehouse) ទើបអាចយកពី item.zone បាន
+      // 4. ប្រសិនបើជាឃ្លាំងកណ្តាល (Central Warehouse) ទើបអាចយកពី item.zone បាន លុះត្រាតែទំនិញធ្លាប់មានស្តុកជាក់ស្តែង
       if (isCentral && item.zone) {
-        const iz = String(item.zone).trim();
-        if (iz && iz !== '-' && iz !== 'គ្មាន' && iz !== 'null' && iz !== 'undefined' && !iz.includes(':') && !iz.includes(',')) {
-          return iz;
+        const stockVal = Number(item.currentStock || 0);
+        const hasBreakdown = Array.isArray(item.zoneBreakdown) && item.zoneBreakdown.some(zb => Number(zb.quantity || 0) > 0);
+        if (stockVal > 0 || hasBreakdown) {
+          const iz = String(item.zone).trim();
+          if (iz && iz !== '-' && iz !== 'គ្មាន' && iz !== 'null' && iz !== 'undefined' && !iz.includes(':') && !iz.includes(',')) {
+            return iz;
+          }
         }
       }
 
-      // សម្រាប់ស្ថានីយតាមខេត្ត/សាខា បើមិនធ្លាប់មានស្តុកចូលនៅស្ថានីយនេះទេ ត្រូវទុកទទេដាច់ខាត!
+      // សម្រាប់ទំនិញដែលមិនទាន់ធ្លាប់ចូលស្តុក ឬគ្មានប្រវត្តិស្តុកនៅស្ថានីយនេះ ត្រូវទុកទទេដាច់ខាត!
       return '';
     }
 
@@ -27278,7 +27293,7 @@
         }
         notes = notes.trim() || '-';
 
-        zone = zone.trim() || 'តំបន់ A (A01)';
+        zone = zone.trim() || '-';
         const hasValidName = name.length > 0;
 
         // Smart Duplicate Detection: Prioritize exact SKU match if SKU provided
@@ -27484,7 +27499,7 @@
             unit: item.unit || 'ដុំ',
             packUnit: item.packUnit || item.unit || 'ដុំ',
             packQty: packQtyNum,
-            zone: item.zone || 'តំបន់ A (A01)',
+            zone: item.zone || '-',
             costPrice: 0,
             sellingPrice: 0,
             minStock: minStockUnits,

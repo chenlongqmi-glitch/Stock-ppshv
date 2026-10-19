@@ -5059,8 +5059,8 @@ function getItemsList(userOrPayload, warehouseFilter, optSs) {
       let clr = String(row[idxColor] || '').trim();
       if (clr.startsWith('http') || clr.includes('GMT') || clr === 'សាកល្បង' || clr === 'ចំណាំសិន') clr = '-';
 
-      let zn = String(row[idxZone] || 'តំបន់ A').trim();
-      if (zn.includes('GMT') || zn.includes('2026') || !zn) zn = 'តំបន់ A';
+      let zn = String(row[idxZone] || '-').trim();
+      if (zn.includes('GMT') || zn.includes('2026') || !zn) zn = '-';
 
       let st = String(row[idxStatus] || 'Active').trim();
       if (st.includes('GMT') || st.includes('2026') || !st) st = 'Active';
@@ -10220,8 +10220,8 @@ function cleanAndReplaceAllItems(itemsListOrPayload, username) {
       let clr = String(it.color || '-').trim();
       if (clr.startsWith('http') || clr.includes('GMT') || clr === 'សាកល្បង' || clr === 'ចំណាំសិន') clr = '-';
 
-      let zn = String(it.zone || 'តំបន់ A (A01)').trim();
-      if (zn.includes('GMT') || zn.includes('2026') || !zn) zn = 'តំបន់ A (A01)';
+      let zn = String(it.zone || '-').trim();
+      if (zn.includes('GMT') || zn.includes('2026') || !zn) zn = '-';
 
       let st = String(it.status || 'Active').trim();
       if (st.includes('GMT') || st.includes('2026') || !st) st = 'Active';
