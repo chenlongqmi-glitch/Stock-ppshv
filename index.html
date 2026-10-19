@@ -24858,12 +24858,19 @@
       if (forceRefresh) {
         API_CACHE.clear();
       }
+
+      const curU = AppState.currentUser || (function(){ try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch(e){ return null; } })() || {};
+      const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : (curU.role === 'Admin' || curU.role === 'SuperAdmin');
+      const resolvedWh = curU.warehouse || (typeof getUserStationWarehouse === 'function' ? getUserStationWarehouse(curU) : '');
+      const myStationWh = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(resolvedWh) : resolvedWh;
+      const stationStorageKey = (myStationWh && myStationWh !== 'ALL') ? `inventory_stock_out_history_wh_${String(myStationWh).toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '')}` : '';
+
       let cachedTxs = (AppState.stockOutHistory && AppState.stockOutHistory.length > 0)
         ? AppState.stockOutHistory.filter(t => !isTransactionDeleted(t))
         : null;
       if (!cachedTxs || cachedTxs.length === 0) {
         try {
-          const stored = localStorage.getItem('inventory_stock_out_history_db');
+          const stored = (stationStorageKey ? localStorage.getItem(stationStorageKey) : null) || localStorage.getItem('inventory_stock_out_history_db');
           if (stored !== null) {
             const parsed = JSON.parse(stored);
             if (Array.isArray(parsed) && parsed.length > 0) {
@@ -24910,10 +24917,10 @@
       }
 
       try {
-        // Query Google Sheets directly for STOCK_OUT transactions (limit: 200)
-        // All active station filtering is handled client-side by matchesTargetWarehouse
-        // so that combo warehouses (中心库房 & 机电) and individual stations render accurately.
-        const res = await apiCall('getTransactionHistory', { filters: { type: 'STOCK_OUT', limit: 200 }, forceRefresh: forceRefresh });
+        const queryWh = isPrivileged 
+          ? (AppState.selectedAdminWarehouseFilter || 'ALL')
+          : (myStationWh || curU.warehouse || 'ALL');
+        const res = await apiCall('getTransactionHistory', { filters: { type: 'STOCK_OUT', limit: 200, warehouse: queryWh }, user: AppState.currentUser, forceRefresh: forceRefresh });
         if (res && res.success && Array.isArray(res.transactions)) {
           const cleanTxs = res.transactions.filter(t => {
             const doc = String(t.docNo || t.txId || '').toUpperCase();
@@ -24964,6 +24971,7 @@
 
           AppState.stockOutHistory = cleanTxs;
           try {
+            if (stationStorageKey) localStorage.setItem(stationStorageKey, JSON.stringify(cleanTxs));
             localStorage.setItem('inventory_stock_out_history_db', JSON.stringify(cleanTxs));
           } catch(e) {}
           // Synchronize LOCAL_DB.transactions with cleanTxs so deleted items are completely purged from storage
@@ -25001,20 +25009,22 @@
         }
         return 'ALL';
       }
-      return (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(u.warehouse) : u.warehouse) || 'ALL';
+      const uWh = (typeof getUserStationWarehouse === 'function' ? getUserStationWarehouse(u) : '') || u.warehouse || '';
+      return (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(uWh) : uWh) || 'ALL';
     }
 
     function filterStockOutHistoryTable() {
       const activeWh = getStockOutActiveWarehouseFilter();
       let baseList = AppState.stockOutHistory || [];
-      if (activeWh && activeWh !== 'ALL' && activeWh !== 'គ្រប់ស្ថានីយទាំងអស់') {
+      if (activeWh && activeWh !== 'ALL' && activeWh !== 'គ្រប់ស្ថានីយទាំងអស់' && activeWh !== '🏢 គ្រប់ស្ថានីយទាំងអស់' && activeWh !== 'គ្រប់ឃ្លាំង') {
         baseList = baseList.filter(t => {
           const fromL = t.fromLocation || '';
           const toL = t.toLocation || '';
           const loc = t.location || t.warehouse || '';
+          const uSt = (typeof getUserStationWarehouse === 'function') ? (getUserStationWarehouse(t.user) || getUserStationWarehouse(t.receivedBy) || getUserStationWarehouse(t.issuer)) : '';
           return (typeof matchesTargetWarehouse === 'function')
-            ? (matchesTargetWarehouse(fromL, activeWh) || matchesTargetWarehouse(toL, activeWh) || matchesTargetWarehouse(loc, activeWh))
-            : (isSameWarehouse(fromL, activeWh) || isSameWarehouse(toL, activeWh) || isSameWarehouse(loc, activeWh));
+            ? (matchesTargetWarehouse(fromL, activeWh) || matchesTargetWarehouse(toL, activeWh) || matchesTargetWarehouse(loc, activeWh) || (uSt && matchesTargetWarehouse(uSt, activeWh)))
+            : (isSameWarehouse(fromL, activeWh) || isSameWarehouse(toL, activeWh) || isSameWarehouse(loc, activeWh) || (uSt && isSameWarehouse(uSt, activeWh)));
         });
       }
       const sInp = document.getElementById('stockOutHistorySearch');
@@ -25053,14 +25063,15 @@
       const q = (sInp?.value || '').trim().toLowerCase();
       let txs = rawTxs || AppState.stockOutHistory || [];
       if (!isFiltered) {
-        if (activeWh && activeWh !== 'ALL' && activeWh !== 'គ្រប់ស្ថានីយទាំងអស់') {
+        if (activeWh && activeWh !== 'ALL' && activeWh !== 'គ្រប់ស្ថានីយទាំងអស់' && activeWh !== '🏢 គ្រប់ស្ថានីយទាំងអស់' && activeWh !== 'គ្រប់ឃ្លាំង') {
           txs = txs.filter(t => {
             const fromL = t.fromLocation || '';
             const toL = t.toLocation || '';
             const loc = t.location || t.warehouse || '';
+            const uSt = (typeof getUserStationWarehouse === 'function') ? (getUserStationWarehouse(t.user) || getUserStationWarehouse(t.receivedBy) || getUserStationWarehouse(t.issuer)) : '';
             return (typeof matchesTargetWarehouse === 'function')
-              ? (matchesTargetWarehouse(fromL, activeWh) || matchesTargetWarehouse(toL, activeWh) || matchesTargetWarehouse(loc, activeWh))
-              : (isSameWarehouse(fromL, activeWh) || isSameWarehouse(toL, activeWh) || isSameWarehouse(loc, activeWh));
+              ? (matchesTargetWarehouse(fromL, activeWh) || matchesTargetWarehouse(toL, activeWh) || matchesTargetWarehouse(loc, activeWh) || (uSt && matchesTargetWarehouse(uSt, activeWh)))
+              : (isSameWarehouse(fromL, activeWh) || isSameWarehouse(toL, activeWh) || isSameWarehouse(loc, activeWh) || (uSt && isSameWarehouse(uSt, activeWh)));
           });
         }
         if (q) {
@@ -34303,6 +34314,34 @@
           }
         }
 
+        if (msg.type === 'STOCK_OUT') {
+          if (msg.tx) {
+            const curU = AppState.currentUser || {};
+            const isPriv = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : (curU.role === 'Admin' || curU.role === 'SuperAdmin');
+            const myWh = (typeof getUserStationWarehouse === 'function' ? getUserStationWarehouse(curU) : '') || curU.warehouse || '';
+            const txWh = msg.tx.fromLocation || msg.tx.toLocation || msg.tx.location || msg.tx.warehouse || msg.warehouse || '';
+            const belongsToMe = isPriv || (myWh && (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(txWh, myWh) : isSameWarehouse(txWh, myWh)));
+            if (belongsToMe) {
+              if (!AppState.stockOutHistory) AppState.stockOutHistory = [];
+              const doc = msg.tx.docNo || msg.tx.txId;
+              const existingIdx = AppState.stockOutHistory.findIndex(t => (doc && (t.docNo === doc || t.txId === doc)));
+              if (existingIdx !== -1) {
+                AppState.stockOutHistory[existingIdx] = { ...AppState.stockOutHistory[existingIdx], ...msg.tx };
+              } else {
+                AppState.stockOutHistory.unshift(msg.tx);
+              }
+              const stationStorageKey = (myWh && myWh !== 'ALL') ? `inventory_stock_out_history_wh_${String(myWh).toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '')}` : '';
+              try {
+                if (stationStorageKey) localStorage.setItem(stationStorageKey, JSON.stringify(AppState.stockOutHistory));
+                localStorage.setItem('inventory_stock_out_history_db', JSON.stringify(AppState.stockOutHistory));
+              } catch(e) {}
+              if (typeof filterStockOutHistoryTable === 'function') {
+                filterStockOutHistoryTable();
+              }
+            }
+          }
+        }
+
         if (AppState.currentTab === 'items') {
           renderItemsTable();
           populateCategoryFilter();
@@ -34313,6 +34352,8 @@
           if (typeof loadReportTransactions === 'function') loadReportTransactions();
         } else if (AppState.currentTab === 'stockin') {
           if (typeof loadStockInHistory === 'function') loadStockInHistory(true);
+        } else if (AppState.currentTab === 'stockout') {
+          if (typeof loadStockOutHistory === 'function') loadStockOutHistory(true);
         }
       }
 
