@@ -1962,6 +1962,57 @@ function ensureUsersInitialized(ss) {
           sheet.getRange(i + 1, 2).setValue(rowUName.replace(/[\u200b\ufeff]/g, ''));
         }
       }
+
+      // Backfill missing default company staff to ensure Google Sheet has full user roster
+      const currentData = sheet.getDataRange().getValues();
+      const existingUserMap = new Set();
+      for (let i = 1; i < currentData.length; i++) {
+        const rowUId = String(currentData[i][0] || '').trim().toUpperCase();
+        const rowUName = String(currentData[i][1] || '').trim().toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+        if (rowUId) existingUserMap.add(rowUId);
+        if (rowUName) existingUserMap.add(rowUName);
+      }
+
+      const DEFAULT_COMPANY_USERS = [
+        { userId: 'USR-SA', username: 'superadmin', fullName: '陈龙', email: 'chenlongqmi@gmail.com', password: '841453Bsm', role: 'SuperAdmin', warehouse: 'ALL', phone: '066966606', avatar: 'assets/superadmin_avatar.jpg' },
+        { userId: 'USR-001', username: 'admin', fullName: '范胜听', email: 'ppshv210pv034@gmail.com', password: 'admin123', role: 'Admin', warehouse: 'ALL', phone: '098987653', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150' },
+        { userId: 'USR-20260921160928', username: 'singvan327@gmail.com', fullName: 'និត វ៉ាន់ស៊ិញ', email: 'singvan327@gmail.com', password: '123456', role: 'Admin', warehouse: 'ALL', phone: '0886633966', avatar: '' },
+        { userId: 'USR-20260927140020', username: 'hongkimly', fullName: 'ហុង គិមលី', email: 'hongkhimly@gmail.com', password: '123456', role: 'អ្នកគ្រប់គ្រងស្ថានីយ', warehouse: 'K3 ស្ថានីយ (ភ្នំពេញ) 01', phone: '012987898', avatar: '' },
+        { userId: 'USR-20260919123637', username: 'chandara', fullName: 'ចាន់ តារា', email: 'chandara@gmail.com', password: '123456', role: 'ប្រធានក្រុម', warehouse: 'K3 ស្ថានីយ (ភ្នំពេញ) 01', phone: '098666154', avatar: '' },
+        { userId: 'USR-20260921215746', username: 'chandy', fullName: 'ចាន់ ឌី', email: 'chandy@gmail.com', password: '123456', role: 'ប្រធានក្រុម', warehouse: 'K3 ស្ថានីយ (ភ្នំពេញ) 01', phone: '095645854', avatar: '' },
+        { userId: 'USR-20260928064517', username: 'Touchvgvy', fullName: 'ទូច ជីវី', email: 'Touchvgvy12@gmail.com', password: '123456', role: 'ប្រធានក្រុម', warehouse: 'K3 ស្ថានីយ (ភ្នំពេញ) 01', phone: '089656695', avatar: '' },
+        { userId: 'USR-20260927201657', username: 'sophadalen', fullName: 'សុផា ដាឡែន', email: 'sophadalenw@gmail.com', password: '123456', role: 'ប្រធានក្រុម', warehouse: 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02', phone: '016956225', avatar: '' },
+        { userId: 'USR-20260928120850', username: 'sreymeas', fullName: 'ស្រី មាស', email: 'sreymeas123@gmail.com', password: '123456', role: 'អ្នកគ្រប់គ្រងស្ថានីយ', warehouse: 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02', phone: '099656588', avatar: '' },
+        { userId: 'USR-20260928133337', username: 'draternjk', fullName: 'ដារា ទើបរៀន', email: 'draternjk555@gmail.com', password: '123456', role: 'ប្រធានក្រុម', warehouse: 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02', phone: '098565477', avatar: '' },
+        { userId: 'USR-20260928150001', username: 'vansing', fullName: 'វ៉ាន់ស៊ីង', email: 'vansing@gmail.com', password: '123456', role: 'អ្នកកាន់ស្តុក', warehouse: 'K3 ស្ថានីយ (ភ្នំពេញ) 01', phone: '088777123', avatar: '' }
+      ];
+
+      for (let j = 0; j < DEFAULT_COMPANY_USERS.length; j++) {
+        const defU = DEFAULT_COMPANY_USERS[j];
+        const defUNameClean = defU.username.toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+        if (!existingUserMap.has(defU.userId) && !existingUserMap.has(defUNameClean)) {
+          sheet.appendRow([
+            defU.userId,
+            defU.username,
+            defU.fullName,
+            defU.email,
+            defU.password,
+            generateSalt(),
+            defU.role,
+            'Active',
+            new Date(),
+            defU.warehouse,
+            defU.avatar,
+            defU.phone,
+            '', '', '',
+            JSON.stringify({ desktop: null, mobile: null }),
+            defU.password,
+            ''
+          ]);
+          existingUserMap.add(defU.userId);
+          existingUserMap.add(defUNameClean);
+        }
+      }
     } catch (syncErr) {}
   }
   return sheet;
