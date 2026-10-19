@@ -3790,7 +3790,7 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
           const targetEmail = email || String(data[i][3] || '-');
           const approvedBy = admin || 'Admin';
 
-          const alertMsg = `🎉 <b>[ដំណឹង Admin បានអនុម័តគណនីថ្មី]</b>\n` +
+          const alertMsg = `🎉 <b>[ដំណឹង៖ Admin បានអនុម័តគណនីបុគ្គលិកថ្មី]</b>\n` +
             `👤 <b>ឈ្មោះពេញ:</b> ${targetFName}\n` +
             `🆔 <b>Username:</b> <code>@${targetUName}</code>\n` +
             `📞 <b>លេខទូរស័ព្ទ:</b> ${targetPhone}\n` +
@@ -3799,7 +3799,7 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
             `🛡️ <b>តួនាទី:</b> ${targetRole}\n` +
             `👑 <b>អនុម័តដោយ Admin:</b> ${approvedBy}\n` +
             `⏰ <b>កាលបរិច្ឆេទ:</b> ${Utilities.formatDate(new Date(), 'GMT+7', 'dd/MM/yyyy, HH:mm:ss')}\n` +
-            `✅ <b>ស្ថានភាព:</b> 🟢 <b>Active (អាចចូលប្រើប្រាស់បាន)</b>`;
+            `✅ <b>ស្ថានភាព:</b> 🟢 <b>Active (គណនីបើកដំណើរការរួចរាល់ - SuperAdmin មិនចាំបាច់អនុម័តទេ)</b>`;
 
           sendTelegramAlert(alertMsg);
         } catch (e) {}
