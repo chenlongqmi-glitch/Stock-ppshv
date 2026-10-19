@@ -29190,8 +29190,15 @@
             <option value="ប្រធានក្រុម">👤 ប្រធានក្រុម (Team Leader)</option>
             <option value="អ្នកកាន់ស្តុក">📦 អ្នកកាន់ស្តុក (Stock Keeper)</option>
           `;
+        } else if (isActorStationManager) {
+          // អ្នកគ្រប់គ្រងស្ថានីយ (Station Manager): អាចជ្រើសរើសតួនាទីបានតែ ប្រធានក្រុម និង អ្នកកាន់ស្តុក
+          addRoleSelect.innerHTML = `
+            <option value="" selected>-- សូមជ្រើសរើសតួនាទី --</option>
+            <option value="ប្រធានក្រុម">👤 ប្រធានក្រុម (Team Leader)</option>
+            <option value="អ្នកកាន់ស្តុក">📦 អ្នកកាន់ស្តុក (Stock Keeper)</option>
+          `;
         } else {
-          // Admin & Station Manager: អាចជ្រើសរើសតួនាទី អ្នកគ្រប់គ្រងស្ថានីយ, ប្រធានក្រុម, អ្នកកាន់ស្តុក
+          // Admin: អាចជ្រើសរើសតួនាទី អ្នកគ្រប់គ្រងស្ថានីយ, ប្រធានក្រុម, អ្នកកាន់ស្តុក
           addRoleSelect.innerHTML = `
             <option value="" selected>-- សូមជ្រើសរើសតួនាទី --</option>
             <option value="អ្នកគ្រប់គ្រងស្ថានីយ">🏢 អ្នកគ្រប់គ្រងស្ថានីយ (Station Manager)</option>
@@ -29445,8 +29452,9 @@
 
       if (isActorStationManager) {
         userData.warehouse = (AppState.currentUser?.warehouse || WAREHOUSES_LIST[0]).trim();
-        if (userData.role !== 'អ្នកគ្រប់គ្រងស្ថានីយ' && userData.role !== 'ប្រធានក្រុម' && userData.role !== 'អ្នកកាន់ស្តុក') {
-          userData.role = 'អ្នកកាន់ស្តុក';
+        if (userData.role !== 'ប្រធានក្រុម' && userData.role !== 'អ្នកកាន់ស្តុក') {
+          showAddUserFieldError('Role', 'អ្នកគ្រប់គ្រងស្ថានីយអាចជ្រើសរើសតួនាទីបានតែជា «ប្រធានក្រុម» ឬ «អ្នកកាន់ស្តុក» ប៉ុណ្ណោះ!');
+          return;
         }
       }
       if (userData.role === 'SuperAdmin' && !isActorSuperAdmin) {
@@ -30560,8 +30568,14 @@
           <option value="ប្រធានក្រុម" ${u.role === 'ប្រធានក្រុម' || u.role === 'ប្រធាន' || u.role === 'Manager' || u.role === 'Team Leader' ? 'selected' : ''}>👤 ប្រធានក្រុម (Team Leader)</option>
           <option value="អ្នកកាន់ស្តុក" ${u.role === 'អ្នកកាន់ស្តុក' || u.role === 'Stock Keeper' ? 'selected' : ''}>📦 អ្នកកាន់ស្តុក (Stock Keeper)</option>
         `;
+      } else if (isActorStationManager) {
+        // អ្នកគ្រប់គ្រងស្ថានីយ (Station Manager): អាចជ្រើសរើសតួនាទីបានតែ ប្រធានក្រុម និង អ្នកកាន់ស្តុក
+        roleOptions = `
+          <option value="ប្រធានក្រុម" ${u.role === 'ប្រធានក្រុម' || u.role === 'ប្រធាន' || u.role === 'Manager' || u.role === 'Team Leader' ? 'selected' : ''}>👤 ប្រធានក្រុម (Team Leader)</option>
+          <option value="អ្នកកាន់ស្តុក" ${u.role === 'អ្នកកាន់ស្តុក' || u.role === 'Stock Keeper' ? 'selected' : ''}>📦 អ្នកកាន់ស្តុក (Stock Keeper)</option>
+        `;
       } else {
-        // Admin & Station Manager: អាចជ្រើសរើសតួនាទី អ្នកគ្រប់គ្រងស្ថានីយ, ប្រធានក្រុម, អ្នកកាន់ស្តុក
+        // Admin: អាចជ្រើសរើសតួនាទី អ្នកគ្រប់គ្រងស្ថានីយ, ប្រធានក្រុម, អ្នកកាន់ស្តុក
         roleOptions = `
           <option value="អ្នកគ្រប់គ្រងស្ថានីយ" ${u.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || u.role === 'អ្នកគ្រប់គ្រង' ? 'selected' : ''}>🏢 អ្នកគ្រប់គ្រងស្ថានីយ (Station Manager)</option>
           <option value="ប្រធានក្រុម" ${u.role === 'ប្រធានក្រុម' || u.role === 'ប្រធាន' || u.role === 'Manager' || u.role === 'Team Leader' ? 'selected' : ''}>👤 ប្រធានក្រុម (Team Leader)</option>

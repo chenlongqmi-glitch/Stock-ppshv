@@ -2807,8 +2807,14 @@ function registerUser(userData) {
 
   const hash = hashPassword(userData.password, salt);
 
+  const isStationManagerCreate = Boolean(userData.isStationManagerCreate || userData.creatorRole === 'Station Manager' || userData.creatorRole === 'អ្នកគ្រប់គ្រងស្ថានីយ');
+
   let role = userData.role || 'អ្នកកាន់ស្តុក';
-  if (role === 'Admin' || role === 'SuperAdmin') {
+  if (isStationManagerCreate) {
+    if (role !== 'ប្រធានក្រុម' && role !== 'អ្នកកាន់ស្តុក') {
+      role = (role === 'ប្រធាន' || role === 'Team Leader') ? 'ប្រធានក្រុម' : 'អ្នកកាន់ស្តុក';
+    }
+  } else if (role === 'Admin' || role === 'SuperAdmin') {
     if (String(userData.adminUser || '').toLowerCase() !== 'superadmin') {
       role = 'អ្នកគ្រប់គ្រងស្ថានីយ';
     }
@@ -2818,7 +2824,6 @@ function registerUser(userData) {
     role = 'ប្រធានក្រុម';
   }
 
-  const isStationManagerCreate = Boolean(userData.isStationManagerCreate || userData.creatorRole === 'Station Manager' || userData.creatorRole === 'អ្នកគ្រប់គ្រងស្ថានីយ');
   const isDirectAdminCreate = !isStationManagerCreate && Boolean(userData.status === 'Active' || userData.isDirectCreate === true || (userData.adminUser && !String(userData.status || '').startsWith('Pending')));
   const status = isDirectAdminCreate ? 'Active' : (userData.status || 'Pending_Admin');
 
