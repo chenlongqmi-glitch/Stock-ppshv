@@ -1881,8 +1881,10 @@
       'ចាន់តារា': ['chandara', 'ចាន់តារា', 'ចាន់ តារា', 'chan dara'],
       'chandy': ['chandy', 'ចាន់ឌី', 'ចាន់ ឌី', 'chan dy'],
       'ចាន់ឌី': ['chandy', 'ចាន់ឌី', 'ចាន់ ឌី', 'chan dy'],
-      'sreymeas': ['sreymeas', 'ស្រីមាស', 'ស្រី មាស', 'srey meas'],
-      'ស្រីមាស': ['sreymeas', 'ស្រីមាស', 'ស្រី មាស', 'srey meas'],
+      'sreymeas': ['sreymeas', 'ស្រីមាស', 'ស្រី មាស', 'srey meas', 'leng sreymeas', 'ឡេង ស្រីមាស', 'ឡេងស្រីមាស'],
+      'ស្រីមាស': ['sreymeas', 'ស្រីមាស', 'ស្រី មាស', 'srey meas', 'leng sreymeas', 'ឡេង ស្រីមាស', 'ឡេងស្រីមាស'],
+      'greypovpech': ['greypovpech', 'sreypovepech', 'ពេជ្រស្រីពៅ', 'ពេជ្រ ស្រីពៅ', 'sreypov pech', 'greypov pech', 'pech sreypov', 'sreypov', 'greypov'],
+      'ពេជ្រស្រីពៅ': ['greypovpech', 'sreypovepech', 'ពេជ្រស្រីពៅ', 'ពេជ្រ ស្រីពៅ', 'sreypov pech', 'greypov pech', 'pech sreypov', 'sreypov', 'greypov'],
       'sophadalen': ['sophadalen', 'សុផាដាឡែន', 'សុផា ដាឡែន', 'sopha dalen'],
       'សុផាដាឡែន': ['sophadalen', 'សុផាដាឡែន', 'សុផា ដាឡែន', 'sopha dalen'],
       'draternjk': ['draternjk', 'ដារាទើបរ៖', 'ដារា ទើបរ៖', 'ដារាទើបរៀន', 'dara'],
@@ -1933,6 +1935,7 @@
         return 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
       }
       if (KNOWN_USER_ALIASES_MAP['sreymeas'].some(al => clean(al) === tClean) ||
+          KNOWN_USER_ALIASES_MAP['greypovpech'].some(al => clean(al) === tClean) ||
           KNOWN_USER_ALIASES_MAP['sophadalen'].some(al => clean(al) === tClean) ||
           KNOWN_USER_ALIASES_MAP['draternjk'].some(al => clean(al) === tClean)) {
         return 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02';
@@ -10713,7 +10716,9 @@
       const effectiveTTL = (action === 'checkDataVersion' || action === 'getSyncHeartbeat') ? 0 :
         (action === 'getChatMessages' || action === 'getUsersList' || action === 'getUsers' || action === 'getBootstrapData' || action === 'getProductRequests' || action === 'getItemsList' || action === 'getDashboardStats' || action === 'getTransactionHistory' || action === 'getTransactions') ? 1000 : CACHE_TTL_MS;
 
-      if (cached && (now - cached.timestamp < effectiveTTL)) {
+      if (payload && (payload.forceRefresh || payload.forceFresh)) {
+        API_CACHE.delete(cacheKey);
+      } else if (cached && (now - cached.timestamp < effectiveTTL)) {
         return cached.data;
       }
 
@@ -15161,6 +15166,18 @@
           stockInLocEl.value = '';
           stockInLocEl.selectedIndex = 0;
         }
+        if (typeof loadStockInHistory === 'function') {
+          loadStockInHistory(true);
+        }
+        if (typeof renderPendingIncomingDispatches === 'function') {
+          renderPendingIncomingDispatches();
+        }
+      }
+
+      if (tabName === 'stockout') {
+        if (typeof loadStockOutHistory === 'function') {
+          loadStockOutHistory(true);
+        }
       }
       purgeAutofillFromSearchInputs();
       setTimeout(purgeAutofillFromSearchInputs, 50);
@@ -15407,7 +15424,7 @@
         }
         try { populateItemSelectDropdowns(); } catch(e) { console.warn(e); }
         try { initStockInForm(); } catch(e) { console.warn(e); }
-        try { loadStockInHistory(); } catch(e) { console.warn(e); }
+        try { loadStockInHistory(true); } catch(e) { console.warn(e); }
         try { initStockInLayoutCustomizer(); } catch(e) { console.warn(e); }
         if (stockInLocEl && isPriv) {
           delete stockInLocEl.dataset.userChosen;
@@ -15421,7 +15438,7 @@
         try { populateItemSelectDropdowns(); } catch(e) { console.warn(e); }
         try { initStockOutForm(); } catch(e) { console.warn(e); }
         try { updateStockOutToLocationCustomDisplay(); } catch(e) {}
-        loadStockOutHistory();
+        loadStockOutHistory(true);
         if (typeof renderStockOutMultiStationGrid === 'function') renderStockOutMultiStationGrid();
       } else if (tabName === 'transfer') {
         try { populateItemSelectDropdowns(); } catch(e) { console.warn(e); }
@@ -20674,7 +20691,10 @@
       AppState.stockInHistory.unshift(newTx);
       const userStorageKey = (AppState.currentUser?.username) ? String(AppState.currentUser.username).trim().toLowerCase() : 'guest';
       const scopedHistoryKey = `inventory_stock_in_history_db_${userStorageKey}`;
+      const curWh = (typeof getUserStationWarehouse === 'function' ? getUserStationWarehouse(AppState.currentUser) : '') || AppState.currentUser?.warehouse || '';
+      const stationStorageKey = (curWh && curWh !== 'ALL') ? `inventory_stock_in_history_wh_${String(curWh).toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '')}` : '';
       try {
+        if (stationStorageKey) localStorage.setItem(stationStorageKey, JSON.stringify(AppState.stockInHistory));
         localStorage.setItem(scopedHistoryKey, JSON.stringify(AppState.stockInHistory));
         localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(AppState.stockInHistory));
       } catch(e) {}
@@ -20770,6 +20790,7 @@
           }).catch(() => {});
 
           try {
+            if (stationStorageKey) localStorage.setItem(stationStorageKey, JSON.stringify(AppState.stockInHistory));
             localStorage.setItem(scopedHistoryKey, JSON.stringify(AppState.stockInHistory));
             localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(AppState.stockInHistory));
           } catch(e) {}
@@ -20781,7 +20802,7 @@
           }
           if (typeof loadDashboard === 'function') loadDashboard();
           if (typeof broadcastInventoryMutation === 'function') {
-            broadcastInventoryMutation('STOCK_IN', { items: AppState.items });
+            broadcastInventoryMutation('STOCK_IN', { items: AppState.items, tx: newTx, warehouse: locVal });
           }
         } else {
           console.warn('Background sync warning:', res?.message);
@@ -23817,9 +23838,11 @@
       if (refreshIcon) refreshIcon.classList.add('fa-spin');
       const curU = AppState.currentUser || {};
       const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : (curU.role === 'Admin' || curU.role === 'SuperAdmin');
-      const myStationWh = (!isPrivileged && curU.warehouse && curU.warehouse !== 'ALL') ? ((typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(curU.warehouse) : curU.warehouse) : '';
+      const resolvedWh = curU.warehouse || (typeof getUserStationWarehouse === 'function' ? getUserStationWarehouse(curU) : '');
+      const myStationWh = (!isPrivileged && resolvedWh && resolvedWh !== 'ALL') ? ((typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(resolvedWh) : resolvedWh) : '';
       const userStorageKey = curU.username ? String(curU.username).trim().toLowerCase() : 'guest';
       const scopedHistoryKey = `inventory_stock_in_history_db_${userStorageKey}`;
+      const stationStorageKey = myStationWh ? `inventory_stock_in_history_wh_${String(myStationWh).toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '')}` : '';
 
       const seenRecent = new Set();
       const recentPendingToKeep = [];
@@ -23862,7 +23885,7 @@
         : (recentPendingToKeep.length > 0 ? recentPendingToKeep : null);
       if (!cachedTxs && !forceRefresh) {
         try {
-          const stored = localStorage.getItem(scopedHistoryKey) || localStorage.getItem('inventory_stock_in_history_db');
+          const stored = (stationStorageKey ? localStorage.getItem(stationStorageKey) : null) || localStorage.getItem(scopedHistoryKey) || localStorage.getItem('inventory_stock_in_history_db');
           if (stored !== null) {
             const parsed = JSON.parse(stored);
             if (Array.isArray(parsed) && parsed.length > 0) {
@@ -23914,7 +23937,7 @@
         const queryWh = isPrivileged 
           ? (AppState.selectedAdminWarehouseFilter || 'ALL')
           : (myStationWh || curU.warehouse || 'ALL');
-        const res = await apiCall('getTransactionHistory', { filters: { type: 'STOCK_IN', limit: 200, warehouse: queryWh }, user: AppState.currentUser });
+        const res = await apiCall('getTransactionHistory', { filters: { type: 'STOCK_IN', limit: 200, warehouse: queryWh }, user: AppState.currentUser, forceRefresh: forceRefresh });
         if (res && res.success && Array.isArray(res.transactions)) {
           const cleanTxs = res.transactions.filter(t => {
             const doc = String(t.docNo || t.txId || '').toUpperCase();
@@ -24116,6 +24139,7 @@
 
           AppState.stockInHistory = uniqueFinalHistory;
           try {
+            if (stationStorageKey) localStorage.setItem(stationStorageKey, JSON.stringify(uniqueFinalHistory));
             localStorage.setItem(scopedHistoryKey, JSON.stringify(uniqueFinalHistory));
             localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(uniqueFinalHistory));
           } catch(e) {}
@@ -24828,7 +24852,7 @@
         // Query Google Sheets directly for STOCK_OUT transactions (limit: 200)
         // All active station filtering is handled client-side by matchesTargetWarehouse
         // so that combo warehouses (中心库房 & 机电) and individual stations render accurately.
-        const res = await apiCall('getTransactionHistory', { filters: { type: 'STOCK_OUT', limit: 200 } });
+        const res = await apiCall('getTransactionHistory', { filters: { type: 'STOCK_OUT', limit: 200 }, forceRefresh: forceRefresh });
         if (res && res.success && Array.isArray(res.transactions)) {
           const cleanTxs = res.transactions.filter(t => {
             const doc = String(t.docNo || t.txId || '').toUpperCase();
@@ -34187,6 +34211,37 @@
           saveLocalItemsToStorage();
         }
 
+        if (msg.type === 'STOCK_IN') {
+          if (msg.tx) {
+            const curU = AppState.currentUser || {};
+            const isPriv = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : (curU.role === 'Admin' || curU.role === 'SuperAdmin');
+            const myWh = (typeof getUserStationWarehouse === 'function' ? getUserStationWarehouse(curU) : '') || curU.warehouse || '';
+            const txWh = msg.tx.toLocation || msg.tx.location || msg.tx.warehouse || msg.warehouse || '';
+            const belongsToMe = isPriv || (myWh && (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(txWh, myWh) : isSameWarehouse(txWh, myWh)));
+            if (belongsToMe) {
+              if (!AppState.stockInHistory) AppState.stockInHistory = [];
+              const doc = msg.tx.docNo || msg.tx.txId;
+              const existingIdx = AppState.stockInHistory.findIndex(t => (doc && (t.docNo === doc || t.txId === doc)));
+              if (existingIdx !== -1) {
+                AppState.stockInHistory[existingIdx] = { ...AppState.stockInHistory[existingIdx], ...msg.tx };
+              } else {
+                AppState.stockInHistory.unshift(msg.tx);
+              }
+              const userStorageKey = (curU.username) ? String(curU.username).trim().toLowerCase() : 'guest';
+              const scopedHistoryKey = `inventory_stock_in_history_db_${userStorageKey}`;
+              const stationStorageKey = (myWh && myWh !== 'ALL') ? `inventory_stock_in_history_wh_${String(myWh).toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '')}` : '';
+              try {
+                if (stationStorageKey) localStorage.setItem(stationStorageKey, JSON.stringify(AppState.stockInHistory));
+                localStorage.setItem(scopedHistoryKey, JSON.stringify(AppState.stockInHistory));
+                localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(AppState.stockInHistory));
+              } catch(e) {}
+              if (typeof filterStockInHistoryTable === 'function') {
+                filterStockInHistoryTable();
+              }
+            }
+          }
+        }
+
         if (AppState.currentTab === 'items') {
           renderItemsTable();
           populateCategoryFilter();
@@ -34195,6 +34250,8 @@
           if (typeof loadDashboard === 'function') loadDashboard();
         } else if (AppState.currentTab === 'reports') {
           if (typeof loadReportTransactions === 'function') loadReportTransactions();
+        } else if (AppState.currentTab === 'stockin') {
+          if (typeof loadStockInHistory === 'function') loadStockInHistory(true);
         }
       }
 
@@ -34313,12 +34370,18 @@
         if (AppState.currentUser) {
           applyLocalRoleSyncIfChanged();
           silentAutoRefresh();
+          if (document.visibilityState === 'visible') {
+            if (AppState.currentTab === 'stockin' && typeof loadStockInHistory === 'function') loadStockInHistory(true);
+            if (AppState.currentTab === 'stockout' && typeof loadStockOutHistory === 'function') loadStockOutHistory(true);
+          }
         }
       });
       window.addEventListener('focus', () => {
         if (AppState.currentUser) {
           applyLocalRoleSyncIfChanged();
           silentAutoRefresh();
+          if (AppState.currentTab === 'stockin' && typeof loadStockInHistory === 'function') loadStockInHistory(true);
+          if (AppState.currentTab === 'stockout' && typeof loadStockOutHistory === 'function') loadStockOutHistory(true);
         }
       });
     }
@@ -34376,8 +34439,8 @@
 
           if (!isEditingInForm) {
             if (AppState.currentTab === 'reports') await loadReportTransactions();
-            if (AppState.currentTab === 'stockin') await loadStockInHistory();
-            if (AppState.currentTab === 'stockout') await loadStockOutHistory();
+            if (AppState.currentTab === 'stockin') await loadStockInHistory(true);
+            if (AppState.currentTab === 'stockout') await loadStockOutHistory(true);
             if (AppState.currentTab === 'items' && typeof renderItemsTable === 'function') renderItemsTable();
             if (AppState.currentTab === 'users' && typeof filterUsersList === 'function') filterUsersList();
             if (AppState.currentTab === 'dashboard' && typeof loadDashboard === 'function') loadDashboard();

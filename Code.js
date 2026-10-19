@@ -6425,6 +6425,7 @@ function recordStockIn(dataOrPayload, user) {
   } catch(eRepair) {}
 
   try {
+    setGlobalDataVersion();
     SpreadsheetApp.flush();
   } catch(eFlush2) {}
 
@@ -6995,6 +6996,8 @@ function recordStockOut(dataOrPayload, user) {
   try {
     CacheService.getScriptCache().remove('TX_SHEETS_SYNC_ALL');
     CacheService.getScriptCache().remove('TX_SHEETS_SYNC_STOCK_OUT');
+    setGlobalDataVersion();
+    SpreadsheetApp.flush();
   } catch(e) {}
 
   return {
@@ -7261,6 +7264,13 @@ function recordTransactionInternal(ss, tx) {
       'touchvgvy': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
       'ស្រីមាស': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
       'sreymeas': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+      'leng sreymeas': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+      'ឡេង ស្រីមាស': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+      'ឡេងស្រីមាស': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+      'greypovpech': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+      'sreypovepech': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+      'ពេជ្រ ស្រីពៅ': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+      'ពេជ្រស្រីពៅ': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
       'សុផាដាឡែន': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
       'sophadalen': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
       'តារាទើបរៀន': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
@@ -7358,6 +7368,11 @@ function recordTransactionInternal(ss, tx) {
     ]);
     try { SpreadsheetApp.flush(); } catch(eFlush3) {}
   }
+
+  try {
+    setGlobalDataVersion();
+    CacheService.getScriptCache().removeAll(['ITEMS_ALL', 'TX_SHEETS_SYNC_ALL', 'TX_SHEETS_SYNC_STOCK_IN', 'TX_SHEETS_SYNC_STOCK_OUT', 'DASHBOARD_STATS_ALL']);
+  } catch(eVer) {}
 
   return { txId: txId };
 }
@@ -7684,6 +7699,13 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
       'touchvgvy': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
       'ស្រីមាស': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
       'sreymeas': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+      'leng sreymeas': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+      'ឡេង ស្រីមាស': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+      'ឡេងស្រីមាស': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+      'greypovpech': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+      'sreypovepech': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+      'ពេជ្រ ស្រីពៅ': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+      'ពេជ្រស្រីពៅ': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
       'សុផាដាឡែន': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
       'sophadalen': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
       'តារាទើបរៀន': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
