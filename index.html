@@ -7431,11 +7431,25 @@
       const sNorm = sLower.replace(/[\u200b\ufeff\s_-]/g, '');
       const personWhMap = {
         'ហុងគិមលី': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+        'ហុងគីមលី': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+        'ហុង គីមលី': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
         'hongkimly': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+        'hongkhimly': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
         'ទូចជីវី': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+        'ទូច ជីវី': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
         'touchvgvy': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+        'touchivy': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+        'chandara': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+        'chandy': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
         'ស្រីមាស': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
         'sreymeas': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+        'lengsreymeas': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+        'ឡេងស្រីមាស': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+        'ឡេង ស្រីមាស': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+        'greypovpech': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+        'sreypovepech': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+        'ពេជ្រស្រីពៅ': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
+        'ពេជ្រ ស្រីពៅ': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
         'សុផាដាឡែន': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
         'sophadalen': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
         'តារាទើបរៀន': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02',
@@ -10769,6 +10783,7 @@
 
       if (payload && (payload.forceRefresh || payload.forceFresh)) {
         API_CACHE.delete(cacheKey);
+        IN_FLIGHT_REQUESTS.delete(cacheKey);
       } else if (cached && (now - cached.timestamp < effectiveTTL)) {
         return cached.data;
       }
@@ -19590,7 +19605,8 @@
             const stStock = (typeof getItemStationStock === 'function') ? getItemStationStock(item, adminWh) : null;
             curStock = stStock ? stStock.total : Number(item.currentStock || 0);
           } else {
-            const userWh = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(curU.warehouse) : curU.warehouse) || 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
+            const resolvedUserWh = (typeof getUserStationWarehouse === 'function' ? getUserStationWarehouse(curU) : '') || curU.warehouse || 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
+            const userWh = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(resolvedUserWh) : resolvedUserWh);
             const stStock = (typeof getItemStationStock === 'function') ? getItemStationStock(item, userWh) : null;
             curStock = stStock ? stStock.total : 0;
           }
@@ -19669,10 +19685,34 @@
       customProductDropdownEl.style.top = `${top}px`;
       customProductDropdownEl.style.maxHeight = '380px';
 
+      const curU = AppState.currentUser || (function(){ try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch(e){ return null; } })() || {};
+      const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : false;
+
       const q = (inputEl.value || '').trim().toLowerCase();
-      let matches = AppState.items;
+      let matches = AppState.items || [];
+
+      // For stockOut mode: filter out items that have NOT entered stock (curStock <= 0)
+      if (mode === 'stockOut') {
+        const adminWh = (AppState.selectedAdminWarehouseFilter && AppState.selectedAdminWarehouseFilter !== 'ALL') ? AppState.selectedAdminWarehouseFilter : '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+        const resolvedUserWh = (typeof getUserStationWarehouse === 'function' ? getUserStationWarehouse(curU) : '') || curU.warehouse || 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
+        const targetWh = isPrivileged ? adminWh : resolvedUserWh;
+        const canonicalWh = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(targetWh) : targetWh;
+
+        matches = matches.filter(i => {
+          let sTot = 0;
+          if (isPrivileged) {
+            const stStock = (typeof getItemStationStock === 'function') ? getItemStationStock(i, canonicalWh) : null;
+            sTot = stStock ? stStock.total : Number(i.currentStock || 0);
+          } else {
+            const stStock = (typeof getItemStationStock === 'function') ? getItemStationStock(i, canonicalWh) : null;
+            sTot = stStock ? stStock.total : 0;
+          }
+          return sTot > 0;
+        });
+      }
+
       if (q) {
-        matches = AppState.items.filter(i => {
+        matches = matches.filter(i => {
           const name = (i.name || '').toLowerCase();
           const sku = (i.sku || '').toLowerCase();
           const barcode = (i.barcode || '').toLowerCase();
@@ -19688,10 +19728,13 @@
       customProductActiveIndex = -1;
 
       if (customProductCurrentResults.length === 0) {
+        const emptyMsg = mode === 'stockOut'
+          ? (q ? `រកមិនឃើញទំនិញ "${escapeHtml(q)}" ដែលមានក្នុងស្តុកទេ` : `មិនទាន់មានទំនិញក្នុងស្តុកសម្រាប់កត់ត្រាចេញទេ`)
+          : `រកមិនឃើញទំនិញ "${escapeHtml(q)}" ទេ`;
         customProductDropdownEl.innerHTML = `
           <div class="p-4 text-center text-slate-400 text-xs font-khmer">
             <i class="fa-solid fa-box-open text-xl mb-1 text-slate-300 block"></i>
-            <span>រកមិនឃើញទំនិញ "${escapeHtml(q)}" ទេ</span>
+            <span>${emptyMsg}</span>
           </div>`;
         customProductDropdownEl.classList.remove('hidden');
         return;
@@ -19722,7 +19765,8 @@
             curBulk = stStock ? stStock.bulk : (pQty > 1 ? Math.floor(curStock / pQty) : 0);
             curRetail = stStock ? stStock.loose : (pQty > 1 ? (curStock % pQty) : curStock);
           } else {
-            const userWh = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(curU.warehouse) : curU.warehouse) || 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
+            const resolvedUserWh = (typeof getUserStationWarehouse === 'function' ? getUserStationWarehouse(curU) : '') || curU.warehouse || 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
+            const userWh = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(resolvedUserWh) : resolvedUserWh);
             const stStock = (typeof getItemStationStock === 'function') ? getItemStationStock(item, userWh) : null;
             curStock = stStock ? stStock.total : 0;
             curBulk = stStock ? stStock.bulk : (pQty > 1 ? Math.floor(curStock / pQty) : 0);
@@ -23932,27 +23976,46 @@
       if (forceRefresh) {
         API_CACHE.clear();
       }
-      let cachedTxs = (AppState.stockInHistory && AppState.stockInHistory.length > 0)
-        ? AppState.stockInHistory.filter(t => !isTransactionDeleted(t))
-        : null;
-      if (!cachedTxs || cachedTxs.length === 0) {
-        try {
-          const stored = (stationStorageKey ? localStorage.getItem(stationStorageKey) : null) || localStorage.getItem(scopedHistoryKey) || localStorage.getItem('inventory_stock_in_history_db');
-          if (stored !== null) {
-            const parsed = JSON.parse(stored);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              cachedTxs = parsed.filter(t => {
-                const doc = String(t.docNo || t.txId || '').toUpperCase();
-                const isTest = doc.startsWith('MOCK-TEST-') || doc.startsWith('TEST-TX-');
-                return !isTest && !isTransactionDeleted(t);
-              });
-            }
+      // Merge all local & cached transactions so all records belonging to this station are instantly available
+      const seenInitial = new Set();
+      let cachedTxs = [];
+      const sourcesToMerge = [
+        AppState.stockInHistory,
+        recentPendingToKeep,
+        (function() {
+          try {
+            const st = stationStorageKey ? localStorage.getItem(stationStorageKey) : null;
+            return st ? JSON.parse(st) : [];
+          } catch(e) { return []; }
+        })(),
+        (function() {
+          try {
+            const sc = scopedHistoryKey ? localStorage.getItem(scopedHistoryKey) : null;
+            return sc ? JSON.parse(sc) : [];
+          } catch(e) { return []; }
+        })(),
+        (function() {
+          try {
+            const db = localStorage.getItem('inventory_stock_in_history_db');
+            return db ? JSON.parse(db) : [];
+          } catch(e) { return []; }
+        })(),
+        LOCAL_DB.transactions
+      ];
+
+      sourcesToMerge.forEach(sourceList => {
+        if (!Array.isArray(sourceList)) return;
+        sourceList.forEach(t => {
+          if (!t || (t.type && t.type !== 'STOCK_IN') || (typeof isTransactionDeleted === 'function' && isTransactionDeleted(t))) return;
+          const doc = String(t.docNo || t.txId || '').trim().toUpperCase();
+          if (doc.startsWith('MOCK-TEST-') || doc.startsWith('TEST-TX-')) return;
+          if (doc) {
+            if (seenInitial.has(doc)) return;
+            seenInitial.add(doc);
           }
-        } catch(e) {}
-      }
-      if ((!cachedTxs || cachedTxs.length === 0) && recentPendingToKeep.length > 0) {
-        cachedTxs = recentPendingToKeep;
-      }
+          cachedTxs.push(t);
+        });
+      });
 
       // Strictly purge any cached transactions not belonging to this station
       if (!isPrivileged && myStationWh && cachedTxs && cachedTxs.length > 0) {
@@ -24442,13 +24505,18 @@
           delete sInp.dataset.userTyped;
           sInp.setAttribute('readonly', 'readonly');
         } else if (sInp.dataset.userTyped !== 'true' && document.activeElement !== sInp) {
-          const sVal = (sInp.value || '').trim().toLowerCase();
-          if (sVal === 'hongkimly' || sVal === 'superadmin' || sVal === 'admin' || sVal === 'staff' || sVal.includes('@')) {
-            sInp.value = '';
-          }
+          sInp.value = '';
         }
       }
-      const q = (sInp?.value || '').trim().toLowerCase();
+      let q = '';
+      if (sInp && sInp.dataset.userTyped === 'true' && sInp.value) {
+        q = sInp.value.trim().toLowerCase();
+        if (q === 'superadmin' || q === 'super admin' || q === 'admin' || q === 'hongkimly' || q === 'staff' || q.includes('@')) {
+          sInp.value = '';
+          delete sInp.dataset.userTyped;
+          q = '';
+        }
+      }
       let txs = rawTxs || AppState.stockInHistory || [];
       if (!isFiltered) {
         if (typeof filterStockInHistoryTable === 'function') {
@@ -34538,10 +34606,12 @@
         if (hasNewUpdates) {
           await applyBootstrapDataSync(true);
 
+          // Stock In & Stock Out history tables are independent from form inputs and should always sync immediately
+          if (AppState.currentTab === 'stockin' && typeof loadStockInHistory === 'function') await loadStockInHistory(true);
+          if (AppState.currentTab === 'stockout' && typeof loadStockOutHistory === 'function') await loadStockOutHistory(true);
+
           if (!isEditingInForm) {
             if (AppState.currentTab === 'reports') await loadReportTransactions();
-            if (AppState.currentTab === 'stockin') await loadStockInHistory(true);
-            if (AppState.currentTab === 'stockout') await loadStockOutHistory(true);
             if (AppState.currentTab === 'items' && typeof renderItemsTable === 'function') renderItemsTable();
             if (AppState.currentTab === 'users' && typeof filterUsersList === 'function') filterUsersList();
             if (AppState.currentTab === 'dashboard' && typeof loadDashboard === 'function') loadDashboard();
@@ -34564,7 +34634,7 @@
               checkDeletionRepliesForAdmin(false);
             }
           }
-        } else if (!isEditingInForm) {
+        } else {
           // Continuous 24s background synchronization for active operations tabs
           const nowTs = Date.now();
           if (AppState.currentTab === 'stockin' && typeof loadStockInHistory === 'function' && (nowTs - (window._lastStockInAutoSync || 0) > 24000)) {
