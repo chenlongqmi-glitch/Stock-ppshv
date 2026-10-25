@@ -1813,9 +1813,34 @@
       const r = roleRaw.replace(/[\s_]+/g, '');
       const name = String(u.username || '').trim().toLowerCase().replace(/[\u200b\ufeff\s]/g, '');
       const email = String(u.email || '').trim().toLowerCase().replace(/[\u200b\ufeff\s]/g, '');
+      const wh = String(u.warehouse || '').trim().toUpperCase();
 
-      // Reject ALL station-level roles and regular users (Station Manager, Team Leader, Stock Keeper, Staff, User, etc.) FIRST!
-      // No matter what warehouse is assigned (including ALL or 中心库房 & 机电), regular roles CANNOT be Admin!
+      // 1. Explicit known Admin accounts, credentials, & users assigned global warehouse 'ALL' are ALWAYS Admin!
+      if (
+        name === 'admin' ||
+        name === 'singvan' ||
+        name === 'singvan327@gmail.com' ||
+        email === 'singvan327@gmail.com' ||
+        name === 'ppshv21qw024@gmail.com' ||
+        email === 'ppshv21qw024@gmail.com' ||
+        name === 'ppshv2024@gmail.com' ||
+        email === 'ppshv2024@gmail.com' ||
+        wh === 'ALL'
+      ) {
+        return true;
+      }
+
+      // 2. Explicit admin roles
+      if (
+        r === 'admin' ||
+        r === 'administrator' ||
+        r === 'អ្នកគ្រប់គ្រងប្រព័ន្ធ' ||
+        (r.includes('admin') && !r.includes('superadmin'))
+      ) {
+        return true;
+      }
+
+      // 3. Reject ALL station-level roles and regular users (Station Manager of a specific station, Team Leader, Stock Keeper, Staff, User, etc.)
       if (
         roleRaw.includes('ស្ថានីយ') ||
         roleRaw.includes('កាន់ស្តុក') ||
@@ -1831,27 +1856,7 @@
         return false;
       }
 
-      // Check explicit known admin accounts
-      if (
-        name === 'admin' ||
-        name === 'singvan' ||
-        name === 'singvan327@gmail.com' ||
-        email === 'singvan327@gmail.com' ||
-        name === 'ppshv21qw024@gmail.com' ||
-        email === 'ppshv21qw024@gmail.com' ||
-        name === 'ppshv2024@gmail.com' ||
-        email === 'ppshv2024@gmail.com'
-      ) {
-        return true;
-      }
-
-      // Check explicit admin roles
-      return (
-        r === 'admin' ||
-        r === 'administrator' ||
-        r === 'អ្នកគ្រប់គ្រងប្រព័ន្ធ' ||
-        (r.includes('admin') && !r.includes('superadmin'))
-      );
+      return false;
     }
     window.isUserAdmin = isUserAdmin;
 
