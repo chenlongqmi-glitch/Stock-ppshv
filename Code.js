@@ -6829,14 +6829,34 @@ function recordStockOut(dataOrPayload, user) {
 
 
   const sku = String(data.sku).trim();
-
   const qty = Number(data.quantity);
-
   const sellingPrice = Number(data.unitPrice || 0);
 
-
-
   if (qty <= 0) return { success: false, message: 'ចំនួនទំនិញចេញត្រូវតែធំជាង 0' };
+
+  // Backend Idempotency Check: Prevent duplicate stock out for the same docNo + sku
+  const docNo = String(data.docNo || '').trim();
+  if (docNo) {
+    try {
+      const stockSheets = ensureStockSheetsInitialized(ss);
+      if (stockSheets && stockSheets.stockOutSheet) {
+        const sOut = stockSheets.stockOutSheet;
+        const lastR = sOut.getLastRow();
+        if (lastR > 1) {
+          const checkCount = Math.min(25, lastR - 1);
+          const checkRange = sOut.getRange(lastR - checkCount + 1, 1, checkCount, 3).getValues();
+          for (let i = checkRange.length - 1; i >= 0; i--) {
+            const rowDoc = String(checkRange[i][0] || '').trim();
+            const rowSku = String(checkRange[i][2] || '').trim();
+            if (rowDoc === docNo && (!sku || rowSku === sku)) {
+              Logger.log('Duplicate stock out rejected for docNo: ' + docNo);
+              return { success: true, message: 'ប្រតិបត្តិការនេះបានកត់ត្រារួចរាល់ហើយ', docNo: docNo };
+            }
+          }
+        }
+      }
+    } catch(eDupe) {}
+  }
 
 
 
@@ -8204,6 +8224,7 @@ function getStockOutTransactionsFromSheet(ss, filters, user) {
       return m ? Number(m[0]) : null;
     };
 
+    const seenTxKeys = new Set();
     for (let r = data.length - 1; r >= 1; r--) {
       const row = data[r];
       if (!row) continue;
@@ -8211,6 +8232,10 @@ function getStockOutTransactionsFromSheet(ss, filters, user) {
       const sku = String(row[skuIdx] || '').trim();
       if (!sku && !docNo) continue;
       if (docNo.toUpperCase().startsWith('TEST-')) continue;
+
+      const dedupeKey = docNo ? (docNo + '_' + sku) : ('ROW_' + r);
+      if (docNo && seenTxKeys.has(dedupeKey)) continue;
+      seenTxKeys.add(dedupeKey);
 
       let dStr = '';
       if (row[dateIdx] instanceof Date) {
