@@ -7067,7 +7067,7 @@
       const fullName = String(u.fullName || '').trim();
 
       // Explicitly allow actual users from Google Sheets & SuperAdmin
-      const realUsernames = ['superadmin'];
+      const realUsernames = ['superadmin', 'singvan', 'hongkhimly', 'hongkimly', 'touchivy', 'leng sreymeas', 'sreypovepech', 'cheng dina'];
       if (realUsernames.includes(uname)) return false;
 
       // Filter out dummy/mock accounts created in local
@@ -7832,6 +7832,23 @@
     function isUserDeleted(u) {
       if (!u) return false;
       if (u.status === 'Deleted' || u.status === 'deleted') return true;
+      // If the user's status is explicitly Active, Pending, or valid non-deleted, they are NOT deleted!
+      if (u.status && String(u.status).toLowerCase() !== 'deleted') {
+        const set = getDeletedUserKeys();
+        if (set && set.size > 0) {
+          const id = String(u.userId || u.id || '').trim().toUpperCase();
+          const un = String(u.username || '').replace(/^@+/, '').trim().toLowerCase();
+          const em = String(u.email || '').trim().toLowerCase();
+          let changed = false;
+          if (id && set.delete(id)) changed = true;
+          if (un && set.delete(un)) changed = true;
+          if (em && set.delete(em)) changed = true;
+          if (changed) {
+            try { localStorage.setItem('inventory_deleted_users_db', JSON.stringify(Array.from(set))); } catch (e) {}
+          }
+        }
+        return false;
+      }
       const set = getDeletedUserKeys();
       if (!set || set.size === 0) return false;
       const id = String(u.userId || u.id || '').trim().toUpperCase();
@@ -28652,7 +28669,7 @@
           const r = String(u.role || '').trim().toLowerCase();
           if (roleFilter === 'SuperAdmin' && r !== 'superadmin') return false;
           if (roleFilter === 'Admin' && r !== 'admin') return false;
-          if (roleFilter === 'អ្នកគ្រប់គ្រងស្ថានីយ' && !r.includes('អ្នកគ្រប់គ្រង')) return false;
+          if (roleFilter === 'អ្នកគ្រប់គ្រងស្ថានីយ' && !r.includes('អ្នកគ្រប់គ្រង') && !r.includes('station manager')) return false;
           if (roleFilter === 'ប្រធានក្រុម' && !r.includes('ប្រធាន') && !r.includes('team leader')) return false;
           if (roleFilter === 'អ្នកកាន់ស្តុក' && !r.includes('អ្នកកាន់ស្តុក') && !r.includes('stock keeper') && !r.includes('staff')) return false;
         }
@@ -28708,7 +28725,7 @@
           const isSelf = (actor?.userId && u.userId && actor.userId === u.userId) || (actor?.username && u.username && String(actor.username).toLowerCase() === String(u.username).toLowerCase());
           const isPending = (u.status === 'Pending' || u.status === 'Pending_Admin' || u.status === 'Pending_SuperAdmin');
           if (!isPending) {
-            const isOtherAdmin = (r === 'admin' || uName === 'admin' || uName === 'singvan327@gmail.com');
+            const isOtherAdmin = (r === 'admin' || uName === 'admin' || uName === 'singvan' || uName === 'singvan327@gmail.com');
             if (isOtherAdmin && !isSelf) return false;
           }
           return true;
@@ -33691,7 +33708,7 @@
       // 1.2 Users Tab Warehouse Filter Dropdown (#userWarehouseFilter)
       const userWhFilter = document.getElementById('userWarehouseFilter');
       if (userWhFilter) {
-        let curVal = userWhFilter.value || AppState.selectedAdminWarehouseFilter || 'ALL';
+        let curVal = userWhFilter.value || 'ALL';
         if (curVal !== 'ALL' && typeof toCanonicalWarehouseName === 'function') {
           curVal = toCanonicalWarehouseName(curVal);
         }
