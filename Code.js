@@ -8743,6 +8743,36 @@ function deleteStockTransaction(payloadOrData, user) {
             newStock = curStock + qty;
           }
           itemsSheet.getRange(i + 1, 10).setValue(newStock);
+          const headers = (itemsData[0] || []).map(h => String(h || '').trim().toLowerCase());
+          const idxZone = headers.indexOf('zone') >= 0 ? headers.indexOf('zone') : 7;
+          if (idxZone >= 0 && data.zone && txType === 'STOCK_IN') {
+            const zName = String(data.zone).trim();
+            const curZoneStr = String(itemsData[i][idxZone] || '').trim();
+            if (curZoneStr.includes(':')) {
+              const parts = curZoneStr.split(/[,;\n]+/).map(p => p.trim()).filter(Boolean);
+              const updatedParts = [];
+              parts.forEach(p => {
+                const colonIdx = p.indexOf(':');
+                if (colonIdx > 0) {
+                  const pZone = p.slice(0, colonIdx).trim();
+                  const pRest = p.slice(colonIdx + 1).trim();
+                  const numMatch = pRest.match(/[-+]?\d+(?:\.\d+)?/);
+                  if (pZone.toLowerCase() === zName.toLowerCase() && numMatch) {
+                    const oldZQty = Number(numMatch[0]);
+                    const newZQty = Math.max(0, oldZQty - qty);
+                    if (newZQty > 0) {
+                      updatedParts.push(`${pZone}: ${newZQty} ${itemsData[i][6] || 'ដើម'}`);
+                    }
+                  } else {
+                    updatedParts.push(p);
+                  }
+                } else if (p.toLowerCase() !== zName.toLowerCase()) {
+                  updatedParts.push(p);
+                }
+              });
+              itemsSheet.getRange(i + 1, idxZone + 1).setValue(updatedParts.join(', '));
+            }
+          }
           itemsSheet.getRange(i + 1, 17).setValue(new Date());
           break;
         }
