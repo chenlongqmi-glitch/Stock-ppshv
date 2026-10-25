@@ -10830,22 +10830,35 @@
               'getBootstrapData', 'getInitialAppData', 'getItemsList', 'getItems',
               'getCategoriesList', 'getCategories', 'getWarehousesList', 'getWarehouses',
               'getWarehousesDetailed', 'getDashboardStats', 'getDashboardData', 'getUsersList',
-              'getUsers', 'getProductRequests', 'getRequisitions', 'getTransactionsList',
-              'getTransactions', 'getTransactionHistory', 'checkUserStatus', 'checkSession', 'ping', 'flushCodeCache'
+              'getUsers', 'getProductRequests', 'getRequisitions',
+              'checkUserStatus', 'checkSession', 'ping', 'flushCodeCache'
             ]);
 
             const payloadStr = JSON.stringify(payload || {});
-            const shouldUseGet = READ_ACTIONS.has(action) && (payloadStr.length < 1000);
+            const shouldUseGet = READ_ACTIONS.has(action) && (payloadStr.length < 800) && !action.toLowerCase().includes('transaction');
 
             let resp;
+            let textRes = '';
+            let jsonRes = null;
+
             if (shouldUseGet) {
-              const getUrl = `${gasUrl}?action=${encodeURIComponent(action)}&payload=${encodeURIComponent(payloadStr)}&_t=${Date.now()}`;
-              resp = await fetch(getUrl, {
-                method: 'GET',
-                mode: 'cors',
-                signal: controller.signal
-              });
-            } else {
+              try {
+                const getUrl = `${gasUrl}?action=${encodeURIComponent(action)}&payload=${encodeURIComponent(payloadStr)}&_t=${Date.now()}`;
+                resp = await fetch(getUrl, {
+                  method: 'GET',
+                  mode: 'cors',
+                  signal: controller.signal
+                });
+                textRes = await resp.text();
+                if (textRes && (textRes.startsWith('{') || textRes.startsWith('['))) {
+                  try { jsonRes = JSON.parse(textRes); } catch (e) {}
+                }
+              } catch (getErr) {
+                console.warn('[apiCall] GET request failed, falling back to POST:', action, getErr?.message);
+              }
+            }
+
+            if (!jsonRes) {
               const postUrl = `${gasUrl}?action=${encodeURIComponent(action)}`;
               resp = await fetch(postUrl, {
                 method: 'POST',
@@ -10854,24 +10867,14 @@
                 body: JSON.stringify({ action: action, payload: payload }),
                 signal: controller.signal
               });
+              textRes = await resp.text();
+              if (textRes && (textRes.startsWith('{') || textRes.startsWith('['))) {
+                try { jsonRes = JSON.parse(textRes); } catch (parseE) {
+                  console.warn('[apiCall] JSON parse failed for POST text:', textRes.slice(0, 100));
+                }
+              }
             }
             clearTimeout(timeoutId);
-
-            const textRes = await resp.text();
-            let jsonRes = null;
-            if (textRes && (textRes.startsWith('{') || textRes.startsWith('['))) {
-              try {
-                jsonRes = JSON.parse(textRes);
-              } catch (parseE) {
-                console.warn('[apiCall] JSON parse failed for text:', textRes.slice(0, 100));
-              }
-            } else if (!shouldUseGet && textRes && textRes.includes('<!DOCTYPE')) {
-              try {
-                const retryUrl = `${gasUrl}?action=${encodeURIComponent(action)}&payload=${encodeURIComponent(payloadStr)}&_t=${Date.now()}`;
-                const retryResp = await fetch(retryUrl, { method: 'GET', mode: 'cors' });
-                jsonRes = await retryResp.json();
-              } catch (retryE) {}
-            }
 
             if (jsonRes && jsonRes.success) {
               API_CACHE.set(cacheKey, { data: jsonRes, timestamp: Date.now() });
@@ -24468,11 +24471,13 @@
         }
       }
       let q = '';
-      if (sInp && sInp.dataset.userTyped === 'true' && document.activeElement === sInp) {
-        q = (sInp.value || '').trim().toLowerCase();
-        if (q === 'superadmin' || q === 'super admin' || q === 'admin' || q === 'hongkimly' || q === 'staff' || q.includes('@')) {
+      if (sInp && sInp.value) {
+        const rawQ = (sInp.value || '').trim().toLowerCase();
+        if (rawQ === 'superadmin' || rawQ === 'super admin' || rawQ === 'admin' || rawQ === 'hongkimly' || rawQ === 'staff' || rawQ.includes('@')) {
           sInp.value = '';
           q = '';
+        } else {
+          q = rawQ;
         }
       }
       if (!q) {
@@ -24601,12 +24606,14 @@
         }
       }
       let q = '';
-      if (sInp && sInp.dataset.userTyped === 'true' && sInp.value) {
-        q = sInp.value.trim().toLowerCase();
-        if (q === 'superadmin' || q === 'super admin' || q === 'admin' || q === 'hongkimly' || q === 'staff' || q.includes('@')) {
+      if (sInp && sInp.value) {
+        const rawQ = sInp.value.trim().toLowerCase();
+        if (rawQ === 'superadmin' || rawQ === 'super admin' || rawQ === 'admin' || rawQ === 'hongkimly' || rawQ === 'staff' || rawQ.includes('@')) {
           sInp.value = '';
           delete sInp.dataset.userTyped;
           q = '';
+        } else {
+          q = rawQ;
         }
       }
       let txs = rawTxs || AppState.stockInHistory || [];
@@ -28558,7 +28565,10 @@
             const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (actorRoleLower.includes('អ្នកគ្រប់គ្រងស្ថានីយ') || actorRoleLower.includes('អ្នកគ្រប់គ្រង') || actorRoleLower.includes('station manager'));
 
             if (isActorAdmin || isActorSuperAdmin) {
-              LOCAL_DB.users = cleanReturned;
+              const saUser = (LOCAL_DB.users || []).find(u => u && (u.userId === 'USR-SA' || String(u.username).toLowerCase() === 'superadmin')) || {
+                userId: 'USR-SA', username: 'superadmin', fullName: '陈龙', email: 'chenlongqmi@gmail.com', phone: '066 966 606', role: 'SuperAdmin', status: 'Active', warehouse: 'ALL', avatar: 'assets/superadmin_avatar.jpg', isRegistered: true
+              };
+              LOCAL_DB.users = deduplicateUsersList([saUser, ...cleanReturned]);
             } else if (isActorStationManager) {
               const myWh = actor?.warehouse;
               const cleanReturnedUsernames = new Set(cleanReturned.map(u => String(u.username || '').replace(/^@+/, '').trim().toLowerCase()));
@@ -28580,20 +28590,21 @@
 
           const tbody = document.getElementById('usersTableBody');
           const actorLul = AppState.currentUser || {};
+          const actorLulNameLower = String(actorLul.username || '').trim().toLowerCase();
           const actorLulRoleLower = String(actorLul.role || '').trim().toLowerCase();
-          const isActorSuperAdmin = (typeof isUserSuperAdmin === 'function') ? isUserSuperAdmin(actorLul) : (actorLulRoleLower === 'superadmin' || actorLulNameLower === 'superadmin' || actorLul.userId === 'USR-SA');
-          const isActorAdmin = !isActorSuperAdmin && ((typeof isUserAdmin === 'function') ? isUserAdmin(actorLul) : (actorLulRoleLower === 'admin' || actorLulNameLower === 'admin'));
-          const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (
+          const isActorSuperAdminVal = (typeof isUserSuperAdmin === 'function') ? isUserSuperAdmin(actorLul) : (actorLulRoleLower === 'superadmin' || actorLulNameLower === 'superadmin' || actorLul.userId === 'USR-SA');
+          const isActorAdminVal = !isActorSuperAdminVal && ((typeof isUserAdmin === 'function') ? isUserAdmin(actorLul) : (actorLulRoleLower === 'admin' || actorLulNameLower === 'admin'));
+          const isActorStationManagerVal = !isActorSuperAdminVal && !isActorAdminVal && (
             String(actorLul.role || '').includes('អ្នកគ្រប់គ្រងស្ថានីយ') ||
             String(actorLul.role || '').includes('ស្ថានីយ') ||
             actorLulRoleLower.includes('station manager') ||
             actorLulRoleLower.includes('stationmanager')
           );
-          const isPrivilegedViewer = isActorSuperAdmin || isActorAdmin;
+          const isPrivilegedViewer = isActorSuperAdminVal || isActorAdminVal;
 
           // Update Pending Users Badge on Sidebar (counts all pending in Step 1, Step 2, or Deletion)
           const allUsers = (res.users || LOCAL_DB.users || []).filter(u => !isUnregisteredDummyUser(u));
-          const pendingCount = isActorStationManager ?
+          const pendingCount = isActorStationManagerVal ?
             allUsers.filter(u => (u.warehouse === AppState.currentUser?.warehouse) && (u.status === 'Pending' || u.status === 'Pending_Admin' || u.status === 'Pending_SuperAdmin' || u.status === 'Pending_Deletion')).length :
             allUsers.filter(u => u.status === 'Pending' || u.status === 'Pending_Admin' || u.status === 'Pending_SuperAdmin' || u.status === 'Pending_Deletion').length;
           const pendingBadge = document.getElementById('pendingUsersBadge');
@@ -28606,14 +28617,14 @@
             if (pendingBadge) pendingBadge.classList.add('hidden');
           }
 
-          if ((isActorSuperAdmin || isActorAdmin) && typeof checkPendingDeletionsForSuperAdmin === 'function') {
+          if ((isActorSuperAdminVal || isActorAdminVal) && typeof checkPendingDeletionsForSuperAdmin === 'function') {
             checkPendingDeletionsForSuperAdmin(true);
           }
 
           // Control "+ បន្ថែមបុគ្គលិកថ្មី" button visibility (មានសម្រាប់ Admin, SuperAdmin និង អ្នកគ្រប់គ្រងស្ថានីយ)
           const addUserBtn = document.getElementById('addUserTopBtn');
           if (addUserBtn) {
-            addUserBtn.classList.toggle('hidden', !isActorSuperAdmin && !isActorAdmin && !isActorStationManager);
+            addUserBtn.classList.toggle('hidden', !isActorSuperAdminVal && !isActorAdminVal && !isActorStationManagerVal);
           }
 
           // Control Search & Role Filter Bar visibility (សម្រាប់តែ SuperAdmin និង Admin ប៉ុណ្ណោះ)
@@ -28632,7 +28643,7 @@
           const tabUsersHeader = document.querySelector('#tabUsers h3');
           const tabUsersSub = document.querySelector('#tabUsers p.text-slate-500');
           const curAssignedWh = (AppState.currentUser?.warehouse || '').trim();
-          if (isActorStationManager) {
+          if (isActorStationManagerVal) {
             if (tabUsersHeader) tabUsersHeader.innerHTML = `<i class="fa-solid fa-users-gear mr-2 text-indigo-600"></i>គ្រប់គ្រងអ្នកប្រើប្រាស់ និងសិទ្ធិ (Users & Roles) - ${escapeHtml(curAssignedWh)}`;
             if (tabUsersSub) tabUsersSub.innerText = `មើលឃើញ និងកែប្រែបានតែ ប្រធានក្រុម និងអ្នកកាន់ស្តុក ប្រចាំ ${curAssignedWh} ប៉ុណ្ណោះ`;
           } else {
@@ -28642,13 +28653,13 @@
 
           const roleFilterElem = document.getElementById('userRoleFilter');
           if (roleFilterElem) {
-            if (isActorStationManager) {
+            if (isActorStationManagerVal) {
               roleFilterElem.innerHTML = `
                 <option value="ALL">គ្រប់តួនាទីទាំងអស់ (ក្នុងស្ថានីយ)</option>
                 <option value="ប្រធានក្រុម">👤 ប្រធានក្រុម</option>
                 <option value="អ្នកកាន់ស្តុក">📦 អ្នកកាន់ស្តុក</option>
               `;
-            } else if (isActorAdmin) {
+            } else if (isActorAdminVal) {
               roleFilterElem.innerHTML = `
                 <option value="ALL">គ្រប់តួនាទីទាំងអស់</option>
                 <option value="Admin">🛡️ Admin</option>
