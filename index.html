@@ -1808,17 +1808,14 @@
     function isUserAdmin(user) {
       const u = user || AppState?.currentUser || (function(){ try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch(e){ return null; } })() || {};
       if (isUserSuperAdmin(u)) return false;
-      const r = String(u.role || '').trim().toLowerCase().replace(/[\s_]+/g, '');
+
+      const roleRaw = String(u.role || '').trim().toLowerCase();
+      const r = roleRaw.replace(/[\s_]+/g, '');
       const name = String(u.username || '').trim().toLowerCase().replace(/[\u200b\ufeff\s]/g, '');
       const email = String(u.email || '').trim().toLowerCase().replace(/[\u200b\ufeff\s]/g, '');
-      const roleRaw = String(u.role || '').trim().toLowerCase();
-      const wh = String(u.warehouse || '').trim().toUpperCase();
 
-      if (wh === 'ALL' || wh === 'គ្រប់ស្ថានីយទាំងអស់' || name === 'admin' || name === 'singvan' || email === 'singvan327@gmail.com' || name === 'singvan327@gmail.com' || name === 'ppshv2024@gmail.com' || email === 'ppshv2024@gmail.com') {
-        return true;
-      }
-
-      // Reject ALL station-level roles and regular users (Station Manager, Team Leader, Stock Keeper, Staff, User, etc.)
+      // Reject ALL station-level roles and regular users (Station Manager, Team Leader, Stock Keeper, Staff, User, etc.) FIRST!
+      // No matter what warehouse is assigned (including ALL or 中心库房 & 机电), regular roles CANNOT be Admin!
       if (
         roleRaw.includes('ស្ថានីយ') ||
         roleRaw.includes('កាន់ស្តុក') ||
@@ -1834,40 +1831,34 @@
         return false;
       }
 
+      // Check explicit known admin accounts
+      if (
+        name === 'admin' ||
+        name === 'singvan' ||
+        name === 'singvan327@gmail.com' ||
+        email === 'singvan327@gmail.com' ||
+        name === 'ppshv21qw024@gmail.com' ||
+        email === 'ppshv21qw024@gmail.com' ||
+        name === 'ppshv2024@gmail.com' ||
+        email === 'ppshv2024@gmail.com'
+      ) {
+        return true;
+      }
+
+      // Check explicit admin roles
       return (
         r === 'admin' ||
         r === 'administrator' ||
         r === 'អ្នកគ្រប់គ្រងប្រព័ន្ធ' ||
-        (r.includes('admin') && !r.includes('superadmin')) ||
-        name === 'admin' ||
-        name === 'singvan327@gmail.com' ||
-        name === 'ppshv21qw024@gmail.com' ||
-        name === 'ppshv2024@gmail.com' ||
-        email === 'singvan327@gmail.com' ||
-        email === 'ppshv21qw024@gmail.com' ||
-        email === 'ppshv2024@gmail.com'
+        (r.includes('admin') && !r.includes('superadmin'))
       );
     }
     window.isUserAdmin = isUserAdmin;
 
     function isUserPrivilegedAdmin(user) {
       const u = user || AppState?.currentUser || (function(){ try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch(e){ return null; } })() || {};
-      if (isUserSuperAdmin(u) || isUserAdmin(u)) return true;
-      const r = String(u.role || '').trim().toLowerCase();
-      const name = String(u.username || '').trim().toLowerCase();
-      const email = String(u.email || '').trim().toLowerCase();
-      const wh = String(u.warehouse || '').trim().toUpperCase();
-
-      if (r === 'admin' || r === 'superadmin' || r.includes('admin') || r === 'អ្នកគ្រប់គ្រង' || r === 'អ្នកគ្រប់គ្រងប្រព័ន្ធ' || r === 'អភិបាល' || r === 'អភិបាលកំពូល') {
-        if (!r.includes('ស្ថានីយ') && !r.includes('កាន់ស្តុក') && !r.includes('ប្រធានក្រុម') && !r.includes('បុគ្គលិក')) return true;
-      }
-      if (wh === 'ALL' || wh === 'គ្រប់ស្ថានីយទាំងអស់' || wh === 'គ្រប់ឃ្លាំង' || wh.includes('中心库房 & 机电')) {
-        return true;
-      }
-      if (name === 'admin' || name === 'superadmin' || name === 'singvan327@gmail.com' || email === 'singvan327@gmail.com' || name === 'ppshv21qw024@gmail.com' || email === 'ppshv21qw024@gmail.com' || name === 'chenlongqmi@gmail.com' || email === 'chenlongqmi@gmail.com') {
-        return true;
-      }
-      return false;
+      // ONLY true SuperAdmin or Admin are Privileged Admins! Regular users are NEVER privileged!
+      return isUserSuperAdmin(u) || isUserAdmin(u);
     }
     window.isUserPrivilegedAdmin = isUserPrivilegedAdmin;
     window.isPrivilegedAdmin = isUserPrivilegedAdmin;
@@ -14485,9 +14476,23 @@
 
     function handleGlobalWarehouseChange(whValue) {
       if (!whValue) return;
-      const u = AppState.currentUser || {};
-      if (typeof isUserPrivilegedAdmin === 'function' && !isUserPrivilegedAdmin(u)) {
+      const u = AppState.currentUser || (function(){ try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch(e){ return null; } })() || {};
+      const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(u) : false;
+      if (!isPrivileged) {
         console.warn('Unauthorized warehouse change blocked for non-admin:', u.username);
+        const globalSelect = document.getElementById('globalWarehouseSelector');
+        if (globalSelect) {
+          const canon = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(u.warehouse) : u.warehouse) || '';
+          globalSelect.value = canon;
+          globalSelect.disabled = true;
+          globalSelect.classList.add('pointer-events-none', 'cursor-not-allowed');
+        }
+        const adminWh = document.getElementById('adminWarehouseFilterContainer');
+        if (adminWh) {
+          adminWh.classList.add('hidden');
+          adminWh.classList.remove('flex');
+          adminWh.style.display = 'none';
+        }
         return;
       }
       AppState.selectedAdminWarehouseFilter = whValue;
@@ -33558,6 +33563,11 @@
     }
 
     function quickFilterStationStock(whName) {
+      const u = AppState.currentUser || (function(){ try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch(e){ return null; } })() || {};
+      if (typeof isUserPrivilegedAdmin === 'function' && !isUserPrivilegedAdmin(u)) {
+        console.warn('Unauthorized quickFilterStationStock blocked for non-admin');
+        return;
+      }
       const canon = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(whName) : whName;
       const sel = document.getElementById('globalWarehouseSelector');
       if (sel) {

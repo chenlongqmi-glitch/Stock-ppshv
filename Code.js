@@ -3181,15 +3181,28 @@ function getUsersList(userOrPayload) {
   const actorNameLower = actor ? String(actor.username || '').toLowerCase() : '';
   const actorEmailLower = actor ? String(actor.email || '').toLowerCase() : '';
   const actorRoleLower = actor ? String(actor.role || '').toLowerCase() : '';
-  const actorWh = actor ? String(actor.warehouse || '').toUpperCase() : '';
-  const isAdmin = !isSuperAdmin && actor && (
+  const isRegularUser = actorRoleLower.includes('ស្ថានីយ') ||
+    actorRoleLower.includes('កាន់ស្តុក') ||
+    actorRoleLower.includes('ប្រធានក្រុម') ||
+    actorRoleLower.includes('ប្រធាន') ||
+    actorRoleLower.includes('team') ||
+    actorRoleLower.includes('keeper') ||
+    actorRoleLower.includes('staff') ||
+    actorRoleLower.includes('បុគ្គលិក') ||
+    actorRoleLower.includes('user') ||
+    actorRoleLower.includes('viewer');
+
+  const isAdmin = !isSuperAdmin && !isRegularUser && actor && (
     actorRoleLower === 'admin' ||
-    actorRoleLower.includes('admin') ||
+    actorRoleLower === 'administrator' ||
+    actorRoleLower === 'អ្នកគ្រប់គ្រងប្រព័ន្ធ' ||
+    (actorRoleLower.includes('admin') && !actorRoleLower.includes('superadmin')) ||
     actorNameLower === 'admin' ||
     actorNameLower === 'singvan' ||
     actorNameLower === 'singvan327@gmail.com' ||
     actorEmailLower === 'singvan327@gmail.com' ||
-    actorWh === 'ALL'
+    actorNameLower === 'ppshv2024@gmail.com' ||
+    actorEmailLower === 'ppshv2024@gmail.com'
   );
   const isStationManager = !isSuperAdmin && !isAdmin && actor && (actor.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || actor.role === 'អ្នកគ្រប់គ្រង' || String(actor.role).toLowerCase() === 'station manager');
   const isPrivileged = !!(isSuperAdmin || isAdmin);
@@ -4825,8 +4838,29 @@ function getBootstrapData(payload) {
   var uRole = String(user && user.role || '').toLowerCase();
   var uName = String(user && user.username || '').toLowerCase();
   var uEmail = String(user && user.email || '').toLowerCase();
-  var isSuperAdmin = uRole === 'superadmin' || uName === 'superadmin';
-  var isAdmin = !isSuperAdmin && (uRole.includes('admin') || uName === 'admin' || uName === 'singvan' || uName === 'singvan327@gmail.com' || uEmail === 'singvan327@gmail.com' || (user && user.warehouse === 'ALL'));
+  var isRegularUser = uRole.includes('ស្ថានីយ') ||
+    uRole.includes('កាន់ស្តុក') ||
+    uRole.includes('ប្រធានក្រុម') ||
+    uRole.includes('ប្រធាន') ||
+    uRole.includes('team') ||
+    uRole.includes('keeper') ||
+    uRole.includes('staff') ||
+    uRole.includes('បុគ្គលិក') ||
+    uRole.includes('user') ||
+    uRole.includes('viewer');
+
+  var isAdmin = !isSuperAdmin && !isRegularUser && (
+    uRole === 'admin' ||
+    uRole === 'administrator' ||
+    uRole === 'អ្នកគ្រប់គ្រងប្រព័ន្ធ' ||
+    (uRole.includes('admin') && !uRole.includes('superadmin')) ||
+    uName === 'admin' ||
+    uName === 'singvan' ||
+    uName === 'singvan327@gmail.com' ||
+    uEmail === 'singvan327@gmail.com' ||
+    uName === 'ppshv2024@gmail.com' ||
+    uEmail === 'ppshv2024@gmail.com'
+  );
   var isStationManager = !isSuperAdmin && !isAdmin && (
     uRole.includes('អ្នកគ្រប់គ្រងស្ថានីយ') ||
     uRole.includes('អ្នកគ្រប់គ្រង') ||
@@ -7753,7 +7787,8 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
     const uName = String(user && user.username || '').toLowerCase();
     const uEmail = String(user && user.email || '').toLowerCase();
     const isSA = uRole === 'superadmin' || uName === 'superadmin' || (user && user.isSuperAdmin === true);
-    const isAdm = isSA || uRole.includes('admin') || uName === 'admin' || uName === 'singvan' || uName === 'singvan327@gmail.com' || uEmail === 'singvan327@gmail.com' || (user && user.warehouse === 'ALL');
+    const isRegular = uRole.includes('ស្ថានីយ') || uRole.includes('កាន់ស្តុក') || uRole.includes('ប្រធានក្រុម') || uRole.includes('ប្រធាន') || uRole.includes('បុគ្គលិក') || uRole.includes('user') || uRole.includes('keeper') || uRole.includes('staff') || uRole.includes('viewer');
+    const isAdm = !isRegular && (isSA || uRole === 'admin' || uRole === 'administrator' || uRole === 'អ្នកគ្រប់គ្រងប្រព័ន្ធ' || (uRole.includes('admin') && !uRole.includes('superadmin')) || uName === 'admin' || uName === 'singvan' || uName === 'singvan327@gmail.com' || uEmail === 'singvan327@gmail.com' || uName === 'ppshv2024@gmail.com' || uEmail === 'ppshv2024@gmail.com');
     // Strictly restrict station users to their own station warehouse!
     if (!isAdm && user && user.warehouse && user.warehouse !== 'ALL' && user.warehouse !== 'គ្រប់ឃ្លាំង' && user.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
       targetWarehouse = toCanonicalWarehouseNameGAS(user.warehouse);
@@ -8149,7 +8184,8 @@ function getStockOutTransactionsFromSheet(ss, filters, user) {
     const uNameOut = String(user && user.username || '').toLowerCase();
     const uEmailOut = String(user && user.email || '').toLowerCase();
     const isSAOut = uRoleOut === 'superadmin' || uNameOut === 'superadmin' || (user && user.isSuperAdmin === true);
-    const isAdmOut = isSAOut || uRoleOut.includes('admin') || uNameOut === 'admin' || uNameOut === 'singvan' || uNameOut === 'singvan327@gmail.com' || uEmailOut === 'singvan327@gmail.com' || (user && user.warehouse === 'ALL');
+    const isRegularOut = uRoleOut.includes('ស្ថានីយ') || uRoleOut.includes('កាន់ស្តុក') || uRoleOut.includes('ប្រធានក្រុម') || uRoleOut.includes('ប្រធាន') || uRoleOut.includes('បុគ្គលិក') || uRoleOut.includes('user') || uRoleOut.includes('keeper') || uRoleOut.includes('staff') || uRoleOut.includes('viewer');
+    const isAdmOut = !isRegularOut && (isSAOut || uRoleOut === 'admin' || uRoleOut === 'administrator' || uRoleOut === 'អ្នកគ្រប់គ្រងប្រព័ន្ធ' || (uRoleOut.includes('admin') && !uRoleOut.includes('superadmin')) || uNameOut === 'admin' || uNameOut === 'singvan' || uNameOut === 'singvan327@gmail.com' || uEmailOut === 'singvan327@gmail.com' || uNameOut === 'ppshv2024@gmail.com' || uEmailOut === 'ppshv2024@gmail.com');
     if (filters && (filters.warehouse === 'ALL' || filters.warehouse === 'គ្រប់ស្ថានីយទាំងអស់' || filters.warehouse === 'គ្រប់ឃ្លាំង')) {
       targetWarehouse = null;
     } else if (!isAdmOut && user && user.warehouse && user.warehouse !== 'ALL' && user.warehouse !== 'គ្រប់ឃ្លាំង' && user.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
