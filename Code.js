@@ -37,7 +37,8 @@ const SHEETS = {
   STOCK_IN: 'Stock_in',
 
   STOCK_OUT: 'Stock_out',
-  DISPATCHES: 'Dispatches'
+  DISPATCHES: 'Dispatches',
+  DAMAGED: 'DamagedStock'
 
 };
 
@@ -670,7 +671,9 @@ function executeLocalApiAction(req) {
       'saveSystemSettings': true, 'saveSettings': true, 'addWarehouse': true, 'deleteWarehouse': true, 'updateWarehouse': true,
       'resetUserDevice': true, 'disconnectDevice': true, 'resetDevice': true, 'sendChatMessage': true,
       'updateStockTransaction': true, 'updateTransaction': true, 'deleteStockTransaction': true, 'deleteTransaction': true,
-      'deleteDispatch': true, 'deletePendingDispatch': true
+      'deleteDispatch': true, 'deletePendingDispatch': true,
+      'recordDamagedStock': true, 'updateDamagedStockStatus': true, 'deleteDamagedStock': true,
+      'restockDamagedItem': true
     };
     if (MUTATIONS[action]) {
       const actor = payload.user || payload.actor;
@@ -996,6 +999,21 @@ function executeLocalApiAction(req) {
       case 'updateProductRequestStatus':
 
         return updateProductRequestStatus(payload.reqId, payload.status, payload.adminNotes, payload.adminUser);
+
+      case 'recordDamagedStock':
+        return recordDamagedStock(payload.data || payload, payload.user);
+
+      case 'getDamagedStock':
+        return getDamagedStock(payload.user, payload.warehouseFilter);
+
+      case 'updateDamagedStockStatus':
+        return updateDamagedStockStatus(payload.data || payload, payload.user);
+
+      case 'deleteDamagedStock':
+        return deleteDamagedStock(payload.data || payload, payload.user);
+
+      case 'restockDamagedItem':
+        return restockDamagedItem(payload.data || payload, payload.user);
 
       case 'sendChatMessage':
 
@@ -1325,6 +1343,9 @@ function setupDatabase() {
 
   // 8. ធានាថា Sheet Stock_in និង Stock_out ត្រូវបានបង្កើត និងធ្វើសមកាលកម្មទិន្នន័យ
   ensureStockSheetsInitialized(ss);
+
+  // 9. ធានាថា Sheet DamagedStock ត្រូវបានបង្កើត
+  ensureDamagedStockInitialized(ss);
 
   // កំណត់ Font Khmer OS Siemreap លើគ្រប់ Sheets ទាំងអស់
   applyKhmerOSSiemreapFontToAllSheets(ss);
@@ -9351,6 +9372,444 @@ function updateProductRequestStatus(reqId, status, adminNotes, adminUser) {
 
   return { success: false, message: 'រកមិនឃើញសំណើនេះទេ' };
 
+}
+
+
+
+// ==========================================
+// DAMAGED STOCK IN WAREHOUSE MANAGEMENT (កំណត់ត្រាមុខទំនិញដែលខូចត្រូវរក្សាទុកក្នុងឃ្លាំង)
+// ==========================================
+
+function ensureDamagedStockInitialized(ss) {
+  let sheet = ss.getSheetByName(SHEETS.DAMAGED);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEETS.DAMAGED);
+    const headers = [
+      'RecordID', 'Date', 'SKU', 'ItemName', 'Category', 'Quantity',
+      'Unit', 'Warehouse', 'StorageZone', 'DamageType', 'Severity',
+      'Status', 'DeductedFromStock', 'Reason_Notes', 'RecordedBy',
+      'ActionTaken', 'UpdatedAt', 'Timestamp'
+    ];
+    sheet.appendRow(headers);
+    formatHeaderRow(sheet, headers.length, '#9f1239'); // Deep rose/crimson header
+  }
+  return sheet;
+}
+
+function recordDamagedStock(dataOrPayload, user) {
+  let data = dataOrPayload;
+  let u = user;
+  if (dataOrPayload && dataOrPayload.data) {
+    data = dataOrPayload.data;
+    u = dataOrPayload.user || user;
+  }
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ensureDamagedStockInitialized(ss);
+
+  const recordId = 'DMG-' + Utilities.formatDate(new Date(), 'GMT+7', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 900 + 100);
+  const now = new Date();
+  const dateStr = data.date || Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd');
+  const sku = String(data.sku || '').trim();
+  const itemName = String(data.itemName || '').trim();
+  const category = String(data.category || 'ទូទៅ').trim();
+  const qty = Number(data.quantity || 0);
+  const unit = String(data.unit || 'ដុំ').trim();
+  const warehouse = String(data.warehouse || (u ? u.warehouse : '') || '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)').trim();
+  const storageZone = String(data.storageZone || 'តំបន់ទំនិញខូច (Damaged Area)').trim();
+  const damageType = String(data.damageType || 'ខូចគុណភាព (Damaged)').trim();
+  const severity = String(data.severity || 'មធ្យម (Moderate)').trim();
+  const status = String(data.status || 'កំពុងរក្សាទុកក្នុងឃ្លាំង (Stored in Warehouse)').trim();
+  const deducted = (data.deductedFromStock === false || data.deductedFromStock === 'No' || data.deductedFromStock === 'false') ? 'No' : 'Yes';
+  const notes = String(data.reason || data.notes || '').trim();
+  const recordedBy = u ? (u.fullName || u.username) : 'Staff';
+  const actionTaken = String(data.actionTaken || '-').trim();
+
+  if (!itemName || qty <= 0) {
+    return { success: false, message: 'សូមបញ្ចូលឈ្មោះទំនិញ និងចំនួនខូចឱ្យបានត្រឹមត្រូវ' };
+  }
+
+  // Deduct from regular available stock if selected
+  if (deducted === 'Yes' && sku) {
+    try {
+      const itemsSheet = ss.getSheetByName(SHEETS.ITEMS);
+      if (itemsSheet) {
+        const itemsData = itemsSheet.getDataRange().getValues();
+        const headers = (itemsData[0] || []).map(h => String(h || '').trim().toLowerCase());
+        const idxStock = headers.indexOf('currentstock') >= 0 ? headers.indexOf('currentstock') : 9;
+        const idxPackStock = headers.indexOf('packstock');
+        const idxPackQty = headers.indexOf('packqty');
+
+        for (let i = 1; i < itemsData.length; i++) {
+          if (String(itemsData[i][0]).trim() === sku || String(itemsData[i][1]).trim() === sku) {
+            const curStock = Number(itemsData[i][idxStock] || 0);
+            const newStock = Math.max(0, curStock - qty);
+            itemsSheet.getRange(i + 1, idxStock + 1).setValue(newStock);
+            if (idxPackStock >= 0) {
+              const pQty = idxPackQty >= 0 ? Number(itemsData[i][idxPackQty] || 1) : 1;
+              itemsSheet.getRange(i + 1, idxPackStock + 1).setValue(pQty > 1 ? Math.floor(newStock / pQty) : newStock);
+            }
+            break;
+          }
+        }
+      }
+      // Record internal transaction so audit trail is preserved
+      recordTransactionInternal(ss, {
+        type: 'STOCK_OUT',
+        sku: sku,
+        itemName: itemName,
+        quantity: qty,
+        unit: unit,
+        fromLocation: warehouse,
+        toLocation: `តំបន់ទំនិញខូច (${storageZone})`,
+        notes: `ទំនិញខូចរក្សាទុកក្នុងឃ្លាំង [${recordId}]: ${notes || damageType}`,
+        user: recordedBy
+      });
+    } catch (eStock) {
+      Logger.log('Error deducting stock for damaged item: ' + eStock.toString());
+    }
+  }
+
+  sheet.appendRow([
+    recordId,
+    dateStr,
+    sku,
+    itemName,
+    category,
+    qty,
+    unit,
+    warehouse,
+    storageZone,
+    damageType,
+    severity,
+    status,
+    deducted,
+    notes,
+    recordedBy,
+    actionTaken,
+    now,
+    now
+  ]);
+
+  // Send Telegram Notification
+  const alertMsg = `⚠️ <b>[កត់ត្រាទំនិញខូចរក្សាទុកក្នុងឃ្លាំង]</b>\n` +
+    `🏢 <b>ឃ្លាំង៖</b> ${warehouse}\n` +
+    `📦 <b>ទំនិញ៖</b> ${itemName} (${sku || 'គ្មាន SKU'})\n` +
+    `🔢 <b>ចំនួនខូច៖</b> <b>${qty} ${unit}</b>\n` +
+    `📍 <b>ទីតាំងទុកក្នុងឃ្លាំង៖</b> ${storageZone}\n` +
+    `💥 <b>ប្រភេទខូច៖</b> ${damageType} (${severity})\n` +
+    `🏷️ <b>ស្ថានភាព៖</b> ${status}\n` +
+    `📉 <b>កាត់ចេញពីស្តុកទូទៅ៖</b> ${deducted === 'Yes' ? '✅ បានកាត់ចេញពីស្តុក' : '❌ មិនបានកាត់'}\n` +
+    `👤 <b>អ្នកកត់ត្រា៖</b> ${recordedBy}\n` +
+    `📝 <b>កំណត់សម្គាល់៖</b> ${notes || 'គ្មាន'}\n` +
+    `⏰ <b>កាលបរិច្ឆេទ៖</b> ${Utilities.formatDate(now, 'GMT+7', 'dd-MM-yyyy HH:mm')}`;
+
+  sendTelegramNotification(alertMsg);
+  logActivity(recordedBy, 'Staff', 'DAMAGED_STOCK', `Recorded ${qty} ${unit} damaged of ${itemName} at ${warehouse} (${storageZone})`);
+
+  return {
+    success: true,
+    message: `បានកត់ត្រាទំនិញខូច ${itemName} ចំនួន ${qty} ${unit} រក្សាទុកក្នុងឃ្លាំង ${warehouse} ជោគជ័យ!`,
+    recordId: recordId
+  };
+}
+
+function getDamagedStock(userOrPayload, warehouseFilter, optSs) {
+  let user = userOrPayload;
+  let whFilter = warehouseFilter;
+  if (userOrPayload && typeof userOrPayload === 'object' && (userOrPayload.user || userOrPayload.warehouseFilter)) {
+    user = userOrPayload.user;
+    whFilter = userOrPayload.warehouseFilter || warehouseFilter;
+  }
+
+  let targetWarehouse = null;
+  if (user && user.role !== 'Admin' && user.role !== 'SuperAdmin' && user.warehouse && user.warehouse !== 'ALL') {
+    targetWarehouse = user.warehouse;
+  } else if (whFilter && whFilter !== 'ALL') {
+    targetWarehouse = whFilter;
+  }
+
+  const ss = optSs || SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ensureDamagedStockInitialized(ss);
+  const data = sheet.getDataRange().getValues();
+  const records = [];
+
+  for (let i = data.length - 1; i >= 1; i--) {
+    const row = data[i];
+    if (!row[0]) continue;
+
+    const wh = String(row[7] || '');
+    if (targetWarehouse && wh && targetWarehouse !== 'ALL') {
+      if (typeof matchesTargetWarehouse === 'function') {
+        if (!matchesTargetWarehouse(wh, targetWarehouse)) continue;
+      } else if (wh !== targetWarehouse && !wh.includes(targetWarehouse) && !targetWarehouse.includes(wh)) {
+        continue;
+      }
+    }
+
+    records.push({
+      recordId: row[0],
+      date: row[1] instanceof Date ? Utilities.formatDate(row[1], 'GMT+7', 'yyyy-MM-dd') : String(row[1] || ''),
+      sku: row[2] || '',
+      itemName: row[3] || '',
+      category: row[4] || '',
+      quantity: Number(row[5] || 0),
+      unit: row[6] || 'ដុំ',
+      warehouse: row[7] || '',
+      storageZone: row[8] || '',
+      damageType: row[9] || '',
+      severity: row[10] || '',
+      status: row[11] || '',
+      deductedFromStock: row[12] || 'Yes',
+      notes: row[13] || '',
+      recordedBy: row[14] || '',
+      actionTaken: row[15] || '-',
+      updatedAt: row[16] || '',
+      timestamp: row[17] || ''
+    });
+  }
+
+  return { success: true, records: records };
+}
+
+function updateDamagedStockStatus(dataOrPayload, user) {
+  let data = dataOrPayload;
+  let u = user;
+  if (dataOrPayload && dataOrPayload.data) {
+    data = dataOrPayload.data;
+    u = dataOrPayload.user || user;
+  }
+
+  const recordId = data.recordId;
+  const newStatus = data.status;
+  const actionTaken = data.actionTaken || '';
+  const restoreStock = Boolean(data.restoreStock);
+  const adminUser = u ? (u.fullName || u.username) : 'Admin';
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ensureDamagedStockInitialized(ss);
+  const rows = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(recordId)) {
+      const oldStatus = rows[i][11];
+      const sku = rows[i][2];
+      const itemName = rows[i][3];
+      const qty = Number(rows[i][5] || 0);
+      const unit = rows[i][6] || 'ដុំ';
+      const wh = rows[i][7];
+
+      sheet.getRange(i + 1, 12).setValue(newStatus); // Status column (index 11 -> 12 in 1-based)
+      if (actionTaken) sheet.getRange(i + 1, 16).setValue(actionTaken);
+      sheet.getRange(i + 1, 17).setValue(new Date());
+
+      // If user wants to restore stock back to usable inventory
+      if (restoreStock && sku && qty > 0) {
+        try {
+          const itemsSheet = ss.getSheetByName(SHEETS.ITEMS);
+          if (itemsSheet) {
+            const itemsData = itemsSheet.getDataRange().getValues();
+            const headers = (itemsData[0] || []).map(h => String(h || '').trim().toLowerCase());
+            const idxStock = headers.indexOf('currentstock') >= 0 ? headers.indexOf('currentstock') : 9;
+            for (let j = 1; j < itemsData.length; j++) {
+              if (String(itemsData[j][0]).trim() === sku || String(itemsData[j][1]).trim() === sku) {
+                const curStock = Number(itemsData[j][idxStock] || 0);
+                itemsSheet.getRange(j + 1, idxStock + 1).setValue(curStock + qty);
+                break;
+              }
+            }
+          }
+          recordTransactionInternal(ss, {
+            type: 'STOCK_IN',
+            sku: sku,
+            itemName: itemName,
+            quantity: qty,
+            unit: unit,
+            fromLocation: `តំបន់ទំនិញខូច (${wh})`,
+            toLocation: wh,
+            notes: `ទំនិញខូចបានជួសជុលរួច ដាក់ចូលស្តុកប្រើប្រាស់វិញ [${recordId}]: ${actionTaken}`,
+            user: adminUser
+          });
+        } catch (eRest) {
+          Logger.log('Restore stock error: ' + eRest.toString());
+        }
+      }
+
+      logActivity(adminUser, 'Staff', 'UPDATE_DAMAGED_STOCK', `Damaged record ${recordId} updated to ${newStatus}`);
+      return { success: true, message: `បានកែសម្រួលស្ថានភាពទំនិញខូចទៅជា ${newStatus} ជោគជ័យ!` };
+    }
+  }
+
+  return { success: false, message: 'រកមិនឃើញកំណត់ត្រាទំនិញខូចនេះទេ' };
+}
+
+function deleteDamagedStock(dataOrPayload, user) {
+  let data = dataOrPayload;
+  let u = user;
+  if (dataOrPayload && dataOrPayload.data) {
+    data = dataOrPayload.data;
+    u = dataOrPayload.user || user;
+  }
+  const recordId = data.recordId || data;
+  const restoreStock = Boolean(data.restoreStock);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ensureDamagedStockInitialized(ss);
+  const rows = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(recordId)) {
+      const sku = rows[i][2];
+      const qty = Number(rows[i][5] || 0);
+      const wasDeducted = String(rows[i][12]).toLowerCase() === 'yes';
+
+      if (restoreStock && wasDeducted && sku && qty > 0) {
+        try {
+          const itemsSheet = ss.getSheetByName(SHEETS.ITEMS);
+          if (itemsSheet) {
+            const itemsData = itemsSheet.getDataRange().getValues();
+            const headers = (itemsData[0] || []).map(h => String(h || '').trim().toLowerCase());
+            const idxStock = headers.indexOf('currentstock') >= 0 ? headers.indexOf('currentstock') : 9;
+            for (let j = 1; j < itemsData.length; j++) {
+              if (String(itemsData[j][0]).trim() === sku || String(itemsData[j][1]).trim() === sku) {
+                const curStock = Number(itemsData[j][idxStock] || 0);
+                itemsSheet.getRange(j + 1, idxStock + 1).setValue(curStock + qty);
+                break;
+              }
+            }
+          }
+        } catch (eDel) {}
+      }
+
+      sheet.deleteRow(i + 1);
+      const actor = u ? (u.fullName || u.username) : 'Staff';
+      logActivity(actor, 'Staff', 'DELETE_DAMAGED_STOCK', `Deleted damaged stock record ${recordId}`);
+      return { success: true, message: `បានលុបកំណត់ត្រាទំនិញខូច ${recordId} ជោគជ័យ!` };
+    }
+  }
+
+  return { success: false, message: 'រកមិនឃើញកំណត់ត្រា' };
+}
+
+function restockDamagedItem(dataOrPayload, user) {
+  let data = dataOrPayload;
+  let u = user;
+  if (dataOrPayload && dataOrPayload.data) {
+    data = dataOrPayload.data;
+    u = dataOrPayload.user || user;
+  }
+
+  const recordId = String(data.recordId || '').trim();
+  const restockQty = Number(data.quantity || data.restockQty || 0);
+  const targetWarehouse = String(data.warehouse || (u ? u.warehouse : '') || '').trim();
+  const notes = String(data.notes || data.reason || 'ទំនិញខូចបានជួសជុលរួច ដាក់ចូលស្តុកប្រើប្រាស់វិញ').trim();
+  const restockStatus = String(data.status || 'បានដាក់ចូលស្តុកវិញ (Restocked)').trim();
+  const actor = u ? (u.fullName || u.username) : 'Staff';
+
+  if (!recordId || restockQty <= 0) {
+    return { success: false, message: 'សូមបញ្ចូលកូដកំណត់ត្រា និងចំនួនត្រូវដាក់ចូលស្តុកឱ្យបានត្រឹមត្រូវ' };
+  }
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ensureDamagedStockInitialized(ss);
+  const rows = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]).trim() === recordId) {
+      const sku = String(rows[i][2] || '').trim();
+      const itemName = String(rows[i][3] || '').trim();
+      const unit = String(rows[i][6] || 'ដុំ').trim();
+      const currentDmgQty = Number(rows[i][5] || 0);
+      const wh = targetWarehouse || String(rows[i][7] || '');
+      const storageZone = String(rows[i][8] || 'តំបន់ទំនិញខូច');
+
+      if (restockQty > currentDmgQty) {
+        return { success: false, message: `ចំនួនត្រូវដាក់ចូលស្តុក (${restockQty}) មិនអាចធំជាងចំនួនខូចដែលមាន (${currentDmgQty}) ឡើយ` };
+      }
+
+      // 1. Add back to items sheet currentStock
+      if (sku) {
+        try {
+          const itemsSheet = ss.getSheetByName(SHEETS.ITEMS);
+          if (itemsSheet) {
+            const itemsData = itemsSheet.getDataRange().getValues();
+            const headers = (itemsData[0] || []).map(h => String(h || '').trim().toLowerCase());
+            const idxStock = headers.indexOf('currentstock') >= 0 ? headers.indexOf('currentstock') : 9;
+            const idxPackStock = headers.indexOf('packstock');
+            const idxPackQty = headers.indexOf('packqty');
+
+            for (let j = 1; j < itemsData.length; j++) {
+              if (String(itemsData[j][0]).trim() === sku || String(itemsData[j][1]).trim() === sku) {
+                const curStock = Number(itemsData[j][idxStock] || 0);
+                const newStock = curStock + restockQty;
+                itemsSheet.getRange(j + 1, idxStock + 1).setValue(newStock);
+                if (idxPackStock >= 0) {
+                  const pQty = idxPackQty >= 0 ? Number(itemsData[j][idxPackQty] || 1) : 1;
+                  itemsSheet.getRange(j + 1, idxPackStock + 1).setValue(pQty > 1 ? Math.floor(newStock / pQty) : newStock);
+                }
+                break;
+              }
+            }
+          }
+
+          // 2. Record Stock In transaction
+          recordTransactionInternal(ss, {
+            type: 'STOCK_IN',
+            sku: sku,
+            itemName: itemName,
+            quantity: restockQty,
+            unit: unit,
+            fromLocation: `តំបន់ទំនិញខូច (${storageZone})`,
+            toLocation: wh,
+            notes: `ទំនិញខូចត្រូវដាក់ចូលស្តុក [${recordId}]: ${notes}`,
+            user: actor
+          });
+        } catch (eStock) {
+          Logger.log('Error adding stock for restocked damaged item: ' + eStock.toString());
+        }
+      }
+
+      // 3. Update damaged record
+      const now = new Date();
+      if (restockQty >= currentDmgQty) {
+        // Full restock
+        sheet.getRange(i + 1, 12).setValue(restockStatus); // Status
+        sheet.getRange(i + 1, 16).setValue(notes); // ActionTaken
+        sheet.getRange(i + 1, 17).setValue(now); // UpdatedAt
+      } else {
+        // Partial restock: reduce quantity
+        const remainingQty = currentDmgQty - restockQty;
+        sheet.getRange(i + 1, 6).setValue(remainingQty); // New Quantity
+        sheet.getRange(i + 1, 12).setValue('ដាក់ចូលស្តុកមួយចំនួន (Partially Restocked)');
+        const prevAction = String(rows[i][15] || '');
+        const updatedAction = `[${Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd HH:mm')}] បានដាក់ចូលស្តុក ${restockQty} ${unit} (នៅសល់ ${remainingQty}): ${notes}` + (prevAction && prevAction !== '-' ? ` | ${prevAction}` : '');
+        sheet.getRange(i + 1, 16).setValue(updatedAction);
+        sheet.getRange(i + 1, 17).setValue(now);
+      }
+
+      // 4. Send Telegram Notification
+      const alertMsg = `📥 <b>[ទំនិញខូចត្រូវដាក់ចូលស្តុក]</b>\n` +
+        `🏢 <b>ឃ្លាំង៖</b> ${wh}\n` +
+        `📦 <b>ទំនិញ៖</b> ${itemName} (${sku})\n` +
+        `🔢 <b>ចំនួនដាក់ចូលស្តុក៖</b> <b>+${restockQty} ${unit}</b>\n` +
+        `📍 <b>ពីទីតាំងខូច៖</b> ${storageZone}\n` +
+        `🏷️ <b>ស្ថានភាព៖</b> ${restockQty >= currentDmgQty ? restockStatus : `ដាក់ចូលមួយចំនួន (នៅសល់ខូច ${currentDmgQty - restockQty} ${unit})`}\n` +
+        `👤 <b>អ្នកចាត់ចែង៖</b> ${actor}\n` +
+        `📝 <b>កំណត់សម្គាល់៖</b> ${notes}\n` +
+        `⏰ <b>កាលបរិច្ឆេទ៖</b> ${Utilities.formatDate(now, 'GMT+7', 'dd-MM-yyyy HH:mm')}`;
+
+      sendTelegramNotification(alertMsg);
+      logActivity(actor, 'Staff', 'RESTOCK_DAMAGED', `Restocked ${restockQty} ${unit} of ${itemName} [${recordId}] to ${wh}`);
+
+      return {
+        success: true,
+        message: `បានដាក់ទំនិញខូច ${itemName} ចំនួន ${restockQty} ${unit} ចូលស្តុកឃ្លាំង ${wh} ជោគជ័យ!`,
+        restockedQty: restockQty,
+        remainingQty: Math.max(0, currentDmgQty - restockQty)
+      };
+    }
+  }
+
+  return { success: false, message: 'រកមិនឃើញកំណត់ត្រាទំនិញខូចនេះទេ' };
 }
 
 

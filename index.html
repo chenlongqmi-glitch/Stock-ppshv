@@ -28,6 +28,7 @@
               'incoming': 'tabIncoming',
               'stockout': 'tabStockOut',
               'transfer': 'tabTransfer',
+              'damaged': 'tabDamaged',
               'reports': 'tabReports',
               'requests': 'tabRequests',
               'chat': 'tabChat',
@@ -1610,6 +1611,17 @@
           <span class="ml-2">ផ្ទេរ & កែតម្រូវស្តុក</span>
         </a>
 
+        <!-- កំណត់ត្រាទំនិញខូចក្នុងឃ្លាំង (Damaged Items in Warehouse) -->
+        <a href="#damaged" onclick="navigateTab('damaged')" id="navDamagedStock"
+          class="nav-link flex items-center justify-between px-3.5 py-2.5 rounded-xl hover:bg-white/15 hover:text-white transition-all text-rose-300">
+          <div class="flex items-center">
+            <i class="fa-solid fa-triangle-exclamation w-6 text-center text-rose-400"></i>
+            <span class="ml-2">ទំនិញខូចក្នុងឃ្លាំង</span>
+          </div>
+          <span id="damagedStockBadge"
+            class="hidden px-2 py-0.5 rounded-full text-[9px] font-bold bg-rose-500 text-white shadow">0</span>
+        </a>
+
         <div class="pt-3 pb-1 px-3.5 text-[11px] font-bold text-blue-200/70 uppercase tracking-wider">របាយការណ៍ & សុវត្ថិភាព</div>
 
         <a href="#reports" onclick="navigateTab('reports')"
@@ -2855,6 +2867,29 @@
             </button>
           </div>
 
+          <!-- Damaged Stock Prompt in Stock In (មានទំនិញខូចត្រូវដាក់ចូលស្តុក) -->
+          <div class="p-3 sm:p-3.5 bg-gradient-to-r from-rose-500/10 via-pink-500/10 to-amber-500/10 border border-rose-300/80 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+            <div class="flex items-center space-x-3">
+              <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-rose-500 to-red-600 text-white flex items-center justify-center text-sm shrink-0 shadow-xs">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+              </div>
+              <div>
+                <h5 class="text-xs sm:text-sm font-black text-rose-950 font-khmer flex items-center gap-1.5">
+                  <span>មានទំនិញខូចត្រូវដាក់ចូលស្តុកមែនទេ?</span>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-200 text-rose-900 border border-rose-300">Quarantine</span>
+                </h5>
+                <p class="text-xs text-rose-800 font-khmer mt-0.5">
+                  ប្រសិនបើទំនិញខូចគុណភាព បាក់បែក ឬរង់ចាំជួសជុល សូមកត់ត្រាដាក់ចូលឃ្លាំងខូច ដើម្បីងាយស្រួលគ្រប់គ្រង និងតាមដាន។
+                </p>
+              </div>
+            </div>
+            <button type="button" onclick="openRecordDamagedModal(document.getElementById('stockInSku')?.value || '')"
+              class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-700 hover:to-pink-700 text-white text-xs font-bold font-khmer shadow-sm hover:scale-[1.02] active:scale-[0.98] transition flex items-center gap-1.5 shrink-0 cursor-pointer">
+              <i class="fa-solid fa-circle-plus text-xs"></i>
+              <span>កត់ត្រាទំនិញខូចដាក់ចូលស្តុក</span>
+            </button>
+          </div>
+
           <div id="stockInFormCard" class="glass-card form-freeze-card p-3 sm:p-4 lg:p-4 rounded-2xl sm:rounded-3xl shadow-sm border-2 border-emerald-300/80 bg-gradient-to-br from-emerald-50/30 via-white to-teal-50/20">
 
             <form id="stockInForm" onsubmit="handleStockInSubmit(event)" class="space-y-3">
@@ -3761,6 +3796,169 @@
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- TAB: DAMAGED ITEMS IN WAREHOUSE (កំណត់ត្រាមុខទំនិញដែលខូចត្រូវរក្សាទុកក្នុងឃ្លាំង) -->
+        <!-- ========================================== -->
+        <div id="tabDamaged" class="space-y-4 hidden">
+          <!-- Page Header & Action Controls -->
+          <div class="glass-card p-5 rounded-2xl shadow-sm border border-slate-200 bg-gradient-to-r from-rose-50/50 via-white to-pink-50/30 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+            <div class="flex items-center space-x-3.5">
+              <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-rose-500 to-red-600 text-white flex items-center justify-center shadow-lg shadow-rose-500/30 shrink-0">
+                <i class="fa-solid fa-triangle-exclamation text-xl"></i>
+              </div>
+              <div>
+                <div class="flex items-center space-x-2">
+                  <h2 class="text-base sm:text-lg font-black text-slate-800 tracking-tight">កំណត់ត្រាមុខទំនិញដែលខូចត្រូវរក្សាទុកក្នុងឃ្លាំង</h2>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-700 border border-rose-200">Quarantine Zone</span>
+                </div>
+                <p class="text-xs text-slate-500 mt-0.5">គ្រប់គ្រង កត់ត្រាទីតាំង និងតាមដានទំនិញខូចគុណភាព បាក់បែក ឬរង់ចាំជួសជុលដែលរក្សាទុកក្នុងឃ្លាំង</p>
+              </div>
+            </div>
+
+            <div class="flex items-center flex-wrap gap-2 w-full lg:w-auto">
+              <button onclick="exportDamagedStockToExcel()" type="button"
+                class="px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-xl text-xs border border-slate-200 shadow-sm flex items-center space-x-1.5 transition active:scale-95">
+                <i class="fa-solid fa-file-excel text-emerald-600"></i>
+                <span>ទាញយក Excel / CSV</span>
+              </button>
+              <button onclick="loadDamagedStock(true)" type="button"
+                class="px-3 py-2.5 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-xl text-xs border border-slate-200 shadow-sm flex items-center space-x-1 transition active:scale-95" title="ផ្ទុកទិន្នន័យឡើងវិញ">
+                <i class="fa-solid fa-rotate text-blue-600"></i>
+              </button>
+              <button onclick="openRecordDamagedModal()" type="button"
+                class="flex-1 lg:flex-initial px-4 py-2.5 bg-gradient-to-r from-rose-600 via-pink-600 to-rose-700 hover:from-rose-700 hover:to-rose-800 text-white font-bold rounded-xl text-xs shadow-md shadow-rose-600/25 flex items-center justify-center space-x-1.5 transition active:scale-95">
+                <i class="fa-solid fa-circle-plus"></i>
+                <span>កត់ត្រាទំនិញខូចដាក់ចូលស្តុក</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 4 Stat Summary Metric Cards -->
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div class="glass-card p-4 rounded-2xl shadow-sm border border-slate-200/80 bg-white flex flex-col justify-between">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">មុខទំនិញខូចសរុប</span>
+                <span class="w-7 h-7 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center text-xs"><i class="fa-solid fa-boxes-stacked"></i></span>
+              </div>
+              <div class="mt-3 flex items-baseline justify-between">
+                <span class="text-2xl font-black text-slate-800" id="dmgTotalRecords">0</span>
+                <span class="text-xs font-semibold text-slate-400">កំណត់ត្រា</span>
+              </div>
+            </div>
+
+            <div class="glass-card p-4 rounded-2xl shadow-sm border border-rose-200/80 bg-rose-50/40 flex flex-col justify-between">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold text-rose-700 uppercase tracking-wider">បរិមាណខូចសរុប</span>
+                <span class="w-7 h-7 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center text-xs"><i class="fa-solid fa-calculator"></i></span>
+              </div>
+              <div class="mt-3 flex items-baseline justify-between">
+                <span class="text-2xl font-black text-rose-600" id="dmgTotalQuantity">0</span>
+                <span class="text-xs font-bold text-rose-700/70" id="dmgTotalQuantityUnit">ដុំ</span>
+              </div>
+            </div>
+
+            <div class="glass-card p-4 rounded-2xl shadow-sm border border-amber-200/80 bg-amber-50/40 flex flex-col justify-between">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold text-amber-700 uppercase tracking-wider">រង់ចាំជួសជុល</span>
+                <span class="w-7 h-7 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center text-xs"><i class="fa-solid fa-wrench"></i></span>
+              </div>
+              <div class="mt-3 flex items-baseline justify-between">
+                <span class="text-2xl font-black text-amber-600" id="dmgPendingRepair">0</span>
+                <span class="text-xs font-bold text-amber-600/80">រង់ចាំ</span>
+              </div>
+            </div>
+
+            <div class="glass-card p-4 rounded-2xl shadow-sm border border-purple-200/80 bg-purple-50/40 flex flex-col justify-between">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold text-purple-700 uppercase tracking-wider">រក្សាទុកក្នុងឃ្លាំង</span>
+                <span class="w-7 h-7 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center text-xs"><i class="fa-solid fa-warehouse"></i></span>
+              </div>
+              <div class="mt-3 flex items-baseline justify-between">
+                <span class="text-2xl font-black text-purple-600" id="dmgStoredInWarehouse">0</span>
+                <span class="text-xs font-bold text-purple-600/80">ក្នុងឃ្លាំង</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Filter Toolbar & Live Search -->
+          <div class="glass-card p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col lg:flex-row items-center justify-between gap-3">
+            <div class="flex flex-1 flex-wrap items-center gap-2.5 w-full">
+              <!-- Search Box -->
+              <div class="relative flex-1 min-w-[220px]">
+                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-slate-400 text-xs"></i>
+                <input type="search" id="dmgSearchInput" oninput="filterDamagedStock()" placeholder="ស្វែងរកតាម SKU, ឈ្មោះទំនិញ, ទីតាំងទុក, អ្នកកត់ត្រា..."
+                  class="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-rose-500">
+                <button type="button" onclick="const el = document.getElementById('dmgSearchInput'); if (el) { el.value = ''; filterDamagedStock(); }"
+                  class="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 text-xs p-0.5 rounded transition">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+
+              <!-- Warehouse Filter -->
+              <select id="dmgWarehouseFilter" onchange="filterDamagedStock()"
+                class="px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-700 outline-none focus:ring-2 focus:ring-rose-500">
+                <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>
+              </select>
+
+              <!-- Status Filter -->
+              <select id="dmgStatusFilter" onchange="filterDamagedStock()"
+                class="px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-700 outline-none focus:ring-2 focus:ring-rose-500">
+                <option value="ALL">គ្រប់ស្ថានភាពចាត់ចែង</option>
+                <option value="កំពុងរក្សាទុកក្នុងឃ្លាំង (Stored in Warehouse)">📦 កំពុងរក្សាទុកក្នុងឃ្លាំង</option>
+                <option value="រង់ចាំជួសជុល (Pending Repair)">🔧 រង់ចាំជួសជុល</option>
+                <option value="រង់ចាំប្តូរក្រុមហ៊ុន (Pending Vendor Return)">🔄 រង់ចាំប្តូរក្រុមហ៊ុន</option>
+                <option value="រង់ចាំកម្ទេចចោល (Pending Disposal)">🗑️ រង់ចាំកម្ទេចចោល</option>
+                <option value="បានជួសជុលរួច (Repaired)">✅ បានជួសជុលរួច (Repaired)</option>
+                <option value="បានដាក់ចូលស្តុកវិញ (Restocked)">📥 បានដាក់ចូលស្តុកវិញ (Restocked)</option>
+                <option value="ដាក់ចូលស្តុកមួយចំនួន (Partially Restocked)">📦 ដាក់ចូលស្តុកមួយចំនួន</option>
+                <option value="បានប្រគល់ជូនក្រុមហ៊ុនវិញ (Returned to Vendor)">📤 បានប្រគល់ជូនក្រុមហ៊ុនវិញ</option>
+              </select>
+
+              <!-- Damage Type Filter -->
+              <select id="dmgTypeFilter" onchange="filterDamagedStock()"
+                class="px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-medium text-slate-700 outline-none focus:ring-2 focus:ring-rose-500">
+                <option value="ALL">គ្រប់ប្រភេទការខូចខាត</option>
+                <option value="បាក់បែក/បែកបាក់">បាក់បែក/បែកបាក់</option>
+                <option value="ឆេះ/ខូចសៀគ្វីអេឡិចត្រូនិច">ឆេះ/ខូចសៀគ្វីអេឡិចត្រូនិច</option>
+                <option value="ធ្លាយ/រហែក/ប្រឡាក់">ធ្លាយ/រហែក/ប្រឡាក់</option>
+                <option value="ផុតកំណត់/ខូចគុណភាព">ផុតកំណត់/ខូចគុណភាព</option>
+                <option value="ខូចពេលដឹកជញ្ជូន/លើកដាក់">ខូចពេលដឹកជញ្ជូន/លើកដាក់</option>
+                <option value="ផ្សេងៗ">ផ្សេងៗ</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Damaged Items Table -->
+          <div class="glass-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="table-container-freeze custom-scrollbar" style="max-height: calc(100vh - 360px);">
+              <table class="w-full text-left text-xs text-slate-600 border-collapse table-freeze">
+                <thead class="bg-slate-100 text-slate-700 font-bold uppercase border-b border-slate-200 sticky top-0 z-20 shadow-sm">
+                  <tr>
+                    <th class="px-3.5 py-3.5 bg-slate-100 sticky top-0 z-20">កូដកត់ត្រា</th>
+                    <th class="px-3.5 py-3.5 bg-slate-100 sticky top-0 z-20">កាលបរិច្ឆេទ</th>
+                    <th class="px-3.5 py-3.5 bg-slate-100 sticky top-0 z-20">មុខទំនិញ (Item)</th>
+                    <th class="px-3.5 py-3.5 bg-slate-100 sticky top-0 z-20">ឃ្លាំង & ទីតាំងទុក</th>
+                    <th class="px-3.5 py-3.5 bg-slate-100 sticky top-0 z-20 text-center">ចំនួនខូច</th>
+                    <th class="px-3.5 py-3.5 bg-slate-100 sticky top-0 z-20">មូលហេតុ & កម្រិត</th>
+                    <th class="px-3.5 py-3.5 bg-slate-100 sticky top-0 z-20 text-center">ស្ថានភាពចាត់ចែង</th>
+                    <th class="px-3.5 py-3.5 bg-slate-100 sticky top-0 z-20 text-center">កាត់ស្តុក</th>
+                    <th class="px-3.5 py-3.5 bg-slate-100 sticky top-0 z-20">អ្នកកត់ត្រា & ចំណាំ</th>
+                    <th class="px-3.5 py-3.5 bg-slate-100 sticky top-0 z-20 text-center">សកម្មភាព</th>
+                  </tr>
+                </thead>
+                <tbody id="damagedTableBody" class="divide-y divide-slate-100 font-medium">
+                  <tr>
+                    <td colspan="10" class="text-center py-12 text-slate-400">
+                      <i class="fa-solid fa-spinner fa-spin text-2xl text-rose-500 mb-2"></i>
+                      <p>កំពុងផ្ទុកទិន្នន័យទំនិញខូចក្នុងឃ្លាំង...</p>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
@@ -6341,6 +6539,358 @@
     </div>
   </div>
 
+  <!-- G. RECORD DAMAGED STOCK IN WAREHOUSE MODAL (កត់ត្រាមុខទំនិញដែលខូចត្រូវរក្សាទុកក្នុងឃ្លាំង) -->
+  <div id="recordDamagedModal" onclick="if(isSafeModalBackdropClick(event)) closeRecordDamagedModal()"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 backdrop-blur-sm p-4 hidden">
+    <div class="w-full max-w-xl bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[92vh]">
+      <!-- Modal Header -->
+      <div class="px-6 py-4 bg-gradient-to-r from-rose-600 via-pink-600 to-rose-700 text-white flex items-center justify-between shrink-0 shadow-md">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md border border-white/25 flex items-center justify-center text-white shadow-inner">
+            <i class="fa-solid fa-triangle-exclamation text-base"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-sm">កត់ត្រាទំនិញខូចរក្សាទុកក្នុងឃ្លាំង (Damaged Stock Log)</h3>
+            <p class="text-[10px] text-rose-100/80">កត់ត្រាទំនិញខូច និងទីតាំងរក្សាទុកក្នុងឃ្លាំង Quarantine</p>
+          </div>
+        </div>
+        <button onclick="closeRecordDamagedModal()" type="button"
+          class="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition backdrop-blur-sm">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body Form -->
+      <form id="recordDamagedForm" onsubmit="handleRecordDamagedSubmit(event)" class="p-6 space-y-4 overflow-y-auto custom-scrollbar">
+        <!-- 1. Search & Select Item -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">
+            ស្វែងរកទំនិញតាម Keyword ឬ Barcode / SKU *
+          </label>
+          <div class="relative">
+            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-slate-400 text-xs"></i>
+            <input type="text" id="dmgItemInput" list="dmgItemList" required
+              placeholder="វាយពាក្យគន្លឹះ ឈ្មោះទំនិញ ឬ SKU..." oninput="onDamagedItemSelectChange()"
+              autocomplete="off"
+              class="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-rose-500 outline-none">
+            <datalist id="dmgItemList"></datalist>
+          </div>
+          <div id="dmgItemStockPreview" class="hidden mt-1.5 px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200 text-[11px] text-slate-600 flex items-center justify-between">
+            <span>ឈ្មោះ៖ <b id="dmgPreviewName" class="text-slate-800">-</b></span>
+            <span>ស្តុកបច្ចុប្បន្ន៖ <b id="dmgPreviewStock" class="text-rose-600 font-bold">0</b></span>
+          </div>
+        </div>
+
+        <!-- 2. Warehouse & Specific Storage Location in Warehouse -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">ឃ្លាំងដែលរក្សាទុក *</label>
+            <select id="dmgInputWarehouse" required onchange="onDamagedItemSelectChange()"
+              class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-rose-500">
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">ទីតាំងជាក់លាក់ក្នុងឃ្លាំង *</label>
+            <input type="text" id="dmgInputStorageZone" required placeholder="ឧ. ធ្នើរ D-01, បន្ទប់សម្ភារខូច..."
+              list="dmgStorageZoneOptions"
+              class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-rose-500 font-medium">
+            <datalist id="dmgStorageZoneOptions">
+              <option value="ធ្នើរខូច D-01 (តំបន់ Quarantine)"></option>
+              <option value="ធ្នើរខូច D-02"></option>
+              <option value="បន្ទប់រក្សាទុកសម្ភារខូច"></option>
+              <option value="កន្លែងរង់ចាំជួសជុល"></option>
+              <option value="កន្លែងរង់ចាំដូរក្រុមហ៊ុន"></option>
+              <option value="ឃ្លាំងចាស់ជួរទី ៣"></option>
+            </datalist>
+          </div>
+        </div>
+
+        <!-- 3. Quantity & Unit -->
+        <div class="grid grid-cols-2 gap-3.5">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">ចំនួនខូច *</label>
+            <input type="number" id="dmgInputQty" required min="0.01" step="any" placeholder="0"
+              class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-rose-600 outline-none focus:ring-2 focus:ring-rose-500">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">ឯកតា *</label>
+            <input type="text" id="dmgInputUnit" required placeholder="ដុំ, កេស..."
+              class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-rose-500 font-medium">
+          </div>
+        </div>
+
+        <!-- 4. Damage Type / Cause & Severity -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">ប្រភេទនៃការខូចខាត *</label>
+            <select id="dmgInputDamageType" required
+              class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-rose-500">
+              <option value="បាក់បែក/បែកបាក់">💥 បាក់បែក/បែកបាក់</option>
+              <option value="ឆេះ/ខូចសៀគ្វីអេឡិចត្រូនិច">⚡ ឆេះ/ខូចសៀគ្វីអេឡិចត្រូនិច</option>
+              <option value="ធ្លាយ/រហែក/ប្រឡាក់">💧 ធ្លាយ/រហែក/ប្រឡាក់</option>
+              <option value="ផុតកំណត់/ខូចគុណភាព">⏳ ផុតកំណត់/ខូចគុណភាព</option>
+              <option value="ខូចពេលដឹកជញ្ជូន/លើកដាក់">🚚 ខូចពេលដឹកជញ្ជូន/លើកដាក់</option>
+              <option value="ផ្សេងៗ">❓ ផ្សេងៗ</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">កម្រិតខូចខាត (Severity) *</label>
+            <select id="dmgInputSeverity" required
+              class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-rose-500">
+              <option value="ស្រាល (Minor - អាចជួសជុល)">🟢 ស្រាល (Minor - អាចជួសជុលបាន)</option>
+              <option value="មធ្យម (Moderate)" selected>🟡 មធ្យម (Moderate)</option>
+              <option value="ធ្ងន់ធ្ងរ (Severe - ខូចទាំងស្រុង)">🔴 ធ្ងន់ធ្ងរ (Severe - ខូចទាំងស្រុង)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 5. Initial Status -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">ស្ថានភាពចាត់ចែងដំបូង *</label>
+          <select id="dmgInputStatus" required
+            class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-rose-500">
+            <option value="កំពុងរក្សាទុកក្នុងឃ្លាំង (Stored in Warehouse)" selected>📦 កំពុងរក្សាទុកក្នុងឃ្លាំង (Stored in Warehouse)</option>
+            <option value="រង់ចាំជួសជុល (Pending Repair)">🔧 រង់ចាំជួសជុល (Pending Repair)</option>
+            <option value="រង់ចាំប្តូរក្រុមហ៊ុន (Pending Vendor Return)">🔄 រង់ចាំប្តូរក្រុមហ៊ុន (Pending Return/Exchange)</option>
+            <option value="រង់ចាំកម្ទេចចោល (Pending Disposal)">🗑️ រង់ចាំកម្ទេចចោល (Pending Disposal)</option>
+          </select>
+        </div>
+
+        <!-- 6. Deduct from Available Stock Option -->
+        <div class="p-3 bg-rose-50/60 rounded-xl border border-rose-200/80">
+          <label class="flex items-start space-x-2.5 cursor-pointer">
+            <input type="checkbox" id="dmgDeductFromStock" checked class="mt-0.5 rounded text-rose-600 focus:ring-rose-500">
+            <div>
+              <span class="text-xs font-bold text-rose-900">កាត់បន្ថយចេញពីស្តុកទូទៅ (Deduct from general usable stock)</span>
+              <p class="text-[11px] text-rose-700 mt-0.5 leading-relaxed">
+                ដកចំនួននេះចេញពីស្តុកទំនិញដែលអាចប្រើប្រាស់បានភ្លាមៗ ដើម្បីកុំឱ្យច្រឡំបើកចេញ តែនៅតែតាមដានជាទំនិញខូចរក្សាទុកក្នុងឃ្លាំង។
+              </p>
+            </div>
+          </label>
+        </div>
+
+        <!-- 7. Detailed Reason / Notes -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">កំណត់សម្គាល់លម្អិត / មូលហេតុ</label>
+          <textarea id="dmgInputNotes" rows="2" placeholder="ពណ៌នាអំពីស្ថានភាពខូច និងការរក្សាទុក..."
+            class="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-rose-500"></textarea>
+        </div>
+
+        <!-- Form Actions -->
+        <div class="pt-3 flex justify-end space-x-2 border-t border-slate-100">
+          <button type="button" onclick="closeRecordDamagedModal()"
+            class="px-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50">
+            បោះបង់
+          </button>
+          <button type="submit" id="submitDamagedBtn"
+            class="px-5 py-2 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-700 hover:to-pink-700 text-white rounded-xl text-xs font-bold shadow-md shadow-rose-500/25 flex items-center space-x-1.5 transition active:scale-95">
+            <i class="fa-solid fa-check"></i>
+            <span>កត់ត្រាចូលឃ្លាំងខូច</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- H. UPDATE DAMAGED STOCK STATUS MODAL (កែសម្រួលស្ថានភាពចាត់ចែងទំនិញខូច) -->
+  <div id="updateDamagedStatusModal" onclick="if(isSafeModalBackdropClick(event)) closeUpdateDamagedStatusModal()"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 backdrop-blur-sm p-4 hidden">
+    <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col">
+      <div class="px-6 py-4 bg-gradient-to-r from-indigo-600 via-blue-600 to-indigo-700 text-white flex items-center justify-between shrink-0 shadow-md">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-9 h-9 rounded-2xl bg-white/20 backdrop-blur-md border border-white/25 flex items-center justify-center text-white shadow-inner">
+            <i class="fa-solid fa-arrows-rotate text-sm"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-sm">បច្ចុប្បន្នភាពស្ថានភាពទំនិញខូច</h3>
+            <p class="text-[10px] text-blue-100/80">កែប្រែស្ថានភាព ឬដំណោះស្រាយចាត់ចែង</p>
+          </div>
+        </div>
+        <button onclick="closeUpdateDamagedStatusModal()" type="button"
+          class="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition backdrop-blur-sm">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <form id="updateDamagedStatusForm" onsubmit="handleUpdateDamagedStatusSubmit(event)" class="p-6 space-y-4">
+        <input type="hidden" id="updateDmgRecordId">
+
+        <div class="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs space-y-1">
+          <div class="flex justify-between">
+            <span class="text-slate-500">កូដកំណត់ត្រា៖</span>
+            <span class="font-bold text-slate-800" id="updateDmgRecordIdDisplay">-</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-500">មុខទំនិញ៖</span>
+            <span class="font-bold text-slate-800" id="updateDmgItemDisplay">-</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-500">ឃ្លាំង & ចំនួន៖</span>
+            <span class="font-bold text-rose-600" id="updateDmgQtyDisplay">-</span>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">ស្ថានភាពចាត់ចែងថ្មី *</label>
+          <select id="updateDmgNewStatus" required onchange="toggleRestoreStockCheckbox(this.value)"
+            class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="កំពុងរក្សាទុកក្នុងឃ្លាំង (Stored in Warehouse)">📦 កំពុងរក្សាទុកក្នុងឃ្លាំង (Stored in Warehouse)</option>
+            <option value="រង់ចាំជួសជុល (Pending Repair)">🔧 រង់ចាំជួសជុល (Pending Repair)</option>
+            <option value="រង់ចាំប្តូរក្រុមហ៊ុន (Pending Vendor Return)">🔄 រង់ចាំប្តូរក្រុមហ៊ុន (Pending Return)</option>
+            <option value="រង់ចាំកម្ទេចចោល (Pending Disposal)">🗑️ រង់ចាំកម្ទេចចោល (Pending Disposal)</option>
+            <option value="បានជួសជុលរួច (Repaired)">✅ បានជួសជុលរួច (Repaired)</option>
+            <option value="បានប្រគល់ជូនក្រុមហ៊ុនវិញ (Returned to Vendor)">📤 បានប្រគល់ជូនក្រុមហ៊ុនវិញ (Returned to Vendor)</option>
+          </select>
+        </div>
+
+        <!-- Option to restore to available inventory if status is Repaired -->
+        <div id="restoreStockOptionBox" class="hidden p-3 bg-emerald-50 rounded-xl border border-emerald-200">
+          <label class="flex items-start space-x-2.5 cursor-pointer">
+            <input type="checkbox" id="updateDmgRestoreStock" class="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500">
+            <div>
+              <span class="text-xs font-bold text-emerald-900">ដាក់បញ្ចូលទំនិញនេះត្រឡប់ទៅស្តុកប្រើប្រាស់វិញ</span>
+              <p class="text-[11px] text-emerald-700 mt-0.5">
+                ដោយសារទំនិញបានជួសជុលរួចរាល់ អាចបូកបញ្ចូលចំនួននេះទៅក្នុងស្តុកទូទៅវិញបាន។
+              </p>
+            </div>
+          </label>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">ដំណោះស្រាយ / សកម្មភាពដែលបានចាត់ចែង *</label>
+          <textarea id="updateDmgActionTaken" rows="2.5" required placeholder="ឧ. បានជួសជុលដូរគ្រឿងបន្លាស់រួចរាល់, ឬបានប្រគល់ជូនតំណាងក្រុមហ៊ុនប្តូរថ្មី..."
+            class="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+        </div>
+
+        <div class="pt-3 flex justify-end space-x-2 border-t border-slate-100">
+          <button type="button" onclick="closeUpdateDamagedStatusModal()"
+            class="px-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50">
+            បោះបង់
+          </button>
+          <button type="submit" id="submitUpdateDamagedBtn"
+            class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-500/25 flex items-center space-x-1.5 transition active:scale-95">
+            <i class="fa-solid fa-save"></i>
+            <span>រក្សាទុកបច្ចុប្បន្នភាព</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- I. RESTOCK DAMAGED STOCK MODAL (ដាក់ទំនិញខូចចូលស្តុកប្រើប្រាស់វិញ) -->
+  <div id="restockDamagedModal" onclick="if(isSafeModalBackdropClick(event)) closeRestockDamagedModal()"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 backdrop-blur-sm p-4 hidden">
+    <div class="w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[92vh]">
+      <!-- Header -->
+      <div class="px-6 py-4 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white flex items-center justify-between shrink-0 shadow-md">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md border border-white/25 flex items-center justify-center text-white shadow-inner">
+            <i class="fa-solid fa-boxes-packing text-base"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-sm">ដាក់ទំនិញខូចចូលស្តុកប្រើប្រាស់វិញ</h3>
+            <p class="text-[10px] text-emerald-100/80">Restock Damaged Items Back to Available Inventory</p>
+          </div>
+        </div>
+        <button onclick="closeRestockDamagedModal()" type="button"
+          class="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition backdrop-blur-sm">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <!-- Form -->
+      <form id="restockDamagedForm" onsubmit="handleRestockDamagedSubmit(event)" class="p-6 space-y-4 overflow-y-auto custom-scrollbar">
+        <input type="hidden" id="restockDmgRecordId">
+        <input type="hidden" id="restockDmgSku">
+        <input type="hidden" id="restockDmgUnit">
+        <input type="hidden" id="restockDmgMaxQty">
+
+        <!-- Item Info Card -->
+        <div class="p-4 bg-gradient-to-br from-slate-50 via-emerald-50/20 to-slate-50 rounded-2xl border border-emerald-200/60 space-y-2 text-xs">
+          <div class="flex justify-between items-center pb-1.5 border-b border-slate-200/60">
+            <span class="text-slate-500 font-medium">កូដកំណត់ត្រា៖</span>
+            <span class="font-mono font-bold text-slate-800" id="restockDmgRecordIdDisplay">-</span>
+          </div>
+          <div class="flex justify-between items-start">
+            <span class="text-slate-500 font-medium">មុខទំនិញ៖</span>
+            <div class="text-right">
+              <span class="font-bold text-slate-800" id="restockDmgItemDisplay">-</span>
+              <div class="text-[10.5px] text-slate-400 font-mono" id="restockDmgSkuDisplay"></div>
+            </div>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-slate-500 font-medium">ឃ្លាំង & ទីតាំងទុកខូច៖</span>
+            <span class="font-semibold text-slate-700" id="restockDmgLocationDisplay">-</span>
+          </div>
+          <div class="flex justify-between items-center pt-1 border-t border-slate-200/60">
+            <span class="text-slate-600 font-bold">ចំនួនខូចបច្ចុប្បន្ន៖</span>
+            <span class="font-black text-rose-600 font-mono text-sm" id="restockDmgCurrentQtyDisplay">0</span>
+          </div>
+        </div>
+
+        <!-- Quantity to Restock -->
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-xs font-bold text-slate-700 uppercase">ចំនួនត្រូវដាក់ចូលស្តុក *</label>
+            <button type="button" onclick="setRestockDamagedAllQty()"
+              class="text-[10.5px] font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-md transition">
+              <i class="fa-solid fa-check-double mr-1 text-[9px]"></i>ដាក់ចូលទាំងអស់
+            </button>
+          </div>
+          <div class="relative">
+            <input type="number" id="restockDmgQty" required min="0.01" step="any"
+              placeholder="0" oninput="validateRestockQtyInput(this)"
+              class="w-full pl-3.5 pr-16 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-emerald-800 outline-none focus:ring-2 focus:ring-emerald-500 text-base font-mono">
+            <span class="absolute right-3.5 top-2.5 text-xs font-bold text-slate-500" id="restockDmgUnitLabel">ដុំ</span>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-1">
+            * អាចដាក់ចូលទាំងអស់ ឬដាក់ចូលមួយចំនួន (ករណីជួសជុលបានមួយចំនួន)
+          </p>
+        </div>
+
+        <!-- Target Destination Warehouse -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">ដាក់ចូលឃ្លាំងណា (Destination Warehouse) *</label>
+          <select id="restockDmgTargetWarehouse" required
+            class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500">
+          </select>
+        </div>
+
+        <!-- Restock Reason / Resolution -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">ស្ថានភាព / មូលហេតុដាក់ចូលស្តុក *</label>
+          <select id="restockDmgStatus" required
+            class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold outline-none focus:ring-2 focus:ring-emerald-500">
+            <option value="បានដាក់ចូលស្តុកវិញ (Restocked)" selected>✅ បានជួសជុលរួចរាល់ ដាក់ចូលស្តុក (Repaired & Restocked)</option>
+            <option value="បានប្តូរថ្មីពីក្រុមហ៊ុន (Replaced by Vendor)">🔄 បានប្តូរថ្មីពីក្រុមហ៊ុន ដាក់ចូលស្តុក</option>
+            <option value="ពិនិត្យរួចនៅប្រើប្រាស់បាន (Verified Functional)">🔍 ពិនិត្យឡើងវិញនៅប្រើប្រាស់បាន (Functional)</option>
+            <option value="ផ្សេងៗ">❓ ផ្សេងៗ (Other)</option>
+          </select>
+        </div>
+
+        <!-- Notes -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">កំណត់សម្គាល់បន្ថែម / ព័ត៌មានលម្អិត</label>
+          <textarea id="restockDmgNotes" rows="2" placeholder="ឧ. បានជួសជុល និងតេស្តរួចរាល់ អាចប្រើប្រាស់ធម្មតា..."
+            class="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500"></textarea>
+        </div>
+
+        <!-- Actions -->
+        <div class="pt-3 flex justify-end space-x-2 border-t border-slate-100">
+          <button type="button" onclick="closeRestockDamagedModal()"
+            class="px-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50">
+            បោះបង់
+          </button>
+          <button type="submit" id="submitRestockDamagedBtn"
+            class="px-5 py-2 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-500/25 flex items-center space-x-1.5 transition active:scale-95 cursor-pointer">
+            <i class="fa-solid fa-boxes-packing"></i>
+            <span>បញ្ជាក់ដាក់ចូលស្តុក</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- F. WAREHOUSE MANAGEMENT & ADD WAREHOUSE MODAL -->
   <div id="warehouseModal" onclick="if(isSafeModalBackdropClick(event)) closeWarehouseModal()"
     class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 hidden">
@@ -7316,6 +7866,7 @@
       ],
       transactions: [],
       productRequests: [],
+      damagedStock: [],
       chatMessages: []
     };
 
@@ -10703,7 +11254,8 @@
           'saveWarehouse', 'addWarehouse', 'updateWarehouse', 'deleteWarehouse',
           'saveSystemSettings', 'saveSettings',
           'resetUserDeviceBinding',
-          'createProductRequest', 'updateProductRequestStatus'
+          'createProductRequest', 'updateProductRequestStatus',
+          'recordDamagedStock', 'updateDamagedStockStatus', 'deleteDamagedStock'
         ]);
         if (VIEW_ONLY_BLOCKED.has(action)) {
           console.warn('[VIEW-ONLY] Blocked mutating apiCall action:', action);
@@ -12186,6 +12738,200 @@
           return { success: true, message: `បានធ្វើបច្ចុប្បន្នភាពសំណើជោគជ័យ!` };
         }
         return { success: false, message: 'រកមិនឃើញសំណើ' };
+      }
+
+      if (action === 'recordDamagedStock') {
+        const d = payload.data || payload;
+        loadLocalDamagedStockFromStorage();
+        const recordId = 'DMG-' + Date.now().toString().slice(-6);
+        const qtyNum = Number(d.quantity || 0);
+        const sku = String(d.sku || '').trim();
+        const itemName = String(d.itemName || d.sku || '').trim();
+        const warehouse = String(d.warehouse || u?.warehouse || WAREHOUSES_LIST[0]).trim();
+        const storageZone = String(d.storageZone || 'តំបន់ទំនិញខូច (Damaged Area)').trim();
+        const damageType = String(d.damageType || 'ខូចគុណភាព').trim();
+        const severity = String(d.severity || 'មធ្យម').trim();
+        const status = String(d.status || 'កំពុងរក្សាទុកក្នុងឃ្លាំង (Stored in Warehouse)').trim();
+        const deducted = (d.deductedFromStock === false || d.deductedFromStock === 'No' || d.deductedFromStock === 'false') ? 'No' : 'Yes';
+        const notes = String(d.notes || d.reason || '').trim();
+        const recordedBy = u ? (u.fullName || u.username) : 'Staff';
+
+        const newRecord = {
+          recordId: recordId,
+          date: d.date || new Date().toISOString().slice(0, 10),
+          sku: sku,
+          itemName: itemName,
+          category: d.category || 'ទូទៅ',
+          quantity: qtyNum,
+          unit: d.unit || 'ដុំ',
+          warehouse: warehouse,
+          storageZone: storageZone,
+          damageType: damageType,
+          severity: severity,
+          status: status,
+          deductedFromStock: deducted,
+          notes: notes,
+          recordedBy: recordedBy,
+          actionTaken: '-',
+          updatedAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
+          timestamp: new Date().toISOString()
+        };
+
+        LOCAL_DB.damagedStock.unshift(newRecord);
+        saveLocalDamagedStockToStorage();
+
+        if (deducted === 'Yes' && sku) {
+          const matched = LOCAL_DB.items.find(i => i.sku === sku);
+          if (matched) {
+            matched.currentStock = Math.max(0, Number(matched.currentStock || 0) - qtyNum);
+            saveLocalItemsToStorage();
+          }
+          LOCAL_DB.transactions.unshift({
+            txId: 'TX-' + Date.now().toString().slice(-6),
+            date: new Date().toISOString().slice(0, 10),
+            type: 'STOCK_OUT',
+            sku: sku,
+            itemName: itemName,
+            quantity: qtyNum,
+            unit: d.unit || 'ដុំ',
+            fromLocation: warehouse,
+            toLocation: `តំបន់ទំនិញខូច (${storageZone})`,
+            notes: `ទំនិញខូចរក្សាទុកក្នុងឃ្លាំង [${recordId}]: ${notes || damageType}`,
+            user: recordedBy
+          });
+          saveLocalTransactionsToStorage();
+        }
+
+        if (typeof addNotification === 'function') {
+          addNotification('ALERT', 'កត់ត្រាទំនិញខូចរក្សាទុកក្នុងឃ្លាំង', `${recordedBy} បានកត់ត្រា ${itemName} ចំនួន ${qtyNum} ${d.unit || 'ដុំ'} ក្នុង ${warehouse}`, warehouse, recordedBy);
+        }
+        return { success: true, message: `បានកត់ត្រាទំនិញខូច ${itemName} ចំនួន ${qtyNum} ${d.unit || 'ដុំ'} ជោគជ័យ!`, recordId: recordId };
+      }
+
+      if (action === 'getDamagedStock') {
+        loadLocalDamagedStockFromStorage();
+        let list = LOCAL_DB.damagedStock || [];
+        if (targetWarehouse && targetWarehouse !== 'ALL') {
+          list = list.filter(r => (typeof matchesTargetWarehouse === 'function') ? matchesTargetWarehouse(r.warehouse, targetWarehouse) : (r.warehouse === targetWarehouse));
+        }
+        return { success: true, records: list };
+      }
+
+      if (action === 'updateDamagedStockStatus') {
+        const d = payload.data || payload;
+        loadLocalDamagedStockFromStorage();
+        const record = LOCAL_DB.damagedStock.find(r => r.recordId === d.recordId);
+        if (record) {
+          record.status = d.status;
+          if (d.actionTaken) record.actionTaken = d.actionTaken;
+          record.updatedAt = new Date().toISOString().slice(0, 16).replace('T', ' ');
+
+          if (d.restoreStock && record.sku && Number(record.quantity || 0) > 0) {
+            const matched = LOCAL_DB.items.find(i => i.sku === record.sku);
+            if (matched) {
+              matched.currentStock = Number(matched.currentStock || 0) + Number(record.quantity || 0);
+              saveLocalItemsToStorage();
+            }
+            LOCAL_DB.transactions.unshift({
+              txId: 'TX-' + Date.now().toString().slice(-6),
+              date: new Date().toISOString().slice(0, 10),
+              type: 'STOCK_IN',
+              sku: record.sku,
+              itemName: record.itemName,
+              quantity: Number(record.quantity || 0),
+              unit: record.unit || 'ដុំ',
+              fromLocation: `តំបន់ទំនិញខូច (${record.warehouse})`,
+              toLocation: record.warehouse,
+              notes: `ទំនិញខូចជួសជុលរួច ដាក់ចូលស្តុកប្រើប្រាស់វិញ [${record.recordId}]: ${d.actionTaken || ''}`,
+              user: u?.fullName || u?.username || 'Staff'
+            });
+            saveLocalTransactionsToStorage();
+          }
+
+          saveLocalDamagedStockToStorage();
+          return { success: true, message: `បានកែសម្រួលស្ថានភាពទំនិញខូចជោគជ័យ!` };
+        }
+        return { success: false, message: 'រកមិនឃើញកំណត់ត្រាទំនិញខូចឡើយ' };
+      }
+
+      if (action === 'deleteDamagedStock') {
+        const d = payload.data || payload;
+        loadLocalDamagedStockFromStorage();
+        const rId = d.recordId || d;
+        const idx = LOCAL_DB.damagedStock.findIndex(r => r.recordId === rId);
+        if (idx >= 0) {
+          const rec = LOCAL_DB.damagedStock[idx];
+          if (d.restoreStock && rec.deductedFromStock === 'Yes' && rec.sku) {
+            const matched = LOCAL_DB.items.find(i => i.sku === rec.sku);
+            if (matched) {
+              matched.currentStock = Number(matched.currentStock || 0) + Number(rec.quantity || 0);
+              saveLocalItemsToStorage();
+            }
+          }
+          LOCAL_DB.damagedStock.splice(idx, 1);
+          saveLocalDamagedStockToStorage();
+          return { success: true, message: `បានលុបកំណត់ត្រាទំនិញខូចជោគជ័យ!` };
+        }
+        return { success: false, message: 'រកមិនឃើញកំណត់ត្រាឡើយ' };
+      }
+
+      if (action === 'restockDamagedItem') {
+        const d = payload.data || payload;
+        loadLocalDamagedStockFromStorage();
+        const rId = String(d.recordId || '').trim();
+        const restockQty = Number(d.quantity || d.restockQty || 0);
+        const targetWh = d.warehouse || u?.warehouse || '';
+        const notes = d.notes || d.reason || 'ទំនិញខូចដាក់ចូលស្តុកប្រើប្រាស់វិញ';
+        const record = LOCAL_DB.damagedStock.find(r => r.recordId === rId);
+
+        if (record && restockQty > 0) {
+          const curDmgQty = Number(record.quantity || 0);
+          if (restockQty > curDmgQty) {
+            return { success: false, message: `ចំនួនត្រូវដាក់ចូលស្តុក (${restockQty}) មិនអាចធំជាងចំនួនខូចដែលមាន (${curDmgQty}) ឡើយ` };
+          }
+
+          if (record.sku) {
+            const matched = LOCAL_DB.items.find(i => i.sku === record.sku);
+            if (matched) {
+              matched.currentStock = Number(matched.currentStock || 0) + restockQty;
+              saveLocalItemsToStorage();
+            }
+            LOCAL_DB.transactions.unshift({
+              txId: 'TX-' + Date.now().toString().slice(-6),
+              date: new Date().toISOString().slice(0, 10),
+              type: 'STOCK_IN',
+              sku: record.sku,
+              itemName: record.itemName,
+              quantity: restockQty,
+              unit: record.unit || 'ដុំ',
+              fromLocation: `តំបន់ទំនិញខូច (${record.storageZone || 'តំបន់ខូច'})`,
+              toLocation: targetWh || record.warehouse,
+              notes: `ទំនិញខូចត្រូវដាក់ចូលស្តុក [${record.recordId}]: ${notes}`,
+              user: u?.fullName || u?.username || 'Staff'
+            });
+            saveLocalTransactionsToStorage();
+          }
+
+          if (restockQty >= curDmgQty) {
+            record.status = d.status || 'បានដាក់ចូលស្តុកវិញ (Restocked)';
+            record.actionTaken = notes;
+            record.updatedAt = new Date().toISOString().slice(0, 16).replace('T', ' ');
+          } else {
+            record.quantity = curDmgQty - restockQty;
+            record.status = 'ដាក់ចូលស្តុកមួយចំនួន (Partially Restocked)';
+            record.actionTaken = `បានដាក់ចូលស្តុក ${restockQty} ${record.unit} (នៅសល់ ${record.quantity}): ${notes}`;
+            record.updatedAt = new Date().toISOString().slice(0, 16).replace('T', ' ');
+          }
+
+          saveLocalDamagedStockToStorage();
+          return {
+            success: true,
+            message: `បានដាក់ទំនិញខូច ${record.itemName} ចំនួន ${restockQty} ${record.unit} ចូលស្តុកជោគជ័យ!`,
+            restockedQty: restockQty,
+            remainingQty: Math.max(0, curDmgQty - restockQty)
+          };
+        }
+        return { success: false, message: 'រកមិនឃើញកំណត់ត្រាទំនិញខូចឡើយ' };
       }
 
       if (action === 'recordStockIn') {
@@ -15321,6 +16067,8 @@
       if (tabIncomingEl) tabIncomingEl.classList.toggle('hidden', tabName !== 'incoming');
       document.getElementById('tabStockOut').classList.toggle('hidden', tabName !== 'stockout');
       document.getElementById('tabTransfer').classList.toggle('hidden', tabName !== 'transfer');
+      const tabDamagedEl = document.getElementById('tabDamaged');
+      if (tabDamagedEl) tabDamagedEl.classList.toggle('hidden', tabName !== 'damaged');
       document.getElementById('tabReports').classList.toggle('hidden', tabName !== 'reports');
       document.getElementById('tabRequests').classList.toggle('hidden', tabName !== 'requests');
       document.getElementById('tabChat').classList.toggle('hidden', tabName !== 'chat');
@@ -15341,6 +16089,12 @@
           mainContainer.scrollTop = 0;
         } else {
           mainContainer.classList.remove('stock-freeze-active');
+        }
+      }
+
+      if (tabName === 'damaged') {
+        if (typeof loadDamagedStock === 'function') {
+          loadDamagedStock();
         }
       }
 
@@ -15384,6 +16138,11 @@
           inactiveClass: 'text-blue-100/90 hover:bg-white/15 hover:text-white',
           layoutClass: 'flex items-center',
           activeBg: 'bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500'
+        },
+        'damaged': {
+          inactiveClass: 'text-rose-300 hover:bg-white/15 hover:text-white font-medium',
+          layoutClass: 'flex items-center justify-between',
+          activeBg: 'bg-gradient-to-r from-rose-600 via-pink-600 to-rose-700'
         },
         'reports': {
           inactiveClass: 'text-blue-100/90 hover:bg-white/15 hover:text-white',
@@ -17613,6 +18372,13 @@
                 title="លុបទំនិញនេះចេញ (Delete Item)"
                 class="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-500 hover:text-rose-600 border border-rose-200/90 flex items-center justify-center transition shadow-3xs active:scale-95">
                 <svg class="w-3.5 h-3.5 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              </button>
+
+              <!-- 3. កត់ត្រាខូច (Record as Damaged) -->
+              <button type="button" onclick="event.stopPropagation(); openRecordDamagedModal('${item.sku}')"
+                title="កត់ត្រាទំនិញនេះជាទំនិញខូចក្នុងឃ្លាំង (Record as Damaged)"
+                class="w-7 h-7 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-600 border border-red-200/90 flex items-center justify-center transition shadow-3xs active:scale-95">
+                <i class="fa-solid fa-triangle-exclamation text-xs"></i>
               </button>
             </div>
           </td>
@@ -35800,6 +36566,827 @@
           loadProductRequests();
         }
       }
+    }
+
+    // ==========================================
+    // 8.5. DAMAGED STOCK IN WAREHOUSE (ទំនិញខូចក្នុងឃ្លាំង)
+    // ==========================================
+    let cachedDamagedStock = [];
+
+    function saveLocalDamagedStockToStorage() {
+      try {
+        localStorage.setItem('inventory_damaged_stock', JSON.stringify(LOCAL_DB.damagedStock || []));
+      } catch (e) {
+        console.warn('Could not save damaged stock to localStorage', e);
+      }
+    }
+
+    function loadLocalDamagedStockFromStorage() {
+      try {
+        const saved = localStorage.getItem('inventory_damaged_stock');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            LOCAL_DB.damagedStock = parsed;
+          }
+        }
+      } catch (e) {}
+    }
+
+    async function loadDamagedStock(forceRefresh = false) {
+      loadLocalDamagedStockFromStorage();
+      populateDamagedWarehouseFilterOptions();
+
+      // Show instant local data if available
+      if (LOCAL_DB.damagedStock && LOCAL_DB.damagedStock.length > 0 && !forceRefresh) {
+        cachedDamagedStock = [...LOCAL_DB.damagedStock];
+        updateDamagedStockStats(cachedDamagedStock);
+        filterDamagedStock();
+      }
+
+      try {
+        const res = await apiCall('getDamagedStock');
+        if (res && res.success && Array.isArray(res.records)) {
+          cachedDamagedStock = res.records;
+          LOCAL_DB.damagedStock = [...res.records];
+          saveLocalDamagedStockToStorage();
+        } else if (!cachedDamagedStock || cachedDamagedStock.length === 0) {
+          cachedDamagedStock = LOCAL_DB.damagedStock || [];
+        }
+        updateDamagedStockStats(cachedDamagedStock);
+        filterDamagedStock();
+      } catch (e) {
+        if (cachedDamagedStock.length === 0 && LOCAL_DB.damagedStock) {
+          cachedDamagedStock = LOCAL_DB.damagedStock;
+          updateDamagedStockStats(cachedDamagedStock);
+          filterDamagedStock();
+        }
+      }
+    }
+
+    function populateDamagedWarehouseFilterOptions() {
+      const select = document.getElementById('dmgWarehouseFilter');
+      if (!select) return;
+      const curVal = select.value || 'ALL';
+      const whs = (typeof WAREHOUSES_LIST !== 'undefined' && Array.isArray(WAREHOUSES_LIST)) ? WAREHOUSES_LIST : [];
+      let html = '<option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>';
+      whs.forEach(w => {
+        html += `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`;
+      });
+      select.innerHTML = html;
+      select.value = curVal;
+
+      // Lock filter if user is station manager
+      const u = AppState.currentUser;
+      if (u && u.role !== 'Admin' && u.role !== 'SuperAdmin' && u.warehouse && u.warehouse !== 'ALL') {
+        select.value = u.warehouse;
+        select.disabled = true;
+      } else {
+        select.disabled = false;
+      }
+    }
+
+    function updateDamagedStockStats(records) {
+      const totalRecEl = document.getElementById('dmgTotalRecords');
+      if (!totalRecEl) return;
+      totalRecEl.innerText = records.length;
+
+      let totalQty = 0;
+      let pendingRepair = 0;
+      let storedInWarehouse = 0;
+
+      records.forEach(r => {
+        totalQty += Number(r.quantity || 0);
+        const st = String(r.status || '');
+        if (st.includes('រង់ចាំជួសជុល') || st.includes('Pending Repair')) {
+          pendingRepair++;
+        }
+        if (st.includes('កំពុងរក្សាទុកក្នុងឃ្លាំង') || st.includes('Stored in Warehouse')) {
+          storedInWarehouse++;
+        }
+      });
+
+      document.getElementById('dmgTotalQuantity').innerText = totalQty.toLocaleString();
+      document.getElementById('dmgPendingRepair').innerText = pendingRepair;
+      document.getElementById('dmgStoredInWarehouse').innerText = storedInWarehouse;
+
+      const badge = document.getElementById('damagedStockBadge');
+      if (badge) {
+        badge.innerText = records.length;
+        badge.classList.toggle('hidden', records.length === 0);
+      }
+    }
+
+    function filterDamagedStock() {
+      const q = (document.getElementById('dmgSearchInput')?.value || '').toLowerCase().trim();
+      const whFilter = document.getElementById('dmgWarehouseFilter')?.value || 'ALL';
+      const statusFilter = document.getElementById('dmgStatusFilter')?.value || 'ALL';
+      const typeFilter = document.getElementById('dmgTypeFilter')?.value || 'ALL';
+
+      let filtered = cachedDamagedStock || [];
+
+      if (whFilter !== 'ALL') {
+        filtered = filtered.filter(r => (typeof matchesTargetWarehouse === 'function') ? matchesTargetWarehouse(r.warehouse, whFilter) : (r.warehouse === whFilter));
+      }
+
+      if (statusFilter !== 'ALL') {
+        filtered = filtered.filter(r => r.status === statusFilter);
+      }
+
+      if (typeFilter !== 'ALL') {
+        filtered = filtered.filter(r => r.damageType === typeFilter);
+      }
+
+      if (q) {
+        filtered = filtered.filter(r =>
+          (r.recordId && r.recordId.toLowerCase().includes(q)) ||
+          (r.sku && r.sku.toLowerCase().includes(q)) ||
+          (r.itemName && r.itemName.toLowerCase().includes(q)) ||
+          (r.warehouse && r.warehouse.toLowerCase().includes(q)) ||
+          (r.storageZone && r.storageZone.toLowerCase().includes(q)) ||
+          (r.recordedBy && r.recordedBy.toLowerCase().includes(q)) ||
+          (r.notes && r.notes.toLowerCase().includes(q)) ||
+          (r.actionTaken && r.actionTaken.toLowerCase().includes(q))
+        );
+      }
+
+      renderDamagedStockTable(filtered);
+    }
+
+    function renderDamagedStockTable(records) {
+      const tbody = document.getElementById('damagedTableBody');
+      if (!tbody) return;
+
+      if (!records || records.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="10" class="text-center py-12 text-slate-400">
+              <div class="flex flex-col items-center justify-center space-y-2">
+                <span class="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center text-xl">
+                  <i class="fa-solid fa-box-open"></i>
+                </span>
+                <p class="font-bold text-slate-600 text-sm">មិនមានទិន្នន័យទំនិញខូចក្នុងឃ្លាំងឡើយ</p>
+                <p class="text-[11px] text-slate-400">ចុចប៊ូតុង "កត់ត្រាទំនិញខូចថ្មី" ដើម្បីកត់ត្រាទំនិញខូចគុណភាព ឬបាក់បែក</p>
+              </div>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      const isAdmin = (AppState.currentUser?.role === 'Admin' || AppState.currentUser?.role === 'SuperAdmin');
+
+      tbody.innerHTML = records.map(r => {
+        let statusBadgeClass = 'bg-slate-100 text-slate-700 border-slate-200';
+        let statusIcon = 'fa-box';
+        const st = String(r.status || '');
+        if (st.includes('កំពុងរក្សាទុក') || st.includes('Stored in Warehouse')) {
+          statusBadgeClass = 'bg-purple-100 text-purple-700 border-purple-200';
+          statusIcon = 'fa-warehouse';
+        } else if (st.includes('រង់ចាំជួសជុល') || st.includes('Pending Repair')) {
+          statusBadgeClass = 'bg-amber-100 text-amber-700 border-amber-200 animate-pulse';
+          statusIcon = 'fa-wrench';
+        } else if (st.includes('រង់ចាំប្តូរ') || st.includes('Pending Return')) {
+          statusBadgeClass = 'bg-cyan-100 text-cyan-700 border-cyan-200';
+          statusIcon = 'fa-rotate';
+        } else if (st.includes('រង់ចាំកម្ទេច') || st.includes('Pending Disposal')) {
+          statusBadgeClass = 'bg-rose-100 text-rose-700 border-rose-200';
+          statusIcon = 'fa-trash-can';
+        } else if (st.includes('បានជួសជុលរួច') || st.includes('Repaired')) {
+          statusBadgeClass = 'bg-emerald-100 text-emerald-700 border-emerald-200';
+          statusIcon = 'fa-check';
+        } else if (st.includes('បានដាក់ចូលស្តុក') || st.includes('Restocked')) {
+          statusBadgeClass = 'bg-emerald-100 text-emerald-800 border-emerald-300 font-bold';
+          statusIcon = 'fa-boxes-packing';
+        } else if (st.includes('ដាក់ចូលស្តុកមួយចំនួន') || st.includes('Partially Restocked')) {
+          statusBadgeClass = 'bg-teal-100 text-teal-800 border-teal-300 font-bold';
+          statusIcon = 'fa-box-archive';
+        } else if (st.includes('បានប្រគល់ជូន') || st.includes('Returned')) {
+          statusBadgeClass = 'bg-blue-100 text-blue-700 border-blue-200';
+          statusIcon = 'fa-truck';
+        }
+
+        let severityBadgeClass = 'bg-slate-100 text-slate-600';
+        const sev = String(r.severity || '');
+        if (sev.includes('ស្រាល') || sev.includes('Minor')) {
+          severityBadgeClass = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+        } else if (sev.includes('មធ្យម') || sev.includes('Moderate')) {
+          severityBadgeClass = 'bg-amber-50 text-amber-700 border border-amber-200';
+        } else if (sev.includes('ធ្ងន់ធ្ងរ') || sev.includes('Severe')) {
+          severityBadgeClass = 'bg-rose-50 text-rose-700 border border-rose-200 font-black';
+        }
+
+        const isDeducted = String(r.deductedFromStock || '').toLowerCase() === 'yes';
+
+        return `
+          <tr class="hover:bg-rose-50/20 transition-colors">
+            <!-- 1. Record ID -->
+            <td class="px-3.5 py-3 font-mono font-bold text-slate-700 text-[11px] whitespace-nowrap">
+              <span class="px-2 py-1 rounded-lg bg-slate-100 border border-slate-200 text-slate-700 select-all shadow-3xs">${escapeHtml(r.recordId || '-')}</span>
+            </td>
+
+            <!-- 2. Date -->
+            <td class="px-3.5 py-3 text-slate-600 font-medium text-[11px] whitespace-nowrap">
+              ${escapeHtml(r.date ? String(r.date).slice(0, 10) : '-')}
+            </td>
+
+            <!-- 3. Item Name & SKU -->
+            <td class="px-3.5 py-3">
+              <div class="font-bold text-slate-800 text-xs leading-tight">${escapeHtml(r.itemName || '-')}</div>
+              <div class="flex items-center space-x-1.5 mt-0.5">
+                <span class="font-mono text-[10px] text-slate-500 font-bold bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200">${escapeHtml(r.sku || '-')}</span>
+                <span class="text-[10px] text-slate-400">${escapeHtml(r.category || 'ទូទៅ')}</span>
+              </div>
+            </td>
+
+            <!-- 4. Warehouse & Storage Zone -->
+            <td class="px-3.5 py-3">
+              <div class="text-xs font-bold text-slate-700 flex items-center space-x-1">
+                <i class="fa-solid fa-location-dot text-rose-500 text-[10px]"></i>
+                <span class="truncate max-w-[170px]" title="${escapeHtml(r.warehouse)}">${escapeHtml(r.warehouse || '-')}</span>
+              </div>
+              <div class="text-[10.5px] font-semibold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200/70 inline-block mt-1">
+                <i class="fa-solid fa-box-archive mr-0.5 text-[9px]"></i>
+                <span>${escapeHtml(r.storageZone || 'តំបន់ទំនិញខូច')}</span>
+              </div>
+            </td>
+
+            <!-- 5. Quantity & Unit -->
+            <td class="px-3.5 py-3 text-center whitespace-nowrap">
+              <span class="text-sm font-black text-rose-600 font-mono">${r.quantity}</span>
+              <span class="text-xs font-semibold text-slate-500 ml-0.5">${escapeHtml(r.unit || 'ដុំ')}</span>
+            </td>
+
+            <!-- 6. Damage Type & Severity -->
+            <td class="px-3.5 py-3">
+              <div class="font-bold text-slate-800 text-xs">${escapeHtml(r.damageType || '-')}</div>
+              <div class="mt-1">
+                <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9.5px] font-bold ${severityBadgeClass}">
+                  ${escapeHtml(r.severity || '-')}
+                </span>
+              </div>
+            </td>
+
+            <!-- 7. Status -->
+            <td class="px-3.5 py-3 text-center whitespace-nowrap">
+              <span class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10.5px] font-bold border ${statusBadgeClass} shadow-3xs">
+                <i class="fa-solid ${statusIcon} text-[9px]"></i>
+                <span>${escapeHtml(r.status || 'កំពុងរក្សាទុក')}</span>
+              </span>
+            </td>
+
+            <!-- 8. Deducted -->
+            <td class="px-3.5 py-3 text-center whitespace-nowrap">
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${isDeducted ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600 border border-slate-200'}">
+                ${isDeducted ? '✅ កាត់រួច' : '❌ មិនកាត់'}
+              </span>
+            </td>
+
+            <!-- 9. Recorded By & Notes -->
+            <td class="px-3.5 py-3 text-[11px] max-w-[200px]">
+              <div class="font-bold text-slate-700">${escapeHtml(r.recordedBy || 'Staff')}</div>
+              ${r.notes ? `<div class="text-[10px] text-slate-500 italic mt-0.5 line-clamp-2" title="${escapeHtml(r.notes)}">${escapeHtml(r.notes)}</div>` : ''}
+              ${r.actionTaken && r.actionTaken !== '-' ? `<div class="text-[10px] text-blue-600 font-medium mt-0.5 line-clamp-1" title="ដំណោះស្រាយ៖ ${escapeHtml(r.actionTaken)}">💡 ${escapeHtml(r.actionTaken)}</div>` : ''}
+            </td>
+
+            <!-- 10. Actions -->
+            <td class="px-3.5 py-3 text-center whitespace-nowrap">
+              <div class="flex items-center justify-center space-x-1.5">
+                <!-- ប៊ូតុងដាក់ចូលស្តុក (Restock to Inventory) -->
+                ${Number(r.quantity || 0) > 0 ? `
+                  <button type="button" onclick="openRestockDamagedModal('${escapeHtml(r.recordId)}')"
+                    title="ដាក់ទំនិញខូចនេះចូលស្តុកប្រើប្រាស់វិញ (Restock to Available Inventory)"
+                    class="px-2.5 py-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-lg text-xs font-bold shadow-xs flex items-center space-x-1 transition active:scale-95 cursor-pointer">
+                    <i class="fa-solid fa-boxes-packing text-[10px]"></i>
+                    <span>ដាក់ចូលស្តុក</span>
+                  </button>
+                ` : `
+                  <span class="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold">
+                    <i class="fa-solid fa-check mr-0.5"></i>បានចូលស្តុក
+                  </span>
+                `}
+                <button type="button" onclick="openUpdateDamagedStatusModal('${escapeHtml(r.recordId)}')"
+                  title="កែសម្រួលស្ថានភាព / បច្ចុប្បន្នភាព"
+                  class="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold border border-indigo-200/80 shadow-3xs flex items-center space-x-1 transition active:scale-95">
+                  <i class="fa-solid fa-arrows-rotate text-[10px]"></i>
+                  <span>បច្ចុប្បន្នភាព</span>
+                </button>
+                <button type="button" onclick="handleDeleteDamagedStock('${escapeHtml(r.recordId)}')"
+                  title="លុបកំណត់ត្រានេះ"
+                  class="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200/80 flex items-center justify-center transition shadow-3xs active:scale-95">
+                  <i class="fa-solid fa-trash-can text-xs"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function openRecordDamagedModal(prefillSku = '') {
+      const form = document.getElementById('recordDamagedForm');
+      if (form) form.reset();
+
+      // Populate Items Datalist
+      const datalist = document.getElementById('dmgItemList');
+      if (datalist) {
+        const items = AppState.items || [];
+        datalist.innerHTML = items.map(i => `<option value="${escapeHtml(i.sku)} - ${escapeHtml(i.name)}"></option>`).join('');
+      }
+
+      // Populate Warehouse Select
+      const whSelect = document.getElementById('dmgInputWarehouse');
+      if (whSelect) {
+        const whs = (typeof WAREHOUSES_LIST !== 'undefined' && Array.isArray(WAREHOUSES_LIST)) ? WAREHOUSES_LIST : [];
+        whSelect.innerHTML = whs.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('');
+        const curU = AppState.currentUser;
+        if (curU && curU.role !== 'Admin' && curU.role !== 'SuperAdmin' && curU.warehouse && curU.warehouse !== 'ALL') {
+          whSelect.value = curU.warehouse;
+          whSelect.disabled = true;
+        } else {
+          whSelect.disabled = false;
+        }
+      }
+
+      // Reset preview box
+      const previewBox = document.getElementById('dmgItemStockPreview');
+      if (previewBox) previewBox.classList.add('hidden');
+
+      if (prefillSku) {
+        const itemInput = document.getElementById('dmgItemInput');
+        const matched = (AppState.items || []).find(i => i.sku === prefillSku);
+        if (itemInput && matched) {
+          itemInput.value = `${matched.sku} - ${matched.name}`;
+          onDamagedItemSelectChange();
+        } else if (itemInput) {
+          itemInput.value = prefillSku;
+          onDamagedItemSelectChange();
+        }
+      }
+
+      document.getElementById('recordDamagedModal')?.classList.remove('hidden');
+    }
+
+    function closeRecordDamagedModal() {
+      document.getElementById('recordDamagedModal')?.classList.add('hidden');
+    }
+
+    function onDamagedItemSelectChange() {
+      const inputVal = document.getElementById('dmgItemInput')?.value || '';
+      const sku = (typeof extractSkuFromInput === 'function') ? extractSkuFromInput(inputVal) : inputVal.split('-')[0].trim();
+      const matched = (AppState.items || []).find(i => i.sku === sku);
+
+      const previewBox = document.getElementById('dmgItemStockPreview');
+      const previewName = document.getElementById('dmgPreviewName');
+      const previewStock = document.getElementById('dmgPreviewStock');
+      const unitInput = document.getElementById('dmgInputUnit');
+
+      if (matched && previewBox) {
+        previewBox.classList.remove('hidden');
+        if (previewName) previewName.innerText = matched.name;
+        const curWh = document.getElementById('dmgInputWarehouse')?.value || '';
+        let stVal = matched.currentStock || 0;
+        if (curWh && typeof getItemStationStock === 'function') {
+          const st = getItemStationStock(matched, curWh);
+          stVal = st.total;
+        }
+        if (previewStock) previewStock.innerText = `${stVal} ${matched.unit || 'ដុំ'}`;
+        if (unitInput && !unitInput.value) unitInput.value = matched.unit || 'ដុំ';
+      } else if (previewBox) {
+        previewBox.classList.add('hidden');
+      }
+    }
+
+    async function handleRecordDamagedSubmit(e) {
+      if (e) e.preventDefault();
+      if (typeof isCurrentAdminInViewOnlyMode === 'function' && isCurrentAdminInViewOnlyMode()) {
+        showAdminViewOnlyWarning();
+        return;
+      }
+
+      const rawInput = document.getElementById('dmgItemInput')?.value || '';
+      const sku = (typeof extractSkuFromInput === 'function') ? extractSkuFromInput(rawInput) : rawInput.split('-')[0].trim();
+      const matched = (AppState.items || []).find(i => i.sku === sku);
+
+      const qty = Number(document.getElementById('dmgInputQty')?.value || 0);
+      if (qty <= 0) {
+        Swal.fire('កំហុស', 'សូមបញ្ចូលចំនួនខូចឱ្យធំជាង ០', 'warning');
+        return;
+      }
+
+      const whSelect = document.getElementById('dmgInputWarehouse');
+      const warehouse = whSelect ? whSelect.value : (AppState.currentUser?.warehouse || '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)');
+      const storageZone = document.getElementById('dmgInputStorageZone')?.value.trim() || 'តំបន់ទំនិញខូច';
+      const damageType = document.getElementById('dmgInputDamageType')?.value || 'ខូចគុណភាព';
+      const severity = document.getElementById('dmgInputSeverity')?.value || 'មធ្យម';
+      const status = document.getElementById('dmgInputStatus')?.value || 'កំពុងរក្សាទុកក្នុងឃ្លាំង (Stored in Warehouse)';
+      const deductFromStock = document.getElementById('dmgDeductFromStock')?.checked !== false;
+      const notes = document.getElementById('dmgInputNotes')?.value.trim() || '';
+      const unit = document.getElementById('dmgInputUnit')?.value.trim() || matched?.unit || 'ដុំ';
+      const itemName = matched ? matched.name : (rawInput.includes('-') ? rawInput.split('-').slice(1).join('-').trim() : rawInput);
+
+      const payload = {
+        data: {
+          sku: sku,
+          itemName: itemName,
+          category: matched?.category || 'ទូទៅ',
+          quantity: qty,
+          unit: unit,
+          warehouse: warehouse,
+          storageZone: storageZone,
+          damageType: damageType,
+          severity: severity,
+          status: status,
+          deductedFromStock: deductFromStock ? 'Yes' : 'No',
+          notes: notes,
+          date: new Date().toISOString().slice(0, 10)
+        },
+        user: AppState.currentUser
+      };
+
+      const btn = document.getElementById('submitDamagedBtn');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> កំពុងកត់ត្រា...';
+      }
+
+      try {
+        const res = await apiCall('recordDamagedStock', payload);
+        if (res && res.success) {
+          Swal.fire({
+            icon: 'success',
+            title: 'បានកត់ត្រាជោគជ័យ! 🎉',
+            text: res.message || `បានកត់ត្រាទំនិញខូច ${itemName} ចំនួន ${qty} ${unit} រក្សាទុកក្នុង ${warehouse} (${storageZone}) រួចរាល់!`,
+            timer: 3000,
+            showConfirmButton: false
+          });
+          closeRecordDamagedModal();
+          await loadDamagedStock(true);
+          if (deductFromStock && typeof loadItems === 'function') {
+            await loadItems();
+          }
+          if (typeof loadDashboard === 'function') {
+            loadDashboard();
+          }
+        } else {
+          Swal.fire('កំហុស', res.message || 'មិនអាចកត់ត្រាបានឡើយ', 'error');
+        }
+      } catch (err) {
+        Swal.fire('Error', err.toString(), 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fa-solid fa-check mr-1"></i> កត់ត្រាចូលឃ្លាំងខូច';
+        }
+      }
+    }
+
+    function openRestockDamagedModal(recordId) {
+      const record = (cachedDamagedStock || []).find(r => r.recordId === recordId);
+      if (!record) {
+        Swal.fire('កំហុស', 'រកមិនឃើញកំណត់ត្រាទំនិញខូចនេះឡើយ', 'error');
+        return;
+      }
+
+      const form = document.getElementById('restockDamagedForm');
+      if (form) form.reset();
+
+      const curDmgQty = Number(record.quantity || 0);
+      document.getElementById('restockDmgRecordId').value = recordId;
+      document.getElementById('restockDmgSku').value = record.sku || '';
+      document.getElementById('restockDmgUnit').value = record.unit || 'ដុំ';
+      document.getElementById('restockDmgMaxQty').value = curDmgQty;
+
+      document.getElementById('restockDmgRecordIdDisplay').innerText = recordId;
+      document.getElementById('restockDmgItemDisplay').innerText = record.itemName || '-';
+      document.getElementById('restockDmgSkuDisplay').innerText = record.sku ? `SKU: ${record.sku}` : '';
+      document.getElementById('restockDmgLocationDisplay').innerText = `${record.warehouse || '-'} (${record.storageZone || 'តំបន់ទំនិញខូច'})`;
+      document.getElementById('restockDmgCurrentQtyDisplay').innerText = `${curDmgQty} ${record.unit || 'ដុំ'}`;
+      document.getElementById('restockDmgUnitLabel').innerText = record.unit || 'ដុំ';
+
+      // Set default restock qty to all available damaged qty
+      const qtyInput = document.getElementById('restockDmgQty');
+      if (qtyInput) {
+        qtyInput.value = curDmgQty;
+        qtyInput.max = curDmgQty;
+      }
+
+      // Populate target warehouse select
+      const whSelect = document.getElementById('restockDmgTargetWarehouse');
+      if (whSelect) {
+        const whs = (typeof WAREHOUSES_LIST !== 'undefined' && Array.isArray(WAREHOUSES_LIST)) ? WAREHOUSES_LIST : [];
+        whSelect.innerHTML = whs.map(w => `<option value="${escapeHtml(w)}">${escapeHtml(w)}</option>`).join('');
+        whSelect.value = record.warehouse || AppState.currentUser?.warehouse || (whs[0] || '');
+        const curU = AppState.currentUser;
+        if (curU && curU.role !== 'Admin' && curU.role !== 'SuperAdmin' && curU.warehouse && curU.warehouse !== 'ALL') {
+          whSelect.value = curU.warehouse;
+          whSelect.disabled = true;
+        } else {
+          whSelect.disabled = false;
+        }
+      }
+
+      document.getElementById('restockDamagedModal')?.classList.remove('hidden');
+    }
+
+    function closeRestockDamagedModal() {
+      document.getElementById('restockDamagedModal')?.classList.add('hidden');
+    }
+
+    function setRestockDamagedAllQty() {
+      const maxVal = document.getElementById('restockDmgMaxQty')?.value;
+      const qtyInput = document.getElementById('restockDmgQty');
+      if (qtyInput && maxVal) {
+        qtyInput.value = maxVal;
+      }
+    }
+
+    function validateRestockQtyInput(inputEl) {
+      if (!inputEl) return;
+      const maxVal = Number(document.getElementById('restockDmgMaxQty')?.value || 0);
+      const curVal = Number(inputEl.value || 0);
+      if (curVal > maxVal) {
+        inputEl.classList.add('border-rose-500', 'ring-2', 'ring-rose-400');
+      } else {
+        inputEl.classList.remove('border-rose-500', 'ring-2', 'ring-rose-400');
+      }
+    }
+
+    async function handleRestockDamagedSubmit(e) {
+      if (e) e.preventDefault();
+      if (typeof isCurrentAdminInViewOnlyMode === 'function' && isCurrentAdminInViewOnlyMode()) {
+        showAdminViewOnlyWarning();
+        return;
+      }
+
+      const recordId = document.getElementById('restockDmgRecordId')?.value;
+      const record = (cachedDamagedStock || []).find(r => r.recordId === recordId);
+      const maxQty = Number(document.getElementById('restockDmgMaxQty')?.value || (record?.quantity || 0));
+      const restockQty = Number(document.getElementById('restockDmgQty')?.value || 0);
+
+      if (restockQty <= 0) {
+        Swal.fire('កំហុស', 'សូមបញ្ចូលចំនួនត្រូវដាក់ចូលស្តុកឱ្យធំជាង ០', 'warning');
+        return;
+      }
+
+      if (restockQty > maxQty) {
+        Swal.fire('កំហុស', `ចំនួនត្រូវដាក់ចូលស្តុក (${restockQty}) មិនអាចលើសពីចំនួនខូចដែលមាន (${maxQty}) ឡើយ`, 'warning');
+        return;
+      }
+
+      const whSelect = document.getElementById('restockDmgTargetWarehouse');
+      const targetWarehouse = whSelect ? whSelect.value : (record?.warehouse || AppState.currentUser?.warehouse || '');
+      const status = document.getElementById('restockDmgStatus')?.value || 'បានដាក់ចូលស្តុកវិញ (Restocked)';
+      const notes = document.getElementById('restockDmgNotes')?.value.trim() || 'បានជួសជុលរួច ដាក់ចូលស្តុកប្រើប្រាស់វិញ';
+
+      const payload = {
+        data: {
+          recordId: recordId,
+          quantity: restockQty,
+          warehouse: targetWarehouse,
+          status: status,
+          notes: notes,
+          reason: status
+        },
+        user: AppState.currentUser
+      };
+
+      const btn = document.getElementById('submitRestockDamagedBtn');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> កំពុងដាក់ចូលស្តុក...';
+      }
+
+      try {
+        const res = await apiCall('restockDamagedItem', payload);
+        if (res && res.success) {
+          Swal.fire({
+            icon: 'success',
+            title: 'ដាក់ចូលស្តុកជោគជ័យ! 🎉',
+            text: res.message || `បានដាក់ទំនិញខូចចំនួន ${restockQty} ចូលស្តុកឃ្លាំង ${targetWarehouse} រួចរាល់!`,
+            timer: 3000,
+            showConfirmButton: false
+          });
+          closeRestockDamagedModal();
+          await loadDamagedStock(true);
+          if (typeof loadItems === 'function') {
+            await loadItems();
+          }
+          if (typeof loadDashboard === 'function') {
+            loadDashboard();
+          }
+        } else {
+          Swal.fire('កំហុស', res.message || 'មិនអាចដាក់ចូលស្តុកបានឡើយ', 'error');
+        }
+      } catch (err) {
+        Swal.fire('Error', err.toString(), 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fa-solid fa-boxes-packing mr-1"></i> បញ្ជាក់ដាក់ចូលស្តុក';
+        }
+      }
+    }
+
+    function openUpdateDamagedStatusModal(recordId) {
+      const record = (cachedDamagedStock || []).find(r => r.recordId === recordId);
+      if (!record) {
+        Swal.fire('កំហុស', 'រកមិនឃើញកំណត់ត្រាទំនិញខូចនេះឡើយ', 'error');
+        return;
+      }
+
+      document.getElementById('updateDmgRecordId').value = recordId;
+      document.getElementById('updateDmgRecordIdDisplay').innerText = recordId;
+      document.getElementById('updateDmgItemDisplay').innerText = `${record.itemName} (${record.sku})`;
+      document.getElementById('updateDmgQtyDisplay').innerText = `${record.warehouse} | ${record.quantity} ${record.unit}`;
+
+      const statusSelect = document.getElementById('updateDmgNewStatus');
+      if (statusSelect) {
+        statusSelect.value = record.status || 'កំពុងរក្សាទុកក្នុងឃ្លាំង (Stored in Warehouse)';
+      }
+
+      toggleRestoreStockCheckbox(statusSelect ? statusSelect.value : '');
+
+      const actionTextarea = document.getElementById('updateDmgActionTaken');
+      if (actionTextarea) {
+        actionTextarea.value = (record.actionTaken && record.actionTaken !== '-') ? record.actionTaken : '';
+      }
+
+      document.getElementById('updateDamagedStatusModal')?.classList.remove('hidden');
+    }
+
+    function closeUpdateDamagedStatusModal() {
+      document.getElementById('updateDamagedStatusModal')?.classList.add('hidden');
+    }
+
+    function toggleRestoreStockCheckbox(statusVal) {
+      const box = document.getElementById('restoreStockOptionBox');
+      const chk = document.getElementById('updateDmgRestoreStock');
+      if (!box) return;
+      const isRepaired = String(statusVal).includes('បានជួសជុលរួច') || String(statusVal).includes('Repaired');
+      box.classList.toggle('hidden', !isRepaired);
+      if (chk) chk.checked = isRepaired;
+    }
+
+    async function handleUpdateDamagedStatusSubmit(e) {
+      if (e) e.preventDefault();
+      if (typeof isCurrentAdminInViewOnlyMode === 'function' && isCurrentAdminInViewOnlyMode()) {
+        showAdminViewOnlyWarning();
+        return;
+      }
+
+      const recordId = document.getElementById('updateDmgRecordId')?.value;
+      const newStatus = document.getElementById('updateDmgNewStatus')?.value;
+      const actionTaken = document.getElementById('updateDmgActionTaken')?.value.trim();
+      const restoreStock = document.getElementById('updateDmgRestoreStock')?.checked === true;
+
+      const payload = {
+        data: {
+          recordId: recordId,
+          status: newStatus,
+          actionTaken: actionTaken,
+          restoreStock: restoreStock
+        },
+        user: AppState.currentUser
+      };
+
+      const btn = document.getElementById('submitUpdateDamagedBtn');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> កំពុងរក្សាទុក...';
+      }
+
+      try {
+        const res = await apiCall('updateDamagedStockStatus', payload);
+        if (res && res.success) {
+          Swal.fire({
+            icon: 'success',
+            title: 'បានធ្វើបច្ចុប្បន្នភាពជោគជ័យ! ✅',
+            text: res.message || 'ស្ថានភាពទំនិញខូចត្រូវបានកែប្រែរួចរាល់',
+            timer: 2500,
+            showConfirmButton: false
+          });
+          closeUpdateDamagedStatusModal();
+          await loadDamagedStock(true);
+          if (restoreStock && typeof loadItems === 'function') {
+            await loadItems();
+          }
+          if (typeof loadDashboard === 'function') {
+            loadDashboard();
+          }
+        } else {
+          Swal.fire('កំហុស', res.message || 'មិនអាចកែប្រែបានឡើយ', 'error');
+        }
+      } catch (err) {
+        Swal.fire('Error', err.toString(), 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fa-solid fa-save mr-1"></i> រក្សាទុកបច្ចុប្បន្នភាព';
+        }
+      }
+    }
+
+    async function handleDeleteDamagedStock(recordId) {
+      if (typeof isCurrentAdminInViewOnlyMode === 'function' && isCurrentAdminInViewOnlyMode()) {
+        showAdminViewOnlyWarning();
+        return;
+      }
+
+      const record = (cachedDamagedStock || []).find(r => r.recordId === recordId);
+      const isDeducted = record && String(record.deductedFromStock).toLowerCase() === 'yes';
+
+      let restoreStock = false;
+      if (isDeducted) {
+        const confirmResult = await Swal.fire({
+          title: 'លុបកំណត់ត្រាទំនិញខូច?',
+          text: `តើអ្នកចង់ដាក់ចំនួន ${record.quantity} ${record.unit} នៃ ${record.itemName} ចូលស្តុកទូទៅវិញដែរឬទេ?`,
+          icon: 'warning',
+          showCancelButton: true,
+          showDenyButton: true,
+          confirmButtonText: 'បាទ/ចាស ដាក់ចូលស្តុកវិញរួចលុប',
+          denyButtonText: 'លុបចោល ដោយមិនដាក់ចូលស្តុកវិញ',
+          cancelButtonText: 'បោះបង់',
+          confirmButtonColor: '#059669',
+          denyButtonColor: '#e11d48'
+        });
+
+        if (confirmResult.isDismissed) return;
+        restoreStock = confirmResult.isConfirmed;
+      } else {
+        const confirmResult = await Swal.fire({
+          title: 'តើអ្នកប្រាកដជាចង់លុប?',
+          text: `កំណត់ត្រា ${recordId} នឹងត្រូវលុបចេញពីប្រព័ន្ធ!`,
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonText: 'យល់ព្រមលុប',
+          cancelButtonText: 'បោះបង់',
+          confirmButtonColor: '#e11d48'
+        });
+        if (!confirmResult.isConfirmed) return;
+      }
+
+      try {
+        const res = await apiCall('deleteDamagedStock', { data: { recordId: recordId, restoreStock: restoreStock } });
+        if (res && res.success) {
+          Swal.fire('ជោគជ័យ', res.message || 'បានលុបកំណត់ត្រាជោគជ័យ!', 'success');
+          await loadDamagedStock(true);
+          if (restoreStock && typeof loadItems === 'function') {
+            await loadItems();
+          }
+          if (typeof loadDashboard === 'function') {
+            loadDashboard();
+          }
+        } else {
+          Swal.fire('កំហុស', res.message || 'មិនអាចលុបបានឡើយ', 'error');
+        }
+      } catch (err) {
+        Swal.fire('Error', err.toString(), 'error');
+      }
+    }
+
+    function exportDamagedStockToExcel() {
+      if (!cachedDamagedStock || cachedDamagedStock.length === 0) {
+        Swal.fire('ដំណឹង', 'មិនមានទិន្នន័យទំនិញខូចសម្រាប់ទាញយកឡើយ', 'info');
+        return;
+      }
+
+      const headers = ['RecordID', 'Date', 'SKU', 'ItemName', 'Category', 'Quantity', 'Unit', 'Warehouse', 'StorageZone', 'DamageType', 'Severity', 'Status', 'DeductedFromStock', 'Notes', 'RecordedBy', 'ActionTaken'];
+      const csvRows = [];
+      csvRows.push(headers.join(','));
+
+      cachedDamagedStock.forEach(r => {
+        const row = [
+          `"${(r.recordId || '').replace(/"/g, '""')}"`,
+          `"${(r.date || '').replace(/"/g, '""')}"`,
+          `"${(r.sku || '').replace(/"/g, '""')}"`,
+          `"${(r.itemName || '').replace(/"/g, '""')}"`,
+          `"${(r.category || '').replace(/"/g, '""')}"`,
+          r.quantity || 0,
+          `"${(r.unit || '').replace(/"/g, '""')}"`,
+          `"${(r.warehouse || '').replace(/"/g, '""')}"`,
+          `"${(r.storageZone || '').replace(/"/g, '""')}"`,
+          `"${(r.damageType || '').replace(/"/g, '""')}"`,
+          `"${(r.severity || '').replace(/"/g, '""')}"`,
+          `"${(r.status || '').replace(/"/g, '""')}"`,
+          `"${(r.deductedFromStock || '').replace(/"/g, '""')}"`,
+          `"${(r.notes || '').replace(/"/g, '""')}"`,
+          `"${(r.recordedBy || '').replace(/"/g, '""')}"`,
+          `"${(r.actionTaken || '').replace(/"/g, '""')}"`
+        ];
+        csvRows.push(row.join(','));
+      });
+
+      const csvContent = '\uFEFF' + csvRows.join('\r\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `Damaged_Stock_Report_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
     }
 
     // ==========================================
