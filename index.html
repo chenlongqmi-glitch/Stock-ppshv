@@ -11007,71 +11007,7 @@
         ? KhmerCalState.selectedDate.getDate()
         : null;
 
-      // Check for any personal notes recorded in this month
-      const notesInMonth = [];
-      const daysInMonth = new Date(year, month + 1, 0).getDate();
-      for (let d = 1; d <= daysInMonth; d++) {
-        const dKey = getCalDateKey(year, month, d);
-        const txt = getNoteForDate(dKey);
-        if (txt) {
-          notesInMonth.push({ day: d, text: txt, dateKey: dKey });
-        }
-      }
-
       let html = '';
-
-      if (notesInMonth.length > 0) {
-        const nowForHolidays = new Date();
-        const todayKeyForHolidays = getCalDateKey(nowForHolidays);
-        const tomorrowDateForHolidays = new Date(nowForHolidays.getFullYear(), nowForHolidays.getMonth(), nowForHolidays.getDate() + 1);
-        const tomorrowKeyForHolidays = getCalDateKey(tomorrowDateForHolidays);
-
-        html += `
-          <div class="mb-2 pb-1 border-b border-amber-200 dark:border-amber-800">
-            <span class="text-[11px] font-bold text-amber-800 dark:text-amber-300 flex items-center space-x-1.5">
-              <i class="fa-solid fa-note-sticky text-amber-500"></i>
-              <span>កំណត់ចំណាំប្រចាំខែ (${toKhmerDigits(notesInMonth.length)})</span>
-            </span>
-          </div>
-        `;
-        notesInMonth.forEach(n => {
-          const isSelected = (selectedDay === n.day);
-          const isDue = (n.dateKey === todayKeyForHolidays);
-          const isTomorrow = (n.dateKey === tomorrowKeyForHolidays);
-
-          let alertBadgeHtml = '';
-          let cardBorderBg = 'border-yellow-300 dark:border-yellow-700/70 bg-yellow-50/90 hover:bg-yellow-100/90 dark:bg-yellow-950/30 dark:hover:bg-yellow-950/50';
-          if (isDue) {
-            alertBadgeHtml = `<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black bg-rose-600 text-white shadow-2xs animate-pulse"><i class="fa-solid fa-bell mr-1"></i>ដល់ថ្ងៃកំណត់</span>`;
-            cardBorderBg = 'border-rose-300 bg-rose-50/80 hover:bg-rose-100/80 dark:bg-rose-950/30 ring-1 ring-rose-400';
-          } else if (isTomorrow) {
-            alertBadgeHtml = `<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500 text-white shadow-2xs animate-pulse"><i class="fa-solid fa-clock-rotate-left mr-1"></i>រំលឹកមុន ១ ថ្ងៃ</span>`;
-            cardBorderBg = 'border-amber-300 bg-amber-50/90 hover:bg-amber-100/90 dark:bg-amber-950/30 ring-1 ring-amber-400';
-          }
-
-          const activeRing = isSelected ? 'ring-2 ring-amber-500 shadow-xs' : '';
-          html += `
-            <div onclick="calSelectDate(${year}, ${month}, ${n.day})" ondblclick="calPromptDateNote(${year}, ${month}, ${n.day})"
-              class="p-2.5 rounded-xl border ${cardBorderBg} cursor-pointer transition select-none flex flex-col space-y-1 mb-2 ${activeRing}">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-1.5 text-xs font-bold text-amber-900 dark:text-amber-200">
-                  <i class="fa-solid fa-note-sticky text-amber-500 text-[11px]"></i>
-                  <span>ថ្ងៃទី${toKhmerDigits(n.day)} ${KHMER_CAL_MONTH_NAMES[month]}</span>
-                </div>
-                <div class="flex items-center space-x-1.5">
-                  ${alertBadgeHtml}
-                  <button type="button" onclick="event.stopPropagation(); calPromptDateNote(${year}, ${month}, ${n.day})" class="text-[10px] font-bold text-amber-700 hover:text-amber-800 hover:underline">
-                    <i class="fa-solid fa-pen-to-square"></i> កែប្រែ
-                  </button>
-                </div>
-              </div>
-              <div class="text-xs text-slate-800 dark:text-slate-200 whitespace-pre-wrap break-words leading-relaxed font-sans">
-                ${escapeHtml(n.text)}
-              </div>
-            </div>
-          `;
-        });
-      }
 
       events.forEach(e => {
         const isSelected = (selectedDay === e.solarDay);
