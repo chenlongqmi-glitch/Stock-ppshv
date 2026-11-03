@@ -2681,18 +2681,18 @@
 
               <!-- Action buttons: Auto Sync, Import Excel, Export, Add Item -->
               <div class="flex items-center flex-wrap gap-2 justify-end">
-                <!-- Reload from Google Sheet Button -->
+                <!-- Reload from Google Sheet Button (SuperAdmin Only) -->
                 <button type="button" onclick="loadItemsFromGoogleSheet(false)" id="btnReloadItemsFromSheet"
                   title="ទាញយកទិន្នន័យទំនិញថ្មីចុងក្រោយពី Google Sheet ដោយផ្ទាល់ 100%"
-                  class="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-sm shadow-blue-500/20 transition-all active:scale-95 cursor-pointer group">
+                  class="hidden px-3 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-sm shadow-blue-500/20 transition-all active:scale-95 cursor-pointer group">
                   <i class="fa-solid fa-arrows-rotate group-hover:rotate-180 transition-transform duration-500"></i>
                   <span>ទាញពី Google Sheet</span>
                 </button>
 
-                <!-- Auto Sync to Google Sheets Button (Compact Icon Button) -->
+                <!-- Auto Sync to Google Sheets Button (SuperAdmin Only) -->
                 <button type="button" onclick="syncAllItemsToCloud(false)" id="btnSyncItemsToSheet"
                   title="ប្រព័ន្ធកំណត់ Auto Sync ទៅកាន់ Google Sheet ដោយស្វ័យប្រវត្តិតាមពេលជាក់ស្តែង (ចុចដើម្បី Sync ភ្លាមៗ)"
-                  class="w-8 h-8 sm:w-9 sm:h-9 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl flex items-center justify-center shadow-sm shadow-emerald-500/20 transition-all active:scale-95 cursor-pointer relative group">
+                  class="hidden w-8 h-8 sm:w-9 sm:h-9 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl flex items-center justify-center shadow-sm shadow-emerald-500/20 transition-all active:scale-95 cursor-pointer relative group">
                   <span id="syncPulseDot" class="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
                     <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-300 ring-2 ring-white"></span>
                   </span>
@@ -2701,10 +2701,10 @@
                   <span id="btnSyncStatusBadge" class="hidden"></span>
                 </button>
 
-                <!-- Excel Import Button -->
+                <!-- Excel Import Button (SuperAdmin Only) -->
                 <button type="button" onclick="openExcelImportModal()" id="btnImportExcel"
                   title="នាំចូលទំនិញពីឯកសារ Excel (.xlsx, .xls, .csv)"
-                  class="px-3 py-1.5 border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-xs transition-all active:scale-95 cursor-pointer">
+                  class="hidden px-3 py-1.5 border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-xs transition-all active:scale-95 cursor-pointer">
                   <i class="fa-solid fa-file-excel text-emerald-600"></i>
                   <span>Import Excel</span>
                 </button>
@@ -8326,7 +8326,8 @@
         } else {
           itemsBanner.classList.add('hidden');
           if (btnAddNewItem) btnAddNewItem.classList.remove('hidden');
-          if (btnImportExcel) btnImportExcel.classList.remove('hidden');
+          const isSuper = (typeof isStrictSuperAdmin === 'function') ? isStrictSuperAdmin() : false;
+          if (btnImportExcel) btnImportExcel.classList.toggle('hidden', !isSuper);
         }
       }
     }
@@ -14547,17 +14548,23 @@
         superAdminSheetCard.classList.toggle('hidden', !isSuper);
       }
 
-      // 5. Products Tab: Auto Sync to Google Sheet Button (Visible to SuperAdmin & Admin)
+      // 5. Products Tab: SuperAdmin Exclusive Tools (ទាញពី Google Sheet, Auto Sync Cloud, Import Excel)
+      const btnReloadItemsFromSheet = document.getElementById('btnReloadItemsFromSheet');
+      if (btnReloadItemsFromSheet) {
+        btnReloadItemsFromSheet.classList.toggle('hidden', !isSuper);
+      }
+
       const btnSyncItemsToSheet = document.getElementById('btnSyncItemsToSheet');
       if (btnSyncItemsToSheet) {
-        const u = AppState.currentUser;
-        const uRole = String(u?.role || '').toLowerCase();
-        const uName = String(u?.username || '').toLowerCase();
-        const canAccess = isSuper || uRole === 'admin' || uName === 'admin' || uRole.includes('admin') || uRole === 'manager';
-        btnSyncItemsToSheet.classList.toggle('hidden', !canAccess);
-        if (typeof AutoSyncEngine !== 'undefined' && AutoSyncEngine && typeof AutoSyncEngine.updateUI === 'function') {
+        btnSyncItemsToSheet.classList.toggle('hidden', !isSuper);
+        if (isSuper && typeof AutoSyncEngine !== 'undefined' && AutoSyncEngine && typeof AutoSyncEngine.updateUI === 'function') {
           AutoSyncEngine.updateUI();
         }
+      }
+
+      const btnImportExcel = document.getElementById('btnImportExcel');
+      if (btnImportExcel) {
+        btnImportExcel.classList.toggle('hidden', !isSuper);
       }
     }
 
@@ -16114,7 +16121,7 @@
         }
       }
 
-      if (tabName === 'settings') {
+      if (tabName === 'settings' || tabName === 'items') {
         updateSuperAdminExclusiveUI();
       }
 
@@ -16861,6 +16868,16 @@
 
     // Pull all items directly from Google Sheet (Guaranteed 100% full dataset)
     async function loadItemsFromGoogleSheet(silent = false) {
+      if (typeof isStrictSuperAdmin === 'function' && !isStrictSuperAdmin()) {
+        if (!silent && typeof Swal !== 'undefined') {
+          Swal.fire({
+            icon: 'warning',
+            title: 'គ្មានសិទ្ធិប្រើប្រាស់',
+            text: 'មុខងារទាញទិន្នន័យពី Google Sheet មានសម្រាប់តែ SuperAdmin ប៉ុណ្ណោះ!'
+          });
+        }
+        return;
+      }
       if (!silent) {
         Swal.fire({
           title: 'កំពុងទាញទិន្នន័យពី Google Sheet...',
@@ -16908,6 +16925,16 @@
 
     // Public unified sync API
     async function syncAllItemsToCloud(silent = false) {
+      if (!silent && typeof isStrictSuperAdmin === 'function' && !isStrictSuperAdmin()) {
+        if (typeof Swal !== 'undefined') {
+          Swal.fire({
+            icon: 'warning',
+            title: 'គ្មានសិទ្ធិប្រើប្រាស់',
+            text: 'មុខងារ Sync ទៅ Google Sheet មានសម្រាប់តែ SuperAdmin ប៉ុណ្ណោះ!'
+          });
+        }
+        return false;
+      }
       return await AutoSyncEngine.executeSync(silent, silent ? 'auto' : 'manual');
     }
 
@@ -28004,6 +28031,16 @@
     let parsedExcelItemsCache = [];
 
     function openExcelImportModal() {
+      if (typeof isStrictSuperAdmin === 'function' && !isStrictSuperAdmin()) {
+        if (typeof Swal !== 'undefined') {
+          Swal.fire({
+            icon: 'warning',
+            title: 'គ្មានសិទ្ធិប្រើប្រាស់',
+            text: 'មុខងារ Import Excel មានសម្រាប់តែ SuperAdmin ប៉ុណ្ណោះ!'
+          });
+        }
+        return;
+      }
       parsedExcelItemsCache = [];
       const fileInput = document.getElementById('excelFileInput');
       if (fileInput) fileInput.value = '';
