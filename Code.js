@@ -332,6 +332,8 @@ function handleTelegramUserApproval(userId, username, targetStatus) {
 
         `🏢 <b>ឃ្លាំង:</b> ${userWh}\n` +
 
+        `👮 <b>អនុម័តដោយ:</b> SuperAdmin / Admin (Telegram)\n` +
+
         `✅ ស្ថានភាព៖ <b>បានអនុម័ត (Active)</b> រួចរាល់! អ្នកប្រើប្រាស់អាច Login ចូលប្រព័ន្ធបានហើយ។`
 
       );
@@ -382,7 +384,7 @@ function handleTelegramUserApproval(userId, username, targetStatus) {
 
             <div class="icon">✓</div>
 
-            <span class="badge">APPROVED BY ADMIN</span>
+            <span class="badge">APPROVED BY SUPERADMIN / ADMIN</span>
 
             <h2>បានអនុម័តគណនីជោគជ័យ!</h2>
 
@@ -3002,8 +3004,8 @@ function registerUser(userData) {
       `💼 <b>តួនាទី:</b> ${role}\n` +
       `🏢 <b>ស្ថានីយ/ឃ្លាំង:</b> ${warehouse}\n` +
       `🕒 <b>កាលបរិច្ឆេទ:</b> ${Utilities.formatDate(new Date(), 'GMT+7', 'dd/MM/yyyy, HH:mm:ss')}\n` +
-      `🚦 <b>ស្ថានភាព:</b> ⏳ <b>រង់ចាំ Admin / SuperAdmin ពិនិត្យ & អនុម័ត</b>\n\n` +
-      `👉 <b>សូម Admin ឬ SuperAdmin ចុចប៊ូតុងខាងក្រោមដើម្បី អនុម័ត (Approve) តាម Telegram៖</b>`;
+      `🚦 <b>ស្ថានភាព:</b> ⏳ <b>រង់ចាំ SuperAdmin ឬ Admin ពិនិត្យ & អនុម័ត</b>\n\n` +
+      `👉 <b>សូម SuperAdmin ឬ Admin ចុចប៊ូតុងខាងក្រោមដើម្បី អនុម័ត (Approve) តាម Telegram៖</b>`;
 
     sendTelegramAlert(regAlert, replyMarkup);
 

@@ -30529,7 +30529,7 @@
           }
         } else if (u.status === 'Pending' || u.status === 'Pending_Admin' || u.status === 'Pending_SuperAdmin') {
           const isTargetSA = (typeof isRoleForSuperAdminApproval === 'function') ? isRoleForSuperAdminApproval(u.role) : false;
-          const canApprove = isActorSuperAdmin ? isTargetSA : (isActorAdmin && !isTargetSA);
+          const canApprove = isActorSuperAdmin || (isActorAdmin && !isTargetSA);
           if (canApprove) {
             actionsHtml = `
               <div class="inline-flex flex-wrap items-center gap-1.5">
@@ -34253,10 +34253,7 @@
       );
 
       if (isActorSuperAdmin) {
-        if (!isTargetRequiringSA) {
-          Swal.fire('ការអនុម័តដោយ Admin', 'គណនីនេះជាតួនាទី «' + (resolvedRole || 'បុគ្គលិក') + '» ដែលស្ថិតក្រោមការអនុម័តរបស់ Admin! SuperAdmin ទទួលបានតែសារ Alert ឱ្យឃើញប៉ុណ្ណោះ។', 'info');
-          return;
-        }
+        // SuperAdmin retains full supreme authority to approve any user (គោលការណ៍ចាស់ SuperAdmin)
       } else if (isActorAdmin) {
         if (isTargetRequiringSA) {
           Swal.fire('គ្មានសិទ្ធិ', 'គណនី Admin ឬ អ្នកគ្រប់គ្រងស្ថានីយ ត្រូវតែ SuperAdmin ជាអ្នកអនុម័តប៉ុណ្ណោះ!', 'warning');
@@ -40197,7 +40194,7 @@
       // SuperAdmin only approves Admin & Station Manager!
       // Admin approves other roles (ប្រធានក្រុម, អ្នកកាន់ស្តុក, etc.).
       const relevantUsers = (pendingUsers || []).filter(u => {
-        return isSuperAdmin ? isRoleForSuperAdminApproval(u.role) : !isRoleForSuperAdminApproval(u.role);
+        return isSuperAdmin ? true : !isRoleForSuperAdminApproval(u.role);
       });
 
       if (relevantUsers.length === 0) {
@@ -40322,7 +40319,7 @@
       // SuperAdmin ONLY approves Admin and Station Manager!
       // Admin approves other roles (ប្រធានក្រុម, អ្នកកាន់ស្តុក, etc.).
       const actionableUsers = isSuperAdmin
-        ? pendingUsers.filter(u => isRoleForSuperAdminApproval(u.role))
+        ? pendingUsers
         : pendingUsers.filter(u => !isRoleForSuperAdminApproval(u.role));
 
       // 1. Update LiveChat Tab Badge in Sidebar
@@ -40465,7 +40462,7 @@
             // Other roles (ប្រធានក្រុម, អ្នកកាន់ស្តុក, etc.) are approved by Admin.
             const targetRole = latestUser.role || '';
             const isTargetSARole = (typeof isRoleForSuperAdminApproval === 'function') ? isRoleForSuperAdminApproval(targetRole) : false;
-            const canActorApprove = isSuperAdmin ? isTargetSARole : (!isTargetSARole);
+            const canActorApprove = isSuperAdmin ? true : (!isTargetSARole);
 
             // Toast Alert: Shows once for 8 seconds (or until clicked)
             if (typeof Swal !== 'undefined') {
@@ -40541,7 +40538,7 @@
       const allUsers = deduplicateUsersList(LOCAL_DB.users || []);
       let pendingUsers = allUsers.filter(u => {
         if (u.status === 'Pending_Admin' || u.status === 'Pending' || u.status === 'Pending_SuperAdmin') {
-          return isSuperAdmin ? isRoleForSuperAdminApproval(u.role) : !isRoleForSuperAdminApproval(u.role);
+          return isSuperAdmin ? true : !isRoleForSuperAdminApproval(u.role);
         }
         return false;
       });
