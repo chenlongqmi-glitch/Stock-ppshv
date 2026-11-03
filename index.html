@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=0.5, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Cache-Control" content="no-cache">
   <meta http-equiv="Pragma" content="no-cache">
@@ -1664,6 +1664,28 @@
           <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-400/20 text-amber-200 border border-amber-300/30">Admin</span>
         </a>
 
+        <!-- DISPLAY ZOOM CONTROLS (ZOOM IN / ZOOM OUT FOR MOBILE & IPAD) -->
+        <div class="mt-4 pt-3 border-t border-white/15 px-1 select-none">
+          <div class="flex items-center justify-between text-[11px] text-blue-200 mb-2 font-medium">
+            <span class="flex items-center gap-1.5 font-bold">
+              <i class="fa-solid fa-magnifying-glass-plus text-cyan-300"></i>
+              <span>ទំហំអេក្រង់ (Zoom UI)</span>
+            </span>
+            <span id="sidebarZoomText" class="font-bold text-cyan-300 font-mono text-xs">100%</span>
+          </div>
+          <div class="grid grid-cols-3 gap-1.5">
+            <button type="button" onclick="adjustAppZoom(-0.05)" class="py-1.5 px-2 bg-white/10 hover:bg-white/20 active:scale-95 rounded-xl text-xs font-bold text-white flex items-center justify-center gap-1 transition border border-white/10 cursor-pointer" title="បង្រួម UI (-5%)">
+              <i class="fa-solid fa-minus text-[10px]"></i> បង្រួម
+            </button>
+            <button type="button" onclick="resetAppZoom()" class="py-1.5 px-2 bg-blue-500/40 hover:bg-blue-500/60 active:scale-95 rounded-xl text-xs font-bold text-cyan-200 flex items-center justify-center transition border border-cyan-400/30 cursor-pointer" title="កំណត់ទំហំស្វ័យប្រវត្តិ (Auto)">
+              Auto
+            </button>
+            <button type="button" onclick="adjustAppZoom(0.05)" class="py-1.5 px-2 bg-white/10 hover:bg-white/20 active:scale-95 rounded-xl text-xs font-bold text-white flex items-center justify-center gap-1 transition border border-white/10 cursor-pointer" title="ពង្រីក UI (+5%)">
+              <i class="fa-solid fa-plus text-[10px]"></i> ពង្រីក
+            </button>
+          </div>
+        </div>
+
       </nav>
     </aside>
 
@@ -2204,6 +2226,15 @@
               <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500 border border-white"></span>
             </span>
           </button>
+
+          <!-- Mobile Screen Zoom Controls (Zoom In / Zoom Out on Mobile Phones) -->
+          <div id="mobileHeaderZoomWidget"
+            class="flex sm:hidden items-center bg-slate-100/90 hover:bg-slate-200/90 border border-slate-200 rounded-xl px-1 py-0.5 text-slate-700 shadow-2xs shrink-0 select-none"
+            title="ពង្រីក/បង្រួម UI អេក្រង់ទូរសព្ទ">
+            <button type="button" onclick="adjustAppZoom(-0.05)" class="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-white text-slate-700 active:text-blue-600 font-black text-xs transition active:scale-90" title="បង្រួម UI (-5%)">−</button>
+            <span id="mobileHeaderZoomText" onclick="resetAppZoom()" class="text-[10px] font-bold text-blue-700 px-1 font-sans cursor-pointer min-w-[32px] text-center" title="ចុចកំណត់ Auto">100%</span>
+            <button type="button" onclick="adjustAppZoom(0.05)" class="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-white text-slate-700 active:text-blue-600 font-black text-xs transition active:scale-90" title="ពង្រីក UI (+5%)">+</button>
+          </div>
 
           <!-- Admin Global Warehouse Selector Filter (Visible for SuperAdmin and Admin ONLY) -->
           <div id="adminWarehouseFilterContainer" style="display: none;"
@@ -4879,6 +4910,36 @@
         </button>
       </div>
     </nav>
+
+    <!-- Floating Zoom In / Zoom Out Quick Controller for Mobile & iPad -->
+    <div id="mobileFloatingZoomDock"
+      class="fixed bottom-20 md:bottom-6 right-3 z-40 flex items-center bg-slate-900/90 hover:bg-slate-900 text-white backdrop-blur-md border border-white/20 rounded-full shadow-2xl px-2 py-1 space-x-1 transition-all duration-300 select-none">
+      <button type="button" onclick="adjustAppZoom(-0.05)"
+        class="w-7 h-7 rounded-full bg-white/15 hover:bg-white/30 active:bg-blue-600 active:scale-90 flex items-center justify-center text-xs font-black transition text-white"
+        title="Zoom Out / បង្រួម (-5%)">
+        <i class="fa-solid fa-minus text-[11px]"></i>
+      </button>
+      <span id="mobileFloatingZoomText" onclick="resetAppZoom()"
+        class="text-[11px] font-extrabold font-sans text-cyan-300 px-1.5 cursor-pointer min-w-[36px] text-center leading-none"
+        title="ចុចដើម្បីកំណត់ Auto (Reset 100%)">100%</span>
+      <button type="button" onclick="adjustAppZoom(0.05)"
+        class="w-7 h-7 rounded-full bg-white/15 hover:bg-white/30 active:bg-blue-600 active:scale-90 flex items-center justify-center text-xs font-black transition text-white"
+        title="Zoom In / ពង្រីក (+5%)">
+        <i class="fa-solid fa-plus text-[11px]"></i>
+      </button>
+      <button type="button" onclick="toggleMobileFloatingZoomDock()"
+        class="w-5 h-5 rounded-full text-slate-400 hover:text-white flex items-center justify-center text-[10px] ml-0.5 transition"
+        title="បង្រួមទៅជាប៊ូតុងតូច">
+        <i class="fa-solid fa-compress text-[10px]"></i>
+      </button>
+    </div>
+
+    <!-- Collapsed Mini Zoom FAB Button -->
+    <button id="mobileFloatingZoomMinBtn" onclick="toggleMobileFloatingZoomDock()"
+      class="hidden fixed bottom-20 md:bottom-6 right-3 z-40 w-10 h-10 rounded-full bg-blue-600/90 hover:bg-blue-600 text-white backdrop-blur-md border border-white/30 shadow-2xl flex items-center justify-center transition-all duration-300 active:scale-95 text-xs font-bold"
+      title="បើកផ្ទាំង Zoom In / Zoom Out">
+      <i class="fa-solid fa-magnifying-glass-plus text-sm"></i>
+    </button>
 
   </div>
 
@@ -39710,19 +39771,29 @@
           name = 'Compact Screen';
           icon = 'fa-laptop';
           scale = 0.92;
+        } else if (w >= 768 && w < 1100) {
+          // iPad / Tablet profile
+          profile = 'tablet-ipad';
+          name = 'iPad / Tablet';
+          icon = 'fa-tablet-screen-button';
+          scale = 1.0;
+        } else if (w < 768) {
+          // Mobile Phone profile
+          profile = 'mobile-phone';
+          name = 'Mobile Phone';
+          icon = 'fa-mobile-screen-button';
+          scale = 1.0;
         } else {
           profile = 'split-window';
           name = 'Split Screen';
           icon = 'fa-table-columns';
-          scale = 0.88;
+          scale = 0.90;
         }
 
-        // Adjust for non-maximized window or split-screen
-        if (w < 1180 && scale > 0.92) {
-          scale = 0.90;
-          profile = 'split-window';
-          name = 'Split Screen';
-        } else if (h < 720 && scale > 0.96) {
+        // Adjust for non-maximized window or split-screen on desktop
+        if (w >= 768 && w < 1180 && scale > 0.95 && profile !== 'tablet-ipad') {
+          scale = 0.92;
+        } else if (h < 720 && scale > 0.96 && profile !== 'tablet-ipad' && profile !== 'mobile-phone') {
           scale = Math.min(scale, 0.94);
         }
 
@@ -39757,7 +39828,7 @@
 
         if (savedZoom && savedZoom !== 'auto') {
           const parsed = parseFloat(savedZoom);
-          if (!isNaN(parsed) && parsed >= 0.75 && parsed <= 1.6) {
+          if (!isNaN(parsed) && parsed >= 0.70 && parsed <= 1.80) {
             effectiveScale = Math.round(parsed * 100) / 100;
             isManual = true;
           }
@@ -39774,29 +39845,22 @@
         root.setAttribute('data-screen-profile', auto.profile);
         root.setAttribute('data-ui-scale', effectiveScale);
 
-        // Scale document font-size
-        if (window.innerWidth >= 768) {
-          root.style.fontSize = (14 * effectiveScale).toFixed(2) + 'px';
-        } else {
-          root.style.fontSize = '14px';
-        }
+        // Scale document font-size for all devices (including mobile & iPad)
+        root.style.fontSize = (14 * effectiveScale).toFixed(2) + 'px';
 
-        // Apply zoom to main application container
+        // Apply zoom to main application container for all screen sizes
         if (mainApp) {
-          if (window.innerWidth >= 768) {
-            mainApp.style.zoom = effectiveScale;
-          } else {
-            mainApp.style.zoom = '1.0';
-          }
+          mainApp.style.zoom = effectiveScale;
         }
 
-        // Update Header Widget
+        const percentText = `${Math.round(effectiveScale * 100)}%`;
+
+        // 1. Update Desktop & iPad Header Monitor Widget
         const profileNameEl = document.getElementById('monitorProfileName');
         const monitorIconEl = document.getElementById('monitorIcon');
         const autoBtn = document.getElementById('autoScaleBtn');
 
         if (profileNameEl) {
-          const percentText = `${Math.round(effectiveScale * 100)}%`;
           profileNameEl.textContent = isManual ? `Manual (${percentText})` : `${auto.name} (${percentText})`;
           profileNameEl.title = `អេក្រង់: ${auto.name} | ទំហំ UI: ${percentText} | DPR: ${dpr.toFixed(2)}`;
         }
@@ -39815,6 +39879,26 @@
             autoBtn.classList.remove('bg-amber-100', 'text-amber-800');
             autoBtn.textContent = 'Auto';
           }
+        }
+
+        // 2. Update Mobile Header Zoom Widget
+        const mobileHeaderZoomText = document.getElementById('mobileHeaderZoomText');
+        if (mobileHeaderZoomText) {
+          mobileHeaderZoomText.textContent = percentText;
+          mobileHeaderZoomText.title = isManual ? `Manual (${percentText}) - ចុច Reset` : `Auto (${percentText})`;
+        }
+
+        // 3. Update Floating Quick Zoom Dock Text
+        const mobileFloatingZoomText = document.getElementById('mobileFloatingZoomText');
+        if (mobileFloatingZoomText) {
+          mobileFloatingZoomText.textContent = percentText;
+          mobileFloatingZoomText.title = isManual ? `Manual (${percentText}) - ចុច Reset` : `Auto (${percentText})`;
+        }
+
+        // 4. Update Sidebar Drawer Zoom Text
+        const sidebarZoomText = document.getElementById('sidebarZoomText');
+        if (sidebarZoomText) {
+          sidebarZoomText.textContent = percentText;
         }
 
         // Trigger toast on real monitor transition
@@ -39873,13 +39957,27 @@
       }
       watchDpi();
 
-      // Manual Zoom Controls exposed to window
+      // Manual Zoom Controls exposed to window (for Mobile, iPad & Desktop)
       window.adjustAppZoom = function(delta) {
         const current = parseFloat(document.documentElement.style.getPropertyValue('--app-ui-scale')) || 1.0;
         let newZoom = Math.round((current + delta) * 100) / 100;
-        newZoom = Math.max(0.75, Math.min(1.50, newZoom));
+        newZoom = Math.max(0.70, Math.min(1.80, newZoom));
         localStorage.setItem('inventory_user_zoom', newZoom);
         applyAdaptiveScaling(true);
+
+        if (typeof Swal !== 'undefined' && Swal.mixin) {
+          const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 900,
+            timerProgressBar: false
+          });
+          Toast.fire({
+            icon: 'info',
+            title: `<span class="text-xs font-bold text-slate-800">${delta > 0 ? '🔍 ពង្រីក (Zoom In)' : '🔎 បង្រួម (Zoom Out)'} ៖ <span class="text-blue-600 font-extrabold">${Math.round(newZoom * 100)}%</span></span>`
+          });
+        }
       };
 
       window.resetAppZoom = function() {
@@ -39887,7 +39985,48 @@
         applyAdaptiveScaling(true);
         const auto = calculateMonitorProfileAndScale();
         showMonitorTransitionToast(auto.name, auto.scale, auto.icon);
+
+        if (typeof Swal !== 'undefined' && Swal.mixin) {
+          const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 1000,
+            timerProgressBar: false
+          });
+          Toast.fire({
+            icon: 'success',
+            title: `<span class="text-xs font-bold text-slate-800">🔄 កំណត់ទំហំស្វ័យប្រវត្តិ (Auto Scale) ៖ <span class="text-blue-600 font-extrabold">${Math.round(auto.scale * 100)}%</span></span>`
+          });
+        }
       };
+
+      // Toggle Floating Zoom Quick Dock
+      function toggleMobileFloatingZoomDock() {
+        const dock = document.getElementById('mobileFloatingZoomDock');
+        const minBtn = document.getElementById('mobileFloatingZoomMinBtn');
+        if (!dock || !minBtn) return;
+        const isCollapsed = dock.classList.contains('hidden');
+        if (isCollapsed) {
+          dock.classList.remove('hidden');
+          minBtn.classList.add('hidden');
+          try { localStorage.setItem('inventory_zoom_dock_collapsed', 'false'); } catch(e) {}
+        } else {
+          dock.classList.add('hidden');
+          minBtn.classList.remove('hidden');
+          try { localStorage.setItem('inventory_zoom_dock_collapsed', 'true'); } catch(e) {}
+        }
+      }
+      window.toggleMobileFloatingZoomDock = toggleMobileFloatingZoomDock;
+
+      try {
+        if (localStorage.getItem('inventory_zoom_dock_collapsed') === 'true') {
+          const dock = document.getElementById('mobileFloatingZoomDock');
+          const minBtn = document.getElementById('mobileFloatingZoomMinBtn');
+          if (dock) dock.classList.add('hidden');
+          if (minBtn) minBtn.classList.remove('hidden');
+        }
+      } catch(e) {}
 
       window.applyAdaptiveScaling = applyAdaptiveScaling;
 
