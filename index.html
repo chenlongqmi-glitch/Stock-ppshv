@@ -7266,12 +7266,25 @@
               <i class="fa-solid fa-gift mr-1"></i>
               <span id="calDetailHolidayName"></span>
             </div>
+            <!-- Note Container for Selected Date -->
+            <div id="calDetailNoteContainer" class="hidden text-[11px] bg-yellow-50 dark:bg-yellow-950/40 border border-yellow-200 dark:border-yellow-800 text-amber-900 dark:text-amber-200 px-2.5 py-1.5 rounded-lg flex items-start justify-between space-x-2 mt-1">
+              <div class="flex items-start space-x-1.5 min-w-0">
+                <i class="fa-solid fa-note-sticky text-amber-500 mt-0.5 text-xs shrink-0"></i>
+                <div class="min-w-0">
+                  <span class="text-[9px] font-bold text-amber-700 dark:text-amber-400 block uppercase tracking-wider">កំណត់ចំណាំ (Note)</span>
+                  <span id="calDetailNoteText" class="font-sans break-words whitespace-pre-wrap leading-tight text-slate-800 dark:text-slate-200"></span>
+                </div>
+              </div>
+              <button type="button" onclick="calPromptNoteForSelected()" class="text-amber-700 hover:text-amber-800 dark:text-amber-300 text-[10px] font-bold shrink-0 hover:underline cursor-pointer">
+                <i class="fa-solid fa-pen-to-square"></i> កែប្រែ
+              </button>
+            </div>
           </div>
         </div>
 
         <!-- 5. Legend & Quick Action Footer -->
         <div class="px-3 pb-2.5 pt-0 flex items-center justify-between text-[10px] text-slate-400 dark:text-slate-500 border-t border-slate-100 dark:border-slate-800 pt-2">
-          <div class="flex items-center space-x-2.5 flex-wrap">
+          <div class="flex items-center space-x-2 flex-wrap">
             <span class="flex items-center space-x-1">
               <span class="w-1.5 h-1.5 rounded-full bg-blue-600 inline-block"></span>
               <span class="text-slate-600 dark:text-slate-400">ថ្ងៃនេះ</span>
@@ -7284,11 +7297,21 @@
               <span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>
               <span class="text-slate-600 dark:text-slate-400">បុណ្យជាតិ</span>
             </span>
+            <span class="flex items-center space-x-1">
+              <span class="w-2.5 h-2 rounded bg-yellow-100 border border-yellow-400 inline-block"></span>
+              <span class="text-slate-600 dark:text-slate-400">Note (ចុច ២ដង)</span>
+            </span>
           </div>
-          <button type="button" onclick="calCopySelectedDate()" class="text-blue-600 hover:text-blue-700 dark:text-blue-400 font-medium hover:underline flex items-center space-x-1 cursor-pointer">
-            <i class="fa-regular fa-copy text-[10px]"></i>
-            <span>ចម្លងកាលបរិច្ឆេទ</span>
-          </button>
+          <div class="flex items-center space-x-2 shrink-0">
+            <button type="button" onclick="calPromptNoteForSelected()" class="text-amber-600 hover:text-amber-700 dark:text-amber-400 font-medium hover:underline flex items-center space-x-1 cursor-pointer">
+              <i class="fa-solid fa-note-sticky text-[10px]"></i>
+              <span id="calFooterNoteBtnText">Note</span>
+            </button>
+            <button type="button" onclick="calCopySelectedDate()" class="text-blue-600 hover:text-blue-700 dark:text-blue-400 font-medium hover:underline flex items-center space-x-1 cursor-pointer">
+              <i class="fa-regular fa-copy text-[10px]"></i>
+              <span>ចម្លង</span>
+            </button>
+          </div>
         </div>
 
       </div>
@@ -10899,7 +10922,51 @@
         ? KhmerCalState.selectedDate.getDate()
         : null;
 
+      // Check for any personal notes recorded in this month
+      const notesInMonth = [];
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dKey = getCalDateKey(year, month, d);
+        const txt = getNoteForDate(dKey);
+        if (txt) {
+          notesInMonth.push({ day: d, text: txt, dateKey: dKey });
+        }
+      }
+
       let html = '';
+
+      if (notesInMonth.length > 0) {
+        html += `
+          <div class="mb-2 pb-1 border-b border-amber-200 dark:border-amber-800">
+            <span class="text-[11px] font-bold text-amber-800 dark:text-amber-300 flex items-center space-x-1.5">
+              <i class="fa-solid fa-note-sticky text-amber-500"></i>
+              <span>កំណត់ចំណាំប្រចាំខែ (${toKhmerDigits(notesInMonth.length)})</span>
+            </span>
+          </div>
+        `;
+        notesInMonth.forEach(n => {
+          const isSelected = (selectedDay === n.day);
+          const activeRing = isSelected ? 'ring-2 ring-amber-500 shadow-xs' : '';
+          html += `
+            <div onclick="calSelectDate(${year}, ${month}, ${n.day})" ondblclick="calPromptDateNote(${year}, ${month}, ${n.day})"
+              class="p-2.5 rounded-xl border border-yellow-300 dark:border-yellow-700/70 bg-yellow-50/90 hover:bg-yellow-100/90 dark:bg-yellow-950/30 dark:hover:bg-yellow-950/50 cursor-pointer transition select-none flex flex-col space-y-1 mb-2 ${activeRing}">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-1.5 text-xs font-bold text-amber-900 dark:text-amber-200">
+                  <i class="fa-solid fa-note-sticky text-amber-500 text-[11px]"></i>
+                  <span>ថ្ងៃទី${toKhmerDigits(n.day)} ${KHMER_CAL_MONTH_NAMES[month]}</span>
+                </div>
+                <button type="button" onclick="event.stopPropagation(); calPromptDateNote(${year}, ${month}, ${n.day})" class="text-[10px] font-bold text-amber-700 hover:text-amber-800 hover:underline">
+                  <i class="fa-solid fa-pen-to-square"></i> កែប្រែ
+                </button>
+              </div>
+              <div class="text-xs text-slate-800 dark:text-slate-200 whitespace-pre-wrap break-words leading-relaxed font-sans">
+                ${escapeHtml(n.text)}
+              </div>
+            </div>
+          `;
+        });
+      }
+
       events.forEach(e => {
         const isSelected = (selectedDay === e.solarDay);
         const activeRing = isSelected ? 'ring-2 ring-blue-500 shadow-xs' : '';
@@ -11002,6 +11069,171 @@
       renderKhmerCalendarGrid();
     }
 
+    // =========================================================================
+    // KHMER CALENDAR NOTES SYSTEM (Double Click to Note & Light Yellow Glow)
+    // =========================================================================
+    function getCalDateKey(dateOrY, optM, optD) {
+      if (dateOrY instanceof Date) {
+        const y = dateOrY.getFullYear();
+        const m = String(dateOrY.getMonth() + 1).padStart(2, '0');
+        const d = String(dateOrY.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+      }
+      const y = dateOrY;
+      const m = String(optM + 1).padStart(2, '0');
+      const d = String(optD).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+    window.getCalDateKey = getCalDateKey;
+
+    function getCalendarNotes() {
+      try {
+        const raw = localStorage.getItem('inventory_calendar_notes_db');
+        return raw ? JSON.parse(raw) : {};
+      } catch(e) {
+        return {};
+      }
+    }
+    window.getCalendarNotes = getCalendarNotes;
+
+    function saveCalendarNotes(notesObj) {
+      try {
+        localStorage.setItem('inventory_calendar_notes_db', JSON.stringify(notesObj || {}));
+      } catch(e) {}
+    }
+    window.saveCalendarNotes = saveCalendarNotes;
+
+    function getNoteForDate(dateKey) {
+      const notes = getCalendarNotes();
+      const val = notes[dateKey];
+      if (!val) return '';
+      return typeof val === 'object' ? (val.text || '') : String(val);
+    }
+    window.getNoteForDate = getNoteForDate;
+
+    function setNoteForDate(dateKey, text) {
+      const notes = getCalendarNotes();
+      const clean = String(text || '').trim();
+      if (clean) {
+        notes[dateKey] = {
+          text: clean,
+          updatedAt: new Date().toISOString(),
+          updatedBy: AppState.currentUser?.username || 'User'
+        };
+      } else {
+        delete notes[dateKey];
+      }
+      saveCalendarNotes(notes);
+      if (typeof broadcastInventoryMutation === 'function') {
+        broadcastInventoryMutation('CALENDAR_NOTE_UPDATED', { dateKey, text: clean });
+      }
+    }
+    window.setNoteForDate = setNoteForDate;
+
+    async function calPromptDateNote(y, m, d) {
+      const date = new Date(y, m, d);
+      KhmerCalState.selectedDate = date;
+      renderKhmerCalendarGrid();
+
+      const dateKey = getCalDateKey(date);
+      const existingNote = getNoteForDate(dateKey);
+      const dayInfo = getKhmerDayDetails(date);
+      const km = dayInfo.km;
+      const solarFull = `${KHMER_CAL_DAYS_FULL[date.getDay()]} ទី${String(date.getDate()).padStart(2, '0')} ${KHMER_CAL_MONTH_NAMES[date.getMonth()]} ឆ្នាំ${date.getFullYear()}`;
+      const lunarFull = `${KHMER_CAL_DAYS_FULL[date.getDay()]} ${toKhmerDigits(km.day)} ${km.moonPhaseName} ខែ${km.monthName} ឆ្នាំ${km.animalYearName} ${km.sakName} ព.ស. ${toKhmerDigits(km.beYear)}`;
+
+      const { value: formValues } = await Swal.fire({
+        title: '<div class="flex items-center justify-center space-x-2"><i class="fa-solid fa-note-sticky text-amber-500 text-lg"></i><span class="text-sm font-bold text-slate-800">កំណត់ចំណាំ (Calendar Note)</span></div>',
+        html: `
+          <div class="text-left text-xs space-y-2.5 p-1 mt-2">
+            <div class="p-2.5 bg-yellow-50/90 rounded-xl border border-yellow-200">
+              <p class="font-bold text-slate-800 text-xs">${solarFull}</p>
+              <p class="text-[11px] text-amber-800 font-sans mt-0.5 flex items-center">
+                <i class="fa-solid fa-moon text-amber-500 mr-1 text-[10px]"></i>
+                ${lunarFull}
+              </p>
+            </div>
+            <div>
+              <label class="block text-[11px] font-bold text-slate-700 mb-1">
+                ខ្លឹមសារកំណត់ចំណាំ (Note) ៖
+              </label>
+              <textarea id="calNoteInput" rows="3" placeholder="សរសេរកំណត់ចំណាំសម្រាប់ថ្ងៃនេះ (ឧ. ប្រជុំក្រុមការងារ, ត្រូវពិនិត្យស្តុក, ខួបកំណើត...)" class="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 leading-relaxed font-sans">${escapeHtml(existingNote)}</textarea>
+            </div>
+            ${existingNote ? `
+              <div class="flex justify-end pt-0.5">
+                <button type="button" id="btnDeleteCalNote" class="text-[11px] text-rose-600 hover:text-rose-700 font-bold hover:underline inline-flex items-center space-x-1 cursor-pointer">
+                  <i class="fa-solid fa-trash-can mr-1"></i> លុប Note ចេញ
+                </button>
+              </div>
+            ` : ''}
+          </div>
+        `,
+        showCancelButton: true,
+        confirmButtonColor: '#f59e0b',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: '<i class="fa-solid fa-floppy-disk mr-1"></i> រក្សាទុក',
+        cancelButtonText: 'បោះបង់',
+        reverseButtons: true,
+        didOpen: () => {
+          const textarea = document.getElementById('calNoteInput');
+          if (textarea) {
+            textarea.focus();
+            textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+          }
+          const delBtn = document.getElementById('btnDeleteCalNote');
+          if (delBtn) {
+            delBtn.onclick = () => {
+              window._calNoteActionDelete = true;
+              Swal.clickConfirm();
+            };
+          }
+        },
+        preConfirm: () => {
+          if (window._calNoteActionDelete) {
+            window._calNoteActionDelete = false;
+            return { action: 'delete' };
+          }
+          const txt = document.getElementById('calNoteInput')?.value?.trim();
+          return { action: 'save', text: txt };
+        }
+      });
+
+      if (!formValues) return;
+
+      if (formValues.action === 'delete') {
+        setNoteForDate(dateKey, '');
+        renderKhmerCalendarGrid();
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'info',
+          title: 'បានលុប Note រួចរាល់!',
+          showConfirmButton: false,
+          timer: 2000
+        });
+      } else {
+        setNoteForDate(dateKey, formValues.text);
+        renderKhmerCalendarGrid();
+        if (formValues.text) {
+          Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'success',
+            title: 'បានរក្សាទុក Note ជោគជ័យ!',
+            showConfirmButton: false,
+            timer: 2000
+          });
+        }
+      }
+    }
+    window.calPromptDateNote = calPromptDateNote;
+
+    function calPromptNoteForSelected() {
+      const selected = KhmerCalState.selectedDate || new Date();
+      calPromptDateNote(selected.getFullYear(), selected.getMonth(), selected.getDate());
+    }
+    window.calPromptNoteForSelected = calPromptNoteForSelected;
+
     function calSelectDate(y, m, d) {
       KhmerCalState.selectedDate = new Date(y, m, d);
       renderKhmerCalendarGrid();
@@ -11081,9 +11313,12 @@
       let gridHtml = '';
       cells.forEach(c => {
         const dStr = `${c.date.getFullYear()}-${c.date.getMonth()}-${c.date.getDate()}`;
+        const dateKey = getCalDateKey(c.date);
         const isToday = (dStr === todayStr);
         const isSelected = (dStr === selectedStr);
         const dayInfo = getKhmerDayDetails(c.date);
+        const noteText = getNoteForDate(dateKey);
+        const hasNote = Boolean(noteText && noteText.trim());
 
         const dayOfWeek = c.date.getDay();
         const isSun = (dayOfWeek === 0);
@@ -11091,7 +11326,20 @@
         let cellClasses = 'relative flex flex-col items-center justify-between p-1 rounded-xl cursor-pointer transition select-none min-h-[46px] sm:min-h-[50px] ';
 
         if (isToday) {
-          cellClasses += 'bg-blue-600 text-white font-bold shadow-xs hover:bg-blue-700 ';
+          if (hasNote) {
+            cellClasses += 'bg-blue-600 text-white font-bold ring-2 ring-yellow-400 ring-offset-1 shadow-sm hover:bg-blue-700 ';
+          } else {
+            cellClasses += 'bg-blue-600 text-white font-bold shadow-xs hover:bg-blue-700 ';
+          }
+        } else if (hasNote) {
+          // ថ្ងៃខែដែលមាន note បង្ហាញពណ៌លឿងៗស្រាល (Soft Light Yellow)
+          if (isSelected) {
+            cellClasses += 'ring-2 ring-blue-500 bg-yellow-100 hover:bg-yellow-200/90 dark:bg-yellow-950/50 dark:hover:bg-yellow-900/60 border border-yellow-400 dark:border-yellow-600 shadow-xs ';
+          } else if (!c.isCurrentMonth) {
+            cellClasses += 'opacity-60 bg-yellow-50/80 hover:opacity-90 dark:bg-yellow-950/30 border border-yellow-200/70 dark:border-yellow-800/50 ';
+          } else {
+            cellClasses += 'bg-yellow-100 hover:bg-yellow-200/90 dark:bg-yellow-950/40 dark:hover:bg-yellow-900/60 border border-yellow-300 dark:border-yellow-700 shadow-2xs ';
+          }
         } else if (isSelected) {
           cellClasses += 'ring-2 ring-blue-500 bg-blue-50/90 dark:bg-blue-950/40 text-blue-900 dark:text-blue-200 ';
         } else if (!c.isCurrentMonth) {
@@ -11101,10 +11349,10 @@
         }
 
         // Solar number color (Red if holiday off or Sunday)
-        let solarColor = isToday ? 'text-white' : (isSun ? 'text-rose-600' : ((dayInfo.holiday && dayInfo.holiday.isOff) ? 'text-rose-600 font-black' : 'text-slate-800 dark:text-slate-200'));
+        let solarColor = isToday ? 'text-white' : (isSun ? 'text-rose-600' : ((dayInfo.holiday && dayInfo.holiday.isOff) ? 'text-rose-600 font-black' : (hasNote ? 'text-amber-950 dark:text-amber-100 font-extrabold' : 'text-slate-800 dark:text-slate-200')));
 
         // Lunar text color
-        let lunarColor = isToday ? 'text-blue-100' : (dayInfo.isSila ? 'text-amber-600 font-bold' : 'text-slate-400 dark:text-slate-400');
+        let lunarColor = isToday ? 'text-blue-100' : (dayInfo.isSila ? 'text-amber-600 font-bold' : (hasNote ? 'text-amber-800/80 dark:text-amber-300 font-medium' : 'text-slate-400 dark:text-slate-400'));
 
         // Sila Badge / Icon
         let silaBadgeHtml = '';
@@ -11122,10 +11370,24 @@
           }
         }
 
+        // Note Indicator Icon
+        let noteBadgeHtml = '';
+        if (hasNote) {
+          noteBadgeHtml = `<span class="absolute bottom-0.5 right-0.5 text-[8px] sm:text-[9px] ${isToday ? 'text-amber-200' : 'text-amber-600 dark:text-amber-400'} drop-shadow-2xs" title="Note: ${escapeHtml(noteText)}"><i class="fa-solid fa-note-sticky"></i></span>`;
+        }
+
+        const tooltipTitle = hasNote 
+          ? `Note: ${escapeHtml(noteText)} (ចុច ២ដង ដើម្បីកែសម្រួល)` 
+          : `ចុច ២ដង ដើម្បីកត់ចំណាំ (Note)`;
+
         gridHtml += `
-          <div class="${cellClasses}" onclick="calSelectDate(${c.date.getFullYear()}, ${c.date.getMonth()}, ${c.date.getDate()})">
+          <div class="${cellClasses}" 
+               onclick="calSelectDate(${c.date.getFullYear()}, ${c.date.getMonth()}, ${c.date.getDate()})"
+               ondblclick="calPromptDateNote(${c.date.getFullYear()}, ${c.date.getMonth()}, ${c.date.getDate()})"
+               title="${tooltipTitle}">
             ${silaBadgeHtml}
             ${holidayDotHtml}
+            ${noteBadgeHtml}
             <span class="text-xs sm:text-[13px] font-bold ${solarColor} leading-none mt-0.5">
               ${c.dayNum}
             </span>
@@ -11159,11 +11421,17 @@
         lunarFullEl.innerText = `${KHMER_CAL_DAYS_FULL[date.getDay()]} ${toKhmerDigits(km.day)} ${km.moonPhaseName} ខែ${km.monthName} ឆ្នាំ${km.animalYearName} ${km.sakName} ព.ស. ${toKhmerDigits(km.beYear)}`;
       }
 
+      const dateKey = getCalDateKey(date);
+      const noteText = getNoteForDate(dateKey);
+
       const badgesContainer = document.getElementById('calDetailBadges');
       if (badgesContainer) {
         let bHtml = '';
         if (dayInfo.isSila) {
           bHtml += `<span class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-black bg-amber-100 text-amber-800 border border-amber-300 shadow-2xs">☸️ ថ្ងៃសីល</span>`;
+        }
+        if (noteText) {
+          bHtml += `<span onclick="calPromptNoteForSelected()" class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-yellow-100 text-amber-900 border border-yellow-300 shadow-2xs cursor-pointer hover:bg-yellow-200" title="ចុចដើម្បីកែ Note"><i class="fa-solid fa-note-sticky text-amber-600 mr-1 text-[8px]"></i> មាន Note</span>`;
         }
         badgesContainer.innerHTML = bHtml;
       }
@@ -11183,6 +11451,23 @@
         } else {
           holidayContainer.classList.add('hidden');
         }
+      }
+
+      const noteContainer = document.getElementById('calDetailNoteContainer');
+      const noteTextEl = document.getElementById('calDetailNoteText');
+      if (noteContainer && noteTextEl) {
+        if (noteText) {
+          noteContainer.classList.remove('hidden');
+          noteTextEl.innerText = noteText;
+        } else {
+          noteContainer.classList.add('hidden');
+          noteTextEl.innerText = '';
+        }
+      }
+
+      const footerNoteBtnText = document.getElementById('calFooterNoteBtnText');
+      if (footerNoteBtnText) {
+        footerNoteBtnText.innerText = noteText ? 'កែ Note' : '+ Note';
       }
     }
 
@@ -35415,6 +35700,12 @@
             timer: 8000,
             timerProgressBar: true
           });
+        }
+      }
+
+      if (msg.type === 'CALENDAR_NOTE_UPDATED') {
+        if (typeof renderKhmerCalendarGrid === 'function') {
+          renderKhmerCalendarGrid();
         }
       }
 
