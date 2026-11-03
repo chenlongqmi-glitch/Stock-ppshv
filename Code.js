@@ -324,17 +324,21 @@ function handleTelegramUserApproval(userId, username, targetStatus) {
 
     if (targetStatus === 'Active') {
 
-      sendTelegramAlert(`🎉 <b>[ការអនុម័តជោគជ័យ]</b>\n` +
+      sendTelegramAlert(`📊 <b>[របាយការណ៍ជូន Superadmin៖ Admin បានអនុម័តគណនីថ្មីរួចរាល់]</b>\n` +
 
-        `👤 <b>គណនី:</b> ${username} (${userFullName})\n` +
+        `👤 <b>ឈ្មោះពេញ:</b> ${userFullName}\n` +
+
+        `🆔 <b>Username:</b> <code>@${username}</code>\n` +
 
         `💼 <b>តួនាទី:</b> ${userRole}\n` +
 
-        `🏢 <b>ឃ្លាំង:</b> ${userWh}\n` +
+        `🏢 <b>ស្ថានីយ/ឃ្លាំង:</b> ${userWh}\n` +
 
-        `👮 <b>អនុម័តដោយ:</b> SuperAdmin / Admin (Telegram)\n` +
+        `👑 <b>អនុម័តដោយ Admin:</b> Telegram (@${username})\n` +
 
-        `✅ ស្ថានភាព៖ <b>បានអនុម័ត (Active)</b> រួចរាល់! អ្នកប្រើប្រាស់អាច Login ចូលប្រព័ន្ធបានហើយ។`
+        `⏰ <b>កាលបរិច្ឆេទ:</b> ${Utilities.formatDate(new Date(), 'GMT+7', 'dd/MM/yyyy, HH:mm:ss')}\n` +
+
+        `✅ <b>ស្ថានភាព:</b> 🟢 <b>Active (គណនីបើកដំណើរការរួចរាល់ - ព័ត៌មានជម្រាបជូន Superadmin ជ្រាបជារបាយការណ៍)</b>`
 
       );
 
@@ -384,11 +388,11 @@ function handleTelegramUserApproval(userId, username, targetStatus) {
 
             <div class="icon">✓</div>
 
-            <span class="badge">APPROVED BY SUPERADMIN / ADMIN</span>
+            <span class="badge">APPROVED BY ADMIN</span>
 
             <h2>បានអនុម័តគណនីជោគជ័យ!</h2>
 
-            <p>គណនីខាងក្រោមត្រូវបានបើកដំណើរការ (Active) រួចរាល់។ អ្នកប្រើប្រាស់អាច Login ចូលប្រើប្រាស់ប្រព័ន្ធបានភ្លាមៗ។</p>
+            <p>គណនីខាងក្រោមត្រូវបានបើកដំណើរការ (Active) រួចរាល់។ ប្រព័ន្ធបានផ្ញើជារបាយការណ៍ជូនដំណឹងទៅកាន់ Superadmin តាម Telegram រួចរាល់ហើយ។</p>
 
             <div class="info-box">
 
@@ -3004,8 +3008,8 @@ function registerUser(userData) {
       `💼 <b>តួនាទី:</b> ${role}\n` +
       `🏢 <b>ស្ថានីយ/ឃ្លាំង:</b> ${warehouse}\n` +
       `🕒 <b>កាលបរិច្ឆេទ:</b> ${Utilities.formatDate(new Date(), 'GMT+7', 'dd/MM/yyyy, HH:mm:ss')}\n` +
-      `🚦 <b>ស្ថានភាព:</b> ⏳ <b>រង់ចាំ SuperAdmin ឬ Admin ពិនិត្យ & អនុម័ត</b>\n\n` +
-      `👉 <b>សូម SuperAdmin ឬ Admin ចុចប៊ូតុងខាងក្រោមដើម្បី អនុម័ត (Approve) តាម Telegram៖</b>`;
+      `🚦 <b>ស្ថានភាព:</b> ⏳ <b>រង់ចាំ Admin ពិនិត្យ & អនុម័ត</b>\n\n` +
+      `👉 <b>សូម Admin ចុចប៊ូតុងខាងក្រោមដើម្បី អនុម័ត (Approve) តាម Telegram៖</b>`;
 
     sendTelegramAlert(regAlert, replyMarkup);
 
