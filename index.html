@@ -2372,9 +2372,9 @@
                   </button>
                   <button onclick="clearAllNotifications()"
                     class="text-[10px] text-slate-400 hover:text-white underline">លុបទាំងអស់</button>
-                  <button onclick="closeNotificationDropdown()"
-                    class="text-slate-400 hover:text-white hover:bg-slate-800 p-1 rounded-lg transition-colors flex items-center justify-center w-6 h-6"
-                    title="បិទ (ESC)">
+                  <button onclick="closeNotificationDropdown(true)"
+                    class="text-slate-400 hover:text-white hover:bg-slate-800 p-1 rounded-lg transition-colors flex items-center justify-center w-6 h-6 cursor-pointer"
+                    title="បិទ និងសម្អាតសញ្ញាកណ្តឹង (ESC)">
                     <i class="fa-solid fa-xmark text-xs"></i>
                   </button>
                 </div>
@@ -11233,6 +11233,9 @@
       if (typeof updateHeaderCalendarBadge === 'function') {
         updateHeaderCalendarBadge();
       }
+      if (typeof clearDismissedNotification === 'function') {
+        clearDismissedNotification(dateKey);
+      }
       if (clean && typeof checkAndAlertCalendarNotes === 'function') {
         // If note is for today or tomorrow, trigger immediate visual alert check
         const now = new Date();
@@ -11737,25 +11740,29 @@
         // 1. Process Due Date Note Alert (alert នៅថ្ងៃកំណត់)
         if (todayNote) {
           const dueTrackKey = `DUE_${todayKey}_${todayDateStr}`;
+          const notifId = `cal_note_due_${todayKey}_${todayDateStr}`;
+          const isDismissed = (typeof isNotificationDismissed === 'function') && (isNotificationDismissed(notifId) || isNotificationDismissed(dueTrackKey));
+
           const dayInfo = getKhmerDayDetails(now);
           const km = dayInfo.km;
           const solarFull = `${KHMER_CAL_DAYS_FULL[now.getDay()]} ទី${String(now.getDate()).padStart(2, '0')} ${KHMER_CAL_MONTH_NAMES[now.getMonth()]} ឆ្នាំ${now.getFullYear()}`;
           const lunarFull = `${KHMER_CAL_DAYS_FULL[now.getDay()]} ${toKhmerDigits(km.day)} ${km.moonPhaseName} ខែ${km.monthName} ឆ្នាំ${km.animalYearName} ${km.sakName} ព.ស. ${toKhmerDigits(km.beYear)}`;
 
-          // Add to In-App Notification Center
-          const notifId = `cal_note_due_${todayKey}_${todayDateStr}`;
-          if (!notificationsList.some(n => n.id === notifId)) {
-            notificationsList.unshift({
-              id: notifId,
-              type: 'CALENDAR_NOTE_DUE',
-              title: '🔔 ដល់ថ្ងៃកំណត់: កំណត់ចំណាំ (Note)',
-              message: `${solarFull}: "${todayNote}"`,
-              time: 'ថ្ងៃនេះ',
-              warehouse: 'ប្រតិទិនចន្ទគតិ',
-              user: AppState.currentUser?.username || 'Calendar Note',
-              targetUserId: todayKey
-            });
-            renderNotificationDrawer();
+          // Add to In-App Notification Center only if user has not dismissed it
+          if (!isDismissed) {
+            if (!notificationsList.some(n => n.id === notifId)) {
+              notificationsList.unshift({
+                id: notifId,
+                type: 'CALENDAR_NOTE_DUE',
+                title: '🔔 ដល់ថ្ងៃកំណត់: កំណត់ចំណាំ (Note)',
+                message: `${solarFull}: "${todayNote}"`,
+                time: 'ថ្ងៃនេះ',
+                warehouse: 'ប្រតិទិនចន្ទគតិ',
+                user: AppState.currentUser?.username || 'Calendar Note',
+                targetUserId: todayKey
+              });
+              renderNotificationDrawer();
+            }
           }
 
           if (force || !tracker[dueTrackKey]) {
@@ -11810,6 +11817,10 @@
               if (res.isConfirmed) {
                 openKhmerCalendarToDate(now);
               }
+              // Automatically dismiss from bell badge once user acknowledged modal
+              if (typeof dismissNotification === 'function') {
+                dismissNotification(notifId);
+              }
             });
             return; // Stop after modal for today
           }
@@ -11818,25 +11829,29 @@
         // 2. Process 1-Day Advance Note Alert (alert មុន ១ ថ្ងៃ)
         if (tomorrowNote) {
           const advTrackKey = `1DAY_${tomorrowKey}_${todayDateStr}`;
+          const notifId = `cal_note_1day_${tomorrowKey}_${todayDateStr}`;
+          const isDismissed = (typeof isNotificationDismissed === 'function') && (isNotificationDismissed(notifId) || isNotificationDismissed(advTrackKey));
+
           const dayInfo = getKhmerDayDetails(tomorrow);
           const km = dayInfo.km;
           const solarFull = `${KHMER_CAL_DAYS_FULL[tomorrow.getDay()]} ទី${String(tomorrow.getDate()).padStart(2, '0')} ${KHMER_CAL_MONTH_NAMES[tomorrow.getMonth()]} ឆ្នាំ${tomorrow.getFullYear()}`;
           const lunarFull = `${KHMER_CAL_DAYS_FULL[tomorrow.getDay()]} ${toKhmerDigits(km.day)} ${km.moonPhaseName} ខែ${km.monthName} ឆ្នាំ${km.animalYearName} ${km.sakName} ព.ស. ${toKhmerDigits(km.beYear)}`;
 
-          // Add to In-App Notification Center
-          const notifId = `cal_note_1day_${tomorrowKey}_${todayDateStr}`;
-          if (!notificationsList.some(n => n.id === notifId)) {
-            notificationsList.unshift({
-              id: notifId,
-              type: 'CALENDAR_NOTE_1DAY',
-              title: '⏰ រំលឹកមុន ១ ថ្ងៃ: Note ប្រតិទិន',
-              message: `${solarFull}: "${tomorrowNote}"`,
-              time: 'ថ្ងៃនេះ',
-              warehouse: 'ប្រតិទិនចន្ទគតិ',
-              user: AppState.currentUser?.username || 'Calendar Note',
-              targetUserId: tomorrowKey
-            });
-            renderNotificationDrawer();
+          // Add to In-App Notification Center only if user has not dismissed it
+          if (!isDismissed) {
+            if (!notificationsList.some(n => n.id === notifId)) {
+              notificationsList.unshift({
+                id: notifId,
+                type: 'CALENDAR_NOTE_1DAY',
+                title: '⏰ រំលឹកមុន ១ ថ្ងៃ: Note ប្រតិទិន',
+                message: `${solarFull}: "${tomorrowNote}"`,
+                time: 'ថ្ងៃនេះ',
+                warehouse: 'ប្រតិទិនចន្ទគតិ',
+                user: AppState.currentUser?.username || 'Calendar Note',
+                targetUserId: tomorrowKey
+              });
+              renderNotificationDrawer();
+            }
           }
 
           if (force || !tracker[advTrackKey]) {
@@ -11890,6 +11905,10 @@
             }).then((res) => {
               if (res.isConfirmed) {
                 openKhmerCalendarToDate(tomorrow);
+              }
+              // Automatically dismiss from bell badge once user acknowledged modal
+              if (typeof dismissNotification === 'function') {
+                dismissNotification(notifId);
               }
             });
           }
@@ -36691,12 +36710,83 @@
       }
     });
 
-    function closeNotificationDropdown() {
+    // ==========================================
+    // NOTIFICATION DISMISSAL & BADGE STATE SYNC
+    // ==========================================
+    function isNotificationDismissed(notifId) {
+      if (!notifId) return false;
+      try {
+        const raw = localStorage.getItem('inventory_dismissed_notifications');
+        const map = raw ? JSON.parse(raw) : {};
+        return Boolean(map[String(notifId)]);
+      } catch (e) {
+        return false;
+      }
+    }
+    window.isNotificationDismissed = isNotificationDismissed;
+
+    function markNotificationDismissed(notifId) {
+      if (!notifId) return;
+      try {
+        const raw = localStorage.getItem('inventory_dismissed_notifications');
+        const map = raw ? JSON.parse(raw) : {};
+        map[String(notifId)] = Date.now();
+        localStorage.setItem('inventory_dismissed_notifications', JSON.stringify(map));
+      } catch (e) {}
+    }
+    window.markNotificationDismissed = markNotificationDismissed;
+
+    function clearDismissedNotification(prefix) {
+      if (!prefix) return;
+      try {
+        const raw = localStorage.getItem('inventory_dismissed_notifications');
+        if (!raw) return;
+        const map = JSON.parse(raw);
+        let changed = false;
+        for (const k in map) {
+          if (k.includes(prefix)) {
+            delete map[k];
+            changed = true;
+          }
+        }
+        if (changed) {
+          localStorage.setItem('inventory_dismissed_notifications', JSON.stringify(map));
+        }
+      } catch (e) {}
+    }
+    window.clearDismissedNotification = clearDismissedNotification;
+
+    function dismissNotification(id) {
+      if (!id) return;
+      markNotificationDismissed(id);
+      const idx = notificationsList.findIndex(n => String(n.id) === String(id));
+      if (idx !== -1) {
+        notificationsList.splice(idx, 1);
+      }
+      renderNotificationDrawer();
+    }
+    window.dismissNotification = dismissNotification;
+
+    function closeNotificationDropdown(clearBadge = false) {
       const drawer = document.getElementById('notifDropdown');
       if (drawer && !drawer.classList.contains('hidden')) {
         drawer.classList.add('hidden');
       }
+      if (clearBadge) {
+        // Mark all current notifications in drawer as acknowledged/dismissed
+        notificationsList.forEach(n => {
+          if (n && n.id) markNotificationDismissed(n.id);
+        });
+        notificationsList.length = 0;
+        const badge = document.getElementById('notifBadge');
+        if (badge) {
+          badge.innerText = '0';
+          badge.classList.add('hidden');
+        }
+        renderNotificationDrawer();
+      }
     }
+    window.closeNotificationDropdown = closeNotificationDropdown;
 
     function toggleNotificationDropdown() {
       const drawer = document.getElementById('notifDropdown');
@@ -36717,8 +36807,17 @@
     }
 
     function handleNotificationItemClick(type, targetUserId, targetUsername) {
-      // 1. បិទផ្ទាំងជូនដំណឹងជាបន្ទាន់ (Hide immediately)
-      closeNotificationDropdown();
+      // 1. Remove clicked item and mark dismissed so bell badge decreases/disappears
+      const clickedIdx = notificationsList.findIndex(n => n.type === type && (!targetUserId || n.targetUserId === targetUserId));
+      if (clickedIdx !== -1) {
+        const item = notificationsList[clickedIdx];
+        if (item && item.id) markNotificationDismissed(item.id);
+        notificationsList.splice(clickedIdx, 1);
+      }
+
+      // 2. បិទផ្ទាំងជូនដំណឹងជាបន្ទាន់ (Hide immediately)
+      closeNotificationDropdown(false);
+      renderNotificationDrawer();
 
       // 2. ធ្វើដំណើរទៅកាន់ផ្ទាំងពាក់ព័ន្ធ (Navigate to relevant view)
       try {
@@ -36784,6 +36883,8 @@
       });
 
       const filteredList = notificationsList.filter(n => {
+        // If user already dismissed this notification, do not show in drawer and do not count in bell badge!
+        if (n.id && isNotificationDismissed(n.id)) return false;
         // If SuperAdmin has viewed/acknowledged, do not show deletion request in drawer!
         if (isActorSuperAdmin && n.type === 'USER_DELETION_REQUEST') {
           if (currentSig && currentSig === ackedSig) return false;
@@ -36821,6 +36922,7 @@
         const safeType = escapeHtml(n.type || '');
         const safeUserId = escapeHtml(n.targetUserId || '');
         const safeUsername = escapeHtml(n.targetUsername || '');
+        const safeId = escapeHtml(String(n.id || (n.type + '_' + n.title)));
         const clickHandler = `onclick="handleNotificationItemClick('${safeType}', '${safeUserId}', '${safeUsername}')"`;
 
         const dotColor = (n.type === 'USER_DELETION_REQUEST') ? 'bg-rose-600 animate-ping' :
@@ -36846,11 +36948,16 @@
           <div ${clickHandler}
             class="p-2.5 rounded-xl border border-slate-100 bg-slate-50/80 hover:bg-white hover:border-blue-200 transition-all cursor-pointer group hover:shadow-xs">
             <div class="flex items-center justify-between">
-              <span class="font-bold text-slate-800 text-xs flex items-center">
+              <span class="font-bold text-slate-800 text-xs flex items-center min-w-0 mr-1.5">
                 <span class="w-2 h-2 rounded-full ${dotColor} mr-1.5 flex-shrink-0"></span>
                 <span class="truncate">${escapeHtml(n.title)}</span>
               </span>
-              <span class="text-[10px] font-mono text-slate-400 flex-shrink-0 ml-1">${escapeHtml(n.time)}</span>
+              <div class="flex items-center space-x-1 shrink-0">
+                <span class="text-[10px] font-mono text-slate-400">${escapeHtml(n.time)}</span>
+                <button type="button" onclick="event.stopPropagation(); dismissNotification('${safeId}')" class="text-slate-400 hover:text-rose-500 hover:bg-rose-50 p-1 rounded-lg transition-colors flex items-center justify-center w-5 h-5 ml-1" title="លុបសារនេះ (បិទកណ្តឹង)">
+                  <i class="fa-solid fa-xmark text-[11px]"></i>
+                </button>
+              </div>
             </div>
             <p class="text-slate-600 text-[11px] mt-0.5 line-clamp-2">${escapeHtml(n.message)}</p>
             <div class="flex items-center justify-between text-[10px] text-slate-400 mt-1 pt-1 border-t border-slate-100">
@@ -36863,7 +36970,15 @@
     }
 
     function clearAllNotifications() {
+      notificationsList.forEach(n => {
+        if (n && n.id) markNotificationDismissed(n.id);
+      });
       notificationsList.length = 0;
+      const badge = document.getElementById('notifBadge');
+      if (badge) {
+        badge.innerText = '0';
+        badge.classList.add('hidden');
+      }
       renderNotificationDrawer();
     }
 
