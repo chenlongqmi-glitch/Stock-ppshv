@@ -255,7 +255,7 @@ function handleTelegramUserApproval(userId, username, targetStatus) {
 
 
 
-    const cleanTargetUser = String(username || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    const cleanTargetUser = String(username || '').replace(/^@/, '').replace(/\s+/g, ' ').trim().toLowerCase();
 
     const cleanTargetId = String(userId || '').trim();
 
@@ -267,7 +267,7 @@ function handleTelegramUserApproval(userId, username, targetStatus) {
 
       const rId = String(row[0]).trim();
 
-      const rUser = String(row[1]).replace(/\s+/g, ' ').trim().toLowerCase();
+      const rUser = String(row[1]).replace(/^@/, '').replace(/\s+/g, ' ').trim().toLowerCase();
 
 
 
@@ -2993,8 +2993,20 @@ function registerUser(userData) {
       ]
     };
 
-    // Note: User self-registration requests are not sent to SuperAdmin's Telegram for approval.
-    // Admin reviews and approves in Web App / LiveChat. After Admin approves, an alert is sent to SuperAdmin.
+    // Dispatch Immediate Telegram Alert with One-Click Approve/Reject buttons for Admin & SuperAdmin
+    const regAlert = `📋 <b>[សំណើសុំចុះឈ្មោះគណនីថ្មី]</b>\n` +
+      `👤 <b>ឈ្មោះពេញ:</b> ${userData.fullName || userData.username}\n` +
+      `🆔 <b>Username:</b> <code>@${userData.username}</code>\n` +
+      `📱 <b>លេខទូរស័ព្ទ:</b> ${phone || '-'}\n` +
+      `📧 <b>អ៊ីមែល:</b> ${userData.email || '-'}\n` +
+      `💼 <b>តួនាទី:</b> ${role}\n` +
+      `🏢 <b>ស្ថានីយ/ឃ្លាំង:</b> ${warehouse}\n` +
+      `🕒 <b>កាលបរិច្ឆេទ:</b> ${Utilities.formatDate(new Date(), 'GMT+7', 'dd/MM/yyyy, HH:mm:ss')}\n` +
+      `🚦 <b>ស្ថានភាព:</b> ⏳ <b>រង់ចាំ Admin / SuperAdmin ពិនិត្យ & អនុម័ត</b>\n\n` +
+      `👉 <b>សូម Admin ឬ SuperAdmin ចុចប៊ូតុងខាងក្រោមដើម្បី អនុម័ត (Approve) តាម Telegram៖</b>`;
+
+    sendTelegramAlert(regAlert, replyMarkup);
+
 
     // Internal Admin Email Notification via MailApp to singvan327@gmail.com
     try {

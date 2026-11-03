@@ -30541,6 +30541,10 @@
                   <i class="fa-solid fa-circle-xmark text-xs"></i>
                   <span>បដិសេធ</span>
                 </button>
+                <button onclick="sendPendingUserToTelegram('${u.userId || ''}', '${u.username || ''}')" class="px-2.5 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-300 rounded-xl text-xs font-bold shadow-xs transition active:scale-95 inline-flex items-center space-x-1" title="ផ្ញើទៅ Telegram ដើម្បីឱ្យ Admin / SuperAdmin អាចចុច Approve បាន">
+                  <i class="fa-brands fa-telegram text-sky-500"></i>
+                  <span>Telegram</span>
+                </button>
                 <button onclick="handleDeleteUser('${u.userId || ''}', '${u.username || ''}')" class="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold shadow-sm transition active:scale-95 inline-flex items-center space-x-1">
                   <i class="fa-solid fa-trash-can text-[11px]"></i>
                   <span>លុប</span>
@@ -30554,6 +30558,10 @@
                   <i class="fa-solid fa-clock text-amber-500"></i>${isTargetSA ? 'រង់ចាំ SuperAdmin អនុម័ត' : 'រង់ចាំ Admin អនុម័ត'}
                 </span>
                 ${(isActorSuperAdmin || isActorAdmin) ? `
+                <button onclick="sendPendingUserToTelegram('${u.userId || ''}', '${u.username || ''}')" class="px-2 py-1 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-300 rounded-lg text-[10px] font-bold shadow-2xs transition inline-flex items-center space-x-1" title="ផ្ញើទៅ Telegram ដើម្បីឱ្យ Admin / SuperAdmin អាចចុច Approve បាន">
+                  <i class="fa-brands fa-telegram text-sky-500"></i>
+                  <span>Telegram</span>
+                </button>
                 <button onclick="handleDeleteUser('${u.userId || ''}', '${u.username || ''}')" class="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg text-[10px] font-bold shadow-sm transition">
                   <i class="fa-solid fa-trash-can text-[10px]"></i>
                   <span>លុប</span>
@@ -34422,17 +34430,17 @@
       });
 
       try {
-        const tgMsg = `📋 <b>[រំលឹក៖ សំណើសុំចុះឈ្មោះគណនីថ្មី - ជំហានទី ២]</b>\n` +
+        const tgMsg = `📋 <b>[សំណើសុំចុះឈ្មោះគណនីថ្មី - រង់ចាំការអនុម័ត]</b>\n` +
           `👤 <b>ឈ្មោះពេញ:</b> ${targetUser.fullName || uName}\n` +
-          `🆔 <b>Username:</b> <code>${uName}</code>\n` +
+          `🆔 <b>Username:</b> <code>@${uName}</code>\n` +
           `📱 <b>លេខទូរស័ព្ទ:</b> ${targetUser.phone || '-'}\n` +
           `📧 <b>អ៊ីមែល:</b> ${targetUser.email || '-'}\n` +
           `💼 <b>តួនាទី:</b> ${targetUser.role || 'Stock Keeper'}\n` +
           `🏢 <b>ស្ថានីយ/ឃ្លាំង:</b> ${targetUser.warehouse || '-'}\n` +
-          `✅ <b>បានពិនិត្យ & អនុម័តជំហានទី ១ ដោយ Admin:</b> ${AppState.currentUser?.fullName || AppState.currentUser?.username || 'Admin'}\n` +
+
           `🕒 <b>កាលបរិច្ឆេទ:</b> ${new Date().toLocaleString('en-GB')}\n` +
-          `🚦 <b>ស្ថានភាព:</b> ⏳ រង់ចាំ SuperAdmin អនុម័តចុងក្រោយ (Pending SuperAdmin)\n\n` +
-          `👉 <b>សូម SuperAdmin ចុចប៊ូតុងខាងក្រោមដើម្បី អនុម័តចុងក្រោយ (Final Approve)៖</b>`;
+          `🚦 <b>ស្ថានភាព:</b> ⏳ <b>រង់ចាំ Admin / SuperAdmin ពិនិត្យ & អនុម័ត</b>\n\n` +
+          `👉 <b>សូម Admin ឬ SuperAdmin ចុចប៊ូតុងខាងក្រោមដើម្បី អនុម័ត (Approve) តាម Telegram៖</b>`;
 
         const resp = await fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
           method: 'POST',
@@ -34444,7 +34452,7 @@
             reply_markup: {
               inline_keyboard: [
                 [
-                  { text: "✅ អនុម័តចុងក្រោយ (Final Approve)", url: approveUrl },
+                  { text: "✅ អនុម័ត (Approve)", url: approveUrl },
                   { text: "❌ បដិសេធ (Reject)", url: rejectUrl }
                 ],
                 [
@@ -34456,7 +34464,7 @@
         });
         const js = await resp.json();
         if (js && js.ok) {
-          Swal.fire('ជោគជ័យ 📢', `បានផ្ញើសាររំលឹកសំណើគណនី <b>${uName}</b> ទៅកាន់ Telegram របស់ SuperAdmin រួចរាល់!`, 'success');
+          Swal.fire('ជោគជ័យ 📢', `បានផ្ញើសំណើគណនី <b>${uName}</b> ទៅកាន់ Telegram រួចរាល់! Admin អាចចុច Approve ពី Telegram បាន។`, 'success');
         } else {
           Swal.fire('បរាជ័យ', js?.description || 'មិនអាចផ្ញើទៅ Telegram បានទេ', 'error');
         }
@@ -34464,6 +34472,8 @@
         Swal.fire('កំហុស', err.toString(), 'error');
       }
     }
+
+    const sendPendingUserToTelegram = resendToTelegramSuperAdmin;
 
     async function rejectUserDirectly(userId, username) {
       const actor = AppState.currentUser || {};
@@ -40669,9 +40679,15 @@
             <div class="pt-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2.5">
               <div class="flex items-center space-x-2 text-[11px] text-slate-500">
                 <i class="fa-solid fa-shield-halved text-emerald-600"></i>
-                <span>ចុចអនុម័តដើម្បីបើកគណនី (Active) & ផ្ញើដំណឹងទៅ Telegram របស់ SuperAdmin</span>
+                <span>ចុចអនុម័តដើម្បីបើកគណនី (Active) ឬផ្ញើទៅ Telegram ឱ្យ Admin / SuperAdmin អនុម័ត</span>
               </div>
               <div class="flex items-center space-x-2.5">
+                <button type="button" onclick="sendPendingUserToTelegram('${user.userId || ''}', '${user.username}')"
+                  class="px-3.5 py-2.5 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-300 rounded-xl text-xs font-black flex items-center space-x-1.5 transition active:scale-95 cursor-pointer shadow-xs"
+                  title="ផ្ញើសំណើទៅ Telegram ដើម្បីឱ្យ Admin ឬ SuperAdmin អាចចុច Approve ពី Telegram បាន">
+                  <i class="fa-brands fa-telegram text-base text-sky-500"></i>
+                  <span>ផ្ញើទៅ Telegram</span>
+                </button>
                 <button type="button" onclick="rejectUserFromModal('${user.userId || ''}', '${user.username}')"
                   class="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-black flex items-center space-x-1.5 transition active:scale-95 cursor-pointer shadow-xs">
                   <i class="fa-solid fa-circle-xmark text-sm"></i>
@@ -40729,6 +40745,7 @@
     window.approveUserDirectly = approveUserDirectly;
     window.rejectUserDirectly = rejectUserDirectly;
     window.resendToTelegramSuperAdmin = resendToTelegramSuperAdmin;
+    window.sendPendingUserToTelegram = sendPendingUserToTelegram;
     window.testTelegramConnection = testTelegramConnection;
     window.handleSaveSettings = handleSaveSettings;
     window.validateProfileForm = validateProfileForm;
