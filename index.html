@@ -1741,8 +1741,12 @@
               <span id="sessionBannerClockTime" class="font-mono tabular-nums font-bold text-cyan-200 mx-1 inline-block text-center w-[58px] leading-none shrink-0">00:00:00</span>
               <span id="sessionBannerDatePeriod">...</span>
             </span>
-            <span class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-white/20 text-white border border-white/30 backdrop-blur-sm group-hover:bg-cyan-500 group-hover:text-slate-950 transition-colors ml-0.5 shrink-0 leading-none">
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-white/20 text-white border border-white/30 backdrop-blur-sm group-hover:bg-cyan-500 group-hover:text-slate-950 transition-colors ml-0.5 shrink-0 leading-none relative">
               <i class="fa-regular fa-calendar-days text-[10px] mr-1"></i>ប្រតិទិន
+              <span id="sessionBannerCalNoteDot" class="hidden absolute -top-1 -right-1 flex h-2 w-2" title="មាន Note រំលឹក!">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-300 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-400 border border-white"></span>
+              </span>
             </span>
           </div>
 
@@ -2181,16 +2185,24 @@
               <span id="headerClockTime" class="font-mono tabular-nums font-bold text-blue-700 mx-1 inline-block text-center w-[58px] leading-none shrink-0">00:00:00</span>
               <span id="headerDatePeriod">...</span>
             </span>
-            <span class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-blue-100 text-blue-700 group-hover:bg-blue-600 group-hover:text-white transition-colors ml-0.5 shrink-0 leading-none">
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-blue-100 text-blue-700 group-hover:bg-blue-600 group-hover:text-white transition-colors ml-0.5 shrink-0 leading-none relative">
               <i class="fa-regular fa-calendar-days text-[10px] mr-1"></i>ប្រតិទិន
+              <span id="headerCalNoteDot" class="hidden absolute -top-1 -right-1 flex h-2 w-2" title="មាន Note រំលឹក!">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500 border border-white"></span>
+              </span>
             </span>
           </div>
 
           <!-- Mobile Calendar Icon Button -->
           <button id="mobileCalendarBtn" onclick="openKhmerCalendarModal()"
-            class="lg:hidden flex items-center justify-center w-8 h-8 rounded-xl bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600 border border-slate-200 transition shrink-0"
+            class="relative lg:hidden flex items-center justify-center w-8 h-8 rounded-xl bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600 border border-slate-200 transition shrink-0"
             title="ប្រតិទិនចន្ទគតិខ្មែរ (Khmer Lunar Calendar)">
             <i class="fa-regular fa-calendar-days text-xs text-blue-600"></i>
+            <span id="mobileCalNoteDot" class="hidden absolute top-1 right-1 flex h-2 w-2" title="មាន Note រំលឹក!">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500 border border-white"></span>
+            </span>
           </button>
 
           <!-- Admin Global Warehouse Selector Filter (Visible for SuperAdmin and Admin ONLY) -->
@@ -10675,6 +10687,18 @@
           dateEl.innerHTML = `${datePrefix} <span class="font-mono tabular-nums font-bold text-blue-700 mx-1 inline-block text-center w-[58px] leading-none shrink-0">${timeStr}</span> ${period}`;
         }
       }
+
+      // Check Calendar Note Alerts periodically (every minute when second === 0)
+      if (d.getSeconds() === 0) {
+        try {
+          if (typeof checkAndAlertCalendarNotes === 'function') {
+            checkAndAlertCalendarNotes(false);
+          }
+          if (typeof updateHeaderCalendarBadge === 'function') {
+            updateHeaderCalendarBadge();
+          }
+        } catch (e) {}
+      }
     }
 
     // =========================================================================
@@ -10936,6 +10960,11 @@
       let html = '';
 
       if (notesInMonth.length > 0) {
+        const nowForHolidays = new Date();
+        const todayKeyForHolidays = getCalDateKey(nowForHolidays);
+        const tomorrowDateForHolidays = new Date(nowForHolidays.getFullYear(), nowForHolidays.getMonth(), nowForHolidays.getDate() + 1);
+        const tomorrowKeyForHolidays = getCalDateKey(tomorrowDateForHolidays);
+
         html += `
           <div class="mb-2 pb-1 border-b border-amber-200 dark:border-amber-800">
             <span class="text-[11px] font-bold text-amber-800 dark:text-amber-300 flex items-center space-x-1.5">
@@ -10946,18 +10975,34 @@
         `;
         notesInMonth.forEach(n => {
           const isSelected = (selectedDay === n.day);
+          const isDue = (n.dateKey === todayKeyForHolidays);
+          const isTomorrow = (n.dateKey === tomorrowKeyForHolidays);
+
+          let alertBadgeHtml = '';
+          let cardBorderBg = 'border-yellow-300 dark:border-yellow-700/70 bg-yellow-50/90 hover:bg-yellow-100/90 dark:bg-yellow-950/30 dark:hover:bg-yellow-950/50';
+          if (isDue) {
+            alertBadgeHtml = `<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black bg-rose-600 text-white shadow-2xs animate-pulse"><i class="fa-solid fa-bell mr-1"></i>ដល់ថ្ងៃកំណត់</span>`;
+            cardBorderBg = 'border-rose-300 bg-rose-50/80 hover:bg-rose-100/80 dark:bg-rose-950/30 ring-1 ring-rose-400';
+          } else if (isTomorrow) {
+            alertBadgeHtml = `<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500 text-white shadow-2xs animate-pulse"><i class="fa-solid fa-clock-rotate-left mr-1"></i>រំលឹកមុន ១ ថ្ងៃ</span>`;
+            cardBorderBg = 'border-amber-300 bg-amber-50/90 hover:bg-amber-100/90 dark:bg-amber-950/30 ring-1 ring-amber-400';
+          }
+
           const activeRing = isSelected ? 'ring-2 ring-amber-500 shadow-xs' : '';
           html += `
             <div onclick="calSelectDate(${year}, ${month}, ${n.day})" ondblclick="calPromptDateNote(${year}, ${month}, ${n.day})"
-              class="p-2.5 rounded-xl border border-yellow-300 dark:border-yellow-700/70 bg-yellow-50/90 hover:bg-yellow-100/90 dark:bg-yellow-950/30 dark:hover:bg-yellow-950/50 cursor-pointer transition select-none flex flex-col space-y-1 mb-2 ${activeRing}">
+              class="p-2.5 rounded-xl border ${cardBorderBg} cursor-pointer transition select-none flex flex-col space-y-1 mb-2 ${activeRing}">
               <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-1.5 text-xs font-bold text-amber-900 dark:text-amber-200">
                   <i class="fa-solid fa-note-sticky text-amber-500 text-[11px]"></i>
                   <span>ថ្ងៃទី${toKhmerDigits(n.day)} ${KHMER_CAL_MONTH_NAMES[month]}</span>
                 </div>
-                <button type="button" onclick="event.stopPropagation(); calPromptDateNote(${year}, ${month}, ${n.day})" class="text-[10px] font-bold text-amber-700 hover:text-amber-800 hover:underline">
-                  <i class="fa-solid fa-pen-to-square"></i> កែប្រែ
-                </button>
+                <div class="flex items-center space-x-1.5">
+                  ${alertBadgeHtml}
+                  <button type="button" onclick="event.stopPropagation(); calPromptDateNote(${year}, ${month}, ${n.day})" class="text-[10px] font-bold text-amber-700 hover:text-amber-800 hover:underline">
+                    <i class="fa-solid fa-pen-to-square"></i> កែប្រែ
+                  </button>
+                </div>
               </div>
               <div class="text-xs text-slate-800 dark:text-slate-200 whitespace-pre-wrap break-words leading-relaxed font-sans">
                 ${escapeHtml(n.text)}
@@ -11124,6 +11169,18 @@
         delete notes[dateKey];
       }
       saveCalendarNotes(notes);
+      if (typeof updateHeaderCalendarBadge === 'function') {
+        updateHeaderCalendarBadge();
+      }
+      if (clean && typeof checkAndAlertCalendarNotes === 'function') {
+        // If note is for today or tomorrow, trigger immediate visual alert check
+        const now = new Date();
+        const tKey = getCalDateKey(now);
+        const tomKey = getCalDateKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
+        if (dateKey === tKey || dateKey === tomKey) {
+          checkAndAlertCalendarNotes(true);
+        }
+      }
       if (typeof broadcastInventoryMutation === 'function') {
         broadcastInventoryMutation('CALENDAR_NOTE_UPDATED', { dateKey, text: clean });
       }
@@ -11370,10 +11427,22 @@
           }
         }
 
-        // Note Indicator Icon
+        // Note Indicator Icon & Alert Badges
+        const nowDate = new Date();
+        const todayDateKey = getCalDateKey(nowDate);
+        const tomorrowDateKey = getCalDateKey(new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate() + 1));
+        const isNoteDueToday = hasNote && (dateKey === todayDateKey);
+        const isNoteDueTomorrow = hasNote && (dateKey === tomorrowDateKey);
+
         let noteBadgeHtml = '';
         if (hasNote) {
-          noteBadgeHtml = `<span class="absolute bottom-0.5 right-0.5 text-[8px] sm:text-[9px] ${isToday ? 'text-amber-200' : 'text-amber-600 dark:text-amber-400'} drop-shadow-2xs" title="Note: ${escapeHtml(noteText)}"><i class="fa-solid fa-note-sticky"></i></span>`;
+          if (isNoteDueToday) {
+            noteBadgeHtml = `<span class="absolute bottom-0.5 right-0.5 text-[9px] text-rose-600 dark:text-rose-400 drop-shadow-2xs animate-pulse" title="🔔 ដល់ថ្ងៃកំណត់: ${escapeHtml(noteText)}"><i class="fa-solid fa-bell"></i></span>`;
+          } else if (isNoteDueTomorrow) {
+            noteBadgeHtml = `<span class="absolute bottom-0.5 right-0.5 text-[9px] text-amber-600 dark:text-amber-400 drop-shadow-2xs animate-pulse" title="⏰ រំលឹកមុន ១ ថ្ងៃ: ${escapeHtml(noteText)}"><i class="fa-solid fa-clock"></i></span>`;
+          } else {
+            noteBadgeHtml = `<span class="absolute bottom-0.5 right-0.5 text-[8px] sm:text-[9px] ${isToday ? 'text-amber-200' : 'text-amber-600 dark:text-amber-400'} drop-shadow-2xs" title="Note: ${escapeHtml(noteText)}"><i class="fa-solid fa-note-sticky"></i></span>`;
+          }
         }
 
         const tooltipTitle = hasNote 
@@ -11498,6 +11567,277 @@
         });
       }
     }
+
+    function openKhmerCalendarToDate(dateOrKey) {
+      let targetDate = new Date();
+      if (dateOrKey instanceof Date) {
+        targetDate = dateOrKey;
+      } else if (typeof dateOrKey === 'string' && dateOrKey.includes('-')) {
+        const parts = dateOrKey.split('-').map(Number);
+        if (parts.length === 3) {
+          targetDate = new Date(parts[0], parts[1] - 1, parts[2]);
+        }
+      }
+      KhmerCalState.viewYear = targetDate.getFullYear();
+      KhmerCalState.viewMonth = targetDate.getMonth();
+      KhmerCalState.selectedDate = targetDate;
+      renderKhmerCalendarGrid();
+      const modal = document.getElementById('khmerCalendarModal');
+      if (modal) modal.classList.remove('hidden');
+    }
+    window.openKhmerCalendarToDate = openKhmerCalendarToDate;
+
+    // =========================================================================
+    // CALENDAR NOTE ALERT ENGINE (1-Day Advance Reminder & Due Date Alert)
+    // =========================================================================
+    function updateHeaderCalendarBadge() {
+      try {
+        const now = new Date();
+        const todayKey = getCalDateKey(now);
+        const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+        const tomorrowKey = getCalDateKey(tomorrow);
+
+        const hasTodayNote = Boolean(getNoteForDate(todayKey));
+        const hasTomorrowNote = Boolean(getNoteForDate(tomorrowKey));
+        const hasAlert = hasTodayNote || hasTomorrowNote;
+
+        const sessionDot = document.getElementById('sessionBannerCalNoteDot');
+        if (sessionDot) sessionDot.classList.toggle('hidden', !hasAlert);
+
+        const headerDot = document.getElementById('headerCalNoteDot');
+        if (headerDot) headerDot.classList.toggle('hidden', !hasAlert);
+
+        const mobileDot = document.getElementById('mobileCalNoteDot');
+        if (mobileDot) mobileDot.classList.toggle('hidden', !hasAlert);
+      } catch (e) {}
+    }
+    window.updateHeaderCalendarBadge = updateHeaderCalendarBadge;
+
+    function getCalNotesAlertTracker() {
+      try {
+        const raw = localStorage.getItem('inventory_cal_notes_alert_tracker');
+        return raw ? JSON.parse(raw) : {};
+      } catch (e) {
+        return {};
+      }
+    }
+
+    function setCalNotesAlertTracked(trackerKey) {
+      try {
+        const tracker = getCalNotesAlertTracker();
+        tracker[trackerKey] = Date.now();
+        localStorage.setItem('inventory_cal_notes_alert_tracker', JSON.stringify(tracker));
+      } catch (e) {}
+    }
+
+    async function dispatchTelegramNoteAlert(alertType, dateKey, noteText, solarFull, lunarFull) {
+      try {
+        const tgToken = AppState?.settings?.TELEGRAM_BOT_TOKEN || localStorage.getItem('inventory_tg_token');
+        const tgChatId = AppState?.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid');
+        if (!tgToken || !tgChatId) return;
+
+        const isDue = (alertType === 'DUE');
+        const badgeTitle = isDue ? '🔔 <b>ដល់ថ្ងៃកំណត់ Note ប្រតិទិន (Due Date)</b>' : '⏰ <b>រំលឹកទុកជាមុន ១ ថ្ងៃ (Reminder - Tomorrow)</b>';
+        const msg = `${badgeTitle}\n` +
+          `━━━━━━━━━━━━━━━━━━\n` +
+          `📅 <b>កាលបរិច្ឆេទ:</b> ${solarFull}\n` +
+          `🌙 <b>ចន្ទគតិ:</b> ${lunarFull}\n` +
+          `📝 <b>កំណត់ចំណាំ (Note):</b>\n<blockquote>${escapeHtml(noteText)}</blockquote>\n` +
+          `👤 <b>អ្នកកត់ត្រា:</b> ${AppState.currentUser?.fullName || AppState.currentUser?.username || 'User'}\n` +
+          `⏰ <i>ជូនដំណឹងដោយស្វ័យប្រវត្តិពីប្រព័ន្ធគ្រប់គ្រងស្តុក</i>`;
+
+        await fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: tgChatId,
+            text: msg,
+            parse_mode: 'HTML'
+          })
+        });
+      } catch (e) {}
+    }
+
+    async function checkAndAlertCalendarNotes(force = false) {
+      try {
+        const now = new Date();
+        const todayKey = getCalDateKey(now);
+        const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+        const tomorrowKey = getCalDateKey(tomorrow);
+
+        updateHeaderCalendarBadge();
+
+        const todayNote = getNoteForDate(todayKey);
+        const tomorrowNote = getNoteForDate(tomorrowKey);
+
+        const tracker = getCalNotesAlertTracker();
+        const todayDateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+        // 1. Process Due Date Note Alert (alert នៅថ្ងៃកំណត់)
+        if (todayNote) {
+          const dueTrackKey = `DUE_${todayKey}_${todayDateStr}`;
+          const dayInfo = getKhmerDayDetails(now);
+          const km = dayInfo.km;
+          const solarFull = `${KHMER_CAL_DAYS_FULL[now.getDay()]} ទី${String(now.getDate()).padStart(2, '0')} ${KHMER_CAL_MONTH_NAMES[now.getMonth()]} ឆ្នាំ${now.getFullYear()}`;
+          const lunarFull = `${KHMER_CAL_DAYS_FULL[now.getDay()]} ${toKhmerDigits(km.day)} ${km.moonPhaseName} ខែ${km.monthName} ឆ្នាំ${km.animalYearName} ${km.sakName} ព.ស. ${toKhmerDigits(km.beYear)}`;
+
+          // Add to In-App Notification Center
+          const notifId = `cal_note_due_${todayKey}_${todayDateStr}`;
+          if (!notificationsList.some(n => n.id === notifId)) {
+            notificationsList.unshift({
+              id: notifId,
+              type: 'CALENDAR_NOTE_DUE',
+              title: '🔔 ដល់ថ្ងៃកំណត់: កំណត់ចំណាំ (Note)',
+              message: `${solarFull}: "${todayNote}"`,
+              time: 'ថ្ងៃនេះ',
+              warehouse: 'ប្រតិទិនចន្ទគតិ',
+              user: AppState.currentUser?.username || 'Calendar Note',
+              targetUserId: todayKey
+            });
+            renderNotificationDrawer();
+          }
+
+          if (force || !tracker[dueTrackKey]) {
+            setCalNotesAlertTracked(dueTrackKey);
+            if (typeof playNotificationSound === 'function') playNotificationSound();
+
+            // Browser desktop notification
+            if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+              try {
+                new Notification('🔔 ដល់ថ្ងៃកំណត់: កំណត់ចំណាំ (Note)', {
+                  body: `${solarFull}\n${todayNote}`,
+                  icon: 'https://cdn-icons-png.flaticon.com/512/3652/3652191.png'
+                });
+              } catch (e) {}
+            }
+
+            dispatchTelegramNoteAlert('DUE', todayKey, todayNote, solarFull, lunarFull);
+
+            await Swal.fire({
+              title: '<div class="flex items-center justify-center space-x-2 text-rose-600"><i class="fa-solid fa-bell text-xl animate-bounce"></i><span class="text-base font-extrabold text-slate-900">🔔 ដល់ថ្ងៃកំណត់ (Note Due Date)</span></div>',
+              html: `
+                <div class="text-left text-xs space-y-3 p-1 mt-2">
+                  <div class="p-3 bg-rose-50/90 rounded-2xl border border-rose-200">
+                    <div class="flex items-center justify-between pb-1.5 border-b border-rose-200">
+                      <span class="font-bold text-rose-800 text-xs">📅 កាលបរិច្ឆេទ ៖ ថ្ងៃនេះ (${solarFull})</span>
+                      <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-600 text-white animate-pulse">ដល់ថ្ងៃហើយ</span>
+                    </div>
+                    <p class="text-[11px] text-rose-900 font-sans mt-1.5 flex items-center">
+                      <i class="fa-solid fa-moon text-amber-500 mr-1.5 text-[10px]"></i>
+                      ${lunarFull}
+                    </p>
+                  </div>
+                  <div class="p-3.5 bg-yellow-50 rounded-2xl border border-yellow-300 shadow-2xs">
+                    <div class="flex items-center space-x-1.5 text-amber-800 text-[11px] font-bold mb-1">
+                      <i class="fa-solid fa-note-sticky text-amber-600"></i>
+                      <span>ខ្លឹមសារកំណត់ចំណាំ (Note) ៖</span>
+                    </div>
+                    <div class="text-xs sm:text-[13px] font-medium text-slate-800 font-sans whitespace-pre-wrap leading-relaxed">
+                      ${escapeHtml(todayNote)}
+                    </div>
+                  </div>
+                </div>
+              `,
+              icon: 'warning',
+              confirmButtonColor: '#2563eb',
+              confirmButtonText: '<i class="fa-regular fa-calendar-days mr-1.5"></i> បើកមើលក្នុងប្រតិទិន',
+              showCancelButton: true,
+              cancelButtonColor: '#64748b',
+              cancelButtonText: 'បានដឹងហើយ',
+              reverseButtons: true
+            }).then((res) => {
+              if (res.isConfirmed) {
+                openKhmerCalendarToDate(now);
+              }
+            });
+            return; // Stop after modal for today
+          }
+        }
+
+        // 2. Process 1-Day Advance Note Alert (alert មុន ១ ថ្ងៃ)
+        if (tomorrowNote) {
+          const advTrackKey = `1DAY_${tomorrowKey}_${todayDateStr}`;
+          const dayInfo = getKhmerDayDetails(tomorrow);
+          const km = dayInfo.km;
+          const solarFull = `${KHMER_CAL_DAYS_FULL[tomorrow.getDay()]} ទី${String(tomorrow.getDate()).padStart(2, '0')} ${KHMER_CAL_MONTH_NAMES[tomorrow.getMonth()]} ឆ្នាំ${tomorrow.getFullYear()}`;
+          const lunarFull = `${KHMER_CAL_DAYS_FULL[tomorrow.getDay()]} ${toKhmerDigits(km.day)} ${km.moonPhaseName} ខែ${km.monthName} ឆ្នាំ${km.animalYearName} ${km.sakName} ព.ស. ${toKhmerDigits(km.beYear)}`;
+
+          // Add to In-App Notification Center
+          const notifId = `cal_note_1day_${tomorrowKey}_${todayDateStr}`;
+          if (!notificationsList.some(n => n.id === notifId)) {
+            notificationsList.unshift({
+              id: notifId,
+              type: 'CALENDAR_NOTE_1DAY',
+              title: '⏰ រំលឹកមុន ១ ថ្ងៃ: Note ប្រតិទិន',
+              message: `${solarFull}: "${tomorrowNote}"`,
+              time: 'ថ្ងៃនេះ',
+              warehouse: 'ប្រតិទិនចន្ទគតិ',
+              user: AppState.currentUser?.username || 'Calendar Note',
+              targetUserId: tomorrowKey
+            });
+            renderNotificationDrawer();
+          }
+
+          if (force || !tracker[advTrackKey]) {
+            setCalNotesAlertTracked(advTrackKey);
+            if (typeof playNotificationSound === 'function') playNotificationSound();
+
+            // Browser desktop notification
+            if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+              try {
+                new Notification('⏰ រំលឹកមុន ១ ថ្ងៃ: Note ប្រតិទិន', {
+                  body: `${solarFull}\n${tomorrowNote}`,
+                  icon: 'https://cdn-icons-png.flaticon.com/512/3652/3652191.png'
+                });
+              } catch (e) {}
+            }
+
+            dispatchTelegramNoteAlert('1DAY', tomorrowKey, tomorrowNote, solarFull, lunarFull);
+
+            await Swal.fire({
+              title: '<div class="flex items-center justify-center space-x-2 text-amber-600"><i class="fa-solid fa-clock-rotate-left text-xl animate-spin-slow"></i><span class="text-base font-extrabold text-slate-900">⏰ រំលឹកទុកជាមុន ១ ថ្ងៃ (Reminder)</span></div>',
+              html: `
+                <div class="text-left text-xs space-y-3 p-1 mt-2">
+                  <div class="p-3 bg-amber-50/90 rounded-2xl border border-amber-200">
+                    <div class="flex items-center justify-between pb-1.5 border-b border-amber-200">
+                      <span class="font-bold text-amber-900 text-xs">📅 កាលបរិច្ឆេទ ៖ ថ្ងៃស្អែក (${solarFull})</span>
+                      <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-white animate-pulse">នៅសល់ ១ ថ្ងៃ</span>
+                    </div>
+                    <p class="text-[11px] text-amber-800 font-sans mt-1.5 flex items-center">
+                      <i class="fa-solid fa-moon text-amber-500 mr-1.5 text-[10px]"></i>
+                      ${lunarFull}
+                    </p>
+                  </div>
+                  <div class="p-3.5 bg-yellow-50 rounded-2xl border border-yellow-300 shadow-2xs">
+                    <div class="flex items-center space-x-1.5 text-amber-800 text-[11px] font-bold mb-1">
+                      <i class="fa-solid fa-note-sticky text-amber-600"></i>
+                      <span>ខ្លឹមសារកំណត់ចំណាំ (Note) ៖</span>
+                    </div>
+                    <div class="text-xs sm:text-[13px] font-medium text-slate-800 font-sans whitespace-pre-wrap leading-relaxed">
+                      ${escapeHtml(tomorrowNote)}
+                    </div>
+                  </div>
+                </div>
+              `,
+              icon: 'info',
+              confirmButtonColor: '#2563eb',
+              confirmButtonText: '<i class="fa-regular fa-calendar-days mr-1.5"></i> បើកមើលក្នុងប្រតិទិន',
+              showCancelButton: true,
+              cancelButtonColor: '#64748b',
+              cancelButtonText: 'បានដឹងហើយ',
+              reverseButtons: true
+            }).then((res) => {
+              if (res.isConfirmed) {
+                openKhmerCalendarToDate(tomorrow);
+              }
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Error in checkAndAlertCalendarNotes:', err);
+      }
+    }
+    window.checkAndAlertCalendarNotes = checkAndAlertCalendarNotes;
 
     window.openKhmerCalendarModal = openKhmerCalendarModal;
     window.closeKhmerCalendarModal = closeKhmerCalendarModal;
@@ -16039,6 +16379,14 @@
         if (typeof loadStockInHistory === 'function') loadStockInHistory(true);
         if (typeof loadStockOutHistory === 'function') loadStockOutHistory(true);
       } catch (e) {}
+
+      // 4. Check Calendar Note Alerts (1-Day Advance & Due Date)
+      setTimeout(() => {
+        try {
+          if (typeof checkAndAlertCalendarNotes === 'function') checkAndAlertCalendarNotes(false);
+          if (typeof updateHeaderCalendarBadge === 'function') updateHeaderCalendarBadge();
+        } catch (e) {}
+      }, 2200);
     }
 
 
@@ -36332,6 +36680,12 @@
               openSuperAdminDeletionReviewModal(targetUserId || '', targetUsername || '');
             }
           }
+        } else if (type === 'CALENDAR_NOTE_DUE' || type === 'CALENDAR_NOTE_1DAY') {
+          if (typeof openKhmerCalendarToDate === 'function') {
+            openKhmerCalendarToDate(targetUserId);
+          } else if (typeof openKhmerCalendarModal === 'function') {
+            openKhmerCalendarModal();
+          }
         } else if (type === 'INCOMING_DISPATCH') {
           navigateTab('incoming');
         } else if (type === 'STOCK_IN') {
@@ -36409,6 +36763,8 @@
         const clickHandler = `onclick="handleNotificationItemClick('${safeType}', '${safeUserId}', '${safeUsername}')"`;
 
         const dotColor = (n.type === 'USER_DELETION_REQUEST') ? 'bg-rose-600 animate-ping' :
+          (n.type === 'CALENDAR_NOTE_DUE') ? 'bg-rose-600 animate-ping' :
+          (n.type === 'CALENDAR_NOTE_1DAY') ? 'bg-amber-500 animate-pulse' :
           (n.type === 'INCOMING_DISPATCH') ? 'bg-amber-500 animate-pulse' :
           (n.type === 'USER_DELETION_APPROVED') ? 'bg-emerald-500' :
           (n.type === 'USER_DELETION_REJECTED') ? 'bg-slate-500' :
@@ -36417,6 +36773,7 @@
           (n.type === 'USER_REGISTRATION') ? 'bg-amber-500 animate-pulse' : 'bg-blue-500';
 
         const actionText = (n.type === 'USER_REGISTRATION') ? 'ចុចពិនិត្យ & អនុម័ត ❯' :
+          (n.type === 'CALENDAR_NOTE_DUE' || n.type === 'CALENDAR_NOTE_1DAY') ? 'បើកមើលប្រតិទិន ❯' :
           (n.type === 'INCOMING_DISPATCH') ? 'ចុចទទួលចូលស្តុក ❯' :
           (n.type === 'USER_DELETION_REQUEST') ? (isActorSuperAdmin ? 'ចុចមើលព័ត៌មានលម្អិត ❯' : 'ចុចត្រួតពិនិត្យ ❯') :
           (n.type === 'STOCK_IN') ? 'ចុចមើលស្តុកចូល ❯' :
