@@ -272,7 +272,16 @@ function handleTelegramUserApproval(userId, username, targetStatus) {
 
 
 
-      if ((cleanTargetId && rId === cleanTargetId) || (cleanTargetUser && rUser === cleanTargetUser)) {
+      const rIdLower = rId.toLowerCase();
+      const rFullName = String(row[2] || '').trim().toLowerCase();
+      const rEmail = String(row[3] || '').trim().toLowerCase();
+
+      const isIdMatch = Boolean(cleanTargetId && (rId === cleanTargetId || rIdLower === cleanTargetId.toLowerCase()));
+      const isUserMatch = Boolean(cleanTargetUser && (rUser === cleanTargetUser || rUser.replace(/\s+/g, '') === cleanTargetUser.replace(/\s+/g, '')));
+      const isFullNameMatch = Boolean(cleanTargetUser && rFullName === cleanTargetUser);
+      const isEmailMatch = Boolean(cleanTargetUser && rEmail === cleanTargetUser);
+
+      if (isIdMatch || isUserMatch || isFullNameMatch || isEmailMatch) {
 
         foundRow = i + 1;
 
