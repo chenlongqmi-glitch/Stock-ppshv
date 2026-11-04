@@ -3033,15 +3033,14 @@
                         <i class="fa-solid fa-file-invoice text-emerald-600 mr-1.5 shrink-0 text-xs"></i>
                         <span class="truncate">លេខឯកសារ *</span>
                       </label>
-                      <label class="inline-flex items-center gap-1 cursor-pointer select-none bg-emerald-50 hover:bg-emerald-100/90 px-2 py-0.5 rounded-lg border border-emerald-200 transition text-[10.5px] font-bold text-emerald-800 shadow-3xs"
-                             title="ធីកដើម្បីរក្សាទុកលេខឯកសារដដែល សម្រាប់កត់ត្រាទំនិញច្រើនមុខក្នុងឯកសារតែមួយ">
-                        <input type="checkbox" id="stockInLockDocNo" onchange="toggleStockInLockDocNo(this.checked)"
-                               class="w-3.5 h-3.5 text-emerald-600 rounded border-emerald-300 focus:ring-emerald-500 cursor-pointer">
-                        <span class="flex items-center gap-1">
-                          <i class="fa-solid fa-lock text-[9.5px] text-emerald-600"></i>
-                          <span>រក្សាទុកលេខដដែល</span>
-                        </span>
-                      </label>
+                      <input type="checkbox" id="stockInLockDocNo" class="hidden">
+                      <button type="button" id="btnStockInMultiMode" onclick="toggleStockInMultiMode()"
+                        class="px-2.5 py-1 rounded-xl text-[11px] font-extrabold transition-all duration-200 shadow-2xs flex items-center gap-1.5 cursor-pointer bg-slate-100 hover:bg-emerald-50 text-slate-600 hover:text-emerald-800 border border-slate-300/80 active:scale-95"
+                        title="ចុចដើម្បីបើក/បិទ មុខងារចូលទំនិញច្រើនមុខក្នុងលេខឯកសារតែមួយ">
+                        <i class="fa-solid fa-layer-group text-slate-500" id="iconStockInMultiMode"></i>
+                        <span id="textStockInMultiMode">ចូលទំនិញច្រើនមុខ</span>
+                        <span id="statusStockInMultiMode" class="ml-0.5 px-1.5 py-0.5 rounded-md text-[9.5px] font-black bg-slate-200 text-slate-600 font-sans uppercase">បិទ</span>
+                      </button>
                     </div>
                     <div class="relative w-full h-11">
                       <input type="text" id="stockInDocNo" required placeholder="IN-..."
@@ -3055,14 +3054,19 @@
                       </div>
                     </div>
                     <!-- Live info banner when items entered under this doc -->
-                    <div id="stockInDocBatchBadge" class="hidden mt-1 text-[10.5px] px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-center justify-between font-sans">
+                    <div id="stockInDocBatchBadge" class="hidden mt-1.5 text-[10.5px] px-2.5 py-1.5 rounded-xl bg-emerald-50 border border-emerald-300/90 text-emerald-900 flex items-center justify-between font-sans shadow-3xs">
                       <span class="truncate flex items-center gap-1">
                         <i class="fa-solid fa-layer-group text-emerald-600 text-[10px]"></i>
                         <span>ឯកសារនេះបានបញ្ចូល៖ <b id="stockInDocBatchCount" class="text-emerald-950 font-bold">0</b> មុខ</span>
                       </span>
-                      <button type="button" onclick="viewCurrentDocItems('IN')" class="text-[10px] font-bold text-emerald-700 hover:text-emerald-900 underline ml-1 cursor-pointer">
-                        <i class="fa-regular fa-eye mr-0.5"></i>មើល
-                      </button>
+                      <div class="flex items-center gap-1.5 shrink-0">
+                        <button type="button" onclick="viewCurrentDocItems('IN')" class="text-[10px] font-bold text-emerald-700 hover:text-emerald-900 underline cursor-pointer">
+                          <i class="fa-regular fa-eye mr-0.5"></i>មើល
+                        </button>
+                        <button type="button" onclick="finishCurrentDoc('IN')" class="px-2 py-0.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold cursor-pointer transition shadow-3xs flex items-center gap-0.5" title="បញ្ចប់ឯកសារនេះ ហើយបង្កើតលេខថ្មី">
+                          <i class="fa-solid fa-check text-[9px]"></i>ចប់ / ថ្មី
+                        </button>
+                      </div>
                     </div>
                   </div>
 
@@ -3194,11 +3198,19 @@
                       <i class="fa-solid fa-circle-check text-emerald-600 mr-1.5 shrink-0 text-xs"></i>
                       <span class="truncate">បញ្ជាក់</span>
                     </label>
-                    <button type="submit" id="btnSubmitStockIn"
-                      class="w-full h-11 px-4 rounded-xl bg-[#046c4e] hover:bg-[#03543d] active:bg-[#023e2d] text-white text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-1.5 shadow-md shadow-emerald-700/20 hover:scale-[1.01] active:scale-[0.99] cursor-pointer">
-                      <i class="fa-solid fa-check text-xs text-white"></i>
-                      <span class="text-white font-khmer">រក្សាទុក</span>
-                    </button>
+                    <div class="flex items-center gap-1.5 w-full">
+                      <button type="submit" id="btnSubmitStockIn"
+                        class="flex-1 h-11 px-3 rounded-xl bg-[#046c4e] hover:bg-[#03543d] active:bg-[#023e2d] text-white text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-1.5 shadow-md shadow-emerald-700/20 hover:scale-[1.01] active:scale-[0.99] cursor-pointer">
+                        <i class="fa-solid fa-check text-xs text-white"></i>
+                        <span id="btnSubmitStockInText" class="text-white font-khmer">រក្សាទុក</span>
+                      </button>
+                      <button type="button" id="btnQuickStockInMulti" onclick="submitStockInAsMultiItem()"
+                        class="h-11 px-2.5 rounded-xl bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border border-emerald-300 text-xs font-bold transition flex items-center justify-center gap-1 shadow-xs hover:scale-[1.01] active:scale-[0.99] cursor-pointer shrink-0"
+                        title="ចុចរក្សាទុក និងបន្តបញ្ចូលមុខទំនិញបន្ទាប់ក្នុងលេខឯកសារនេះ">
+                        <i class="fa-solid fa-layer-group text-emerald-700"></i>
+                        <span class="font-khmer">ចូលច្រើនមុខ</span>
+                      </button>
+                    </div>
                   </div>
 
                 </div>
@@ -3531,15 +3543,14 @@
                         <i class="fa-solid fa-file-invoice text-amber-600 mr-1.5 shrink-0 text-xs"></i>
                         <span class="truncate">លេខឯកសារ *</span>
                       </label>
-                      <label class="inline-flex items-center gap-1 cursor-pointer select-none bg-amber-50 hover:bg-amber-100/90 px-2 py-0.5 rounded-lg border border-amber-200 transition text-[10.5px] font-bold text-amber-900 shadow-3xs"
-                             title="ធីកដើម្បីរក្សាទុកលេខឯកសារដដែល សម្រាប់កត់ត្រាទំនិញច្រើនមុខក្នុងឯកសារតែមួយ">
-                        <input type="checkbox" id="stockOutLockDocNo" onchange="toggleStockOutLockDocNo(this.checked)"
-                               class="w-3.5 h-3.5 text-amber-600 rounded border-amber-300 focus:ring-amber-500 cursor-pointer">
-                        <span class="flex items-center gap-1">
-                          <i class="fa-solid fa-lock text-[9.5px] text-amber-700"></i>
-                          <span>រក្សាទុកលេខដដែល</span>
-                        </span>
-                      </label>
+                      <input type="checkbox" id="stockOutLockDocNo" class="hidden">
+                      <button type="button" id="btnStockOutMultiMode" onclick="toggleStockOutMultiMode()"
+                        class="px-2.5 py-1 rounded-xl text-[11px] font-extrabold transition-all duration-200 shadow-2xs flex items-center gap-1.5 cursor-pointer bg-slate-100 hover:bg-amber-50 text-slate-600 hover:text-amber-800 border border-slate-300/80 active:scale-95"
+                        title="ចុចដើម្បីបើក/បិទ មុខងារចេញទំនិញច្រើនមុខក្នុងលេខឯកសារតែមួយ">
+                        <i class="fa-solid fa-layer-group text-slate-500" id="iconStockOutMultiMode"></i>
+                        <span id="textStockOutMultiMode">ចេញទំនិញច្រើនមុខ</span>
+                        <span id="statusStockOutMultiMode" class="ml-0.5 px-1.5 py-0.5 rounded-md text-[9.5px] font-black bg-slate-200 text-slate-600 font-sans uppercase">បិទ</span>
+                      </button>
                     </div>
                     <div class="relative w-full h-11">
                       <input type="text" id="stockOutDocNo" required placeholder="OUT-..."
@@ -3553,14 +3564,19 @@
                       </div>
                     </div>
                     <!-- Live info banner when items entered under this doc -->
-                    <div id="stockOutDocBatchBadge" class="hidden mt-1 text-[10.5px] px-2 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 flex items-center justify-between font-sans">
+                    <div id="stockOutDocBatchBadge" class="hidden mt-1.5 text-[10.5px] px-2.5 py-1.5 rounded-xl bg-amber-50 border border-amber-300/90 text-amber-900 flex items-center justify-between font-sans shadow-3xs">
                       <span class="truncate flex items-center gap-1">
                         <i class="fa-solid fa-layer-group text-amber-700 text-[10px]"></i>
                         <span>ឯកសារនេះបានចេញ៖ <b id="stockOutDocBatchCount" class="text-amber-950 font-bold">0</b> មុខ</span>
                       </span>
-                      <button type="button" onclick="viewCurrentDocItems('OUT')" class="text-[10px] font-bold text-amber-800 hover:text-amber-950 underline ml-1 cursor-pointer">
-                        <i class="fa-regular fa-eye mr-0.5"></i>មើល
-                      </button>
+                      <div class="flex items-center gap-1.5 shrink-0">
+                        <button type="button" onclick="viewCurrentDocItems('OUT')" class="text-[10px] font-bold text-amber-800 hover:text-amber-950 underline cursor-pointer">
+                          <i class="fa-regular fa-eye mr-0.5"></i>មើល
+                        </button>
+                        <button type="button" onclick="finishCurrentDoc('OUT')" class="px-2 py-0.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold cursor-pointer transition shadow-3xs flex items-center gap-0.5" title="បញ្ចប់ឯកសារនេះ ហើយបង្កើតលេខថ្មី">
+                          <i class="fa-solid fa-check text-[9px]"></i>ចប់ / ថ្មី
+                        </button>
+                      </div>
                     </div>
                   </div>
 
@@ -3680,11 +3696,19 @@
                       <i class="fa-solid fa-circle-check text-amber-600 mr-1.5 shrink-0 text-xs"></i>
                       <span class="truncate">បញ្ជាក់</span>
                     </label>
-                    <button type="submit" id="btnSubmitStockOut"
-                      class="w-full h-11 px-4 rounded-xl bg-[#ea580c] hover:bg-[#c2410c] active:bg-[#9a3412] text-white text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-1.5 shadow-md shadow-orange-700/20 hover:scale-[1.01] active:scale-[0.99] cursor-pointer">
-                      <i class="fa-solid fa-check text-xs text-white"></i>
-                      <span class="text-white font-khmer">រក្សាទុក</span>
-                    </button>
+                    <div class="flex items-center gap-1.5 w-full">
+                      <button type="submit" id="btnSubmitStockOut"
+                        class="flex-1 h-11 px-3 rounded-xl bg-[#ea580c] hover:bg-[#c2410c] active:bg-[#9a3412] text-white text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-1.5 shadow-md shadow-orange-700/20 hover:scale-[1.01] active:scale-[0.99] cursor-pointer">
+                        <i class="fa-solid fa-check text-xs text-white"></i>
+                        <span id="btnSubmitStockOutText" class="text-white font-khmer">រក្សាទុក</span>
+                      </button>
+                      <button type="button" id="btnQuickStockOutMulti" onclick="submitStockOutAsMultiItem()"
+                        class="h-11 px-2.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 text-xs font-bold transition flex items-center justify-center gap-1 shadow-xs hover:scale-[1.01] active:scale-[0.99] cursor-pointer shrink-0"
+                        title="ចុចរក្សាទុក និងបន្តកត់ត្រាមុខទំនិញបន្ទាប់ក្នុងលេខឯកសារនេះ">
+                        <i class="fa-solid fa-layer-group text-amber-700"></i>
+                        <span class="font-khmer">ចេញច្រើនមុខ</span>
+                      </button>
+                    </div>
                   </div>
 
                 </div>
@@ -21716,8 +21740,8 @@
       const lockIn = document.getElementById('stockInLockDocNo');
       if (lockIn) {
         const savedLock = localStorage.getItem('stockIn_lockDocNo');
-        lockIn.checked = (savedLock === null || savedLock === 'true');
-        if (typeof toggleStockInLockDocNo === 'function') toggleStockInLockDocNo(lockIn.checked);
+        const shouldLock = (savedLock === 'true');
+        if (typeof setStockInMultiMode === 'function') setStockInMultiMode(shouldLock);
       }
       const docEl = document.getElementById('stockInDocNo');
       if (docEl && !docEl.value) {
@@ -22744,8 +22768,8 @@
       const lockOut = document.getElementById('stockOutLockDocNo');
       if (lockOut) {
         const savedLock = localStorage.getItem('stockOut_lockDocNo');
-        lockOut.checked = (savedLock === null || savedLock === 'true');
-        if (typeof toggleStockOutLockDocNo === 'function') toggleStockOutLockDocNo(lockOut.checked);
+        const shouldLockOut = (savedLock === 'true');
+        if (typeof setStockOutMultiMode === 'function') setStockOutMultiMode(shouldLockOut);
       }
       const docEl = document.getElementById('stockOutDocNo');
       if (docEl && !docEl.value) {
@@ -28259,33 +28283,156 @@
        BATCH DOCUMENT NUMBER CONTROLLER & DOCUMENT INSPECTION MODAL
        ========================================================================== */
 
-    function toggleStockInLockDocNo(checked) {
-      try { localStorage.setItem('stockIn_lockDocNo', checked ? 'true' : 'false'); } catch(e) {}
+    function setStockInMultiMode(enabled) {
+      const chk = document.getElementById('stockInLockDocNo');
+      if (chk) chk.checked = enabled;
+
+      const btn = document.getElementById('btnStockInMultiMode');
+      const icon = document.getElementById('iconStockInMultiMode');
+      const status = document.getElementById('statusStockInMultiMode');
       const inp = document.getElementById('stockInDocNo');
-      if (inp) {
-        if (checked) {
-          inp.classList.add('ring-2', 'ring-emerald-500/50', 'bg-emerald-50/60');
-        } else {
-          inp.classList.remove('ring-2', 'ring-emerald-500/50', 'bg-emerald-50/60');
+      const submitText = document.getElementById('btnSubmitStockInText');
+
+      if (enabled) {
+        if (btn) {
+          btn.className = 'px-2.5 py-1 rounded-xl text-[11px] font-extrabold transition-all duration-200 shadow-sm flex items-center gap-1.5 cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-600 ring-2 ring-emerald-400/50 active:scale-95';
         }
+        if (icon) icon.className = 'fa-solid fa-lock text-white';
+        if (status) {
+          status.textContent = 'កំពុងបើក';
+          status.className = 'ml-0.5 px-1.5 py-0.5 rounded-md text-[9.5px] font-black bg-emerald-800 text-emerald-100 font-sans';
+        }
+        if (inp) inp.classList.add('ring-2', 'ring-emerald-500/50', 'bg-emerald-50/60');
+        if (submitText) submitText.textContent = 'រក្សាទុក & បន្ត';
+      } else {
+        if (btn) {
+          btn.className = 'px-2.5 py-1 rounded-xl text-[11px] font-extrabold transition-all duration-200 shadow-2xs flex items-center gap-1.5 cursor-pointer bg-slate-100 hover:bg-emerald-50 text-slate-600 hover:text-emerald-800 border border-slate-300/80 active:scale-95';
+        }
+        if (icon) icon.className = 'fa-solid fa-layer-group text-slate-500';
+        if (status) {
+          status.textContent = 'បិទ';
+          status.className = 'ml-0.5 px-1.5 py-0.5 rounded-md text-[9.5px] font-black bg-slate-200 text-slate-600 font-sans uppercase';
+        }
+        if (inp) inp.classList.remove('ring-2', 'ring-emerald-500/50', 'bg-emerald-50/60');
+        if (submitText) submitText.textContent = 'រក្សាទុក';
       }
+
+      try { localStorage.setItem('stockIn_lockDocNo', enabled ? 'true' : 'false'); } catch(e) {}
       updateDocBatchBadge('IN');
     }
-    window.toggleStockInLockDocNo = toggleStockInLockDocNo;
 
-    function toggleStockOutLockDocNo(checked) {
-      try { localStorage.setItem('stockOut_lockDocNo', checked ? 'true' : 'false'); } catch(e) {}
-      const inp = document.getElementById('stockOutDocNo');
-      if (inp) {
-        if (checked) {
-          inp.classList.add('ring-2', 'ring-amber-500/50', 'bg-amber-50/60');
+    function toggleStockInMultiMode() {
+      const chk = document.getElementById('stockInLockDocNo');
+      const newState = chk ? !chk.checked : true;
+      setStockInMultiMode(newState);
+    }
+    window.toggleStockInMultiMode = toggleStockInMultiMode;
+    window.setStockInMultiMode = setStockInMultiMode;
+    window.toggleStockInLockDocNo = setStockInMultiMode;
+
+    function submitStockInAsMultiItem() {
+      setStockInMultiMode(true);
+      const form = document.getElementById('stockInForm');
+      if (form) {
+        if (typeof form.requestSubmit === 'function') {
+          form.requestSubmit();
         } else {
-          inp.classList.remove('ring-2', 'ring-amber-500/50', 'bg-amber-50/60');
+          const btn = document.getElementById('btnSubmitStockIn');
+          if (btn) btn.click();
         }
       }
+    }
+    window.submitStockInAsMultiItem = submitStockInAsMultiItem;
+
+    function setStockOutMultiMode(enabled) {
+      const chk = document.getElementById('stockOutLockDocNo');
+      if (chk) chk.checked = enabled;
+
+      const btn = document.getElementById('btnStockOutMultiMode');
+      const icon = document.getElementById('iconStockOutMultiMode');
+      const status = document.getElementById('statusStockOutMultiMode');
+      const inp = document.getElementById('stockOutDocNo');
+      const submitText = document.getElementById('btnSubmitStockOutText');
+
+      if (enabled) {
+        if (btn) {
+          btn.className = 'px-2.5 py-1 rounded-xl text-[11px] font-extrabold transition-all duration-200 shadow-sm flex items-center gap-1.5 cursor-pointer bg-amber-600 hover:bg-amber-700 text-white border border-amber-600 ring-2 ring-amber-400/50 active:scale-95';
+        }
+        if (icon) icon.className = 'fa-solid fa-lock text-white';
+        if (status) {
+          status.textContent = 'កំពុងបើក';
+          status.className = 'ml-0.5 px-1.5 py-0.5 rounded-md text-[9.5px] font-black bg-amber-800 text-amber-100 font-sans';
+        }
+        if (inp) inp.classList.add('ring-2', 'ring-amber-500/50', 'bg-amber-50/60');
+        if (submitText) submitText.textContent = 'រក្សាទុក & បន្ត';
+      } else {
+        if (btn) {
+          btn.className = 'px-2.5 py-1 rounded-xl text-[11px] font-extrabold transition-all duration-200 shadow-2xs flex items-center gap-1.5 cursor-pointer bg-slate-100 hover:bg-amber-50 text-slate-600 hover:text-amber-800 border border-slate-300/80 active:scale-95';
+        }
+        if (icon) icon.className = 'fa-solid fa-layer-group text-slate-500';
+        if (status) {
+          status.textContent = 'បិទ';
+          status.className = 'ml-0.5 px-1.5 py-0.5 rounded-md text-[9.5px] font-black bg-slate-200 text-slate-600 font-sans uppercase';
+        }
+        if (inp) inp.classList.remove('ring-2', 'ring-amber-500/50', 'bg-amber-50/60');
+        if (submitText) submitText.textContent = 'រក្សាទុក';
+      }
+
+      try { localStorage.setItem('stockOut_lockDocNo', enabled ? 'true' : 'false'); } catch(e) {}
       updateDocBatchBadge('OUT');
     }
-    window.toggleStockOutLockDocNo = toggleStockOutLockDocNo;
+
+    function toggleStockOutMultiMode() {
+      const chk = document.getElementById('stockOutLockDocNo');
+      const newState = chk ? !chk.checked : true;
+      setStockOutMultiMode(newState);
+    }
+    window.toggleStockOutMultiMode = toggleStockOutMultiMode;
+    window.setStockOutMultiMode = setStockOutMultiMode;
+    window.toggleStockOutLockDocNo = setStockOutMultiMode;
+
+    function submitStockOutAsMultiItem() {
+      setStockOutMultiMode(true);
+      const form = document.getElementById('stockOutForm');
+      if (form) {
+        if (typeof form.requestSubmit === 'function') {
+          form.requestSubmit();
+        } else {
+          const btn = document.getElementById('btnSubmitStockOut');
+          if (btn) btn.click();
+        }
+      }
+    }
+    window.submitStockOutAsMultiItem = submitStockOutAsMultiItem;
+
+    function finishCurrentDoc(type) {
+      if (type === 'IN') {
+        setStockInMultiMode(false);
+        generateStockInDocNo(true);
+        if (typeof clearStockInAllFields === 'function') clearStockInAllFields();
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'success',
+          title: 'បានបញ្ចប់ឯកសារ និងបង្កើតលេខថ្មី!',
+          showConfirmButton: false,
+          timer: 2000
+        });
+      } else {
+        setStockOutMultiMode(false);
+        generateStockOutDocNo(true);
+        if (typeof clearStockOutAllFields === 'function') clearStockOutAllFields();
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'success',
+          title: 'បានបញ្ចប់ឯកសារ និងបង្កើតលេខថ្មី!',
+          showConfirmButton: false,
+          timer: 2000
+        });
+      }
+    }
+    window.finishCurrentDoc = finishCurrentDoc;
 
     function updateDocBatchBadge(type) {
       const isLocked = type === 'IN'
