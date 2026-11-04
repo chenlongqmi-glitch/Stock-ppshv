@@ -11921,17 +11921,7 @@ function standardizeAndFormatTransactionsSheet(optSs) {
       let finalTs = '';
       const txMatch = txId.match(/TX-(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/);
       if (txMatch) {
-        finalTs = `${txMatch[1]}-${txMatch[2]}-${txMatch[3]} ${txMatch[4]}:${txMatch[5]}:${txMatch[6]}`;
-      } else if (rawNotes.includes('GMT') || rawNotes.includes('2026')) {
-        try {
-          const pd = new Date(rawNotes);
-          if (!isNaN(pd.getTime())) {
-            finalTs = Utilities.formatDate(pd, 'GMT+7', 'yyyy-MM-dd HH:mm:ss');
-          }
-        } catch(e) {}
-      } else if (rawTs instanceof Date) {
-        try { finalTs = Utilities.formatDate(rawTs, 'GMT+7', 'yyyy-MM-dd HH:mm:ss'); } catch(e) {}
-      } else if (rawTs && String(rawTs).length > 10) {
+     
         finalTs = String(rawTs).trim();
       }
       if (!finalTs || finalTs.length < 11) finalTs = dateStr + ' 00:00:00';

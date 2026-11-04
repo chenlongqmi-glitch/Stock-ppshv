@@ -4755,17 +4755,11 @@
                   <input type="text" id="setTelegramToken" placeholder="7123456789:ABCDefghijk-lmnopqrstuvwxyz"
                     class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-mono outline-none focus:ring-2 focus:ring-sky-500">
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div>
-                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Telegram SuperAdmin Chat ID</label>
-                    <input type="text" id="setTelegramChatId" placeholder="1197248107"
-                      class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-mono outline-none focus:ring-2 focus:ring-sky-500">
-                  </div>
-                  <div>
-                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Telegram Admin Chat ID (Approve)</label>
-                    <input type="text" id="setTelegramAdminChatId" placeholder="733243990"
-                      class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-mono outline-none focus:ring-2 focus:ring-sky-500">
-                  </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Telegram Chat ID / Group
+                    ID</label>
+                  <input type="text" id="setTelegramChatId" placeholder="-1001234567890 ឬ 123456789"
+                    class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-mono outline-none focus:ring-2 focus:ring-sky-500">
                 </div>
                 <div class="pt-1 flex items-center justify-end">
                   <button type="button" onclick="testTelegramConnection()"
@@ -7551,56 +7545,6 @@
     const DEFAULT_TG_BOT_TOKEN = '8292690919:AAFVJciyoebmTKPxg5rYsyMv56Ol2jzpibY';
     const DEFAULT_TG_CHAT_ID = '1197248107'; // SuperAdmin Telegram ID
     const DEFAULT_TG_ADMIN_CHAT_ID = '733243990'; // Admin Telegram ID
-
-    /**
-     * Helper to send Telegram message to SuperAdmin & Admin
-     */
-    async function sendTelegramDirect(messageText, replyMarkup, customChatIds) {
-      try {
-        const tgToken = AppState.settings?.TELEGRAM_BOT_TOKEN || localStorage.getItem('inventory_tg_token') || DEFAULT_TG_BOT_TOKEN;
-        if (!tgToken) return false;
-
-        let chatIds = [];
-        if (customChatIds) {
-          if (Array.isArray(customChatIds)) chatIds = customChatIds.slice();
-          else if (typeof customChatIds === 'string' || typeof customChatIds === 'number') {
-            chatIds = String(customChatIds).split(',').map(s => s.trim()).filter(Boolean);
-          }
-        }
-
-        if (chatIds.length === 0) {
-          const sChat = AppState.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid') || '';
-          const aChat = AppState.settings?.TELEGRAM_ADMIN_CHAT_ID || localStorage.getItem('inventory_tg_admin_chatid') || '';
-          if (sChat) sChat.split(',').forEach(c => { const t = c.trim(); if (t && !chatIds.includes(t)) chatIds.push(t); });
-          if (aChat) aChat.split(',').forEach(c => { const t = c.trim(); if (t && !chatIds.includes(t)) chatIds.push(t); });
-          if (!chatIds.includes(DEFAULT_TG_ADMIN_CHAT_ID)) chatIds.push(DEFAULT_TG_ADMIN_CHAT_ID);
-          if (!chatIds.includes(DEFAULT_TG_CHAT_ID)) chatIds.push(DEFAULT_TG_CHAT_ID);
-        }
-
-        let atLeastOneSuccess = false;
-        for (const cId of chatIds) {
-          try {
-            const body = {
-              chat_id: cId,
-              text: messageText,
-              parse_mode: 'HTML'
-            };
-            if (replyMarkup) body.reply_markup = replyMarkup;
-            const resp = await fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(body)
-            });
-            const js = await resp.json();
-            if (js && js.ok) atLeastOneSuccess = true;
-          } catch (e) {}
-        }
-        return atLeastOneSuccess;
-      } catch (err) {
-        return false;
-      }
-    }
-    window.sendTelegramDirect = sendTelegramDirect;
 
     /**
      * Universal Phone Number Formatter: ("0"00 000 000)
@@ -29804,7 +29748,6 @@
         // 1. Preload from localStorage immediately
         const savedTgToken = localStorage.getItem('inventory_tg_token') || DEFAULT_TG_BOT_TOKEN;
         const savedTgChatId = localStorage.getItem('inventory_tg_chatid') || DEFAULT_TG_CHAT_ID;
-        const savedTgAdminChatId = localStorage.getItem('inventory_tg_admin_chatid') || DEFAULT_TG_ADMIN_CHAT_ID;
         let localSettings = {};
         try {
           localSettings = JSON.parse(localStorage.getItem('inventory_system_settings') || '{}');
@@ -29812,7 +29755,6 @@
 
         const tokenField = document.getElementById('setTelegramToken');
         const chatIdField = document.getElementById('setTelegramChatId');
-        const adminChatIdField = document.getElementById('setTelegramAdminChatId');
         const compField = document.getElementById('setCompanyName');
         const currField = document.getElementById('setCurrency');
         const emailField = document.getElementById('setAlertEmail');
@@ -29822,7 +29764,6 @@
 
         if (tokenField) tokenField.value = savedTgToken || localSettings.TELEGRAM_BOT_TOKEN || AppState.settings?.TELEGRAM_BOT_TOKEN || DEFAULT_TG_BOT_TOKEN;
         if (chatIdField) chatIdField.value = savedTgChatId || localSettings.TELEGRAM_CHAT_ID || AppState.settings?.TELEGRAM_CHAT_ID || DEFAULT_TG_CHAT_ID;
-        if (adminChatIdField) adminChatIdField.value = savedTgAdminChatId || localSettings.TELEGRAM_ADMIN_CHAT_ID || AppState.settings?.TELEGRAM_ADMIN_CHAT_ID || DEFAULT_TG_ADMIN_CHAT_ID;
         if (compField) compField.value = localSettings.COMPANY_NAME || AppState.settings?.COMPANY_NAME || 'ប្រព័ន្ធគ្រប់គ្រងស្តុកទំនិញ PPSHV';
         if (currField) currField.value = localSettings.CURRENCY_SYMBOL || AppState.settings?.CURRENCY_SYMBOL || '$';
         if (emailField) emailField.value = localSettings.ALERT_EMAIL || AppState.settings?.ALERT_EMAIL || 'chhengyiv3@gmail.com, chenlongqmi@gmail.com, ppshv2024@gmail.com';
@@ -29840,7 +29781,6 @@
           if (res.settings.CURRENCY_SYMBOL && currField) currField.value = res.settings.CURRENCY_SYMBOL;
           if (res.settings.TELEGRAM_BOT_TOKEN && tokenField) tokenField.value = res.settings.TELEGRAM_BOT_TOKEN;
           if (res.settings.TELEGRAM_CHAT_ID && chatIdField) chatIdField.value = res.settings.TELEGRAM_CHAT_ID;
-          if (res.settings.TELEGRAM_ADMIN_CHAT_ID && adminChatIdField) adminChatIdField.value = res.settings.TELEGRAM_ADMIN_CHAT_ID;
           if (res.settings.ALERT_EMAIL && emailField) emailField.value = res.settings.ALERT_EMAIL;
           if (res.settings.DRIVE_IMAGE_FOLDER_URL || res.settings.DRIVE_IMAGE_FOLDER_ID) {
             const driveVal = res.settings.DRIVE_IMAGE_FOLDER_URL || (res.settings.DRIVE_IMAGE_FOLDER_ID ? `https://drive.google.com/drive/folders/${res.settings.DRIVE_IMAGE_FOLDER_ID}` : '');
@@ -29878,7 +29818,6 @@
 
       const token = document.getElementById('setTelegramToken')?.value.trim() || '';
       const chatId = document.getElementById('setTelegramChatId')?.value.trim() || '';
-      const adminChatId = document.getElementById('setTelegramAdminChatId')?.value.trim() || '';
       const companyName = document.getElementById('setCompanyName')?.value.trim() || '';
       const currency = document.getElementById('setCurrency')?.value.trim() || '$';
       const alertEmail = document.getElementById('setAlertEmail')?.value.trim() || '';
@@ -29886,7 +29825,6 @@
       // Save directly to localStorage for zero-latency availability across sessions
       if (token) localStorage.setItem('inventory_tg_token', token);
       if (chatId) localStorage.setItem('inventory_tg_chatid', chatId);
-      if (adminChatId) localStorage.setItem('inventory_tg_admin_chatid', adminChatId);
 
       const driveFolderUrl = document.getElementById('setDriveFolderUrl') ? document.getElementById('setDriveFolderUrl').value.trim() : 'https://drive.google.com/drive/u/2/folders/1_pn3xY4G0wnaqLcT44VGPEz9W1_4E_Qm';
       if (driveFolderUrl) {
@@ -29902,7 +29840,6 @@
         CURRENCY_SYMBOL: currency,
         TELEGRAM_BOT_TOKEN: token,
         TELEGRAM_CHAT_ID: chatId,
-        TELEGRAM_ADMIN_CHAT_ID: adminChatId,
         ALERT_EMAIL: alertEmail,
         GOOGLE_SHEET_URL: googleSheetUrl,
         DRIVE_IMAGE_FOLDER_URL: driveFolderUrl,
@@ -29926,69 +29863,966 @@
 
     async function testTelegramConnection() {
       const botToken = document.getElementById('setTelegramToken')?.value.trim() || '';
-      const chatId = document.getElementById('setTelegramChatId')?.value.trim() || DEFAULT_TG_CHAT_ID;
-      const adminChatId = document.getElementById('setTelegramAdminChatId')?.value.trim() || DEFAULT_TG_ADMIN_CHAT_ID;
+      const chatId = document.getElementById('setTelegramChatId')?.value.trim() || '';
 
-      if (!botToken) {
-        Swal.fire('ខ្វះព័ត៌មាន', 'សូមបំពេញ Telegram Token ជាមុនសិន', 'warning');
+      if (!botToken || !chatId) {
+        Swal.fire('ខ្វះព័ត៌មាន', 'សូមបំពេញ Telegram Token និង Chat ID ជាមុនសិន', 'warning');
         return;
       }
 
       // Persist immediately
       localStorage.setItem('inventory_tg_token', botToken);
       localStorage.setItem('inventory_tg_chatid', chatId);
-      localStorage.setItem('inventory_tg_admin_chatid', adminChatId);
       if (!AppState.settings) AppState.settings = {};
       AppState.settings.TELEGRAM_BOT_TOKEN = botToken;
       AppState.settings.TELEGRAM_CHAT_ID = chatId;
-      AppState.settings.TELEGRAM_ADMIN_CHAT_ID = adminChatId;
 
       Swal.fire({
         title: 'កំពុងតេស្ត Telegram...',
+        html: '<p class="text-xs text-slate-500">កំពុងផ្ញើសារសាកល្បងទៅកាន់ Telegram របស់អ្នក</p>',
         allowOutsideClick: false,
         didOpen: () => Swal.showLoading()
       });
 
+      // 1. Direct browser fetch to Telegram API
       try {
-        const testTargets = [
-          { id: chatId, name: 'SuperAdmin' },
-          { id: adminChatId, name: 'Admin' }
-        ];
-        let successes = [];
-        let errors = [];
-
-        for (const t of testTargets) {
-          if (!t.id) continue;
-          try {
-            const resp = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                chat_id: t.id,
-                text: `🔔 <b>[តេស្តប្រព័ន្ធ Telegram Alert]</b>\n✅ ប្រព័ន្ធ Smart Inventory តភ្ជាប់ជោគជ័យ!\n👤 <b>គោលដៅ:</b> ${t.name} (Chat ID: <code>${t.id}</code>)\n🕒 <b>កាលបរិច្ឆេទ:</b> ${new Date().toLocaleString('km-KH')}`,
-                parse_mode: 'HTML'
-              })
-            });
-            const js = await resp.json();
-            if (js && js.ok) {
-              successes.push(`${t.name} (ID: ${t.id})`);
-            } else {
-              errors.push(`${t.name} (ID: ${t.id}): ${js?.description || 'បរាជ័យ'}`);
-            }
-          } catch (e) {
-            errors.push(`${t.name} (ID: ${t.id}): ${e.toString()}`);
-          }
+        const testMsg = `🔔 <b>តេស្តការតភ្ជាប់ Telegram | PPSHV Stock</b>\n\n✅ Telegram Bot ដំណើរការបានត្រឹមត្រូវ ១០០%!\n⏰ ពេលវេលា៖ ${new Date().toLocaleString('km-KH')}\n👤 អ្នកតេស្ត៖ ${AppState.currentUser?.username || 'Admin'}\n\nរាល់ពេលមានអ្នកចុះឈ្មោះថ្មី Admin នឹងទទួលបានការជូនដំណឹងតាម Telegram នេះភ្លាមៗ។`;
+        const directRes = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: testMsg,
+            parse_mode: 'HTML'
+          })
+        });
+        const directData = await directRes.json();
+        if (directData && directData.ok) {
+          Swal.fire('ជោគជ័យ 🎉', 'សារតេស្តត្រូវបានផ្ញើទៅ Telegram របស់អ្នករួចរាល់ហើយ! សូមបើក Telegram មើល។', 'success');
+          return;
         }
+      } catch (netErr) {
+        console.warn('Direct Telegram API call failed, falling back to backend API...', netErr);
+      }
 
-        if (successes.length > 0) {
-          Swal.fire('ជោគជ័យ 🎉', `បានផ្ញើសារសាកល្បងទៅកាន់ Telegram:\n- ${successes.join('\n- ')}${errors.length ? `\n\nចំណាំ (មិនជោគជ័យ):\n- ${errors.join('\n- ')}` : ''}`, 'success');
+      // 2. Backend API fallback
+      try {
+        const res = await apiCall('testTelegramAlert', { botToken, chatId });
+        if (res && res.success) {
+          Swal.fire('ជោគជ័យ 🎉', res.message || 'បានផ្ញើសារសាកល្បងទៅ Telegram រួចរាល់!', 'success');
         } else {
-          Swal.fire('បរាជ័យ ❌', errors.join('\n') || 'មិនអាចផ្ញើសារបានទេ សូមពិនិត្យមើល Token និង Chat ID', 'error');
+          Swal.fire('បរាជ័យ', res?.message || 'មិនអាចផ្ញើសារ Telegram បានទេ សូមពិនិត្យ Token និង Chat ID ឡើងវិញ!', 'error');
         }
-      } catch (err) {
-        Swal.fire('កំហុស', err.toString(), 'error');
+      } catch (e) {
+        Swal.fire('Error', e.toString(), 'error');
       }
     }
+
+    // Helper: Synchronize and filter renderable users directly from latest LOCAL_DB.users
+    function updateRenderableUsersFromDb(optUsers) {
+      const actorLul = AppState.currentUser || {};
+      const actorLulRoleLower = String(actorLul.role || '').trim().toLowerCase();
+      const isActorSuperAdmin = (typeof isUserSuperAdmin === 'function') ? isUserSuperAdmin(actorLul) : (actorLulRoleLower === 'superadmin' || String(actorLul.username || '').toLowerCase() === 'superadmin' || actorLul.userId === 'USR-SA');
+      const isActorAdmin = !isActorSuperAdmin && ((typeof isUserAdmin === 'function') ? isUserAdmin(actorLul) : (
+        actorLulRoleLower.includes('admin') ||
+        String(actorLul.username || '').toLowerCase() === 'admin' ||
+        String(actorLul.username || '').toLowerCase() === 'singvan' ||
+        String(actorLul.username || '').toLowerCase() === 'singvan327@gmail.com' ||
+        String(actorLul.email || '').toLowerCase() === 'singvan327@gmail.com' ||
+        actorLul.warehouse === 'ALL'
+      ));
+      const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (
+        String(actorLul.role || '').includes('អ្នកគ្រប់គ្រងស្ថានីយ') ||
+        String(actorLul.role || '').includes('ស្ថានីយ') ||
+        actorLulRoleLower.includes('station manager') ||
+        actorLulRoleLower.includes('stationmanager')
+      );
+
+      const cleanWh = (str) => String(str || '').replace(/^[📍🏢\s]+/, '').trim().toLowerCase();
+      const isSelfUser = (u) => {
+        const curId = String(AppState.currentUser?.userId || '').trim().toLowerCase();
+        const curUsername = String(AppState.currentUser?.username || '').replace(/[\u200B-\u200D\uFEFF]/g, '').trim().toLowerCase();
+        const uId = String(u?.userId || '').trim().toLowerCase();
+        const uUsername = String(u?.username || '').replace(/[\u200B-\u200D\uFEFF]/g, '').trim().toLowerCase();
+        return (curId && uId && curId === uId) || (curUsername && uUsername && curUsername === uUsername);
+      };
+
+      const userSource = (Array.isArray(optUsers) && optUsers.length > 0) ? optUsers : (LOCAL_DB.users || []);
+      let filteredUsers = deduplicateUsersList(userSource).filter(u => u && !isUnregisteredDummyUser(u) && !isUserDeleted(u) && u.status !== 'Deleted' && u.status !== 'deleted' && u.username !== 'bengkaka');
+
+      if (isActorSuperAdmin) {
+        filteredUsers = filteredUsers.filter(u => !isSelfUser(u));
+      } else if (isActorAdmin) {
+        filteredUsers = filteredUsers.filter(u => {
+          const r = String(u.role || '').trim().toLowerCase();
+          const cleanU = (s) => String(s || '').replace(/^[\u200B-\u200D\uFEFF]/g, '').replace(/^@+/, '').trim().toLowerCase();
+          const uName = cleanU(u.username);
+          const uId = String(u.userId || '').toUpperCase();
+          const isSA = (r === 'superadmin' || uName === 'superadmin' || uId === 'USR-SA');
+          if (isSA) return false;
+          const isOtherAdmin = (r === 'admin' || uName === 'admin') && !isSelfUser(u);
+          if (isOtherAdmin) return false;
+          return true;
+        });
+      } else if (isActorStationManager) {
+        const myWh = AppState.currentUser?.warehouse;
+        filteredUsers = filteredUsers.filter(u => {
+          const isSameWh = isSameWarehouse(myWh, u.warehouse);
+          if (!isSameWh) return false;
+          const r = String(u.role || '').trim().toLowerCase();
+          const isTeamLeader = r.includes('ប្រធានក្រុម') || r.includes('ប្រធាន') || r.includes('team leader') || r.includes('teamleader');
+          const isStockKeeper = r.includes('អ្នកកាន់ស្តុក') || r.includes('stock keeper') || r.includes('stockkeeper') || r.includes('staff') || r === '' || !u.role;
+          const isForbidden = r.includes('superadmin') || r.includes('admin') || r.includes('អ្នកគ្រប់គ្រងស្ថានីយ') || r.includes('អ្នកគ្រប់គ្រង') || r.includes('station manager');
+          return (isTeamLeader || isStockKeeper) && !isForbidden;
+        });
+      } else {
+        filteredUsers = [];
+      }
+
+      window._allRenderableUsers = deduplicateUsersList(filteredUsers);
+      return window._allRenderableUsers;
+    }
+
+    // Users Management & Warehouse Assignment
+    async function loadUsersList() {
+      try {
+        // Clean out ghost records, deleted users, and deduplicate local memory
+        LOCAL_DB.users = deduplicateUsersList((LOCAL_DB.users || []).filter(u => {
+          if (!u || u.username === 'bengkaka' || isUnregisteredDummyUser(u) || isUserDeleted(u)) return false;
+          if (u.status === 'Deleted' || u.status === 'deleted') return false;
+          const un = String(u.username || '').replace(/^@+/, '').trim().toLowerCase();
+          if (un === 'sopher' && (u.status === 'Pending_Deletion' || u.status === 'Deleted')) return false;
+          return true;
+        }));
+        const res = await apiCall('getUsersList', { user: AppState.currentUser });
+        if (res && res.success) {
+          // Synchronize fresh user records directly from Google Sheet into LOCAL_DB.users and localStorage
+          if (Array.isArray(res.users)) {
+            // Self-heal sreyLaLa if email is missing in returned users
+            res.users.forEach(ru => {
+              if (ru && String(ru.username || '').toLowerCase() === 'sreylala' && (!ru.email || ru.email.trim() === '')) {
+                ru.email = 'sreyLaLa@gmail.com';
+              }
+            });
+            const cleanReturned = deduplicateUsersList(res.users.filter(ru => {
+              if (!ru || isUnregisteredDummyUser(ru) || isUserDeleted(ru) || ru.status === 'Deleted' || ru.status === 'deleted') return false;
+              const un = String(ru.username || '').replace(/^@+/, '').trim().toLowerCase();
+              if (un === 'sopher' && (ru.status === 'Pending_Deletion' || ru.status === 'Deleted')) return false;
+              return true;
+            }));
+
+            const actor = AppState.currentUser;
+            const actorRoleLower = String(actor?.role || '').toLowerCase();
+            const isActorSuperAdmin = (typeof isUserSuperAdmin === 'function') ? isUserSuperAdmin(actor) : (actorRoleLower === 'superadmin' || String(actor?.username || '').toLowerCase() === 'superadmin');
+            const isActorAdmin = !isActorSuperAdmin && ((typeof isUserAdmin === 'function') ? isUserAdmin(actor) : (
+              actorRoleLower.includes('admin') ||
+              String(actor?.username || '').toLowerCase() === 'admin' ||
+              String(actor?.username || '').toLowerCase() === 'singvan' ||
+              String(actor?.username || '').toLowerCase() === 'singvan327@gmail.com' ||
+              String(actor?.email || '').toLowerCase() === 'singvan327@gmail.com' ||
+              actor?.warehouse === 'ALL'
+            ));
+            const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (actorRoleLower.includes('អ្នកគ្រប់គ្រងស្ថានីយ') || actorRoleLower.includes('អ្នកគ្រប់គ្រង') || actorRoleLower.includes('station manager'));
+
+            const saUser = (LOCAL_DB.users || []).find(u => u && (u.userId === 'USR-SA' || String(u.username).toLowerCase() === 'superadmin')) || {
+              userId: 'USR-SA', username: 'superadmin', fullName: '陈龙', email: 'chenlongqmi@gmail.com', phone: '066 966 606', role: 'SuperAdmin', status: 'Active', warehouse: 'ALL', avatar: 'assets/superadmin_avatar.jpg', isRegistered: true
+            };
+            LOCAL_DB.users = deduplicateUsersList([saUser, ...cleanReturned].filter(u => !isUserDeleted(u)));
+            AppState.users = [...LOCAL_DB.users];
+            saveLocalUsersToStorage();
+          }
+
+          const tbody = document.getElementById('usersTableBody');
+          const actorLul = AppState.currentUser || {};
+          const actorLulNameLower = String(actorLul.username || '').trim().toLowerCase();
+          const actorLulRoleLower = String(actorLul.role || '').trim().toLowerCase();
+          const isActorSuperAdminVal = (typeof isUserSuperAdmin === 'function') ? isUserSuperAdmin(actorLul) : (actorLulRoleLower === 'superadmin' || actorLulNameLower === 'superadmin' || actorLul.userId === 'USR-SA');
+          const isActorAdminVal = !isActorSuperAdminVal && ((typeof isUserAdmin === 'function') ? isUserAdmin(actorLul) : (actorLulRoleLower === 'admin' || actorLulNameLower === 'admin'));
+          const isActorStationManagerVal = !isActorSuperAdminVal && !isActorAdminVal && (
+            String(actorLul.role || '').includes('អ្នកគ្រប់គ្រងស្ថានីយ') ||
+            String(actorLul.role || '').includes('ស្ថានីយ') ||
+            actorLulRoleLower.includes('station manager') ||
+            actorLulRoleLower.includes('stationmanager')
+          );
+          const isPrivilegedViewer = isActorSuperAdminVal || isActorAdminVal;
+
+          // Update Pending Users Badge on Sidebar (counts all pending in Step 1, Step 2, or Deletion)
+          const allUsers = (res.users || LOCAL_DB.users || []).filter(u => !isUnregisteredDummyUser(u));
+          const pendingCount = isActorStationManagerVal ?
+            allUsers.filter(u => (u.warehouse === AppState.currentUser?.warehouse) && (u.status === 'Pending' || u.status === 'Pending_Admin' || u.status === 'Pending_SuperAdmin' || u.status === 'Pending_Deletion')).length :
+            allUsers.filter(u => u.status === 'Pending' || u.status === 'Pending_Admin' || u.status === 'Pending_SuperAdmin' || u.status === 'Pending_Deletion').length;
+          const pendingBadge = document.getElementById('pendingUsersBadge');
+          if (pendingCount > 0) {
+            if (pendingBadge) {
+              pendingBadge.textContent = pendingCount;
+              pendingBadge.classList.remove('hidden');
+            }
+          } else {
+            if (pendingBadge) pendingBadge.classList.add('hidden');
+          }
+
+          if ((isActorSuperAdminVal || isActorAdminVal) && typeof checkPendingDeletionsForSuperAdmin === 'function') {
+            checkPendingDeletionsForSuperAdmin(true);
+          }
+
+          // Control "+ បន្ថែមបុគ្គលិកថ្មី" button visibility (មានសម្រាប់ Admin, SuperAdmin និង អ្នកគ្រប់គ្រងស្ថានីយ)
+          const addUserBtn = document.getElementById('addUserTopBtn');
+          if (addUserBtn) {
+            addUserBtn.classList.toggle('hidden', !isActorSuperAdminVal && !isActorAdminVal && !isActorStationManagerVal);
+          }
+
+          // Control Search & Role Filter Bar visibility (សម្រាប់តែ SuperAdmin និង Admin ប៉ុណ្ណោះ)
+          const searchFilterBar = document.getElementById('userSearchFilterBar');
+          if (searchFilterBar) {
+            searchFilterBar.classList.toggle('hidden', !isPrivilegedViewer);
+            if (!isPrivilegedViewer) {
+              const uSearch = document.getElementById('userSearchInput');
+              if (uSearch) uSearch.value = '';
+              const uRole = document.getElementById('userRoleFilter');
+              if (uRole) uRole.value = 'ALL';
+            }
+          }
+
+          // If Station Manager, customize page titles / subheaders and role filter for tabUsers
+          const tabUsersHeader = document.querySelector('#tabUsers h3');
+          const tabUsersSub = document.querySelector('#tabUsers p.text-slate-500');
+          const curAssignedWh = (AppState.currentUser?.warehouse || '').trim();
+          if (isActorStationManagerVal) {
+            if (tabUsersHeader) tabUsersHeader.innerHTML = `<i class="fa-solid fa-users-gear mr-2 text-indigo-600"></i>គ្រប់គ្រងអ្នកប្រើប្រាស់ និងសិទ្ធិ (Users & Roles) - ${escapeHtml(curAssignedWh)}`;
+            if (tabUsersSub) tabUsersSub.innerText = `មើលឃើញ និងកែប្រែបានតែ ប្រធានក្រុម និងអ្នកកាន់ស្តុក ប្រចាំ ${curAssignedWh} ប៉ុណ្ណោះ`;
+          } else {
+            if (tabUsersHeader) tabUsersHeader.innerHTML = `<i class="fa-solid fa-users-gear mr-2 text-blue-600"></i>គ្រប់គ្រងអ្នកប្រើប្រាស់ និងសិទ្ធិ (Users & Roles)`;
+            if (tabUsersSub) tabUsersSub.innerText = `គ្រប់គ្រងគណនីបុគ្គលិកតាមឃ្លាំងនិមួយៗ និងសិទ្ធិចូលប្រើប្រាស់`;
+          }
+
+          const roleFilterElem = document.getElementById('userRoleFilter');
+          if (roleFilterElem) {
+            if (isActorStationManagerVal) {
+              roleFilterElem.innerHTML = `
+                <option value="ALL">គ្រប់តួនាទីទាំងអស់ (ក្នុងស្ថានីយ)</option>
+                <option value="ប្រធានក្រុម">👤 ប្រធានក្រុម</option>
+                <option value="អ្នកកាន់ស្តុក">📦 អ្នកកាន់ស្តុក</option>
+              `;
+            } else if (isActorAdminVal) {
+              roleFilterElem.innerHTML = `
+                <option value="ALL">គ្រប់តួនាទីទាំងអស់</option>
+                <option value="Admin">🛡️ Admin</option>
+                <option value="អ្នកគ្រប់គ្រងស្ថានីយ">🏢 អ្នកគ្រប់គ្រងស្ថានីយ</option>
+                <option value="ប្រធានក្រុម">👤 ប្រធានក្រុម</option>
+                <option value="អ្នកកាន់ស្តុក">📦 អ្នកកាន់ស្តុក</option>
+              `;
+            } else {
+              roleFilterElem.innerHTML = `
+                <option value="ALL">គ្រប់តួនាទីទាំងអស់</option>
+                <option value="SuperAdmin">👑 SuperAdmin</option>
+                <option value="Admin">🛡️ Admin</option>
+                <option value="អ្នកគ្រប់គ្រងស្ថានីយ">🏢 អ្នកគ្រប់គ្រងស្ថានីយ</option>
+                <option value="ប្រធានក្រុម">👤 ប្រធានក្រុម</option>
+                <option value="អ្នកកាន់ស្តុក">📦 អ្នកកាន់ស្តុក</option>
+              `;
+            }
+          }
+
+          // Strict Role Visibility:
+          // 1. SuperAdmin: មើលឃើញ User ទាំងអស់ដែលបាន Register (រួមទាំង SuperAdmin និង Admin ទាំងអស់)
+          // 2. Admin: មើលឃើញ Admin ទាំងអស់ និងបុគ្គលិកគ្រប់ស្ថានីយ (លាក់តែ SuperAdmin ប៉ុណ្ណោះ)
+          // 3. Station Manager: អាចមើលឃើញតែ ប្រធានក្រុម និងអ្នកកាន់ស្តុក ដែលនៅក្នុងស្ថានីយខ្លួនឯងតែប៉ុណ្ណោះ
+          // 4. User ធម្មតា: អាចមើលឃើញព័ត៌មានខ្លួនឯងតែមួយគត់
+          // 5. លុបចេញរាល់ User ដែលមិនបាន Register (dummy/seed wh01-wh11, @inventory.local, etc.)
+          const cleanWh = (str) => String(str || '').replace(/^[📍🏢\s]+/, '').trim().toLowerCase();
+          const isSelfUser = (u) => {
+            const curId = String(AppState.currentUser?.userId || '').trim().toLowerCase();
+            const curUsername = String(AppState.currentUser?.username || '').replace(/[\u200B-\u200D\uFEFF]/g, '').trim().toLowerCase();
+            const uId = String(u?.userId || '').trim().toLowerCase();
+            const uUsername = String(u?.username || '').replace(/[\u200B-\u200D\uFEFF]/g, '').trim().toLowerCase();
+            return (curId && uId && curId === uId) || (curUsername && uUsername && curUsername === uUsername);
+          };
+
+          // User source strictly from Google Sheet response (no local dummy accounts!)
+          const userSource = (Array.isArray(res.users)) ? LOCAL_DB.users : (LOCAL_DB.users || []);
+          
+          let filteredUsers = updateRenderableUsersFromDb(userSource);
+
+          const userSearchInp = document.getElementById('userSearchInput');
+          if (userSearchInp) {
+            userSearchInp.value = '';
+            delete userSearchInp.dataset.userTyped;
+            userSearchInp.setAttribute('readonly', 'readonly');
+          }
+          purgeAutofillFromSearchInputs();
+          [50, 150, 300, 700].forEach(d => setTimeout(purgeAutofillFromSearchInputs, d));
+
+          renderUsersList(filteredUsers);
+        }
+      } catch (e) { }
+    }
+
+    function filterUsersList() {
+      const searchEl = document.getElementById('userSearchInput');
+      if (searchEl && typeof isGarbageSearchInput === 'function' && isGarbageSearchInput(searchEl.value, 'userSearchInput')) {
+        searchEl.value = '';
+        delete searchEl.dataset.userTyped;
+        searchEl.setAttribute('readonly', 'readonly');
+      }
+      let search = (searchEl?.value || '').toLowerCase().trim();
+      const curEmail = String(AppState?.currentUser?.email || '').trim().toLowerCase();
+      const curUname = String(AppState?.currentUser?.username || '').replace(/^@+/, '').trim().toLowerCase();
+      const curPhone = String(AppState?.currentUser?.phone || '').replace(/\D/g, '');
+      const cleanDigits = search.replace(/\D/g, '');
+
+      // Completely block any browser autofill (phone, email, username) when user is not actively typing
+      const isAutofill = (
+        (curPhone && cleanDigits === curPhone) ||
+        (!searchEl?.dataset?.userTyped && document.activeElement !== searchEl && cleanDigits.length >= 8 && cleanDigits.length <= 11) ||
+        (curEmail && search === curEmail) ||
+        (curUname && search === curUname) ||
+        (!searchEl?.dataset?.userTyped && document.activeElement !== searchEl && search.includes('@')) ||
+        (!searchEl?.dataset?.userTyped && document.activeElement !== searchEl && (search === 'superadmin' || search === 'super admin' || search === 'admin'))
+      );
+
+      if (isAutofill) {
+        if (searchEl) {
+          searchEl.value = '';
+          delete searchEl.dataset.userTyped;
+          searchEl.setAttribute('readonly', 'readonly');
+        }
+        search = '';
+      }
+      const roleFilter = document.getElementById('userRoleFilter')?.value || 'ALL';
+      const whFilter = document.getElementById('userWarehouseFilter')?.value || 'ALL';
+      const all = updateRenderableUsersFromDb();
+
+      const filtered = all.filter(u => {
+        if (search) {
+          const name = String(u.fullName || '').toLowerCase();
+          const uname = String(u.username || '').toLowerCase();
+          const phone = String(u.phone || '').toLowerCase();
+          const phoneFormatted = formatPhoneNumber(u.phone).toLowerCase();
+          const phoneClean = getCleanPhoneDigits(u.phone);
+          const email = String(u.email || '').toLowerCase();
+          const wh = String(u.warehouse || '').toLowerCase();
+          const role = String(u.role || '').toLowerCase();
+          if (!name.includes(search) && !uname.includes(search) && !phone.includes(search) && !phoneFormatted.includes(search) && !phoneClean.includes(search) && !email.includes(search) && !wh.includes(search) && !role.includes(search)) {
+            return false;
+          }
+        }
+        if (roleFilter !== 'ALL') {
+          const r = String(u.role || '').trim().toLowerCase();
+          if (roleFilter === 'SuperAdmin' && r !== 'superadmin') return false;
+          if (roleFilter === 'Admin' && r !== 'admin') return false;
+          if (roleFilter === 'អ្នកគ្រប់គ្រងស្ថានីយ' && !r.includes('អ្នកគ្រប់គ្រង') && !r.includes('station manager')) return false;
+          if (roleFilter === 'ប្រធានក្រុម' && !r.includes('ប្រធាន') && !r.includes('team leader')) return false;
+          if (roleFilter === 'អ្នកកាន់ស្តុក' && !r.includes('អ្នកកាន់ស្តុក') && !r.includes('stock keeper') && !r.includes('staff')) return false;
+        }
+        if (whFilter && whFilter !== 'ALL' && whFilter !== '🏢 គ្រប់ស្ថានីយទាំងអស់' && whFilter !== 'គ្រប់ឃ្លាំង') {
+          const isActorPrivileged = typeof isUserPrivilegedAdmin === 'function' ? isUserPrivilegedAdmin(AppState.currentUser) : false;
+          const isUserAdminOrSA = (u.role === 'Admin' || u.role === 'SuperAdmin' || u.warehouse === 'ALL');
+          const whMatches = (typeof isSameWarehouse === 'function') ? isSameWarehouse(u.warehouse, whFilter) : (u.warehouse === whFilter);
+          if (!whMatches && !isUserAdminOrSA) return false;
+        }
+        return true;
+      });
+
+      renderUsersList(filtered);
+    }
+
+    function renderUsersList(usersList) {
+      const tbody = document.getElementById('usersTableBody');
+      const mobileCards = document.getElementById('usersMobileCardsList');
+      if (!tbody && !mobileCards) return;
+
+      const actor = AppState.currentUser || {};
+      const actorRulRoleLower = String(actor.role || '').trim().toLowerCase();
+      const isActorSuperAdmin = (typeof isUserSuperAdmin === 'function') ? isUserSuperAdmin(actor) : (actorRulRoleLower === 'superadmin' || String(actor.username || '').toLowerCase() === 'superadmin' || actor.userId === 'USR-SA');
+      const isActorAdmin = !isActorSuperAdmin && ((typeof isUserAdmin === 'function') ? isUserAdmin(actor) : (
+        actorRulRoleLower.includes('admin') ||
+        String(actor.username || '').toLowerCase() === 'admin' ||
+        String(actor.username || '').toLowerCase() === 'singvan' ||
+        String(actor.username || '').toLowerCase() === 'singvan327@gmail.com' ||
+        String(actor.email || '').toLowerCase() === 'singvan327@gmail.com' ||
+        actor.warehouse === 'ALL'
+      ));
+      const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (
+        String(actor.role || '').includes('អ្នកគ្រប់គ្រងស្ថានីយ') ||
+        String(actor.role || '').includes('ស្ថានីយ') ||
+        actorRulRoleLower.includes('station manager') ||
+        actorRulRoleLower.includes('stationmanager')
+      );
+      const isPrivilegedViewer = isActorSuperAdmin || isActorAdmin;
+
+      // មិនចាំបាច់បង្ហាញ account របស់ខ្លួនឯងក្នុងតារាងគ្រប់គ្រងខាងក្រោមឡើយ (Always hide own account from table & strictly deduplicate)
+      if (Array.isArray(usersList)) {
+        usersList = deduplicateUsersList(usersList).filter(u => !isSelfUser(u, actor) && !isUserDeleted(u) && u.status !== 'Deleted' && u.status !== 'deleted');
+      }
+
+      // Double-enforce Admin visibility boundaries (Admin មិនអាចឃើញ SuperAdmin ហើយ Admin និង Admin មិនអាចឃើញគ្នាទេ)
+      if (isActorAdmin && Array.isArray(usersList)) {
+        usersList = usersList.filter(u => {
+          const r = String(u.role || '').trim().toLowerCase();
+          const uName = String(u.username || '').toLowerCase();
+          const uId = String(u.userId || '').toUpperCase();
+          const isSA = (r === 'superadmin' || uName === 'superadmin' || uId === 'USR-SA');
+          if (isSA) return false;
+          const isSelf = (actor?.userId && u.userId && actor.userId === u.userId) || (actor?.username && u.username && String(actor.username).toLowerCase() === String(u.username).toLowerCase());
+          const isPending = (u.status === 'Pending' || u.status === 'Pending_Admin' || u.status === 'Pending_SuperAdmin');
+          if (!isPending) {
+            const isOtherAdmin = (r === 'admin' || uName === 'admin' || uName === 'singvan' || uName === 'singvan327@gmail.com');
+            if (isOtherAdmin && !isSelf) return false;
+          }
+          return true;
+        });
+      }
+
+      // Double-enforce Station Manager visibility boundaries
+      if (isActorStationManager && Array.isArray(usersList)) {
+        usersList = usersList.filter(u => {
+          const isSameWh = isSameWarehouse(actor?.warehouse, u.warehouse);
+          if (!isSameWh) return false;
+          const r = String(u.role || '').trim().toLowerCase();
+          const isTeamLeader = r.includes('ប្រធានក្រុម') || r.includes('ប្រធាន') || r.includes('team leader') || r.includes('teamleader');
+          const isStockKeeper = r.includes('អ្នកកាន់ស្តុក') || r.includes('stock keeper') || r.includes('stockkeeper') || r.includes('staff') || r === '' || !u.role;
+          const isForbidden = r.includes('superadmin') || r.includes('admin') || r.includes('អ្នកគ្រប់គ្រងស្ថានីយ') || r.includes('អ្នកគ្រប់គ្រង') || r.includes('station manager');
+          const isSelf = (actor?.userId && u.userId && actor.userId === u.userId) || (actor?.username && u.username && String(actor.username).toLowerCase() === String(u.username).toLowerCase());
+          return (isTeamLeader || isStockKeeper) && !isForbidden && !isSelf;
+        });
+      }
+
+      if (!usersList || usersList.length === 0) {
+        if (tbody) {
+          tbody.innerHTML = `<tr><td colspan="8" class="text-center py-12 text-slate-400 font-medium">មិនមានទិន្នន័យអ្នកប្រើប្រាស់ឡើយ</td></tr>`;
+        }
+        if (mobileCards) {
+          mobileCards.innerHTML = `
+            <div class="text-center py-10 text-slate-400 bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs">
+              <i class="fa-solid fa-users-slash text-3xl text-slate-300 mb-2 block"></i>
+              <span class="text-xs font-semibold">មិនមានទិន្នន័យអ្នកប្រើប្រាស់ឡើយ</span>
+            </div>
+          `;
+        }
+        return;
+      }
+
+      let desktopRowsHtml = '';
+      let mobileCardsHtml = '';
+
+      usersList.forEach((u, idx) => {
+        const isUserSuperAdmin = (u.role === 'SuperAdmin');
+        const isUserAdmin = (u.role === 'Admin');
+        const isSelf = (actor?.userId === u.userId || actor?.username === u.username);
+
+        // 1. Role Badge & Quick Instant Role Selector (ប្រអប់ទំហំ និងប្រវែងស្មើគ្នាទាំងអស់ w-[135px] h-[24px])
+        let roleBadgeHtml = '';
+        if (isUserSuperAdmin) {
+          roleBadgeHtml = `<span class="w-[98px] h-[24px] rounded-full font-black text-[10px] bg-gradient-to-r from-amber-400 to-amber-600 text-slate-950 border border-amber-300 shadow-2xs inline-flex items-center justify-center whitespace-nowrap" title="SuperAdmin">👑 SuperAdmin</span>`;
+        } else if (isUserAdmin) {
+          roleBadgeHtml = `<span class="w-[98px] h-[24px] rounded-full font-bold text-[10px] bg-purple-100 text-purple-700 border border-purple-200 inline-flex items-center justify-center whitespace-nowrap" title="Admin">🛡️ Admin</span>`;
+        } else if (u.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || u.role === 'អ្នកគ្រប់គ្រង') {
+          roleBadgeHtml = `<span class="w-[98px] h-[24px] rounded-full font-bold text-[9.5px] bg-indigo-100 text-indigo-700 border border-indigo-200 inline-flex items-center justify-center whitespace-nowrap" title="អ្នកគ្រប់គ្រងស្ថានីយ">🏢 អ្នកគ្រប់គ្រង</span>`;
+        } else if (u.role === 'ប្រធានក្រុម' || u.role === 'ប្រធាន' || u.role === 'Manager' || u.role === 'Team Leader') {
+          roleBadgeHtml = `<span class="w-[98px] h-[24px] rounded-full font-bold text-[10px] bg-emerald-100 text-emerald-700 border border-emerald-200 inline-flex items-center justify-center whitespace-nowrap" title="ប្រធានក្រុម">👤 ${u.role === 'ប្រធាន' ? 'ប្រធានក្រុម' : u.role}</span>`;
+        } else {
+          roleBadgeHtml = `<span class="w-[98px] h-[24px] rounded-full font-bold text-[10px] bg-blue-100 text-blue-700 border border-blue-200 inline-flex items-center justify-center whitespace-nowrap" title="${escapeHtml(u.role || 'អ្នកកាន់ស្តុក')}">📦 ${u.role || 'អ្នកកាន់ស្តុក'}</span>`;
+        }
+
+        let roleSelectorHtml = '';
+
+        // 2. Status Badge & Stacked Switch Button (ប៊ូតុង Switch នៅក្រោម Active ទំហំស្មើគ្នា)
+        let statusBadgeHtml = '';
+        if (u.status === 'Active') {
+          const canSwitchUser = (isActorSuperAdmin && !isSelf && !isUserSuperAdmin);
+          const switchBtnHtml = canSwitchUser ? `
+            <button type="button" onclick="impersonateUser('${u.userId || u.username}')"
+              class="w-[78px] h-[28px] bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 text-white rounded-xl text-[10.5px] font-bold shadow-2xs transition hover:scale-105 active:scale-95 inline-flex items-center justify-center space-x-1 cursor-pointer"
+              title="Switch User ចូលដំណើរការជា User នេះ">
+              <i class="fa-solid fa-repeat text-[10px]"></i>
+              <span>Switch</span>
+            </button>
+          ` : '';
+
+          statusBadgeHtml = `
+            <div class="flex flex-col items-center justify-center gap-1.5">
+              <span class="w-[78px] h-[28px] rounded-xl font-bold text-[10.5px] bg-emerald-100 text-emerald-700 border border-emerald-300 inline-flex items-center justify-center space-x-1 shadow-2xs">
+                <i class="fa-solid fa-circle-check text-[10px] text-emerald-600"></i>
+                <span>Active</span>
+              </span>
+              ${switchBtnHtml}
+            </div>
+          `;
+        } else if (u.status === 'Pending_Deletion') {
+          statusBadgeHtml = `
+            <div class="flex flex-col items-center">
+              <span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-rose-100 text-rose-800 border border-rose-300 shadow-sm animate-pulse inline-flex items-center">
+                <i class="fa-solid fa-triangle-exclamation text-rose-600 text-[10px] mr-1"></i>
+                <span>Pending Deletion</span>
+              </span>
+              <span class="text-[10px] text-rose-600 font-semibold italic mt-0.5 cursor-pointer hover:underline inline-flex items-center" onclick="viewUserDeleteReason('${u.userId || u.username}')" title="${escapeHtml(u.deleteReason || 'គ្មានការបញ្ជាក់')}">
+                <i class="fa-solid fa-comment-dots mr-0.5"></i>មើលមូលហេតុ
+              </span>
+            </div>
+          `;
+        } else if (u.status === 'Pending' || u.status === 'Pending_Admin' || u.status === 'Pending_SuperAdmin') {
+          const reqSA = (typeof isRoleForSuperAdminApproval === 'function') ? isRoleForSuperAdminApproval(u.role) : (u.status === 'Pending_SuperAdmin');
+          if (reqSA) {
+            statusBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-indigo-100 text-indigo-800 border border-indigo-300 shadow-sm inline-flex items-center"><i class="fa-solid fa-crown mr-1 text-amber-500"></i>Pending SuperAdmin</span>`;
+          } else {
+            statusBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-amber-100 text-amber-800 border border-amber-300 shadow-sm inline-flex items-center"><i class="fa-solid fa-clock mr-1 text-amber-600"></i>Pending Admin</span>`;
+          }
+        } else if (u.status === 'Rejected') {
+          statusBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-rose-100 text-rose-700 border border-rose-300 inline-flex items-center"><i class="fa-solid fa-ban mr-1 text-rose-600"></i>Rejected</span>`;
+        } else {
+          statusBadgeHtml = `<span class="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-slate-100 text-slate-700">${u.status || 'Inactive'}</span>`;
+        }
+
+        // 3. Bound Devices & Integrated Disconnect Feature (បញ្ចូលជាមួយរូបភាពទី១)
+        const bound = u.boundDevices || { desktop: null, mobile: null };
+        const pcBound = !!(bound.desktop && bound.desktop.deviceId);
+        const phoneBound = !!(bound.mobile && bound.mobile.deviceId);
+        const canResetDevice = (isActorSuperAdmin || isActorAdmin || isActorStationManager) && (pcBound || phoneBound);
+
+        const pcBadge = `
+          <span class="w-[122px] inline-flex items-center justify-between px-2.5 py-1 rounded-lg text-[10.5px] whitespace-nowrap shadow-2xs ${pcBound ? 'font-bold bg-blue-50 text-blue-700 border border-blue-200' : 'bg-slate-100 text-slate-400 border border-slate-200/60'}" title="${pcBound ? `កុំព្យូទ័រ: ${escapeHtml(bound.desktop.deviceName || 'PC')}` : 'កុំព្យូទ័រ: ទំនេរ'}">
+            <span class="inline-flex items-center gap-1.5 overflow-hidden">
+              <i class="fa-solid fa-desktop text-[10px] w-3.5 text-center shrink-0 ${pcBound ? 'text-blue-600' : 'text-slate-300'}"></i>
+              <span class="truncate">${pcBound ? 'PC: ភ្ជាប់រួច' : 'PC: ទំនេរ'}</span>
+            </span>
+            ${(pcBound && canResetDevice) ? `
+              <button type="button" onclick="event.stopPropagation(); openResetUserDeviceModal('${u.userId || u.username}', '${escapeHtml(u.fullName || u.username)}', 'DESKTOP')"
+                class="w-4 h-4 flex items-center justify-center shrink-0 text-blue-400 hover:text-rose-600 hover:bg-rose-50 rounded transition" title="ផ្តាច់កុំព្យូទ័រ (Reset Desktop)">
+                <i class="fa-solid fa-xmark text-[11px]"></i>
+              </button>
+            ` : '<span class="w-4 shrink-0"></span>'}
+          </span>
+        `;
+
+        const phoneBadge = `
+          <span class="w-[122px] inline-flex items-center justify-between px-2.5 py-1 rounded-lg text-[10.5px] whitespace-nowrap shadow-2xs ${phoneBound ? 'font-bold bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-400 border border-slate-200/60'}" title="${phoneBound ? `ទូរសព្ទដៃ: ${escapeHtml(bound.mobile.deviceName || 'Mobile')}` : 'ទូរសព្ទដៃ: ទំនេរ'}">
+            <span class="inline-flex items-center gap-1.5 overflow-hidden">
+              <i class="fa-solid fa-mobile-screen text-[10px] w-3.5 text-center shrink-0 ${phoneBound ? 'text-emerald-600' : 'text-slate-300'}"></i>
+              <span class="truncate">${phoneBound ? 'Phone: ភ្ជាប់រួច' : 'Phone: ទំនេរ'}</span>
+            </span>
+            ${(phoneBound && canResetDevice) ? `
+              <button type="button" onclick="event.stopPropagation(); openResetUserDeviceModal('${u.userId || u.username}', '${escapeHtml(u.fullName || u.username)}', 'MOBILE')"
+                class="w-4 h-4 flex items-center justify-center shrink-0 text-emerald-400 hover:text-rose-600 hover:bg-rose-50 rounded transition" title="ផ្តាច់ទូរសព្ទដៃ (Reset Mobile)">
+                <i class="fa-solid fa-xmark text-[11px]"></i>
+              </button>
+            ` : '<span class="w-4 shrink-0"></span>'}
+          </span>
+        `;
+
+        const deviceBadgesHtml = `
+          <div class="flex flex-col items-center justify-center gap-1.5 text-xs w-[122px] mx-auto">
+            ${pcBadge}
+            ${phoneBadge}
+          </div>
+        `;
+
+        // 4. Reset Device Button (already integrated in devices column)
+        let resetBtnHtml = '';
+        
+        // 5. Actions
+        let actionsHtml = '';
+        if (u.status === 'Pending_Deletion') {
+          if (isActorSuperAdmin) {
+            // SuperAdmin: Only receives alert and views full details, no approval required!
+            actionsHtml = `
+              <div class="inline-flex items-center space-x-1.5">
+                <span class="text-[10px] text-blue-700 font-semibold bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 inline-flex items-center" title="ព័ត៌មានជូន SuperAdmin (Admin ជាអ្នកអនុម័ត)">
+                  <i class="fa-solid fa-bell mr-1 text-blue-500"></i>ដំណឹង (Admin ជាអ្នកអនុម័ត)
+                </span>
+                <button onclick="viewUserDeleteReason('${u.userId || u.username}')" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition hover:scale-105 active:scale-95 flex items-center space-x-1" title="មើលព័ត៌មានលម្អិត">
+                  <i class="fa-solid fa-eye text-xs"></i>
+                  <span>មើលព័ត៌មានលម្អិត</span>
+                </button>
+              </div>
+            `;
+          } else if (isActorAdmin) {
+            // Admin: Reviews and decides (Approve / Reject)
+            actionsHtml = `
+              <div class="inline-flex flex-wrap items-center gap-1.5">
+                <button onclick="handleApproveUserDeletion('${u.userId || ''}', '${u.username || ''}')" class="px-3 py-1.5 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 text-white rounded-xl text-xs font-bold shadow-xs transition hover:scale-105 active:scale-95 flex items-center space-x-1" title="ចុចអនុម័តការលុប">
+                  <i class="fa-solid fa-check text-xs"></i>
+                  <span>អនុម័តលុប</span>
+                </button>
+                <button onclick="handleRejectUserDeletion('${u.userId || ''}', '${u.username || ''}')" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold border border-slate-300 transition hover:scale-105 active:scale-95 flex items-center space-x-1" title="បដិសេធការលុប">
+                  <i class="fa-solid fa-xmark text-xs"></i>
+                  <span>បដិសេធ</span>
+                </button>
+                <button onclick="viewUserDeleteReason('${u.userId || u.username}')" class="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-medium transition hover:scale-105 active:scale-95" title="ពិនិត្យមើលមូលហេតុ">
+                  <i class="fa-solid fa-file-lines text-xs"></i>
+                </button>
+              </div>
+            `;
+          } else {
+            actionsHtml = `
+              <div class="inline-flex items-center space-x-1.5">
+                <span class="text-[10px] text-rose-700 font-bold bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200 inline-flex items-center">
+                  <i class="fa-solid fa-hourglass-half mr-1 text-rose-500"></i>រង់ចាំ Admin អនុម័ត
+                </span>
+                <button onclick="viewUserDeleteReason('${u.userId || u.username}')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs transition" title="មើលមូលហេតុនៃការលុប">
+                  <i class="fa-solid fa-eye text-[11px]"></i>
+                </button>
+              </div>
+            `;
+          }
+        } else if (u.status === 'Pending' || u.status === 'Pending_Admin' || u.status === 'Pending_SuperAdmin') {
+          const isTargetSA = (typeof isRoleForSuperAdminApproval === 'function') ? isRoleForSuperAdminApproval(u.role) : false;
+          const canApprove = isActorSuperAdmin || (isActorAdmin && !isTargetSA);
+          if (canApprove) {
+            actionsHtml = `
+              <div class="inline-flex flex-wrap items-center gap-1.5">
+                <button onclick="approveUserDirectly('${u.userId || ''}', '${u.username || ''}')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition active:scale-95 flex items-center space-x-1">
+                  <i class="fa-solid fa-circle-check text-xs"></i>
+                  <span>${isActorSuperAdmin ? 'អនុម័ត' : 'អនុម័ត (Admin)'}</span>
+                </button>
+                <button onclick="rejectUserDirectly('${u.userId || ''}', '${u.username || ''}')" class="px-2.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-sm transition active:scale-95 flex items-center space-x-1">
+                  <i class="fa-solid fa-circle-xmark text-xs"></i>
+                  <span>បដិសេធ</span>
+                </button>
+                <button onclick="sendPendingUserToTelegram('${u.userId || ''}', '${u.username || ''}')" class="px-2.5 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-300 rounded-xl text-xs font-bold shadow-xs transition active:scale-95 inline-flex items-center space-x-1" title="ផ្ញើទៅ Telegram ដើម្បីឱ្យ Admin / SuperAdmin អាចចុច Approve បាន">
+                  <i class="fa-brands fa-telegram text-sky-500"></i>
+                  <span>Telegram</span>
+                </button>
+                <button onclick="handleDeleteUser('${u.userId || ''}', '${u.username || ''}')" class="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs font-bold shadow-sm transition active:scale-95 inline-flex items-center space-x-1">
+                  <i class="fa-solid fa-trash-can text-[11px]"></i>
+                  <span>លុប</span>
+                </button>
+              </div>
+            `;
+          } else {
+            actionsHtml = `
+              <div class="inline-flex items-center space-x-1.5">
+                <span class="text-[10px] text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 flex items-center gap-1">
+                  <i class="fa-solid fa-clock text-amber-500"></i>${isTargetSA ? 'រង់ចាំ SuperAdmin អនុម័ត' : 'រង់ចាំ Admin អនុម័ត'}
+                </span>
+                ${(isActorSuperAdmin || isActorAdmin) ? `
+                <button onclick="sendPendingUserToTelegram('${u.userId || ''}', '${u.username || ''}')" class="px-2 py-1 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-300 rounded-lg text-[10px] font-bold shadow-2xs transition inline-flex items-center space-x-1" title="ផ្ញើទៅ Telegram ដើម្បីឱ្យ Admin / SuperAdmin អាចចុច Approve បាន">
+                  <i class="fa-brands fa-telegram text-sky-500"></i>
+                  <span>Telegram</span>
+                </button>
+                <button onclick="handleDeleteUser('${u.userId || ''}', '${u.username || ''}')" class="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg text-[10px] font-bold shadow-sm transition">
+                  <i class="fa-solid fa-trash-can text-[10px]"></i>
+                  <span>លុប</span>
+                </button>` : ''}
+              </div>
+            `;
+          }
+        } else if (isActorSuperAdmin) {
+          const editBtn = `
+            <button type="button" onclick="${isSelf ? 'openProfileModal()' : `openEditUserModal('${u.userId}')`}"
+              class="w-[78px] h-[28px] bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[10.5px] font-bold inline-flex items-center justify-center space-x-1 border border-slate-200 shadow-2xs transition hover:scale-105 active:scale-95 cursor-pointer"
+              title="${isSelf ? 'កែប្រែព័ត៌មានផ្ទាល់ខ្លួន' : 'កែប្រែព័ត៌មានអ្នកប្រើប្រាស់'}">
+              <i class="fa-solid fa-pen-to-square text-[10px]"></i>
+              <span>កែប្រែ</span>
+            </button>
+          `;
+          const deleteBtn = (!isSelf) ? `
+            <button type="button" onclick="handleDeleteUser('${u.userId || ''}', '${u.username || ''}')"
+              class="w-[78px] h-[28px] bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 rounded-xl text-[10.5px] font-bold shadow-2xs transition hover:scale-105 active:scale-95 inline-flex items-center justify-center space-x-1 cursor-pointer"
+              title="លុបគណនីនេះ">
+              <i class="fa-solid fa-trash-can text-[10px]"></i>
+              <span>លុប</span>
+            </button>
+          ` : '';
+
+          actionsHtml = `
+            <div class="flex flex-col items-center justify-center gap-1.5">
+              ${editBtn}
+              ${deleteBtn}
+            </div>
+          `;
+        } else if (isActorAdmin) {
+          const editBtn = `
+            <button type="button" onclick="${isSelf ? 'openProfileModal()' : `openEditUserModal('${u.userId}')`}"
+              class="w-[78px] h-[28px] bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[10.5px] font-bold inline-flex items-center justify-center space-x-1 border border-slate-200 shadow-2xs transition hover:scale-105 active:scale-95 cursor-pointer"
+              title="${isSelf ? 'កែប្រែព័ត៌មានផ្ទាល់ខ្លួន' : 'កែប្រែព័ត៌មានអ្នកប្រើប្រាស់'}">
+              <i class="fa-solid fa-pen-to-square text-[10px]"></i>
+              <span>កែប្រែ</span>
+            </button>
+          `;
+          const deleteBtn = (!isSelf && !isUserSuperAdmin) ? `
+            <button type="button" onclick="handleDeleteUser('${u.userId || ''}', '${u.username || ''}')"
+              class="w-[78px] h-[28px] bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 rounded-xl text-[10.5px] font-bold shadow-2xs transition hover:scale-105 active:scale-95 inline-flex items-center justify-center space-x-1 cursor-pointer"
+              title="លុបគណនីនេះ">
+              <i class="fa-solid fa-trash-can text-[10px]"></i>
+              <span>លុប</span>
+            </button>
+          ` : '';
+
+          actionsHtml = `
+            <div class="flex flex-col items-center justify-center gap-1.5">
+              ${editBtn}
+              ${deleteBtn}
+            </div>
+          `;
+        } else if (isActorStationManager) {
+          const editBtn = `
+            <button type="button" onclick="${isSelf ? 'openProfileModal()' : `openEditUserModal('${u.userId}')`}"
+              class="w-[78px] h-[28px] bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[10.5px] font-bold inline-flex items-center justify-center space-x-1 border border-slate-200 shadow-2xs transition hover:scale-105 active:scale-95 cursor-pointer"
+              title="${isSelf ? 'កែប្រែព័ត៌មានផ្ទាល់ខ្លួន' : 'កែប្រែព័ត៌មានបុគ្គលិក'}">
+              <i class="fa-solid fa-pen-to-square text-[10px]"></i>
+              <span>កែប្រែ</span>
+            </button>
+          `;
+          const canDelete = (!isSelf && u.role !== 'Admin' && u.role !== 'SuperAdmin' && u.status !== 'Pending_Deletion');
+          const deleteBtn = canDelete ? `
+            <button type="button" onclick="handleDeleteUser('${u.userId || ''}', '${u.username || ''}')"
+              class="w-[78px] h-[28px] bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 rounded-xl text-[10.5px] font-bold shadow-2xs transition hover:scale-105 active:scale-95 inline-flex items-center justify-center space-x-1 cursor-pointer"
+              title="ស្នើសុំលុបគណនីនេះ">
+              <i class="fa-solid fa-trash-can text-[10px]"></i>
+              <span>លុប</span>
+            </button>
+          ` : '';
+
+          actionsHtml = `
+            <div class="flex flex-col items-center justify-center gap-1.5">
+              ${editBtn}
+              ${deleteBtn}
+            </div>
+          `;
+        } else {
+          actionsHtml = `
+            <div class="flex flex-col items-center justify-center gap-1.5">
+              <button type="button" onclick="openProfileModal()"
+                class="w-[78px] h-[28px] bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-[10.5px] font-bold transition inline-flex items-center justify-center space-x-1">
+                <i class="fa-solid fa-user-pen text-[10px]"></i>
+                <span>កែ Profile</span>
+              </button>
+            </div>
+          `;
+        }
+
+        // 6. Password Block Builder
+        const safeId = String(u.userId || u.username || idx).replace(/[^a-zA-Z0-9_-]/g, '_');
+        const userPwd = u.password || (String(u.username).toLowerCase() === 'superadmin' ? '841453Bsm' : (String(u.username).toLowerCase() === 'admin' ? 'admin123' : (/^wh\d+$/i.test(u.username) ? u.username + 'pass' : '123456')));
+
+        const buildPwdBlock = (prefix) => {
+          const id = prefix + safeId;
+          if (isPrivilegedViewer || isActorStationManager || isSelf) {
+            return `
+              <div class="inline-flex items-center gap-1 bg-slate-50 hover:bg-slate-100/90 border border-slate-200 rounded-lg px-2 py-0.5 shadow-2xs transition-colors w-fit">
+                <span id="pwd-text-${id}" class="font-mono text-xs font-semibold text-slate-700 tracking-widest select-all min-w-[65px] inline-block text-center" data-password="${escapeHtml(userPwd)}" data-visible="false">••••••••</span>
+                <button type="button" onclick="toggleUserPasswordVisibility('${id}')" class="p-1 text-slate-400 hover:text-blue-600 focus:outline-none transition rounded hover:bg-white shadow-2xs" title="បង្ហាញ ឬ លាក់លេខសម្ងាត់">
+                  <i id="pwd-icon-${id}" class="fa-solid fa-eye text-xs"></i>
+                </button>
+                <button type="button" onclick="copyUserPassword('${id}')" class="p-1 text-slate-400 hover:text-emerald-600 focus:outline-none transition rounded hover:bg-white shadow-2xs" title="ចម្លងលេខសម្ងាត់">
+                  <i class="fa-solid fa-copy text-xs"></i>
+                </button>
+              </div>
+            `;
+          }
+          return `<span class="text-[10px] text-slate-400 italic">••••••••</span>`;
+        };
+
+        const pwdDesktop = buildPwdBlock('');
+        const pwdMobile = buildPwdBlock('mob_');
+
+        // 7. Desktop Table Row
+        desktopRowsHtml += `
+          <tr class="hover:bg-slate-50 transition-colors ${isUserSuperAdmin ? 'bg-amber-50/20' : ''}">
+            <td class="px-3 py-3 text-center font-bold text-slate-500 text-xs">${idx + 1}</td>
+            <td class="px-4 py-3">
+              <div class="flex items-center space-x-2.5">
+                <div class="w-9 h-9 rounded-full overflow-hidden border border-slate-200 bg-slate-100 flex-shrink-0 shadow-2xs">
+                  <img src="${u.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + u.username}" class="w-full h-full object-cover">
+                </div>
+                <div class="min-w-0">
+                  <div class="flex items-center space-x-1.5">
+                    <span class="font-bold text-slate-800 block text-xs truncate">${escapeHtml(u.fullName || u.username)}</span>
+                    ${isSelf ? '<span class="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-blue-100 text-blue-700 border border-blue-300">ខ្ញុំ</span>' : ''}
+                  </div>
+                  ${u.email ? `<span class="text-[11px] text-slate-400 block truncate" title="${escapeHtml(u.email)}">${escapeHtml(u.email)}</span>` : '<span class="text-[10px] text-slate-300 italic">គ្មានអ៊ីមែល</span>'}
+                </div>
+              </div>
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap">
+              <div class="flex flex-col space-y-1.5">
+                <div><span class="font-mono font-bold text-blue-600 text-xs">@${escapeHtml(u.username)}</span></div>
+                ${pwdDesktop}
+              </div>
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap text-center">
+              <div class="flex flex-col space-y-1 items-center justify-center w-[98px] mx-auto">
+                <div class="flex items-center justify-center w-full">
+                  ${roleBadgeHtml}
+                </div>
+                ${u.phone ? `<div class="text-[11px] text-slate-600 font-mono flex items-center justify-center w-full"><i class="fa-solid fa-phone text-[9px] mr-1.5 text-slate-400"></i>${escapeHtml(u.phone)}</div>` : '<div class="text-[10px] text-slate-300 italic text-center w-full">គ្មានលេខទូរស័ព្ទ</div>'}
+              </div>
+            </td>
+            <td class="px-4 py-3 text-slate-700 font-semibold text-xs whitespace-nowrap">
+              ${u.warehouse === 'ALL' ? (isUserSuperAdmin ? '<span class="text-amber-600 font-bold">🏢 គ្រប់ស្ថានីយទាំងអស់ (SuperAdmin)</span>' : '<span class="text-purple-600 font-bold">🏢 គ្រប់ស្ថានីយទាំងអស់ (Admin)</span>') : `📍 ${(typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(u.warehouse) : u.warehouse) || '-'}`}
+            </td>
+            <td class="px-3 py-3 text-center whitespace-nowrap">${deviceBadgesHtml}</td>
+            <td class="px-4 py-3 text-center whitespace-nowrap">${statusBadgeHtml}</td>
+            <td class="px-4 py-3 text-center whitespace-nowrap">${actionsHtml}</td>
+          </tr>
+        `;
+
+        // 8. Mobile Card View
+        mobileCardsHtml += `
+          <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm space-y-3 transition hover:shadow-md ${isUserSuperAdmin ? 'border-amber-300 ring-1 ring-amber-200 bg-amber-50/10' : ''}">
+            <!-- Card Header: Avatar, Name, Role, Status -->
+            <div class="flex items-start justify-between gap-2.5">
+              <div class="flex items-center space-x-3 min-w-0">
+                <div class="w-11 h-11 rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 flex-shrink-0 shadow-2xs">
+                  <img src="${u.avatar || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + u.username}" class="w-full h-full object-cover">
+                </div>
+                <div class="min-w-0">
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <h4 class="font-extrabold text-slate-900 text-sm truncate">${escapeHtml(u.fullName || u.username)}</h4>
+                    ${isSelf ? '<span class="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-blue-100 text-blue-700 border border-blue-300">ខ្ញុំ</span>' : ''}
+                    <span class="font-mono font-bold text-blue-600 text-[11px]">@${escapeHtml(u.username)}</span>
+                  </div>
+                  <div class="flex items-center gap-1.5 mt-1 flex-wrap">
+                    ${roleBadgeHtml}
+                    ${u.email ? `<span class="text-[10.5px] text-slate-400 truncate max-w-[150px]">${escapeHtml(u.email)}</span>` : ''}
+                  </div>
+                </div>
+              </div>
+              <div class="flex-shrink-0">
+                ${statusBadgeHtml}
+              </div>
+            </div>
+
+            <!-- Details Grid Box -->
+            <div class="bg-slate-50 rounded-xl p-3 border border-slate-100 space-y-2 text-xs">
+              <!-- Warehouse -->
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-slate-400 font-medium shrink-0 flex items-center"><i class="fa-solid fa-warehouse mr-1.5 text-blue-500 text-[11px]"></i>ឃ្លាំង</span>
+                <span class="font-bold text-slate-800 text-right truncate">
+                  ${u.warehouse === 'ALL' ? (isUserSuperAdmin ? '<span class="text-amber-600">🏢 គ្រប់ស្ថានីយ (SuperAdmin)</span>' : '<span class="text-purple-600">🏢 គ្រប់ស្ថានីយ (Admin)</span>') : `📍 ${(typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(u.warehouse) : u.warehouse) || '-'}`}
+                </span>
+              </div>
+
+              <!-- Phone -->
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-slate-400 font-medium shrink-0 flex items-center"><i class="fa-solid fa-phone mr-1.5 text-emerald-500 text-[11px]"></i>ទូរស័ព្ទ</span>
+                <span class="text-right font-mono font-bold text-slate-700">
+                  ${u.phone ? `<a href="tel:${escapeHtml(u.phone)}" class="text-blue-600 hover:underline"><i class="fa-solid fa-phone-volume text-[9px] mr-1 text-emerald-500"></i>${escapeHtml(u.phone)}</a>` : '<span class="text-slate-300 font-normal italic">មិនមាន</span>'}
+                </span>
+              </div>
+
+              <!-- Password -->
+              <div class="flex items-center justify-between gap-2 pt-1.5 border-t border-slate-200/60">
+                <span class="text-slate-400 font-medium shrink-0 flex items-center"><i class="fa-solid fa-key mr-1.5 text-amber-500 text-[11px]"></i>លេខសម្ងាត់</span>
+                <div>
+                  ${pwdMobile}
+                </div>
+              </div>
+
+              <!-- Devices -->
+              <div class="flex items-center justify-between gap-2 pt-1.5 border-t border-slate-200/60">
+                <span class="text-slate-400 font-medium shrink-0 flex items-center"><i class="fa-solid fa-laptop-code mr-1.5 text-indigo-500 text-[11px]"></i>ឧបករណ៍</span>
+                <div>
+                  ${deviceBadgesHtml}
+                </div>
+              </div>
+            </div>
+
+            <!-- Mobile Action Buttons -->
+            <div class="pt-1 flex flex-wrap items-center justify-end gap-1.5">
+              ${actionsHtml}
+            </div>
+          </div>
+        `;
+      });
+
+      if (tbody) tbody.innerHTML = desktopRowsHtml;
+      if (mobileCards) mobileCards.innerHTML = mobileCardsHtml;
+    }
+
+    function toggleUserPasswordVisibility(safeId) {
+      const textEl = document.getElementById('pwd-text-' + safeId);
+      const iconEl = document.getElementById('pwd-icon-' + safeId);
+      if (!textEl || !iconEl) return;
+      const isVisible = textEl.getAttribute('data-visible') === 'true';
+      const pwd = textEl.getAttribute('data-password') || '';
+      if (isVisible) {
+        textEl.textContent = '••••••••';
+        textEl.classList.remove('text-blue-700', 'font-bold');
+        textEl.classList.add('tracking-widest', 'text-slate-700');
+        textEl.setAttribute('data-visible', 'false');
+        iconEl.className = 'fa-solid fa-eye text-xs';
+        iconEl.parentElement.setAttribute('title', 'បង្ហាញលេខសម្ងាត់');
+      } else {
+        textEl.textContent = pwd || '(ទទេ)';
+        textEl.classList.remove('tracking-widest', 'text-slate-700');
+        textEl.classList.add('text-blue-700', 'font-bold');
+        textEl.setAttribute('data-visible', 'true');
+        iconEl.className = 'fa-solid fa-eye-slash text-xs text-rose-500';
+        iconEl.parentElement.setAttribute('title', 'លាក់លេខសម្ងាត់');
+      }
+    }
+
+    function copyUserPassword(safeId) {
+      const textEl = document.getElementById('pwd-text-' + safeId);
+      if (!textEl) return;
+      const pwd = textEl.getAttribute('data-password') || '';
+      if (!pwd) {
+        showToast('គណនីនេះមិនមានលេខសម្ងាត់ឡើយ', 'warning');
+        return;
+      }
+      copyUserPasswordToClipboardDirect(pwd);
+    }
+
+    function copyUserPasswordToClipboardDirect(pwd) {
+      if (!pwd) return;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(pwd).then(() => {
+          showToast('បានចម្លងលេខកូដសម្ងាត់ជោគជ័យ!', 'success');
+        }).catch(() => {
+          fallbackCopyText(pwd);
+        });
+      } else {
+        fallbackCopyText(pwd);
+      }
+    }
+
+    function fallbackCopyText(text) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      try {
+        document.execCommand('copy');
+        showToast('បានចម្លងលេខកូដសម្ងាត់ជោគជ័យ!', 'success');
+      } catch (err) {
+        showToast('មិនអាចចម្លងបានឡើយ', 'error');
+      }
+      document.body.removeChild(ta);
+    }
+
+    window.toggleUserPasswordVisibility = toggleUserPasswordVisibility;
+    window.copyUserPassword = copyUserPassword;
+    window.copyUserPasswordToClipboardDirect = copyUserPasswordToClipboardDirect;
+
+    async function openResetUserDeviceModal(userIdOrUsername, fullName, defaultType = null) {
+      loadLocalUsersFromStorage();
+      const target = LOCAL_DB.users.find(u => u.userId === userIdOrUsername || u.username.toLowerCase() === String(userIdOrUsername).toLowerCase());
+      if (!target) {
+        Swal.fire('កំហុស', 'រកមិនឃើញគណនីអ្នកប្រើប្រាស់នេះទេ', 'error');
+        return;
+      }
+
+      const actor = AppState.currentUser;
+      const isActorSuperAdmin = (actor?.role === 'SuperAdmin') || (String(actor?.username).toLowerCase() === 'superadmin');
+      const isActorAdmin = !isActorSuperAdmin && (actor?.role === 'Admin' || String(actor?.username).toLowerCase() === 'admin');
+      const isActorStationManager = !isActorSuperAdmin && !isActorAdmin && (actor?.role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || actor?.role === 'អ្នកគ្រប់គ្រង');
+
+      if (isActorStationManager) {
+        const myWh = String(actor?.warehouse || '').trim().toLowerCase();
+        const uWh = String(target.warehouse || '').trim().toLowerCase();
+        const r = String(target.role || '').trim().toLowerCase();
+        const isTL = (r === 'ប្រធានក្រុម' || r === 'ប្រធាន' || r === 'team leader' || r === 'teamleader' || r === 'manager');
+        const isSK = (r === 'អ្នកកាន់ស្តុក' || r === 'stock keeper' || r === 'stockkeeper' || r === 'staff' || r === '' || !target.role);
+        const isForbidden = (r === 'superadmin' || r === 'admin' || r === 'អ្នកគ្រប់គ្រងស្ថានីយ' || r === 'អ្នកគ្រប់គ្រង' || r === 'station manager');
+        if (uWh !== myWh || (!isTL && !isSK) || isForbidden) {
+          Swal.fire('គ្មានសិទ្ធិ', 'អ្នកគ្រប់គ្រងស្ថានីយអាចផ្តាច់ឧបករណ៍បានតែប្រធានក្រុម និងអ្នកកាន់ស្តុកក្នុងស្ថានីយរបស់ខ្លួនប៉ុណ្ណោះ!', 'warning');
+          return;
+        }
+      }
       const bound = target.boundDevices || { desktop: null, mobile: null };
       const pcInfo = bound.desktop ? `${bound.desktop.deviceName || 'កុំព្យូទ័រ'} (ភ្ជាប់: ${new Date(bound.desktop.boundAt).toLocaleDateString('km-KH')})` : 'មិនទាន់មានភ្ជាប់';
       const mobInfo = bound.mobile ? `${bound.mobile.deviceName || 'ទូរសព្ទដៃ'} (ភ្ជាប់: ${new Date(bound.mobile.boundAt).toLocaleDateString('km-KH')})` : 'មិនទាន់មានភ្ជាប់';
@@ -33513,14 +34347,13 @@
 
       const tgToken = AppState.settings?.TELEGRAM_BOT_TOKEN || localStorage.getItem('inventory_tg_token') || DEFAULT_TG_BOT_TOKEN;
       const tgChatId = AppState.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid') || DEFAULT_TG_CHAT_ID;
-      const tgAdminChatId = AppState.settings?.TELEGRAM_ADMIN_CHAT_ID || localStorage.getItem('inventory_tg_admin_chatid') || DEFAULT_TG_ADMIN_CHAT_ID;
       const gasUrl = AppState.gasApiUrl || localStorage.getItem('inventory_gas_api_url') || 'https://script.google.com/macros/s/AKfycbxqw7NPsE8pWqeYPAwTqxFakzFD5lTzGR1N5mlL-n2oZMp4FeDpGENFnEAjf6gSddk/exec';
       const approveUrl = `${gasUrl}?action=approveUserTelegram&userId=${encodeURIComponent(uId)}&u=${encodeURIComponent(uName)}`;
       const rejectUrl = `${gasUrl}?action=rejectUserTelegram&userId=${encodeURIComponent(uId)}&u=${encodeURIComponent(uName)}`;
       const webAppUsersUrl = `${window.location.origin}${window.location.pathname}#users`;
 
-      if (!tgToken) {
-        Swal.fire('ខ្វះ Telegram Settings', 'សូមពិនិត្យមើល Telegram Bot Token ក្នុងការកំណត់', 'warning');
+      if (!tgToken || !tgChatId) {
+        Swal.fire('ខ្វះ Telegram Settings', 'សូមពិនិត្យមើល Telegram Bot Token និង Chat ID ក្នុងការកំណត់', 'warning');
         return;
       }
 
@@ -33534,31 +34367,60 @@
         const tgMsg = `📋 <b>[សំណើសុំចុះឈ្មោះគណនីថ្មី - រង់ចាំការអនុម័ត]</b>\n` +
           `👤 <b>ឈ្មោះពេញ:</b> ${targetUser.fullName || uName}\n` +
           `🆔 <b>Username:</b> <code>@${uName}</code>\n` +
-          `📱 <b>លេខទូរស័ព្ទ:</b> ${formatPhoneNumber(targetUser.phone) || '-'}\n` +
+          `📱 <b>លេខទូរស័ព្ទ:</b> ${targetUser.phone || '-'}\n` +
           `📧 <b>អ៊ីមែល:</b> ${targetUser.email || '-'}\n` +
           `💼 <b>តួនាទី:</b> ${targetUser.role || 'Stock Keeper'}\n` +
           `🏢 <b>ស្ថានីយ/ឃ្លាំង:</b> ${targetUser.warehouse || '-'}\n` +
+
           `🕒 <b>កាលបរិច្ឆេទ:</b> ${new Date().toLocaleString('en-GB')}\n` +
           `🚦 <b>ស្ថានភាព:</b> ⏳ <b>រង់ចាំ Admin ពិនិត្យ & អនុម័ត</b>\n\n` +
           `👉 <b>សូម Admin ចុចប៊ូតុងខាងក្រោមដើម្បី អនុម័ត (Approve) តាម Telegram៖</b>`;
 
-        const replyMarkup = {
-          inline_keyboard: [
-            [
-              { text: "✅ អនុម័ត (Approve)", url: approveUrl },
-              { text: "❌ បដិសេធ (Reject)", url: rejectUrl }
-            ],
-            [
-              { text: "👥 ពិនិត្យក្នុងប្រព័ន្ធ (Web App)", url: webAppUsersUrl }
-            ]
-          ]
-        };
+        const chatIdsToSend = [];
+        if (tgChatId) {
+          String(tgChatId).split(',').forEach(c => {
+            const trimmed = c.trim();
+            if (trimmed && !chatIdsToSend.includes(trimmed)) chatIdsToSend.push(trimmed);
+          });
+        }
+        if (!chatIdsToSend.includes(DEFAULT_TG_ADMIN_CHAT_ID)) chatIdsToSend.push(DEFAULT_TG_ADMIN_CHAT_ID);
+        if (!chatIdsToSend.includes(DEFAULT_TG_CHAT_ID)) chatIdsToSend.push(DEFAULT_TG_CHAT_ID);
 
-        const success = await sendTelegramDirect(tgMsg, replyMarkup);
-        if (success) {
-          Swal.fire('ជោគជ័យ 📢', `បានផ្ញើសំណើគណនី <b>${uName}</b> ទៅកាន់ Telegram របស់ Admin (ID: ${tgAdminChatId}) និង SuperAdmin (ID: ${tgChatId}) រួចរាល់! Admin អាចចុច Approve ពី Telegram បាន។`, 'success');
+        let sentSuccess = false;
+        let lastError = '';
+        for (const cId of chatIdsToSend) {
+          try {
+            const resp = await fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                chat_id: cId,
+                text: tgMsg,
+                parse_mode: 'HTML',
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      { text: "✅ អនុម័ត (Approve)", url: approveUrl },
+                      { text: "❌ បដិសេធ (Reject)", url: rejectUrl }
+                    ],
+                    [
+                      { text: "👥 ពិនិត្យក្នុងប្រព័ន្ធ (Web App)", url: webAppUsersUrl }
+                    ]
+                  ]
+                }
+              })
+            });
+            const js = await resp.json();
+            if (js && js.ok) sentSuccess = true;
+            else if (js && js.description) lastError = js.description;
+          } catch (e) {
+            lastError = e.toString();
+          }
+        }
+        if (sentSuccess) {
+          Swal.fire('ជោគជ័យ 📢', `បានផ្ញើសំណើគណនី <b>${uName}</b> ទៅកាន់ Telegram រួចរាល់! Admin អាចចុច Approve ពី Telegram បាន។`, 'success');
         } else {
-          Swal.fire('បរាជ័យ', 'មិនអាចផ្ញើទៅ Telegram បានទេ សូមពិនិត្យការកំណត់ Telegram Bot', 'error');
+          Swal.fire('បរាជ័យ', lastError || 'មិនអាចផ្ញើទៅ Telegram បានទេ', 'error');
         }
       } catch (err) {
         Swal.fire('កំហុស', err.toString(), 'error');
