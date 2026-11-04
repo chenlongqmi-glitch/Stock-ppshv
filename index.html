@@ -3242,7 +3242,7 @@
                 <div class="flex items-center bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-2 h-9 gap-1.5 shadow-3xs text-xs text-slate-600 transition shrink-0">
                   <i class="fa-regular fa-calendar-days text-emerald-600 shrink-0"></i>
                   <span class="text-[11px] font-medium text-slate-400 shrink-0">ពី</span>
-                  <button type="button" id="btnStockInMonthStart" onclick="openCustomYearMonthPicker('stockInMonthStart', this, filterStockInHistoryTable, event)"
+                  <button type="button" id="btnStockInMonthStart" onclick="openCustomYearMonthPicker('stockInMonthStart', this, event)"
                     class="bg-white hover:bg-slate-50 border border-slate-200 hover:border-emerald-500 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 cursor-pointer shadow-3xs transition flex items-center gap-1">
                     <span id="dispStockInMonthStart">ជ្រើសខែ</span>
                     <i class="fa-solid fa-chevron-down text-[9px] text-slate-400"></i>
@@ -3250,7 +3250,7 @@
                   <input type="hidden" id="stockInMonthStart" value="">
                   <span class="text-slate-300 font-bold shrink-0">~</span>
                   <span class="text-[11px] font-medium text-slate-400 shrink-0">ដល់</span>
-                  <button type="button" id="btnStockInMonthEnd" onclick="openCustomYearMonthPicker('stockInMonthEnd', this, filterStockInHistoryTable, event)"
+                  <button type="button" id="btnStockInMonthEnd" onclick="openCustomYearMonthPicker('stockInMonthEnd', this, event)"
                     class="bg-white hover:bg-slate-50 border border-slate-200 hover:border-emerald-500 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 cursor-pointer shadow-3xs transition flex items-center gap-1">
                     <span id="dispStockInMonthEnd">ជ្រើសខែ</span>
                     <i class="fa-solid fa-chevron-down text-[9px] text-slate-400"></i>
@@ -3779,7 +3779,7 @@
                 <div class="flex items-center bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-2 h-9 gap-1.5 shadow-3xs text-xs text-slate-600 transition shrink-0">
                   <i class="fa-regular fa-calendar-days text-amber-600 shrink-0"></i>
                   <span class="text-[11px] font-medium text-slate-400 shrink-0">ពី</span>
-                  <button type="button" id="btnStockOutMonthStart" onclick="openCustomYearMonthPicker('stockOutMonthStart', this, filterStockOutHistoryTable, event)"
+                  <button type="button" id="btnStockOutMonthStart" onclick="openCustomYearMonthPicker('stockOutMonthStart', this, event)"
                     class="bg-white hover:bg-slate-50 border border-slate-200 hover:border-amber-500 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 cursor-pointer shadow-3xs transition flex items-center gap-1">
                     <span id="dispStockOutMonthStart">ជ្រើសខែ</span>
                     <i class="fa-solid fa-chevron-down text-[9px] text-slate-400"></i>
@@ -3787,7 +3787,7 @@
                   <input type="hidden" id="stockOutMonthStart" value="">
                   <span class="text-slate-300 font-bold shrink-0">~</span>
                   <span class="text-[11px] font-medium text-slate-400 shrink-0">ដល់</span>
-                  <button type="button" id="btnStockOutMonthEnd" onclick="openCustomYearMonthPicker('stockOutMonthEnd', this, filterStockOutHistoryTable, event)"
+                  <button type="button" id="btnStockOutMonthEnd" onclick="openCustomYearMonthPicker('stockOutMonthEnd', this, event)"
                     class="bg-white hover:bg-slate-50 border border-slate-200 hover:border-amber-500 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 cursor-pointer shadow-3xs transition flex items-center gap-1">
                     <span id="dispStockOutMonthEnd">ជ្រើសខែ</span>
                     <i class="fa-solid fa-chevron-down text-[9px] text-slate-400"></i>
@@ -26226,9 +26226,12 @@
       themeColor: 'emerald'
     };
 
-    window.closeCustomYearMonthPicker = function() {
+        window.closeCustomYearMonthPicker = function() {
       const pop = document.getElementById('customYearMonthPickerModal');
-      if (pop) pop.classList.add('hidden');
+      if (pop) {
+        pop.classList.add('hidden');
+        pop.style.display = 'none';
+      }
       customPickerState.inputId = null;
       customPickerState.triggerBtn = null;
       customPickerState.callback = null;
@@ -26281,7 +26284,7 @@
         const disp = document.getElementById(dispId);
         if (disp) disp.textContent = ym;
       }
-      const cb = customPickerState.callback || (customPickerState.inputId && customPickerState.inputId.toLowerCase().includes('stockout') ? window.filterStockOutHistoryTable : window.filterStockInHistoryTable);
+      const cb = customPickerState.callback;
       closeCustomYearMonthPicker();
       if (typeof cb === 'function') {
         cb();
@@ -26296,7 +26299,7 @@
         const disp = document.getElementById(dispId);
         if (disp) disp.textContent = 'ជ្រើសខែ';
       }
-      const cb = customPickerState.callback || (customPickerState.inputId && customPickerState.inputId.toLowerCase().includes('stockout') ? window.filterStockOutHistoryTable : window.filterStockInHistoryTable);
+      const cb = customPickerState.callback;
       closeCustomYearMonthPicker();
       if (typeof cb === 'function') {
         cb();
@@ -26315,41 +26318,38 @@
         const disp = document.getElementById(dispId);
         if (disp) disp.textContent = ym;
       }
-      const cb = customPickerState.callback || (customPickerState.inputId && customPickerState.inputId.toLowerCase().includes('stockout') ? window.filterStockOutHistoryTable : window.filterStockInHistoryTable);
+      const cb = customPickerState.callback;
       closeCustomYearMonthPicker();
       if (typeof cb === 'function') {
         cb();
       }
     };
 
-    window.openCustomYearMonthPicker = function(inputId, triggerBtn, callback, event) {
-      if (event && typeof event.stopPropagation === 'function') {
-        event.stopPropagation();
-      } else if (typeof window.event !== 'undefined' && window.event && typeof window.event.stopPropagation === 'function') {
-        window.event.stopPropagation();
+        window.openCustomYearMonthPicker = function(inputId, triggerBtn, optEvent) {
+      const ev = (optEvent && typeof optEvent.stopPropagation === 'function') ? optEvent : ((typeof window !== 'undefined' && window.event && typeof window.event.stopPropagation === 'function') ? window.event : null);
+      if (ev) {
+        ev.stopPropagation();
       }
 
       const pop = document.getElementById('customYearMonthPickerModal');
-      if (!pop) return;
+      if (!pop) {
+        console.warn('customYearMonthPickerModal not found in DOM!');
+        return;
+      }
 
-      if (!pop.classList.contains('hidden') && customPickerState.inputId === inputId) {
+      if ((!pop.classList.contains('hidden') || pop.style.display === 'block') && customPickerState.inputId === inputId) {
         closeCustomYearMonthPicker();
         return;
       }
 
       customPickerState.inputId = inputId;
       customPickerState.triggerBtn = triggerBtn;
-      if (typeof callback === 'function') {
-        customPickerState.callback = callback;
-      } else if (typeof callback === 'string' && typeof window[callback] === 'function') {
-        customPickerState.callback = window[callback];
-      } else if (inputId && inputId.toLowerCase().includes('stockout')) {
-        customPickerState.callback = window.filterStockOutHistoryTable;
-      } else {
-        customPickerState.callback = window.filterStockInHistoryTable;
-      }
-      const isStockOut = inputId.toLowerCase().includes('stockout');
+
+      const isStockOut = String(inputId || '').toLowerCase().includes('stockout');
       customPickerState.themeColor = isStockOut ? 'amber' : 'emerald';
+      customPickerState.callback = isStockOut 
+        ? (typeof filterStockOutHistoryTable === 'function' ? filterStockOutHistoryTable : window.filterStockOutHistoryTable) 
+        : (typeof filterStockInHistoryTable === 'function' ? filterStockInHistoryTable : window.filterStockInHistoryTable);
 
       const curBtn = document.getElementById('btnCustomPickerCurrentMonth');
       if (curBtn) {
@@ -26387,6 +26387,8 @@
       renderCustomPickerMonths();
 
       pop.classList.remove('hidden');
+      pop.style.display = 'block';
+
       const rect = triggerBtn.getBoundingClientRect();
       const popWidth = 290;
       const popHeight = 260;
@@ -26781,7 +26783,43 @@
               setTimeout(function() { window.print(); }, 250);
             };
           </sc` + `ript>
-          
+          <!-- Custom Year-Month Picker Floating Popover -->
+  <div id="customYearMonthPickerModal" class="hidden fixed z-[9999] bg-white rounded-2xl shadow-2xl border border-slate-200/90 p-3 w-[290px] max-w-[calc(100vw-20px)] select-none text-slate-800 transition-all">
+    <!-- Popover Header: Year Selector & Close -->
+    <div class="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-100">
+      <div class="flex items-center gap-1">
+        <button type="button" onclick="changeCustomPickerYear(-1)" class="w-7 h-7 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600 flex items-center justify-center transition active:scale-95 cursor-pointer" title="ឆ្នាំមុន (Previous Year)">
+          <i class="fa-solid fa-chevron-left text-xs"></i>
+        </button>
+        <select id="customPickerYearSelect" onchange="onCustomPickerYearSelectChange(this.value)" class="bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-800 font-extrabold text-xs sm:text-sm rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer">
+          <!-- Populated by JS -->
+        </select>
+        <button type="button" onclick="changeCustomPickerYear(1)" class="w-7 h-7 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600 flex items-center justify-center transition active:scale-95 cursor-pointer" title="ឆ្នាំបន្ទាប់ (Next Year)">
+          <i class="fa-solid fa-chevron-right text-xs"></i>
+        </button>
+      </div>
+      <button type="button" onclick="closeCustomYearMonthPicker()" class="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition cursor-pointer" title="បិទ (Close)">
+        <i class="fa-solid fa-xmark text-sm"></i>
+      </button>
+    </div>
+
+    <!-- Month Grid: 3 columns x 4 rows -->
+    <div id="customPickerMonthGrid" class="grid grid-cols-3 gap-1.5 mb-2.5">
+      <!-- Populated by JS -->
+    </div>
+
+    <!-- Popover Footer -->
+    <div class="flex items-center justify-between pt-2 border-t border-slate-100 text-xs font-semibold">
+      <button type="button" onclick="selectCustomPickerClear()" class="px-2.5 py-1 text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer flex items-center gap-1">
+        <i class="fa-regular fa-trash-can text-[11px]"></i>
+        <span>សម្អាត</span>
+      </button>
+      <button type="button" onclick="selectCustomPickerCurrentMonth()" id="btnCustomPickerCurrentMonth" class="px-2.5 py-1 text-emerald-600 hover:bg-emerald-50 rounded-lg transition cursor-pointer flex items-center gap-1">
+        <i class="fa-regular fa-calendar-check text-[11px]"></i>
+        <span>ខែនេះ</span>
+      </button>
+    </div>
+  </div>
 </body>
         </html>
       `);
@@ -42762,43 +42800,6 @@
           បិទ
         </button>
       </div>
-    </div>
-  </div>
-  <!-- Custom Year-Month Picker Floating Popover -->
-  <div id="customYearMonthPickerModal" onclick="event.stopPropagation()" class="hidden fixed z-[99999] bg-white rounded-2xl shadow-2xl border border-slate-200/90 p-3 w-[290px] max-w-[calc(100vw-20px)] select-none text-slate-800 transition-all">
-    <!-- Popover Header: Year Selector & Close -->
-    <div class="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-100">
-      <div class="flex items-center gap-1">
-        <button type="button" onclick="changeCustomPickerYear(-1)" class="w-7 h-7 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600 flex items-center justify-center transition active:scale-95 cursor-pointer" title="ឆ្នាំមុន (Previous Year)">
-          <i class="fa-solid fa-chevron-left text-xs"></i>
-        </button>
-        <select id="customPickerYearSelect" onchange="onCustomPickerYearSelectChange(this.value)" class="bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-800 font-extrabold text-xs sm:text-sm rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer">
-          <!-- Populated by JS -->
-        </select>
-        <button type="button" onclick="changeCustomPickerYear(1)" class="w-7 h-7 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600 flex items-center justify-center transition active:scale-95 cursor-pointer" title="ឆ្នាំបន្ទាប់ (Next Year)">
-          <i class="fa-solid fa-chevron-right text-xs"></i>
-        </button>
-      </div>
-      <button type="button" onclick="closeCustomYearMonthPicker()" class="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition cursor-pointer" title="បិទ (Close)">
-        <i class="fa-solid fa-xmark text-sm"></i>
-      </button>
-    </div>
-
-    <!-- Month Grid: 3 columns x 4 rows -->
-    <div id="customPickerMonthGrid" class="grid grid-cols-3 gap-1.5 mb-2.5">
-      <!-- Populated by JS -->
-    </div>
-
-    <!-- Popover Footer -->
-    <div class="flex items-center justify-between pt-2 border-t border-slate-100 text-xs font-semibold">
-      <button type="button" onclick="selectCustomPickerClear()" class="px-2.5 py-1 text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer flex items-center gap-1">
-        <i class="fa-regular fa-trash-can text-[11px]"></i>
-        <span>សម្អាត</span>
-      </button>
-      <button type="button" onclick="selectCustomPickerCurrentMonth()" id="btnCustomPickerCurrentMonth" class="px-2.5 py-1 text-emerald-600 hover:bg-emerald-50 rounded-lg transition cursor-pointer flex items-center gap-1">
-        <i class="fa-regular fa-calendar-check text-[11px]"></i>
-        <span>ខែនេះ</span>
-      </button>
     </div>
   </div>
 </body>
