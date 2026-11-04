@@ -3210,7 +3210,7 @@
           <!-- TABLE LIST CARD (ខាងក្រោម: បញ្ជីបង្ហាញពីទិន្នន័យចូល) -->
           <div id="stockInTableCard" class="glass-card table-freeze-card p-4 sm:p-5 lg:p-6 rounded-2xl sm:rounded-3xl shadow-xs border border-slate-200/80 bg-white space-y-4">
             <!-- Header of list -->
-            <div id="stockInTableHeader" class="flex flex-col xl:flex-row xl:items-center justify-between gap-3 pb-3 border-b border-slate-100 relative z-30">
+            <div id="stockInTableHeader" class="flex flex-col xl:flex-row xl:items-center justify-between gap-3 pb-3 border-b border-slate-100 relative z-50">
               <div class="flex items-center space-x-3 shrink-0">
                 <div class="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center text-lg shadow-xs">
                   <i class="fa-solid fa-clock-rotate-left"></i>
@@ -3225,7 +3225,7 @@
               </div>
 
               <!-- Controls: Single 1-row layout (Month Range, Search, Refresh, Export Dropdown) -->
-              <div class="flex items-center gap-1.5 sm:gap-2 flex-nowrap shrink-0 overflow-x-auto max-w-full">
+              <div class="flex items-center gap-1.5 sm:gap-2 flex-nowrap shrink-0 max-w-full overflow-visible">
                 <!-- Month Range Filter -->
                 <div class="flex items-center bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-2 h-9 gap-1.5 shadow-3xs text-xs text-slate-600 transition shrink-0">
                   <i class="fa-regular fa-calendar-days text-emerald-600 shrink-0"></i>
@@ -3271,7 +3271,7 @@
                   <span class="hidden sm:inline">Refresh</span>
                 </button>
                 <!-- Unified Export Dropdown -->
-                <div class="relative inline-block text-left z-40 shrink-0" id="exportStockInDropdownWrapper">
+                <div class="relative inline-block text-left z-50 shrink-0 overflow-visible" id="exportStockInDropdownWrapper">
                   <button type="button" onclick="toggleExportStockInDropdown(event)" id="exportStockInBtn"
                     class="h-9 px-3 border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 rounded-xl text-xs sm:text-sm font-bold flex items-center space-x-1.5 shadow-sm transition-all cursor-pointer shrink-0">
                     <i class="fa-solid fa-file-export text-blue-600"></i>
@@ -3735,7 +3735,7 @@
           <!-- TABLE LIST CARD (ខាងក្រោម: បញ្ជីបង្ហាញពីទិន្នន័យចេញ) -->
           <div id="stockOutTableCard" class="glass-card table-freeze-card p-4 sm:p-5 lg:p-6 rounded-2xl sm:rounded-3xl shadow-xs border border-slate-200/80 bg-white space-y-4">
             <!-- Header of list -->
-            <div id="stockOutTableHeader" class="flex flex-col xl:flex-row xl:items-center justify-between gap-3 pb-3 border-b border-slate-100 relative z-30">
+            <div id="stockOutTableHeader" class="flex flex-col xl:flex-row xl:items-center justify-between gap-3 pb-3 border-b border-slate-100 relative z-50">
               <div class="flex items-center space-x-3 shrink-0">
                 <div class="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center text-lg shadow-xs">
                   <i class="fa-solid fa-clock-rotate-left"></i>
@@ -3750,7 +3750,7 @@
               </div>
 
               <!-- Controls: Single 1-row layout (Month Range, Search, Refresh, Export Dropdown) -->
-              <div class="flex items-center gap-1.5 sm:gap-2 flex-nowrap shrink-0 overflow-x-auto max-w-full">
+              <div class="flex items-center gap-1.5 sm:gap-2 flex-nowrap shrink-0 max-w-full overflow-visible">
                 <!-- Month Range Filter -->
                 <div class="flex items-center bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-2 h-9 gap-1.5 shadow-3xs text-xs text-slate-600 transition shrink-0">
                   <i class="fa-regular fa-calendar-days text-amber-600 shrink-0"></i>
@@ -3796,7 +3796,7 @@
                   <span class="hidden sm:inline">Refresh</span>
                 </button>
                 <!-- Unified Export Dropdown -->
-                <div class="relative inline-block text-left z-40 shrink-0" id="exportStockOutDropdownWrapper">
+                <div class="relative inline-block text-left z-50 shrink-0 overflow-visible" id="exportStockOutDropdownWrapper">
                   <button type="button" onclick="toggleExportStockOutDropdown(event)" id="exportStockOutBtn"
                     class="h-9 px-3 border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 rounded-xl text-xs sm:text-sm font-bold flex items-center space-x-1.5 shadow-sm transition-all cursor-pointer shrink-0">
                     <i class="fa-solid fa-file-export text-blue-600"></i>
@@ -26982,7 +26982,16 @@
     window.toggleExportStockInDropdown = function(e) {
       if (e) e.stopPropagation();
       const menu = document.getElementById('exportStockInMenu');
-      if (menu) menu.classList.toggle('hidden');
+      if (!menu) return;
+
+      const outMenu = document.getElementById('exportStockOutMenu');
+      if (outMenu && outMenu !== menu) outMenu.classList.add('hidden');
+      const itemMenu = document.getElementById('exportItemsMenu');
+      if (itemMenu) itemMenu.classList.add('hidden');
+      const repMenu = document.getElementById('exportReportsMenu');
+      if (repMenu) repMenu.classList.add('hidden');
+
+      menu.classList.toggle('hidden');
     };
 
     window.handleStockInExportChoice = function(choice) {
@@ -27004,7 +27013,16 @@
     window.toggleExportStockOutDropdown = function(e) {
       if (e) e.stopPropagation();
       const menu = document.getElementById('exportStockOutMenu');
-      if (menu) menu.classList.toggle('hidden');
+      if (!menu) return;
+
+      const inMenu = document.getElementById('exportStockInMenu');
+      if (inMenu && inMenu !== menu) inMenu.classList.add('hidden');
+      const itemMenu = document.getElementById('exportItemsMenu');
+      if (itemMenu) itemMenu.classList.add('hidden');
+      const repMenu = document.getElementById('exportReportsMenu');
+      if (repMenu) repMenu.classList.add('hidden');
+
+      menu.classList.toggle('hidden');
     };
 
     window.handleStockOutExportChoice = function(choice) {
@@ -30248,13 +30266,13 @@
 
       const inWrapper = document.getElementById('exportStockInDropdownWrapper');
       const inMenu = document.getElementById('exportStockInMenu');
-      if (inMenu && inWrapper && !inWrapper.contains(e.target)) {
+      if (inMenu && !inMenu.classList.contains('hidden') && inWrapper && !inWrapper.contains(e.target) && !inMenu.contains(e.target)) {
         inMenu.classList.add('hidden');
       }
 
       const outWrapper = document.getElementById('exportStockOutDropdownWrapper');
       const outMenu = document.getElementById('exportStockOutMenu');
-      if (outMenu && outWrapper && !outWrapper.contains(e.target)) {
+      if (outMenu && !outMenu.classList.contains('hidden') && outWrapper && !outWrapper.contains(e.target) && !outMenu.contains(e.target)) {
         outMenu.classList.add('hidden');
       }
     });
