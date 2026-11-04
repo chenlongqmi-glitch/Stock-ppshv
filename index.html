@@ -438,7 +438,7 @@
         min-height: 0 !important;
         max-height: none !important;
         overflow-y: auto !important;
-        overflow-x: hidden !important;
+        overflow-x: auto !important;
         -webkit-overflow-scrolling: touch !important;
         overscroll-behavior: contain !important;
       }
@@ -521,7 +521,9 @@
       #itemsTableScrollContainer {
         max-height: calc(100vh - 280px);
         overflow-y: auto;
-        overflow-x: hidden !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        overscroll-behavior: contain !important;
       }
 
       .table-scroll-container {
@@ -592,7 +594,9 @@
     .table-container-freeze {
       max-height: calc(100vh - 280px);
       overflow-y: auto;
-      overflow-x: hidden !important;
+      overflow-x: auto !important;
+      -webkit-overflow-scrolling: touch !important;
+      overscroll-behavior: contain !important;
       position: relative;
     }
 
@@ -996,21 +1000,39 @@
        }
  
        /* Responsive Horizontal Table Scrolling with momentum */
-       .table-container-freeze {
+       .table-container-freeze,
+       .table-scroll-container {
          max-height: calc(100vh - 210px);
-         -webkit-overflow-scrolling: touch;
-         overflow-x: hidden !important;
+         -webkit-overflow-scrolling: touch !important;
+         overflow-x: auto !important;
+         overscroll-behavior-x: contain !important;
          border-radius: 0.85rem;
        }
- 
-       .table-freeze thead th {
+
+       #itemsTableScrollContainer table,
+       #stockInTableContainer table,
+       #stockOutTableContainer table,
+       .table-scroll-container table,
+       .table-container-freeze table,
+       .table-freeze {
+         min-width: 880px !important;
+         width: 100% !important;
+         table-layout: auto !important;
+       }
+
+       .table-freeze thead th,
+       .table-scroll-container thead th {
          padding: 0.65rem 0.6rem !important;
          font-size: 0.75rem !important;
          white-space: nowrap !important;
          letter-spacing: normal !important;
+         position: sticky !important;
+         top: 0 !important;
+         z-index: 20 !important;
        }
- 
-       .table-freeze tbody td {
+
+       .table-freeze tbody td,
+       .table-scroll-container tbody td {
          padding: 0.65rem 0.6rem !important;
          font-size: 0.82rem !important;
          line-height: 1.55 !important;
@@ -1675,13 +1697,13 @@
             <span id="sidebarZoomText" class="font-bold text-cyan-300 font-mono text-xs">100%</span>
           </div>
           <div class="grid grid-cols-3 gap-1.5">
-            <button type="button" onclick="adjustAppZoom(-0.05)" class="py-1.5 px-2 bg-white/10 hover:bg-white/20 active:scale-95 rounded-xl text-xs font-bold text-white flex items-center justify-center gap-1 transition border border-white/10 cursor-pointer" title="បង្រួម UI (-5%)">
+            <button type="button" onclick="adjustAppZoom(-0.10)" class="py-1.5 px-2 bg-white/10 hover:bg-white/20 active:scale-95 rounded-xl text-xs font-bold text-white flex items-center justify-center gap-1 transition border border-white/10 cursor-pointer" title="បង្រួម UI (-5%)">
               <i class="fa-solid fa-minus text-[10px]"></i> បង្រួម
             </button>
             <button type="button" onclick="resetAppZoom()" class="py-1.5 px-2 bg-blue-500/40 hover:bg-blue-500/60 active:scale-95 rounded-xl text-xs font-bold text-cyan-200 flex items-center justify-center transition border border-cyan-400/30 cursor-pointer" title="កំណត់ទំហំស្វ័យប្រវត្តិ (Auto)">
               Auto
             </button>
-            <button type="button" onclick="adjustAppZoom(0.05)" class="py-1.5 px-2 bg-white/10 hover:bg-white/20 active:scale-95 rounded-xl text-xs font-bold text-white flex items-center justify-center gap-1 transition border border-white/10 cursor-pointer" title="ពង្រីក UI (+5%)">
+            <button type="button" onclick="adjustAppZoom(0.10)" class="py-1.5 px-2 bg-white/10 hover:bg-white/20 active:scale-95 rounded-xl text-xs font-bold text-white flex items-center justify-center gap-1 transition border border-white/10 cursor-pointer" title="ពង្រីក UI (+5%)">
               <i class="fa-solid fa-plus text-[10px]"></i> ពង្រីក
             </button>
           </div>
@@ -2230,11 +2252,15 @@
 
           <!-- Mobile Screen Zoom Controls (Zoom In / Zoom Out on Mobile Phones) -->
           <div id="mobileHeaderZoomWidget"
-            class="flex sm:hidden items-center bg-slate-100/90 hover:bg-slate-200/90 border border-slate-200 rounded-xl px-1 py-0.5 text-slate-700 shadow-2xs shrink-0 select-none"
-            title="ពង្រីក/បង្រួម UI អេក្រង់ទូរសព្ទ">
-            <button type="button" onclick="adjustAppZoom(-0.05)" class="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-white text-slate-700 active:text-blue-600 font-black text-xs transition active:scale-90" title="បង្រួម UI (-5%)">−</button>
-            <span id="mobileHeaderZoomText" onclick="resetAppZoom()" class="text-[10px] font-bold text-blue-700 px-1 font-sans cursor-pointer min-w-[32px] text-center" title="ចុចកំណត់ Auto">100%</span>
-            <button type="button" onclick="adjustAppZoom(0.05)" class="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-white text-slate-700 active:text-blue-600 font-black text-xs transition active:scale-90" title="ពង្រីក UI (+5%)">+</button>
+            class="flex sm:hidden items-center bg-white/95 border border-slate-200/90 rounded-xl p-0.5 text-slate-700 shadow-2xs shrink-0 select-none"
+            title="ពង្រីក/បង្រួម UI អេក្រង់ទូរសព្ទ (Zoom In / Zoom Out)">
+            <button type="button" onclick="adjustAppZoom(-0.10)" class="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-600 active:text-blue-600 active:scale-90 transition cursor-pointer" title="Zoom Out / បង្រួម (-10%)">
+              <i class="fa-solid fa-magnifying-glass-minus text-[10px]"></i>
+            </button>
+            <span id="mobileHeaderZoomText" onclick="resetAppZoom()" class="text-[10.5px] font-bold text-blue-700 px-1 font-mono cursor-pointer min-w-[34px] text-center" title="ចុចដើម្បីកំណត់ Auto (100%)">100%</span>
+            <button type="button" onclick="adjustAppZoom(0.10)" class="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-600 active:text-blue-600 active:scale-90 transition cursor-pointer" title="Zoom In / ពង្រីក (+10%)">
+              <i class="fa-solid fa-magnifying-glass-plus text-[10px]"></i>
+            </button>
           </div>
 
           <!-- Admin Global Warehouse Selector Filter (Visible for SuperAdmin and Admin ONLY) -->
@@ -2334,9 +2360,9 @@
             <i class="fa-solid fa-display text-blue-600 text-xs shrink-0" id="monitorIcon"></i>
             <span id="monitorProfileName" class="text-[11px] font-bold text-slate-700 font-sans truncate max-w-[90px] md:max-w-[130px]">Auto (100%)</span>
             <div class="flex items-center space-x-1 ml-1 border-l border-slate-300 pl-1.5">
-              <button type="button" onclick="adjustAppZoom(-0.05)" class="w-5 h-5 flex items-center justify-center rounded-md hover:bg-white text-slate-700 hover:text-blue-600 text-xs font-black transition active:scale-90" title="បង្រួម UI (-5%)">−</button>
+              <button type="button" onclick="adjustAppZoom(-0.10)" class="w-5 h-5 flex items-center justify-center rounded-md hover:bg-white text-slate-700 hover:text-blue-600 text-xs font-black transition active:scale-90" title="បង្រួម UI (-5%)">−</button>
               <button type="button" onclick="resetAppZoom()" id="autoScaleBtn" class="px-1.5 h-5 flex items-center justify-center rounded-md bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-black transition active:scale-95" title="កំណត់ទំហំស្វ័យប្រវត្តិតាមអេក្រង់ (Auto Scale)">Auto</button>
-              <button type="button" onclick="adjustAppZoom(0.05)" class="w-5 h-5 flex items-center justify-center rounded-md hover:bg-white text-slate-700 hover:text-blue-600 text-xs font-black transition active:scale-90" title="ពង្រីក UI (+5%)">+</button>
+              <button type="button" onclick="adjustAppZoom(0.10)" class="w-5 h-5 flex items-center justify-center rounded-md hover:bg-white text-slate-700 hover:text-blue-600 text-xs font-black transition active:scale-90" title="ពង្រីក UI (+5%)">+</button>
             </div>
           </div>
 
@@ -2853,8 +2879,8 @@
 
           <!-- TABLE CARD (Fills remaining height) -->
           <div id="itemsTableCard" class="glass-card flex-1 min-h-0 flex flex-col rounded-2xl shadow-sm border border-slate-200 overflow-hidden bg-white">
-            <div id="itemsTableScrollContainer" class="table-container-freeze custom-scrollbar flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
-              <table class="w-full text-left text-xs text-slate-600 border-collapse table-freeze table-fixed">
+            <div id="itemsTableScrollContainer" class="table-container-freeze custom-scrollbar flex-1 min-h-0 overflow-y-auto overflow-x-auto">
+              <table class="w-full text-left text-xs text-slate-600 border-collapse table-freeze min-w-[880px] lg:min-w-full">
                 <thead
                   class="bg-slate-100 text-slate-700 font-bold border-b border-slate-200 uppercase sticky top-0 z-20 shadow-xs">
                   <tr>
@@ -3236,8 +3262,8 @@
                 </div>
               </div>
 
-              <!-- Controls: Single 1-row layout (Month Range, Search, Refresh, Export Dropdown) -->
-              <div class="flex items-center gap-1.5 sm:gap-2 flex-nowrap shrink-0 max-w-full overflow-visible">
+              <!-- Controls: Responsive layout (Month Range, Search, Refresh, Export Dropdown) -->
+              <div class="flex items-center gap-1.5 sm:gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto shrink-0 overflow-visible">
                 <!-- Month Range Filter -->
                 <div class="flex items-center bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-2 h-9 gap-1.5 shadow-3xs text-xs text-slate-600 transition shrink-0">
                   <i class="fa-regular fa-calendar-days text-emerald-600 shrink-0"></i>
@@ -3261,7 +3287,7 @@
                   </button>
                 </div>
 
-                <div class="relative shrink-0">
+                <div class="relative flex-1 min-w-[140px] sm:w-44 md:w-52">
                   <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
                   <input type="search" id="stockInHistorySearch" name="stockin_search_nonce_secure"
                     readonly
@@ -3272,7 +3298,7 @@
                     oninput="this.dataset.userTyped = 'true'; filterStockInHistoryTable()"
                     onkeydown="this.dataset.userTyped = 'true';"
                     placeholder="ស្វែងរកតាមលេខ, ឈ្មោះ, SKU..."
-                    class="w-36 sm:w-44 md:w-52 pl-7 pr-6 h-9 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm outline-none focus:ring-2 focus:ring-emerald-500 transition">
+                    class="w-full pl-7 pr-6 h-9 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm outline-none focus:ring-2 focus:ring-emerald-500 transition">
                   <button type="button" onclick="const el = document.getElementById('stockInHistorySearch'); if (el) { el.value = ''; delete el.dataset.userTyped; el.setAttribute('readonly', 'readonly'); filterStockInHistoryTable(); }" class="absolute right-2 top-2 text-slate-400 hover:text-slate-600 text-xs p-0.5 rounded transition" title="សម្អាតការស្វែងរក">
                     <i class="fa-solid fa-xmark"></i>
                   </button>
@@ -3330,9 +3356,9 @@
               </div>
             </div>
 
-            <!-- Table container: Fits 100% full width without horizontal scrollbar -->
-            <div id="stockInTableContainer" class="table-scroll-container rounded-2xl border border-slate-200 max-h-[560px] overflow-y-auto overflow-x-hidden custom-scrollbar bg-white">
-              <table class="w-full text-left text-xs border-collapse table-fixed table-freeze">
+            <!-- Table container: Horizontal scrolling for mobile with sticky header -->
+            <div id="stockInTableContainer" class="table-scroll-container rounded-2xl border border-slate-200 max-h-[560px] overflow-y-auto overflow-x-auto custom-scrollbar bg-white">
+              <table class="w-full text-left text-xs border-collapse table-freeze min-w-[860px] lg:min-w-full">
                 <thead class="bg-[#f1f5f9] text-slate-700 font-bold uppercase border-b border-slate-300 tracking-wider text-[11px] sticky top-0 z-20 shadow-3xs">
                   <tr>
                     <th class="px-1 py-3 text-center w-[3.5%] shrink-0">ល.រ</th>
@@ -3773,8 +3799,8 @@
                 </div>
               </div>
 
-              <!-- Controls: Single 1-row layout (Month Range, Search, Refresh, Export Dropdown) -->
-              <div class="flex items-center gap-1.5 sm:gap-2 flex-nowrap shrink-0 max-w-full overflow-visible">
+              <!-- Controls: Responsive layout (Month Range, Search, Refresh, Export Dropdown) -->
+              <div class="flex items-center gap-1.5 sm:gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto shrink-0 overflow-visible">
                 <!-- Month Range Filter -->
                 <div class="flex items-center bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-2 h-9 gap-1.5 shadow-3xs text-xs text-slate-600 transition shrink-0">
                   <i class="fa-regular fa-calendar-days text-amber-600 shrink-0"></i>
@@ -3798,7 +3824,7 @@
                   </button>
                 </div>
 
-                <div class="relative shrink-0">
+                <div class="relative flex-1 min-w-[140px] sm:w-44 md:w-52">
                   <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
                   <input type="search" id="stockOutHistorySearch" name="stockout_search_nonce_secure"
                     readonly
@@ -3809,7 +3835,7 @@
                     oninput="this.dataset.userTyped = 'true'; filterStockOutHistoryTable()"
                     onkeydown="this.dataset.userTyped = 'true';"
                     placeholder="ស្វែងរកតាមលេខ, ឈ្មោះ, SKU..."
-                    class="w-36 sm:w-44 md:w-52 pl-7 pr-6 h-9 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm outline-none focus:ring-2 focus:ring-amber-500 transition">
+                    class="w-full pl-7 pr-6 h-9 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm outline-none focus:ring-2 focus:ring-amber-500 transition">
                   <button type="button" onclick="const el = document.getElementById('stockOutHistorySearch'); if (el) { el.value = ''; delete el.dataset.userTyped; el.setAttribute('readonly', 'readonly'); filterStockOutHistoryTable(); }" class="absolute right-2 top-2 text-slate-400 hover:text-slate-600 text-xs p-0.5 rounded transition" title="សម្អាតការស្វែងរក">
                     <i class="fa-solid fa-xmark"></i>
                   </button>
@@ -3872,9 +3898,9 @@
               </div>
             </div>
 
-            <!-- Table container: Fits 100% full width without horizontal scrollbar -->
-            <div id="stockOutTableContainer" class="table-scroll-container rounded-2xl border border-slate-200 max-h-[560px] overflow-y-auto overflow-x-hidden custom-scrollbar bg-white">
-              <table class="w-full text-left text-xs border-collapse table-fixed table-freeze">
+            <!-- Table container: Horizontal scrolling for mobile with sticky header -->
+            <div id="stockOutTableContainer" class="table-scroll-container rounded-2xl border border-slate-200 max-h-[560px] overflow-y-auto overflow-x-auto custom-scrollbar bg-white">
+              <table class="w-full text-left text-xs border-collapse table-freeze min-w-[860px] lg:min-w-full">
                 <thead class="bg-[#f1f5f9] text-slate-700 font-bold uppercase border-b border-slate-300 tracking-wider text-[11px] sticky top-0 z-20 shadow-3xs">
                   <tr>
                     <th class="px-1 py-3 text-center w-[3.5%] shrink-0">ល.រ</th>
@@ -5115,32 +5141,32 @@
 
     <!-- Floating Zoom In / Zoom Out Quick Controller for Mobile & iPad -->
     <div id="mobileFloatingZoomDock"
-      class="fixed bottom-20 md:bottom-6 right-3 z-40 flex items-center bg-slate-900/90 hover:bg-slate-900 text-white backdrop-blur-md border border-white/20 rounded-full shadow-2xl px-2 py-1 space-x-1 transition-all duration-300 select-none">
-      <button type="button" onclick="adjustAppZoom(-0.05)"
-        class="w-7 h-7 rounded-full bg-white/15 hover:bg-white/30 active:bg-blue-600 active:scale-90 flex items-center justify-center text-xs font-black transition text-white"
-        title="Zoom Out / បង្រួម (-5%)">
-        <i class="fa-solid fa-minus text-[11px]"></i>
+      class="hidden fixed bottom-20 md:bottom-6 right-3 z-40 flex items-center bg-slate-900/95 text-white backdrop-blur-md border border-white/20 rounded-full shadow-2xl px-2.5 py-1.5 space-x-1.5 transition-all duration-300 select-none">
+      <button type="button" onclick="adjustAppZoom(-0.10)"
+        class="w-7 h-7 rounded-full bg-white/15 hover:bg-white/30 active:bg-blue-600 active:scale-90 flex items-center justify-center text-xs font-black transition text-white cursor-pointer"
+        title="Zoom Out / បង្រួម (-10%)">
+        <i class="fa-solid fa-magnifying-glass-minus text-[11px]"></i>
       </button>
       <span id="mobileFloatingZoomText" onclick="resetAppZoom()"
-        class="text-[11px] font-extrabold font-sans text-cyan-300 px-1.5 cursor-pointer min-w-[36px] text-center leading-none"
+        class="text-[11px] font-extrabold font-mono text-cyan-300 px-1.5 cursor-pointer min-w-[36px] text-center leading-none"
         title="ចុចដើម្បីកំណត់ Auto (Reset 100%)">100%</span>
-      <button type="button" onclick="adjustAppZoom(0.05)"
-        class="w-7 h-7 rounded-full bg-white/15 hover:bg-white/30 active:bg-blue-600 active:scale-90 flex items-center justify-center text-xs font-black transition text-white"
-        title="Zoom In / ពង្រីក (+5%)">
-        <i class="fa-solid fa-plus text-[11px]"></i>
+      <button type="button" onclick="adjustAppZoom(0.10)"
+        class="w-7 h-7 rounded-full bg-white/15 hover:bg-white/30 active:bg-blue-600 active:scale-90 flex items-center justify-center text-xs font-black transition text-white cursor-pointer"
+        title="Zoom In / ពង្រីក (+10%)">
+        <i class="fa-solid fa-magnifying-glass-plus text-[11px]"></i>
       </button>
       <button type="button" onclick="toggleMobileFloatingZoomDock()"
-        class="w-5 h-5 rounded-full text-slate-400 hover:text-white flex items-center justify-center text-[10px] ml-0.5 transition"
+        class="w-6 h-6 rounded-full text-slate-400 hover:text-white hover:bg-white/10 flex items-center justify-center text-[10px] ml-0.5 transition cursor-pointer"
         title="បង្រួមទៅជាប៊ូតុងតូច">
-        <i class="fa-solid fa-compress text-[10px]"></i>
+        <i class="fa-solid fa-xmark text-[11px]"></i>
       </button>
     </div>
 
-    <!-- Collapsed Mini Zoom FAB Button -->
+    <!-- Collapsed Mini Zoom FAB Button (Visible by default, unobtrusive) -->
     <button id="mobileFloatingZoomMinBtn" onclick="toggleMobileFloatingZoomDock()"
-      class="hidden fixed bottom-20 md:bottom-6 right-3 z-40 w-10 h-10 rounded-full bg-blue-600/90 hover:bg-blue-600 text-white backdrop-blur-md border border-white/30 shadow-2xl flex items-center justify-center transition-all duration-300 active:scale-95 text-xs font-bold"
+      class="fixed bottom-20 md:bottom-6 right-3 z-40 w-9 h-9 rounded-full bg-blue-600/90 hover:bg-blue-700 text-white backdrop-blur-md border border-white/30 shadow-xl flex items-center justify-center transition-all duration-300 active:scale-90 text-xs font-bold cursor-pointer"
       title="បើកផ្ទាំង Zoom In / Zoom Out">
-      <i class="fa-solid fa-magnifying-glass-plus text-sm"></i>
+      <i class="fa-solid fa-magnifying-glass text-xs"></i>
     </button>
 
   </div>
@@ -41932,12 +41958,26 @@
       watchDpi();
 
       // Manual Zoom Controls exposed to window (for Mobile, iPad & Desktop)
+      let _zoomDockCollapseTimer = null;
+      function scheduleZoomDockAutoCollapse() {
+        if (_zoomDockCollapseTimer) clearTimeout(_zoomDockCollapseTimer);
+        _zoomDockCollapseTimer = setTimeout(() => {
+          const dock = document.getElementById('mobileFloatingZoomDock');
+          const minBtn = document.getElementById('mobileFloatingZoomMinBtn');
+          if (dock && !dock.classList.contains('hidden')) {
+            dock.classList.add('hidden');
+            if (minBtn) minBtn.classList.remove('hidden');
+          }
+        }, 5000);
+      }
+
       window.adjustAppZoom = function(delta) {
         const current = parseFloat(document.documentElement.style.getPropertyValue('--app-ui-scale')) || 1.0;
-        let newZoom = Math.round((current + delta) * 100) / 100;
-        newZoom = Math.max(0.70, Math.min(1.80, newZoom));
+        let newZoom = Math.round((current + delta) * 10) / 10;
+        newZoom = Math.max(0.70, Math.min(1.60, newZoom));
         localStorage.setItem('inventory_user_zoom', newZoom);
         applyAdaptiveScaling(true);
+        scheduleZoomDockAutoCollapse();
 
         if (typeof Swal !== 'undefined' && Swal.mixin) {
           const Toast = Swal.mixin({
@@ -41959,6 +41999,7 @@
         applyAdaptiveScaling(true);
         const auto = calculateMonitorProfileAndScale();
         showMonitorTransitionToast(auto.name, auto.scale, auto.icon);
+        scheduleZoomDockAutoCollapse();
 
         if (typeof Swal !== 'undefined' && Swal.mixin) {
           const Toast = Swal.mixin({
@@ -41984,21 +42025,29 @@
         if (isCollapsed) {
           dock.classList.remove('hidden');
           minBtn.classList.add('hidden');
+          scheduleZoomDockAutoCollapse();
           try { localStorage.setItem('inventory_zoom_dock_collapsed', 'false'); } catch(e) {}
         } else {
           dock.classList.add('hidden');
           minBtn.classList.remove('hidden');
+          if (_zoomDockCollapseTimer) clearTimeout(_zoomDockCollapseTimer);
           try { localStorage.setItem('inventory_zoom_dock_collapsed', 'true'); } catch(e) {}
         }
       }
       window.toggleMobileFloatingZoomDock = toggleMobileFloatingZoomDock;
 
       try {
-        if (localStorage.getItem('inventory_zoom_dock_collapsed') === 'true') {
-          const dock = document.getElementById('mobileFloatingZoomDock');
-          const minBtn = document.getElementById('mobileFloatingZoomMinBtn');
+        const dockCollapsedState = localStorage.getItem('inventory_zoom_dock_collapsed');
+        const dock = document.getElementById('mobileFloatingZoomDock');
+        const minBtn = document.getElementById('mobileFloatingZoomMinBtn');
+        // Default to collapsed unless explicitly expanded recently
+        if (dockCollapsedState !== 'false') {
           if (dock) dock.classList.add('hidden');
           if (minBtn) minBtn.classList.remove('hidden');
+        } else {
+          if (dock) dock.classList.remove('hidden');
+          if (minBtn) minBtn.classList.add('hidden');
+          scheduleZoomDockAutoCollapse();
         }
       } catch(e) {}
 
