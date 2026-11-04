@@ -3264,6 +3264,11 @@
                   <i class="fa-solid fa-file-excel text-emerald-600 text-sm"></i>
                   <span>Export Excel</span>
                 </button>
+                <button type="button" onclick="exportStockInHistoryToPDF()" title="ទាញយក / បោះពុម្ពបញ្ជីប្រវត្តិចូលស្តុកជា PDF (.pdf)"
+                  class="h-9 px-3.5 bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300 rounded-xl text-xs sm:text-sm font-bold transition flex items-center space-x-1.5 shadow-3xs shrink-0 cursor-pointer">
+                  <i class="fa-solid fa-file-pdf text-rose-600 text-sm"></i>
+                  <span>Export PDF</span>
+                </button>
               </div>
             </div>
 
@@ -3738,6 +3743,11 @@
                   class="h-9 px-3.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs sm:text-sm font-bold transition flex items-center space-x-1.5 shadow-3xs shrink-0 cursor-pointer">
                   <i class="fa-solid fa-file-excel text-emerald-600 text-sm"></i>
                   <span>Export Excel</span>
+                </button>
+                <button type="button" onclick="exportStockOutHistoryToPDF()" title="ទាញយក / បោះពុម្ពបញ្ជីប្រវត្តិចេញស្តុកជា PDF (.pdf)"
+                  class="h-9 px-3.5 bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300 rounded-xl text-xs sm:text-sm font-bold transition flex items-center space-x-1.5 shadow-3xs shrink-0 cursor-pointer">
+                  <i class="fa-solid fa-file-pdf text-rose-600 text-sm"></i>
+                  <span>Export PDF</span>
                 </button>
                 <button type="button" onclick="handleStandardizeStockOutSheet()" title="តម្រឹមអក្សរក្បាលទំព័រ Sheet Stock_out លើ Google Sheets ឱ្យបានត្រឹមត្រូវ ២១ ជួរឈរ"
                   class="hidden h-9 px-3 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 border border-amber-300 shadow-3xs shrink-0">
@@ -26250,6 +26260,377 @@
         showConfirmButton: false,
         timer: 3000
       });
+    };
+
+
+    window.exportStockInHistoryToPDF = function() {
+      const list = window._currentStockInDisplayList || AppState.stockInHistory || [];
+      if (!list || list.length === 0) {
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'info',
+          title: 'គ្មានទិន្នន័យ',
+          text: 'មិនមានទិន្នន័យកត់ត្រាទំនិញចូលស្តុកសម្រាប់ Export PDF ទេ',
+          showConfirmButton: false,
+          timer: 3000
+        });
+        return;
+      }
+
+      const companyName = document.getElementById('setCompanyName')?.value || 'ប្រព័ន្ធគ្រប់គ្រងស្តុកទំនិញ';
+      const mStart = (document.getElementById('stockInMonthStart')?.value || '').trim();
+      const mEnd = (document.getElementById('stockInMonthEnd')?.value || '').trim();
+      let dateFilterStr = 'ទិន្នន័យទាំងអស់';
+      if (mStart && mEnd) {
+        dateFilterStr = 'ពីខែ ' + mStart + ' ដល់ ' + mEnd;
+      } else if (mStart) {
+        dateFilterStr = 'គិតចាប់ពីខែ ' + mStart;
+      } else if (mEnd) {
+        dateFilterStr = 'រហូតដល់ខែ ' + mEnd;
+      }
+
+      const activeWh = (typeof getStockInActiveWarehouseFilter === 'function') ? getStockInActiveWarehouseFilter() : 'ALL';
+      const whDisplayName = (activeWh && activeWh !== 'ALL' && activeWh !== 'គ្រប់ស្ថានីយទាំងអស់' && activeWh !== 'គ្រប់ឃ្លាំង') ? activeWh : 'គ្រប់ឃ្លាំង / ស្ថានីយ';
+      const printDate = new Date().toLocaleString('km-KH', { dateStyle: 'medium', timeStyle: 'short' }) || new Date().toLocaleString();
+      const currentUser = AppState.currentUser?.fullName || AppState.currentUser?.username || 'Admin';
+
+      let totalQty = 0;
+      const rows = list.map((t, idx) => {
+        let docId = t.docNo || t.txId || 'N/A';
+        if ((!t.docNo || t.docNo === t.txId || t.docNo.startsWith('TX-')) && t.notes) {
+          const docMatch = t.notes.match(/\[ឯកសារ:\s*([^\]]+)\]/);
+          if (docMatch) docId = docMatch[1].trim();
+        }
+        const dStr = t.date || (t.timestamp ? String(t.timestamp).slice(0, 10) : '');
+        const timeStr = t.time || '';
+        const fullDate = (dStr + ' ' + timeStr).trim() || '-';
+        const q = Number(t.quantity || 0);
+        totalQty += q;
+
+        const sizeStr = t.size && t.size !== '-' ? t.size : '';
+        const colorStr = t.color && t.color !== '-' ? t.color : '';
+        const variantStr = [sizeStr, colorStr].filter(Boolean).join(' / ') || '-';
+        const oldSt = (t.oldStock !== undefined && t.oldStock !== null && t.oldStock !== '-') ? t.oldStock : '-';
+        const newSt = (t.newStock !== undefined && t.newStock !== null && t.newStock !== '-') ? t.newStock : '-';
+        const cleanNote = (typeof cleanDisplayNote === 'function') ? cleanDisplayNote(t.userNote !== undefined ? t.userNote : t.notes) : (t.userNote || t.notes || '-');
+
+        return `
+          <tr>
+            <td style="text-align: center;">${idx + 1}</td>
+            <td style="font-family: monospace; font-weight: 600; color: #047857; white-space: nowrap;">${escapeHtml(docId.replace(/^DOC-/i, ''))}</td>
+            <td style="white-space: nowrap; font-size: 10.5px;">${escapeHtml(fullDate)}</td>
+            <td style="font-family: monospace; font-weight: bold; color: #1e293b;">${escapeHtml(t.sku || t.code || '-')}</td>
+            <td style="font-weight: 600;">${escapeHtml(t.itemName || '-')}</td>
+            <td style="text-align: center; font-size: 10.5px;">${escapeHtml(variantStr)}</td>
+            <td style="text-align: center; font-size: 10.5px;">${escapeHtml(t.zone || '-')}</td>
+            <td style="text-align: center; font-weight: bold; color: #047857; background: #ecfdf5;">+${q} ${escapeHtml(t.unit || 'ដុំ')}</td>
+            <td style="text-align: center; font-size: 10.5px; color: #64748b;">${oldSt} ➔ ${newSt}</td>
+            <td style="font-size: 10.5px;">${escapeHtml(t.toLocation || t.location || t.warehouse || '-')}</td>
+            <td style="font-size: 10.5px;">${escapeHtml(t.receivedBy || t.user || '-')}</td>
+            <td style="font-size: 10px; color: #475569; max-width: 120px;">${escapeHtml(cleanNote)}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const win = window.open('', '_blank');
+      win.document.write(`
+        <!DOCTYPE html>
+        <html lang="km">
+        <head>
+          <meta charset="utf-8">
+          <title>របាយការណ៍ប្រវត្តិកត់ត្រាទំនិញចូលស្តុក - ${new Date().toISOString().slice(0, 10)}</title>
+          <link rel="preconnect" href="https://fonts.googleapis.com">
+          <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+          <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@400;500;600;700&family=Siemreap&display=swap" rel="stylesheet">
+          <style>
+            * { box-sizing: border-box; font-family: 'Kantumruy Pro', 'Siemreap', Arial, sans-serif; }
+            body { padding: 18px; color: #0f172a; font-size: 11px; line-height: 1.4; background: #fff; margin: 0; }
+            .toolbar { display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 10px 16px; border: 1px solid #e2e8f0; border-radius: 10px; margin-bottom: 16px; }
+            .btn-print { background: #059669; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px; }
+            .btn-close { background: #e2e8f0; color: #334155; border: none; padding: 8px 14px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px; }
+            .header-box { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #059669; padding-bottom: 12px; margin-bottom: 12px; }
+            .company-name { font-size: 18px; font-weight: bold; color: #065f46; margin: 0; }
+            .report-title { font-size: 14px; font-weight: bold; color: #0f172a; margin: 3px 0 0 0; }
+            .report-sub { font-size: 11px; color: #64748b; margin-top: 2px; }
+            .meta-box { text-align: right; font-size: 11px; color: #334155; line-height: 1.5; }
+            .summary-bar { display: flex; gap: 12px; margin-bottom: 12px; }
+            .stat-pill { background: #f1f5f9; border: 1px solid #cbd5e1; padding: 6px 12px; border-radius: 8px; font-size: 11px; }
+            .stat-pill b { color: #059669; }
+            table { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+            th { background: #f8fafc; color: #1e293b; font-weight: bold; padding: 6px 5px; border: 1px solid #cbd5e1; text-align: left; }
+            td { padding: 5px; border: 1px solid #e2e8f0; vertical-align: middle; }
+            tr:nth-child(even) { background: #fcfcfd; }
+            .signatures { display: flex; justify-content: space-between; margin-top: 28px; page-break-inside: avoid; }
+            .sig-col { text-align: center; width: 28%; font-size: 11px; }
+            .sig-line { margin-top: 55px; border-top: 1px dashed #94a3b8; padding-top: 4px; color: #64748b; font-size: 10px; }
+            @media print {
+              .toolbar { display: none !important; }
+              body { padding: 0; }
+              @page { size: A4 landscape; margin: 10mm 8mm; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="toolbar">
+            <div><strong>ទាញយករបាយការណ៍ជា PDF</strong> (ជ្រើសរើស Save as PDF ក្នុងប្រអប់ Print Destination)</div>
+            <div>
+              <button class="btn-print" onclick="window.print()">🖨️ បោះពុម្ព / រក្សាទុកជា PDF</button>
+              <button class="btn-close" onclick="window.close()">✕ បិទ</button>
+            </div>
+          </div>
+          <div class="header-box">
+            <div>
+              <h1 class="company-name">${escapeHtml(companyName)}</h1>
+              <div class="report-title">របាយការណ៍ប្រវត្តិកត់ត្រាទំនិញចូលស្តុក (Stock In History Report)</div>
+              <div class="report-sub">កាលបរិច្ឆេទកំណត់៖ <strong>${escapeHtml(dateFilterStr)}</strong> | ឃ្លាំង៖ <strong>${escapeHtml(whDisplayName)}</strong></div>
+            </div>
+            <div class="meta-box">
+              <div><strong>កាលបរិច្ឆេទបង្កើត៖</strong> ${escapeHtml(printDate)}</div>
+              <div><strong>អ្នកទាញយក៖</strong> ${escapeHtml(currentUser)}</div>
+            </div>
+          </div>
+          <div class="summary-bar">
+            <div class="stat-pill">ប្រតិបត្តិការសរុប៖ <b>${list.length}</b></div>
+            <div class="stat-pill">បរិមាណចូលសរុប៖ <b>${totalQty}</b></div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 25px; text-align: center;">ល.រ</th>
+                <th style="width: 110px;">លេខឯកសារ</th>
+                <th style="width: 100px;">កាលបរិច្ឆេទ</th>
+                <th style="width: 75px;">SKU</th>
+                <th>ឈ្មោះទំនិញ</th>
+                <th style="width: 75px; text-align: center;">ខ្នាត/ពណ៌</th>
+                <th style="width: 45px; text-align: center;">តំបន់</th>
+                <th style="width: 75px; text-align: center;">ចំនួនចូល</th>
+                <th style="width: 80px; text-align: center;">ស្តុកចាស់➔ថ្មី</th>
+                <th style="width: 95px;">ឃ្លាំងទទួល</th>
+                <th style="width: 80px;">អ្នកទទួល</th>
+                <th style="width: 110px;">កំណត់ចំណាំ</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+            </tbody>
+          </table>
+          <div class="signatures">
+            <div class="sig-col">
+              <b>អ្នករៀបចំរបាយការណ៍</b>
+              <div class="sig-line">ហត្ថលេខា & ឈ្មោះ</div>
+            </div>
+            <div class="sig-col">
+              <b>អ្នកគ្រប់គ្រងឃ្លាំង</b>
+              <div class="sig-line">ហត្ថលេខា & ឈ្មោះ</div>
+            </div>
+            <div class="sig-col">
+              <b>ប្រធានផ្នែក / អភិបាល</b>
+              <div class="sig-line">ហត្ថលេខា & ឈ្មោះ</div>
+            </div>
+          </div>
+          <sc` + `ript>
+            window.onload = function() {
+              window.focus();
+              setTimeout(function() { window.print(); }, 250);
+            };
+          </sc` + `ript>
+        </body>
+        </html>
+      `);
+      win.document.close();
+    };
+
+    window.exportStockOutHistoryToPDF = function() {
+      const list = window._currentStockOutDisplayList || AppState.stockOutHistory || [];
+      if (!list || list.length === 0) {
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'info',
+          title: 'គ្មានទិន្នន័យ',
+          text: 'មិនមានទិន្នន័យកត់ត្រាទំនិញចេញពីស្តុកសម្រាប់ Export PDF ទេ',
+          showConfirmButton: false,
+          timer: 3000
+        });
+        return;
+      }
+
+      const companyName = document.getElementById('setCompanyName')?.value || 'ប្រព័ន្ធគ្រប់គ្រងស្តុកទំនិញ';
+      const mStart = (document.getElementById('stockOutMonthStart')?.value || '').trim();
+      const mEnd = (document.getElementById('stockOutMonthEnd')?.value || '').trim();
+      let dateFilterStr = 'ទិន្នន័យទាំងអស់';
+      if (mStart && mEnd) {
+        dateFilterStr = 'ពីខែ ' + mStart + ' ដល់ ' + mEnd;
+      } else if (mStart) {
+        dateFilterStr = 'គិតចាប់ពីខែ ' + mStart;
+      } else if (mEnd) {
+        dateFilterStr = 'រហូតដល់ខែ ' + mEnd;
+      }
+
+      const activeWh = (typeof getStockOutActiveWarehouseFilter === 'function') ? getStockOutActiveWarehouseFilter() : 'ALL';
+      const whDisplayName = (activeWh && activeWh !== 'ALL' && activeWh !== 'គ្រប់ស្ថានីយទាំងអស់' && activeWh !== 'គ្រប់ឃ្លាំង') ? activeWh : 'គ្រប់ឃ្លាំង / ស្ថានីយ';
+      const printDate = new Date().toLocaleString('km-KH', { dateStyle: 'medium', timeStyle: 'short' }) || new Date().toLocaleString();
+      const currentUser = AppState.currentUser?.fullName || AppState.currentUser?.username || 'Admin';
+
+      let totalQty = 0;
+      const rows = list.map((t, idx) => {
+        let docId = t.docNo || t.txId || 'N/A';
+        if ((!t.docNo || t.docNo === t.txId || t.docNo.startsWith('TX-')) && t.notes) {
+          const docMatch = t.notes.match(/\[ឯកសារ:\s*([^\]]+)\]/);
+          if (docMatch) docId = docMatch[1].trim();
+        }
+        const dStr = t.date || (t.timestamp ? String(t.timestamp).slice(0, 10) : '');
+        const timeStr = t.time || '';
+        const fullDate = (dStr + ' ' + timeStr).trim() || '-';
+        const q = Number(t.quantity || 0);
+        totalQty += q;
+
+        let issuer = t.issuer || t.user || '';
+        if ((!issuer || issuer === '-' || issuer === 'Admin' || issuer === 'superadmin') && t.notes) {
+          const issMatch = t.notes.match(/\[អ្នកបើក(?:ទំនិញ)?:\s*([^\]]+)\]/);
+          if (issMatch) issuer = issMatch[1].trim();
+        }
+        if (!issuer) issuer = t.user || '-';
+
+        let reasonStr = t.reason || '';
+        if (!reasonStr && t.notes && t.notes.includes('[មូលហេតុ:')) {
+          const m = t.notes.match(/\[មូលហេតុ:\s*([^\]]+)\]/);
+          if (m) reasonStr = m[1];
+        }
+        if (!reasonStr) reasonStr = 'ដកប្រើប្រាស់';
+
+        const sizeStr = t.size && t.size !== '-' ? t.size : '';
+        const colorStr = t.color && t.color !== '-' ? t.color : '';
+        const variantStr = [sizeStr, colorStr].filter(Boolean).join(' / ') || '-';
+        const oldSt = (t.oldStock !== undefined && t.oldStock !== null && t.oldStock !== '-') ? t.oldStock : '-';
+        const newSt = (t.newStock !== undefined && t.newStock !== null && t.newStock !== '-') ? t.newStock : '-';
+        const cleanNote = (typeof cleanDisplayNote === 'function') ? cleanDisplayNote(t.userNote !== undefined ? t.userNote : t.notes) : (t.userNote || t.notes || '-');
+
+        return `
+          <tr>
+            <td style="text-align: center;">${idx + 1}</td>
+            <td style="font-family: monospace; font-weight: 600; color: #b45309; white-space: nowrap;">${escapeHtml(docId.replace(/^DOC-/i, ''))}</td>
+            <td style="white-space: nowrap; font-size: 10.5px;">${escapeHtml(fullDate)}</td>
+            <td style="font-family: monospace; font-weight: bold; color: #1e293b;">${escapeHtml(t.sku || t.code || '-')}</td>
+            <td style="font-weight: 600;">${escapeHtml(t.itemName || '-')}</td>
+            <td style="text-align: center; font-size: 10.5px;">${escapeHtml(variantStr)}</td>
+            <td style="text-align: center; font-weight: bold; color: #b45309; background: #fffbeb;">-${q} ${escapeHtml(t.unit || 'ដុំ')}</td>
+            <td style="text-align: center; font-size: 10.5px; color: #64748b;">${oldSt} ➔ ${newSt}</td>
+            <td style="font-size: 10.5px;">${escapeHtml(t.toLocation || t.location || '-')}</td>
+            <td style="font-size: 10.5px;">${escapeHtml(reasonStr)}</td>
+            <td style="font-size: 10.5px;">${escapeHtml(issuer)}</td>
+            <td style="font-size: 10px; color: #475569; max-width: 120px;">${escapeHtml(cleanNote)}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const win = window.open('', '_blank');
+      win.document.write(`
+        <!DOCTYPE html>
+        <html lang="km">
+        <head>
+          <meta charset="utf-8">
+          <title>របាយការណ៍ប្រវត្តិកត់ត្រាទំនិញចេញពីស្តុក - ${new Date().toISOString().slice(0, 10)}</title>
+          <link rel="preconnect" href="https://fonts.googleapis.com">
+          <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+          <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@400;500;600;700&family=Siemreap&display=swap" rel="stylesheet">
+          <style>
+            * { box-sizing: border-box; font-family: 'Kantumruy Pro', 'Siemreap', Arial, sans-serif; }
+            body { padding: 18px; color: #0f172a; font-size: 11px; line-height: 1.4; background: #fff; margin: 0; }
+            .toolbar { display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 10px 16px; border: 1px solid #e2e8f0; border-radius: 10px; margin-bottom: 16px; }
+            .btn-print { background: #b45309; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px; }
+            .btn-close { background: #e2e8f0; color: #334155; border: none; padding: 8px 14px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px; }
+            .header-box { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #b45309; padding-bottom: 12px; margin-bottom: 12px; }
+            .company-name { font-size: 18px; font-weight: bold; color: #92400e; margin: 0; }
+            .report-title { font-size: 14px; font-weight: bold; color: #0f172a; margin: 3px 0 0 0; }
+            .report-sub { font-size: 11px; color: #64748b; margin-top: 2px; }
+            .meta-box { text-align: right; font-size: 11px; color: #334155; line-height: 1.5; }
+            .summary-bar { display: flex; gap: 12px; margin-bottom: 12px; }
+            .stat-pill { background: #f1f5f9; border: 1px solid #cbd5e1; padding: 6px 12px; border-radius: 8px; font-size: 11px; }
+            .stat-pill b { color: #b45309; }
+            table { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+            th { background: #f8fafc; color: #1e293b; font-weight: bold; padding: 6px 5px; border: 1px solid #cbd5e1; text-align: left; }
+            td { padding: 5px; border: 1px solid #e2e8f0; vertical-align: middle; }
+            tr:nth-child(even) { background: #fcfcfd; }
+            .signatures { display: flex; justify-content: space-between; margin-top: 28px; page-break-inside: avoid; }
+            .sig-col { text-align: center; width: 28%; font-size: 11px; }
+            .sig-line { margin-top: 55px; border-top: 1px dashed #94a3b8; padding-top: 4px; color: #64748b; font-size: 10px; }
+            @media print {
+              .toolbar { display: none !important; }
+              body { padding: 0; }
+              @page { size: A4 landscape; margin: 10mm 8mm; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="toolbar">
+            <div><strong>ទាញយករបាយការណ៍ជា PDF</strong> (ជ្រើសរើស Save as PDF ក្នុងប្រអប់ Print Destination)</div>
+            <div>
+              <button class="btn-print" onclick="window.print()">🖨️ បោះពុម្ព / រក្សាទុកជា PDF</button>
+              <button class="btn-close" onclick="window.close()">✕ បិទ</button>
+            </div>
+          </div>
+          <div class="header-box">
+            <div>
+              <h1 class="company-name">${escapeHtml(companyName)}</h1>
+              <div class="report-title">របាយការណ៍ប្រវត្តិកត់ត្រាទំនិញចេញពីស្តុក (Stock Out History Report)</div>
+              <div class="report-sub">កាលបរិច្ឆេទកំណត់៖ <strong>${escapeHtml(dateFilterStr)}</strong> | ឃ្លាំង/ទីតាំង៖ <strong>${escapeHtml(whDisplayName)}</strong></div>
+            </div>
+            <div class="meta-box">
+              <div><strong>កាលបរិច្ឆេទបង្កើត៖</strong> ${escapeHtml(printDate)}</div>
+              <div><strong>អ្នកទាញយក៖</strong> ${escapeHtml(currentUser)}</div>
+            </div>
+          </div>
+          <div class="summary-bar">
+            <div class="stat-pill">ប្រតិបត្តិការសរុប៖ <b>${list.length}</b></div>
+            <div class="stat-pill">បរិមាណបើកចេញសរុប៖ <b>${totalQty}</b></div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 25px; text-align: center;">ល.រ</th>
+                <th style="width: 110px;">លេខឯកសារ</th>
+                <th style="width: 100px;">កាលបរិច្ឆេទ</th>
+                <th style="width: 75px;">SKU</th>
+                <th>ឈ្មោះទំនិញ</th>
+                <th style="width: 75px; text-align: center;">ខ្នាត/ពណ៌</th>
+                <th style="width: 75px; text-align: center;">ចំនួនបើកចេញ</th>
+                <th style="width: 80px; text-align: center;">ស្តុកចាស់➔នៅសល់</th>
+                <th style="width: 105px;">ទៅកាន់ទីតាំង</th>
+                <th style="width: 80px;">មូលហេតុ</th>
+                <th style="width: 80px;">អ្នកបើក</th>
+                <th style="width: 110px;">កំណត់ចំណាំ</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+            </tbody>
+          </table>
+          <div class="signatures">
+            <div class="sig-col">
+              <b>អ្នករៀបចំរបាយការណ៍</b>
+              <div class="sig-line">ហត្ថលេខា & ឈ្មោះ</div>
+            </div>
+            <div class="sig-col">
+              <b>អ្នកបើកចេញ / ស្នើសុំ</b>
+              <div class="sig-line">ហត្ថលេខា & ឈ្មោះ</div>
+            </div>
+            <div class="sig-col">
+              <b>ប្រធានឃ្លាំង / អភិបាល</b>
+              <div class="sig-line">ហត្ថលេខា & ឈ្មោះ</div>
+            </div>
+          </div>
+          <sc` + `ript>
+            window.onload = function() {
+              window.focus();
+              setTimeout(function() { window.print(); }, 250);
+            };
+          </sc` + `ript>
+        </body>
+        </html>
+      `);
+      win.document.close();
     };
 
 function filterStockInHistoryTable() {
