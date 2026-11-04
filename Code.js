@@ -62,7 +62,8 @@ function authorizeScopes() {
 
 const DEFAULT_TELEGRAM_BOT_TOKEN = '8292690919:AAFVJciyoebmTKPxg5rYsyMv56Ol2jzpibY';
 
-const DEFAULT_TELEGRAM_CHAT_ID = '1197248107';
+const DEFAULT_TELEGRAM_CHAT_ID = '1197248107'; // SuperAdmin Telegram ID
+const DEFAULT_TELEGRAM_ADMIN_CHAT_ID = '733243990'; // Admin Telegram ID
 
 
 
@@ -93,13 +94,13 @@ function onOpen(e) {
 
  */
 
-function sendTelegramAlert(messageText, replyMarkup) {
+function sendTelegramAlert(messageText, replyMarkup, targetChatIds) {
 
   try {
 
     if (typeof sendTelegramNotification === 'function') {
 
-      return sendTelegramNotification(messageText, replyMarkup);
+      return sendTelegramNotification(messageText, replyMarkup, targetChatIds);
 
     }
 
@@ -1331,7 +1332,9 @@ function setupDatabase() {
 
     setSheet.appendRow(['TELEGRAM_BOT_TOKEN', DEFAULT_TELEGRAM_BOT_TOKEN, 'Telegram Bot API Token']);
 
-    setSheet.appendRow(['TELEGRAM_CHAT_ID', DEFAULT_TELEGRAM_CHAT_ID, 'Telegram Group/Channel Chat ID']);
+    setSheet.appendRow(['TELEGRAM_CHAT_ID', DEFAULT_TELEGRAM_CHAT_ID, 'Telegram SuperAdmin Chat ID']);
+
+    setSheet.appendRow(['TELEGRAM_ADMIN_CHAT_ID', DEFAULT_TELEGRAM_ADMIN_CHAT_ID, 'Telegram Admin Chat ID សម្រាប់ Approve គណនី']);
 
     setSheet.appendRow(['ENABLE_LOW_STOCK_ALERT', 'TRUE', 'បើក/បិទ ការជូនដំណឹងស្តុកទាប']);
 
@@ -10184,87 +10187,89 @@ function getRecentMovementTrend(txData, targetWarehouse) {
 
 
 
-function sendTelegramNotification(messageText, replyMarkup) {
+function sendTelegramNotification(messageText, replyMarkup, targetChatIds) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const settings = getSettingsMap(ss);
 
     let token = (settings && settings['TELEGRAM_BOT_TOKEN']) ? settings['TELEGRAM_BOT_TOKEN'] : DEFAULT_TELEGRAM_BOT_TOKEN;
-    let chatId = (settings && settings['TELEGRAM_CHAT_ID']) ? settings['TELEGRAM_CHAT_ID'] : DEFAULT_TELEGRAM_CHAT_ID;
+    let defaultChat = (settings && settings['TELEGRAM_CHAT_ID']) ? String(settings['TELEGRAM_CHAT_ID']).trim() : DEFAULT_TELEGRAM_CHAT_ID;
+    let adminChat = (settings && settings['TELEGRAM_ADMIN_CHAT_ID']) ? String(settings['TELEGRAM_ADMIN_CHAT_ID']).trim() : DEFAULT_TELEGRAM_ADMIN_CHAT_ID;
 
-    if (!token || !chatId) return false;
-
-
-
-    const url = `https://api.telegram.org/bot${token}/sendMessage`;
-
-    const payload = {
-
-      chat_id: chatId,
-
-      text: messageText,
-
-      parse_mode: 'HTML'
-
-    };
-
-    if (replyMarkup) {
-
-      payload.reply_markup = replyMarkup;
-
+    let chatIds = [];
+    if (targetChatIds) {
+      if (Array.isArray(targetChatIds)) {
+        chatIds = targetChatIds.slice();
+      } else if (typeof targetChatIds === 'string' || typeof targetChatIds === 'number') {
+        chatIds = String(targetChatIds).split(',').map(s => s.trim()).filter(Boolean);
+      }
     }
 
+    if (chatIds.length === 0) {
+      if (defaultChat) {
+        defaultChat.split(',').forEach(c => {
+          const trimmed = c.trim();
+          if (trimmed && !chatIds.includes(trimmed)) chatIds.push(trimmed);
+        });
+      }
+      if (adminChat) {
+        adminChat.split(',').forEach(c => {
+          const trimmed = c.trim();
+          if (trimmed && !chatIds.includes(trimmed)) chatIds.push(trimmed);
+        });
+      }
+      if (!chatIds.includes(DEFAULT_TELEGRAM_CHAT_ID)) {
+        chatIds.push(DEFAULT_TELEGRAM_CHAT_ID);
+      }
+      if (!chatIds.includes(DEFAULT_TELEGRAM_ADMIN_CHAT_ID)) {
+        chatIds.push(DEFAULT_TELEGRAM_ADMIN_CHAT_ID);
+      }
+    }
 
+    if (!token || chatIds.length === 0) return false;
 
-    const options = {
-
-      method: 'post',
-
-      contentType: 'application/json',
-
-      payload: JSON.stringify(payload),
-
-      muteHttpExceptions: true
-
-    };
-
-
-
-    const res = UrlFetchApp.fetch(url, options);
-
-    const resJson = JSON.parse(res.getContentText());
-
-    return resJson.ok;
-
+    let atLeastOneSuccess = false;
+    for (let i = 0; i < chatIds.length; i++) {
+      const cId = chatIds[i];
+      try {
+        const url = `https://api.telegram.org/bot${token}/sendMessage`;
+        const payload = {
+          chat_id: cId,
+          text: messageText,
+          parse_mode: 'HTML'
+        };
+        if (replyMarkup) {
+          payload.reply_markup = replyMarkup;
+        }
+        const options = {
+          method: 'post',
+          contentType: 'application/json',
+          payload: JSON.stringify(payload),
+          muteHttpExceptions: true
+        };
+        const res = UrlFetchApp.fetch(url, options);
+        const resJson = JSON.parse(res.getContentText());
+        if (resJson && resJson.ok) {
+          atLeastOneSuccess = true;
+        } else {
+          Logger.log('Telegram send failed for chat ' + cId + ': ' + res.getContentText());
+        }
+      } catch (postErr) {
+        Logger.log('Telegram fetch error for chat ' + cId + ': ' + postErr.toString());
+      }
+    }
+    return atLeastOneSuccess;
   } catch (err) {
-
     Logger.log('Telegram Error: ' + err.toString());
-
     return false;
-
   }
-
 }
 
-
-
-/**
-
- * ផ្ញើសារ Alert ទៅកាន់ Telegram Bot / Group
-
- * @param {string} messageText សារដែលត្រូវផ្ញើ (ជា HTML format)
-
- * @param {object} replyMarkup Optional inline keyboard
-
- * @return {boolean} ស្ថានភាពផ្ញើជោគជ័យ ឬបរាជ័យ
-
- */
-
-function sendTelegramAlert(messageText, replyMarkup) {
+function sendTelegramAlert(messageText, replyMarkup, targetChatIds) {
 
   try {
 
-    return sendTelegramNotification(messageText, replyMarkup);
+    return sendTelegramNotification(messageText, replyMarkup, targetChatIds);
 
   } catch (err) {
 
@@ -10458,6 +10463,7 @@ function getSettingsMap(ss) {
   const map = {
     'TELEGRAM_BOT_TOKEN': DEFAULT_TELEGRAM_BOT_TOKEN,
     'TELEGRAM_CHAT_ID': DEFAULT_TELEGRAM_CHAT_ID,
+    'TELEGRAM_ADMIN_CHAT_ID': DEFAULT_TELEGRAM_ADMIN_CHAT_ID,
     'ENABLE_LOW_STOCK_ALERT': 'TRUE',
     'ALERT_EMAIL': 'chenlongqmi@gmail.com',
     'DRIVE_IMAGE_FOLDER_ID': DEFAULT_DRIVE_FOLDER_ID,
