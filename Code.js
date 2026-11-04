@@ -682,6 +682,7 @@ function executeLocalApiAction(req) {
     const MUTATIONS = {
       'recordStockIn': true, 'recordStockOut': true, 'adjustStock': true, 'recordStockTransfer': true,
       'saveOrUpdateItem': true, 'saveItem': true, 'createProduct': true, 'updateProduct': true, 'deleteItem': true,
+      'resetItemsStockToZero': true, 'resetStockToZero': true,
       'registerUser': true, 'register': true, 'verifyOtpAndRegister': true, 'approveUser': true, 'rejectUser': true,
       'updateUserStatus': true, 'deleteUser': true, 'requestUserDeletion': true, 'approveUserDeletion': true, 'rejectUserDeletion': true,
       'resetUsersKeepSuperAdminOnly': true,
@@ -885,6 +886,10 @@ function executeLocalApiAction(req) {
         setupDatabase();
 
         return { success: true, message: 'បានដំឡើងរចនាសម្ព័ន្ធ Google Sheets ជោគជ័យ' };
+
+      case 'resetItemsStockToZero':
+      case 'resetStockToZero':
+        return resetItemsStockToZero(payload, payload.user || payload.actor);
 
       case 'cleanAndReplaceAllItems':
       case 'resetAndCleanItems':
@@ -10890,6 +10895,56 @@ function logActivity(user, role, action, details) {
 /**
  * បោសសម្អាត និងរៀបចំទិន្នន័យទំនិញទាំងអស់ក្នុង Sheet Items ឡើងវិញជាស្តង់ដារ ១០០%
  */
+function resetItemsStockToZero(payload, user) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const itemsSheet = ss.getSheetByName(SHEETS.ITEMS);
+  if (!itemsSheet || itemsSheet.getLastRow() <= 1) {
+    return { success: false, message: 'រកមិនឃើញតារាង Items ទេ' };
+  }
+
+  const targetSkus = (payload && Array.isArray(payload.skus) && payload.skus.length > 0)
+    ? payload.skus.map(s => String(s).trim().toUpperCase())
+    : ['SKU-7501', 'SKU-2089', 'SKU-9816', 'SKU-2021'];
+
+  const data = itemsSheet.getDataRange().getValues();
+  const headers = (data[0] || []).map(h => String(h || '').trim().toLowerCase());
+  const idxSku = headers.indexOf('sku') >= 0 ? headers.indexOf('sku') : 0;
+  const idxCurrentStock = headers.indexOf('currentstock') >= 0 ? headers.indexOf('currentstock') : 8;
+  const idxPackStock = headers.indexOf('packstock') >= 0 ? headers.indexOf('packstock') : headers.indexOf('bulkstock');
+  const idxUpdatedAt = headers.indexOf('updatedat') >= 0 ? headers.indexOf('updatedat') : -1;
+
+  let resetCount = 0;
+  const resetList = [];
+  const now = new Date();
+
+  for (let r = 1; r < data.length; r++) {
+    const rowSku = String(data[r][idxSku] || '').trim().toUpperCase();
+    if (targetSkus.indexOf(rowSku) >= 0) {
+      const oldStock = Number(data[r][idxCurrentStock] || 0);
+      itemsSheet.getRange(r + 1, idxCurrentStock + 1).setValue(0);
+      if (idxPackStock >= 0) {
+        itemsSheet.getRange(r + 1, idxPackStock + 1).setValue(0);
+      }
+      if (idxUpdatedAt >= 0) {
+        itemsSheet.getRange(r + 1, idxUpdatedAt + 1).setValue(now);
+      }
+      resetCount++;
+      resetList.push({ sku: rowSku, oldStock: oldStock, newStock: 0 });
+    }
+  }
+
+  try {
+    invalidateAppCache();
+    setGlobalDataVersion();
+  } catch (cErr) {}
+
+  return {
+    success: true,
+    message: 'បានកំណត់ស្តុកទៅជា ០ ជោគជ័យសម្រាប់មុខទំនិញចំនួន ' + resetCount + ' មុខ!',
+    resetList: resetList
+  };
+}
+
 function cleanAndReplaceAllItems(itemsListOrPayload, username) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();

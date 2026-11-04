@@ -7794,7 +7794,7 @@
           sellingPrice: 0.80,
           minStock: 1,
           minStockPercent: 10,
-          currentStock: 96,
+          currentStock: 0,
           location: '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
           notes: 'សាកល្បង',
           createdBy: 'ចាន់ តារា',
@@ -7890,7 +7890,7 @@
           sellingPrice: 1.80,
           minStock: 1,
           minStockPercent: 10,
-          currentStock: 5,
+          currentStock: 0,
           location: '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
           notes: 'សាកល្បង',
           createdBy: '陈龙',
@@ -7914,7 +7914,7 @@
           sellingPrice: 4.00,
           minStock: 1,
           minStockPercent: 10,
-          currentStock: 4,
+          currentStock: 0,
           location: '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)',
           notes: '-',
           createdBy: 'ឌិត វ៉ាន់ស៊ីញ',
@@ -8880,7 +8880,7 @@
             sellingPrice: 0.80,
             minStock: 1,
             minStockPercent: 10,
-            currentStock: 96,
+            currentStock: 0,
             location: 'គ្រប់ស្ថានីយទាំងអស់',
             notes: 'សាកល្បង',
             createdBy: 'ចាន់ តារា',
@@ -8976,7 +8976,7 @@
             sellingPrice: 1.80,
             minStock: 1,
             minStockPercent: 10,
-            currentStock: 5,
+            currentStock: 0,
             location: 'គ្រប់ស្ថានីយទាំងអស់',
             notes: 'សាកល្បង',
             createdBy: '陈龙',
@@ -9000,7 +9000,7 @@
             sellingPrice: 4.00,
             minStock: 1,
             minStockPercent: 10,
-            currentStock: 4,
+            currentStock: 0,
             location: 'គ្រប់ស្ថានីយទាំងអស់',
             notes: '-',
             createdBy: 'ឌិត វ៉ាន់ស៊ីញ',
@@ -9024,7 +9024,7 @@
             sellingPrice: 8.00,
             minStock: 5,
             minStockPercent: 10,
-            currentStock: 5,
+            currentStock: 0,
             location: 'គ្រប់ស្ថានីយទាំងអស់',
             notes: 'ម៉ាស៊ីនគិតលេខសម្រាប់រដ្ឋបាល',
             createdBy: 'ស្រី មាន',
@@ -9053,16 +9053,13 @@
               createdAt: authItem.createdAt,
               costPrice: (cleanedItems[exIdx].costPrice && Number(cleanedItems[exIdx].costPrice) > 0) ? Number(cleanedItems[exIdx].costPrice) : authItem.costPrice,
               sellingPrice: (cleanedItems[exIdx].sellingPrice && Number(cleanedItems[exIdx].sellingPrice) > 0) ? Number(cleanedItems[exIdx].sellingPrice) : authItem.sellingPrice,
-              currentStock: (cleanedItems[exIdx].currentStock !== undefined && cleanedItems[exIdx].currentStock !== null && !isNaN(Number(cleanedItems[exIdx].currentStock)) && Number(cleanedItems[exIdx].currentStock) > 0) ? Number(cleanedItems[exIdx].currentStock) : (authItem.currentStock || 0),
+              currentStock: (cleanedItems[exIdx].currentStock !== undefined && cleanedItems[exIdx].currentStock !== null && !isNaN(Number(cleanedItems[exIdx].currentStock))) ? Number(cleanedItems[exIdx].currentStock) : (authItem.currentStock || 0),
               minStock: authItem.minStock !== undefined ? authItem.minStock : (cleanedItems[exIdx].minStock || 1),
               minStockPercent: authItem.minStockPercent || cleanedItems[exIdx].minStockPercent || 10,
               notes: cleanedItems[exIdx].notes || authItem.notes,
               zone: cleanedItems[exIdx].zone || authItem.zone,
               imageUrl: cleanedItems[exIdx].imageUrl || authItem.imageUrl
             };
-            if (cleanedItems[exIdx].sku === 'SKU-7501' && Number(cleanedItems[exIdx].currentStock) === 95) {
-              cleanedItems[exIdx].currentStock = 96;
-            }
           }
         });
 
@@ -9122,6 +9119,15 @@
                 item.zone = '-';
                 item.minStock = 2;
                 item.category = 'គ្រឿងបរិក្ខារអេឡិចត្រូនិច និងអគ្គិសនី-机电设备';
+                if (Array.isArray(item.zoneBreakdown)) item.zoneBreakdown = [];
+              }
+            }
+            if (['SKU-7501', 'SKU-2089', 'SKU-9816', 'SKU-2021'].includes(k)) {
+              const hasInTx = Array.isArray(LOCAL_DB.transactions) && LOCAL_DB.transactions.some(tx => tx.sku === k && (tx.type === 'STOCK_IN' || tx.type === 'IN'));
+              if (!hasInTx) {
+                item.currentStock = 0;
+                item.packStock = 0;
+                item.zone = '-';
                 if (Array.isArray(item.zoneBreakdown)) item.zoneBreakdown = [];
               }
             }
