@@ -31477,8 +31477,8 @@
             // Background Telegram Alert to Admin
             try {
               const tgToken = AppState.settings?.TELEGRAM_BOT_TOKEN || localStorage.getItem('inventory_tg_token') || DEFAULT_TG_BOT_TOKEN;
-              const tgChatId = AppState.settings?.TELEGRAM_CHAT_ID || localStorage.getItem('inventory_tg_chatid') || DEFAULT_TG_CHAT_ID;
-              if (tgToken && tgChatId) {
+              const adminChatId = DEFAULT_TG_ADMIN_CHAT_ID;
+              if (tgToken && adminChatId) {
                 const creatorName = AppState.currentUser?.fullName || AppState.currentUser?.username || 'Station Manager';
                 const alertMsg = `📋 <b>[សំណើបន្ថែមបុគ្គលិកថ្មីដោយអ្នកគ្រប់គ្រងស្ថានីយ]</b>\n` +
                   `👤 <b>ឈ្មោះបុគ្គលិក:</b> ${userData.fullName}\n` +
@@ -31496,7 +31496,7 @@
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
-                    chat_id: tgChatId,
+                    chat_id: adminChatId,
                     text: alertMsg,
                     parse_mode: 'HTML'
                   })
@@ -34376,15 +34376,8 @@
           `🚦 <b>ស្ថានភាព:</b> ⏳ <b>រង់ចាំ Admin ពិនិត្យ & អនុម័ត</b>\n\n` +
           `👉 <b>សូម Admin ចុចប៊ូតុងខាងក្រោមដើម្បី អនុម័ត (Approve) តាម Telegram៖</b>`;
 
-        const chatIdsToSend = [];
-        if (tgChatId) {
-          String(tgChatId).split(',').forEach(c => {
-            const trimmed = c.trim();
-            if (trimmed && !chatIdsToSend.includes(trimmed)) chatIdsToSend.push(trimmed);
-          });
-        }
-        if (!chatIdsToSend.includes(DEFAULT_TG_ADMIN_CHAT_ID)) chatIdsToSend.push(DEFAULT_TG_ADMIN_CHAT_ID);
-        if (!chatIdsToSend.includes(DEFAULT_TG_CHAT_ID)) chatIdsToSend.push(DEFAULT_TG_CHAT_ID);
+        // Registration approval requests go EXCLUSIVELY to Admin
+        const chatIdsToSend = [DEFAULT_TG_ADMIN_CHAT_ID];
 
         let sentSuccess = false;
         let lastError = '';

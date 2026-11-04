@@ -334,22 +334,23 @@ function handleTelegramUserApproval(userId, username, targetStatus) {
 
     if (targetStatus === 'Active') {
 
+      // 1. Send report to SuperAdmin
       sendTelegramAlert(`📊 <b>[របាយការណ៍ជូន Superadmin៖ Admin បានអនុម័តគណនីថ្មីរួចរាល់]</b>\n` +
-
         `👤 <b>ឈ្មោះពេញ:</b> ${userFullName}\n` +
-
         `🆔 <b>Username:</b> <code>@${username}</code>\n` +
-
         `💼 <b>តួនាទី:</b> ${userRole}\n` +
-
         `🏢 <b>ស្ថានីយ/ឃ្លាំង:</b> ${userWh}\n` +
-
         `👑 <b>អនុម័តដោយ Admin:</b> Telegram (@${username})\n` +
-
         `⏰ <b>កាលបរិច្ឆេទ:</b> ${Utilities.formatDate(new Date(), 'GMT+7', 'dd/MM/yyyy, HH:mm:ss')}\n` +
+        `✅ <b>ស្ថានភាព:</b> 🟢 <b>Active (គណនីបើកដំណើរការរួចរាល់ - ព័ត៌មានជម្រាបជូន Superadmin ជ្រាបជារបាយការណ៍)</b>`,
+        null,
+        [DEFAULT_TELEGRAM_CHAT_ID]
+      );
 
-        `✅ <b>ស្ថានភាព:</b> 🟢 <b>Active (គណនីបើកដំណើរការរួចរាល់ - ព័ត៌មានជម្រាបជូន Superadmin ជ្រាបជារបាយការណ៍)</b>`
-
+      // 2. Send confirmation to Admin
+      sendTelegramAlert(`✅ <b>[ការអនុម័តជោគជ័យ]</b>\nលោកអ្នកបានអនុម័តគណនី <b>${userFullName}</b> (@${username}) រួចរាល់។ គណនីនេះអាច Login ចូលប្រើប្រាស់បានភ្លាមៗ ហើយប្រព័ន្ធបានផ្ញើជារបាយការណ៍ជូនដំណឹងទៅ SuperAdmin រួចរាល់ហើយ។`,
+        null,
+        [DEFAULT_TELEGRAM_ADMIN_CHAT_ID]
       );
 
 
@@ -428,13 +429,15 @@ function handleTelegramUserApproval(userId, username, targetStatus) {
 
     } else {
 
-      sendTelegramAlert(`❌ <b>[បានបដិសេធសំណើ]</b>\n` +
-
-        `👤 <b>គណនី:</b> ${username} (${userFullName})\n` +
-
-        `🚫 សំណើសុំចុះឈ្មោះត្រូវបាន Admin បដិសេធ (Rejected)។`
-
+      // 1. Report to SuperAdmin
+      sendTelegramAlert(`❌ <b>[របាយការណ៍ជូន Superadmin៖ Admin បានបដិសេធសំណើ]</b>\n` +
+        `👤 <b>គណនី:</b> @${username} (${userFullName})\n` +
+        `🚫 សំណើសុំចុះឈ្មោះត្រូវបាន Admin បដិសេធ (Rejected)។`,
+        null,
+        [DEFAULT_TELEGRAM_CHAT_ID]
       );
+      // 2. Confirm to Admin
+      sendTelegramAlert(`❌ លោកអ្នកបានបដិសេធសំណើគណនី @${username} (${userFullName}) រួចរាល់។`, null, [DEFAULT_TELEGRAM_ADMIN_CHAT_ID]);
 
 
 
@@ -3023,7 +3026,8 @@ function registerUser(userData) {
       `🚦 <b>ស្ថានភាព:</b> ⏳ <b>រង់ចាំ Admin ពិនិត្យ & អនុម័ត</b>\n\n` +
       `👉 <b>សូម Admin ចុចប៊ូតុងខាងក្រោមដើម្បី អនុម័ត (Approve) តាម Telegram៖</b>`;
 
-    sendTelegramAlert(regAlert, replyMarkup);
+    // Dispatch Immediate Telegram Alert with One-Click Approve/Reject buttons EXCLUSIVELY to Admin
+    sendTelegramAlert(regAlert, replyMarkup, [DEFAULT_TELEGRAM_ADMIN_CHAT_ID]);
 
 
     // Internal Admin Email Notification via MailApp to singvan327@gmail.com
@@ -3890,7 +3894,7 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
             `⏰ <b>កាលបរិច្ឆេទ:</b> ${Utilities.formatDate(new Date(), 'GMT+7', 'dd/MM/yyyy, HH:mm:ss')}\n` +
             `✅ <b>ស្ថានភាព:</b> 🟢 <b>Active (គណនីបើកដំណើរការរួចរាល់ - SuperAdmin មិនចាំបាច់អនុម័តទេ)</b>`;
 
-          sendTelegramAlert(alertMsg);
+          sendTelegramAlert(alertMsg, null, [DEFAULT_TELEGRAM_CHAT_ID]);
         } catch (e) {}
       }
 
@@ -3977,7 +3981,8 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
 
 
 
-          sendTelegramAlert(regAlert, replyMarkup);
+          // Dispatch Immediate Telegram Alert with One-Click Approve/Reject buttons EXCLUSIVELY to Admin
+    sendTelegramAlert(regAlert, replyMarkup, [DEFAULT_TELEGRAM_ADMIN_CHAT_ID]);
 
         } catch (tgErr) {
 
