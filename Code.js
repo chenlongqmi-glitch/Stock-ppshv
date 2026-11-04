@@ -4899,6 +4899,7 @@ function getBootstrapData(payload) {
   var uRole = String(user && user.role || '').toLowerCase();
   var uName = String(user && user.username || '').toLowerCase();
   var uEmail = String(user && user.email || '').toLowerCase();
+  var isSuperAdmin = uRole === 'superadmin' || uName === 'superadmin' || uName === 'chenlong' || uEmail === 'chenlongqmi@gmail.com' || (user && user.isSuperAdmin === true);
   var isRegularUser = uRole.includes('ស្ថានីយ') ||
     uRole.includes('កាន់ស្តុក') ||
     uRole.includes('ប្រធានក្រុម') ||
@@ -5059,8 +5060,11 @@ function getItemsList(userOrPayload, warehouseFilter, optSs) {
       const sNotesIdx = sHeaders.indexOf('notes') >= 0 ? sHeaders.indexOf('notes') : 14;
 
       const sWhIdx = sHeaders.indexOf('warehouse') >= 0 ? sHeaders.indexOf('warehouse') : sHeaders.findIndex(h => h.includes('warehouse') || h.includes('ឃ្លាំង') || h.includes('ស្ថានីយ'));
+      const sDocIdx = (sHeaders.findIndex(h => h.includes('docno') || h.includes('doc') || h.includes('លេខឯកសារ')) >= 0) ? sHeaders.findIndex(h => h.includes('docno') || h.includes('doc') || h.includes('លេខឯកសារ')) : 0;
+      const seenInRows = {};
 
       for (let r = 1; r < sInData.length; r++) {
+        const rDoc = String(sInData[r][sDocIdx] || '').trim();
         const rSku = String(sInData[r][sSkuIdx] || '').trim();
         if (!rSku) continue;
         const rQty = Number(sInData[r][sQtyIdx] || 0);
@@ -5071,6 +5075,12 @@ function getItemsList(userOrPayload, warehouseFilter, optSs) {
           if (m && m[1]) rZone = m[1].trim();
         }
         if (!rZone || rZone === '-' || rZone === 'គ្មាន') rZone = 'ទូទៅ';
+
+        if (rDoc && rDoc !== '-' && rDoc !== 'undefined') {
+          const dKey = rDoc.toLowerCase() + '_' + rSku.toLowerCase();
+          if (seenInRows[dKey]) continue;
+          seenInRows[dKey] = true;
+        }
 
         const rWh = (sWhIdx >= 0) ? String(sInData[r][sWhIdx] || '').trim() : '';
 
@@ -5101,7 +5111,10 @@ function getItemsList(userOrPayload, warehouseFilter, optSs) {
       const soZoneIdx = sOutHeaders.indexOf('zone') >= 0 ? sOutHeaders.indexOf('zone') : 6;
       const soNotesIdx = sOutHeaders.indexOf('notes') >= 0 ? sOutHeaders.indexOf('notes') : 14;
 
+      const soDocIdx = (sOutHeaders.findIndex(h => h.includes('docno') || h.includes('doc') || h.includes('លេខឯកសារ')) >= 0) ? sOutHeaders.findIndex(h => h.includes('docno') || h.includes('doc') || h.includes('លេខឯកសារ')) : 0;
+      const seenOutRows = {};
       for (let r = 1; r < sOutData.length; r++) {
+        const rDoc = String(sOutData[r][soDocIdx] || '').trim();
         const rSku = String(sOutData[r][soSkuIdx] || '').trim();
         if (!rSku) continue;
         const rQty = Number(sOutData[r][soQtyIdx] || 0);
@@ -5110,6 +5123,12 @@ function getItemsList(userOrPayload, warehouseFilter, optSs) {
           const notesStr = String(sOutData[r][soNotesIdx] || '');
           const m = notesStr.match(/\[(?:តំបន់|Zone):\s*([^\]]+)\]/i);
           if (m && m[1]) rZone = m[1].trim();
+        }
+
+        if (rDoc && rDoc !== '-' && rDoc !== 'undefined') {
+          const dKey = rDoc.toLowerCase() + '_' + rSku.toLowerCase();
+          if (seenOutRows[dKey]) continue;
+          seenOutRows[dKey] = true;
         }
 
         const skuKey = rSku.toLowerCase();
@@ -6731,6 +6750,22 @@ function repairStockInWarehouses(optSs) {
           fixedWh = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(fixedWh) : fixedWh;
           sInSheet.getRange(r + 1, finalWhIdx + 1).setValue(fixedWh);
           fixedCount++;
+        }
+      }
+      // Clean up identical duplicate rows in Stock_in sheet (from bottom to top)
+      const seenInDupRows = {};
+      const sSkuCol = headers.indexOf('sku') >= 0 ? headers.indexOf('sku') : 2;
+      for (let r = data.length - 1; r >= 1; r--) {
+        const rDoc = String(data[r][finalDocIdx] || '').trim().toLowerCase();
+        const rSku = String(data[r][sSkuCol] || '').trim().toLowerCase();
+        if (rDoc && rSku && rDoc !== '-' && rDoc !== 'undefined') {
+          const dKey = rDoc + '_' + rSku;
+          if (seenInDupRows[dKey]) {
+            sInSheet.deleteRow(r + 1);
+            fixedCount++;
+          } else {
+            seenInDupRows[dKey] = true;
+          }
         }
       }
     }
