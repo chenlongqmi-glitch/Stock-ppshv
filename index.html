@@ -28757,6 +28757,7 @@
       if (mode) switchStockInEntryMode(mode);
       const card = document.getElementById('stockInFormCard');
       const batchCard = document.getElementById('stockInBatchCard');
+      const tableCard = document.getElementById('stockInTableCard');
       window._isStockInFormOpen = true;
       if (card) {
         card.classList.remove('hidden');
@@ -28765,9 +28766,11 @@
         } else if (batchCard) {
           batchCard.classList.add('hidden');
         }
+        // លាក់តារាងប្រវត្តិទិន្នន័យពេលកំពុងកត់ត្រាចូលស្តុក (Hide history table panel during stock in)
+        if (tableCard) tableCard.classList.add('hidden');
         updateStockInHeaderButtonsUI(true, stockInEntryMode);
         setTimeout(() => {
-          card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          card.scrollIntoView({ behavior: 'smooth', block: 'start' });
           const skuInp = document.getElementById('stockInSku');
           if (skuInp) skuInp.focus();
         }, 80);
@@ -28778,9 +28781,12 @@
     function closeStockInForm() {
       const card = document.getElementById('stockInFormCard');
       const batchCard = document.getElementById('stockInBatchCard');
+      const tableCard = document.getElementById('stockInTableCard');
       window._isStockInFormOpen = false;
       if (card) card.classList.add('hidden');
       if (batchCard) batchCard.classList.add('hidden');
+      // បង្ហាញតារាងប្រវត្តិទិន្នន័យឡើងវិញពេលបិទផ្ទាំងកត់ត្រា (Restore history table panel on form close)
+      if (tableCard) tableCard.classList.remove('hidden');
       updateStockInHeaderButtonsUI(false, stockInEntryMode);
     }
     window.closeStockInForm = closeStockInForm;
@@ -28800,6 +28806,7 @@
       if (mode) switchStockOutEntryMode(mode);
       const card = document.getElementById('stockOutFormCard');
       const batchCard = document.getElementById('stockOutBatchCard');
+      const tableCard = document.getElementById('stockOutTableCard');
       window._isStockOutFormOpen = true;
       if (card) {
         card.classList.remove('hidden');
@@ -28808,9 +28815,11 @@
         } else if (batchCard) {
           batchCard.classList.add('hidden');
         }
+        // លាក់តារាងប្រវត្តិទិន្នន័យពេលកំពុងកត់ត្រាចេញពីស្តុក (Hide history table panel during stock out)
+        if (tableCard) tableCard.classList.add('hidden');
         updateStockOutHeaderButtonsUI(true, stockOutEntryMode);
         setTimeout(() => {
-          card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          card.scrollIntoView({ behavior: 'smooth', block: 'start' });
           const skuInp = document.getElementById('stockOutSku');
           if (skuInp) skuInp.focus();
         }, 80);
@@ -28821,9 +28830,12 @@
     function closeStockOutForm() {
       const card = document.getElementById('stockOutFormCard');
       const batchCard = document.getElementById('stockOutBatchCard');
+      const tableCard = document.getElementById('stockOutTableCard');
       window._isStockOutFormOpen = false;
       if (card) card.classList.add('hidden');
       if (batchCard) batchCard.classList.add('hidden');
+      // បង្ហាញតារាងប្រវត្តិទិន្នន័យឡើងវិញពេលបិទផ្ទាំងកត់ត្រា (Restore history table panel on form close)
+      if (tableCard) tableCard.classList.remove('hidden');
       updateStockOutHeaderButtonsUI(false, stockOutEntryMode);
     }
     window.closeStockOutForm = closeStockOutForm;
@@ -29323,6 +29335,8 @@
         </div>`,
         confirmButtonColor: '#046c4e',
         confirmButtonText: 'យល់ព្រម'
+      }).then(() => {
+        closeStockInForm();
       });
     }
     window.submitBatchStockIn = submitBatchStockIn;
@@ -29831,6 +29845,8 @@
         </div>`,
         confirmButtonColor: '#ea580c',
         confirmButtonText: 'យល់ព្រម'
+      }).then(() => {
+        closeStockOutForm();
       });
     }
     window.submitBatchStockOut = submitBatchStockOut;
