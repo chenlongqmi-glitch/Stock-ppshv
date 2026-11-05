@@ -22974,20 +22974,28 @@
       // សម្អាត Form ភ្លាមៗ (កំណត់សម្គាល់ត្រឡប់ទៅ '-' & ទីតាំងឃ្លាំងរក្សា default)
       clearStockInAllFields();
 
-      // មិនបង្ហាញសារជូនដំណឹង (Popup/Toast) អ្វីទាំងអស់តាមការស្នើសុំ
       if (submitBtn) {
-        const origBtnHtml = submitBtn.innerHTML;
-        submitBtn.innerHTML = '<i class="fa-solid fa-circle-check text-xs text-white"></i> <span class="text-white font-khmer">បានរក្សាទុក!</span>';
-        submitBtn.classList.add('bg-emerald-700');
-        setTimeout(() => {
-          submitBtn.innerHTML = origBtnHtml;
-          submitBtn.classList.remove('bg-emerald-700', 'opacity-60', 'pointer-events-none');
-          submitBtn.disabled = false;
-          window._isStockInSubmitting = false;
-        }, 1200);
-      } else {
-        setTimeout(() => { window._isStockInSubmitting = false; }, 1200);
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('opacity-60', 'pointer-events-none');
       }
+      window._isStockInSubmitting = false;
+
+      // បិទផ្ទាំង Popup Modal ភ្លាមៗ ដើម្បីបង្ហាញតែផ្ទាំង (ប្រវត្តិកត់ត្រាទំនិញចូលស្តុក (Recent Stock In Records))
+      closeStockInForm();
+
+      // លោតបង្ហាញសារថា «ទិន្នន័យបានបញ្ចូលជោគជ័យ»
+      Swal.fire({
+        icon: 'success',
+        title: 'ទិន្នន័យបានបញ្ចូលជោគជ័យ',
+        html: `<div class="text-center text-xs font-khmer p-1 space-y-1">
+          <div>បានកត់ត្រាចូលស្តុកទំនិញ <b>${escapeHtml(itemName)}</b> ចំនួន <b>${effectiveQty} ${escapeHtml(baseUnit)}</b></div>
+          <div class="text-slate-500 font-mono text-[11px]">លេខឯកសារ: ${escapeHtml(docNo)}</div>
+        </div>`,
+        timer: 2000,
+        timerProgressBar: true,
+        confirmButtonColor: '#046c4e',
+        confirmButtonText: 'យល់ព្រម'
+      });
 
       // =========================================================================
       // 3. BACKGROUND UPDATE: ធ្វើការ update ក្នុងប្រព័ន្ធតាមក្រោយ
@@ -26148,9 +26156,18 @@
 
       clearStockOutAllFields();
 
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('opacity-60', 'pointer-events-none');
+      }
+      window._isStockOutSubmitting = false;
+
+      // បិទផ្ទាំង Popup Modal ភ្លាមៗ ដើម្បីបង្ហាញតែផ្ទាំងប្រវត្តិកត់ត្រាទំនិញចេញពីស្តុក
+      closeStockOutForm();
+
       Swal.fire({
         icon: 'success',
-        title: 'បានកត់ត្រាទំនិញចេញពីស្តុកជោគជ័យ!',
+        title: 'ទិន្នន័យបានបញ្ចូលជោគជ័យ',
         html: `<div class="text-left text-sm space-y-1.5 p-2">
           <p class="text-slate-600 font-medium">ទិន្នន័យបានបញ្ជូនទៅកាន់មុខងារ <b>ទទួលទំនិញចូលស្តុកពី Admin</b> របស់ស្ថានីយ <b>${escapeHtml(toLocation)}</b> រួចរាល់!</p>
           <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs space-y-1 mt-2">
@@ -26163,9 +26180,9 @@
             <p><b>ស្តុកនៅសល់:</b> <span class="text-slate-800 font-black">${remainingStock} ${escapeHtml(baseUnit)}</span></p>
           </div>
         </div>`,
-        timer: 3500,
+        timer: 3000,
         timerProgressBar: true,
-        confirmButtonColor: '#046c4e',
+        confirmButtonColor: '#ea580c',
         confirmButtonText: 'យល់ព្រម'
       });
 
