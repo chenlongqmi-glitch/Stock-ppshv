@@ -2000,6 +2000,52 @@ function ensureUsersInitialized(ss) {
         }
       }
 
+      // Ensure user leng sreymeas exists and is Active in Users sheet
+      let hasLengSreymeas = false;
+      for (let i = 1; i < data.length; i++) {
+        const rowUId = String(data[i][0] || '').trim();
+        const rowUName = String(data[i][1] || '').trim().toLowerCase();
+        const rowEmail = String(data[i][3] || '').trim().toLowerCase();
+        if (rowUName === 'leng sreymeas' || rowUName === 'lengsreymeas' || rowUName === 'sreymeas' || rowEmail === 'lengsreymeas17@gmail.com' || rowUId === 'USR-20261103163001') {
+          hasLengSreymeas = true;
+          // Reactivate if marked Deleted
+          if (String(data[i][7] || '').toLowerCase() === 'deleted') {
+            sheet.getRange(i + 1, 8).setValue('Active');
+          }
+          if (!data[i][3] || String(data[i][3]).trim() === '') {
+            sheet.getRange(i + 1, 4).setValue('Lengsreymeas17@gmail.com');
+          }
+          if (!data[i][11] || String(data[i][11]).trim() === '') {
+            sheet.getRange(i + 1, 12).setValue('016 594 038');
+          }
+          if (!data[i][10] || String(data[i][10]).trim() === '') {
+            sheet.getRange(i + 1, 11).setValue('assets/leng_sreymeas_avatar.jpg');
+          }
+          break;
+        }
+      }
+      if (!hasLengSreymeas) {
+        const saSalt = (typeof generateSalt === 'function') ? generateSalt() : 'salt123';
+        sheet.appendRow([
+          'USR-20261103163001',
+          'leng sreymeas',
+          'ឡេង ស្រីមាស',
+          'Lengsreymeas17@gmail.com',
+          '123456',
+          saSalt,
+          'អ្នកគ្រប់គ្រងស្ថានីយ',
+          'Active',
+          new Date(),
+          'K26 ស្ថានីយ (កំពង់ស្ពឺ ខាងលិច) 02',
+          'assets/leng_sreymeas_avatar.jpg',
+          '016 594 038',
+          '', '', '',
+          JSON.stringify({ desktop: null, mobile: null }),
+          '123456',
+          '[]'
+        ]);
+      }
+
     } catch (syncErr) {}
   }
   return sheet;
