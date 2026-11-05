@@ -2981,6 +2981,34 @@
 
           <div id="stockInFormCard" class="glass-card form-freeze-card p-3 sm:p-4 lg:p-4 rounded-2xl sm:rounded-3xl shadow-sm border-2 border-emerald-300/80 bg-gradient-to-br from-emerald-50/30 via-white to-teal-50/20">
 
+            <!-- Top Mode Switcher Menu (1. Single Item vs 2. Multi-Item Batch) -->
+            <div id="stockInModeMenu" class="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 mb-2.5 border-b border-emerald-200/80">
+              <div class="flex items-center space-x-2">
+                <div class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                <span class="text-xs sm:text-sm font-black text-slate-800 font-khmer">របៀបកត់ត្រាចូលស្តុក:</span>
+                <div class="inline-flex p-1 bg-emerald-100/80 rounded-xl border border-emerald-200 shadow-2xs">
+                  <button type="button" id="btnStockInModeSingle" onclick="switchStockInEntryMode('SINGLE')"
+                    class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition shadow-xs bg-white text-emerald-900 border border-emerald-300 flex items-center gap-1.5 cursor-pointer">
+                    <i class="fa-solid fa-cube text-emerald-600"></i>
+                    <span>១. ចូលទំនិញមួយៗធម្មតា</span>
+                  </button>
+                  <button type="button" id="btnStockInModeMulti" onclick="switchStockInEntryMode('MULTI')"
+                    class="px-3.5 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:text-emerald-900 transition flex items-center gap-1.5 cursor-pointer">
+                    <i class="fa-solid fa-layer-group text-emerald-600"></i>
+                    <span>២. ចូលទំនិញច្រើនមុខ</span>
+                    <span id="stockInBatchBadgeCount" class="hidden ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-black bg-emerald-600 text-white font-mono shadow-2xs">0</span>
+                  </button>
+                </div>
+              </div>
+              <div id="stockInMultiModeStatus" class="hidden items-center gap-2">
+                <span class="text-xs font-bold text-emerald-900 bg-emerald-100/90 border border-emerald-300 px-3 py-1 rounded-xl flex items-center gap-1.5 shadow-2xs">
+                  <i class="fa-solid fa-list-check text-emerald-600"></i>
+                  <span>ក្នុង List: <b id="stockInBatchListCountTop" class="text-emerald-950 font-black">0</b> មុខ</span>
+                </span>
+              </div>
+            </div>
+
+
             <form id="stockInForm" onsubmit="handleStockInSubmit(event)" class="space-y-3">
               <!-- Hidden Old Stock & Pack Conversion Stores -->
               <input type="hidden" id="stockInOldStockValue" value="0">
@@ -3078,15 +3106,10 @@
                         <i class="fa-solid fa-file-invoice text-emerald-600 mr-1.5 shrink-0 text-xs"></i>
                         <span class="truncate">លេខឯកសារ *</span>
                       </label>
-                      <label class="inline-flex items-center gap-1.5 cursor-pointer select-none bg-emerald-50 hover:bg-emerald-100/90 px-2.5 py-1 rounded-xl border border-emerald-200/90 transition text-[11px] font-bold text-emerald-800 shadow-3xs"
-                             title="ធីកដើម្បីរក្សាទុកលេខឯកសារដដែល (ចូលទំនិញច្រើនមុខ)">
-                        <input type="checkbox" id="stockInLockDocNo" onchange="toggleStockInLockDocNo(this.checked)"
-                               class="w-4 h-4 text-emerald-600 rounded border-emerald-300 focus:ring-emerald-500 cursor-pointer">
-                        <span class="flex items-center gap-1">
-                          <i class="fa-solid fa-lock text-[10px] text-emerald-600"></i>
-                          <span>រក្សាទុកលេខដដែល</span>
-                        </span>
-                      </label>
+                      <input type="checkbox" id="stockInLockDocNo" class="hidden">
+                      <span id="stockInDocNoBadgeNotice" class="hidden text-[11px] font-bold text-emerald-700 bg-emerald-100/80 px-2.5 py-1 rounded-xl border border-emerald-200/90 shadow-3xs">
+                        <i class="fa-solid fa-lock text-[10px] mr-1 text-emerald-600"></i>លេខរួម (Batch)
+                      </span>
                     </div>
                     <div class="relative w-full h-11">
                       <input type="text" id="stockInDocNo" required placeholder="IN-..."
@@ -3244,18 +3267,20 @@
                       <i class="fa-solid fa-circle-check text-emerald-600 mr-1.5 shrink-0 text-xs"></i>
                       <span class="truncate">បញ្ជាក់</span>
                     </label>
+                    <input type="checkbox" id="stockInLockDocNoSubmit" class="hidden">
                     <div class="flex items-center gap-1.5 w-full">
+                      <!-- Mode 1: Single item save button -->
                       <button type="submit" id="btnSubmitStockIn"
-                        class="flex-1 h-11 px-3 rounded-xl bg-[#046c4e] hover:bg-[#03543d] active:bg-[#023e2d] text-white text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-1.5 shadow-md shadow-emerald-700/20 hover:scale-[1.01] active:scale-[0.99] cursor-pointer">
+                        class="w-full h-11 px-3 rounded-xl bg-[#046c4e] hover:bg-[#03543d] active:bg-[#023e2d] text-white text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-1.5 shadow-md shadow-emerald-700/20 hover:scale-[1.01] active:scale-[0.99] cursor-pointer">
                         <i class="fa-solid fa-check text-xs text-white"></i>
                         <span id="btnSubmitStockInText" class="text-white font-khmer">រក្សាទុក</span>
                       </button>
-                      <label class="h-11 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-xs font-bold text-emerald-900 transition flex items-center justify-center gap-1.5 shadow-xs cursor-pointer shrink-0 select-none"
-                             title="ធីកដើម្បីចូលមុខទំនិញច្រើនមុខក្នុងលេខឯកសារតែមួយ">
-                        <input type="checkbox" id="stockInLockDocNoSubmit" onchange="toggleStockInLockDocNo(this.checked)"
-                               class="w-4 h-4 text-emerald-600 rounded border-emerald-400 focus:ring-emerald-500 cursor-pointer">
-                        <span class="font-khmer">ចូលច្រើនមុខ</span>
-                      </label>
+                      <!-- Mode 2: Add to List button -->
+                      <button type="button" id="btnAddStockInToList" onclick="addCurrentItemToStockInBatchQueue()"
+                        class="hidden w-full h-11 px-3 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-700 active:scale-[0.99] text-white text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-1.5 shadow-md shadow-teal-700/20 cursor-pointer">
+                        <i class="fa-solid fa-circle-plus text-sm text-white"></i>
+                        <span class="text-white font-khmer">បញ្ចូលទិន្នន័យក្នុង List</span>
+                      </button>
                     </div>
                   </div>
 
@@ -3263,6 +3288,80 @@
               </div>
 
             </form>
+          </div>
+
+          <!-- BATCH QUEUE CARD (បង្ហាញតែក្នុង Mode 2: ចូលទំនិញច្រើនមុខ) -->
+          <div id="stockInBatchCard" class="hidden glass-card p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-sm border-2 border-emerald-400 bg-white space-y-4">
+            <!-- Header -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+              <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 border border-emerald-300 flex items-center justify-center text-lg shadow-xs">
+                  <i class="fa-solid fa-list-check"></i>
+                </div>
+                <div>
+                  <div class="flex items-center space-x-2">
+                    <h4 class="font-bold text-slate-800 text-sm sm:text-base">📋 បញ្ជីទំនិញបានបញ្ចូលត្រៀមកត់ត្រាចូលស្តុក (Batch Queue List)</h4>
+                    <span id="stockInBatchBadgeTable" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">0 មុខទំនិញ</span>
+                  </div>
+                  <p class="text-xs text-slate-500 font-khmer">មុខទំនិញដែលបានចុច «បញ្ចូលទិន្នន័យក្នុង List» នឹងត្រូវរក្សាទុកក្រោមលេខឯកសាររួមតែមួយ</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-mono font-bold text-emerald-900 bg-emerald-50 border border-emerald-300 px-3 py-1.5 rounded-xl shadow-3xs flex items-center gap-1.5">
+                  <i class="fa-solid fa-file-invoice text-emerald-600"></i>
+                  <span>លេខឯកសាររួម: <b id="stockInBatchDocDisplay">-</b></span>
+                </span>
+                <button type="button" onclick="clearStockInBatchQueue()" class="h-9 px-3 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-bold transition flex items-center gap-1 cursor-pointer" title="លុបទំនិញទាំងអស់ចេញពី List">
+                  <i class="fa-solid fa-trash-can text-xs"></i>
+                  <span>សម្អាត List</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Queue Table -->
+            <div class="overflow-x-auto rounded-xl border border-slate-200 shadow-2xs">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr class="bg-slate-50 text-slate-600 uppercase font-black tracking-wider text-[11px] border-b border-slate-200 font-khmer">
+                    <th class="p-2.5 text-center w-12">ល.រ</th>
+                    <th class="p-2.5 text-center w-14">រូបភាព</th>
+                    <th class="p-2.5">ឈ្មោះទំនិញ & SKU</th>
+                    <th class="p-2.5">ខ្នាត & ពណ៌</th>
+                    <th class="p-2.5">ទីតាំង / Zone</th>
+                    <th class="p-2.5 text-center">ចំនួនចូល</th>
+                    <th class="p-2.5">កំណត់សម្គាល់</th>
+                    <th class="p-2.5 text-center w-20">សកម្មភាព</th>
+                  </tr>
+                </thead>
+                <tbody id="stockInBatchTableBody" class="divide-y divide-slate-100 font-khmer">
+                  <!-- Rendered dynamically -->
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Empty State -->
+            <div id="stockInBatchEmptyState" class="p-8 text-center bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-200 space-y-2">
+              <i class="fa-solid fa-clipboard-list text-slate-300 text-4xl"></i>
+              <div class="text-sm font-bold text-slate-600 font-khmer">មិនទាន់មានមុខទំនិញក្នុង List នៅឡើយទេ</div>
+              <p class="text-xs text-slate-400 font-khmer">សូមជ្រើសរើសទំនិញ និងបញ្ចូលចំនួនក្នុង Form ខាងលើ រួចចុច <b>«➕ បញ្ចូលទិន្នន័យក្នុង List»</b> ដើម្បីបន្ថែមមុខទំនិញច្រើនមុខ</p>
+            </div>
+
+            <!-- Summary & Confirm Action Footer -->
+            <div id="stockInBatchFooter" class="flex flex-col md:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100">
+              <div class="flex items-center gap-3 flex-wrap">
+                <span class="text-xs font-bold text-slate-700">
+                  សរុបទាំងអស់: <b id="stockInBatchTotalItems" class="text-emerald-700 text-sm font-black">0</b> មុខ
+                </span>
+                <span class="text-xs font-bold text-slate-700">
+                  | សរុបបរិមាណ: <b id="stockInBatchTotalQty" class="text-emerald-700 text-sm font-black">0 ដុំ + 0 រាយ</b>
+                </span>
+              </div>
+              <button type="button" id="btnConfirmBatchStockIn" onclick="submitBatchStockIn()" disabled
+                class="w-full md:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 disabled:pointer-events-none text-white text-xs sm:text-sm font-black transition flex items-center justify-center gap-2 shadow-md shadow-emerald-700/20 cursor-pointer">
+                <i class="fa-solid fa-circle-check text-sm text-white"></i>
+                <span id="btnConfirmBatchStockInText">រក្សាទុកការចូលស្តុកទាំងអស់ (0 មុខ)</span>
+              </button>
+            </div>
           </div>
 
           <!-- TABLE LIST CARD (ខាងក្រោម: បញ្ជីបង្ហាញពីទិន្នន័យចូល) -->
@@ -3445,30 +3544,29 @@
           <div id="stockOutFormCard" class="glass-card form-freeze-card p-3 sm:p-4 lg:p-4 rounded-2xl sm:rounded-3xl shadow-sm border-2 border-amber-300/80 bg-gradient-to-br from-amber-50/30 via-white to-orange-50/20">
 
             <!-- Stock Out Mode Switcher (Single Station vs Multi-Station Batch Distribution) -->
-            <div id="stockOutModeBar" class="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 mb-2 border-b border-amber-200/80">
+            <!-- Top Mode Switcher Menu (1. Single Item vs 2. Multi-Item Batch) -->
+            <div id="stockOutModeMenu" class="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 mb-2.5 border-b border-amber-200/80">
               <div class="flex items-center space-x-2">
                 <div class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></div>
                 <span class="text-xs sm:text-sm font-black text-slate-800 font-khmer">របៀបកត់ត្រាចេញពីស្តុក:</span>
                 <div class="inline-flex p-1 bg-amber-100/80 rounded-xl border border-amber-200 shadow-2xs">
-                  <button type="button" id="btnStockOutModeSingle" onclick="setStockOutMode('SINGLE')"
-                    class="px-3 py-1 rounded-lg text-xs font-bold transition shadow-xs bg-white text-amber-900 border border-amber-300">
-                    <i class="fa-solid fa-arrow-right-from-bracket mr-1.5 text-amber-600"></i>នាំចេញទោល (Single Station)
+                  <button type="button" id="btnStockOutModeSingle" onclick="switchStockOutEntryMode('SINGLE')"
+                    class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition shadow-xs bg-white text-amber-900 border border-amber-300 flex items-center gap-1.5 cursor-pointer">
+                    <i class="fa-solid fa-cube text-amber-600"></i>
+                    <span>១. ចេញទំនិញមួយៗធម្មតា</span>
                   </button>
-                  <button type="button" id="btnStockOutModeMulti" onclick="setStockOutMode('MULTI')"
-                    class="px-3 py-1 rounded-lg text-xs font-bold text-slate-600 hover:text-amber-900 transition">
-                    <i class="fa-solid fa-boxes-stacked mr-1.5 text-amber-600"></i>📦 ចែកតាមពហុស្ថានីយ (Multi-Station Grid)
-                    <span class="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-white font-mono shadow-2xs">8 ស្ថានីយ</span>
+                  <button type="button" id="btnStockOutModeMulti" onclick="switchStockOutEntryMode('MULTI')"
+                    class="px-3.5 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:text-amber-900 transition flex items-center gap-1.5 cursor-pointer">
+                    <i class="fa-solid fa-layer-group text-amber-600"></i>
+                    <span>២. ចេញទំនិញច្រើនមុខ</span>
+                    <span id="stockOutBatchBadgeCount" class="hidden ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-black bg-amber-600 text-white font-mono shadow-2xs">0</span>
                   </button>
                 </div>
               </div>
-              <div id="stockOutMultiStatusBanner" class="hidden items-center gap-2">
-                <span class="text-xs font-bold text-amber-900 bg-amber-100/90 border border-amber-300 px-2.5 py-1 rounded-xl flex items-center gap-1.5 shadow-2xs">
-                  <i class="fa-solid fa-route text-amber-600"></i>
-                  <span>ស្ថានីយបានរើស: <b id="multiSelectedStationsCount" class="text-amber-950 font-black">0</b> / 8</span>
-                </span>
-                <span class="text-xs font-bold text-emerald-800 bg-emerald-100/90 border border-emerald-300 px-2.5 py-1 rounded-xl flex items-center gap-1.5 shadow-2xs">
-                  <i class="fa-solid fa-cubes text-emerald-600"></i>
-                  <span>ចំនួនចេញសរុប: <b id="multiTotalQtyDisplay" class="text-emerald-950 font-black">0 ដើម</b></span>
+              <div id="stockOutMultiModeStatus" class="hidden items-center gap-2">
+                <span class="text-xs font-bold text-amber-900 bg-amber-100/90 border border-amber-300 px-3 py-1 rounded-xl flex items-center gap-1.5 shadow-2xs">
+                  <i class="fa-solid fa-list-check text-amber-600"></i>
+                  <span>ក្នុង List: <b id="stockOutBatchListCountTop" class="text-amber-950 font-black">0</b> មុខ</span>
                 </span>
               </div>
             </div>
@@ -3589,15 +3687,10 @@
                         <i class="fa-solid fa-file-invoice text-amber-600 mr-1.5 shrink-0 text-xs"></i>
                         <span class="truncate">លេខឯកសារ *</span>
                       </label>
-                      <label class="inline-flex items-center gap-1.5 cursor-pointer select-none bg-amber-50 hover:bg-amber-100/90 px-2.5 py-1 rounded-xl border border-amber-200/90 transition text-[11px] font-bold text-amber-800 shadow-3xs"
-                             title="ធីកដើម្បីរក្សាទុកលេខឯកសារដដែល (ចេញទំនិញច្រើនមុខ)">
-                        <input type="checkbox" id="stockOutLockDocNo" onchange="toggleStockOutLockDocNo(this.checked)"
-                               class="w-4 h-4 text-amber-600 rounded border-amber-300 focus:ring-amber-500 cursor-pointer">
-                        <span class="flex items-center gap-1">
-                          <i class="fa-solid fa-lock text-[10px] text-amber-600"></i>
-                          <span>រក្សាទុកលេខដដែល</span>
-                        </span>
-                      </label>
+                      <input type="checkbox" id="stockOutLockDocNo" class="hidden">
+                      <span id="stockOutDocNoBadgeNotice" class="hidden text-[11px] font-bold text-amber-800 bg-amber-100/80 px-2.5 py-1 rounded-xl border border-amber-200/90 shadow-3xs">
+                        <i class="fa-solid fa-lock text-[10px] mr-1 text-amber-600"></i>លេខរួម (Batch)
+                      </span>
                     </div>
                     <div class="relative w-full h-11">
                       <input type="text" id="stockOutDocNo" required placeholder="OUT-..."
@@ -3743,18 +3836,20 @@
                       <i class="fa-solid fa-circle-check text-amber-600 mr-1.5 shrink-0 text-xs"></i>
                       <span class="truncate">បញ្ជាក់</span>
                     </label>
+                    <input type="checkbox" id="stockOutLockDocNoSubmit" class="hidden">
                     <div class="flex items-center gap-1.5 w-full">
+                      <!-- Mode 1: Single item save button -->
                       <button type="submit" id="btnSubmitStockOut"
-                        class="flex-1 h-11 px-3 rounded-xl bg-[#ea580c] hover:bg-[#c2410c] active:bg-[#9a3412] text-white text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-1.5 shadow-md shadow-orange-700/20 hover:scale-[1.01] active:scale-[0.99] cursor-pointer">
+                        class="w-full h-11 px-3 rounded-xl bg-[#ea580c] hover:bg-[#c2410c] active:bg-[#9a3412] text-white text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-1.5 shadow-md shadow-orange-700/20 hover:scale-[1.01] active:scale-[0.99] cursor-pointer">
                         <i class="fa-solid fa-check text-xs text-white"></i>
                         <span id="btnSubmitStockOutText" class="text-white font-khmer">រក្សាទុក</span>
                       </button>
-                      <label class="h-11 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-xs font-bold text-amber-900 transition flex items-center justify-center gap-1.5 shadow-xs cursor-pointer shrink-0 select-none"
-                             title="ធីកដើម្បីចេញមុខទំនិញច្រើនមុខក្នុងលេខឯកសារតែមួយ">
-                        <input type="checkbox" id="stockOutLockDocNoSubmit" onchange="toggleStockOutLockDocNo(this.checked)"
-                               class="w-4 h-4 text-amber-600 rounded border-amber-400 focus:ring-amber-500 cursor-pointer">
-                        <span class="font-khmer">ចេញច្រើនមុខ</span>
-                      </label>
+                      <!-- Mode 2: Add to List button -->
+                      <button type="button" id="btnAddStockOutToList" onclick="addCurrentItemToStockOutBatchQueue()"
+                        class="hidden w-full h-11 px-3 rounded-xl bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 hover:from-amber-700 hover:to-orange-700 active:scale-[0.99] text-white text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-1.5 shadow-md shadow-orange-700/20 cursor-pointer">
+                        <i class="fa-solid fa-circle-plus text-sm text-white"></i>
+                        <span class="text-white font-khmer">បញ្ចូលទិន្នន័យក្នុង List</span>
+                      </button>
                     </div>
                   </div>
 
@@ -3801,6 +3896,80 @@
                 </div>
               </div>
             </form>
+          </div>
+
+          <!-- BATCH QUEUE CARD (បង្ហាញតែក្នុង Mode 2: ចេញទំនិញច្រើនមុខ) -->
+          <div id="stockOutBatchCard" class="hidden glass-card p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-sm border-2 border-amber-400 bg-white space-y-4">
+            <!-- Header -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+              <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 border border-amber-300 flex items-center justify-center text-lg shadow-xs">
+                  <i class="fa-solid fa-list-check"></i>
+                </div>
+                <div>
+                  <div class="flex items-center space-x-2">
+                    <h4 class="font-bold text-slate-800 text-sm sm:text-base">📋 បញ្ជីទំនិញបានបញ្ចូលត្រៀមកត់ត្រាចេញពីស្តុក (Batch Queue List)</h4>
+                    <span id="stockOutBatchBadgeTable" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-200">0 មុខទំនិញ</span>
+                  </div>
+                  <p class="text-xs text-slate-500 font-khmer">មុខទំនិញដែលបានចុច «បញ្ចូលទិន្នន័យក្នុង List» នឹងត្រូវកត់ត្រាចេញក្រោមលេខឯកសាររួមតែមួយ</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-mono font-bold text-amber-950 bg-amber-50 border border-amber-300 px-3 py-1.5 rounded-xl shadow-3xs flex items-center gap-1.5">
+                  <i class="fa-solid fa-file-invoice text-amber-600"></i>
+                  <span>លេខឯកសាររួម: <b id="stockOutBatchDocDisplay">-</b></span>
+                </span>
+                <button type="button" onclick="clearStockOutBatchQueue()" class="h-9 px-3 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-bold transition flex items-center gap-1 cursor-pointer" title="លុបទំនិញទាំងអស់ចេញពី List">
+                  <i class="fa-solid fa-trash-can text-xs"></i>
+                  <span>សម្អាត List</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Queue Table -->
+            <div class="overflow-x-auto rounded-xl border border-slate-200 shadow-2xs">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr class="bg-slate-50 text-slate-600 uppercase font-black tracking-wider text-[11px] border-b border-slate-200 font-khmer">
+                    <th class="p-2.5 text-center w-12">ល.រ</th>
+                    <th class="p-2.5 text-center w-14">រូបភាព</th>
+                    <th class="p-2.5">ឈ្មោះទំនិញ & SKU</th>
+                    <th class="p-2.5">ខ្នាត & ពណ៌</th>
+                    <th class="p-2.5">ចេញទៅឃ្លាំងណា</th>
+                    <th class="p-2.5 text-center">ចំនួនចេញ</th>
+                    <th class="p-2.5">កំណត់សម្គាល់</th>
+                    <th class="p-2.5 text-center w-20">សកម្មភាព</th>
+                  </tr>
+                </thead>
+                <tbody id="stockOutBatchTableBody" class="divide-y divide-slate-100 font-khmer">
+                  <!-- Rendered dynamically -->
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Empty State -->
+            <div id="stockOutBatchEmptyState" class="p-8 text-center bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-200 space-y-2">
+              <i class="fa-solid fa-clipboard-list text-slate-300 text-4xl"></i>
+              <div class="text-sm font-bold text-slate-600 font-khmer">មិនទាន់មានមុខទំនិញក្នុង List នៅឡើយទេ</div>
+              <p class="text-xs text-slate-400 font-khmer">សូមជ្រើសរើសទំនិញ និងបញ្ចូលចំនួនក្នុង Form ខាងលើ រួចចុច <b>«➕ បញ្ចូលទិន្នន័យក្នុង List»</b> ដើម្បីបន្ថែមមុខទំនិញច្រើនមុខ</p>
+            </div>
+
+            <!-- Summary & Confirm Action Footer -->
+            <div id="stockOutBatchFooter" class="flex flex-col md:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100">
+              <div class="flex items-center gap-3 flex-wrap">
+                <span class="text-xs font-bold text-slate-700">
+                  សរុបទាំងអស់: <b id="stockOutBatchTotalItems" class="text-amber-800 text-sm font-black">0</b> មុខ
+                </span>
+                <span class="text-xs font-bold text-slate-700">
+                  | សរុបបរិមាណចេញ: <b id="stockOutBatchTotalQty" class="text-amber-800 text-sm font-black">0 ដុំ + 0 រាយ</b>
+                </span>
+              </div>
+              <button type="button" id="btnConfirmBatchStockOut" onclick="submitBatchStockOut()" disabled
+                class="w-full md:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 hover:from-amber-700 hover:to-orange-700 disabled:opacity-50 disabled:pointer-events-none text-white text-xs sm:text-sm font-black transition flex items-center justify-center gap-2 shadow-md shadow-orange-700/20 cursor-pointer">
+                <i class="fa-solid fa-circle-check text-sm text-white"></i>
+                <span id="btnConfirmBatchStockOutText">រក្សាទុកការចេញស្តុកទាំងអស់ (0 មុខ)</span>
+              </button>
+            </div>
           </div>
 
           <!-- TABLE LIST CARD (ខាងក្រោម: បញ្ជីបង្ហាញពីទិន្នន័យចេញ) -->
@@ -28428,118 +28597,1032 @@
        BATCH DOCUMENT NUMBER CONTROLLER & DOCUMENT INSPECTION MODAL
        ========================================================================== */
 
-    function setStockInMultiMode(enabled) {
-      const chk1 = document.getElementById('stockInLockDocNo');
-      const chk2 = document.getElementById('stockInLockDocNoSubmit');
-      if (chk1) chk1.checked = enabled;
-      if (chk2) chk2.checked = enabled;
+    /* ==========================================================================
+       BATCH DOCUMENT NUMBER CONTROLLER & MULTI-ITEM BATCH SYSTEM (Stock In & Out)
+       ========================================================================== */
 
-      const inp = document.getElementById('stockInDocNo');
-      const submitText = document.getElementById('btnSubmitStockInText');
+    // Global Batch Queues & State
+    let stockInEntryMode = 'SINGLE'; // 'SINGLE' | 'MULTI'
+    let stockInBatchQueue = [];
 
-      if (enabled) {
-        if (inp) inp.classList.add('ring-2', 'ring-emerald-500/50', 'bg-emerald-50/60');
-        if (submitText) submitText.textContent = 'រក្សាទុក & បន្ត';
+    let stockOutEntryMode = 'SINGLE'; // 'SINGLE' | 'MULTI'
+    let stockOutBatchQueue = [];
+
+    // --------------------------------------------------------------------------
+    // 1. Stock In Mode Switcher & Handlers
+    // --------------------------------------------------------------------------
+
+    function switchStockInEntryMode(mode) {
+      stockInEntryMode = (mode === 'MULTI') ? 'MULTI' : 'SINGLE';
+      const btnSingle = document.getElementById('btnStockInModeSingle');
+      const btnMulti = document.getElementById('btnStockInModeMulti');
+      const batchCard = document.getElementById('stockInBatchCard');
+      const btnSubmit = document.getElementById('btnSubmitStockIn');
+      const btnAdd = document.getElementById('btnAddStockInToList');
+      const statusTop = document.getElementById('stockInMultiModeStatus');
+      const docBadgeNotice = document.getElementById('stockInDocNoBadgeNotice');
+      const lockChk = document.getElementById('stockInLockDocNo');
+      const lockChk2 = document.getElementById('stockInLockDocNoSubmit');
+
+      if (stockInEntryMode === 'MULTI') {
+        if (btnSingle) {
+          btnSingle.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:text-emerald-900 transition flex items-center gap-1.5 cursor-pointer';
+        }
+        if (btnMulti) {
+          btnMulti.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition shadow-xs bg-emerald-600 text-white border border-emerald-700 flex items-center gap-1.5 cursor-pointer';
+        }
+        if (batchCard) batchCard.classList.remove('hidden');
+        if (btnSubmit) btnSubmit.classList.add('hidden');
+        if (btnAdd) btnAdd.classList.remove('hidden');
+        if (statusTop) { statusTop.classList.remove('hidden'); statusTop.classList.add('flex'); }
+        if (docBadgeNotice) docBadgeNotice.classList.remove('hidden');
+        if (lockChk) lockChk.checked = true;
+        if (lockChk2) lockChk2.checked = true;
+        renderStockInBatchQueue();
       } else {
-        if (inp) inp.classList.remove('ring-2', 'ring-emerald-500/50', 'bg-emerald-50/60');
-        if (submitText) submitText.textContent = 'រក្សាទុក';
+        if (btnSingle) {
+          btnSingle.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition shadow-xs bg-white text-emerald-900 border border-emerald-300 flex items-center gap-1.5 cursor-pointer';
+        }
+        if (btnMulti) {
+          btnMulti.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:text-emerald-900 transition flex items-center gap-1.5 cursor-pointer';
+        }
+        if (batchCard) batchCard.classList.add('hidden');
+        if (btnSubmit) btnSubmit.classList.remove('hidden');
+        if (btnAdd) btnAdd.classList.add('hidden');
+        if (statusTop) { statusTop.classList.add('hidden'); statusTop.classList.remove('flex'); }
+        if (docBadgeNotice) docBadgeNotice.classList.add('hidden');
+        if (lockChk) lockChk.checked = false;
+        if (lockChk2) lockChk2.checked = false;
+      }
+    }
+    window.switchStockInEntryMode = switchStockInEntryMode;
+
+    function addCurrentItemToStockInBatchQueue() {
+      if (typeof closeStockInZoneDropdown === 'function') closeStockInZoneDropdown();
+      if (typeof clearStockInFieldErrors === 'function') clearStockInFieldErrors();
+
+      const docNo = document.getElementById('stockInDocNo')?.value.trim() || generateStockInDocNo();
+      const rawSku = document.getElementById('stockInSku')?.value || '';
+      const sku = (typeof extractSkuFromInput === 'function') ? extractSkuFromInput(rawSku) : rawSku.trim();
+      const item = sku ? (AppState.items || []).find(i => i.sku === sku) : null;
+      const itemCode = document.getElementById('stockInItemCode')?.value.trim() || sku;
+      const size = document.getElementById('stockInSize')?.value.trim() || '';
+      const color = document.getElementById('stockInColor')?.value.trim() || '';
+      const zone = document.getElementById('stockInZone')?.value.trim() || '';
+      const baseUnit = document.getElementById('stockInBaseUnitVal')?.value.trim() || 'ដើម';
+      const packUnit = document.getElementById('stockInPackUnitVal')?.value.trim() || 'ប្រអប់';
+      const packQty = Math.max(1, Number(document.getElementById('stockInPackQtyVal')?.value || 1));
+
+      const retailQty = Number(document.getElementById('stockInQtyRetail')?.value || 0);
+      const bulkQty = Number(document.getElementById('stockInQtyBulk')?.value || 0);
+      const effectiveQty = (bulkQty * packQty) + retailQty;
+      const mode = (bulkQty > 0 && retailQty === 0) ? 'BULK' : 'RETAIL';
+      const oldStock = Number(document.getElementById('stockInOldStockValue')?.value || 0);
+      const newStock = oldStock + effectiveQty;
+      const rawLoc = document.getElementById('stockInLocation')?.value || '';
+      const location = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(rawLoc) : rawLoc) || '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+      const receiver = AppState.currentUser?.fullName || AppState.currentUser?.username || document.getElementById('stockInReceiver')?.value.trim() || 'Admin';
+      const rawNotes = document.getElementById('stockInNotes')?.value.trim();
+      const notes = (!rawNotes || rawNotes === '') ? '-' : rawNotes;
+
+      // Validation
+      let hasError = false;
+      if (!sku || !item) {
+        if (typeof setStockInFieldError === 'function') setStockInFieldError(document.getElementById('stockInSku'), 'សូមវាយបញ្ចូល ឬជ្រើសរើសមុខទំនិញ!');
+        hasError = true;
+      }
+      if (!zone) {
+        if (typeof setStockInFieldError === 'function') setStockInFieldError(document.getElementById('stockInZone'), 'សូមបញ្ចូល ឬជ្រើសរើសតំបន់ស្តុក (ZONE)!');
+        hasError = true;
+      }
+      if (effectiveQty <= 0) {
+        if (typeof setStockInFieldError === 'function') {
+          setStockInFieldError(document.getElementById('stockInQtyBulk'), 'សូមបញ្ចូលចំនួនចូលស្តុកឱ្យធំជាង 0!');
+          setStockInFieldError(document.getElementById('stockInQtyRetail'), 'សូមបញ្ចូលចំនួនចូលស្តុកឱ្យធំជាង 0!');
+        }
+        hasError = true;
+      }
+      if (!location || location === 'ALL' || location === 'គ្រប់ស្ថានីយទាំងអស់') {
+        if (typeof setStockInFieldError === 'function') setStockInFieldError(document.getElementById('stockInLocation'), 'សូមជ្រើសរើសទីតាំងឃ្លាំង!');
+        hasError = true;
       }
 
-      try { localStorage.setItem('stockIn_lockDocNo', enabled ? 'true' : 'false'); } catch(e) {}
-      updateDocBatchBadge('IN');
-    }
+      if (hasError) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'មិនអាចបញ្ចូលទៅក្នុង List បានទេ!',
+          text: 'សូមពិនិត្យមើលប្រអប់ដែលមានអក្សរក្រហម ហើយបំពេញព័ត៌មានឱ្យបានត្រឹមត្រូវ!',
+          confirmButtonColor: '#046c4e',
+          confirmButtonText: 'យល់ព្រម'
+        });
+        return;
+      }
 
-    function toggleStockInLockDocNo(checked) {
-      setStockInMultiMode(checked);
+      const itemName = item?.name || sku;
+
+      const queueItem = {
+        id: 'IN-Q-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+        docNo,
+        sku,
+        itemCode,
+        itemName,
+        imageUrl: item?.imageUrl || '',
+        size,
+        color,
+        zone,
+        warehouse: location,
+        location,
+        baseUnit,
+        packUnit,
+        packQty,
+        bulkQty,
+        retailQty,
+        effectiveQty,
+        mode,
+        oldStock,
+        newStock,
+        unitPrice: 0,
+        supplier: 'អ្នកផ្គត់ផ្គង់ (Supplier)',
+        receivedBy: receiver,
+        notes
+      };
+
+      stockInBatchQueue.push(queueItem);
+      renderStockInBatchQueue();
+
+      // Clear product input fields for next entry (keeping docNo and warehouse)
+      const skuEl = document.getElementById('stockInSku');
+      if (skuEl) skuEl.value = '';
+      const codeEl = document.getElementById('stockInItemCode');
+      if (codeEl) codeEl.value = '';
+      const sizeEl = document.getElementById('stockInSize');
+      if (sizeEl) sizeEl.value = '';
+      const colorEl = document.getElementById('stockInColor');
+      if (colorEl) colorEl.value = '';
+      const zoneEl = document.getElementById('stockInZone');
+      if (zoneEl) zoneEl.value = '';
+      const zoneClearBtn = document.getElementById('stockInZoneClearBtn');
+      if (zoneClearBtn) zoneClearBtn.classList.add('hidden');
+      const bQtyEl = document.getElementById('stockInQtyBulk');
+      if (bQtyEl) bQtyEl.value = '';
+      const rQtyEl = document.getElementById('stockInQtyRetail');
+      if (rQtyEl) rQtyEl.value = '';
+      const oldStockEl = document.getElementById('stockInOldStockValue');
+      if (oldStockEl) oldStockEl.value = 0;
+      const notesEl = document.getElementById('stockInNotes');
+      if (notesEl) notesEl.value = '-';
+
+      if (typeof clearStockInImgPreview === 'function') clearStockInImgPreview();
+      if (typeof updateStockInBadges === 'function') updateStockInBadges(0, 0, 0, 0, packUnit, baseUnit);
+
+      // Re-focus on Sku input for fast entry
+      if (skuEl) skuEl.focus();
+
+      // Toast notification
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: '➕ បានបញ្ចូលទៅក្នុង List!',
+        html: `<span class="text-xs font-bold text-slate-800">${escapeHtml(itemName)}</span><br><span class="text-[11px] text-emerald-700">${bulkQty > 0 ? bulkQty + ' ' + packUnit + ' ' : ''}${retailQty > 0 ? retailQty + ' ' + baseUnit : ''} (= ${effectiveQty} ${baseUnit})</span>`,
+        showConfirmButton: false,
+        timer: 1800
+      });
     }
+    window.addCurrentItemToStockInBatchQueue = addCurrentItemToStockInBatchQueue;
+
+    function renderStockInBatchQueue() {
+      const docNo = document.getElementById('stockInDocNo')?.value.trim() || '-';
+      const docDisplay = document.getElementById('stockInBatchDocDisplay');
+      if (docDisplay) docDisplay.textContent = docNo;
+
+      const badgeCount = document.getElementById('stockInBatchBadgeCount');
+      if (badgeCount) {
+        badgeCount.textContent = stockInBatchQueue.length;
+        badgeCount.classList.toggle('hidden', stockInBatchQueue.length === 0);
+      }
+      const topCount = document.getElementById('stockInBatchListCountTop');
+      if (topCount) topCount.textContent = stockInBatchQueue.length;
+
+      const tableBadge = document.getElementById('stockInBatchBadgeTable');
+      if (tableBadge) tableBadge.textContent = stockInBatchQueue.length + ' មុខទំនិញ';
+
+      const totalItemsEl = document.getElementById('stockInBatchTotalItems');
+      if (totalItemsEl) totalItemsEl.textContent = stockInBatchQueue.length;
+
+      let totalBulk = 0, totalRetail = 0, totalUnits = 0;
+      stockInBatchQueue.forEach(it => {
+        totalBulk += (it.bulkQty || 0);
+        totalRetail += (it.retailQty || 0);
+        totalUnits += (it.effectiveQty || 0);
+      });
+
+      const totalQtyEl = document.getElementById('stockInBatchTotalQty');
+      if (totalQtyEl) {
+        totalQtyEl.textContent = `${totalBulk} ប្រអប់/ដុំ + ${totalRetail} រាយ (សរុប ${totalUnits} ឯកតា)`;
+      }
+
+      const confirmBtn = document.getElementById('btnConfirmBatchStockIn');
+      const confirmBtnText = document.getElementById('btnConfirmBatchStockInText');
+      if (confirmBtn) {
+        confirmBtn.disabled = (stockInBatchQueue.length === 0);
+      }
+      if (confirmBtnText) {
+        confirmBtnText.textContent = `រក្សាទុកការចូលស្តុកទាំងអស់ (${stockInBatchQueue.length} មុខ)`;
+      }
+
+      const emptyState = document.getElementById('stockInBatchEmptyState');
+      const tbody = document.getElementById('stockInBatchTableBody');
+      if (!tbody) return;
+
+      if (stockInBatchQueue.length === 0) {
+        if (emptyState) emptyState.classList.remove('hidden');
+        tbody.innerHTML = '';
+        return;
+      }
+
+      if (emptyState) emptyState.classList.add('hidden');
+
+      tbody.innerHTML = stockInBatchQueue.map((item, idx) => {
+        const fallbackImg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2394a3b8'%3E%3Cpath d='M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z'/%3E%3C/svg%3E";
+        return `
+          <tr class="hover:bg-emerald-50/40 transition">
+            <td class="p-2.5 text-center font-bold text-slate-500">${idx + 1}</td>
+            <td class="p-2.5 text-center">
+              <img src="${item.imageUrl || fallbackImg}" alt="" class="w-9 h-9 object-contain mx-auto rounded-lg border border-slate-200 bg-white shadow-3xs" onerror="this.onerror=null;this.src='${fallbackImg}';">
+            </td>
+            <td class="p-2.5">
+              <div class="font-bold text-slate-800 text-xs sm:text-sm">${escapeHtml(item.itemName)}</div>
+              <div class="text-[11px] font-mono text-emerald-700 font-bold">${escapeHtml(item.sku)}</div>
+            </td>
+            <td class="p-2.5">
+              <div class="text-xs font-semibold text-slate-700">${item.size ? 'ខ្នាត: ' + escapeHtml(item.size) : '-'}</div>
+              <div class="text-[11px] text-slate-500">${item.color ? 'ពណ៌: ' + escapeHtml(item.color) : ''}</div>
+            </td>
+            <td class="p-2.5">
+              <div class="text-xs font-bold text-slate-800 truncate max-w-[150px]">${escapeHtml(item.warehouse)}</div>
+              <div class="text-[11px] font-bold text-rose-600"><i class="fa-solid fa-location-dot mr-1"></i>${escapeHtml(item.zone)}</div>
+            </td>
+            <td class="p-2.5 text-center">
+              <span class="inline-block px-2.5 py-1 rounded-xl text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                ${item.bulkQty > 0 ? item.bulkQty + ' ' + item.packUnit : ''} ${item.retailQty > 0 ? (item.bulkQty > 0 ? '+ ' : '') + item.retailQty + ' ' + item.baseUnit : ''}
+              </span>
+              <div class="text-[10px] text-slate-400 font-mono mt-0.5">(= ${item.effectiveQty} ${item.baseUnit})</div>
+            </td>
+            <td class="p-2.5 text-xs text-slate-600 max-w-[120px] truncate" title="${escapeHtml(item.notes)}">
+              ${escapeHtml(item.notes)}
+            </td>
+            <td class="p-2.5 text-center">
+              <button type="button" onclick="removeStockInBatchItem(${idx})" class="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition cursor-pointer" title="លុបទំនិញនេះចេញពី List">
+                <i class="fa-solid fa-trash-can text-xs"></i>
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+    window.renderStockInBatchQueue = renderStockInBatchQueue;
+
+    function removeStockInBatchItem(idx) {
+      if (idx >= 0 && idx < stockInBatchQueue.length) {
+        stockInBatchQueue.splice(idx, 1);
+        renderStockInBatchQueue();
+      }
+    }
+    window.removeStockInBatchItem = removeStockInBatchItem;
+
+    function clearStockInBatchQueue() {
+      if (stockInBatchQueue.length === 0) return;
+      Swal.fire({
+        title: 'តើសម្អាត List ទាំងអស់មែនទេ?',
+        text: 'ទំនិញទាំងអស់ដែលបានបញ្ចូលក្នុង List នឹងត្រូវលុបចេញ!',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'សម្អាតទាំងអស់',
+        cancelButtonText: 'បោះបង់'
+      }).then(res => {
+        if (res.isConfirmed) {
+          stockInBatchQueue = [];
+          renderStockInBatchQueue();
+        }
+      });
+    }
+    window.clearStockInBatchQueue = clearStockInBatchQueue;
+
+    async function submitBatchStockIn() {
+      if (stockInBatchQueue.length === 0) {
+        Swal.fire('List ទទេ', 'សូមបញ្ចូលទំនិញទៅក្នុង List ជាមុនសិន!', 'info');
+        return;
+      }
+
+      const docNo = document.getElementById('stockInDocNo')?.value.trim() || generateStockInDocNo();
+      const count = stockInBatchQueue.length;
+
+      const confirmRes = await Swal.fire({
+        title: 'បញ្ជាក់ការកត់ត្រាចូលស្តុក?',
+        html: `<div class="text-left text-xs space-y-2 font-khmer p-2">
+          <p>លោកអ្នកកំពុងកត់ត្រាចូលស្តុកទំនិញសរុប <b>${count} មុខ</b> ក្នុងពេលតែមួយ។</p>
+          <div class="p-2.5 bg-emerald-50 rounded-xl border border-emerald-200 text-emerald-950 font-bold">
+            <i class="fa-solid fa-file-invoice mr-1 text-emerald-600"></i>លេខឯកសាររួម: <span class="font-mono">${escapeHtml(docNo)}</span>
+          </div>
+        </div>`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#046c4e',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: `✅ បញ្ជាក់ រក្សាទុក (${count} មុខ)`,
+        cancelButtonText: 'បោះបង់'
+      });
+
+      if (!confirmRes.isConfirmed) return;
+
+      const btn = document.getElementById('btnConfirmBatchStockIn');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-sm text-white"></i> <span class="text-white font-khmer">កំពុងរក្សាទុក...</span>';
+      }
+
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10);
+      const timeStr = now.toLocaleTimeString();
+
+      const itemsToProcess = [...stockInBatchQueue];
+
+      for (const it of itemsToProcess) {
+        const tempTxId = 'TX-' + dateStr.replace(/-/g, '') + '-' + Math.floor(1000 + Math.random() * 9000);
+        const itemObj = (AppState.items || []).find(i => i.sku === it.sku);
+
+        const newTx = {
+          txId: tempTxId,
+          docNo: docNo,
+          date: dateStr,
+          time: timeStr,
+          type: 'STOCK_IN',
+          sku: it.sku,
+          code: it.itemCode,
+          itemName: it.itemName,
+          imageUrl: it.imageUrl,
+          size: it.size,
+          color: it.color,
+          zone: it.zone,
+          quantity: it.effectiveQty,
+          bulkQty: it.bulkQty,
+          retailQty: it.retailQty,
+          inUnitMode: it.mode,
+          unit: it.baseUnit,
+          packUnit: it.packUnit,
+          packQty: it.packQty,
+          oldStock: it.oldStock,
+          newStock: it.newStock,
+          supplier: it.supplier,
+          fromLocation: it.supplier,
+          toLocation: it.location,
+          warehouse: it.location,
+          location: it.location,
+          receivedBy: it.receivedBy,
+          user: AppState.currentUser?.username || it.receivedBy,
+          notes: it.notes,
+          _createdAt: Date.now(),
+          _isLocalPending: true
+        };
+
+        if (!AppState.stockInHistory) AppState.stockInHistory = [];
+        AppState.stockInHistory.unshift(newTx);
+
+        if (!LOCAL_DB.transactions) LOCAL_DB.transactions = [];
+        LOCAL_DB.transactions.unshift(newTx);
+
+        // Update local item stock
+        if (itemObj) {
+          itemObj.currentStock = it.newStock;
+          if (it.zone) itemObj.zone = it.zone;
+        }
+        const localItem = (LOCAL_DB.items || []).find(i => i.sku === it.sku);
+        if (localItem) {
+          localItem.currentStock = it.newStock;
+          if (it.zone) localItem.zone = it.zone;
+        }
+
+        // Send backend API call
+        const payload = {
+          data: {
+            docNo,
+            sku: it.sku,
+            code: it.itemCode,
+            itemName: it.itemName,
+            size: it.size,
+            unit: it.baseUnit,
+            packUnit: it.packUnit,
+            packQty: it.packQty,
+            bulkQty: it.bulkQty,
+            retailQty: it.retailQty,
+            inUnitMode: it.mode,
+            inputQty: (it.bulkQty > 0 && it.retailQty === 0) ? it.bulkQty : it.effectiveQty,
+            color: it.color,
+            zone: it.zone,
+            quantity: it.effectiveQty,
+            oldStock: it.oldStock,
+            newStock: it.newStock,
+            unitPrice: 0,
+            supplier: it.supplier,
+            fromLocation: it.supplier,
+            toLocation: it.location,
+            warehouse: it.location,
+            location: it.location,
+            receivedBy: it.receivedBy,
+            notes: it.notes
+          },
+          user: AppState.currentUser
+        };
+        apiCall('recordStockIn', payload).catch(err => console.error('Batch stockIn apiCall error:', err));
+      }
+
+      // Save local storage
+      try {
+        localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(AppState.stockInHistory));
+        if (typeof saveLocalTransactionsToStorage === 'function') saveLocalTransactionsToStorage();
+        if (typeof saveLocalItemsToStorage === 'function') saveLocalItemsToStorage();
+      } catch(e) {}
+
+      // Re-render UI
+      if (typeof filterStockInHistoryTable === 'function') {
+        filterStockInHistoryTable();
+      } else if (typeof renderStockInHistoryTable === 'function') {
+        renderStockInHistoryTable(AppState.stockInHistory);
+      }
+      if (typeof renderItemsTable === 'function') renderItemsTable();
+      if (typeof broadcastInventoryMutation === 'function') {
+        broadcastInventoryMutation('STOCK_IN', { items: AppState.items, docNo: docNo });
+      }
+
+      // Clear batch queue
+      stockInBatchQueue = [];
+      renderStockInBatchQueue();
+
+      // Generate a new fresh document number for next batch
+      generateStockInDocNo(true);
+      if (typeof clearStockInAllFields === 'function') clearStockInAllFields();
+
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-circle-check text-sm text-white"></i> <span class="text-white font-khmer">រក្សាទុកការចូលស្តុកទាំងអស់ (0 មុខ)</span>';
+      }
+
+      Swal.fire({
+        icon: 'success',
+        title: 'បានរក្សាទុកជោគជ័យទាំងអស់!',
+        html: `<div class="text-center text-xs font-khmer p-2">
+          បានកត់ត្រាចូលស្តុកចំនួន <b>${count} មុខទំនិញ</b> ដោយជោគជ័យ<br>
+          ក្រោមលេខឯកសាររួម <b class="font-mono text-emerald-800 text-sm">${escapeHtml(docNo)}</b>
+        </div>`,
+        confirmButtonColor: '#046c4e',
+        confirmButtonText: 'យល់ព្រម'
+      });
+    }
+    window.submitBatchStockIn = submitBatchStockIn;
+
+    // --------------------------------------------------------------------------
+    // 2. Stock Out Mode Switcher & Handlers
+    // --------------------------------------------------------------------------
+
+    function switchStockOutEntryMode(mode) {
+      stockOutEntryMode = (mode === 'MULTI') ? 'MULTI' : 'SINGLE';
+      const btnSingle = document.getElementById('btnStockOutModeSingle');
+      const btnMulti = document.getElementById('btnStockOutModeMulti');
+      const batchCard = document.getElementById('stockOutBatchCard');
+      const btnSubmit = document.getElementById('btnSubmitStockOut');
+      const btnAdd = document.getElementById('btnAddStockOutToList');
+      const statusTop = document.getElementById('stockOutMultiModeStatus');
+      const docBadgeNotice = document.getElementById('stockOutDocNoBadgeNotice');
+      const lockChk = document.getElementById('stockOutLockDocNo');
+      const lockChk2 = document.getElementById('stockOutLockDocNoSubmit');
+
+      if (stockOutEntryMode === 'MULTI') {
+        if (btnSingle) {
+          btnSingle.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:text-amber-900 transition flex items-center gap-1.5 cursor-pointer';
+        }
+        if (btnMulti) {
+          btnMulti.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition shadow-xs bg-amber-600 text-white border border-amber-700 flex items-center gap-1.5 cursor-pointer';
+        }
+        if (batchCard) batchCard.classList.remove('hidden');
+        if (btnSubmit) btnSubmit.classList.add('hidden');
+        if (btnAdd) btnAdd.classList.remove('hidden');
+        if (statusTop) { statusTop.classList.remove('hidden'); statusTop.classList.add('flex'); }
+        if (docBadgeNotice) docBadgeNotice.classList.remove('hidden');
+        if (lockChk) lockChk.checked = true;
+        if (lockChk2) lockChk2.checked = true;
+        renderStockOutBatchQueue();
+      } else {
+        if (btnSingle) {
+          btnSingle.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition shadow-xs bg-white text-amber-900 border border-amber-300 flex items-center gap-1.5 cursor-pointer';
+        }
+        if (btnMulti) {
+          btnMulti.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:text-amber-900 transition flex items-center gap-1.5 cursor-pointer';
+        }
+        if (batchCard) batchCard.classList.add('hidden');
+        if (btnSubmit) btnSubmit.classList.remove('hidden');
+        if (btnAdd) btnAdd.classList.add('hidden');
+        if (statusTop) { statusTop.classList.add('hidden'); statusTop.classList.remove('flex'); }
+        if (docBadgeNotice) docBadgeNotice.classList.add('hidden');
+        if (lockChk) lockChk.checked = false;
+        if (lockChk2) lockChk2.checked = false;
+      }
+    }
+    window.switchStockOutEntryMode = switchStockOutEntryMode;
+
+    function addCurrentItemToStockOutBatchQueue() {
+      if (typeof closeStockOutZoneDropdown === 'function') closeStockOutZoneDropdown();
+
+      const docNo = document.getElementById('stockOutDocNo')?.value.trim() || generateStockOutDocNo();
+      const rawSku = document.getElementById('stockOutSku')?.value || '';
+      const sku = (typeof extractSkuFromInput === 'function') ? extractSkuFromInput(rawSku) : rawSku.trim();
+      const item = sku ? (AppState.items || []).find(i => i.sku === sku) : null;
+      const itemCode = document.getElementById('stockOutItemCode')?.value.trim() || sku;
+      const baseUnit = document.getElementById('stockOutBaseUnitVal')?.value.trim() || 'ដើម';
+      const packUnit = document.getElementById('stockOutPackUnitVal')?.value.trim() || 'ប្រអប់';
+      const packQty = Math.max(1, Number(document.getElementById('stockOutPackQtyVal')?.value || 1));
+
+      const bulkQty = Number(document.getElementById('stockOutQtyBulk')?.value || 0);
+      const retailQty = Number(document.getElementById('stockOutQtyRetail')?.value || 0);
+      const qty = (bulkQty * packQty) + retailQty;
+      const size = document.getElementById('stockOutSize')?.value.trim() || '';
+      const color = document.getElementById('stockOutColor')?.value.trim() || '';
+      const zone = document.getElementById('stockOutZone')?.value.trim() || '';
+      const oldStock = Number(document.getElementById('stockOutOldStockValue')?.value || 0);
+
+      let toLocation = document.getElementById('stockOutToLocation')?.value || 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
+      const curU = AppState.currentUser || {};
+      const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : false;
+      if (!isPrivileged && curU.warehouse) {
+        toLocation = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(curU.warehouse) : curU.warehouse) || toLocation;
+      }
+      const issuer = AppState.currentUser?.fullName || AppState.currentUser?.username || document.getElementById('stockOutIssuer')?.value.trim() || 'Admin';
+      const reason = document.getElementById('stockOutReason')?.value || 'ដកប្រើប្រាស់ផ្ទៃក្នុង (Internal Use)';
+      const rawNotes = document.getElementById('stockOutNotes')?.value.trim();
+      const notes = (!rawNotes || rawNotes === '') ? '-' : rawNotes;
+
+      if (!sku || !item) {
+        Swal.fire('សូមជ្រើសរើសទំនិញ', 'សូមវាយបញ្ចូល ឬជ្រើសរើសឈ្មោះទំនិញជាមុនសិន!', 'warning');
+        return;
+      }
+      if (qty <= 0) {
+        Swal.fire('ចំនួនមិនត្រឹមត្រូវ', 'ចំនួនបើកចេញត្រូវតែធំជាង 0 (ដុំ ឬ រាយ)!', 'warning');
+        return;
+      }
+
+      // Check available stock including items already in queue for this SKU
+      const alreadyQueued = stockOutBatchQueue
+        .filter(q => q.sku === sku)
+        .reduce((sum, q) => sum + q.effectiveQty, 0);
+
+      if (qty + alreadyQueued > oldStock) {
+        Swal.fire('ស្តុកមិនគ្រប់គ្រាន់', `ចំនួនបើកចេញសរុប (${qty + alreadyQueued} ${baseUnit}) លើសពីស្តុកដែលមានក្នុងដៃ (${oldStock} ${baseUnit})!`, 'error');
+        return;
+      }
+
+      const itemName = item?.name || sku;
+
+      const queueItem = {
+        id: 'OUT-Q-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+        docNo,
+        sku,
+        itemCode,
+        itemName,
+        imageUrl: item?.imageUrl || '',
+        size,
+        color,
+        zone,
+        toLocation,
+        warehouse: toLocation,
+        baseUnit,
+        packUnit,
+        packQty,
+        bulkQty,
+        retailQty,
+        effectiveQty: qty,
+        oldStock: oldStock - alreadyQueued,
+        newStock: oldStock - alreadyQueued - qty,
+        unitPrice: Number(document.getElementById('stockOutUnitPrice')?.value || 0),
+        issuer,
+        reason,
+        notes
+      };
+
+      stockOutBatchQueue.push(queueItem);
+      renderStockOutBatchQueue();
+
+      // Clear product input fields (keeping docNo and toLocation)
+      const skuEl = document.getElementById('stockOutSku');
+      if (skuEl) skuEl.value = '';
+      const codeEl = document.getElementById('stockOutItemCode');
+      if (codeEl) codeEl.value = '';
+      const sizeEl = document.getElementById('stockOutSize');
+      if (sizeEl) sizeEl.value = '';
+      const colorEl = document.getElementById('stockOutColor');
+      if (colorEl) colorEl.value = '';
+      const zoneEl = document.getElementById('stockOutZone');
+      if (zoneEl) zoneEl.value = '';
+      const zoneClearBtn = document.getElementById('stockOutZoneClearBtn');
+      if (zoneClearBtn) zoneClearBtn.classList.add('hidden');
+      const bQtyEl = document.getElementById('stockOutQtyBulk');
+      if (bQtyEl) bQtyEl.value = '';
+      const rQtyEl = document.getElementById('stockOutQtyRetail');
+      if (rQtyEl) rQtyEl.value = '';
+      const oldStockEl = document.getElementById('stockOutOldStockValue');
+      if (oldStockEl) oldStockEl.value = 0;
+      const notesEl = document.getElementById('stockOutNotes');
+      if (notesEl) notesEl.value = '-';
+
+      if (typeof clearStockOutImgPreview === 'function') clearStockOutImgPreview();
+      if (typeof updateStockOutBadges === 'function') updateStockOutBadges(0, 0, 0, 0, packUnit, baseUnit);
+
+      if (skuEl) skuEl.focus();
+
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: '➕ បានបញ្ចូលទៅក្នុង List!',
+        html: `<span class="text-xs font-bold text-slate-800">${escapeHtml(itemName)}</span><br><span class="text-[11px] text-amber-700">${bulkQty > 0 ? bulkQty + ' ' + packUnit + ' ' : ''}${retailQty > 0 ? retailQty + ' ' + baseUnit : ''} (= ${qty} ${baseUnit})</span>`,
+        showConfirmButton: false,
+        timer: 1800
+      });
+    }
+    window.addCurrentItemToStockOutBatchQueue = addCurrentItemToStockOutBatchQueue;
+
+    function renderStockOutBatchQueue() {
+      const docNo = document.getElementById('stockOutDocNo')?.value.trim() || '-';
+      const docDisplay = document.getElementById('stockOutBatchDocDisplay');
+      if (docDisplay) docDisplay.textContent = docNo;
+
+      const badgeCount = document.getElementById('stockOutBatchBadgeCount');
+      if (badgeCount) {
+        badgeCount.textContent = stockOutBatchQueue.length;
+        badgeCount.classList.toggle('hidden', stockOutBatchQueue.length === 0);
+      }
+      const topCount = document.getElementById('stockOutBatchListCountTop');
+      if (topCount) topCount.textContent = stockOutBatchQueue.length;
+
+      const tableBadge = document.getElementById('stockOutBatchBadgeTable');
+      if (tableBadge) tableBadge.textContent = stockOutBatchQueue.length + ' មុខទំនិញ';
+
+      const totalItemsEl = document.getElementById('stockOutBatchTotalItems');
+      if (totalItemsEl) totalItemsEl.textContent = stockOutBatchQueue.length;
+
+      let totalBulk = 0, totalRetail = 0, totalUnits = 0;
+      stockOutBatchQueue.forEach(it => {
+        totalBulk += (it.bulkQty || 0);
+        totalRetail += (it.retailQty || 0);
+        totalUnits += (it.effectiveQty || 0);
+      });
+
+      const totalQtyEl = document.getElementById('stockOutBatchTotalQty');
+      if (totalQtyEl) {
+        totalQtyEl.textContent = `${totalBulk} ប្រអប់/ដុំ + ${totalRetail} រាយ (សរុប ${totalUnits} ឯកតា)`;
+      }
+
+      const confirmBtn = document.getElementById('btnConfirmBatchStockOut');
+      const confirmBtnText = document.getElementById('btnConfirmBatchStockOutText');
+      if (confirmBtn) {
+        confirmBtn.disabled = (stockOutBatchQueue.length === 0);
+      }
+      if (confirmBtnText) {
+        confirmBtnText.textContent = `រក្សាទុកការចេញស្តុកទាំងអស់ (${stockOutBatchQueue.length} មុខ)`;
+      }
+
+      const emptyState = document.getElementById('stockOutBatchEmptyState');
+      const tbody = document.getElementById('stockOutBatchTableBody');
+      if (!tbody) return;
+
+      if (stockOutBatchQueue.length === 0) {
+        if (emptyState) emptyState.classList.remove('hidden');
+        tbody.innerHTML = '';
+        return;
+      }
+
+      if (emptyState) emptyState.classList.add('hidden');
+
+      tbody.innerHTML = stockOutBatchQueue.map((item, idx) => {
+        const fallbackImg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2394a3b8'%3E%3Cpath d='M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z'/%3E%3C/svg%3E";
+        return `
+          <tr class="hover:bg-amber-50/40 transition">
+            <td class="p-2.5 text-center font-bold text-slate-500">${idx + 1}</td>
+            <td class="p-2.5 text-center">
+              <img src="${item.imageUrl || fallbackImg}" alt="" class="w-9 h-9 object-contain mx-auto rounded-lg border border-slate-200 bg-white shadow-3xs" onerror="this.onerror=null;this.src='${fallbackImg}';">
+            </td>
+            <td class="p-2.5">
+              <div class="font-bold text-slate-800 text-xs sm:text-sm">${escapeHtml(item.itemName)}</div>
+              <div class="text-[11px] font-mono text-amber-800 font-bold">${escapeHtml(item.sku)}</div>
+            </td>
+            <td class="p-2.5">
+              <div class="text-xs font-semibold text-slate-700">${item.size ? 'ខ្នាត: ' + escapeHtml(item.size) : '-'}</div>
+              <div class="text-[11px] text-slate-500">${item.color ? 'ពណ៌: ' + escapeHtml(item.color) : ''}</div>
+            </td>
+            <td class="p-2.5">
+              <div class="text-xs font-bold text-slate-800 truncate max-w-[150px]">${escapeHtml(item.toLocation)}</div>
+              <div class="text-[11px] font-bold text-rose-600"><i class="fa-solid fa-location-dot mr-1"></i>${escapeHtml(item.zone)}</div>
+            </td>
+            <td class="p-2.5 text-center">
+              <span class="inline-block px-2.5 py-1 rounded-xl text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                ${item.bulkQty > 0 ? item.bulkQty + ' ' + item.packUnit : ''} ${item.retailQty > 0 ? (item.bulkQty > 0 ? '+ ' : '') + item.retailQty + ' ' + item.baseUnit : ''}
+              </span>
+              <div class="text-[10px] text-slate-400 font-mono mt-0.5">(= ${item.effectiveQty} ${item.baseUnit})</div>
+            </td>
+            <td class="p-2.5 text-xs text-slate-600 max-w-[120px] truncate" title="${escapeHtml(item.notes)}">
+              ${escapeHtml(item.notes)}
+            </td>
+            <td class="p-2.5 text-center">
+              <button type="button" onclick="removeStockOutBatchItem(${idx})" class="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition cursor-pointer" title="លុបទំនិញនេះចេញពី List">
+                <i class="fa-solid fa-trash-can text-xs"></i>
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+    window.renderStockOutBatchQueue = renderStockOutBatchQueue;
+
+    function removeStockOutBatchItem(idx) {
+      if (idx >= 0 && idx < stockOutBatchQueue.length) {
+        stockOutBatchQueue.splice(idx, 1);
+        renderStockOutBatchQueue();
+      }
+    }
+    window.removeStockOutBatchItem = removeStockOutBatchItem;
+
+    function clearStockOutBatchQueue() {
+      if (stockOutBatchQueue.length === 0) return;
+      Swal.fire({
+        title: 'តើសម្អាត List ទាំងអស់មែនទេ?',
+        text: 'ទំនិញទាំងអស់ដែលបានបញ្ចូលក្នុង List នឹងត្រូវលុបចេញ!',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc2626',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'សម្អាតទាំងអស់',
+        cancelButtonText: 'បោះបង់'
+      }).then(res => {
+        if (res.isConfirmed) {
+          stockOutBatchQueue = [];
+          renderStockOutBatchQueue();
+        }
+      });
+    }
+    window.clearStockOutBatchQueue = clearStockOutBatchQueue;
+
+    async function submitBatchStockOut() {
+      if (stockOutBatchQueue.length === 0) {
+        Swal.fire('List ទទេ', 'សូមបញ្ចូលទំនិញទៅក្នុង List ជាមុនសិន!', 'info');
+        return;
+      }
+
+      const docNo = document.getElementById('stockOutDocNo')?.value.trim() || generateStockOutDocNo();
+      const count = stockOutBatchQueue.length;
+
+      const confirmRes = await Swal.fire({
+        title: 'បញ្ជាក់ការកត់ត្រាចេញពីស្តុក?',
+        html: `<div class="text-left text-xs space-y-2 font-khmer p-2">
+          <p>លោកអ្នកកំពុងកត់ត្រាចេញពីស្តុកទំនិញសរុប <b>${count} មុខ</b> ក្នុងពេលតែមួយ។</p>
+          <div class="p-2.5 bg-amber-50 rounded-xl border border-amber-200 text-amber-950 font-bold">
+            <i class="fa-solid fa-file-invoice mr-1 text-amber-600"></i>លេខឯកសាររួម: <span class="font-mono">${escapeHtml(docNo)}</span>
+          </div>
+        </div>`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#ea580c',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: `✅ បញ្ជាក់ រក្សាទុក (${count} មុខ)`,
+        cancelButtonText: 'បោះបង់'
+      });
+
+      if (!confirmRes.isConfirmed) return;
+
+      const btn = document.getElementById('btnConfirmBatchStockOut');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-sm text-white"></i> <span class="text-white font-khmer">កំពុងរក្សាទុក...</span>';
+      }
+
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10);
+      const timeStr = now.toLocaleTimeString();
+
+      const itemsToProcess = [...stockOutBatchQueue];
+
+      for (const it of itemsToProcess) {
+        const tempTxId = 'TX-' + dateStr.replace(/-/g, '') + '-' + Math.floor(1000 + Math.random() * 9000);
+        const itemObj = (AppState.items || []).find(i => i.sku === it.sku);
+
+        const newTx = {
+          txId: tempTxId,
+          docNo: docNo,
+          date: dateStr,
+          time: timeStr,
+          type: 'STOCK_OUT',
+          sku: it.sku,
+          code: it.itemCode,
+          itemName: it.itemName,
+          imageUrl: it.imageUrl,
+          size: it.size,
+          color: it.color,
+          zone: it.zone,
+          quantity: it.effectiveQty,
+          bulkQty: it.bulkQty,
+          retailQty: it.retailQty,
+          outUnitMode: (it.bulkQty > 0 && it.retailQty === 0) ? 'BULK' : 'RETAIL',
+          unit: it.baseUnit,
+          packUnit: it.packUnit,
+          packQty: it.packQty,
+          oldStock: it.oldStock,
+          newStock: it.newStock,
+          unitPrice: it.unitPrice,
+          fromLocation: 'បញ្ជូនមកពីចុងស៊ីន',
+          toLocation: it.toLocation,
+          warehouse: it.toLocation,
+          location: it.toLocation,
+          issuer: it.issuer,
+          reason: it.reason,
+          user: AppState.currentUser?.username || it.issuer,
+          notes: it.notes,
+          _createdAt: Date.now(),
+          _isLocalPending: true
+        };
+
+        if (!AppState.stockOutHistory) AppState.stockOutHistory = [];
+        AppState.stockOutHistory.unshift(newTx);
+
+        if (!LOCAL_DB.transactions) LOCAL_DB.transactions = [];
+        LOCAL_DB.transactions.unshift(newTx);
+
+        // Update local item stock
+        if (itemObj) {
+          itemObj.currentStock = it.newStock;
+        }
+        const localItem = (LOCAL_DB.items || []).find(i => i.sku === it.sku);
+        if (localItem) {
+          localItem.currentStock = it.newStock;
+        }
+
+        // If dispatched to a station, create incoming dispatch
+        const isInternalHq = it.toLocation && (
+          it.toLocation.includes('机电') ||
+          it.toLocation.includes('អគ្គិសនី') ||
+          it.toLocation.includes('中心库房') ||
+          it.toLocation.includes('ឃ្លាំងស្តុកនៅចុងស៊ីង') ||
+          it.toLocation.includes('ចុងស៊ីង') ||
+          it.toLocation.includes('ចុងស៊ីន')
+        );
+        if (it.toLocation && !isInternalHq && !it.toLocation.includes('អតិថិជន') && !it.toLocation.includes('ដកប្រើប្រាស់')) {
+          const dspId = 'DSP-' + dateStr.replace(/-/g, '') + '-' + Math.floor(1000 + Math.random() * 9000);
+          const dspItem = {
+            id: dspId,
+            docNo: docNo,
+            dispatchNo: docNo,
+            date: dateStr,
+            time: timeStr,
+            fromLocation: '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
+            toStation: it.toLocation,
+            stationName: it.toLocation,
+            sku: it.sku,
+            code: it.itemCode,
+            itemName: it.itemName,
+            quantity: it.effectiveQty,
+            bulkQty: it.bulkQty,
+            retailQty: it.retailQty,
+            unit: it.baseUnit,
+            packUnit: it.packUnit,
+            packQty: it.packQty,
+            color: it.color,
+            size: it.size,
+            status: 'PENDING_ACCEPTANCE',
+            receivedQty: 0,
+            dispatchedBy: it.issuer,
+            notes: it.notes,
+            timestamp: Date.now()
+          };
+          if (!AppState.pendingDispatches) AppState.pendingDispatches = [];
+          AppState.pendingDispatches.unshift(dspItem);
+          if (!LOCAL_DB.dispatches) LOCAL_DB.dispatches = [];
+          LOCAL_DB.dispatches.unshift(dspItem);
+        }
+
+        // Send backend API call
+        const payload = {
+          data: {
+            docNo,
+            sku: it.sku,
+            code: it.itemCode,
+            itemName: it.itemName,
+            size: it.size,
+            unit: it.baseUnit,
+            packUnit: it.packUnit,
+            packQty: it.packQty,
+            bulkQty: it.bulkQty,
+            retailQty: it.retailQty,
+            outUnitMode: (it.bulkQty > 0 && it.retailQty === 0) ? 'BULK' : 'RETAIL',
+            color: it.color,
+            zone: it.zone,
+            quantity: it.effectiveQty,
+            oldStock: it.oldStock,
+            newStock: it.newStock,
+            unitPrice: it.unitPrice,
+            fromLocation: 'បញ្ជូនមកពីចុងស៊ីន',
+            toLocation: it.toLocation,
+            issuer: it.issuer,
+            reason: it.reason,
+            notes: it.notes,
+            userNote: it.notes
+          },
+          user: AppState.currentUser
+        };
+        apiCall('recordStockOut', payload).catch(err => console.error('Batch stockOut apiCall error:', err));
+      }
+
+      // Save local storage
+      try {
+        localStorage.setItem('inventory_stock_out_history_db', JSON.stringify(AppState.stockOutHistory));
+        if (typeof saveLocalTransactionsToStorage === 'function') saveLocalTransactionsToStorage();
+        if (typeof saveLocalItemsToStorage === 'function') saveLocalItemsToStorage();
+        if (typeof saveLocalDispatchesToStorage === 'function') saveLocalDispatchesToStorage();
+      } catch(e) {}
+
+      // Re-render UI
+      if (typeof filterStockOutHistoryTable === 'function') {
+        filterStockOutHistoryTable();
+      } else if (typeof renderStockOutHistoryTable === 'function') {
+        renderStockOutHistoryTable(AppState.stockOutHistory);
+      }
+      if (typeof renderItemsTable === 'function') renderItemsTable();
+      if (typeof broadcastInventoryMutation === 'function') {
+        broadcastInventoryMutation('STOCK_OUT', { items: AppState.items, docNo: docNo });
+      }
+
+      // Clear batch queue
+      stockOutBatchQueue = [];
+      renderStockOutBatchQueue();
+
+      // Generate a new fresh document number for next batch
+      generateStockOutDocNo(true);
+      if (typeof clearStockOutAllFields === 'function') clearStockOutAllFields();
+
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-circle-check text-sm text-white"></i> <span class="text-white font-khmer">រក្សាទុកការចេញស្តុកទាំងអស់ (0 មុខ)</span>';
+      }
+
+      Swal.fire({
+        icon: 'success',
+        title: 'បានរក្សាទុកជោគជ័យទាំងអស់!',
+        html: `<div class="text-center text-xs font-khmer p-2">
+          បានកត់ត្រាចេញពីស្តុកចំនួន <b>${count} មុខទំនិញ</b> ដោយជោគជ័យ<br>
+          ក្រោមលេខឯកសាររួម <b class="font-mono text-amber-900 text-sm">${escapeHtml(docNo)}</b>
+        </div>`,
+        confirmButtonColor: '#ea580c',
+        confirmButtonText: 'យល់ព្រម'
+      });
+    }
+    window.submitBatchStockOut = submitBatchStockOut;
+
+    // Backward compatibility aliases
+    function setStockInMultiMode(enabled) { switchStockInEntryMode(enabled ? 'MULTI' : 'SINGLE'); }
+    function toggleStockInLockDocNo(checked) { switchStockInEntryMode(checked ? 'MULTI' : 'SINGLE'); }
+    function submitStockInAsMultiItem() { addCurrentItemToStockInBatchQueue(); }
+    window.setStockInMultiMode = setStockInMultiMode;
     window.toggleStockInLockDocNo = toggleStockInLockDocNo;
     window.toggleStockInMultiMode = toggleStockInLockDocNo;
-    window.setStockInMultiMode = setStockInMultiMode;
-
-    function submitStockInAsMultiItem() {
-      setStockInMultiMode(true);
-      const form = document.getElementById('stockInForm');
-      if (form) {
-        if (typeof form.requestSubmit === 'function') {
-          form.requestSubmit();
-        } else {
-          const btn = document.getElementById('btnSubmitStockIn');
-          if (btn) btn.click();
-        }
-      }
-    }
     window.submitStockInAsMultiItem = submitStockInAsMultiItem;
 
-    function setStockOutMultiMode(enabled) {
-      const chk1 = document.getElementById('stockOutLockDocNo');
-      const chk2 = document.getElementById('stockOutLockDocNoSubmit');
-      if (chk1) chk1.checked = enabled;
-      if (chk2) chk2.checked = enabled;
-
-      const inp = document.getElementById('stockOutDocNo');
-      const submitText = document.getElementById('btnSubmitStockOutText');
-
-      if (enabled) {
-        if (inp) inp.classList.add('ring-2', 'ring-amber-500/50', 'bg-amber-50/60');
-        if (submitText) submitText.textContent = 'រក្សាទុក & បន្ត';
-      } else {
-        if (inp) inp.classList.remove('ring-2', 'ring-amber-500/50', 'bg-amber-50/60');
-        if (submitText) submitText.textContent = 'រក្សាទុក';
-      }
-
-      try { localStorage.setItem('stockOut_lockDocNo', enabled ? 'true' : 'false'); } catch(e) {}
-      updateDocBatchBadge('OUT');
-    }
-
-    function toggleStockOutLockDocNo(checked) {
-      setStockOutMultiMode(checked);
-    }
+    function setStockOutMultiMode(enabled) { switchStockOutEntryMode(enabled ? 'MULTI' : 'SINGLE'); }
+    function toggleStockOutLockDocNo(checked) { switchStockOutEntryMode(checked ? 'MULTI' : 'SINGLE'); }
+    function submitStockOutAsMultiItem() { addCurrentItemToStockOutBatchQueue(); }
+    window.setStockOutMultiMode = setStockOutMultiMode;
     window.toggleStockOutLockDocNo = toggleStockOutLockDocNo;
     window.toggleStockOutMultiMode = toggleStockOutLockDocNo;
-    window.setStockOutMultiMode = setStockOutMultiMode;
-
-    function submitStockOutAsMultiItem() {
-      setStockOutMultiMode(true);
-      const form = document.getElementById('stockOutForm');
-      if (form) {
-        if (typeof form.requestSubmit === 'function') {
-          form.requestSubmit();
-        } else {
-          const btn = document.getElementById('btnSubmitStockOut');
-          if (btn) btn.click();
-        }
-      }
-    }
     window.submitStockOutAsMultiItem = submitStockOutAsMultiItem;
 
     function finishCurrentDoc(type) {
       if (type === 'IN') {
-        setStockInMultiMode(false);
+        switchStockInEntryMode('SINGLE');
         generateStockInDocNo(true);
         if (typeof clearStockInAllFields === 'function') clearStockInAllFields();
-        Swal.fire({
-          toast: true,
-          position: 'top-end',
-          icon: 'success',
-          title: 'បានបញ្ចប់ឯកសារ និងបង្កើតលេខថ្មី!',
-          showConfirmButton: false,
-          timer: 2000
-        });
       } else {
-        setStockOutMultiMode(false);
+        switchStockOutEntryMode('SINGLE');
         generateStockOutDocNo(true);
         if (typeof clearStockOutAllFields === 'function') clearStockOutAllFields();
-        Swal.fire({
-          toast: true,
-          position: 'top-end',
-          icon: 'success',
-          title: 'បានបញ្ចប់ឯកសារ និងបង្កើតលេខថ្មី!',
-          showConfirmButton: false,
-          timer: 2000
-        });
       }
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: 'បានបញ្ចប់ឯកសារ និងបង្កើតលេខថ្មី!',
+        showConfirmButton: false,
+        timer: 2000
+      });
     }
     window.finishCurrentDoc = finishCurrentDoc;
+
 
     function updateDocBatchBadge(type) {
       const isLocked = type === 'IN'
