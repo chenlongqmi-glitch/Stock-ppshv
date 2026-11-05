@@ -40198,13 +40198,19 @@
         headerBtnBadge.innerText = `អ្នក Online (${count})`;
       }
 
-      // Update Station Staff Online count badge
+      // Update Station Staff Online count badge (exclude self, SuperAdmin & other Admins)
       const staffOnlineBadge = document.getElementById('chatStaffOnlineCountText');
       if (staffOnlineBadge) {
+        const myUname = String(AppState.currentUser?.username || '').toLowerCase();
+        const myUid = AppState.currentUser?.userId;
+        const isMyUserAdmin = (AppState.currentUser?.role === 'Admin' || myUname === 'admin');
         const staffOnlineCount = onlineUsers.filter(u => {
           const r = String(u.role || '').toLowerCase();
           const un = String(u.username || '').toLowerCase();
-          return r !== 'superadmin' && un !== 'superadmin';
+          if (un === myUname || (myUid && u.userId === myUid)) return false;
+          if (r === 'superadmin' || un === 'superadmin') return false;
+          if (isMyUserAdmin && (r === 'admin' || un === 'admin')) return false;
+          return true;
         }).length;
         staffOnlineBadge.innerText = `${staffOnlineCount} Online`;
       }
@@ -40789,13 +40795,15 @@
       const allUsers = (AppState.users && AppState.users.length ? AppState.users : (LOCAL_DB.users || []))
         .filter(u => u && !isUnregisteredDummyUser(u) && u.status !== 'Deleted' && u.status !== 'deleted');
 
-      // Filter to station users / direct staff (exclude SuperAdmin & other Admins if viewer is Admin)
+      // Filter to station users / direct staff (exclude myself, SuperAdmin, & other Admins if viewer is Admin)
       const isMyUserAdmin = (myUser.role === 'Admin' || myUsername === 'admin');
       const stationStaff = allUsers.filter(u => {
         const role = String(u.role || '');
         const uname = String(u.username || '').toLowerCase();
+        // Never show current logged-in user in chat contacts list
+        if (uname === myUsername || (myUser.userId && u.userId === myUser.userId)) return false;
         if (role === 'SuperAdmin' || uname === 'superadmin') return false;
-        if (isMyUserAdmin && (role === 'Admin' || uname === 'admin') && uname !== myUsername) return false;
+        if (isMyUserAdmin && (role === 'Admin' || uname === 'admin')) return false;
         return true;
       });
 
@@ -40815,13 +40823,7 @@
         if (aOnline && !bOnline) return -1;
         if (!aOnline && bOnline) return 1;
 
-        // 2. ក្នុងចំណោមអ្នក Online ដូចគ្នា ឬ Offline ដូចគ្នា: គណនីផ្ទាល់ខ្លួន (Me) ដាក់បន្ទាប់ពីអ្នកដទៃ
-        const aIsMe = (aUname === myUsername);
-        const bIsMe = (bUname === myUsername);
-        if (aIsMe && !bIsMe) return 1;
-        if (!aIsMe && bIsMe) return -1;
-
-        // 3. តម្រៀបតាមតួនាទី (Role)
+        // 2. តម្រៀបតាមតួនាទី (Role)
         const roleOrder = {
           'admin': 1,
           'អ្នកគ្រប់គ្រងស្ថានីយ': 2,
@@ -40842,9 +40844,8 @@
 
       container.innerHTML = stationStaff.map((u) => {
         const uname = String(u.username || '').toLowerCase();
-        const isMe = (uname === myUsername);
         const isOnline = isUserOnline(uname);
-        const channelId = isMe ? `DIRECT_${uname}__notes` : getDirectChannelId(myUsername, uname);
+        const channelId = getDirectChannelId(myUsername, uname);
         const avatar = u.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(u.username)}`;
         const roleName = u.role || 'បុគ្គលិក';
         const whName = u.warehouse || 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
@@ -40861,7 +40862,7 @@
           roleBadgeClass = 'bg-amber-100 text-amber-800 border-amber-200';
         }
 
-        const chatTitle = isMe ? `📝 កំណត់ត្រាផ្ទាល់ខ្លួន (${escapeHtml(u.fullName || u.username)})` : `💬 ${escapeHtml(u.fullName || u.username)}`;
+        const chatTitle = `💬 ${escapeHtml(u.fullName || u.username)}`;
         const chatSubtitle = `${escapeHtml(roleName)} • ${escapeHtml(whName)}`;
 
         return `
@@ -40875,7 +40876,7 @@
             </div>
             <div class="flex-1 min-w-0">
               <div class="flex items-center justify-between">
-                <p class="font-bold text-slate-800 truncate text-xs">${escapeHtml(u.fullName || u.username)} ${isMe ? '<span class="text-[10px] text-blue-600 font-semibold">(ខ្ញុំ)</span>' : ''}</p>
+                <p class="font-bold text-slate-800 truncate text-xs">${escapeHtml(u.fullName || u.username)}</p>
                 <span class="px-1.5 py-0.2 rounded text-[9px] font-bold border ${roleBadgeClass}">${escapeHtml(roleName)}</span>
               </div>
               <div class="flex items-center justify-between text-[11px] text-slate-400 mt-0.5">
