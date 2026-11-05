@@ -4662,8 +4662,8 @@
     <!-- ========================================== -->
   <!-- MODAL: Stock In Popup (កត់ត្រាចូលស្តុក Popup) -->
   <!-- ========================================== -->
-  <div id="stockInModal" class="hidden fixed inset-0 z-[95] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex justify-center items-start p-3 sm:p-5 pt-10 sm:pt-14 pb-16 custom-scrollbar" onclick="if(isSafeModalBackdropClick(event)) closeStockInForm()">
-    <div class="relative w-full max-w-5xl xl:max-w-6xl space-y-4 shrink-0" onclick="event.stopPropagation()">
+  <div id="stockInModal" class="hidden fixed inset-0 z-[95] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex justify-center items-center p-3 sm:p-5 py-8 custom-scrollbar" onclick="if(isSafeModalBackdropClick(event)) closeStockInForm()">
+    <div class="relative w-full max-w-5xl xl:max-w-6xl space-y-4 shrink-0 my-auto" onclick="event.stopPropagation()">
       <div id="stockInFormCard" class="glass-card p-3 sm:p-4 lg:p-4 rounded-2xl sm:rounded-3xl shadow-sm border-2 border-emerald-300/80 bg-gradient-to-br from-emerald-50/30 via-white to-teal-50/20">
 
             <!-- Top Mode Switcher Menu (1. Single Item vs 2. Multi-Item Batch) -->
@@ -5066,8 +5066,8 @@
   <!-- ========================================== -->
   <!-- MODAL: Stock Out Popup (កត់ត្រាចេញពីស្តុក Popup) -->
   <!-- ========================================== -->
-  <div id="stockOutModal" class="hidden fixed inset-0 z-[95] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex justify-center items-start p-3 sm:p-5 pt-10 sm:pt-14 pb-16 custom-scrollbar" onclick="if(isSafeModalBackdropClick(event)) closeStockOutForm()">
-    <div class="relative w-full max-w-5xl xl:max-w-6xl space-y-4 shrink-0" onclick="event.stopPropagation()">
+  <div id="stockOutModal" class="hidden fixed inset-0 z-[95] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex justify-center items-center p-3 sm:p-5 py-8 custom-scrollbar" onclick="if(isSafeModalBackdropClick(event)) closeStockOutForm()">
+    <div class="relative w-full max-w-5xl xl:max-w-6xl space-y-4 shrink-0 my-auto" onclick="event.stopPropagation()">
       <div id="stockOutFormCard" class="glass-card p-3 sm:p-4 lg:p-4 rounded-2xl sm:rounded-3xl shadow-sm border-2 border-amber-300/80 bg-gradient-to-br from-amber-50/30 via-white to-orange-50/20">
 
             <!-- Stock Out Mode Switcher (Single Station vs Multi-Station Batch Distribution) -->
@@ -28925,7 +28925,7 @@
 
     function openStockInForm(mode) {
       if (typeof hideCustomProductDropdown === 'function') hideCustomProductDropdown();
-      if (mode) switchStockInEntryMode(mode);
+      switchStockInEntryMode(mode || stockInEntryMode || 'SINGLE');
       const modal = document.getElementById('stockInModal');
       const card = document.getElementById('stockInFormCard');
       const batchCard = document.getElementById('stockInBatchCard');
@@ -29000,7 +29000,7 @@
 
     function openStockOutForm(mode) {
       if (typeof hideCustomProductDropdown === 'function') hideCustomProductDropdown();
-      if (mode) switchStockOutEntryMode(mode);
+      switchStockOutEntryMode(mode || stockOutEntryMode || 'SINGLE');
       const modal = document.getElementById('stockOutModal');
       const card = document.getElementById('stockOutFormCard');
       const batchCard = document.getElementById('stockOutBatchCard');
@@ -29087,6 +29087,7 @@
     function switchStockInEntryMode(mode) {
       if (typeof hideCustomProductDropdown === 'function') hideCustomProductDropdown();
       stockInEntryMode = (mode === 'MULTI') ? 'MULTI' : 'SINGLE';
+      const modal = document.getElementById('stockInModal');
       const btnSingle = document.getElementById('btnStockInModeSingle');
       const btnMulti = document.getElementById('btnStockInModeMulti');
       const batchCard = document.getElementById('stockInBatchCard');
@@ -29096,6 +29097,19 @@
       const docBadgeNotice = document.getElementById('stockInDocNoBadgeNotice');
       const lockChk = document.getElementById('stockInLockDocNo');
       const lockChk2 = document.getElementById('stockInLockDocNoSubmit');
+
+      if (modal) {
+        if (stockInEntryMode === 'MULTI') {
+          modal.className = 'hidden fixed inset-0 z-[95] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex justify-center items-start p-3 sm:p-5 pt-16 sm:pt-20 pb-16 custom-scrollbar';
+        } else {
+          modal.className = 'hidden fixed inset-0 z-[95] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex justify-center items-center p-3 sm:p-5 py-8 custom-scrollbar';
+        }
+        if (window._isStockInFormOpen) {
+          modal.classList.remove('hidden');
+          modal.style.removeProperty('display');
+        }
+        modal.scrollTop = 0;
+      }
 
       if (stockInEntryMode === 'MULTI') {
         if (btnSingle) {
@@ -29137,7 +29151,6 @@
         if (lockChk) lockChk.checked = false;
         if (lockChk2) lockChk2.checked = false;
       }
-      const modal = document.getElementById('stockInModal');
       if (modal) modal.scrollTop = 0;
       updateStockInHeaderButtonsUI(window._isStockInFormOpen, stockInEntryMode);
     }
@@ -29583,6 +29596,7 @@
     function switchStockOutEntryMode(mode) {
       if (typeof hideCustomProductDropdown === 'function') hideCustomProductDropdown();
       stockOutEntryMode = (mode === 'MULTI') ? 'MULTI' : 'SINGLE';
+      const modal = document.getElementById('stockOutModal');
       const btnSingle = document.getElementById('btnStockOutModeSingle');
       const btnMulti = document.getElementById('btnStockOutModeMulti');
       const batchCard = document.getElementById('stockOutBatchCard');
@@ -29592,6 +29606,19 @@
       const docBadgeNotice = document.getElementById('stockOutDocNoBadgeNotice');
       const lockChk = document.getElementById('stockOutLockDocNo');
       const lockChk2 = document.getElementById('stockOutLockDocNoSubmit');
+
+      if (modal) {
+        if (stockOutEntryMode === 'MULTI') {
+          modal.className = 'hidden fixed inset-0 z-[95] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex justify-center items-start p-3 sm:p-5 pt-16 sm:pt-20 pb-16 custom-scrollbar';
+        } else {
+          modal.className = 'hidden fixed inset-0 z-[95] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex justify-center items-center p-3 sm:p-5 py-8 custom-scrollbar';
+        }
+        if (window._isStockOutFormOpen) {
+          modal.classList.remove('hidden');
+          modal.style.removeProperty('display');
+        }
+        modal.scrollTop = 0;
+      }
 
       if (stockOutEntryMode === 'MULTI') {
         if (btnSingle) {
@@ -29633,7 +29660,6 @@
         if (lockChk) lockChk.checked = false;
         if (lockChk2) lockChk2.checked = false;
       }
-      const modal = document.getElementById('stockOutModal');
       if (modal) modal.scrollTop = 0;
       updateStockOutHeaderButtonsUI(window._isStockOutFormOpen, stockOutEntryMode);
     }
