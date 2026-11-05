@@ -526,8 +526,8 @@ function setAppScriptCache(key, obj, ttlSeconds) {
 function setGlobalDataVersion() {
   try {
     var v = String(Date.now());
-    CacheService.getScriptCache().put('GLOBAL_DATA_VERSION', v, 21600);
-    PropertiesService.getScriptProperties().setProperty('GLOBAL_DATA_VERSION', v);
+    try { PropertiesService.getScriptProperties().setProperty('GLOBAL_DATA_VERSION', v); } catch(ep) {}
+    try { CacheService.getScriptCache().put('GLOBAL_DATA_VERSION', v, 21600); } catch(ec) {}
     return v;
   } catch(e) {
     return String(Date.now());
@@ -598,19 +598,31 @@ function getGlobalOnlineUsers() {
 function checkDataVersion(payload) {
   var clientVersion = payload && payload.version ? String(payload.version) : '';
   var cache = CacheService.getScriptCache();
-  var serverVersion = cache.get('GLOBAL_DATA_VERSION');
+  var serverVersion = '';
+  try {
+    serverVersion = PropertiesService.getScriptProperties().getProperty('GLOBAL_DATA_VERSION') || '';
+  } catch(e) {}
   if (!serverVersion) {
     try {
-      serverVersion = PropertiesService.getScriptProperties().getProperty('GLOBAL_DATA_VERSION');
+      serverVersion = cache.get('GLOBAL_DATA_VERSION') || '';
     } catch(e) {}
-    if (!serverVersion) {
-      serverVersion = setGlobalDataVersion();
-    }
+  }
+  if (!serverVersion) {
+    serverVersion = setGlobalDataVersion();
+  } else {
+    // Keep cache fresh with latest serverVersion
+    try { cache.put('GLOBAL_DATA_VERSION', serverVersion, 21600); } catch(e) {}
   }
 
   var hasUpdates = (!clientVersion || clientVersion !== serverVersion);
-  var lastPendingRegTime = cache.get('LAST_PENDING_REG_TIMESTAMP') || '0';
-  var lastPendingCount = cache.get('PENDING_USERS_COUNT') || '0';
+  var lastPendingRegTime = '0';
+  try {
+    lastPendingRegTime = cache.get('LAST_PENDING_REG_TIMESTAMP') || PropertiesService.getScriptProperties().getProperty('LAST_PENDING_REG_TIMESTAMP') || '0';
+  } catch(e) { lastPendingRegTime = '0'; }
+  var lastPendingCount = '0';
+  try {
+    lastPendingCount = cache.get('PENDING_USERS_COUNT') || '0';
+  } catch(e) { lastPendingCount = '0'; }
 
   // Online Presence Tracking across all stations and devices
   var onlineList = [];
