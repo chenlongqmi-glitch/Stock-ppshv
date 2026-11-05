@@ -26393,10 +26393,12 @@
         sourceList.forEach(t => {
           if (!t || (t.type && t.type !== 'STOCK_IN') || (typeof isTransactionDeleted === 'function' && isTransactionDeleted(t))) return;
           const doc = String(t.docNo || t.txId || '').trim().toUpperCase();
+          const sku = String(t.sku || t.code || t.itemName || '').trim().toLowerCase();
           if (doc.startsWith('MOCK-TEST-') || doc.startsWith('TEST-TX-')) return;
+          const dedupeKey = `${doc}_${sku}`;
           if (doc) {
-            if (seenInitial.has(doc)) return;
-            seenInitial.add(doc);
+            if (seenInitial.has(dedupeKey)) return;
+            seenInitial.add(dedupeKey);
           }
           cachedTxs.push(t);
         });
@@ -26588,16 +26590,18 @@
                                       isMyUserTx;
                 if (!isForMyStation) return;
               }
-              const k = String(loc.docNo || loc.txId || '').trim().toUpperCase();
+              const locDoc = String(loc.docNo || loc.txId || '').trim().toUpperCase();
+              const locSku = String(loc.sku || loc.code || loc.itemName || '').trim().toLowerCase();
+              const k = `${locDoc}_${locSku}`;
               if (k && seenPendingKeys.has(k)) return;
               if (k) seenPendingKeys.add(k);
-              const matchingServerTx = cleanTxs.find(c => 
-                (c.docNo && loc.docNo && String(c.docNo).trim().toUpperCase() === String(loc.docNo).trim().toUpperCase()) ||
-                (c.txId && loc.txId && String(c.txId).trim().toUpperCase() === String(loc.txId).trim().toUpperCase()) ||
-                (c.sku && loc.sku && String(c.sku).trim().toLowerCase() === String(loc.sku).trim().toLowerCase() && 
-                 Number(c.quantity) === Number(loc.quantity) && 
-                 Math.abs((loc._createdAt || nowTs) - (c._createdAt || nowTs)) < 1800000)
-              );
+              const matchingServerTx = cleanTxs.find(c => {
+                const cDoc = String(c.docNo || c.txId || '').trim().toUpperCase();
+                const cSku = String(c.sku || c.code || c.itemName || '').trim().toLowerCase();
+                return (cDoc === locDoc && (!locSku || !cSku || cSku === locSku)) ||
+                       (c.txId && loc.txId && String(c.txId).trim().toUpperCase() === String(loc.txId).trim().toUpperCase() && (!locSku || !cSku || cSku === locSku)) ||
+                       (locSku && cSku && locSku === cSku && Number(c.quantity) === Number(loc.quantity) && Math.abs((loc._createdAt || nowTs) - (c._createdAt || nowTs)) < 1800000);
+              });
               if (matchingServerTx) {
                 // Server record confirmed
                 matchingServerTx._isLocalPending = false;
@@ -26612,7 +26616,8 @@
                 }
                 return;
               }
-              if (!isTransactionDeleted(loc)) {
+              // Only keep very recent unconfirmed pending items (< 90 seconds) to avoid resurrection of ghost data
+              if (!isTransactionDeleted(loc) && loc._createdAt && (nowTs - loc._createdAt < 90000)) {
                 localPending.push(loc);
               }
             });
@@ -26620,8 +26625,11 @@
 
           let uniqueFinalHistory = [];
           const seenHistoryKeys = new Set();
-          [...localPending, ...cleanTxs].forEach(t => {
-            const k = String(t.docNo || t.txId || '').trim().toUpperCase();
+          // Server records (cleanTxs) are authoritative and come FIRST! Multi-item docNo preserved via `${tDoc}_${tSku}`.
+          [...cleanTxs, ...localPending].forEach(t => {
+            const tDoc = String(t.docNo || t.txId || '').trim().toUpperCase();
+            const tSku = String(t.sku || t.code || t.itemName || '').trim().toLowerCase();
+            const k = `${tDoc}_${tSku}`;
             if (k) {
               if (seenHistoryKeys.has(k)) return;
               seenHistoryKeys.add(k);
@@ -27998,6 +28006,18 @@
                  (t.notes || '').toLowerCase().includes(q);
         });
       }
+      // Deduplicate transactions by docNo + sku to guarantee no duplicate rows are ever displayed while keeping multi-item transactions intact
+      const seenDocKeys = new Set();
+      txs = (txs || []).filter((t) => {
+        const doc = String(t.docNo || t.txId || '').trim();
+        const sku = String(t.sku || t.code || t.itemName || '').trim();
+        if (!doc) return true;
+        const key = (doc + '_' + sku).toUpperCase();
+        if (seenDocKeys.has(key)) return false;
+        seenDocKeys.add(key);
+        return true;
+      });
+
       const tbody = document.getElementById('stockInHistoryTableBody');
       const countEl = document.getElementById('stockInHistoryCount');
       if (countEl) countEl.innerText = `${(txs || []).length} ប្រតិបត្តិការ`;
@@ -39954,11 +39974,11 @@
         applyLocalRoleSyncIfChanged();
       }, 1200);
 
-      // Background data sync (Every 12s - ពិនិត្យបច្ចុប្បន្នភាពពី Cloud ដោយសុវត្ថិភាព)
+      // Background data sync (Every 3.5s - ពិនិត្យបច្ចុប្បន្នភាពពី Cloud ដោយសុវត្ថិភាព និងល្បឿនលឿនបំផុត)
       autoFetchInterval = setInterval(() => {
         if (!AppState.currentUser) return;
         silentAutoRefresh();
-      }, 12000);
+      }, 3500);
 
       // Auto-revalidate instantly when user returns to tab or focuses window
       document.addEventListener('visibilitychange', () => {
@@ -40032,8 +40052,8 @@
           await applyBootstrapDataSync(true);
 
           // Stock In & Stock Out history tables are independent from form inputs and should always sync immediately
-          if (AppState.currentTab === 'stockin' && typeof loadStockInHistory === 'function') await loadStockInHistory(true);
-          if (AppState.currentTab === 'stockout' && typeof loadStockOutHistory === 'function') await loadStockOutHistory(true);
+          if (typeof loadStockInHistory === 'function') await loadStockInHistory(true);
+          if (typeof loadStockOutHistory === 'function') await loadStockOutHistory(true);
 
           if (!isEditingInForm) {
             if (AppState.currentTab === 'reports') await loadReportTransactions();
@@ -40060,12 +40080,12 @@
             }
           }
         } else {
-          // Continuous 24s background synchronization for active operations tabs
+          // Continuous high-speed background synchronization for active operations tabs (every 5s)
           const nowTs = Date.now();
-          if (AppState.currentTab === 'stockin' && typeof loadStockInHistory === 'function' && (nowTs - (window._lastStockInAutoSync || 0) > 12000)) {
+          if (AppState.currentTab === 'stockin' && typeof loadStockInHistory === 'function' && (nowTs - (window._lastStockInAutoSync || 0) > 5000)) {
             window._lastStockInAutoSync = nowTs;
             await loadStockInHistory(true);
-          } else if (AppState.currentTab === 'stockout' && typeof loadStockOutHistory === 'function' && (nowTs - (window._lastStockOutAutoSync || 0) > 24000)) {
+          } else if (AppState.currentTab === 'stockout' && typeof loadStockOutHistory === 'function' && (nowTs - (window._lastStockOutAutoSync || 0) > 10000)) {
             window._lastStockOutAutoSync = nowTs;
             await loadStockOutHistory(true);
           }

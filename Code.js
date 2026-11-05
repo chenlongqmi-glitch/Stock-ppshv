@@ -608,7 +608,7 @@ function checkDataVersion(payload) {
     }
   }
 
-  var hasUpdates = (clientVersion !== '' && clientVersion !== serverVersion);
+  var hasUpdates = (!clientVersion || clientVersion !== serverVersion);
   var lastPendingRegTime = cache.get('LAST_PENDING_REG_TIMESTAMP') || '0';
   var lastPendingCount = cache.get('PENDING_USERS_COUNT') || '0';
 
@@ -7910,6 +7910,7 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
     const whIdx = findIdx(['warehouse', 'ឃ្លាំង', 'ស្ថានីយ'], 12);
     const recIdx = findIdx(['receivedby', 'receiver', 'អ្នកទទួល'], 13);
     const notesIdx = findIdx(['notes', 'note', 'សម្គាល់'], 14);
+    const tsIdx = findIdx(['timestamp', 'ពេល', 'ម៉ោង', 'time'], 16);
 
     let targetWarehouse = null;
     const uRole = String(user && user.role || '').toLowerCase();
@@ -8107,14 +8108,23 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
       const newSt = parseNum(row[newStIdx]);
       const notes = cleanDisplayNoteGAS(notesIdx >= 0 ? row[notesIdx] : '');
 
-      if (filters && filters.search) {
-        const q = String(filters.search).toLowerCase();
+      if (filters && typeof filters.search === 'string' && filters.search.trim()) {
+        const q = filters.search.trim().toLowerCase();
         const match = docNo.toLowerCase().includes(q) ||
                       sku.toLowerCase().includes(q) ||
                       itemName.toLowerCase().includes(q) ||
                       wh.toLowerCase().includes(q) ||
                       notes.toLowerCase().includes(q);
         if (!match) continue;
+      }
+
+      let tsFormatted = '';
+      if (tsIdx >= 0 && row[tsIdx]) {
+        if (row[tsIdx] instanceof Date) {
+          try { tsFormatted = Utilities.formatDate(row[tsIdx], 'GMT+7', 'yyyy-MM-dd HH:mm:ss'); } catch(e) {}
+        } else {
+          tsFormatted = String(row[tsIdx]);
+        }
       }
 
       transactions.push({
@@ -8138,7 +8148,8 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
         user: (rowUser && rowUser !== 'undefined') ? rowUser : ((user && (user.username || user.fullName)) || recBy || 'Staff'),
         notes: notes,
         userNote: notes,
-        rawNotes: String(notesIdx >= 0 ? row[notesIdx] : '')
+        rawNotes: String(notesIdx >= 0 ? row[notesIdx] : ''),
+        timestamp: tsFormatted
       });
 
       if (transactions.length >= limit) break;
@@ -8167,8 +8178,9 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
 
         const seenDocKeys = new Set();
         transactions.forEach(t => {
-          if (t.docNo) seenDocKeys.add(String(t.docNo).trim().toUpperCase());
-          if (t.txId) seenDocKeys.add(String(t.txId).trim().toUpperCase());
+          const skuKey = String(t.sku || t.itemName || '').trim().toLowerCase();
+          if (t.docNo) seenDocKeys.add(String(t.docNo).trim().toUpperCase() + '_' + skuKey);
+          if (t.txId) seenDocKeys.add(String(t.txId).trim().toUpperCase() + '_' + skuKey);
         });
 
         for (let i = txData.length - 1; i >= 1; i--) {
@@ -8178,7 +8190,10 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
           const rTxId = String(tRow[tIdIdx] || '').trim();
           const rNotes = String(tRow[tNotesIdx] || '');
           let rDoc = (rNotes.match(/\[(?:ឯកសារ|Doc|DocNo):\s*([^\]]+)\]/i) || [])[1] || rTxId;
-          if (seenDocKeys.has(String(rDoc).trim().toUpperCase()) || seenDocKeys.has(String(rTxId).trim().toUpperCase())) continue;
+          const rSku = String(tRow[tSkuIdx] || '').trim().toLowerCase();
+          const k1 = String(rDoc).trim().toUpperCase() + '_' + rSku;
+          const k2 = String(rTxId).trim().toUpperCase() + '_' + rSku;
+          if (seenDocKeys.has(k1) || seenDocKeys.has(k2)) continue;
 
           let toLoc = String(tRow[tToIdx] || '').trim();
           const rUser = String(tRow[tUserIdx] || '').trim();
@@ -8445,9 +8460,21 @@ function getStockOutTransactionsFromSheet(ss, filters, user) {
 function getTransactionHistory(filtersOrPayload, userParam) {
   let filters = filtersOrPayload || {};
   let user = userParam;
-  if (filtersOrPayload && filtersOrPayload.filters) {
-    filters = filtersOrPayload.filters;
-    user = filtersOrPayload.user || userParam;
+  if (typeof filters === 'string') {
+    try { filters = JSON.parse(filters); } catch(e) { filters = {}; }
+  }
+  if (filters && typeof filters.filters === 'string') {
+    try { filters.filters = JSON.parse(filters.filters); } catch(e) {}
+  }
+  if (filters && filters.filters && typeof filters.filters === 'object') {
+    user = filters.user || userParam;
+    filters = filters.filters;
+  }
+  if (filters && typeof filters.user === 'object') {
+    user = filters.user;
+  }
+  if (typeof filters !== 'object' || filters === null) {
+    filters = {};
   }
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -8722,8 +8749,8 @@ function getTransactionHistory(filtersOrPayload, userParam) {
     if (filters.endDate && txDate > filters.endDate) continue;
     if (targetType && txType !== targetType) continue;
 
-    if (filters.search) {
-      const q = filters.search.toLowerCase();
+    if (filters && typeof filters.search === 'string' && filters.search.trim()) {
+      const q = filters.search.trim().toLowerCase();
       const match = String(row[idxSku] || '').toLowerCase().includes(q) ||
         String(row[idxName] || '').toLowerCase().includes(q) ||
         String(row[idxTxId] || '').toLowerCase().includes(q) ||
