@@ -26637,6 +26637,16 @@
             uniqueFinalHistory.push(t);
           });
 
+          // Ensure newest entries are ALWAYS at the top (ទិន្នន័យដែលបញ្ចូលក្រោយគេ ត្រូវបង្ហាញនៅលើគេ)
+          uniqueFinalHistory.sort((a, b) => {
+            const timeA = String(a.timestamp || a._createdAt || a.date || '');
+            const timeB = String(b.timestamp || b._createdAt || b.date || '');
+            if (timeA && timeB && timeA !== timeB) {
+              return timeB.localeCompare(timeA);
+            }
+            return 0;
+          });
+
           // Strictly isolate station history: Non-admin station users NEVER see other stations/warehouses!
           if (!isPrivileged && myStationWh) {
             uniqueFinalHistory = uniqueFinalHistory.filter(t => {
@@ -28535,6 +28545,16 @@
             }
           });
 
+          // Ensure newest entries are ALWAYS at the top (ទិន្នន័យដែលបញ្ចូលក្រោយគេ ត្រូវបង្ហាញនៅលើគេ)
+          cleanTxs.sort((a, b) => {
+            const timeA = String(a.timestamp || a._createdAt || a.date || '');
+            const timeB = String(b.timestamp || b._createdAt || b.date || '');
+            if (timeA && timeB && timeA !== timeB) {
+              return timeB.localeCompare(timeA);
+            }
+            return 0;
+          });
+
           AppState.stockOutHistory = cleanTxs;
           try {
             if (stationStorageKey) localStorage.setItem(stationStorageKey, JSON.stringify(cleanTxs));
@@ -29462,7 +29482,7 @@
         notes
       };
 
-      stockInBatchQueue.push(queueItem);
+      stockInBatchQueue.unshift(queueItem); // ទិន្នន័យដែលបញ្ចូលក្រោយគេ ត្រូវបង្ហាញនៅលើគេ
       renderStockInBatchQueue();
 
       // Clear product input fields for next entry (keeping docNo and warehouse)
@@ -29955,7 +29975,7 @@
         notes
       };
 
-      stockOutBatchQueue.push(queueItem);
+      stockOutBatchQueue.unshift(queueItem); // ទិន្នន័យដែលបញ្ចូលក្រោយគេ ត្រូវបង្ហាញនៅលើគេ
       renderStockOutBatchQueue();
 
       // Clear product input fields (keeping docNo and toLocation)
