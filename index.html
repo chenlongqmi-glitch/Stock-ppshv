@@ -26661,11 +26661,9 @@
 
       if (s && s.length === 7) s = s + '-01';
       if (e && e.length === 7) e = e + '-31';
-
       if (s && e) {
-        const low = s <= e ? s : e;
-        const high = s <= e ? e : s;
-        return txDate >= low && txDate <= high;
+        if (s > e) return false; // ថ្ងៃបញ្ចប់មិនអាចតូចជាងថ្ងៃចាប់ផ្តើមបានឡើយ
+        return txDate >= s && txDate <= e;
       }
       if (s) return txDate >= s;
       if (e) return txDate <= e;
@@ -26714,13 +26712,46 @@
     };
 
     window.selectCustomPickerDate = function(dateStr) {
-      if (customPickerState.inputId) {
-        const inp = document.getElementById(customPickerState.inputId);
-        if (inp) inp.value = dateStr;
-        const dispId = 'disp' + customPickerState.inputId.charAt(0).toUpperCase() + customPickerState.inputId.slice(1);
-        const disp = document.getElementById(dispId);
-        if (disp) disp.textContent = dateStr;
+      if (!customPickerState.inputId) return;
+
+      const isEndPicker = String(customPickerState.inputId).endsWith('MonthEnd');
+      const isStartPicker = String(customPickerState.inputId).endsWith('MonthStart');
+
+      // ១. បើសិនជាជ្រើសរើសថ្ងៃបញ្ចប់ ហើយថ្ងៃបញ្ចប់តូចជាងថ្ងៃចាប់ផ្តើម គឺមិនអាចបញ្ចូលបានឡើយ
+      if (isEndPicker) {
+        const startInputId = String(customPickerState.inputId).replace('MonthEnd', 'MonthStart');
+        const startVal = (document.getElementById(startInputId)?.value || '').trim();
+        if (startVal && dateStr < startVal) {
+          Swal.fire({
+            icon: 'warning',
+            title: '⚠️ កាលបរិច្ឆេទមិនត្រឹមត្រូវ!',
+            text: `ថ្ងៃបញ្ចប់ (${dateStr}) មិនអាចតូចជាងថ្ងៃចាប់ផ្តើម (${startVal}) បានឡើយ!`,
+            confirmButtonColor: '#046c4e',
+            confirmButtonText: 'យល់ព្រម'
+          });
+          return; // បញ្ឈប់ការបញ្ចូល!
+        }
       }
+
+      // ២. បើសិនជាជ្រើសរើសថ្ងៃចាប់ផ្តើមធំជាងថ្ងៃបញ្ចប់ ធ្វើការ sync ថ្ងៃបញ្ចប់ឱ្យស្មើគ្នាដោយស្វ័យប្រវត្តិ
+      if (isStartPicker) {
+        const endInputId = String(customPickerState.inputId).replace('MonthStart', 'MonthEnd');
+        const endInp = document.getElementById(endInputId);
+        const endVal = (endInp?.value || '').trim();
+        if (endVal && dateStr > endVal && endInp) {
+          endInp.value = dateStr;
+          const dispEndId = 'disp' + endInputId.charAt(0).toUpperCase() + endInputId.slice(1);
+          const dispEnd = document.getElementById(dispEndId);
+          if (dispEnd) dispEnd.textContent = dateStr;
+        }
+      }
+
+      const inp = document.getElementById(customPickerState.inputId);
+      if (inp) inp.value = dateStr;
+      const dispId = 'disp' + customPickerState.inputId.charAt(0).toUpperCase() + customPickerState.inputId.slice(1);
+      const disp = document.getElementById(dispId);
+      if (disp) disp.textContent = dateStr;
+
       const cb = customPickerState.callback;
       closeCustomYearMonthPicker();
       if (typeof cb === 'function') {
@@ -26729,14 +26760,51 @@
     };
 
     window.selectCustomPickerHeaderMonth = function() {
+      if (!customPickerState.inputId) return;
       const ym = `${customPickerState.year}-${String(customPickerState.month).padStart(2, '0')}`;
-      if (customPickerState.inputId) {
-        const inp = document.getElementById(customPickerState.inputId);
-        if (inp) inp.value = ym;
-        const dispId = 'disp' + customPickerState.inputId.charAt(0).toUpperCase() + customPickerState.inputId.slice(1);
-        const disp = document.getElementById(dispId);
-        if (disp) disp.textContent = ym;
+
+      const isEndPicker = String(customPickerState.inputId).endsWith('MonthEnd');
+      const isStartPicker = String(customPickerState.inputId).endsWith('MonthStart');
+
+      if (isEndPicker) {
+        const startInputId = String(customPickerState.inputId).replace('MonthEnd', 'MonthStart');
+        const startVal = (document.getElementById(startInputId)?.value || '').trim();
+        if (startVal) {
+          const startYm = startVal.slice(0, 7);
+          if (ym < startYm) {
+            Swal.fire({
+              icon: 'warning',
+              title: '⚠️ កាលបរិច្ឆេទមិនត្រឹមត្រូវ!',
+              text: `ខែបញ្ចប់ (${ym}) មិនអាចតូចជាងខែចាប់ផ្តើម (${startYm}) បានឡើយ!`,
+              confirmButtonColor: '#046c4e',
+              confirmButtonText: 'យល់ព្រម'
+            });
+            return;
+          }
+        }
       }
+
+      if (isStartPicker) {
+        const endInputId = String(customPickerState.inputId).replace('MonthStart', 'MonthEnd');
+        const endInp = document.getElementById(endInputId);
+        const endVal = (endInp?.value || '').trim();
+        if (endVal) {
+          const endYm = endVal.slice(0, 7);
+          if (ym > endYm && endInp) {
+            endInp.value = ym;
+            const dispEndId = 'disp' + endInputId.charAt(0).toUpperCase() + endInputId.slice(1);
+            const dispEnd = document.getElementById(dispEndId);
+            if (dispEnd) dispEnd.textContent = ym;
+          }
+        }
+      }
+
+      const inp = document.getElementById(customPickerState.inputId);
+      if (inp) inp.value = ym;
+      const dispId = 'disp' + customPickerState.inputId.charAt(0).toUpperCase() + customPickerState.inputId.slice(1);
+      const disp = document.getElementById(dispId);
+      if (disp) disp.textContent = ym;
+
       const cb = customPickerState.callback;
       closeCustomYearMonthPicker();
       if (typeof cb === 'function') {
@@ -26760,6 +26828,10 @@
       const prevDaysCount = firstDay; // Column 1 is Sunday (អា)
       const daysInCurrentMonth = new Date(year, month, 0).getDate();
       const daysInPrevMonth = new Date(year, month - 1, 0).getDate();
+
+      const isEndPicker = String(customPickerState.inputId || '').endsWith('MonthEnd');
+      const startInputId = isEndPicker ? String(customPickerState.inputId).replace('MonthEnd', 'MonthStart') : null;
+      const startDateVal = startInputId ? (document.getElementById(startInputId)?.value || '').trim() : '';
 
       const cells = [];
       // 1. Previous month trailing days
@@ -26813,20 +26885,27 @@
       cells.forEach(c => {
         const isSelected = selectedStr === c.dateStr;
         const isToday = todayStr === c.dateStr;
+        const isBeforeStart = isEndPicker && startDateVal && c.dateStr < startDateVal;
 
-        let cellClass = 'w-7 h-7 mx-auto flex items-center justify-center text-xs rounded-full cursor-pointer transition select-none leading-none ';
-
-        if (isSelected) {
-          cellClass += 'bg-blue-600 text-white font-bold shadow-xs';
-        } else if (!c.isCurrentMonth) {
-          cellClass += 'text-slate-300 hover:text-slate-600 hover:bg-slate-100';
-        } else if (isToday) {
-          cellClass += 'text-blue-500 font-extrabold hover:bg-blue-50';
+        if (isBeforeStart) {
+          // ថ្ងៃដែលតូចជាងថ្ងៃចាប់ផ្តើម មិនអាចចុចបានទេ (Disabled)
+          const disabledClass = 'w-7 h-7 mx-auto flex items-center justify-center text-xs rounded-full select-none leading-none text-slate-300 opacity-30 cursor-not-allowed bg-slate-50/50 line-through decoration-slate-300 pointer-events-none';
+          html += `<button type="button" disabled class="${disabledClass}" title="មិនអាចជ្រើសបាន (តូចជាងថ្ងៃចាប់ផ្តើម ${startDateVal})">${c.day}</button>`;
         } else {
-          cellClass += 'text-slate-700 hover:bg-slate-100 font-medium';
-        }
+          let cellClass = 'w-7 h-7 mx-auto flex items-center justify-center text-xs rounded-full cursor-pointer transition select-none leading-none ';
 
-        html += `<button type="button" onclick="selectCustomPickerDate('${c.dateStr}')" class="${cellClass}" title="${c.dateStr}">${c.day}</button>`;
+          if (isSelected) {
+            cellClass += 'bg-blue-600 text-white font-bold shadow-xs';
+          } else if (!c.isCurrentMonth) {
+            cellClass += 'text-slate-300 hover:text-slate-600 hover:bg-slate-100';
+          } else if (isToday) {
+            cellClass += 'text-blue-500 font-extrabold hover:bg-blue-50';
+          } else {
+            cellClass += 'text-slate-700 hover:bg-slate-100 font-medium';
+          }
+
+          html += `<button type="button" onclick="selectCustomPickerDate('${c.dateStr}')" class="${cellClass}" title="${c.dateStr}">${c.day}</button>`;
+        }
       });
 
       grid.innerHTML = html;
@@ -26857,11 +26936,25 @@
         ? (typeof filterStockOutHistoryTable === 'function' ? filterStockOutHistoryTable : window.filterStockOutHistoryTable) 
         : (typeof filterStockInHistoryTable === 'function' ? filterStockInHistoryTable : window.filterStockInHistoryTable);
 
+      const isEndPicker = String(inputId || '').endsWith('MonthEnd');
+      const startInputId = isEndPicker ? String(inputId).replace('MonthEnd', 'MonthStart') : null;
+      const startVal = startInputId ? (document.getElementById(startInputId)?.value || '').trim() : '';
+
       const curVal = (document.getElementById(inputId)?.value || '').trim();
       const curDateMatch = curVal.match(/^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?$/);
       if (curDateMatch) {
         customPickerState.year = parseInt(curDateMatch[1], 10);
         customPickerState.month = parseInt(curDateMatch[2], 10);
+      } else if (isEndPicker && startVal) {
+        const startMatch = startVal.match(/^(\d{4})-(\d{1,2})/);
+        if (startMatch) {
+          customPickerState.year = parseInt(startMatch[1], 10);
+          customPickerState.month = parseInt(startMatch[2], 10);
+        } else {
+          const now = new Date();
+          customPickerState.year = now.getFullYear();
+          customPickerState.month = now.getMonth() + 1;
+        }
       } else {
         const now = new Date();
         customPickerState.year = now.getFullYear();
