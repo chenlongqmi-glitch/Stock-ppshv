@@ -8551,7 +8551,21 @@
     };
 
     // Persistent Local Users Database (Preserves avatar, names, and profile changes across reloads)
-        // Persistent Local Chat Messages Storage
+        // Helper to strictly identify Stock In / Stock Out / Dispatch notification messages
+    function isStockNoticeChatMessage(m) {
+      if (!m) return false;
+      const txt = String(m.messageText || m.text || '');
+      const id = String(m.msgId || '');
+      const ref = typeof m.itemReference === 'string' ? m.itemReference : JSON.stringify(m.itemReference || '');
+      return id.includes('MSG-DSP') || id.includes('DSP-') ||
+        txt.includes('ដំណឹងទំនិញផ្ញើចេញ') || txt.includes('Stock Out') || txt.includes('Stock In') ||
+        txt.includes('ដំណឹងទំនិញចូល') || txt.includes('ដំណឹងទំនិញ') || txt.includes('Incoming Dispatches') ||
+        txt.includes('ទទួលទំនិញចូលស្តុកពី Admin') || txt.includes('ដំណឹងស្តុកចេញ') || txt.includes('ដំណឹងស្តុកចូល') ||
+        ref.includes('toLocation') || ref.includes('STOCK_OUT') || ref.includes('STOCK_IN');
+    }
+    window.isStockNoticeChatMessage = isStockNoticeChatMessage;
+
+    // Persistent Local Chat Messages Storage
     function saveLocalChatMessagesToStorage() {
       try {
         localStorage.setItem('inventory_chat_messages', JSON.stringify(LOCAL_DB.chatMessages));
@@ -8566,7 +8580,8 @@
         if (saved) {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            LOCAL_DB.chatMessages = parsed;
+            LOCAL_DB.chatMessages = parsed.filter(m => !isStockNoticeChatMessage(m));
+            localStorage.setItem('inventory_chat_messages', JSON.stringify(LOCAL_DB.chatMessages));
           }
         }
         // Strict Privacy: Never keep registration or deletion cards in ALL_WAREHOUSES (បន្ទប់រួម)
@@ -26161,45 +26176,7 @@
         }
         if (typeof updateIncomingDispatchesBadge === 'function') updateIncomingDispatchesBadge();
 
-        // ផ្ញើសារជូនដំណឹងទៅកាន់ស្ថានីយដែលត្រូវទទួលទំនិញ
-        const chatNoticeText = `📦 [ដំណឹងទំនិញផ្ញើចេញពី Admin / Stock Out]\n` +
-          `📄 លេខឯកសារ: ${docNo}\n` +
-          `🏢 ផ្ញើមកកាន់: ${toLocation}\n` +
-          `📦 ទំនិញ: ${itemName} (${sku})\n` +
-          `🔢 ចំនួន: ${qty} ${baseUnit}` + (bulkQty > 0 ? ` (${bulkQty} ${packUnit} + ${retailQty} ${baseUnit})` : '') + `\n` +
-          `📏 ខ្នាត: ${size || '-'} | 🎨 ពណ៌: ${color || '-'}\n` +
-          `👤 អ្នកបើកចេញ: ${issuer}\n` +
-          `👉 សូមស្ថានីយចូលទៅកាន់ផ្ទាំង "ទទួលទំនិញចូលស្តុកពី Admin (Incoming Dispatches)" ដើម្បីពិនិត្យ និងទទួលចូលស្តុក!`;
-
-        apiCall('sendChatMessage', {
-          data: {
-            channelId: 'ALL_WAREHOUSES',
-            text: chatNoticeText,
-            messageText: chatNoticeText,
-            senderUsername: issuer,
-            senderRole: 'Admin',
-            senderWarehouse: payload.data.fromLocation
-          }
-        }).catch(() => {});
-
-        // ផ្ញើសារផ្ទាល់ទៅបុគ្គលិកស្ថានីយគោលដៅ
-        const stStaff = (AppState.users || LOCAL_DB.users || []).filter(u => u && !isUserPrivilegedAdmin(u) && (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(u.warehouse, toLocation) : u.warehouse === toLocation));
-        stStaff.forEach(stUser => {
-          if (stUser.username) {
-            const myUname = AppState.currentUser?.username || 'admin';
-            const directChId = (typeof getDirectChannelId === 'function') ? getDirectChannelId(myUname, stUser.username) : 'ALL_WAREHOUSES';
-            apiCall('sendChatMessage', {
-              data: {
-                channelId: directChId,
-                text: chatNoticeText,
-                messageText: chatNoticeText,
-                senderUsername: issuer,
-                senderRole: 'Admin',
-                senderWarehouse: payload.data.fromLocation
-              }
-            }).catch(() => {});
-          }
-        });
+        // User requested: No Stock In/Out messages in Live Chat for all users
 
         // In-app Notification សម្រាប់តែស្ថានីយគោលដៅ (មិនជូនដំណឹង SuperAdmin / Admin ទេ)
         if (typeof addNotification === 'function') {
@@ -43008,6 +42985,9 @@
           }
           let msgs = res.messages || [];
 
+          // STRICT USER REQUIREMENT: ការចេញ ឬចូលទំនិញ មិនត្រូវមានសារបង្ហាញនៅក្នងlivechatទេ for all user
+          msgs = msgs.filter(m => !isStockNoticeChatMessage(m));
+
           // SANITIZE & PURGE ADMIN NOTIFICATIONS FROM PUBLIC ROOM (ALL_WAREHOUSES / បន្ទប់រួម)
           if (currentChatChannel === 'ALL_WAREHOUSES') {
             msgs = msgs.filter(m => {
@@ -43105,6 +43085,9 @@
     function renderChatMessagesList(messages) {
       const container = document.getElementById('chatMessagesContainer');
       if (!container) return;
+
+      // STRICT USER REQUIREMENT: ការចេញ ឬចូលទំនិញ មិនត្រូវមានសារបង្ហាញនៅក្នងlivechatទេ for all user
+      messages = (messages || []).filter(m => !isStockNoticeChatMessage(m));
 
       // STRICT PRIVACY: Completely purge registration cards, deletion notices, and admin notifications from ALL_WAREHOUSES (បន្ទប់រួម)
       if (currentChatChannel === 'ALL_WAREHOUSES') {

@@ -7206,40 +7206,7 @@ function recordStockOut(dataOrPayload, user) {
       Logger.log('Error auto-creating dispatch in recordStockOut: ' + errDsp.toString());
     }
 
-    // 4. ផ្ញើសារជូនដំណឹងទៅកាន់ស្ថានីយដែលត្រូវទទួលទំនិញ (ChatMessages Sheet)
-    try {
-      const chatSheet = ensureChatSheetInitialized(ss);
-      const nowChat = new Date();
-      const msgId = 'MSG-DSP-' + Utilities.formatDate(nowChat, 'GMT+7', 'yyMMddHHmmss') + '-' + Math.floor(Math.random() * 1000);
-      const issuerName = data.issuer || (u ? (u.fullName || u.username) : 'Admin');
-      const chatText = '📦 [ដំណឹងទំនិញផ្ញើចេញពី Admin / Stock Out]\n' +
-        '📄 លេខឯកសារ: ' + (data.docNo || 'N/A') + '\n' +
-        '🏢 ផ្ញើមកកាន់: ' + destLocation + '\n' +
-        '📦 ទំនិញ: ' + itemName + ' (' + sku + ')\n' +
-        '🔢 ចំនួន: ' + qty + ' ' + unit + (data.bulkQty > 0 ? ' (' + data.bulkQty + ' ' + (data.packUnit || 'ប្រអប់') + ' + ' + (data.retailQty || 0) + ' ' + unit + ')' : '') + '\n' +
-        '👤 អ្នកបើកចេញ: ' + issuerName + '\n' +
-        '👉 សូមស្ថានីយចូលទៅកាន់ផ្ទាំង "ទទួលទំនិញចូលស្តុកពី Admin (Incoming Dispatches)" ដើម្បីពិនិត្យ និងទទួលចូលស្តុក!';
-
-      chatSheet.appendRow([
-        msgId,
-        nowChat.toISOString(),
-        destLocation,
-        'Admin Dispatcher',
-        issuerName,
-        'Admin',
-        location,
-        '',
-        chatText,
-        JSON.stringify({ docNo: data.docNo, sku: sku, itemName: itemName, quantity: qty, unit: unit, toLocation: destLocation }),
-        false,
-        '',
-        JSON.stringify(['Admin', destLocation]),
-        false,
-        0
-      ]);
-    } catch (errChat) {
-      Logger.log('Error sending chat dispatch notification: ' + errChat.toString());
-    }
+    // User requested: No Stock In/Out messages in Live Chat for all users
   }
 
   logActivity(u ? (u.fullName || u.username) : 'Staff', 'Staff', 'STOCK_OUT', `Stock Out -${qty} ${unit} of ${itemName} (${sku}) [${data.docNo || 'N/A'}]`);
@@ -10904,6 +10871,19 @@ function logActivity(user, role, action, details) {
 
           // Direct chat channels are identified by channelId or composite e.g. "WH01_WH02" or "WH01_ADMIN"
           if (rowChannel === targetChannel || targetChannel === 'ALL') {
+            const rText = String(row[8] || '');
+            const rRef = String(row[9] || '');
+            const rId = String(row[0] || '');
+
+            // STRICT USER REQUIREMENT: ការចេញ ឬចូលទំនិញ មិនត្រូវមានសារបង្ហាញនៅក្នងlivechatទេ for all user
+            const isStockNotice = rId.includes('MSG-DSP') || rId.includes('DSP-') ||
+              rText.includes('ដំណឹងទំនិញផ្ញើចេញ') || rText.includes('Stock Out') || rText.includes('Stock In') ||
+              rText.includes('ដំណឹងទំនិញចូល') || rText.includes('ដំណឹងទំនិញ') || rText.includes('Incoming Dispatches') ||
+              rText.includes('ទទួលទំនិញចូលស្តុកពី Admin') || rText.includes('ដំណឹងស្តុកចេញ') || rText.includes('ដំណឹងស្តុកចូល') ||
+              (rRef && (rRef.includes('toLocation') || rRef.includes('STOCK_OUT') || rRef.includes('STOCK_IN')));
+            if (isStockNotice) {
+              continue;
+            }
             // Strict Privacy: Never expose registration cards, deletion notices, or admin notifications in ALL_WAREHOUSES (បន្ទប់រួម)
             if (targetChannel === 'ALL_WAREHOUSES') {
               const rText = String(row[8] || '');
