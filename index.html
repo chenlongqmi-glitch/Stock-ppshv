@@ -4655,9 +4655,9 @@
     <!-- ========================================== -->
   <!-- MODAL: Stock In Popup (កត់ត្រាចូលស្តុក Popup) -->
   <!-- ========================================== -->
-  <div id="stockInModal" class="hidden fixed left-0 right-0 bottom-0 z-[75] overflow-hidden bg-slate-900/60 backdrop-blur-xs flex justify-center items-start p-2 sm:p-3" onclick="if(isSafeModalBackdropClick(event)) closeStockInForm()">
-    <div class="relative w-full max-w-[98%] xl:max-w-[97%] 2xl:max-w-[1760px] space-y-3 shrink-0 pb-2 sm:pb-3" onclick="event.stopPropagation()">
-      <div id="stockInFormCard" class="glass-card p-3.5 sm:p-5 md:p-6 rounded-2xl sm:rounded-3xl shadow-md border-2 border-emerald-300/80 bg-gradient-to-br from-emerald-50/30 via-white to-teal-50/20">
+  <div id="stockInModal" class="hidden fixed inset-0 top-0 left-0 right-0 bottom-0 z-[75] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex justify-center items-center p-2 sm:p-4 md:p-6 custom-scroll" onclick="if(isSafeModalBackdropClick(event)) closeStockInForm()">
+    <div class="relative w-full max-w-7xl xl:max-w-[1600px] 2xl:max-w-[1780px] my-auto space-y-3 shrink-0 py-2 sm:py-3" onclick="event.stopPropagation()">
+      <div id="stockInFormCard" class="glass-card p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl shadow-lg border-2 border-emerald-300/80 bg-gradient-to-br from-emerald-50/30 via-white to-teal-50/20">
 
             <!-- Top Mode Switcher Menu (1. Single Item vs 2. Multi-Item Batch) -->
             <div id="stockInModeMenu" class="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 mb-2.5 border-b border-emerald-200/80">
@@ -7829,14 +7829,14 @@
   <!-- Inspired by khmer-lunar-calendar.com (Clean, Compact, Buddhist Era & Holidays) -->
   <!-- ========================================================================= -->
   <div id="khmerCalendarModal" onclick="if(isSafeModalBackdropClick(event)) closeKhmerCalendarModal()"
-    class="hidden fixed left-0 right-0 bottom-0 z-50 flex items-start justify-center p-2 sm:p-3 bg-slate-950/60 backdrop-blur-xs select-none">
-    <div class="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-[440px] md:max-w-[880px] lg:max-w-[980px] xl:max-w-[1040px] max-h-full overflow-hidden flex flex-col md:flex-row transition-all" onclick="event.stopPropagation()">
+    class="hidden fixed inset-0 top-0 left-0 right-0 bottom-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/60 backdrop-blur-xs select-none overflow-y-auto custom-scroll">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-[440px] md:max-w-[880px] lg:max-w-[980px] xl:max-w-[1040px] max-h-[92vh] overflow-hidden flex flex-col md:flex-row transition-all shrink-0 my-auto" onclick="event.stopPropagation()">
       
       <!-- ================= LEFT COLUMN: CALENDAR GRID & CONTROLS ================= -->
       <div class="w-full md:w-[490px] lg:w-[550px] xl:w-[580px] shrink-0 border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-800 flex flex-col overflow-y-auto custom-scroll">
         
-        <!-- 1. Header: Month/Year & Navigation Controls -->
-        <div class="px-4 pt-4 pb-3 border-b border-slate-150 dark:border-slate-800 bg-gradient-to-r from-slate-50 via-white to-blue-50/40 dark:from-slate-800/80 dark:to-slate-900 flex items-center justify-between">
+        <!-- 1. Header: Month/Year & Navigation Controls (Sticky Top to never scroll away) -->
+        <div class="sticky top-0 z-30 px-4 pt-4 pb-3 border-b border-slate-150 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md flex items-center justify-between shadow-3xs">
           <div class="flex items-center gap-2.5 sm:gap-3 min-w-0 pr-2">
             <!-- Big Red Month Number (លេខខែទូទៅ ពណ៌ក្រហមធំ) -->
             <div class="flex items-center justify-center shrink-0 min-w-[38px] sm:min-w-[46px] h-10 sm:h-12 px-2 rounded-2xl bg-rose-50 dark:bg-rose-950/50 border-2 border-rose-300 dark:border-rose-800 shadow-3xs" title="ខែទូទៅ">
@@ -9019,7 +9019,7 @@
       const isGlobalLoc = (canLoc === 'ALL' || canLoc === 'គ្រប់ស្ថានីយទាំងអស់' || canLoc === 'គ្រប់ឃ្លាំង' || canLoc === '🏢 គ្រប់ស្ថានីយទាំងអស់');
       if (isGlobalLoc) return true;
       if (isAdminComboWarehouse(canTarget)) {
-        return ADMIN_ALLOWED_WAREHOUSES.some(aw => (typeof isSameWarehouse === 'function') ? isSameWarehouse(canLoc, aw) : canLoc === aw);
+        return ADMIN_ALLOWED_WAREHOUSES.some(aw => (typeof isSameWarehouse === 'function') ? isSameWarehouse(canLoc, aw) : canLoc === aw) || (typeof canLoc === 'string' && (canLoc.includes('中心库房') || canLoc.includes('机电')));
       }
       if (isAdminComboWarehouse(canLoc)) {
         return ADMIN_ALLOWED_WAREHOUSES.some(aw => (typeof isSameWarehouse === 'function') ? isSameWarehouse(canTarget, aw) : canTarget === aw);
@@ -11983,12 +11983,12 @@
 
       const headerTitleEl = document.getElementById('calHeaderMonthYear');
       if (headerTitleEl) {
-        headerTitleEl.innerText = `${KHMER_CAL_MONTH_NAMES[m]} ឆ្នាំ${toKhmerDigits(y)}`;
+        headerTitleEl.innerHTML = `${KHMER_CAL_MONTH_NAMES[m]} <span class="text-rose-600 dark:text-rose-500 font-black font-mono text-lg sm:text-xl lg:text-2xl ml-1">(${String(m + 1).padStart(2, '0')})</span> ឆ្នាំ${toKhmerDigits(y)}`;
       }
 
       const monthNumEl = document.getElementById('calHeaderMonthNum');
       if (monthNumEl) {
-        monthNumEl.innerText = (m + 1);
+        monthNumEl.innerText = String(m + 1).padStart(2, '0');
       }
 
       const animalEmojiEl = document.getElementById('calHeaderAnimalEmoji');
@@ -13942,11 +13942,13 @@
         if (targetWarehouse && targetWarehouse !== 'ALL' && targetWarehouse !== 'គ្រប់ឃ្លាំង' && targetWarehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
           const uNameClean = String(u?.username || '').toLowerCase().replace(/[\u200b\ufeff\s_@-]/g, '');
           const uFullClean = String(u?.fullName || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+          const isPrivSim = isSuperAdmin || isAdmin;
           txs = txs.filter(t => {
             const matchesLoc = (typeof matchesTargetWarehouse === 'function') 
               ? (matchesTargetWarehouse(t.toLocation, targetWarehouse) || matchesTargetWarehouse(t.fromLocation, targetWarehouse))
               : (t.fromLocation === targetWarehouse || t.toLocation === targetWarehouse);
             if (matchesLoc) return true;
+            if (isPrivSim) return false;
             const tUserClean = String(t.user || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
             const tRecClean = String(t.receivedBy || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
             const isCreatorOrRec = (uNameClean && (tUserClean === uNameClean || tRecClean === uNameClean)) ||
@@ -23036,8 +23038,9 @@
 
       if (!AppState.stockInHistory) AppState.stockInHistory = [];
       AppState.stockInHistory.unshift(newTx);
-      const userStorageKey = (AppState.currentUser?.username) ? String(AppState.currentUser.username).trim().toLowerCase() : 'guest';
-      const scopedHistoryKey = `inventory_stock_in_history_db_${userStorageKey}`;
+      const isPrivilegedStockIn = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(AppState.currentUser) : (AppState.currentUser?.role === 'Admin' || AppState.currentUser?.role === 'SuperAdmin');
+      const userStorageKey = (isPrivilegedStockIn || !AppState.currentUser?.username) ? 'shared_admin' : String(AppState.currentUser.username).trim().toLowerCase();
+      const scopedHistoryKey = isPrivilegedStockIn ? 'inventory_stock_in_history_db' : `inventory_stock_in_history_db_${userStorageKey}`;
       const curWh = (typeof getUserStationWarehouse === 'function' ? getUserStationWarehouse(AppState.currentUser) : '') || AppState.currentUser?.warehouse || '';
       const stationStorageKey = (curWh && curWh !== 'ALL') ? `inventory_stock_in_history_wh_${String(curWh).toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '')}` : '';
       try {
@@ -26325,8 +26328,8 @@
       const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : (curU.role === 'Admin' || curU.role === 'SuperAdmin');
       const resolvedWh = curU.warehouse || (typeof getUserStationWarehouse === 'function' ? getUserStationWarehouse(curU) : '');
       const myStationWh = (!isPrivileged && resolvedWh && resolvedWh !== 'ALL') ? ((typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(resolvedWh) : resolvedWh) : '';
-      const userStorageKey = curU.username ? String(curU.username).trim().toLowerCase() : 'guest';
-      const scopedHistoryKey = `inventory_stock_in_history_db_${userStorageKey}`;
+      const userStorageKey = (isPrivileged || !curU.username) ? 'shared_admin' : String(curU.username).trim().toLowerCase();
+      const scopedHistoryKey = isPrivileged ? 'inventory_stock_in_history_db' : `inventory_stock_in_history_db_${userStorageKey}`;
       const stationStorageKey = myStationWh ? `inventory_stock_in_history_wh_${String(myStationWh).toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '')}` : '';
 
       const seenRecent = new Set();
@@ -39802,8 +39805,8 @@
               } else {
                 AppState.stockInHistory.unshift(msg.tx);
               }
-              const userStorageKey = (curU.username) ? String(curU.username).trim().toLowerCase() : 'guest';
-              const scopedHistoryKey = `inventory_stock_in_history_db_${userStorageKey}`;
+              const userStorageKey = (isPriv || !curU.username) ? 'shared_admin' : String(curU.username).trim().toLowerCase();
+              const scopedHistoryKey = isPriv ? 'inventory_stock_in_history_db' : `inventory_stock_in_history_db_${userStorageKey}`;
               const stationStorageKey = (myWh && myWh !== 'ALL') ? `inventory_stock_in_history_wh_${String(myWh).toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '')}` : '';
               try {
                 if (stationStorageKey) localStorage.setItem(stationStorageKey, JSON.stringify(AppState.stockInHistory));
@@ -40078,7 +40081,7 @@
         } else {
           // Continuous 24s background synchronization for active operations tabs
           const nowTs = Date.now();
-          if (AppState.currentTab === 'stockin' && typeof loadStockInHistory === 'function' && (nowTs - (window._lastStockInAutoSync || 0) > 24000)) {
+          if (AppState.currentTab === 'stockin' && typeof loadStockInHistory === 'function' && (nowTs - (window._lastStockInAutoSync || 0) > 12000)) {
             window._lastStockInAutoSync = nowTs;
             await loadStockInHistory(true);
           } else if (AppState.currentTab === 'stockout' && typeof loadStockOutHistory === 'function' && (nowTs - (window._lastStockOutAutoSync || 0) > 24000)) {
