@@ -1837,7 +1837,7 @@
           </div>
 
           <!-- Live Clock & Date Badge for SuperAdmin and Admin (រូបភាពទី 1 នៅខាងឆ្វេងដៃនៃរូបភាពទី 2) -->
-          <div id="sessionBannerClockDateBtn" onclick="openKhmerCalendarModal()"
+          <div id="sessionBannerClockDateBtn" onclick="toggleKhmerCalendarModal()"
             class="hidden items-center space-x-1.5 bg-white/10 hover:bg-white/20 px-2.5 h-[30px] rounded-xl border border-white/20 backdrop-blur-md shadow-sm transition-colors text-white text-xs cursor-pointer select-none group shrink-0 whitespace-nowrap"
             title="ចុចដើម្បីមើលប្រតិទិនចន្ទគតិខ្មែរ (Khmer Lunar Calendar)">
             <i class="fa-regular fa-clock text-blue-200 group-hover:text-cyan-300 text-xs transition-colors shrink-0"></i>
@@ -2281,7 +2281,7 @@
 
         <div class="flex items-center space-x-1 sm:space-x-1.5 md:space-x-3 shrink-0 min-w-0 justify-end">
           <!-- Live Clock & Date Badge (Click to open Khmer Lunar Calendar) -->
-          <div id="headerClockDateBtn" onclick="openKhmerCalendarModal()"
+          <div id="headerClockDateBtn" onclick="toggleKhmerCalendarModal()"
             class="hidden lg:flex items-center space-x-1.5 bg-slate-100/90 hover:bg-blue-50/90 border border-slate-200 hover:border-blue-300 rounded-xl px-2.5 h-[32px] text-slate-600 hover:text-blue-700 text-xs shadow-2xs shrink-0 cursor-pointer transition-colors select-none group whitespace-nowrap"
             title="ចុចដើម្បីមើលប្រតិទិនចន្ទគតិខ្មែរ (Khmer Lunar Calendar)">
             <i class="fa-regular fa-clock text-slate-400 group-hover:text-blue-500 text-xs transition-colors shrink-0"></i>
@@ -2300,7 +2300,7 @@
           </div>
 
           <!-- Mobile Calendar Icon Button -->
-          <button id="mobileCalendarBtn" onclick="openKhmerCalendarModal()"
+          <button id="mobileCalendarBtn" onclick="toggleKhmerCalendarModal()"
             class="relative lg:hidden flex items-center justify-center w-8 h-8 rounded-xl bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600 border border-slate-200 transition shrink-0"
             title="ប្រតិទិនចន្ទគតិខ្មែរ (Khmer Lunar Calendar)">
             <i class="fa-regular fa-calendar-days text-xs text-blue-600"></i>
@@ -11704,8 +11704,10 @@
         modal.style.setProperty('display', 'none', 'important');
       }
       window._isKhmerCalendarOpen = false;
-      document.body.style.overflow = '';
-      document.documentElement.style.overflow = '';
+      if (!window._isStockInFormOpen && !window._isStockOutFormOpen) {
+        document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
+      }
     }
 
     function toggleKhmerCalendarModal() {
@@ -11716,6 +11718,46 @@
         openKhmerCalendarModal();
       }
     }
+
+    // Auto-close calendar when clicking any other function or anywhere outside the calendar modal
+    (function initKhmerCalendarAutoClose() {
+      function isClickOutsideKhmerCalendar(target) {
+        if (!target) return false;
+        const modal = document.getElementById('khmerCalendarModal');
+        if (!modal || modal.classList.contains('hidden') || modal.style.display === 'none') {
+          return false;
+        }
+
+        // If clicking inside a Swal popup (e.g. note input dialog), don't close calendar
+        if (target.closest && target.closest('.swal2-container')) {
+          return false;
+        }
+
+        // Check if clicking inside calendar dialog card
+        const card = modal.querySelector('.rounded-3xl');
+        if (card && card.contains(target)) {
+          return false; // Inside calendar
+        }
+
+        // Check if clicking the toggle button itself (toggle function will handle it)
+        const b1 = document.getElementById('headerClockDateBtn');
+        const b2 = document.getElementById('mobileCalendarBtn');
+        const b3 = document.getElementById('sessionBannerClockDateBtn');
+        if ((b1 && b1.contains(target)) || (b2 && b2.contains(target)) || (b3 && b3.contains(target))) {
+          return false;
+        }
+
+        return true;
+      }
+
+      function handleOutsideCalEvent(e) {
+        if (isClickOutsideKhmerCalendar(e.target)) {
+          closeKhmerCalendarModal();
+        }
+      }
+
+      document.addEventListener('pointerdown', handleOutsideCalEvent, true);
+    })();
 
     function calNavigateMonth(delta) {
       KhmerCalState.viewMonth += delta;
@@ -17224,6 +17266,7 @@
     });
 
     function navigateTab(tabName) {
+      if (typeof closeKhmerCalendarModal === 'function') closeKhmerCalendarModal();
       // 1. Preserve active Product Inventory search & filters before leaving
       const curItemInp = document.getElementById('itemSearchInput');
       if (curItemInp && curItemInp.value && curItemInp.value.trim()) {
@@ -29092,6 +29135,7 @@
     });
 
     function openStockInForm(mode) {
+      if (typeof closeKhmerCalendarModal === 'function') closeKhmerCalendarModal();
       if (typeof hideCustomProductDropdown === 'function') hideCustomProductDropdown();
       switchStockInEntryMode(mode || stockInEntryMode || 'SINGLE');
       const modal = document.getElementById('stockInModal');
@@ -29173,6 +29217,7 @@
     window.toggleStockInForm = toggleStockInForm;
 
     function openStockOutForm(mode) {
+      if (typeof closeKhmerCalendarModal === 'function') closeKhmerCalendarModal();
       if (typeof hideCustomProductDropdown === 'function') hideCustomProductDropdown();
       switchStockOutEntryMode(mode || stockOutEntryMode || 'SINGLE');
       const modal = document.getElementById('stockOutModal');
