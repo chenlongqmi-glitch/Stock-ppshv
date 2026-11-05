@@ -2989,402 +2989,6 @@
             </button>
           </div>
 
-          <div id="stockInFormCard" class="hidden glass-card form-freeze-card p-3 sm:p-4 lg:p-4 rounded-2xl sm:rounded-3xl shadow-sm border-2 border-emerald-300/80 bg-gradient-to-br from-emerald-50/30 via-white to-teal-50/20">
-
-            <!-- Top Mode Switcher Menu (1. Single Item vs 2. Multi-Item Batch) -->
-            <div id="stockInModeMenu" class="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 mb-2.5 border-b border-emerald-200/80">
-              <div class="flex items-center space-x-2">
-                <div class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                <span class="text-xs sm:text-sm font-black text-slate-800 font-khmer">របៀបកត់ត្រាចូលស្តុក:</span>
-                <div class="inline-flex p-1 bg-emerald-100/80 rounded-xl border border-emerald-200 shadow-2xs">
-                  <button type="button" id="btnStockInModeSingle" onclick="switchStockInEntryMode('SINGLE')"
-                    class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition shadow-xs bg-white text-emerald-900 border border-emerald-300 flex items-center gap-1.5 cursor-pointer">
-                    <i class="fa-solid fa-cube text-emerald-600"></i>
-                    <span>១. ចូលទំនិញមួយៗធម្មតា</span>
-                  </button>
-                  <button type="button" id="btnStockInModeMulti" onclick="switchStockInEntryMode('MULTI')"
-                    class="px-3.5 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:text-emerald-900 transition flex items-center gap-1.5 cursor-pointer">
-                    <i class="fa-solid fa-layer-group text-emerald-600"></i>
-                    <span>២. ចូលទំនិញច្រើនមុខ</span>
-                    <span id="stockInBatchBadgeCount" class="hidden ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-black bg-emerald-600 text-white font-mono shadow-2xs">0</span>
-                  </button>
-                </div>
-              </div>
-              <div class="flex items-center gap-2 shrink-0">
-                <div id="stockInMultiModeStatus" class="hidden items-center gap-2">
-                  <span class="text-xs font-bold text-emerald-900 bg-emerald-100/90 border border-emerald-300 px-3 py-1 rounded-xl flex items-center gap-1.5 shadow-2xs">
-                    <i class="fa-solid fa-list-check text-emerald-600"></i>
-                    <span>ក្នុង List: <b id="stockInBatchListCountTop" class="text-emerald-950 font-black">0</b> មុខ</span>
-                  </span>
-                </div>
-                <!-- ប៊ូតុង X ដើម្បីបិទផ្ទាំង (Close 'x' button) -->
-                <button type="button" onclick="closeStockInForm()"
-                  class="w-8 h-8 rounded-xl bg-slate-100 hover:bg-rose-100 text-slate-500 hover:text-rose-600 border border-slate-200 hover:border-rose-300 flex items-center justify-center transition shadow-2xs cursor-pointer group"
-                  title="បិទផ្ទាំងនេះ (Close)">
-                  <i class="fa-solid fa-xmark text-sm font-black group-hover:scale-110 transition-transform"></i>
-                </button>
-              </div>
-            </div>
-
-
-            <form id="stockInForm" onsubmit="handleStockInSubmit(event)" class="space-y-3">
-              <!-- Hidden Old Stock & Pack Conversion Stores -->
-              <input type="hidden" id="stockInOldStockValue" value="0">
-              <input type="hidden" id="stockInPackQtyVal" value="1">
-              <input type="hidden" id="stockInPackUnitVal" value="">
-              <input type="hidden" id="stockInBaseUnitVal" value="ដុំ">
-              <input type="hidden" id="stockInUnitMode" value="RETAIL">
-              <input type="hidden" id="stockInQty" value="0">
-              <input type="hidden" id="stockInItemCode" value="">
-              <input type="hidden" id="stockInReceiver" value="">
-
-              <div class="flex flex-col lg:flex-row gap-3.5 items-stretch pt-0.5">
-                <!-- ផ្នែកខាងឆ្វេង: ប្រអប់រូបភាពទំនិញ (Pure Image Preview Card spanning 3 rows) -->
-                <div class="w-full lg:w-48 xl:w-56 shrink-0 flex flex-col justify-stretch">
-                  <div id="stockInImgCard"
-                    class="flex-1 w-full border-2 border-emerald-300/80 rounded-2xl bg-emerald-50/20 flex flex-col items-center justify-center p-3 relative overflow-hidden group cursor-pointer shadow-xs hover:border-emerald-500 hover:bg-white transition min-h-[165px] lg:min-h-[175px]"
-                    onclick="previewStockInCurrentItemImage()"
-                    title="ចុចដើម្បីមើលរូបភាពធំ (Click to preview)">
-                    
-                    <div id="stockInImgPlaceholderBox" class="flex flex-col items-center justify-center text-center p-2 my-auto select-none space-y-1.5">
-                      <i class="fa-regular fa-image text-emerald-400 text-4xl mb-1"></i>
-                      <span class="text-sm font-extrabold text-slate-700 font-khmer">រូបភាពទំនិញ</span>
-                      <span class="text-[11px] text-slate-400 font-khmer">ចុចមើលរូបភាពធំ</span>
-                    </div>
-                    
-                    <img id="stockInItemImg" src="" alt="" class="w-full h-full max-h-[200px] object-contain hidden rounded-xl transition group-hover:scale-105 pointer-events-none drop-shadow-xs">
-                    
-                    <div class="absolute bottom-2.5 right-2.5 text-emerald-600 transition bg-white/90 border border-emerald-200 rounded-lg p-1.5 shadow-2xs hover:scale-110">
-                      <i class="fa-solid fa-magnifying-glass text-xs"></i>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- ផ្នែកខាងស្តាំ: ៤ ជួរឈរ x ៣ ជួរដេក (MATCHING USER SCREENSHOT EXACTLY) -->
-                <div id="stockInFieldsContainer" class="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end w-full">
-                  
-                  <!-- ROW 1 -->
-                  <!-- Col 1: ឈ្មោះទំនិញ (KEYWORD) * -->
-                  <div id="stockInField_sku" class="w-full">
-                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center truncate" title="ឈ្មោះទំនិញ (KEYWORD)">
-                      <i class="fa-solid fa-magnifying-glass text-blue-500 mr-1.5 shrink-0 text-xs"></i>
-                      <span class="truncate">ឈ្មោះទំនិញ (KEYWORD) *</span>
-                    </label>
-                    <div class="relative w-full h-11">
-                      <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-slate-400 text-xs"></i>
-                      <input type="text" id="stockInSku" required
-                        placeholder="វាយឈ្មោះទំនិញ ឬ SKU / Bar..."
-                        oninput="handleCustomProductSearch(this, 'stockIn')"
-                        onfocus="handleCustomProductSearch(this, 'stockIn')"
-                        onchange="onStockInItemChange()"
-                        onkeydown="handleProductSearchKeydown(event, 'stockIn')"
-                        autocomplete="off"
-                        class="w-full h-full pl-9 pr-8 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition shadow-2xs">
-                      <button type="button" onclick="clearStockInProductSelection()"
-                        class="absolute right-2.5 top-3 text-slate-400 hover:text-slate-600 p-1 text-xs" title="សម្អាត">
-                        <i class="fa-solid fa-xmark"></i>
-                      </button>
-                    </div>
-                  </div>
-
-                  <!-- Col 2: ទីតាំងឃ្លាំងណា (ROW 1: ខាងលើគេ) -->
-                  <div id="stockInField_location" class="w-full">
-                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center truncate" title="ទីតាំងឃ្លាំងណា">
-                      <i class="fa-solid fa-warehouse text-emerald-600 mr-1.5 shrink-0 text-xs"></i>
-                      <span class="truncate">ទីតាំងឃ្លាំងណា</span>
-                    </label>
-                    <select id="stockInLocation" required
-                      autocomplete="off"
-                      onchange="handleStockInLocationChange(this)"
-                      class="w-full h-11 px-3 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition shadow-2xs">
-                      <option value="" selected>-- ជ្រើសរើសទីតាំងឃ្លាំង --</option>
-                    </select>
-                  </div>
-
-                  <!-- Col 3: សរុបស្តុកចាស់ -->
-                  <div id="stockInField_oldStock" class="w-full">
-                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1.5 flex items-center truncate" title="សរុបស្តុកចាស់">
-                      <span class="truncate" id="stockInOldStockLabelText">សរុបស្តុកចាស់</span>
-                    </label>
-                    <div class="w-full h-11 flex items-center justify-between gap-1.5">
-                      <span id="stockInOldStockBulkBadge" class="stock-pill-badge stock-pill-bulk">
-                        0 ប្រអប់
-                      </span>
-                      <span id="stockInOldStockRetailBadge" class="stock-pill-badge stock-pill-retail">
-                        0 ដើម
-                      </span>
-                    </div>
-                    <span id="stockInOldStockDisplay" class="hidden">0 ដុំ + 0 រាយ</span>
-                  </div>
-
-                  <!-- Col 4: លេខឯកសារ * -->
-                  <div id="stockInField_docNo" class="w-full">
-                    <div class="flex items-center justify-between mb-1.5 gap-1">
-                      <label class="text-xs font-bold text-emerald-800 uppercase flex items-center truncate" title="លេខឯកសារ *">
-                        <i class="fa-solid fa-file-invoice text-emerald-600 mr-1.5 shrink-0 text-xs"></i>
-                        <span class="truncate">លេខឯកសារ *</span>
-                      </label>
-                      <input type="checkbox" id="stockInLockDocNo" class="hidden">
-                      <span id="stockInDocNoBadgeNotice" class="hidden text-[11px] font-bold text-emerald-700 bg-emerald-100/80 px-2.5 py-1 rounded-xl border border-emerald-200/90 shadow-3xs">
-                        <i class="fa-solid fa-lock text-[10px] mr-1 text-emerald-600"></i>លេខរួម (Batch)
-                      </span>
-                    </div>
-                    <div class="relative w-full h-11">
-                      <input type="text" id="stockInDocNo" required placeholder="IN-..."
-                        class="w-full h-full px-3 pr-16 bg-emerald-50/20 hover:bg-white border border-emerald-300 rounded-xl text-xs sm:text-sm font-mono font-bold text-emerald-950 text-center tracking-wide focus:ring-2 focus:ring-emerald-500 outline-none transition shadow-2xs">
-                      <div class="absolute right-1.5 top-1.5 flex items-center gap-1">
-                        <button type="button" onclick="generateStockInDocNo(true)" title="បង្កើតលេខឯកសារថ្មី (New Doc)"
-                          class="h-8 px-2 rounded-lg bg-slate-100 hover:bg-emerald-100 text-slate-600 hover:text-emerald-800 border border-slate-200 hover:border-emerald-300 text-xs font-bold inline-flex items-center gap-1 transition active:scale-95 shadow-3xs cursor-pointer">
-                          <i class="fa-solid fa-arrows-rotate text-[10px]"></i>
-                          <span class="text-[10px] hidden sm:inline">ថ្មី</span>
-                        </button>
-                      </div>
-                    </div>
-                    <!-- Live info banner when items entered under this doc -->
-                    <div id="stockInDocBatchBadge" class="hidden mt-1.5 text-[10.5px] px-2.5 py-1.5 rounded-xl bg-emerald-50 border border-emerald-300/90 text-emerald-900 flex items-center justify-between font-sans shadow-3xs">
-                      <span class="truncate flex items-center gap-1">
-                        <i class="fa-solid fa-layer-group text-emerald-600 text-[10px]"></i>
-                        <span>ឯកសារនេះបានបញ្ចូល៖ <b id="stockInDocBatchCount" class="text-emerald-950 font-bold">0</b> មុខ</span>
-                      </span>
-                      <div class="flex items-center gap-1.5 shrink-0">
-                        <button type="button" onclick="viewCurrentDocItems('IN')" class="text-[10px] font-bold text-emerald-700 hover:text-emerald-900 underline cursor-pointer">
-                          <i class="fa-regular fa-eye mr-0.5"></i>មើល
-                        </button>
-                        <button type="button" onclick="finishCurrentDoc('IN')" class="px-2 py-0.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold cursor-pointer transition shadow-3xs flex items-center gap-0.5" title="បញ្ចប់ឯកសារនេះ ហើយបង្កើតលេខថ្មី">
-                          <i class="fa-solid fa-check text-[9px]"></i>ចប់ / ថ្មី
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- ROW 2 -->
-                  <!-- Col 1: ខ្នាត (SIZE) -->
-                  <div id="stockInField_size" class="w-full">
-                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center truncate" title="ខ្នាត (SIZE)">
-                      <i class="fa-solid fa-ruler-combined text-slate-700 mr-1.5 shrink-0 text-xs"></i>
-                      <span class="truncate">ខ្នាត (SIZE)</span>
-                    </label>
-                    <input type="text" id="stockInSize" placeholder="ខ្នាត..."
-                      class="w-full h-11 px-3.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition shadow-2xs">
-                  </div>
-
-                  <!-- Col 2: តំបន់ស្តុក (ZONE) (ROW 2: បន្ទាប់) -->
-                  <div id="stockInField_zone" class="w-full">
-                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center truncate" title="តំបន់ស្តុក (ZONE)">
-                      <i class="fa-solid fa-location-dot text-rose-500 mr-1.5 shrink-0 text-xs"></i>
-                      <span class="truncate">តំបន់ស្តុក (ZONE)</span>
-                    </label>
-                    <div class="relative w-full h-11">
-                      <i class="fa-solid fa-location-dot absolute left-3.5 top-3.5 text-rose-500 text-xs pointer-events-none"></i>
-                      <input type="text" id="stockInZone"
-                        placeholder="រើស ឬកែ"
-                        autocomplete="off"
-                        onfocus="openStockInZoneDropdown()"
-                        onclick="openStockInZoneDropdown()"
-                        oninput="handleStockInZoneInput(this.value)"
-                        onkeydown="handleStockInZoneKeydown(event)"
-                        class="w-full h-full pl-9 pr-12 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition shadow-2xs">
-                      <div class="absolute right-1.5 top-1.5 flex items-center gap-0.5">
-                        <button type="button" id="stockInZoneClearBtn" onclick="clearStockInZone(event)"
-                          class="hidden p-1 text-slate-400 hover:text-rose-600 rounded-lg text-xs" title="សម្អាត Zone">
-                          <i class="fa-solid fa-xmark"></i>
-                        </button>
-                        <button type="button" onclick="toggleStockInZoneDropdown(event)"
-                          class="p-1.5 text-slate-400 hover:text-emerald-600 rounded-lg text-xs transition" title="បើក/បិទបញ្ជី Zone">
-                          <i class="fa-solid fa-chevron-down text-[11px] transition-transform duration-200" id="stockInZoneChevron"></i>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Col 3: សរុបស្តុកថ្មី -->
-                  <div id="stockInField_newTotal" class="w-full">
-                    <label class="block text-xs font-bold text-emerald-800 uppercase mb-1.5 flex items-center truncate" title="សរុបស្តុកថ្មី">
-                      <span class="truncate" id="stockInNewTotalLabelText">សរុបស្តុកថ្មី</span>
-                    </label>
-                    <div class="w-full h-11 flex items-center justify-between gap-1.5">
-                      <span id="stockInNewTotalBulkBadge" class="stock-pill-badge bg-emerald-100 text-emerald-800 border border-emerald-300">
-                        0 ប្រអប់
-                      </span>
-                      <span id="stockInNewTotalRetailBadge" class="stock-pill-badge bg-teal-50 text-teal-800 border border-teal-200">
-                        0 ដើម
-                      </span>
-                    </div>
-                    <span id="stockInFormulaText" class="text-[10px] text-slate-400 font-medium mt-1 block text-left"></span>
-                    <span id="stockInNewTotalDisplay" class="hidden">0 ដុំ + 0 រាយ</span>
-                  </div>
-
-                  <!-- Col 4: កំណត់សម្គាល់បន្ថែម -->
-                  <div id="stockInField_notes" class="w-full">
-                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1.5 flex items-center truncate" title="កំណត់សម្គាល់បន្ថែម">
-                      <i class="fa-solid fa-note-sticky text-amber-500 mr-1.5 shrink-0 text-xs"></i>
-                      <span class="truncate">កំណត់សម្គាល់បន្ថែម</span>
-                    </label>
-                    <input type="text" id="stockInNotes" value="-" placeholder="លេខវិក្កយបត្រ, ស្ថានភាព... (លំនាំដើម: -)"
-                      class="w-full h-11 px-3.5 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition shadow-2xs">
-                  </div>
-
-                  <!-- ROW 3 -->
-                  <!-- Col 1: ពណ៌ (COLOR) -->
-                  <div id="stockInField_color" class="w-full">
-                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center truncate" title="ពណ៌ (COLOR)">
-                      <i class="fa-solid fa-palette text-amber-500 mr-1.5 shrink-0 text-xs"></i>
-                      <span class="truncate">ពណ៌ (COLOR)</span>
-                    </label>
-                    <input type="text" id="stockInColor" placeholder="ពណ៌..."
-                      class="w-full h-11 px-3.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition shadow-2xs">
-                  </div>
-
-                  <!-- Col 2: ចំនួនចូលស្តុក * ដុំ & រាយ (ROW 3: នៅក្រោមគេវិញ) -->
-                  <div id="stockInField_qtys" class="w-full">
-                    <div class="grid grid-cols-2 gap-2 w-full">
-                      <!-- ចំនួនចូលស្តុក * ដុំ -->
-                      <div id="stockInField_qtyBulk" class="w-full">
-                        <label class="block text-[11px] sm:text-xs font-bold text-emerald-800 uppercase mb-1.5 flex items-center truncate" title="ចំនួនចូលស្តុក ដុំ">
-                          <i class="fa-solid fa-arrow-down text-emerald-600 mr-1 text-[10px] shrink-0"></i>
-                          <span class="truncate">ចំនួនចូល * ដុំ</span>
-                        </label>
-                        <input type="number" id="stockInQtyBulk" inputmode="decimal" min="0" step="any" placeholder="0"
-                          oninput="calculateStockInCalculations()"
-                          onfocus="if (this.value === '0') this.value = ''; this.select();"
-                          onblur="calculateStockInCalculations()"
-                          class="w-full h-11 px-3.5 bg-slate-50 hover:bg-white focus:bg-white border-2 border-emerald-500 rounded-xl text-xs sm:text-base font-bold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 transition shadow-2xs">
-                      </div>
-
-                      <!-- ចំនួនចូលស្តុក * រាយ -->
-                      <div id="stockInField_qtyRetail" class="w-full">
-                        <label class="block text-[11px] sm:text-xs font-bold text-emerald-800 uppercase mb-1.5 flex items-center truncate" title="ចំនួនចូលស្តុក រាយ">
-                          <i class="fa-solid fa-arrow-down text-emerald-600 mr-1 text-[10px] shrink-0"></i>
-                          <span class="truncate">ចំនួនចូល * រាយ</span>
-                        </label>
-                        <input type="number" id="stockInQtyRetail" inputmode="decimal" min="0" step="any" placeholder="0"
-                          oninput="calculateStockInCalculations()"
-                          onfocus="if (this.value === '0') this.value = ''; this.select();"
-                          onblur="calculateStockInCalculations()"
-                          class="w-full h-11 px-3.5 bg-slate-50 hover:bg-white focus:bg-white border-2 border-emerald-500 rounded-xl text-xs sm:text-base font-bold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 transition shadow-2xs">
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Col 3: សកម្មភាព (Clear Red Button) -->
-                  <div id="stockInField_actions" class="w-full">
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1.5 flex items-center truncate" title="សកម្មភាព">
-                      <i class="fa-solid fa-bolt text-slate-400 mr-1.5 shrink-0 text-xs"></i>
-                      <span class="truncate">សកម្មភាព</span>
-                    </label>
-                    <button type="button" onclick="clearStockInAllFields()"
-                      class="w-full h-11 px-3 rounded-xl bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-1.5 shadow-sm hover:scale-[1.01] active:scale-[0.99] cursor-pointer">
-                      <i class="fa-solid fa-rotate-left text-xs text-white"></i>
-                      <span class="text-white font-khmer">សម្អាត</span>
-                    </button>
-                  </div>
-
-                  <!-- Col 4: បញ្ជាក់ / រក្សាទុក (Green Submit Button) -->
-                  <div id="stockInField_submit" class="w-full">
-                    <label class="block text-xs font-bold text-emerald-700 uppercase mb-1.5 flex items-center truncate" title="បញ្ជាក់">
-                      <i class="fa-solid fa-circle-check text-emerald-600 mr-1.5 shrink-0 text-xs"></i>
-                      <span class="truncate">បញ្ជាក់</span>
-                    </label>
-                    <input type="checkbox" id="stockInLockDocNoSubmit" class="hidden">
-                    <div class="flex items-center gap-1.5 w-full">
-                      <!-- Mode 1: Single item save button -->
-                      <button type="submit" id="btnSubmitStockIn"
-                        class="w-full h-11 px-3 rounded-xl bg-[#046c4e] hover:bg-[#03543d] active:bg-[#023e2d] text-white text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-1.5 shadow-md shadow-emerald-700/20 hover:scale-[1.01] active:scale-[0.99] cursor-pointer">
-                        <i class="fa-solid fa-check text-xs text-white"></i>
-                        <span id="btnSubmitStockInText" class="text-white font-khmer">រក្សាទុក</span>
-                      </button>
-                      <!-- Mode 2: Add to List button -->
-                      <button type="button" id="btnAddStockInToList" onclick="addCurrentItemToStockInBatchQueue()"
-                        class="hidden w-full h-11 px-3 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-700 active:scale-[0.99] text-white text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-1.5 shadow-md shadow-teal-700/20 cursor-pointer">
-                        <i class="fa-solid fa-circle-plus text-sm text-white"></i>
-                        <span class="text-white font-khmer">បញ្ចូលទិន្នន័យក្នុង List</span>
-                      </button>
-                    </div>
-                  </div>
-
-                </div>
-              </div>
-
-            </form>
-          </div>
-
-          <!-- BATCH QUEUE CARD (បង្ហាញតែក្នុង Mode 2: ចូលទំនិញច្រើនមុខ) -->
-          <div id="stockInBatchCard" class="hidden glass-card p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-sm border-2 border-emerald-400 bg-white space-y-4">
-            <!-- Header -->
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
-              <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 border border-emerald-300 flex items-center justify-center text-lg shadow-xs">
-                  <i class="fa-solid fa-list-check"></i>
-                </div>
-                <div>
-                  <div class="flex items-center space-x-2">
-                    <h4 class="font-bold text-slate-800 text-sm sm:text-base">📋 បញ្ជីទំនិញបានបញ្ចូលត្រៀមកត់ត្រាចូលស្តុក (Batch Queue List)</h4>
-                    <span id="stockInBatchBadgeTable" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">0 មុខទំនិញ</span>
-                  </div>
-                  <p class="text-xs text-slate-500 font-khmer">មុខទំនិញដែលបានចុច «បញ្ចូលទិន្នន័យក្នុង List» នឹងត្រូវរក្សាទុកក្រោមលេខឯកសាររួមតែមួយ</p>
-                </div>
-              </div>
-              <div class="flex items-center gap-2">
-                <span class="text-xs font-mono font-bold text-emerald-900 bg-emerald-50 border border-emerald-300 px-3 py-1.5 rounded-xl shadow-3xs flex items-center gap-1.5">
-                  <i class="fa-solid fa-file-invoice text-emerald-600"></i>
-                  <span>លេខឯកសាររួម: <b id="stockInBatchDocDisplay">-</b></span>
-                </span>
-                <button type="button" onclick="clearStockInBatchQueue()" class="h-9 px-3 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-bold transition flex items-center gap-1 cursor-pointer" title="លុបទំនិញទាំងអស់ចេញពី List">
-                  <i class="fa-solid fa-trash-can text-xs"></i>
-                  <span>សម្អាត List</span>
-                </button>
-                <button type="button" onclick="closeStockInForm()" class="w-9 h-9 rounded-xl bg-slate-100 hover:bg-rose-100 text-slate-500 hover:text-rose-600 border border-slate-200 hover:border-rose-300 flex items-center justify-center transition shadow-2xs cursor-pointer group" title="បិទផ្ទាំងនេះ (Close)">
-                  <i class="fa-solid fa-xmark text-sm font-black group-hover:scale-110 transition-transform"></i>
-                </button>
-              </div>
-            </div>
-
-            <!-- Queue Table -->
-            <div class="overflow-x-auto rounded-xl border border-slate-200 shadow-2xs">
-              <table class="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr class="bg-slate-50 text-slate-600 uppercase font-black tracking-wider text-[11px] border-b border-slate-200 font-khmer">
-                    <th class="p-2.5 text-center w-12">ល.រ</th>
-                    <th class="p-2.5 text-center w-14">រូបភាព</th>
-                    <th class="p-2.5">ឈ្មោះទំនិញ & SKU</th>
-                    <th class="p-2.5">ខ្នាត & ពណ៌</th>
-                    <th class="p-2.5">ទីតាំង / Zone</th>
-                    <th class="p-2.5 text-center">ចំនួនចូល</th>
-                    <th class="p-2.5">កំណត់សម្គាល់</th>
-                    <th class="p-2.5 text-center w-20">សកម្មភាព</th>
-                  </tr>
-                </thead>
-                <tbody id="stockInBatchTableBody" class="divide-y divide-slate-100 font-khmer">
-                  <!-- Rendered dynamically -->
-                </tbody>
-              </table>
-            </div>
-
-            <!-- Empty State -->
-            <div id="stockInBatchEmptyState" class="p-8 text-center bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-200 space-y-2">
-              <i class="fa-solid fa-clipboard-list text-slate-300 text-4xl"></i>
-              <div class="text-sm font-bold text-slate-600 font-khmer">មិនទាន់មានមុខទំនិញក្នុង List នៅឡើយទេ</div>
-              <p class="text-xs text-slate-400 font-khmer">សូមជ្រើសរើសទំនិញ និងបញ្ចូលចំនួនក្នុង Form ខាងលើ រួចចុច <b>«➕ បញ្ចូលទិន្នន័យក្នុង List»</b> ដើម្បីបន្ថែមមុខទំនិញច្រើនមុខ</p>
-            </div>
-
-            <!-- Summary & Confirm Action Footer -->
-            <div id="stockInBatchFooter" class="flex flex-col md:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100">
-              <div class="flex items-center gap-3 flex-wrap">
-                <span class="text-xs font-bold text-slate-700">
-                  សរុបទាំងអស់: <b id="stockInBatchTotalItems" class="text-emerald-700 text-sm font-black">0</b> មុខ
-                </span>
-                <span class="text-xs font-bold text-slate-700">
-                  | សរុបបរិមាណ: <b id="stockInBatchTotalQty" class="text-emerald-700 text-sm font-black">0 ដុំ + 0 រាយ</b>
-                </span>
-              </div>
-              <button type="button" id="btnConfirmBatchStockIn" onclick="submitBatchStockIn()" disabled
-                class="w-full md:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 disabled:pointer-events-none text-white text-xs sm:text-sm font-black transition flex items-center justify-center gap-2 shadow-md shadow-emerald-700/20 cursor-pointer">
-                <i class="fa-solid fa-circle-check text-sm text-white"></i>
-                <span id="btnConfirmBatchStockInText">រក្សាទុកការចូលស្តុកទាំងអស់ (0 មុខ)</span>
-              </button>
-            </div>
-          </div>
-
           <!-- TABLE LIST CARD (ខាងក្រោម: បញ្ជីបង្ហាញពីទិន្នន័យចូល) -->
           <div id="stockInTableCard" class="glass-card table-freeze-card p-4 sm:p-5 lg:p-6 rounded-2xl sm:rounded-3xl shadow-xs border border-slate-200/80 bg-white space-y-4">
             <!-- Header of list -->
@@ -3576,448 +3180,6 @@
               <i class="fa-solid fa-rotate text-xs"></i>
               <span>ប្តូរមកឃ្លាំងចុងស៊ីង & 机电 (បើកសិទ្ធិ)</span>
             </button>
-          </div>
-
-          <div id="stockOutFormCard" class="hidden glass-card form-freeze-card p-3 sm:p-4 lg:p-4 rounded-2xl sm:rounded-3xl shadow-sm border-2 border-amber-300/80 bg-gradient-to-br from-amber-50/30 via-white to-orange-50/20">
-
-            <!-- Stock Out Mode Switcher (Single Station vs Multi-Station Batch Distribution) -->
-            <!-- Top Mode Switcher Menu (1. Single Item vs 2. Multi-Item Batch) -->
-            <div id="stockOutModeMenu" class="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 mb-2.5 border-b border-amber-200/80">
-              <div class="flex items-center space-x-2">
-                <div class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></div>
-                <span class="text-xs sm:text-sm font-black text-slate-800 font-khmer">របៀបកត់ត្រាចេញពីស្តុក:</span>
-                <div class="inline-flex p-1 bg-amber-100/80 rounded-xl border border-amber-200 shadow-2xs">
-                  <button type="button" id="btnStockOutModeSingle" onclick="switchStockOutEntryMode('SINGLE')"
-                    class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition shadow-xs bg-white text-amber-900 border border-amber-300 flex items-center gap-1.5 cursor-pointer">
-                    <i class="fa-solid fa-cube text-amber-600"></i>
-                    <span>១. ចេញទំនិញមួយៗធម្មតា</span>
-                  </button>
-                  <button type="button" id="btnStockOutModeMulti" onclick="switchStockOutEntryMode('MULTI')"
-                    class="px-3.5 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:text-amber-900 transition flex items-center gap-1.5 cursor-pointer">
-                    <i class="fa-solid fa-layer-group text-amber-600"></i>
-                    <span>២. ចេញទំនិញច្រើនមុខ</span>
-                    <span id="stockOutBatchBadgeCount" class="hidden ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-black bg-amber-600 text-white font-mono shadow-2xs">0</span>
-                  </button>
-                </div>
-              </div>
-              <div class="flex items-center gap-2 shrink-0">
-                <div id="stockOutMultiModeStatus" class="hidden items-center gap-2">
-                  <span class="text-xs font-bold text-amber-900 bg-amber-100/90 border border-amber-300 px-3 py-1 rounded-xl flex items-center gap-1.5 shadow-2xs">
-                    <i class="fa-solid fa-list-check text-amber-600"></i>
-                    <span>ក្នុង List: <b id="stockOutBatchListCountTop" class="text-amber-950 font-black">0</b> មុខ</span>
-                  </span>
-                </div>
-                <!-- ប៊ូតុង X ដើម្បីបិទផ្ទាំង (Close 'x' button) -->
-                <button type="button" onclick="closeStockOutForm()"
-                  class="w-8 h-8 rounded-xl bg-slate-100 hover:bg-rose-100 text-slate-500 hover:text-rose-600 border border-slate-200 hover:border-rose-300 flex items-center justify-center transition shadow-2xs cursor-pointer group"
-                  title="បិទផ្ទាំងនេះ (Close)">
-                  <i class="fa-solid fa-xmark text-sm font-black group-hover:scale-110 transition-transform"></i>
-                </button>
-              </div>
-            </div>
-
-            <form id="stockOutForm" onsubmit="handleStockOutSubmit(event)" class="space-y-3">
-              <!-- Hidden Old Stock Store, Pack Conversion & Item Code -->
-              <input type="hidden" id="stockOutOldStockValue" value="0">
-              <input type="hidden" id="stockOutPackQtyVal" value="1">
-              <input type="hidden" id="stockOutPackUnitVal" value="">
-              <input type="hidden" id="stockOutBaseUnitVal" value="ដុំ">
-              <input type="hidden" id="stockOutUnitMode" value="RETAIL">
-              <input type="hidden" id="stockOutQty" value="0">
-              <input type="hidden" id="stockOutUnit" value="ដុំ">
-              <input type="hidden" id="stockOutItemCode" value="">
-              <input type="hidden" id="stockOutUnitPrice" value="0">
-              <input type="hidden" id="stockOutIssuer" value="">
-              <input type="hidden" id="stockOutReason" value="ដកប្រើប្រាស់ផ្ទៃក្នុង (Internal Use)">
-
-              <div class="flex flex-col lg:flex-row gap-3.5 items-stretch pt-0.5">
-                <!-- ផ្នែកខាងឆ្វេង: ប្រអប់រូបភាពទំនិញ (Pure Image Preview Card spanning 3 rows) -->
-                <div class="w-full lg:w-48 xl:w-56 shrink-0 flex flex-col justify-stretch">
-                  <div id="stockOutImgCard"
-                    class="flex-1 w-full border-2 border-amber-300/80 rounded-2xl bg-amber-50/20 flex flex-col items-center justify-center p-3 relative overflow-hidden group cursor-pointer shadow-xs hover:border-amber-500 hover:bg-white transition min-h-[165px] lg:min-h-[175px]"
-                    onclick="previewStockOutCurrentItemImage()"
-                    title="ចុចដើម្បីមើលរូបភាពធំ (Click to preview)">
-                    
-                    <div id="stockOutImgPlaceholderBox" class="flex flex-col items-center justify-center text-center p-2 my-auto select-none space-y-1.5">
-                      <i class="fa-regular fa-image text-amber-400 text-4xl mb-1"></i>
-                      <span class="text-sm font-extrabold text-slate-700 font-khmer">រូបភាពទំនិញ</span>
-                      <span class="text-[11px] text-slate-400 font-khmer">ចុចមើលរូបភាពធំ</span>
-                    </div>
-                    
-                    <img id="stockOutItemImg" src="" alt="" class="w-full h-full max-h-[200px] object-contain hidden rounded-xl transition group-hover:scale-105 pointer-events-none drop-shadow-xs">
-                    
-                    <div class="absolute bottom-2.5 right-2.5 text-amber-600 transition bg-white/90 border border-amber-200 rounded-lg p-1.5 shadow-2xs hover:scale-110">
-                      <i class="fa-solid fa-magnifying-glass text-xs"></i>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- ផ្នែកខាងស្តាំ: ៤ ជួរឈរ x ៣ ជួរដេក (MATCHING USER SCREENSHOT EXACTLY) -->
-                <div id="stockOutFieldsContainer" class="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end w-full">
-                  
-                  <!-- ROW 1 -->
-                  <!-- Col 1: ឈ្មោះទំនិញ (KEYWORD) * -->
-                  <div id="stockOutField_sku" class="w-full">
-                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center truncate" title="ឈ្មោះទំនិញ (KEYWORD)">
-                      <i class="fa-solid fa-magnifying-glass text-blue-500 mr-1.5 shrink-0 text-xs"></i>
-                      <span class="truncate">ឈ្មោះទំនិញ (KEYWORD) *</span>
-                    </label>
-                    <div class="relative w-full h-11">
-                      <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-slate-400 text-xs"></i>
-                      <input type="text" id="stockOutSku" required
-                        placeholder="វាយឈ្មោះទំនិញ ឬ SKU / Bar..."
-                        oninput="handleCustomProductSearch(this, 'stockOut')"
-                        onfocus="handleCustomProductSearch(this, 'stockOut')"
-                        onchange="onStockOutItemChange()"
-                        onkeydown="handleProductSearchKeydown(event, 'stockOut')"
-                        autocomplete="off"
-                        class="w-full h-full pl-9 pr-8 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-amber-500 focus:bg-white outline-none transition shadow-2xs">
-                      <button type="button" onclick="clearStockOutProductSelection()"
-                        class="absolute right-2.5 top-3 text-slate-400 hover:text-slate-600 p-1 text-xs" title="សម្អាត">
-                        <i class="fa-solid fa-xmark"></i>
-                      </button>
-                    </div>
-                  </div>
-
-                  <!-- Col 2: តំបន់ស្តុក (ZONE) -->
-                  <div id="stockOutField_zone" class="w-full">
-                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center truncate" title="តំបន់ស្តុក (ZONE)">
-                      <i class="fa-solid fa-location-dot text-rose-500 mr-1.5 shrink-0 text-xs"></i>
-                      <span class="truncate">តំបន់ស្តុក (ZONE)</span>
-                    </label>
-                    <div class="relative w-full h-11">
-                      <i class="fa-solid fa-location-dot absolute left-3.5 top-3.5 text-rose-500 text-xs pointer-events-none"></i>
-                      <input type="text" id="stockOutZone"
-                        placeholder="រើស ឬកែ"
-                        autocomplete="off"
-                        onfocus="openStockOutZoneDropdown()"
-                        onclick="openStockOutZoneDropdown()"
-                        oninput="handleStockOutZoneInput(this.value)"
-                        onkeydown="handleStockOutZoneKeydown(event)"
-                        class="w-full h-full pl-9 pr-12 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-800 focus:ring-2 focus:ring-amber-500 focus:bg-white outline-none transition shadow-2xs">
-                      <div class="absolute right-1.5 top-1.5 flex items-center gap-0.5">
-                        <button type="button" id="stockOutZoneClearBtn" onclick="clearStockOutZone(event)"
-                          class="hidden p-1 text-slate-400 hover:text-rose-600 rounded-lg text-xs" title="សម្អាត Zone">
-                          <i class="fa-solid fa-xmark"></i>
-                        </button>
-                        <button type="button" onclick="toggleStockOutZoneDropdown(event)"
-                          class="p-1.5 text-slate-400 hover:text-amber-600 rounded-lg text-xs transition" title="បើក/បិទបញ្ជី Zone">
-                          <i class="fa-solid fa-chevron-down text-[11px] transition-transform duration-200" id="stockOutZoneChevron"></i>
-                        </button>
-                      </div>
-                    </div>
-                    <div id="stockOutMultiZonePills" class="min-h-0"></div>
-                  </div>
-
-                  <!-- Col 3: សរុបស្តុកចាស់ -->
-                  <div id="stockOutField_oldStock" class="w-full">
-                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1.5 flex items-center truncate" title="សរុបស្តុកចាស់">
-                      <span class="truncate" id="stockOutOldStockLabelText">សរុបស្តុកចាស់</span>
-                    </label>
-                    <div class="w-full h-11 flex items-center justify-between gap-1.5">
-                      <span id="stockOutOldStockBulkBadge" class="stock-pill-badge stock-pill-bulk">
-                        0 ប្រអប់
-                      </span>
-                      <span id="stockOutOldStockRetailBadge" class="stock-pill-badge stock-pill-retail">
-                        0 ដើម
-                      </span>
-                    </div>
-                    <span id="stockOutOldStockDisplay" class="hidden">0 ដុំ</span>
-                  </div>
-
-                  <!-- Col 4: លេខឯកសារ * -->
-                  <div id="stockOutField_docNo" class="w-full">
-                    <div class="flex items-center justify-between mb-1.5 gap-1">
-                      <label class="text-xs font-bold text-amber-900 uppercase flex items-center truncate" title="លេខឯកសារ *">
-                        <i class="fa-solid fa-file-invoice text-amber-600 mr-1.5 shrink-0 text-xs"></i>
-                        <span class="truncate">លេខឯកសារ *</span>
-                      </label>
-                      <input type="checkbox" id="stockOutLockDocNo" class="hidden">
-                      <span id="stockOutDocNoBadgeNotice" class="hidden text-[11px] font-bold text-amber-800 bg-amber-100/80 px-2.5 py-1 rounded-xl border border-amber-200/90 shadow-3xs">
-                        <i class="fa-solid fa-lock text-[10px] mr-1 text-amber-600"></i>លេខរួម (Batch)
-                      </span>
-                    </div>
-                    <div class="relative w-full h-11">
-                      <input type="text" id="stockOutDocNo" required placeholder="OUT-..."
-                        class="w-full h-full px-3 pr-16 bg-amber-50/20 hover:bg-white border border-amber-300 rounded-xl text-xs sm:text-sm font-mono font-bold text-amber-950 text-center tracking-wide focus:ring-2 focus:ring-amber-500 outline-none transition shadow-2xs">
-                      <div class="absolute right-1.5 top-1.5 flex items-center gap-1">
-                        <button type="button" onclick="generateStockOutDocNo(true)" title="បង្កើតលេខឯកសារថ្មី (New Doc)"
-                          class="h-8 px-2 rounded-lg bg-slate-100 hover:bg-amber-100 text-slate-600 hover:text-amber-900 border border-slate-200 hover:border-amber-300 text-xs font-bold inline-flex items-center gap-1 transition active:scale-95 shadow-3xs cursor-pointer">
-                          <i class="fa-solid fa-arrows-rotate text-[10px]"></i>
-                          <span class="text-[10px] hidden sm:inline">ថ្មី</span>
-                        </button>
-                      </div>
-                    </div>
-                    <!-- Live info banner when items entered under this doc -->
-                    <div id="stockOutDocBatchBadge" class="hidden mt-1.5 text-[10.5px] px-2.5 py-1.5 rounded-xl bg-amber-50 border border-amber-300/90 text-amber-900 flex items-center justify-between font-sans shadow-3xs">
-                      <span class="truncate flex items-center gap-1">
-                        <i class="fa-solid fa-layer-group text-amber-700 text-[10px]"></i>
-                        <span>ឯកសារនេះបានចេញ៖ <b id="stockOutDocBatchCount" class="text-amber-950 font-bold">0</b> មុខ</span>
-                      </span>
-                      <div class="flex items-center gap-1.5 shrink-0">
-                        <button type="button" onclick="viewCurrentDocItems('OUT')" class="text-[10px] font-bold text-amber-800 hover:text-amber-950 underline cursor-pointer">
-                          <i class="fa-regular fa-eye mr-0.5"></i>មើល
-                        </button>
-                        <button type="button" onclick="finishCurrentDoc('OUT')" class="px-2 py-0.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold cursor-pointer transition shadow-3xs flex items-center gap-0.5" title="បញ្ចប់ឯកសារនេះ ហើយបង្កើតលេខថ្មី">
-                          <i class="fa-solid fa-check text-[9px]"></i>ចប់ / ថ្មី
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- ROW 2 -->
-                  <!-- Col 1: ខ្នាត (SIZE) -->
-                  <div id="stockOutField_size" class="w-full">
-                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center truncate" title="ខ្នាត (SIZE)">
-                      <i class="fa-solid fa-ruler-combined text-slate-700 mr-1.5 shrink-0 text-xs"></i>
-                      <span class="truncate">ខ្នាត (SIZE)</span>
-                    </label>
-                    <input type="text" id="stockOutSize" placeholder="ខ្នាត..."
-                      class="w-full h-11 px-3.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition shadow-2xs">
-                  </div>
-
-                  <!-- Col 2: ចំនួនចេញស្តុក * ដុំ & រាយ (SPLIT 50/50 SIDE BY SIDE) -->
-                  <div id="stockOutField_qtys" class="w-full">
-                    <div class="grid grid-cols-2 gap-2 w-full">
-                      <!-- ចំនួនចេញស្តុក * ដុំ -->
-                      <div id="stockOutField_qtyBulk" class="w-full">
-                        <label class="block text-[11px] sm:text-xs font-bold text-amber-900 uppercase mb-1.5 flex items-center truncate" title="ចំនួនចេញស្តុក ដុំ">
-                          <i class="fa-solid fa-arrow-up text-amber-600 mr-1 text-[10px] shrink-0"></i>
-                          <span class="truncate">ចំនួនចេញ * ដុំ</span>
-                        </label>
-                        <input type="number" id="stockOutQtyBulk" inputmode="decimal" min="0" step="any" placeholder="0"
-                          oninput="calculateStockOutCalculations()"
-                          onfocus="if (this.value === '0') this.value = ''; this.select();"
-                          onblur="calculateStockOutCalculations()"
-                          class="w-full h-11 px-3.5 bg-slate-50 hover:bg-white focus:bg-white border-2 border-amber-500 rounded-xl text-xs sm:text-base font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500 transition shadow-2xs">
-                      </div>
-
-                      <!-- ចំនួនចេញស្តុក * រាយ -->
-                      <div id="stockOutField_qtyRetail" class="w-full">
-                        <label class="block text-[11px] sm:text-xs font-bold text-amber-900 uppercase mb-1.5 flex items-center truncate" title="ចំនួនចេញស្តុក រាយ">
-                          <i class="fa-solid fa-arrow-up text-amber-600 mr-1 text-[10px] shrink-0"></i>
-                          <span class="truncate">ចំនួនចេញ * រាយ</span>
-                        </label>
-                        <input type="number" id="stockOutQtyRetail" inputmode="decimal" min="0" step="any" placeholder="0"
-                          oninput="calculateStockOutCalculations()"
-                          onfocus="if (this.value === '0') this.value = ''; this.select();"
-                          onblur="calculateStockOutCalculations()"
-                          class="w-full h-11 px-3.5 bg-slate-50 hover:bg-white focus:bg-white border-2 border-amber-500 rounded-xl text-xs sm:text-base font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500 transition shadow-2xs">
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Col 3: សរុបស្តុកថ្មី -->
-                  <div id="stockOutField_newTotal" class="w-full">
-                    <label class="block text-xs font-bold text-amber-900 uppercase mb-1.5 flex items-center truncate" title="សរុបស្តុកថ្មី">
-                      <span class="truncate" id="stockOutNewTotalLabelText">សរុបស្តុកថ្មី</span>
-                    </label>
-                    <div class="w-full h-11 flex items-center justify-between gap-1.5">
-                      <span id="stockOutNewTotalBulkBadge" class="stock-pill-badge bg-amber-100 text-amber-900 border border-amber-300">
-                        0 ប្រអប់
-                      </span>
-                      <span id="stockOutNewTotalRetailBadge" class="stock-pill-badge bg-orange-50 text-orange-900 border border-orange-200">
-                        0 ដើម
-                      </span>
-                    </div>
-                    <span id="stockOutFormulaText" class="text-[10px] text-slate-400 font-medium mt-1 block text-left"></span>
-                    <span id="stockOutRemainingDisplay" class="hidden">0 ដុំ</span>
-                  </div>
-
-                  <!-- Col 4: កំណត់សម្គាល់បន្ថែម -->
-                  <div id="stockOutField_notes" class="w-full">
-                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1.5 flex items-center truncate" title="កំណត់សម្គាល់បន្ថែម">
-                      <i class="fa-solid fa-note-sticky text-amber-500 mr-1.5 shrink-0 text-xs"></i>
-                      <span class="truncate">កំណត់សម្គាល់បន្ថែម</span>
-                    </label>
-                    <input type="text" id="stockOutNotes" value="-" placeholder="លេខវិក្កយបត្រ, ស្ថានភាព... (លំនាំដើម: -)"
-                      class="w-full h-11 px-3.5 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition shadow-2xs">
-                  </div>
-
-                  <!-- ROW 3 -->
-                  <!-- Col 1: ពណ៌ (COLOR) -->
-                  <div id="stockOutField_color" class="w-full">
-                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center truncate" title="ពណ៌ (COLOR)">
-                      <i class="fa-solid fa-palette text-amber-500 mr-1.5 shrink-0 text-xs"></i>
-                      <span class="truncate">ពណ៌ (COLOR)</span>
-                    </label>
-                    <input type="text" id="stockOutColor" placeholder="ពណ៌..."
-                      class="w-full h-11 px-3.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition shadow-2xs">
-                  </div>
-
-                  <!-- Col 2: នាំចេញទៅឃ្លាំងណា -->
-                  <div id="stockOutField_toLocation" class="w-full relative">
-                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center truncate" title="នាំចេញទៅឃ្លាំងណា">
-                      <span id="stockOutToLocationLabel" class="truncate">នាំចេញទៅឃ្លាំងណា</span>
-                    </label>
-                    <div class="relative w-full">
-                      <button type="button" id="stockOutToLocationBtn" onclick="toggleStockOutToLocationDropdown(event)"
-                        class="w-full h-11 px-3 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-amber-500 focus:bg-white outline-none transition shadow-2xs flex items-center justify-between cursor-pointer text-left">
-                        <span id="stockOutToLocationText" class="truncate flex items-center gap-1.5">-- ជ្រើសរើសទីតាំង --</span>
-                        <i id="stockOutToLocationChevron" class="fa-solid fa-chevron-down text-slate-400 text-xs shrink-0 transition-transform duration-200 ml-2"></i>
-                      </button>
-                      <select id="stockOutToLocation" required class="sr-only pointer-events-none" tabindex="-1" aria-hidden="true">
-                        <option value="" disabled selected>-- ជ្រើសរើសទីតាំង --</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <!-- Col 3: សកម្មភាព (Clear Red Button) -->
-                  <div id="stockOutField_actions" class="w-full">
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1.5 flex items-center truncate" title="សកម្មភាព">
-                      <i class="fa-solid fa-bolt text-slate-400 mr-1.5 shrink-0 text-xs"></i>
-                      <span class="truncate">សកម្មភាព</span>
-                    </label>
-                    <button type="button" onclick="clearStockOutAllFields()"
-                      class="w-full h-11 px-3 rounded-xl bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-1.5 shadow-sm hover:scale-[1.01] active:scale-[0.99] cursor-pointer">
-                      <i class="fa-solid fa-rotate-left text-xs text-white"></i>
-                      <span class="text-white font-khmer">សម្អាត</span>
-                    </button>
-                  </div>
-
-                  <!-- Col 4: បញ្ជាក់ / រក្សាទុក (Warm Orange Submit Button) -->
-                  <div id="stockOutField_submit" class="w-full">
-                    <label class="block text-xs font-bold text-amber-800 uppercase mb-1.5 flex items-center truncate" title="បញ្ជាក់">
-                      <i class="fa-solid fa-circle-check text-amber-600 mr-1.5 shrink-0 text-xs"></i>
-                      <span class="truncate">បញ្ជាក់</span>
-                    </label>
-                    <input type="checkbox" id="stockOutLockDocNoSubmit" class="hidden">
-                    <div class="flex items-center gap-1.5 w-full">
-                      <!-- Mode 1: Single item save button -->
-                      <button type="submit" id="btnSubmitStockOut"
-                        class="w-full h-11 px-3 rounded-xl bg-[#ea580c] hover:bg-[#c2410c] active:bg-[#9a3412] text-white text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-1.5 shadow-md shadow-orange-700/20 hover:scale-[1.01] active:scale-[0.99] cursor-pointer">
-                        <i class="fa-solid fa-check text-xs text-white"></i>
-                        <span id="btnSubmitStockOutText" class="text-white font-khmer">រក្សាទុក</span>
-                      </button>
-                      <!-- Mode 2: Add to List button -->
-                      <button type="button" id="btnAddStockOutToList" onclick="addCurrentItemToStockOutBatchQueue()"
-                        class="hidden w-full h-11 px-3 rounded-xl bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 hover:from-amber-700 hover:to-orange-700 active:scale-[0.99] text-white text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-1.5 shadow-md shadow-orange-700/20 cursor-pointer">
-                        <i class="fa-solid fa-circle-plus text-sm text-white"></i>
-                        <span class="text-white font-khmer">បញ្ចូលទិន្នន័យក្នុង List</span>
-                      </button>
-                    </div>
-                  </div>
-
-                </div>
-              </div>
-
-              <!-- SECTION: MULTI-STATION TOLL GRID (VISIBLE IN MULTI MODE) -->
-              <div id="stockOutMultiStationSection" class="hidden w-full pt-3.5 border-t-2 border-dashed border-amber-300/80 space-y-3">
-                <!-- Action Bar & Quick Presets -->
-                <div class="flex flex-wrap items-center justify-between gap-2.5 bg-gradient-to-r from-amber-100/70 via-orange-50/50 to-amber-50/70 p-3 rounded-2xl border border-amber-200 shadow-2xs">
-                  <div class="flex items-center space-x-2">
-                    <div class="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center text-xs shadow-2xs">
-                      <i class="fa-solid fa-road"></i>
-                    </div>
-                    <div>
-                      <h5 class="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-1.5">
-                        <span>🛣️ បញ្ជីចែកទំនិញតាមបណ្តាស្ថានីយទាំង ៨ (Toll Stations Dispatch Grid)</span>
-                      </h5>
-                      <p class="text-[11px] text-slate-500 font-khmer">បញ្ចូលចំនួនដុំ ឬរាយសម្រាប់ស្ថានីយនីមួយៗ (អាចចេញម្តង 3-4 ស្ថានីយ ឬទាំង 8)</p>
-                    </div>
-                  </div>
-                  <div class="flex items-center gap-1.5 flex-wrap">
-                    <button type="button" onclick="quickFillAllStationsPrompt()"
-                      class="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-xs cursor-pointer hover:scale-[1.02] active:scale-[0.98]">
-                      <i class="fa-solid fa-bolt text-xs"></i>
-                      <span>⚡ ចែកស្មើគ្នាគ្រប់ស្ថានីយ</span>
-                    </button>
-                    <button type="button" onclick="clearAllMultiStationQtys()"
-                      class="px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition flex items-center space-x-1 border border-slate-300 shadow-2xs cursor-pointer">
-                      <i class="fa-solid fa-rotate-left text-xs text-slate-500"></i>
-                      <span>សម្អាតចំនួន</span>
-                    </button>
-                    <button type="button" onclick="toggleIncludeGeneralOffice()" id="btnToggleGeneralOffice"
-                      class="px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition flex items-center space-x-1 border border-slate-300 shadow-2xs cursor-pointer">
-                      <i class="fa-solid fa-plus text-xs text-slate-500"></i>
-                      <span>+ 综合办 (កិច្ចការទូទៅ)</span>
-                    </button>
-                  </div>
-                </div>
-
-                <!-- Grid of Station Cards -->
-                <div id="stockOutStationCardsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-                  <!-- Generated by renderStockOutMultiStationGrid() -->
-                </div>
-              </div>
-            </form>
-          </div>
-
-          <!-- BATCH QUEUE CARD (បង្ហាញតែក្នុង Mode 2: ចេញទំនិញច្រើនមុខ) -->
-          <div id="stockOutBatchCard" class="hidden glass-card p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-sm border-2 border-amber-400 bg-white space-y-4">
-            <!-- Header -->
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
-              <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 border border-amber-300 flex items-center justify-center text-lg shadow-xs">
-                  <i class="fa-solid fa-list-check"></i>
-                </div>
-                <div>
-                  <div class="flex items-center space-x-2">
-                    <h4 class="font-bold text-slate-800 text-sm sm:text-base">📋 បញ្ជីទំនិញបានបញ្ចូលត្រៀមកត់ត្រាចេញពីស្តុក (Batch Queue List)</h4>
-                    <span id="stockOutBatchBadgeTable" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-200">0 មុខទំនិញ</span>
-                  </div>
-                  <p class="text-xs text-slate-500 font-khmer">មុខទំនិញដែលបានចុច «បញ្ចូលទិន្នន័យក្នុង List» នឹងត្រូវកត់ត្រាចេញក្រោមលេខឯកសាររួមតែមួយ</p>
-                </div>
-              </div>
-              <div class="flex items-center gap-2">
-                <span class="text-xs font-mono font-bold text-amber-950 bg-amber-50 border border-amber-300 px-3 py-1.5 rounded-xl shadow-3xs flex items-center gap-1.5">
-                  <i class="fa-solid fa-file-invoice text-amber-600"></i>
-                  <span>លេខឯកសាររួម: <b id="stockOutBatchDocDisplay">-</b></span>
-                </span>
-                <button type="button" onclick="clearStockOutBatchQueue()" class="h-9 px-3 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-bold transition flex items-center gap-1 cursor-pointer" title="លុបទំនិញទាំងអស់ចេញពី List">
-                  <i class="fa-solid fa-trash-can text-xs"></i>
-                  <span>សម្អាត List</span>
-                </button>
-                <button type="button" onclick="closeStockOutForm()" class="w-9 h-9 rounded-xl bg-slate-100 hover:bg-rose-100 text-slate-500 hover:text-rose-600 border border-slate-200 hover:border-rose-300 flex items-center justify-center transition shadow-2xs cursor-pointer group" title="បិទផ្ទាំងនេះ (Close)">
-                  <i class="fa-solid fa-xmark text-sm font-black group-hover:scale-110 transition-transform"></i>
-                </button>
-              </div>
-            </div>
-
-            <!-- Queue Table -->
-            <div class="overflow-x-auto rounded-xl border border-slate-200 shadow-2xs">
-              <table class="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr class="bg-slate-50 text-slate-600 uppercase font-black tracking-wider text-[11px] border-b border-slate-200 font-khmer">
-                    <th class="p-2.5 text-center w-12">ល.រ</th>
-                    <th class="p-2.5 text-center w-14">រូបភាព</th>
-                    <th class="p-2.5">ឈ្មោះទំនិញ & SKU</th>
-                    <th class="p-2.5">ខ្នាត & ពណ៌</th>
-                    <th class="p-2.5">ចេញទៅឃ្លាំងណា</th>
-                    <th class="p-2.5 text-center">ចំនួនចេញ</th>
-                    <th class="p-2.5">កំណត់សម្គាល់</th>
-                    <th class="p-2.5 text-center w-20">សកម្មភាព</th>
-                  </tr>
-                </thead>
-                <tbody id="stockOutBatchTableBody" class="divide-y divide-slate-100 font-khmer">
-                  <!-- Rendered dynamically -->
-                </tbody>
-              </table>
-            </div>
-
-            <!-- Empty State -->
-            <div id="stockOutBatchEmptyState" class="p-8 text-center bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-200 space-y-2">
-              <i class="fa-solid fa-clipboard-list text-slate-300 text-4xl"></i>
-              <div class="text-sm font-bold text-slate-600 font-khmer">មិនទាន់មានមុខទំនិញក្នុង List នៅឡើយទេ</div>
-              <p class="text-xs text-slate-400 font-khmer">សូមជ្រើសរើសទំនិញ និងបញ្ចូលចំនួនក្នុង Form ខាងលើ រួចចុច <b>«➕ បញ្ចូលទិន្នន័យក្នុង List»</b> ដើម្បីបន្ថែមមុខទំនិញច្រើនមុខ</p>
-            </div>
-
-            <!-- Summary & Confirm Action Footer -->
-            <div id="stockOutBatchFooter" class="flex flex-col md:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100">
-              <div class="flex items-center gap-3 flex-wrap">
-                <span class="text-xs font-bold text-slate-700">
-                  សរុបទាំងអស់: <b id="stockOutBatchTotalItems" class="text-amber-800 text-sm font-black">0</b> មុខ
-                </span>
-                <span class="text-xs font-bold text-slate-700">
-                  | សរុបបរិមាណចេញ: <b id="stockOutBatchTotalQty" class="text-amber-800 text-sm font-black">0 ដុំ + 0 រាយ</b>
-                </span>
-              </div>
-              <button type="button" id="btnConfirmBatchStockOut" onclick="submitBatchStockOut()" disabled
-                class="w-full md:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 hover:from-amber-700 hover:to-orange-700 disabled:opacity-50 disabled:pointer-events-none text-white text-xs sm:text-sm font-black transition flex items-center justify-center gap-2 shadow-md shadow-orange-700/20 cursor-pointer">
-                <i class="fa-solid fa-circle-check text-sm text-white"></i>
-                <span id="btnConfirmBatchStockOutText">រក្សាទុកការចេញស្តុកទាំងអស់ (0 មុខ)</span>
-              </button>
-            </div>
           </div>
 
           <!-- TABLE LIST CARD (ខាងក្រោម: បញ្ជីបង្ហាញពីទិន្នន័យចេញ) -->
@@ -5433,6 +4595,863 @@
 
   <!-- ========================================== -->
   <!-- 3. MODALS -->
+
+  <!-- ========================================== -->
+  <!-- MODAL: Stock In Popup (កត់ត្រាចូលស្តុក Popup) -->
+  <!-- ========================================== -->
+  <div id="stockInModal" class="hidden fixed inset-0 z-[70] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4" onclick="if(isSafeModalBackdropClick(event)) closeStockInForm()">
+    <div class="relative w-full max-w-5xl bg-slate-50/95 rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 overflow-hidden transform transition-all my-auto max-h-[92vh] flex flex-col" onclick="event.stopPropagation()">
+      <div class="overflow-y-auto p-3 sm:p-5 space-y-4 custom-scrollbar">
+<div id="stockInFormCard" class="glass-card p-3 sm:p-4 lg:p-4 rounded-2xl sm:rounded-3xl shadow-sm border-2 border-emerald-300/80 bg-gradient-to-br from-emerald-50/30 via-white to-teal-50/20">
+
+            <!-- Top Mode Switcher Menu (1. Single Item vs 2. Multi-Item Batch) -->
+            <div id="stockInModeMenu" class="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 mb-2.5 border-b border-emerald-200/80">
+              <div class="flex items-center space-x-2">
+                <div class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                <span class="text-xs sm:text-sm font-black text-slate-800 font-khmer">របៀបកត់ត្រាចូលស្តុក:</span>
+                <div class="inline-flex p-1 bg-emerald-100/80 rounded-xl border border-emerald-200 shadow-2xs">
+                  <button type="button" id="btnStockInModeSingle" onclick="switchStockInEntryMode('SINGLE')"
+                    class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition shadow-xs bg-white text-emerald-900 border border-emerald-300 flex items-center gap-1.5 cursor-pointer">
+                    <i class="fa-solid fa-cube text-emerald-600"></i>
+                    <span>១. ចូលទំនិញមួយៗធម្មតា</span>
+                  </button>
+                  <button type="button" id="btnStockInModeMulti" onclick="switchStockInEntryMode('MULTI')"
+                    class="px-3.5 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:text-emerald-900 transition flex items-center gap-1.5 cursor-pointer">
+                    <i class="fa-solid fa-layer-group text-emerald-600"></i>
+                    <span>២. ចូលទំនិញច្រើនមុខ</span>
+                    <span id="stockInBatchBadgeCount" class="hidden ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-black bg-emerald-600 text-white font-mono shadow-2xs">0</span>
+                  </button>
+                </div>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <div id="stockInMultiModeStatus" class="hidden items-center gap-2">
+                  <span class="text-xs font-bold text-emerald-900 bg-emerald-100/90 border border-emerald-300 px-3 py-1 rounded-xl flex items-center gap-1.5 shadow-2xs">
+                    <i class="fa-solid fa-list-check text-emerald-600"></i>
+                    <span>ក្នុង List: <b id="stockInBatchListCountTop" class="text-emerald-950 font-black">0</b> មុខ</span>
+                  </span>
+                </div>
+                <!-- ប៊ូតុង X ដើម្បីបិទផ្ទាំង (Close 'x' button) -->
+                <button type="button" onclick="closeStockInForm()"
+                  class="w-8 h-8 rounded-xl bg-slate-100 hover:bg-rose-100 text-slate-500 hover:text-rose-600 border border-slate-200 hover:border-rose-300 flex items-center justify-center transition shadow-2xs cursor-pointer group"
+                  title="បិទផ្ទាំងនេះ (Close)">
+                  <i class="fa-solid fa-xmark text-sm font-black group-hover:scale-110 transition-transform"></i>
+                </button>
+              </div>
+            </div>
+
+
+            <form id="stockInForm" onsubmit="handleStockInSubmit(event)" class="space-y-3">
+              <!-- Hidden Old Stock & Pack Conversion Stores -->
+              <input type="hidden" id="stockInOldStockValue" value="0">
+              <input type="hidden" id="stockInPackQtyVal" value="1">
+              <input type="hidden" id="stockInPackUnitVal" value="">
+              <input type="hidden" id="stockInBaseUnitVal" value="ដុំ">
+              <input type="hidden" id="stockInUnitMode" value="RETAIL">
+              <input type="hidden" id="stockInQty" value="0">
+              <input type="hidden" id="stockInItemCode" value="">
+              <input type="hidden" id="stockInReceiver" value="">
+
+              <div class="flex flex-col lg:flex-row gap-3.5 items-stretch pt-0.5">
+                <!-- ផ្នែកខាងឆ្វេង: ប្រអប់រូបភាពទំនិញ (Pure Image Preview Card spanning 3 rows) -->
+                <div class="w-full lg:w-48 xl:w-56 shrink-0 flex flex-col justify-stretch">
+                  <div id="stockInImgCard"
+                    class="flex-1 w-full border-2 border-emerald-300/80 rounded-2xl bg-emerald-50/20 flex flex-col items-center justify-center p-3 relative overflow-hidden group cursor-pointer shadow-xs hover:border-emerald-500 hover:bg-white transition min-h-[165px] lg:min-h-[175px]"
+                    onclick="previewStockInCurrentItemImage()"
+                    title="ចុចដើម្បីមើលរូបភាពធំ (Click to preview)">
+                    
+                    <div id="stockInImgPlaceholderBox" class="flex flex-col items-center justify-center text-center p-2 my-auto select-none space-y-1.5">
+                      <i class="fa-regular fa-image text-emerald-400 text-4xl mb-1"></i>
+                      <span class="text-sm font-extrabold text-slate-700 font-khmer">រូបភាពទំនិញ</span>
+                      <span class="text-[11px] text-slate-400 font-khmer">ចុចមើលរូបភាពធំ</span>
+                    </div>
+                    
+                    <img id="stockInItemImg" src="" alt="" class="w-full h-full max-h-[200px] object-contain hidden rounded-xl transition group-hover:scale-105 pointer-events-none drop-shadow-xs">
+                    
+                    <div class="absolute bottom-2.5 right-2.5 text-emerald-600 transition bg-white/90 border border-emerald-200 rounded-lg p-1.5 shadow-2xs hover:scale-110">
+                      <i class="fa-solid fa-magnifying-glass text-xs"></i>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- ផ្នែកខាងស្តាំ: ៤ ជួរឈរ x ៣ ជួរដេក (MATCHING USER SCREENSHOT EXACTLY) -->
+                <div id="stockInFieldsContainer" class="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end w-full">
+                  
+                  <!-- ROW 1 -->
+                  <!-- Col 1: ឈ្មោះទំនិញ (KEYWORD) * -->
+                  <div id="stockInField_sku" class="w-full">
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center truncate" title="ឈ្មោះទំនិញ (KEYWORD)">
+                      <i class="fa-solid fa-magnifying-glass text-blue-500 mr-1.5 shrink-0 text-xs"></i>
+                      <span class="truncate">ឈ្មោះទំនិញ (KEYWORD) *</span>
+                    </label>
+                    <div class="relative w-full h-11">
+                      <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-slate-400 text-xs"></i>
+                      <input type="text" id="stockInSku" required
+                        placeholder="វាយឈ្មោះទំនិញ ឬ SKU / Bar..."
+                        oninput="handleCustomProductSearch(this, 'stockIn')"
+                        onfocus="handleCustomProductSearch(this, 'stockIn')"
+                        onchange="onStockInItemChange()"
+                        onkeydown="handleProductSearchKeydown(event, 'stockIn')"
+                        autocomplete="off"
+                        class="w-full h-full pl-9 pr-8 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition shadow-2xs">
+                      <button type="button" onclick="clearStockInProductSelection()"
+                        class="absolute right-2.5 top-3 text-slate-400 hover:text-slate-600 p-1 text-xs" title="សម្អាត">
+                        <i class="fa-solid fa-xmark"></i>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Col 2: ទីតាំងឃ្លាំងណា (ROW 1: ខាងលើគេ) -->
+                  <div id="stockInField_location" class="w-full">
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center truncate" title="ទីតាំងឃ្លាំងណា">
+                      <i class="fa-solid fa-warehouse text-emerald-600 mr-1.5 shrink-0 text-xs"></i>
+                      <span class="truncate">ទីតាំងឃ្លាំងណា</span>
+                    </label>
+                    <select id="stockInLocation" required
+                      autocomplete="off"
+                      onchange="handleStockInLocationChange(this)"
+                      class="w-full h-11 px-3 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition shadow-2xs">
+                      <option value="" selected>-- ជ្រើសរើសទីតាំងឃ្លាំង --</option>
+                    </select>
+                  </div>
+
+                  <!-- Col 3: សរុបស្តុកចាស់ -->
+                  <div id="stockInField_oldStock" class="w-full">
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1.5 flex items-center truncate" title="សរុបស្តុកចាស់">
+                      <span class="truncate" id="stockInOldStockLabelText">សរុបស្តុកចាស់</span>
+                    </label>
+                    <div class="w-full h-11 flex items-center justify-between gap-1.5">
+                      <span id="stockInOldStockBulkBadge" class="stock-pill-badge stock-pill-bulk">
+                        0 ប្រអប់
+                      </span>
+                      <span id="stockInOldStockRetailBadge" class="stock-pill-badge stock-pill-retail">
+                        0 ដើម
+                      </span>
+                    </div>
+                    <span id="stockInOldStockDisplay" class="hidden">0 ដុំ + 0 រាយ</span>
+                  </div>
+
+                  <!-- Col 4: លេខឯកសារ * -->
+                  <div id="stockInField_docNo" class="w-full">
+                    <div class="flex items-center justify-between mb-1.5 gap-1">
+                      <label class="text-xs font-bold text-emerald-800 uppercase flex items-center truncate" title="លេខឯកសារ *">
+                        <i class="fa-solid fa-file-invoice text-emerald-600 mr-1.5 shrink-0 text-xs"></i>
+                        <span class="truncate">លេខឯកសារ *</span>
+                      </label>
+                      <input type="checkbox" id="stockInLockDocNo" class="hidden">
+                      <span id="stockInDocNoBadgeNotice" class="hidden text-[11px] font-bold text-emerald-700 bg-emerald-100/80 px-2.5 py-1 rounded-xl border border-emerald-200/90 shadow-3xs">
+                        <i class="fa-solid fa-lock text-[10px] mr-1 text-emerald-600"></i>លេខរួម (Batch)
+                      </span>
+                    </div>
+                    <div class="relative w-full h-11">
+                      <input type="text" id="stockInDocNo" required placeholder="IN-..."
+                        class="w-full h-full px-3 pr-16 bg-emerald-50/20 hover:bg-white border border-emerald-300 rounded-xl text-xs sm:text-sm font-mono font-bold text-emerald-950 text-center tracking-wide focus:ring-2 focus:ring-emerald-500 outline-none transition shadow-2xs">
+                      <div class="absolute right-1.5 top-1.5 flex items-center gap-1">
+                        <button type="button" onclick="generateStockInDocNo(true)" title="បង្កើតលេខឯកសារថ្មី (New Doc)"
+                          class="h-8 px-2 rounded-lg bg-slate-100 hover:bg-emerald-100 text-slate-600 hover:text-emerald-800 border border-slate-200 hover:border-emerald-300 text-xs font-bold inline-flex items-center gap-1 transition active:scale-95 shadow-3xs cursor-pointer">
+                          <i class="fa-solid fa-arrows-rotate text-[10px]"></i>
+                          <span class="text-[10px] hidden sm:inline">ថ្មី</span>
+                        </button>
+                      </div>
+                    </div>
+                    <!-- Live info banner when items entered under this doc -->
+                    <div id="stockInDocBatchBadge" class="hidden mt-1.5 text-[10.5px] px-2.5 py-1.5 rounded-xl bg-emerald-50 border border-emerald-300/90 text-emerald-900 flex items-center justify-between font-sans shadow-3xs">
+                      <span class="truncate flex items-center gap-1">
+                        <i class="fa-solid fa-layer-group text-emerald-600 text-[10px]"></i>
+                        <span>ឯកសារនេះបានបញ្ចូល៖ <b id="stockInDocBatchCount" class="text-emerald-950 font-bold">0</b> មុខ</span>
+                      </span>
+                      <div class="flex items-center gap-1.5 shrink-0">
+                        <button type="button" onclick="viewCurrentDocItems('IN')" class="text-[10px] font-bold text-emerald-700 hover:text-emerald-900 underline cursor-pointer">
+                          <i class="fa-regular fa-eye mr-0.5"></i>មើល
+                        </button>
+                        <button type="button" onclick="finishCurrentDoc('IN')" class="px-2 py-0.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold cursor-pointer transition shadow-3xs flex items-center gap-0.5" title="បញ្ចប់ឯកសារនេះ ហើយបង្កើតលេខថ្មី">
+                          <i class="fa-solid fa-check text-[9px]"></i>ចប់ / ថ្មី
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- ROW 2 -->
+                  <!-- Col 1: ខ្នាត (SIZE) -->
+                  <div id="stockInField_size" class="w-full">
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center truncate" title="ខ្នាត (SIZE)">
+                      <i class="fa-solid fa-ruler-combined text-slate-700 mr-1.5 shrink-0 text-xs"></i>
+                      <span class="truncate">ខ្នាត (SIZE)</span>
+                    </label>
+                    <input type="text" id="stockInSize" placeholder="ខ្នាត..."
+                      class="w-full h-11 px-3.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition shadow-2xs">
+                  </div>
+
+                  <!-- Col 2: តំបន់ស្តុក (ZONE) (ROW 2: បន្ទាប់) -->
+                  <div id="stockInField_zone" class="w-full">
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center truncate" title="តំបន់ស្តុក (ZONE)">
+                      <i class="fa-solid fa-location-dot text-rose-500 mr-1.5 shrink-0 text-xs"></i>
+                      <span class="truncate">តំបន់ស្តុក (ZONE)</span>
+                    </label>
+                    <div class="relative w-full h-11">
+                      <i class="fa-solid fa-location-dot absolute left-3.5 top-3.5 text-rose-500 text-xs pointer-events-none"></i>
+                      <input type="text" id="stockInZone"
+                        placeholder="រើស ឬកែ"
+                        autocomplete="off"
+                        onfocus="openStockInZoneDropdown()"
+                        onclick="openStockInZoneDropdown()"
+                        oninput="handleStockInZoneInput(this.value)"
+                        onkeydown="handleStockInZoneKeydown(event)"
+                        class="w-full h-full pl-9 pr-12 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition shadow-2xs">
+                      <div class="absolute right-1.5 top-1.5 flex items-center gap-0.5">
+                        <button type="button" id="stockInZoneClearBtn" onclick="clearStockInZone(event)"
+                          class="hidden p-1 text-slate-400 hover:text-rose-600 rounded-lg text-xs" title="សម្អាត Zone">
+                          <i class="fa-solid fa-xmark"></i>
+                        </button>
+                        <button type="button" onclick="toggleStockInZoneDropdown(event)"
+                          class="p-1.5 text-slate-400 hover:text-emerald-600 rounded-lg text-xs transition" title="បើក/បិទបញ្ជី Zone">
+                          <i class="fa-solid fa-chevron-down text-[11px] transition-transform duration-200" id="stockInZoneChevron"></i>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Col 3: សរុបស្តុកថ្មី -->
+                  <div id="stockInField_newTotal" class="w-full">
+                    <label class="block text-xs font-bold text-emerald-800 uppercase mb-1.5 flex items-center truncate" title="សរុបស្តុកថ្មី">
+                      <span class="truncate" id="stockInNewTotalLabelText">សរុបស្តុកថ្មី</span>
+                    </label>
+                    <div class="w-full h-11 flex items-center justify-between gap-1.5">
+                      <span id="stockInNewTotalBulkBadge" class="stock-pill-badge bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        0 ប្រអប់
+                      </span>
+                      <span id="stockInNewTotalRetailBadge" class="stock-pill-badge bg-teal-50 text-teal-800 border border-teal-200">
+                        0 ដើម
+                      </span>
+                    </div>
+                    <span id="stockInFormulaText" class="text-[10px] text-slate-400 font-medium mt-1 block text-left"></span>
+                    <span id="stockInNewTotalDisplay" class="hidden">0 ដុំ + 0 រាយ</span>
+                  </div>
+
+                  <!-- Col 4: កំណត់សម្គាល់បន្ថែម -->
+                  <div id="stockInField_notes" class="w-full">
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1.5 flex items-center truncate" title="កំណត់សម្គាល់បន្ថែម">
+                      <i class="fa-solid fa-note-sticky text-amber-500 mr-1.5 shrink-0 text-xs"></i>
+                      <span class="truncate">កំណត់សម្គាល់បន្ថែម</span>
+                    </label>
+                    <input type="text" id="stockInNotes" value="-" placeholder="លេខវិក្កយបត្រ, ស្ថានភាព... (លំនាំដើម: -)"
+                      class="w-full h-11 px-3.5 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition shadow-2xs">
+                  </div>
+
+                  <!-- ROW 3 -->
+                  <!-- Col 1: ពណ៌ (COLOR) -->
+                  <div id="stockInField_color" class="w-full">
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center truncate" title="ពណ៌ (COLOR)">
+                      <i class="fa-solid fa-palette text-amber-500 mr-1.5 shrink-0 text-xs"></i>
+                      <span class="truncate">ពណ៌ (COLOR)</span>
+                    </label>
+                    <input type="text" id="stockInColor" placeholder="ពណ៌..."
+                      class="w-full h-11 px-3.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition shadow-2xs">
+                  </div>
+
+                  <!-- Col 2: ចំនួនចូលស្តុក * ដុំ & រាយ (ROW 3: នៅក្រោមគេវិញ) -->
+                  <div id="stockInField_qtys" class="w-full">
+                    <div class="grid grid-cols-2 gap-2 w-full">
+                      <!-- ចំនួនចូលស្តុក * ដុំ -->
+                      <div id="stockInField_qtyBulk" class="w-full">
+                        <label class="block text-[11px] sm:text-xs font-bold text-emerald-800 uppercase mb-1.5 flex items-center truncate" title="ចំនួនចូលស្តុក ដុំ">
+                          <i class="fa-solid fa-arrow-down text-emerald-600 mr-1 text-[10px] shrink-0"></i>
+                          <span class="truncate">ចំនួនចូល * ដុំ</span>
+                        </label>
+                        <input type="number" id="stockInQtyBulk" inputmode="decimal" min="0" step="any" placeholder="0"
+                          oninput="calculateStockInCalculations()"
+                          onfocus="if (this.value === '0') this.value = ''; this.select();"
+                          onblur="calculateStockInCalculations()"
+                          class="w-full h-11 px-3.5 bg-slate-50 hover:bg-white focus:bg-white border-2 border-emerald-500 rounded-xl text-xs sm:text-base font-bold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 transition shadow-2xs">
+                      </div>
+
+                      <!-- ចំនួនចូលស្តុក * រាយ -->
+                      <div id="stockInField_qtyRetail" class="w-full">
+                        <label class="block text-[11px] sm:text-xs font-bold text-emerald-800 uppercase mb-1.5 flex items-center truncate" title="ចំនួនចូលស្តុក រាយ">
+                          <i class="fa-solid fa-arrow-down text-emerald-600 mr-1 text-[10px] shrink-0"></i>
+                          <span class="truncate">ចំនួនចូល * រាយ</span>
+                        </label>
+                        <input type="number" id="stockInQtyRetail" inputmode="decimal" min="0" step="any" placeholder="0"
+                          oninput="calculateStockInCalculations()"
+                          onfocus="if (this.value === '0') this.value = ''; this.select();"
+                          onblur="calculateStockInCalculations()"
+                          class="w-full h-11 px-3.5 bg-slate-50 hover:bg-white focus:bg-white border-2 border-emerald-500 rounded-xl text-xs sm:text-base font-bold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 transition shadow-2xs">
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Col 3: សកម្មភាព (Clear Red Button) -->
+                  <div id="stockInField_actions" class="w-full">
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1.5 flex items-center truncate" title="សកម្មភាព">
+                      <i class="fa-solid fa-bolt text-slate-400 mr-1.5 shrink-0 text-xs"></i>
+                      <span class="truncate">សកម្មភាព</span>
+                    </label>
+                    <button type="button" onclick="clearStockInAllFields()"
+                      class="w-full h-11 px-3 rounded-xl bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-1.5 shadow-sm hover:scale-[1.01] active:scale-[0.99] cursor-pointer">
+                      <i class="fa-solid fa-rotate-left text-xs text-white"></i>
+                      <span class="text-white font-khmer">សម្អាត</span>
+                    </button>
+                  </div>
+
+                  <!-- Col 4: បញ្ជាក់ / រក្សាទុក (Green Submit Button) -->
+                  <div id="stockInField_submit" class="w-full">
+                    <label class="block text-xs font-bold text-emerald-700 uppercase mb-1.5 flex items-center truncate" title="បញ្ជាក់">
+                      <i class="fa-solid fa-circle-check text-emerald-600 mr-1.5 shrink-0 text-xs"></i>
+                      <span class="truncate">បញ្ជាក់</span>
+                    </label>
+                    <input type="checkbox" id="stockInLockDocNoSubmit" class="hidden">
+                    <div class="flex items-center gap-1.5 w-full">
+                      <!-- Mode 1: Single item save button -->
+                      <button type="submit" id="btnSubmitStockIn"
+                        class="w-full h-11 px-3 rounded-xl bg-[#046c4e] hover:bg-[#03543d] active:bg-[#023e2d] text-white text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-1.5 shadow-md shadow-emerald-700/20 hover:scale-[1.01] active:scale-[0.99] cursor-pointer">
+                        <i class="fa-solid fa-check text-xs text-white"></i>
+                        <span id="btnSubmitStockInText" class="text-white font-khmer">រក្សាទុក</span>
+                      </button>
+                      <!-- Mode 2: Add to List button -->
+                      <button type="button" id="btnAddStockInToList" onclick="addCurrentItemToStockInBatchQueue()"
+                        class="hidden w-full h-11 px-3 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-700 active:scale-[0.99] text-white text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-1.5 shadow-md shadow-teal-700/20 cursor-pointer">
+                        <i class="fa-solid fa-circle-plus text-sm text-white"></i>
+                        <span class="text-white font-khmer">បញ្ចូលទិន្នន័យក្នុង List</span>
+                      </button>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+            </form>
+          </div>
+
+          <!-- BATCH QUEUE CARD (បង្ហាញតែក្នុង Mode 2: ចូលទំនិញច្រើនមុខ) -->
+          <div id="stockInBatchCard" class="hidden glass-card p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-sm border-2 border-emerald-400 bg-white space-y-4">
+            <!-- Header -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+              <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 border border-emerald-300 flex items-center justify-center text-lg shadow-xs">
+                  <i class="fa-solid fa-list-check"></i>
+                </div>
+                <div>
+                  <div class="flex items-center space-x-2">
+                    <h4 class="font-bold text-slate-800 text-sm sm:text-base">📋 បញ្ជីទំនិញបានបញ្ចូលត្រៀមកត់ត្រាចូលស្តុក (Batch Queue List)</h4>
+                    <span id="stockInBatchBadgeTable" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">0 មុខទំនិញ</span>
+                  </div>
+                  <p class="text-xs text-slate-500 font-khmer">មុខទំនិញដែលបានចុច «បញ្ចូលទិន្នន័យក្នុង List» នឹងត្រូវរក្សាទុកក្រោមលេខឯកសាររួមតែមួយ</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-mono font-bold text-emerald-900 bg-emerald-50 border border-emerald-300 px-3 py-1.5 rounded-xl shadow-3xs flex items-center gap-1.5">
+                  <i class="fa-solid fa-file-invoice text-emerald-600"></i>
+                  <span>លេខឯកសាររួម: <b id="stockInBatchDocDisplay">-</b></span>
+                </span>
+                <button type="button" onclick="clearStockInBatchQueue()" class="h-9 px-3 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-bold transition flex items-center gap-1 cursor-pointer" title="លុបទំនិញទាំងអស់ចេញពី List">
+                  <i class="fa-solid fa-trash-can text-xs"></i>
+                  <span>សម្អាត List</span>
+                </button>
+                <button type="button" onclick="closeStockInForm()" class="w-9 h-9 rounded-xl bg-slate-100 hover:bg-rose-100 text-slate-500 hover:text-rose-600 border border-slate-200 hover:border-rose-300 flex items-center justify-center transition shadow-2xs cursor-pointer group" title="បិទផ្ទាំងនេះ (Close)">
+                  <i class="fa-solid fa-xmark text-sm font-black group-hover:scale-110 transition-transform"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Queue Table -->
+            <div class="overflow-x-auto rounded-xl border border-slate-200 shadow-2xs">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr class="bg-slate-50 text-slate-600 uppercase font-black tracking-wider text-[11px] border-b border-slate-200 font-khmer">
+                    <th class="p-2.5 text-center w-12">ល.រ</th>
+                    <th class="p-2.5 text-center w-14">រូបភាព</th>
+                    <th class="p-2.5">ឈ្មោះទំនិញ & SKU</th>
+                    <th class="p-2.5">ខ្នាត & ពណ៌</th>
+                    <th class="p-2.5">ទីតាំង / Zone</th>
+                    <th class="p-2.5 text-center">ចំនួនចូល</th>
+                    <th class="p-2.5">កំណត់សម្គាល់</th>
+                    <th class="p-2.5 text-center w-20">សកម្មភាព</th>
+                  </tr>
+                </thead>
+                <tbody id="stockInBatchTableBody" class="divide-y divide-slate-100 font-khmer">
+                  <!-- Rendered dynamically -->
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Empty State -->
+            <div id="stockInBatchEmptyState" class="p-8 text-center bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-200 space-y-2">
+              <i class="fa-solid fa-clipboard-list text-slate-300 text-4xl"></i>
+              <div class="text-sm font-bold text-slate-600 font-khmer">មិនទាន់មានមុខទំនិញក្នុង List នៅឡើយទេ</div>
+              <p class="text-xs text-slate-400 font-khmer">សូមជ្រើសរើសទំនិញ និងបញ្ចូលចំនួនក្នុង Form ខាងលើ រួចចុច <b>«➕ បញ្ចូលទិន្នន័យក្នុង List»</b> ដើម្បីបន្ថែមមុខទំនិញច្រើនមុខ</p>
+            </div>
+
+            <!-- Summary & Confirm Action Footer -->
+            <div id="stockInBatchFooter" class="flex flex-col md:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100">
+              <div class="flex items-center gap-3 flex-wrap">
+                <span class="text-xs font-bold text-slate-700">
+                  សរុបទាំងអស់: <b id="stockInBatchTotalItems" class="text-emerald-700 text-sm font-black">0</b> មុខ
+                </span>
+                <span class="text-xs font-bold text-slate-700">
+                  | សរុបបរិមាណ: <b id="stockInBatchTotalQty" class="text-emerald-700 text-sm font-black">0 ដុំ + 0 រាយ</b>
+                </span>
+              </div>
+              <button type="button" id="btnConfirmBatchStockIn" onclick="submitBatchStockIn()" disabled
+                class="w-full md:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 disabled:pointer-events-none text-white text-xs sm:text-sm font-black transition flex items-center justify-center gap-2 shadow-md shadow-emerald-700/20 cursor-pointer">
+                <i class="fa-solid fa-circle-check text-sm text-white"></i>
+                <span id="btnConfirmBatchStockInText">រក្សាទុកការចូលស្តុកទាំងអស់ (0 មុខ)</span>
+              </button>
+            </div>
+          </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: Stock Out Popup (កត់ត្រាចេញពីស្តុក Popup) -->
+  <!-- ========================================== -->
+  <div id="stockOutModal" class="hidden fixed inset-0 z-[70] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4" onclick="if(isSafeModalBackdropClick(event)) closeStockOutForm()">
+    <div class="relative w-full max-w-5xl bg-slate-50/95 rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 overflow-hidden transform transition-all my-auto max-h-[92vh] flex flex-col" onclick="event.stopPropagation()">
+      <div class="overflow-y-auto p-3 sm:p-5 space-y-4 custom-scrollbar">
+<div id="stockOutFormCard" class="glass-card p-3 sm:p-4 lg:p-4 rounded-2xl sm:rounded-3xl shadow-sm border-2 border-amber-300/80 bg-gradient-to-br from-amber-50/30 via-white to-orange-50/20">
+
+            <!-- Stock Out Mode Switcher (Single Station vs Multi-Station Batch Distribution) -->
+            <!-- Top Mode Switcher Menu (1. Single Item vs 2. Multi-Item Batch) -->
+            <div id="stockOutModeMenu" class="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 mb-2.5 border-b border-amber-200/80">
+              <div class="flex items-center space-x-2">
+                <div class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></div>
+                <span class="text-xs sm:text-sm font-black text-slate-800 font-khmer">របៀបកត់ត្រាចេញពីស្តុក:</span>
+                <div class="inline-flex p-1 bg-amber-100/80 rounded-xl border border-amber-200 shadow-2xs">
+                  <button type="button" id="btnStockOutModeSingle" onclick="switchStockOutEntryMode('SINGLE')"
+                    class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition shadow-xs bg-white text-amber-900 border border-amber-300 flex items-center gap-1.5 cursor-pointer">
+                    <i class="fa-solid fa-cube text-amber-600"></i>
+                    <span>១. ចេញទំនិញមួយៗធម្មតា</span>
+                  </button>
+                  <button type="button" id="btnStockOutModeMulti" onclick="switchStockOutEntryMode('MULTI')"
+                    class="px-3.5 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:text-amber-900 transition flex items-center gap-1.5 cursor-pointer">
+                    <i class="fa-solid fa-layer-group text-amber-600"></i>
+                    <span>២. ចេញទំនិញច្រើនមុខ</span>
+                    <span id="stockOutBatchBadgeCount" class="hidden ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-black bg-amber-600 text-white font-mono shadow-2xs">0</span>
+                  </button>
+                </div>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <div id="stockOutMultiModeStatus" class="hidden items-center gap-2">
+                  <span class="text-xs font-bold text-amber-900 bg-amber-100/90 border border-amber-300 px-3 py-1 rounded-xl flex items-center gap-1.5 shadow-2xs">
+                    <i class="fa-solid fa-list-check text-amber-600"></i>
+                    <span>ក្នុង List: <b id="stockOutBatchListCountTop" class="text-amber-950 font-black">0</b> មុខ</span>
+                  </span>
+                </div>
+                <!-- ប៊ូតុង X ដើម្បីបិទផ្ទាំង (Close 'x' button) -->
+                <button type="button" onclick="closeStockOutForm()"
+                  class="w-8 h-8 rounded-xl bg-slate-100 hover:bg-rose-100 text-slate-500 hover:text-rose-600 border border-slate-200 hover:border-rose-300 flex items-center justify-center transition shadow-2xs cursor-pointer group"
+                  title="បិទផ្ទាំងនេះ (Close)">
+                  <i class="fa-solid fa-xmark text-sm font-black group-hover:scale-110 transition-transform"></i>
+                </button>
+              </div>
+            </div>
+
+            <form id="stockOutForm" onsubmit="handleStockOutSubmit(event)" class="space-y-3">
+              <!-- Hidden Old Stock Store, Pack Conversion & Item Code -->
+              <input type="hidden" id="stockOutOldStockValue" value="0">
+              <input type="hidden" id="stockOutPackQtyVal" value="1">
+              <input type="hidden" id="stockOutPackUnitVal" value="">
+              <input type="hidden" id="stockOutBaseUnitVal" value="ដុំ">
+              <input type="hidden" id="stockOutUnitMode" value="RETAIL">
+              <input type="hidden" id="stockOutQty" value="0">
+              <input type="hidden" id="stockOutUnit" value="ដុំ">
+              <input type="hidden" id="stockOutItemCode" value="">
+              <input type="hidden" id="stockOutUnitPrice" value="0">
+              <input type="hidden" id="stockOutIssuer" value="">
+              <input type="hidden" id="stockOutReason" value="ដកប្រើប្រាស់ផ្ទៃក្នុង (Internal Use)">
+
+              <div class="flex flex-col lg:flex-row gap-3.5 items-stretch pt-0.5">
+                <!-- ផ្នែកខាងឆ្វេង: ប្រអប់រូបភាពទំនិញ (Pure Image Preview Card spanning 3 rows) -->
+                <div class="w-full lg:w-48 xl:w-56 shrink-0 flex flex-col justify-stretch">
+                  <div id="stockOutImgCard"
+                    class="flex-1 w-full border-2 border-amber-300/80 rounded-2xl bg-amber-50/20 flex flex-col items-center justify-center p-3 relative overflow-hidden group cursor-pointer shadow-xs hover:border-amber-500 hover:bg-white transition min-h-[165px] lg:min-h-[175px]"
+                    onclick="previewStockOutCurrentItemImage()"
+                    title="ចុចដើម្បីមើលរូបភាពធំ (Click to preview)">
+                    
+                    <div id="stockOutImgPlaceholderBox" class="flex flex-col items-center justify-center text-center p-2 my-auto select-none space-y-1.5">
+                      <i class="fa-regular fa-image text-amber-400 text-4xl mb-1"></i>
+                      <span class="text-sm font-extrabold text-slate-700 font-khmer">រូបភាពទំនិញ</span>
+                      <span class="text-[11px] text-slate-400 font-khmer">ចុចមើលរូបភាពធំ</span>
+                    </div>
+                    
+                    <img id="stockOutItemImg" src="" alt="" class="w-full h-full max-h-[200px] object-contain hidden rounded-xl transition group-hover:scale-105 pointer-events-none drop-shadow-xs">
+                    
+                    <div class="absolute bottom-2.5 right-2.5 text-amber-600 transition bg-white/90 border border-amber-200 rounded-lg p-1.5 shadow-2xs hover:scale-110">
+                      <i class="fa-solid fa-magnifying-glass text-xs"></i>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- ផ្នែកខាងស្តាំ: ៤ ជួរឈរ x ៣ ជួរដេក (MATCHING USER SCREENSHOT EXACTLY) -->
+                <div id="stockOutFieldsContainer" class="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end w-full">
+                  
+                  <!-- ROW 1 -->
+                  <!-- Col 1: ឈ្មោះទំនិញ (KEYWORD) * -->
+                  <div id="stockOutField_sku" class="w-full">
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center truncate" title="ឈ្មោះទំនិញ (KEYWORD)">
+                      <i class="fa-solid fa-magnifying-glass text-blue-500 mr-1.5 shrink-0 text-xs"></i>
+                      <span class="truncate">ឈ្មោះទំនិញ (KEYWORD) *</span>
+                    </label>
+                    <div class="relative w-full h-11">
+                      <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-slate-400 text-xs"></i>
+                      <input type="text" id="stockOutSku" required
+                        placeholder="វាយឈ្មោះទំនិញ ឬ SKU / Bar..."
+                        oninput="handleCustomProductSearch(this, 'stockOut')"
+                        onfocus="handleCustomProductSearch(this, 'stockOut')"
+                        onchange="onStockOutItemChange()"
+                        onkeydown="handleProductSearchKeydown(event, 'stockOut')"
+                        autocomplete="off"
+                        class="w-full h-full pl-9 pr-8 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-amber-500 focus:bg-white outline-none transition shadow-2xs">
+                      <button type="button" onclick="clearStockOutProductSelection()"
+                        class="absolute right-2.5 top-3 text-slate-400 hover:text-slate-600 p-1 text-xs" title="សម្អាត">
+                        <i class="fa-solid fa-xmark"></i>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Col 2: តំបន់ស្តុក (ZONE) -->
+                  <div id="stockOutField_zone" class="w-full">
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center truncate" title="តំបន់ស្តុក (ZONE)">
+                      <i class="fa-solid fa-location-dot text-rose-500 mr-1.5 shrink-0 text-xs"></i>
+                      <span class="truncate">តំបន់ស្តុក (ZONE)</span>
+                    </label>
+                    <div class="relative w-full h-11">
+                      <i class="fa-solid fa-location-dot absolute left-3.5 top-3.5 text-rose-500 text-xs pointer-events-none"></i>
+                      <input type="text" id="stockOutZone"
+                        placeholder="រើស ឬកែ"
+                        autocomplete="off"
+                        onfocus="openStockOutZoneDropdown()"
+                        onclick="openStockOutZoneDropdown()"
+                        oninput="handleStockOutZoneInput(this.value)"
+                        onkeydown="handleStockOutZoneKeydown(event)"
+                        class="w-full h-full pl-9 pr-12 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-800 focus:ring-2 focus:ring-amber-500 focus:bg-white outline-none transition shadow-2xs">
+                      <div class="absolute right-1.5 top-1.5 flex items-center gap-0.5">
+                        <button type="button" id="stockOutZoneClearBtn" onclick="clearStockOutZone(event)"
+                          class="hidden p-1 text-slate-400 hover:text-rose-600 rounded-lg text-xs" title="សម្អាត Zone">
+                          <i class="fa-solid fa-xmark"></i>
+                        </button>
+                        <button type="button" onclick="toggleStockOutZoneDropdown(event)"
+                          class="p-1.5 text-slate-400 hover:text-amber-600 rounded-lg text-xs transition" title="បើក/បិទបញ្ជី Zone">
+                          <i class="fa-solid fa-chevron-down text-[11px] transition-transform duration-200" id="stockOutZoneChevron"></i>
+                        </button>
+                      </div>
+                    </div>
+                    <div id="stockOutMultiZonePills" class="min-h-0"></div>
+                  </div>
+
+                  <!-- Col 3: សរុបស្តុកចាស់ -->
+                  <div id="stockOutField_oldStock" class="w-full">
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1.5 flex items-center truncate" title="សរុបស្តុកចាស់">
+                      <span class="truncate" id="stockOutOldStockLabelText">សរុបស្តុកចាស់</span>
+                    </label>
+                    <div class="w-full h-11 flex items-center justify-between gap-1.5">
+                      <span id="stockOutOldStockBulkBadge" class="stock-pill-badge stock-pill-bulk">
+                        0 ប្រអប់
+                      </span>
+                      <span id="stockOutOldStockRetailBadge" class="stock-pill-badge stock-pill-retail">
+                        0 ដើម
+                      </span>
+                    </div>
+                    <span id="stockOutOldStockDisplay" class="hidden">0 ដុំ</span>
+                  </div>
+
+                  <!-- Col 4: លេខឯកសារ * -->
+                  <div id="stockOutField_docNo" class="w-full">
+                    <div class="flex items-center justify-between mb-1.5 gap-1">
+                      <label class="text-xs font-bold text-amber-900 uppercase flex items-center truncate" title="លេខឯកសារ *">
+                        <i class="fa-solid fa-file-invoice text-amber-600 mr-1.5 shrink-0 text-xs"></i>
+                        <span class="truncate">លេខឯកសារ *</span>
+                      </label>
+                      <input type="checkbox" id="stockOutLockDocNo" class="hidden">
+                      <span id="stockOutDocNoBadgeNotice" class="hidden text-[11px] font-bold text-amber-800 bg-amber-100/80 px-2.5 py-1 rounded-xl border border-amber-200/90 shadow-3xs">
+                        <i class="fa-solid fa-lock text-[10px] mr-1 text-amber-600"></i>លេខរួម (Batch)
+                      </span>
+                    </div>
+                    <div class="relative w-full h-11">
+                      <input type="text" id="stockOutDocNo" required placeholder="OUT-..."
+                        class="w-full h-full px-3 pr-16 bg-amber-50/20 hover:bg-white border border-amber-300 rounded-xl text-xs sm:text-sm font-mono font-bold text-amber-950 text-center tracking-wide focus:ring-2 focus:ring-amber-500 outline-none transition shadow-2xs">
+                      <div class="absolute right-1.5 top-1.5 flex items-center gap-1">
+                        <button type="button" onclick="generateStockOutDocNo(true)" title="បង្កើតលេខឯកសារថ្មី (New Doc)"
+                          class="h-8 px-2 rounded-lg bg-slate-100 hover:bg-amber-100 text-slate-600 hover:text-amber-900 border border-slate-200 hover:border-amber-300 text-xs font-bold inline-flex items-center gap-1 transition active:scale-95 shadow-3xs cursor-pointer">
+                          <i class="fa-solid fa-arrows-rotate text-[10px]"></i>
+                          <span class="text-[10px] hidden sm:inline">ថ្មី</span>
+                        </button>
+                      </div>
+                    </div>
+                    <!-- Live info banner when items entered under this doc -->
+                    <div id="stockOutDocBatchBadge" class="hidden mt-1.5 text-[10.5px] px-2.5 py-1.5 rounded-xl bg-amber-50 border border-amber-300/90 text-amber-900 flex items-center justify-between font-sans shadow-3xs">
+                      <span class="truncate flex items-center gap-1">
+                        <i class="fa-solid fa-layer-group text-amber-700 text-[10px]"></i>
+                        <span>ឯកសារនេះបានចេញ៖ <b id="stockOutDocBatchCount" class="text-amber-950 font-bold">0</b> មុខ</span>
+                      </span>
+                      <div class="flex items-center gap-1.5 shrink-0">
+                        <button type="button" onclick="viewCurrentDocItems('OUT')" class="text-[10px] font-bold text-amber-800 hover:text-amber-950 underline cursor-pointer">
+                          <i class="fa-regular fa-eye mr-0.5"></i>មើល
+                        </button>
+                        <button type="button" onclick="finishCurrentDoc('OUT')" class="px-2 py-0.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold cursor-pointer transition shadow-3xs flex items-center gap-0.5" title="បញ្ចប់ឯកសារនេះ ហើយបង្កើតលេខថ្មី">
+                          <i class="fa-solid fa-check text-[9px]"></i>ចប់ / ថ្មី
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- ROW 2 -->
+                  <!-- Col 1: ខ្នាត (SIZE) -->
+                  <div id="stockOutField_size" class="w-full">
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center truncate" title="ខ្នាត (SIZE)">
+                      <i class="fa-solid fa-ruler-combined text-slate-700 mr-1.5 shrink-0 text-xs"></i>
+                      <span class="truncate">ខ្នាត (SIZE)</span>
+                    </label>
+                    <input type="text" id="stockOutSize" placeholder="ខ្នាត..."
+                      class="w-full h-11 px-3.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition shadow-2xs">
+                  </div>
+
+                  <!-- Col 2: ចំនួនចេញស្តុក * ដុំ & រាយ (SPLIT 50/50 SIDE BY SIDE) -->
+                  <div id="stockOutField_qtys" class="w-full">
+                    <div class="grid grid-cols-2 gap-2 w-full">
+                      <!-- ចំនួនចេញស្តុក * ដុំ -->
+                      <div id="stockOutField_qtyBulk" class="w-full">
+                        <label class="block text-[11px] sm:text-xs font-bold text-amber-900 uppercase mb-1.5 flex items-center truncate" title="ចំនួនចេញស្តុក ដុំ">
+                          <i class="fa-solid fa-arrow-up text-amber-600 mr-1 text-[10px] shrink-0"></i>
+                          <span class="truncate">ចំនួនចេញ * ដុំ</span>
+                        </label>
+                        <input type="number" id="stockOutQtyBulk" inputmode="decimal" min="0" step="any" placeholder="0"
+                          oninput="calculateStockOutCalculations()"
+                          onfocus="if (this.value === '0') this.value = ''; this.select();"
+                          onblur="calculateStockOutCalculations()"
+                          class="w-full h-11 px-3.5 bg-slate-50 hover:bg-white focus:bg-white border-2 border-amber-500 rounded-xl text-xs sm:text-base font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500 transition shadow-2xs">
+                      </div>
+
+                      <!-- ចំនួនចេញស្តុក * រាយ -->
+                      <div id="stockOutField_qtyRetail" class="w-full">
+                        <label class="block text-[11px] sm:text-xs font-bold text-amber-900 uppercase mb-1.5 flex items-center truncate" title="ចំនួនចេញស្តុក រាយ">
+                          <i class="fa-solid fa-arrow-up text-amber-600 mr-1 text-[10px] shrink-0"></i>
+                          <span class="truncate">ចំនួនចេញ * រាយ</span>
+                        </label>
+                        <input type="number" id="stockOutQtyRetail" inputmode="decimal" min="0" step="any" placeholder="0"
+                          oninput="calculateStockOutCalculations()"
+                          onfocus="if (this.value === '0') this.value = ''; this.select();"
+                          onblur="calculateStockOutCalculations()"
+                          class="w-full h-11 px-3.5 bg-slate-50 hover:bg-white focus:bg-white border-2 border-amber-500 rounded-xl text-xs sm:text-base font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500 transition shadow-2xs">
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Col 3: សរុបស្តុកថ្មី -->
+                  <div id="stockOutField_newTotal" class="w-full">
+                    <label class="block text-xs font-bold text-amber-900 uppercase mb-1.5 flex items-center truncate" title="សរុបស្តុកថ្មី">
+                      <span class="truncate" id="stockOutNewTotalLabelText">សរុបស្តុកថ្មី</span>
+                    </label>
+                    <div class="w-full h-11 flex items-center justify-between gap-1.5">
+                      <span id="stockOutNewTotalBulkBadge" class="stock-pill-badge bg-amber-100 text-amber-900 border border-amber-300">
+                        0 ប្រអប់
+                      </span>
+                      <span id="stockOutNewTotalRetailBadge" class="stock-pill-badge bg-orange-50 text-orange-900 border border-orange-200">
+                        0 ដើម
+                      </span>
+                    </div>
+                    <span id="stockOutFormulaText" class="text-[10px] text-slate-400 font-medium mt-1 block text-left"></span>
+                    <span id="stockOutRemainingDisplay" class="hidden">0 ដុំ</span>
+                  </div>
+
+                  <!-- Col 4: កំណត់សម្គាល់បន្ថែម -->
+                  <div id="stockOutField_notes" class="w-full">
+                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1.5 flex items-center truncate" title="កំណត់សម្គាល់បន្ថែម">
+                      <i class="fa-solid fa-note-sticky text-amber-500 mr-1.5 shrink-0 text-xs"></i>
+                      <span class="truncate">កំណត់សម្គាល់បន្ថែម</span>
+                    </label>
+                    <input type="text" id="stockOutNotes" value="-" placeholder="លេខវិក្កយបត្រ, ស្ថានភាព... (លំនាំដើម: -)"
+                      class="w-full h-11 px-3.5 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition shadow-2xs">
+                  </div>
+
+                  <!-- ROW 3 -->
+                  <!-- Col 1: ពណ៌ (COLOR) -->
+                  <div id="stockOutField_color" class="w-full">
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center truncate" title="ពណ៌ (COLOR)">
+                      <i class="fa-solid fa-palette text-amber-500 mr-1.5 shrink-0 text-xs"></i>
+                      <span class="truncate">ពណ៌ (COLOR)</span>
+                    </label>
+                    <input type="text" id="stockOutColor" placeholder="ពណ៌..."
+                      class="w-full h-11 px-3.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition shadow-2xs">
+                  </div>
+
+                  <!-- Col 2: នាំចេញទៅឃ្លាំងណា -->
+                  <div id="stockOutField_toLocation" class="w-full relative">
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center truncate" title="នាំចេញទៅឃ្លាំងណា">
+                      <span id="stockOutToLocationLabel" class="truncate">នាំចេញទៅឃ្លាំងណា</span>
+                    </label>
+                    <div class="relative w-full">
+                      <button type="button" id="stockOutToLocationBtn" onclick="toggleStockOutToLocationDropdown(event)"
+                        class="w-full h-11 px-3 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-amber-500 focus:bg-white outline-none transition shadow-2xs flex items-center justify-between cursor-pointer text-left">
+                        <span id="stockOutToLocationText" class="truncate flex items-center gap-1.5">-- ជ្រើសរើសទីតាំង --</span>
+                        <i id="stockOutToLocationChevron" class="fa-solid fa-chevron-down text-slate-400 text-xs shrink-0 transition-transform duration-200 ml-2"></i>
+                      </button>
+                      <select id="stockOutToLocation" required class="sr-only pointer-events-none" tabindex="-1" aria-hidden="true">
+                        <option value="" disabled selected>-- ជ្រើសរើសទីតាំង --</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <!-- Col 3: សកម្មភាព (Clear Red Button) -->
+                  <div id="stockOutField_actions" class="w-full">
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1.5 flex items-center truncate" title="សកម្មភាព">
+                      <i class="fa-solid fa-bolt text-slate-400 mr-1.5 shrink-0 text-xs"></i>
+                      <span class="truncate">សកម្មភាព</span>
+                    </label>
+                    <button type="button" onclick="clearStockOutAllFields()"
+                      class="w-full h-11 px-3 rounded-xl bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-1.5 shadow-sm hover:scale-[1.01] active:scale-[0.99] cursor-pointer">
+                      <i class="fa-solid fa-rotate-left text-xs text-white"></i>
+                      <span class="text-white font-khmer">សម្អាត</span>
+                    </button>
+                  </div>
+
+                  <!-- Col 4: បញ្ជាក់ / រក្សាទុក (Warm Orange Submit Button) -->
+                  <div id="stockOutField_submit" class="w-full">
+                    <label class="block text-xs font-bold text-amber-800 uppercase mb-1.5 flex items-center truncate" title="បញ្ជាក់">
+                      <i class="fa-solid fa-circle-check text-amber-600 mr-1.5 shrink-0 text-xs"></i>
+                      <span class="truncate">បញ្ជាក់</span>
+                    </label>
+                    <input type="checkbox" id="stockOutLockDocNoSubmit" class="hidden">
+                    <div class="flex items-center gap-1.5 w-full">
+                      <!-- Mode 1: Single item save button -->
+                      <button type="submit" id="btnSubmitStockOut"
+                        class="w-full h-11 px-3 rounded-xl bg-[#ea580c] hover:bg-[#c2410c] active:bg-[#9a3412] text-white text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-1.5 shadow-md shadow-orange-700/20 hover:scale-[1.01] active:scale-[0.99] cursor-pointer">
+                        <i class="fa-solid fa-check text-xs text-white"></i>
+                        <span id="btnSubmitStockOutText" class="text-white font-khmer">រក្សាទុក</span>
+                      </button>
+                      <!-- Mode 2: Add to List button -->
+                      <button type="button" id="btnAddStockOutToList" onclick="addCurrentItemToStockOutBatchQueue()"
+                        class="hidden w-full h-11 px-3 rounded-xl bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 hover:from-amber-700 hover:to-orange-700 active:scale-[0.99] text-white text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-1.5 shadow-md shadow-orange-700/20 cursor-pointer">
+                        <i class="fa-solid fa-circle-plus text-sm text-white"></i>
+                        <span class="text-white font-khmer">បញ្ចូលទិន្នន័យក្នុង List</span>
+                      </button>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+              <!-- SECTION: MULTI-STATION TOLL GRID (VISIBLE IN MULTI MODE) -->
+              <div id="stockOutMultiStationSection" class="hidden w-full pt-3.5 border-t-2 border-dashed border-amber-300/80 space-y-3">
+                <!-- Action Bar & Quick Presets -->
+                <div class="flex flex-wrap items-center justify-between gap-2.5 bg-gradient-to-r from-amber-100/70 via-orange-50/50 to-amber-50/70 p-3 rounded-2xl border border-amber-200 shadow-2xs">
+                  <div class="flex items-center space-x-2">
+                    <div class="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center text-xs shadow-2xs">
+                      <i class="fa-solid fa-road"></i>
+                    </div>
+                    <div>
+                      <h5 class="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-1.5">
+                        <span>🛣️ បញ្ជីចែកទំនិញតាមបណ្តាស្ថានីយទាំង ៨ (Toll Stations Dispatch Grid)</span>
+                      </h5>
+                      <p class="text-[11px] text-slate-500 font-khmer">បញ្ចូលចំនួនដុំ ឬរាយសម្រាប់ស្ថានីយនីមួយៗ (អាចចេញម្តង 3-4 ស្ថានីយ ឬទាំង 8)</p>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <button type="button" onclick="quickFillAllStationsPrompt()"
+                      class="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-xs cursor-pointer hover:scale-[1.02] active:scale-[0.98]">
+                      <i class="fa-solid fa-bolt text-xs"></i>
+                      <span>⚡ ចែកស្មើគ្នាគ្រប់ស្ថានីយ</span>
+                    </button>
+                    <button type="button" onclick="clearAllMultiStationQtys()"
+                      class="px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition flex items-center space-x-1 border border-slate-300 shadow-2xs cursor-pointer">
+                      <i class="fa-solid fa-rotate-left text-xs text-slate-500"></i>
+                      <span>សម្អាតចំនួន</span>
+                    </button>
+                    <button type="button" onclick="toggleIncludeGeneralOffice()" id="btnToggleGeneralOffice"
+                      class="px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition flex items-center space-x-1 border border-slate-300 shadow-2xs cursor-pointer">
+                      <i class="fa-solid fa-plus text-xs text-slate-500"></i>
+                      <span>+ 综合办 (កិច្ចការទូទៅ)</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Grid of Station Cards -->
+                <div id="stockOutStationCardsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                  <!-- Generated by renderStockOutMultiStationGrid() -->
+                </div>
+              </div>
+            </form>
+          </div>
+
+          <!-- BATCH QUEUE CARD (បង្ហាញតែក្នុង Mode 2: ចេញទំនិញច្រើនមុខ) -->
+          <div id="stockOutBatchCard" class="hidden glass-card p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-sm border-2 border-amber-400 bg-white space-y-4">
+            <!-- Header -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+              <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 border border-amber-300 flex items-center justify-center text-lg shadow-xs">
+                  <i class="fa-solid fa-list-check"></i>
+                </div>
+                <div>
+                  <div class="flex items-center space-x-2">
+                    <h4 class="font-bold text-slate-800 text-sm sm:text-base">📋 បញ្ជីទំនិញបានបញ្ចូលត្រៀមកត់ត្រាចេញពីស្តុក (Batch Queue List)</h4>
+                    <span id="stockOutBatchBadgeTable" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-200">0 មុខទំនិញ</span>
+                  </div>
+                  <p class="text-xs text-slate-500 font-khmer">មុខទំនិញដែលបានចុច «បញ្ចូលទិន្នន័យក្នុង List» នឹងត្រូវកត់ត្រាចេញក្រោមលេខឯកសាររួមតែមួយ</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-mono font-bold text-amber-950 bg-amber-50 border border-amber-300 px-3 py-1.5 rounded-xl shadow-3xs flex items-center gap-1.5">
+                  <i class="fa-solid fa-file-invoice text-amber-600"></i>
+                  <span>លេខឯកសាររួម: <b id="stockOutBatchDocDisplay">-</b></span>
+                </span>
+                <button type="button" onclick="clearStockOutBatchQueue()" class="h-9 px-3 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-bold transition flex items-center gap-1 cursor-pointer" title="លុបទំនិញទាំងអស់ចេញពី List">
+                  <i class="fa-solid fa-trash-can text-xs"></i>
+                  <span>សម្អាត List</span>
+                </button>
+                <button type="button" onclick="closeStockOutForm()" class="w-9 h-9 rounded-xl bg-slate-100 hover:bg-rose-100 text-slate-500 hover:text-rose-600 border border-slate-200 hover:border-rose-300 flex items-center justify-center transition shadow-2xs cursor-pointer group" title="បិទផ្ទាំងនេះ (Close)">
+                  <i class="fa-solid fa-xmark text-sm font-black group-hover:scale-110 transition-transform"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Queue Table -->
+            <div class="overflow-x-auto rounded-xl border border-slate-200 shadow-2xs">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr class="bg-slate-50 text-slate-600 uppercase font-black tracking-wider text-[11px] border-b border-slate-200 font-khmer">
+                    <th class="p-2.5 text-center w-12">ល.រ</th>
+                    <th class="p-2.5 text-center w-14">រូបភាព</th>
+                    <th class="p-2.5">ឈ្មោះទំនិញ & SKU</th>
+                    <th class="p-2.5">ខ្នាត & ពណ៌</th>
+                    <th class="p-2.5">ចេញទៅឃ្លាំងណា</th>
+                    <th class="p-2.5 text-center">ចំនួនចេញ</th>
+                    <th class="p-2.5">កំណត់សម្គាល់</th>
+                    <th class="p-2.5 text-center w-20">សកម្មភាព</th>
+                  </tr>
+                </thead>
+                <tbody id="stockOutBatchTableBody" class="divide-y divide-slate-100 font-khmer">
+                  <!-- Rendered dynamically -->
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Empty State -->
+            <div id="stockOutBatchEmptyState" class="p-8 text-center bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-200 space-y-2">
+              <i class="fa-solid fa-clipboard-list text-slate-300 text-4xl"></i>
+              <div class="text-sm font-bold text-slate-600 font-khmer">មិនទាន់មានមុខទំនិញក្នុង List នៅឡើយទេ</div>
+              <p class="text-xs text-slate-400 font-khmer">សូមជ្រើសរើសទំនិញ និងបញ្ចូលចំនួនក្នុង Form ខាងលើ រួចចុច <b>«➕ បញ្ចូលទិន្នន័យក្នុង List»</b> ដើម្បីបន្ថែមមុខទំនិញច្រើនមុខ</p>
+            </div>
+
+            <!-- Summary & Confirm Action Footer -->
+            <div id="stockOutBatchFooter" class="flex flex-col md:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100">
+              <div class="flex items-center gap-3 flex-wrap">
+                <span class="text-xs font-bold text-slate-700">
+                  សរុបទាំងអស់: <b id="stockOutBatchTotalItems" class="text-amber-800 text-sm font-black">0</b> មុខ
+                </span>
+                <span class="text-xs font-bold text-slate-700">
+                  | សរុបបរិមាណចេញ: <b id="stockOutBatchTotalQty" class="text-amber-800 text-sm font-black">0 ដុំ + 0 រាយ</b>
+                </span>
+              </div>
+              <button type="button" id="btnConfirmBatchStockOut" onclick="submitBatchStockOut()" disabled
+                class="w-full md:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 hover:from-amber-700 hover:to-orange-700 disabled:opacity-50 disabled:pointer-events-none text-white text-xs sm:text-sm font-black transition flex items-center justify-center gap-2 shadow-md shadow-orange-700/20 cursor-pointer">
+                <i class="fa-solid fa-circle-check text-sm text-white"></i>
+                <span id="btnConfirmBatchStockOutText">រក្សាទុកការចេញស្តុកទាំងអស់ (0 មុខ)</span>
+              </button>
+            </div>
+          </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ========================================== -->
 
   <!-- Custom Element-UI Calendar Datepicker Popover (Matches Image 1) -->
@@ -11146,6 +11165,20 @@
       // 1. SweetAlert2 popup
       if (typeof Swal !== 'undefined' && Swal.isVisible()) {
         Swal.close();
+        return;
+      }
+
+      // Stock In Modal Popup
+      const stockInModal = document.getElementById('stockInModal');
+      if (stockInModal && !stockInModal.classList.contains('hidden')) {
+        closeStockInForm();
+        return;
+      }
+
+      // Stock Out Modal Popup
+      const stockOutModal = document.getElementById('stockOutModal');
+      if (stockOutModal && !stockOutModal.classList.contains('hidden')) {
+        closeStockOutForm();
         return;
       }
 
@@ -28703,16 +28736,15 @@
         return;
       }
 
-      const card = document.getElementById('stockInFormCard');
-      const isCardOpen = card && !card.classList.contains('hidden');
+      const modal = document.getElementById('stockInModal');
+      const isModalOpen = modal && !modal.classList.contains('hidden');
 
-      if (isCardOpen && stockInEntryMode === mode) {
+      if (isModalOpen && stockInEntryMode === mode) {
         closeStockInForm();
         return;
       }
 
-      switchStockInEntryMode(mode);
-      openStockInForm();
+      openStockInForm(mode);
     }
     window.handleStockInModeHeaderClick = handleStockInModeHeaderClick;
 
@@ -28746,67 +28778,53 @@
         return;
       }
 
-      const card = document.getElementById('stockOutFormCard');
-      const isCardOpen = card && !card.classList.contains('hidden');
+      const modal = document.getElementById('stockOutModal');
+      const isModalOpen = modal && !modal.classList.contains('hidden');
 
-      if (isCardOpen && stockOutEntryMode === mode) {
+      if (isModalOpen && stockOutEntryMode === mode) {
         closeStockOutForm();
         return;
       }
 
-      switchStockOutEntryMode(mode);
-      openStockOutForm();
+      openStockOutForm(mode);
     }
     window.handleStockOutModeHeaderClick = handleStockOutModeHeaderClick;
 
     function openStockInForm(mode) {
       if (mode) switchStockInEntryMode(mode);
+      const modal = document.getElementById('stockInModal');
       const card = document.getElementById('stockInFormCard');
       const batchCard = document.getElementById('stockInBatchCard');
-      const tableCard = document.getElementById('stockInTableCard');
       window._isStockInFormOpen = true;
+      if (modal) {
+        modal.classList.remove('hidden');
+        modal.style.removeProperty('display');
+      }
       if (card) {
         card.classList.remove('hidden');
         card.style.removeProperty('display');
-        if (stockInEntryMode === 'MULTI' && batchCard) {
-          batchCard.classList.remove('hidden');
-          batchCard.style.removeProperty('display');
-        } else if (batchCard) {
-          batchCard.classList.add('hidden');
-          batchCard.style.setProperty('display', 'none', 'important');
-        }
-        // លាក់តារាងប្រវត្តិទិន្នន័យពេលកំពុងកត់ត្រាចូលស្តុក (Hide history table panel during stock in)
-        if (tableCard) {
-          tableCard.classList.add('hidden');
-          tableCard.style.setProperty('display', 'none', 'important');
-        }
-        updateStockInHeaderButtonsUI(true, stockInEntryMode);
-        setTimeout(() => {
-          card.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          const skuInp = document.getElementById('stockInSku');
-          if (skuInp) skuInp.focus();
-        }, 80);
       }
+      if (stockInEntryMode === 'MULTI' && batchCard) {
+        batchCard.classList.remove('hidden');
+        batchCard.style.removeProperty('display');
+      } else if (batchCard) {
+        batchCard.classList.add('hidden');
+        batchCard.style.setProperty('display', 'none', 'important');
+      }
+      updateStockInHeaderButtonsUI(true, stockInEntryMode);
+      setTimeout(() => {
+        const skuInp = document.getElementById('stockInSku');
+        if (skuInp) skuInp.focus();
+      }, 100);
     }
     window.openStockInForm = openStockInForm;
 
     function closeStockInForm() {
-      const card = document.getElementById('stockInFormCard');
-      const batchCard = document.getElementById('stockInBatchCard');
-      const tableCard = document.getElementById('stockInTableCard');
+      const modal = document.getElementById('stockInModal');
       window._isStockInFormOpen = false;
-      if (card) {
-        card.classList.add('hidden');
-        card.style.setProperty('display', 'none', 'important');
-      }
-      if (batchCard) {
-        batchCard.classList.add('hidden');
-        batchCard.style.setProperty('display', 'none', 'important');
-      }
-      // បង្ហាញតារាងប្រវត្តិទិន្នន័យឡើងវិញពេលបិទផ្ទាំងកត់ត្រា (Restore history table panel on form close)
-      if (tableCard) {
-        tableCard.classList.remove('hidden');
-        tableCard.style.removeProperty('display');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.style.setProperty('display', 'none', 'important');
       }
       updateStockInHeaderButtonsUI(false, stockInEntryMode);
     }
@@ -28825,52 +28843,39 @@
 
     function openStockOutForm(mode) {
       if (mode) switchStockOutEntryMode(mode);
+      const modal = document.getElementById('stockOutModal');
       const card = document.getElementById('stockOutFormCard');
       const batchCard = document.getElementById('stockOutBatchCard');
-      const tableCard = document.getElementById('stockOutTableCard');
       window._isStockOutFormOpen = true;
+      if (modal) {
+        modal.classList.remove('hidden');
+        modal.style.removeProperty('display');
+      }
       if (card) {
         card.classList.remove('hidden');
         card.style.removeProperty('display');
-        if (stockOutEntryMode === 'MULTI' && batchCard) {
-          batchCard.classList.remove('hidden');
-          batchCard.style.removeProperty('display');
-        } else if (batchCard) {
-          batchCard.classList.add('hidden');
-          batchCard.style.setProperty('display', 'none', 'important');
-        }
-        // លាក់តារាងប្រវត្តិទិន្នន័យពេលកំពុងកត់ត្រាចេញពីស្តុក (Hide history table panel during stock out)
-        if (tableCard) {
-          tableCard.classList.add('hidden');
-          tableCard.style.setProperty('display', 'none', 'important');
-        }
-        updateStockOutHeaderButtonsUI(true, stockOutEntryMode);
-        setTimeout(() => {
-          card.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          const skuInp = document.getElementById('stockOutSku');
-          if (skuInp) skuInp.focus();
-        }, 80);
       }
+      if (stockOutEntryMode === 'MULTI' && batchCard) {
+        batchCard.classList.remove('hidden');
+        batchCard.style.removeProperty('display');
+      } else if (batchCard) {
+        batchCard.classList.add('hidden');
+        batchCard.style.setProperty('display', 'none', 'important');
+      }
+      updateStockOutHeaderButtonsUI(true, stockOutEntryMode);
+      setTimeout(() => {
+        const skuInp = document.getElementById('stockOutSku');
+        if (skuInp) skuInp.focus();
+      }, 100);
     }
     window.openStockOutForm = openStockOutForm;
 
     function closeStockOutForm() {
-      const card = document.getElementById('stockOutFormCard');
-      const batchCard = document.getElementById('stockOutBatchCard');
-      const tableCard = document.getElementById('stockOutTableCard');
+      const modal = document.getElementById('stockOutModal');
       window._isStockOutFormOpen = false;
-      if (card) {
-        card.classList.add('hidden');
-        card.style.setProperty('display', 'none', 'important');
-      }
-      if (batchCard) {
-        batchCard.classList.add('hidden');
-        batchCard.style.setProperty('display', 'none', 'important');
-      }
-      // បង្ហាញតារាងប្រវត្តិទិន្នន័យឡើងវិញពេលបិទផ្ទាំងកត់ត្រា (Restore history table panel on form close)
-      if (tableCard) {
-        tableCard.classList.remove('hidden');
-        tableCard.style.removeProperty('display');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.style.setProperty('display', 'none', 'important');
       }
       updateStockOutHeaderButtonsUI(false, stockOutEntryMode);
     }
