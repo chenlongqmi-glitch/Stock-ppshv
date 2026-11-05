@@ -4655,9 +4655,9 @@
     <!-- ========================================== -->
   <!-- MODAL: Stock In Popup (កត់ត្រាចូលស្តុក Popup) -->
   <!-- ========================================== -->
-  <div id="stockInModal" class="hidden fixed inset-0 top-0 left-0 right-0 bottom-0 z-[75] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex justify-center items-center p-2 sm:p-4 md:p-6 custom-scroll" onclick="if(isSafeModalBackdropClick(event)) closeStockInForm()">
-    <div class="relative w-full max-w-7xl xl:max-w-[1600px] 2xl:max-w-[1780px] my-auto space-y-3 shrink-0 py-2 sm:py-3" onclick="event.stopPropagation()">
-      <div id="stockInFormCard" class="glass-card p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl shadow-lg border-2 border-emerald-300/80 bg-gradient-to-br from-emerald-50/30 via-white to-teal-50/20">
+  <div id="stockInModal" class="hidden fixed inset-0 top-0 left-0 right-0 bottom-0 z-[300] overflow-y-auto overflow-x-hidden bg-slate-900/65 backdrop-blur-xs flex justify-center items-start sm:items-center p-3 sm:p-5 md:p-6 lg:p-8 custom-scroll" onclick="if(isSafeModalBackdropClick(event)) closeStockInForm()">
+    <div class="relative w-full max-w-[96%] sm:max-w-[94%] md:max-w-6xl lg:max-w-7xl xl:max-w-[1520px] mx-auto my-auto space-y-3 shrink-0 py-2 sm:py-4" onclick="event.stopPropagation()">
+      <div id="stockInFormCard" class="glass-card p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl shadow-2xl border-2 border-emerald-300/80 bg-gradient-to-br from-emerald-50/30 via-white to-teal-50/20">
 
             <!-- Top Mode Switcher Menu (1. Single Item vs 2. Multi-Item Batch) -->
             <div id="stockInModeMenu" class="flex flex-wrap items-center justify-between gap-2.5 pb-2.5 mb-2.5 border-b border-emerald-200/80">
@@ -5061,9 +5061,9 @@
   <!-- ========================================== -->
   <!-- MODAL: Stock Out Popup (កត់ត្រាចេញពីស្តុក Popup) -->
   <!-- ========================================== -->
-  <div id="stockOutModal" class="hidden fixed left-0 right-0 bottom-0 z-[75] overflow-hidden bg-slate-900/60 backdrop-blur-xs flex justify-center items-start p-2 sm:p-3" onclick="if(isSafeModalBackdropClick(event)) closeStockOutForm()">
-    <div class="relative w-full max-w-[98%] xl:max-w-[97%] 2xl:max-w-[1760px] space-y-3 shrink-0 pb-2 sm:pb-3" onclick="event.stopPropagation()">
-      <div id="stockOutFormCard" class="glass-card p-3.5 sm:p-5 md:p-6 rounded-2xl sm:rounded-3xl shadow-md border-2 border-amber-300/80 bg-gradient-to-br from-amber-50/30 via-white to-orange-50/20">
+  <div id="stockOutModal" class="hidden fixed inset-0 top-0 left-0 right-0 bottom-0 z-[300] overflow-y-auto overflow-x-hidden bg-slate-900/65 backdrop-blur-xs flex justify-center items-start sm:items-center p-3 sm:p-5 md:p-6 lg:p-8 custom-scroll" onclick="if(isSafeModalBackdropClick(event)) closeStockOutForm()">
+    <div class="relative w-full max-w-[96%] sm:max-w-[94%] md:max-w-6xl lg:max-w-7xl xl:max-w-[1520px] mx-auto my-auto space-y-3 shrink-0 py-2 sm:py-4" onclick="event.stopPropagation()">
+      <div id="stockOutFormCard" class="glass-card p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl shadow-2xl border-2 border-amber-300/80 bg-gradient-to-br from-amber-50/30 via-white to-orange-50/20">
 
             <!-- Stock Out Mode Switcher (Single Station vs Multi-Station Batch Distribution) -->
             <!-- Top Mode Switcher Menu (1. Single Item vs 2. Multi-Item Batch) -->
@@ -29075,68 +29075,34 @@
     window.handleStockOutModeHeaderClick = handleStockOutModeHeaderClick;
 
     function preventModalOuterScroll(modalId) {
-      const modal = document.getElementById(modalId);
-      if (!modal || modal._hasScrollBlocker) return;
-      modal._hasScrollBlocker = true;
-
-      // Prevent mousewheel from scrolling the modal
-      modal.addEventListener('wheel', function(e) {
-        const innerScrollable = e.target.closest('.overflow-y-auto, .overflow-auto');
-        if (innerScrollable && innerScrollable !== modal) {
-          return; // Allow internal scrolling of table / dropdown
-        }
-        e.preventDefault();
-        e.stopPropagation();
-      }, { passive: false });
-
-      // Prevent touch swipe from scrolling the modal
-      modal.addEventListener('touchmove', function(e) {
-        const innerScrollable = e.target.closest('.overflow-y-auto, .overflow-auto');
-        if (innerScrollable && innerScrollable !== modal) {
-          return;
-        }
-        e.preventDefault();
-      }, { passive: false });
-
-      // Lock scrollTop strictly at 0
-      modal.addEventListener('scroll', function() {
-        if (modal.scrollTop !== 0) modal.scrollTop = 0;
-      });
+      // Natural modal scrolling allowed
     }
 
     function adjustStockInModalOffset() {
       const modal = document.getElementById('stockInModal');
       if (!modal) return;
-      preventModalOuterScroll('stockInModal');
-      const header = document.querySelector('header');
-      if (header) {
-        const rect = header.getBoundingClientRect();
-        const headerBottom = Math.round(rect.bottom);
-        // Anchor top exactly at the bottom of the header (red line) + 2px
-        // Pinned to bottom: 0, completely locked (overflow: hidden), no scroll allowed!
-        modal.style.top = Math.max(0, headerBottom + 2) + 'px';
-        modal.style.paddingTop = '4px';
-        modal.style.paddingBottom = '16px';
-        modal.style.overflow = 'hidden';
-        modal.scrollTop = 0;
-      }
+      modal.style.top = '0px';
+      modal.style.left = '0px';
+      modal.style.right = '0px';
+      modal.style.bottom = '0px';
+      modal.style.zIndex = '300';
+      modal.style.paddingTop = '';
+      modal.style.paddingBottom = '';
+      modal.style.overflowY = 'auto';
     }
     window.adjustStockInModalOffset = adjustStockInModalOffset;
 
     function adjustStockOutModalOffset() {
       const modal = document.getElementById('stockOutModal');
       if (!modal) return;
-      preventModalOuterScroll('stockOutModal');
-      const header = document.querySelector('header');
-      if (header) {
-        const rect = header.getBoundingClientRect();
-        const headerBottom = Math.round(rect.bottom);
-        modal.style.top = Math.max(0, headerBottom + 2) + 'px';
-        modal.style.paddingTop = '4px';
-        modal.style.paddingBottom = '16px';
-        modal.style.overflow = 'hidden';
-        modal.scrollTop = 0;
-      }
+      modal.style.top = '0px';
+      modal.style.left = '0px';
+      modal.style.right = '0px';
+      modal.style.bottom = '0px';
+      modal.style.zIndex = '300';
+      modal.style.paddingTop = '';
+      modal.style.paddingBottom = '';
+      modal.style.overflowY = 'auto';
     }
     window.adjustStockOutModalOffset = adjustStockOutModalOffset;
 
