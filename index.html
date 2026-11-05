@@ -4655,7 +4655,7 @@
     <!-- ========================================== -->
   <!-- MODAL: Stock In Popup (កត់ត្រាចូលស្តុក Popup) -->
   <!-- ========================================== -->
-  <div id="stockInModal" class="hidden fixed left-0 right-0 bottom-0 z-[75] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex justify-center items-start p-2 sm:p-3 custom-scrollbar" onclick="if(isSafeModalBackdropClick(event)) closeStockInForm()">
+  <div id="stockInModal" class="hidden fixed left-0 right-0 bottom-0 z-[75] overflow-hidden bg-slate-900/60 backdrop-blur-xs flex justify-center items-start p-2 sm:p-3" onclick="if(isSafeModalBackdropClick(event)) closeStockInForm()">
     <div class="relative w-full max-w-5xl xl:max-w-6xl space-y-2.5 sm:space-y-3 shrink-0 pb-2 sm:pb-3" onclick="event.stopPropagation()">
       <div id="stockInFormCard" class="glass-card p-2.5 sm:p-3.5 rounded-2xl sm:rounded-3xl shadow-sm border-2 border-emerald-300/80 bg-gradient-to-br from-emerald-50/30 via-white to-teal-50/20">
 
@@ -5009,7 +5009,7 @@
             </div>
 
             <!-- Queue Table -->
-            <div class="overflow-x-auto max-h-[190px] sm:max-h-[220px] overflow-y-auto rounded-xl border border-slate-200 shadow-2xs custom-scrollbar">
+            <div class="overflow-x-auto max-h-[150px] sm:max-h-[175px] overflow-y-auto rounded-xl border border-slate-200 shadow-2xs custom-scrollbar">
               <table class="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr class="sticky top-0 z-10 bg-slate-50 text-slate-600 uppercase font-black tracking-wider text-[11px] border-b border-slate-200 font-khmer">
@@ -5061,7 +5061,7 @@
   <!-- ========================================== -->
   <!-- MODAL: Stock Out Popup (កត់ត្រាចេញពីស្តុក Popup) -->
   <!-- ========================================== -->
-  <div id="stockOutModal" class="hidden fixed left-0 right-0 bottom-0 z-[75] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex justify-center items-start p-2 sm:p-3 custom-scrollbar" onclick="if(isSafeModalBackdropClick(event)) closeStockOutForm()">
+  <div id="stockOutModal" class="hidden fixed left-0 right-0 bottom-0 z-[75] overflow-hidden bg-slate-900/60 backdrop-blur-xs flex justify-center items-start p-2 sm:p-3" onclick="if(isSafeModalBackdropClick(event)) closeStockOutForm()">
     <div class="relative w-full max-w-5xl xl:max-w-6xl space-y-2.5 sm:space-y-3 shrink-0 pb-2 sm:pb-3" onclick="event.stopPropagation()">
       <div id="stockOutFormCard" class="glass-card p-2.5 sm:p-3.5 rounded-2xl sm:rounded-3xl shadow-sm border-2 border-amber-300/80 bg-gradient-to-br from-amber-50/30 via-white to-orange-50/20">
 
@@ -5461,7 +5461,7 @@
             </div>
 
             <!-- Queue Table -->
-            <div class="overflow-x-auto max-h-[190px] sm:max-h-[220px] overflow-y-auto rounded-xl border border-slate-200 shadow-2xs custom-scrollbar">
+            <div class="overflow-x-auto max-h-[150px] sm:max-h-[175px] overflow-y-auto rounded-xl border border-slate-200 shadow-2xs custom-scrollbar">
               <table class="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr class="sticky top-0 z-10 bg-slate-50 text-slate-600 uppercase font-black tracking-wider text-[11px] border-b border-slate-200 font-khmer">
@@ -28920,18 +28920,51 @@
     }
     window.handleStockOutModeHeaderClick = handleStockOutModeHeaderClick;
 
+    function preventModalOuterScroll(modalId) {
+      const modal = document.getElementById(modalId);
+      if (!modal || modal._hasScrollBlocker) return;
+      modal._hasScrollBlocker = true;
+
+      // Prevent mousewheel from scrolling the modal
+      modal.addEventListener('wheel', function(e) {
+        const innerScrollable = e.target.closest('.overflow-y-auto, .overflow-auto');
+        if (innerScrollable && innerScrollable !== modal) {
+          return; // Allow internal scrolling of table / dropdown
+        }
+        e.preventDefault();
+        e.stopPropagation();
+      }, { passive: false });
+
+      // Prevent touch swipe from scrolling the modal
+      modal.addEventListener('touchmove', function(e) {
+        const innerScrollable = e.target.closest('.overflow-y-auto, .overflow-auto');
+        if (innerScrollable && innerScrollable !== modal) {
+          return;
+        }
+        e.preventDefault();
+      }, { passive: false });
+
+      // Lock scrollTop strictly at 0
+      modal.addEventListener('scroll', function() {
+        if (modal.scrollTop !== 0) modal.scrollTop = 0;
+      });
+    }
+
     function adjustStockInModalOffset() {
       const modal = document.getElementById('stockInModal');
       if (!modal) return;
+      preventModalOuterScroll('stockInModal');
       const header = document.querySelector('header');
       if (header) {
         const rect = header.getBoundingClientRect();
         const headerBottom = Math.round(rect.bottom);
         // Anchor top exactly at the bottom of the header (red line) + 2px
-        // Pinned to bottom: 0, so it can never scroll up past the red line or cover the header!
+        // Pinned to bottom: 0, completely locked (overflow: hidden), no scroll allowed!
         modal.style.top = Math.max(0, headerBottom + 2) + 'px';
         modal.style.paddingTop = '4px';
         modal.style.paddingBottom = '16px';
+        modal.style.overflow = 'hidden';
+        modal.scrollTop = 0;
       }
     }
     window.adjustStockInModalOffset = adjustStockInModalOffset;
@@ -28939,6 +28972,7 @@
     function adjustStockOutModalOffset() {
       const modal = document.getElementById('stockOutModal');
       if (!modal) return;
+      preventModalOuterScroll('stockOutModal');
       const header = document.querySelector('header');
       if (header) {
         const rect = header.getBoundingClientRect();
@@ -28946,6 +28980,8 @@
         modal.style.top = Math.max(0, headerBottom + 2) + 'px';
         modal.style.paddingTop = '4px';
         modal.style.paddingBottom = '16px';
+        modal.style.overflow = 'hidden';
+        modal.scrollTop = 0;
       }
     }
     window.adjustStockOutModalOffset = adjustStockOutModalOffset;
@@ -28972,6 +29008,7 @@
         modal.scrollTop = 0;
       }
       document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
       if (card) {
         card.classList.remove('hidden');
         card.style.removeProperty('display');
@@ -29012,6 +29049,7 @@
         modal.scrollTop = 0;
       }
       document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
 
       // 2. បង្ហាញតារាងប្រវត្តិទិន្នន័យឡើងវិញ (Restore history table panel on form close)
       if (tableCard) {
