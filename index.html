@@ -26352,11 +26352,8 @@
           }
           const k = String(t.docNo || t.txId || '').trim().toUpperCase();
           if (k && seenRecent.has(k)) return;
-          const created = t._createdAt || 0;
-          if (t._isLocalPending || (created && Date.now() - created < 1800000)) {
-            if (k) seenRecent.add(k);
-            recentPendingToKeep.push(t);
-          }
+          if (k) seenRecent.add(k);
+          recentPendingToKeep.push(t);
         });
       });
       if (forceRefresh) {
@@ -26613,8 +26610,7 @@
                 }
                 return;
               }
-              const created = loc._createdAt || 0;
-              if (loc._isLocalPending || (created && nowTs - created < 1800000)) {
+              if (!isTransactionDeleted(loc)) {
                 localPending.push(loc);
               }
             });
@@ -27804,12 +27800,11 @@
 
           // 3. Admin / SuperAdmin (isPrivileged):
           // ONLY show transactions matching the selected warehouse filter!
-          // If viewing Central/Combo (中心库房 & 机电), DO NOT show K3, K26, or other toll stations!
-          // If viewing K3, ONLY show K3!
+          if (isDirectWhMatch || isRawWhMatch) return true;
           if (resolvedTxWh) {
             return (typeof matchesTargetWarehouse === 'function') ? matchesTargetWarehouse(resolvedTxWh, activeWh) : isSameWarehouse(resolvedTxWh, activeWh);
           }
-          return isRawWhMatch;
+          return Boolean(isRawWhMatch);
         });
       }
 
