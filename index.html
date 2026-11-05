@@ -7829,8 +7829,8 @@
   <!-- Inspired by khmer-lunar-calendar.com (Clean, Compact, Buddhist Era & Holidays) -->
   <!-- ========================================================================= -->
   <div id="khmerCalendarModal" onclick="if(isSafeModalBackdropClick(event)) closeKhmerCalendarModal()"
-    class="hidden fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/60 backdrop-blur-xs select-none">
-    <div class="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-[440px] md:max-w-[880px] lg:max-w-[980px] xl:max-w-[1040px] max-h-[94vh] overflow-hidden flex flex-col md:flex-row transition-all">
+    class="hidden fixed left-0 right-0 bottom-0 z-50 flex items-start justify-center p-2 sm:p-3 bg-slate-950/60 backdrop-blur-xs select-none">
+    <div class="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-[440px] md:max-w-[880px] lg:max-w-[980px] xl:max-w-[1040px] max-h-full overflow-hidden flex flex-col md:flex-row transition-all" onclick="event.stopPropagation()">
       
       <!-- ================= LEFT COLUMN: CALENDAR GRID & CONTROLS ================= -->
       <div class="w-full md:w-[490px] lg:w-[550px] xl:w-[580px] shrink-0 border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-800 flex flex-col overflow-y-auto custom-scroll">
@@ -11177,6 +11177,13 @@
         return;
       }
 
+      // Khmer Calendar Modal Popup
+      const calModal = document.getElementById('khmerCalendarModal');
+      if (calModal && !calModal.classList.contains('hidden') && calModal.style.display !== 'none') {
+        closeKhmerCalendarModal();
+        return;
+      }
+
       // Stock In Modal Popup
       const stockInModal = document.getElementById('stockInModal');
       if (stockInModal && !stockInModal.classList.contains('hidden')) {
@@ -11653,6 +11660,23 @@
       listContainer.innerHTML = html;
     }
 
+    function adjustKhmerCalendarModalOffset() {
+      const modal = document.getElementById('khmerCalendarModal');
+      if (!modal) return;
+      const header = document.querySelector('header');
+      if (header) {
+        const rect = header.getBoundingClientRect();
+        const headerBottom = Math.round(rect.bottom);
+        // Anchor top exactly at the bottom of the header (red line) + 2px
+        // Matches the user requirement to start precisely at the red line
+        modal.style.top = Math.max(0, headerBottom + 2) + 'px';
+        modal.style.paddingTop = '4px';
+        modal.style.paddingBottom = '16px';
+        modal.scrollTop = 0;
+      }
+    }
+    window.adjustKhmerCalendarModalOffset = adjustKhmerCalendarModalOffset;
+
     function openKhmerCalendarModal() {
       const now = new Date();
       KhmerCalState.viewYear = now.getFullYear();
@@ -11662,17 +11686,31 @@
       renderKhmerCalendarGrid();
 
       const modal = document.getElementById('khmerCalendarModal');
-      if (modal) modal.classList.remove('hidden');
+      if (modal) {
+        adjustKhmerCalendarModalOffset();
+        modal.classList.remove('hidden');
+        modal.style.removeProperty('display');
+        modal.scrollTop = 0;
+      }
+      window._isKhmerCalendarOpen = true;
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
     }
 
     function closeKhmerCalendarModal() {
       const modal = document.getElementById('khmerCalendarModal');
-      if (modal) modal.classList.add('hidden');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.style.setProperty('display', 'none', 'important');
+      }
+      window._isKhmerCalendarOpen = false;
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
     }
 
     function toggleKhmerCalendarModal() {
       const modal = document.getElementById('khmerCalendarModal');
-      if (modal && !modal.classList.contains('hidden')) {
+      if (modal && !modal.classList.contains('hidden') && modal.style.display !== 'none') {
         closeKhmerCalendarModal();
       } else {
         openKhmerCalendarModal();
@@ -12171,7 +12209,15 @@
       KhmerCalState.selectedDate = targetDate;
       renderKhmerCalendarGrid();
       const modal = document.getElementById('khmerCalendarModal');
-      if (modal) modal.classList.remove('hidden');
+      if (modal) {
+        adjustKhmerCalendarModalOffset();
+        modal.classList.remove('hidden');
+        modal.style.removeProperty('display');
+        modal.scrollTop = 0;
+      }
+      window._isKhmerCalendarOpen = true;
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
     }
     window.openKhmerCalendarToDate = openKhmerCalendarToDate;
 
@@ -29006,6 +29052,7 @@
     window.addEventListener('resize', function() {
       if (window._isStockInFormOpen) adjustStockInModalOffset();
       if (window._isStockOutFormOpen) adjustStockOutModalOffset();
+      if (window._isKhmerCalendarOpen && typeof adjustKhmerCalendarModalOffset === 'function') adjustKhmerCalendarModalOffset();
     });
 
     function openStockInForm(mode) {
