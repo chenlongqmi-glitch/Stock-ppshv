@@ -8287,7 +8287,7 @@
     // Immediate self-healing cleanup of ghost deleted stock out transactions
     (() => {
       try {
-        const ghostList = ['TX-20261010214533-646', 'TX-20261010192242-919', 'TX-20261010190529-308'];
+        const ghostList = ['TX-20261010214533-646', 'TX-20261010192242-919', 'TX-20261010190529-308', 'DOC-IN-20260929-5181', 'IN-20261105-5408'];
         const ghostSet = new Set(ghostList.map(k => k.toUpperCase()));
         try {
           const raw = localStorage.getItem('inventory_deleted_txs_db');
@@ -8298,10 +8298,12 @@
         } catch(e) {}
         localStorage.setItem('inventory_deleted_txs_db', JSON.stringify(Array.from(ghostSet)));
 
-        ['inventory_stock_out_history_db', 'inventory_transactions_db', 'inventory_stock_in_history_db'].forEach(key => {
-          const raw = localStorage.getItem(key);
-          if (raw) {
-            try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (!key || (!key.includes('stock_in_history') && !key.includes('stock_out_history') && !key.includes('transactions_db'))) continue;
+          try {
+            const raw = localStorage.getItem(key);
+            if (raw && (raw.startsWith('[') || raw.startsWith('{'))) {
               const list = JSON.parse(raw);
               if (Array.isArray(list)) {
                 const filtered = list.filter(t => {
@@ -8311,9 +8313,9 @@
                 });
                 localStorage.setItem(key, JSON.stringify(filtered));
               }
-            } catch(e) {}
-          }
-        });
+            }
+          } catch(e) {}
+        }
       } catch(e) {}
     })();
 
@@ -9334,7 +9336,7 @@
 
     // Persistent Deleted Transactions Registry (Prevents ghost deleted transactions from resurrecting)
     function getDeletedTransactionKeys() {
-      const knownDeleted = ['TX-20261010214533-646', 'TX-20261010192242-919', 'TX-20261010190529-308', 'DOC-IN-20260929-5181'];
+      const knownDeleted = ['TX-20261010214533-646', 'TX-20261010192242-919', 'TX-20261010190529-308', 'DOC-IN-20260929-5181', 'IN-20261105-5408'];
       const set = new Set(knownDeleted.map(k => k.toUpperCase()));
       try {
         const raw = localStorage.getItem('inventory_deleted_txs_db');
@@ -26657,7 +26659,7 @@
               if (matchingServerTx) {
                 // Server record confirmed
                 matchingServerTx._isLocalPending = false;
-                matchingServerTx._createdAt = loc._createdAt || nowTs;
+                matchingServerTx._createdAt = loc._createdAt || matchingServerTx._createdAt;
                 if ((!isKnownWarehouse(matchingServerTx.toLocation) || matchingServerTx.toLocation === 'ALL' || matchingServerTx.toLocation === 'គ្រប់ស្ថានីយទាំងអស់') && loc.toLocation) {
                   matchingServerTx.toLocation = loc.toLocation;
                   matchingServerTx.warehouse = loc.toLocation;
@@ -26669,7 +26671,7 @@
                 return;
               }
               // Only keep very recent unconfirmed pending items (< 90 seconds) to avoid resurrection of ghost data
-              if (!isTransactionDeleted(loc) && loc._createdAt && (nowTs - loc._createdAt < 90000)) {
+              if (loc._isLocalPending === true && !isTransactionDeleted(loc) && loc._createdAt && (nowTs - loc._createdAt < 90000)) {
                 localPending.push(loc);
               }
             });
