@@ -17162,6 +17162,11 @@
      */
     function isGarbageSearchInput(val, elId) {
       if (!val || val === '-') return false;
+      const s = String(val).trim().toLowerCase();
+      // Document numbers (e.g. IN-20261105-4783, OUT-20261105-1234, REQ-..., TX-...) are valid search terms and NEVER garbage
+      if (/^(in|out|req|adj|doc|tx)[-_0-9]/i.test(s) || /^[a-z]{1,4}-\d{4,}/i.test(s)) {
+        return false;
+      }
       if (elId === 'itemSearchInput') {
         const itemEl = document.getElementById('itemSearchInput');
         const savedQuery = (typeof AppState !== 'undefined' && AppState.itemSearchQuery) || sessionStorage.getItem('inventory_item_search_query') || '';
@@ -17169,7 +17174,6 @@
           return false;
         }
       }
-      const s = String(val).trim().toLowerCase();
       const sNorm = s.replace(/[\u200b\ufeff\s_-]/g, '');
       const cleanDigits = s.replace(/\D/g, '');
       const curPhone = String(AppState?.currentUser?.phone || '').replace(/\D/g, '');
@@ -17254,6 +17258,12 @@
           }
           if (el && el.dataset.userTyped === 'true' && el.value && el.value.trim()) {
             return; // Never purge active user typed search in Product Inventory
+          }
+        }
+        if ((id === 'stockInHistorySearch' || id === 'stockOutHistorySearch') && el) {
+          const v = (el.value || '').trim().toLowerCase();
+          if (v && (v.startsWith('in-') || v.startsWith('out-') || v.startsWith('req-') || v.startsWith('tx-') || /^[a-z]{1,4}-\d{4,}/i.test(v))) {
+            return; // Never purge active document number filter
           }
         }
         if (el && isGarbageSearchInput(el.value, id)) {
@@ -23090,6 +23100,15 @@
       LOCAL_DB.transactions.unshift(newTx);
       if (typeof saveLocalTransactionsToStorage === 'function') saveLocalTransactionsToStorage();
 
+      // បង្ហាញក្នុងប្រអប់ស្វែងរក និងច្រោះទិន្នន័យភ្លាមៗតាម docNo
+      const sInpStockIn = document.getElementById('stockInHistorySearch');
+      if (sInpStockIn) {
+        sInpStockIn.value = docNo;
+        sInpStockIn.dataset.userTyped = 'true';
+        sInpStockIn.removeAttribute('readonly');
+        sInpStockIn.readOnly = false;
+      }
+
       // បង្ហាញក្នុងតារាងភ្លាមៗ
       if (typeof filterStockInHistoryTable === 'function') {
         filterStockInHistoryTable();
@@ -26233,6 +26252,13 @@
       }
       if (typeof saveLocalTransactionsToStorage === 'function') saveLocalTransactionsToStorage();
 
+      const sInpStockOut = document.getElementById('stockOutHistorySearch');
+      if (sInpStockOut) {
+        sInpStockOut.value = docNo;
+        sInpStockOut.dataset.userTyped = 'true';
+        sInpStockOut.removeAttribute('readonly');
+        sInpStockOut.readOnly = false;
+      }
       if (typeof filterStockOutHistoryTable === 'function') {
         filterStockOutHistoryTable();
       } else if (typeof renderStockOutHistoryTable === 'function') {
@@ -26352,7 +26378,7 @@
                                    isMyUserTx;
             if (!isForMyStation) return;
           }
-          const k = String(t.docNo || t.txId || '').trim().toUpperCase();
+          const k = (String(t.docNo || t.txId || '').trim() + '_' + String(t.sku || t.code || t.itemName || '').trim()).toUpperCase();
           if (k && seenRecent.has(k)) return;
           if (k) seenRecent.add(k);
           recentPendingToKeep.push(t);
@@ -27858,8 +27884,10 @@
         renderStockInHistoryTable(baseList, true);
         return;
       }
+      const isDocSearch = q && (q.startsWith('in-') || q.startsWith('out-') || q.startsWith('req-') || q.startsWith('adj-') || /^[a-z]{1,4}-\d{4,}/i.test(q));
+      const sourceList = (isDocSearch && allTxs.some(t => (t.docNo || '').toLowerCase().includes(q))) ? allTxs : baseList;
       const qClean = q.replace(/[-\s_]/g, '');
-      const filtered = baseList.filter(t => {
+      const filtered = sourceList.filter(t => {
         const skuClean = String(t.sku || t.code || t.itemCode || '').toLowerCase().replace(/[-\s_]/g, '');
         const uClean = String(t.user || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
         const rClean = String(t.receivedBy || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
@@ -28631,8 +28659,10 @@
         renderStockOutHistoryTable(baseList, true);
         return;
       }
+      const isDocSearch = q && (q.startsWith('out-') || q.startsWith('in-') || q.startsWith('req-') || q.startsWith('adj-') || /^[a-z]{1,4}-\d{4,}/i.test(q));
+      const sourceList = (isDocSearch && (AppState.stockOutHistory || []).some(t => (t.docNo || '').toLowerCase().includes(q))) ? (AppState.stockOutHistory || []) : baseList;
       const qClean = q.replace(/[-\s_]/g, '');
-      const filtered = baseList.filter(t => {
+      const filtered = sourceList.filter(t => {
         const skuClean = String(t.sku || t.code || t.itemCode || '').toLowerCase().replace(/[-\s_]/g, '');
         return (t.docNo || t.txId || '').toLowerCase().includes(q) ||
                (t.itemName || '').toLowerCase().includes(q) ||
@@ -29690,7 +29720,9 @@
 
       const itemsToProcess = [...stockInBatchQueue];
 
-      for (const it of itemsToProcess) {
+      // Loop in reverse so itemsToProcess[0] (top item in batch queue) is unshifted last, putting it at the very top of history!
+      for (let idx = itemsToProcess.length - 1; idx >= 0; idx--) {
+        const it = itemsToProcess[idx];
         const tempTxId = 'TX-' + dateStr.replace(/-/g, '') + '-' + Math.floor(1000 + Math.random() * 9000);
         const itemObj = (AppState.items || []).find(i => i.sku === it.sku);
 
@@ -29786,17 +29818,6 @@
         if (typeof saveLocalItemsToStorage === 'function') saveLocalItemsToStorage();
       } catch(e) {}
 
-      // Re-render UI
-      if (typeof filterStockInHistoryTable === 'function') {
-        filterStockInHistoryTable();
-      } else if (typeof renderStockInHistoryTable === 'function') {
-        renderStockInHistoryTable(AppState.stockInHistory);
-      }
-      if (typeof renderItemsTable === 'function') renderItemsTable();
-      if (typeof broadcastInventoryMutation === 'function') {
-        broadcastInventoryMutation('STOCK_IN', { items: AppState.items, docNo: docNo });
-      }
-
       // Clear batch queue
       stockInBatchQueue = [];
       renderStockInBatchQueue();
@@ -29810,6 +29831,29 @@
         btn.innerHTML = '<i class="fa-solid fa-circle-check text-sm text-white"></i> <span class="text-white font-khmer">រក្សាទុកការចូលស្តុកទាំងអស់ (0 មុខ)</span>';
       }
 
+      // Automatically populate search box with the saved document number to filter history table immediately!
+      const sInp = document.getElementById('stockInHistorySearch');
+      if (sInp) {
+        sInp.value = docNo;
+        sInp.dataset.userTyped = 'true';
+        sInp.removeAttribute('readonly');
+        sInp.readOnly = false;
+      }
+
+      // Close modal right away so user sees the table behind it filtered with docNo
+      closeStockInForm();
+
+      // Re-render UI & Filter table with docNo automatically
+      if (typeof filterStockInHistoryTable === 'function') {
+        filterStockInHistoryTable();
+      } else if (typeof renderStockInHistoryTable === 'function') {
+        renderStockInHistoryTable(AppState.stockInHistory);
+      }
+      if (typeof renderItemsTable === 'function') renderItemsTable();
+      if (typeof broadcastInventoryMutation === 'function') {
+        broadcastInventoryMutation('STOCK_IN', { items: AppState.items, docNo: docNo });
+      }
+
       Swal.fire({
         icon: 'success',
         title: 'បានរក្សាទុកជោគជ័យទាំងអស់!',
@@ -29821,6 +29865,14 @@
         confirmButtonText: 'យល់ព្រម'
       }).then(() => {
         closeStockInForm();
+        const sInp = document.getElementById('stockInHistorySearch');
+        if (sInp) {
+          sInp.value = docNo;
+          sInp.dataset.userTyped = 'true';
+          sInp.removeAttribute('readonly');
+          sInp.readOnly = false;
+          if (typeof filterStockInHistoryTable === 'function') filterStockInHistoryTable();
+        }
       });
     }
     window.submitBatchStockIn = submitBatchStockIn;
@@ -30181,7 +30233,9 @@
 
       const itemsToProcess = [...stockOutBatchQueue];
 
-      for (const it of itemsToProcess) {
+      // Loop in reverse so itemsToProcess[0] (top item in batch queue) is unshifted last, putting it at the very top of history!
+      for (let idx = itemsToProcess.length - 1; idx >= 0; idx--) {
+        const it = itemsToProcess[idx];
         const tempTxId = 'TX-' + dateStr.replace(/-/g, '') + '-' + Math.floor(1000 + Math.random() * 9000);
         const itemObj = (AppState.items || []).find(i => i.sku === it.sku);
 
@@ -30318,17 +30372,6 @@
         if (typeof saveLocalDispatchesToStorage === 'function') saveLocalDispatchesToStorage();
       } catch(e) {}
 
-      // Re-render UI
-      if (typeof filterStockOutHistoryTable === 'function') {
-        filterStockOutHistoryTable();
-      } else if (typeof renderStockOutHistoryTable === 'function') {
-        renderStockOutHistoryTable(AppState.stockOutHistory);
-      }
-      if (typeof renderItemsTable === 'function') renderItemsTable();
-      if (typeof broadcastInventoryMutation === 'function') {
-        broadcastInventoryMutation('STOCK_OUT', { items: AppState.items, docNo: docNo });
-      }
-
       // Clear batch queue
       stockOutBatchQueue = [];
       renderStockOutBatchQueue();
@@ -30342,6 +30385,29 @@
         btn.innerHTML = '<i class="fa-solid fa-circle-check text-sm text-white"></i> <span class="text-white font-khmer">រក្សាទុកការចេញស្តុកទាំងអស់ (0 មុខ)</span>';
       }
 
+      // Automatically populate search box with the saved document number to filter history table immediately!
+      const sInpOut = document.getElementById('stockOutHistorySearch');
+      if (sInpOut) {
+        sInpOut.value = docNo;
+        sInpOut.dataset.userTyped = 'true';
+        sInpOut.removeAttribute('readonly');
+        sInpOut.readOnly = false;
+      }
+
+      // Close modal right away so user sees the table behind it filtered with docNo
+      closeStockOutForm();
+
+      // Re-render UI & Filter table with docNo automatically
+      if (typeof filterStockOutHistoryTable === 'function') {
+        filterStockOutHistoryTable();
+      } else if (typeof renderStockOutHistoryTable === 'function') {
+        renderStockOutHistoryTable(AppState.stockOutHistory);
+      }
+      if (typeof renderItemsTable === 'function') renderItemsTable();
+      if (typeof broadcastInventoryMutation === 'function') {
+        broadcastInventoryMutation('STOCK_OUT', { items: AppState.items, docNo: docNo });
+      }
+
       Swal.fire({
         icon: 'success',
         title: 'បានរក្សាទុកជោគជ័យទាំងអស់!',
@@ -30353,6 +30419,14 @@
         confirmButtonText: 'យល់ព្រម'
       }).then(() => {
         closeStockOutForm();
+        const sInpOut = document.getElementById('stockOutHistorySearch');
+        if (sInpOut) {
+          sInpOut.value = docNo;
+          sInpOut.dataset.userTyped = 'true';
+          sInpOut.removeAttribute('readonly');
+          sInpOut.readOnly = false;
+          if (typeof filterStockOutHistoryTable === 'function') filterStockOutHistoryTable();
+        }
       });
     }
     window.submitBatchStockOut = submitBatchStockOut;
