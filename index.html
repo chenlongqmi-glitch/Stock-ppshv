@@ -40163,6 +40163,7 @@
 
     function getOnlineUsersList() {
       const online = [];
+      const seen = new Set();
       const now = Date.now();
       try {
         const raw = localStorage.getItem('inventory_online_heartbeats');
@@ -40170,7 +40171,11 @@
           const heartbeats = JSON.parse(raw);
           for (const [key, user] of Object.entries(heartbeats)) {
             if (user && user.lastSeen && (now - user.lastSeen < 60000 || user.lastSeen > now)) {
-              online.push(user);
+              const uKey = String(user.username || key || '').trim().toLowerCase();
+              if (uKey && !seen.has(uKey)) {
+                seen.add(uKey);
+                online.push(user);
+              }
             }
           }
         }
@@ -40178,7 +40183,8 @@
 
       if (AppState.currentUser) {
         const curUname = String(AppState.currentUser.username || '').toLowerCase();
-        if (!online.some(u => String(u.username).toLowerCase() === curUname)) {
+        if (curUname && !seen.has(curUname)) {
+          seen.add(curUname);
           online.push({
             username: AppState.currentUser.username,
             fullName: AppState.currentUser.fullName || AppState.currentUser.username,
@@ -40229,18 +40235,22 @@
         headerBtnBadge.innerText = `អ្នក Online (${count})`;
       }
 
-      // Update Station Staff Online count badge (exclude self, SuperAdmin & other Admins)
+      // Update Station Staff Online count badge (exclude self, SuperAdmin & any Admins)
       const staffOnlineBadge = document.getElementById('chatStaffOnlineCountText');
       if (staffOnlineBadge) {
         const myUname = String(AppState.currentUser?.username || '').toLowerCase();
         const myUid = AppState.currentUser?.userId;
-        const isMyUserAdmin = (AppState.currentUser?.role === 'Admin' || myUname === 'admin');
+        const seenStaff = new Set();
         const staffOnlineCount = onlineUsers.filter(u => {
           const r = String(u.role || '').toLowerCase();
           const un = String(u.username || '').toLowerCase();
+          const uid = String(u.userId || '').toLowerCase();
+          const key = un || uid;
+          if (!key || seenStaff.has(key)) return false;
+          seenStaff.add(key);
           if (un === myUname || (myUid && u.userId === myUid)) return false;
           if (r === 'superadmin' || un === 'superadmin') return false;
-          if (isMyUserAdmin && (r === 'admin' || un === 'admin')) return false;
+          if (r === 'admin' || un === 'admin') return false;
           return true;
         }).length;
         staffOnlineBadge.innerText = `${staffOnlineCount} Online`;
@@ -40724,12 +40734,20 @@
       let html = '';
 
       if (isSuperAdmin) {
-        // SuperAdmin: No dummy admin card. Only display other real active Admin accounts if they exist.
-        const otherAdmins = allUsers.filter(u => {
+        // SuperAdmin: No dummy admin card. Only display other real active Admin accounts if they exist (deduplicated).
+        const seenAdminKeys = new Set();
+        const otherAdmins = [];
+        allUsers.forEach(u => {
+          if (!u) return;
           const r = String(u.role || '');
           const un = String(u.username || '').toLowerCase();
           const fn = String(u.fullName || '');
-          return (r === 'Admin' || un === 'admin') && un !== myUsername && !fn.includes('聂稳新') && u.status === 'Active';
+          const uid = String(u.userId || '').toLowerCase();
+          const key = un || uid;
+          if ((r === 'Admin' || un === 'admin' || (typeof isUserAdmin === 'function' && isUserAdmin(u))) && un !== myUsername && !fn.includes('聂稳新') && u.status !== 'Deleted' && u.status !== 'deleted' && !seenAdminKeys.has(key)) {
+            seenAdminKeys.add(key);
+            otherAdmins.push(u);
+          }
         });
         otherAdmins.forEach(adm => {
           const isAdmOnline = isUserOnline(adm.username);
@@ -40826,17 +40844,30 @@
       const allUsers = (AppState.users && AppState.users.length ? AppState.users : (LOCAL_DB.users || []))
         .filter(u => u && !isUnregisteredDummyUser(u) && u.status !== 'Deleted' && u.status !== 'deleted');
 
-      // Filter to station users / direct staff (exclude myself, SuperAdmin, & other Admins if viewer is Admin)
+      // Filter to station users / direct staff (strictly exclude current user, SuperAdmin, and all Admins)
       const isMyUserAdmin = (myUser.role === 'Admin' || myUsername === 'admin');
-      const stationStaff = allUsers.filter(u => {
+      const isMyUserSuperAdmin = (myUser.role === 'SuperAdmin' || myUsername === 'superadmin');
+      const seenStaffKeys = new Set();
+      const stationStaff = [];
+
+      for (const u of allUsers) {
+        if (!u) continue;
         const role = String(u.role || '');
         const uname = String(u.username || '').toLowerCase();
+        const uid = String(u.userId || '').toLowerCase();
+        const key = uname || uid;
+        if (!key || seenStaffKeys.has(key)) continue;
+
         // Never show current logged-in user in chat contacts list
-        if (uname === myUsername || (myUser.userId && u.userId === myUser.userId)) return false;
-        if (role === 'SuperAdmin' || uname === 'superadmin') return false;
-        if (isMyUserAdmin && (role === 'Admin' || uname === 'admin')) return false;
-        return true;
-      });
+        if (uname === myUsername || (myUser.userId && u.userId === myUser.userId)) continue;
+        // Never show SuperAdmin in station staff
+        if (role === 'SuperAdmin' || uname === 'superadmin') continue;
+        // Never show Admin in station staff (Admins are already presented under Management Channels above)
+        if (role === 'Admin' || uname === 'admin' || (typeof isUserAdmin === 'function' && isUserAdmin(u))) continue;
+
+        seenStaffKeys.add(key);
+        stationStaff.push(u);
+      }
 
       if (!stationStaff.length) {
         container.innerHTML = `<div class="p-3 text-center text-xs text-slate-400">មិនមានគណនីបុគ្គលិកទេ</div>`;
