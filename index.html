@@ -1777,7 +1777,7 @@
 
       <!-- IMPERSONATION / SWITCH USER NOTIFICATION BANNER (បង្ហាញពេលស្ថិតក្នុង Switch Mode) -->
       <div id="impersonationBanner"
-        class="bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white px-4 md:px-6 py-2 shadow-lg border-b border-amber-400/40 flex flex-wrap items-center justify-between gap-2 text-xs font-medium relative z-[80] hidden shrink-0 animate-pulse">
+        class="bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white px-4 md:px-6 py-2 shadow-lg border-b border-amber-400/40 flex flex-wrap items-center justify-between gap-2 text-xs font-medium relative z-30 hidden shrink-0 animate-pulse">
         <div class="flex items-center space-x-2 min-w-0">
           <span class="px-2.5 py-0.5 rounded-full bg-black/30 border border-white/25 text-amber-200 text-[10px] font-black uppercase tracking-wider flex items-center shrink-0">
             <i class="fa-solid fa-user-secret mr-1.5 text-amber-300 text-xs"></i> Switch Mode
@@ -1801,7 +1801,7 @@
 
       <!-- ACTIVE USER SESSION INFO BANNER (ផ្នែកខាងលើបង្អស់) -->
       <div id="activeSessionBanner"
-        class="bg-gradient-to-r from-blue-700 via-indigo-700 to-slate-900 text-white px-4 md:px-6 py-2 shadow-md border-b border-white/15 flex flex-wrap items-center justify-between gap-2.5 relative z-[80] flex-shrink-0">
+        class="bg-gradient-to-r from-blue-700 via-indigo-700 to-slate-900 text-white px-4 md:px-6 py-2 shadow-md border-b border-white/15 flex flex-wrap items-center justify-between gap-2.5 relative z-30 flex-shrink-0">
         <div class="flex items-center space-x-3 min-w-0">
           <div class="relative flex-shrink-0 cursor-pointer group" onclick="openProfileModal()" title="ចុចដើម្បីកែប្រែព័ត៌មានផ្ទាល់ខ្លួន និងរូបថត Profile">
             <div id="activeSessionAvatar"
@@ -6824,11 +6824,11 @@
 
 
   <!-- D2. MY PROFILE MODAL (សម្រាប់ User និង Admin គ្រប់រូបកែប្រែព័ត៌មានផ្ទាល់ខ្លួន និងរូបថត) -->
-  <div id="profileModal" onclick="if(isSafeModalBackdropClick(event)) closeProfileModal()"
-    class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-3 hidden">
-    <div class="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200 transform transition-all my-auto">
+  <div id="profileModal" onclick="if(event.target === this || isSafeModalBackdropClick(event)) closeProfileModal()"
+    class="fixed inset-0 z-[400] flex items-center justify-center overflow-y-auto bg-slate-950/75 backdrop-blur-sm p-2 sm:p-4 my-auto hidden">
+    <div class="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200 transform transition-all my-auto flex flex-col max-h-[90vh] sm:max-h-[88vh]">
       <!-- Modal Header -->
-      <div class="px-4 py-2.5 bg-gradient-to-r from-blue-700 via-indigo-700 to-cyan-600 text-white flex items-center justify-between shadow-xs">
+      <div class="px-4 py-3 bg-gradient-to-r from-blue-700 via-indigo-700 to-cyan-600 text-white flex items-center justify-between shadow-xs shrink-0">
         <div class="flex items-center space-x-2.5">
           <div class="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-md border border-white/25 flex items-center justify-center text-white shadow-inner text-sm">
             <i class="fa-solid fa-user-gear"></i>
@@ -6845,7 +6845,7 @@
       </div>
 
       <!-- Modal Body Form -->
-      <form id="profileForm" onsubmit="handleProfileUpdateSubmit(event)" class="p-3 sm:p-4 space-y-2 max-h-[92vh] overflow-y-auto custom-scrollbar">
+      <form id="profileForm" onsubmit="handleProfileUpdateSubmit(event)" class="p-3 sm:p-4 space-y-2.5 overflow-y-auto custom-scrollbar flex-1 min-h-0">
         
         <!-- Top Profile Avatar Upload Section -->
         <div id="profileAvatarBox" class="p-2 sm:p-2.5 bg-gradient-to-br from-slate-50 to-blue-50/50 rounded-xl border border-slate-200/80 flex items-center space-x-3 transition-all">
@@ -11703,6 +11703,7 @@
     window.adjustKhmerCalendarModalOffset = adjustKhmerCalendarModalOffset;
 
     function openKhmerCalendarModal() {
+      if (typeof closeProfileModal === 'function') closeProfileModal();
       const now = new Date();
       KhmerCalState.viewYear = now.getFullYear();
       KhmerCalState.viewMonth = now.getMonth();
@@ -16389,6 +16390,7 @@
     }
 
     function openSwitchUserModal() {
+      if (typeof closeProfileModal === 'function') closeProfileModal();
       const isSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin');
       const isImpersonating = !!sessionStorage.getItem('inventory_superadmin_session');
       if (!isSuperAdmin && !isImpersonating) {
@@ -17301,6 +17303,7 @@
     });
 
     function navigateTab(tabName) {
+      if (typeof closeProfileModal === 'function') closeProfileModal();
       if (typeof closeKhmerCalendarModal === 'function') closeKhmerCalendarModal();
       // 1. Preserve active Product Inventory search & filters before leaving
       const curItemInp = document.getElementById('itemSearchInput');
@@ -35472,6 +35475,19 @@
       if (modal) modal.classList.add('hidden');
     }
 
+    // Automatically close Profile Modal when clicking any other function or element outside modal dialog
+    document.addEventListener('click', (e) => {
+      const modal = document.getElementById('profileModal');
+      if (modal && !modal.classList.contains('hidden')) {
+        const dialog = modal.querySelector('.max-w-lg');
+        const clickedInside = dialog && dialog.contains(e.target);
+        const clickedTrigger = e.target.closest && e.target.closest('[onclick*="openProfileModal"]');
+        if (!clickedInside && !clickedTrigger) {
+          closeProfileModal();
+        }
+      }
+    }, true);
+
     function randomizeProfileAvatar() {
       const seed = 'user_' + Math.floor(Math.random() * 10000);
       const newAvatar = `https://api.dicebear.com/7.x/bottts/svg?seed=${seed}`;
@@ -42234,6 +42250,7 @@
 
     // --- Online Users Modal & Interaction ---
     function openOnlineUsersModal() {
+      if (typeof closeProfileModal === 'function') closeProfileModal();
       const modal = document.getElementById('onlineUsersModal');
       if (modal) {
         modal.classList.remove('hidden');
