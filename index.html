@@ -5225,6 +5225,53 @@
   <!-- 3. MODALS -->
   <!-- ========================================== -->
 
+  <!-- Custom Element-UI Calendar Datepicker Popover (Matches Image 1) -->
+  <div id="customYearMonthPickerModal"
+    class="hidden fixed z-[9999] bg-white rounded-xl shadow-[0_12px_40px_rgba(0,0,0,0.18)] border border-slate-200/95 p-3 w-[280px] max-w-[calc(100vw-20px)] select-none text-slate-800 transition-all">
+    <!-- Header: « ‹ 2026 年 11 月 › » -->
+    <div class="flex items-center justify-between px-1 py-1 mb-2 select-none">
+      <div class="flex items-center space-x-2">
+        <button type="button" onclick="changeCustomPickerYear(-1)"
+          class="text-slate-400 hover:text-blue-600 px-1 py-0.5 text-xs transition cursor-pointer font-bold select-none"
+          title="上一年 (Previous Year)">«</button>
+        <button type="button" onclick="changeCustomPickerMonth(-1)"
+          class="text-slate-400 hover:text-blue-600 px-1 py-0.5 text-xs transition cursor-pointer font-bold select-none"
+          title="上一月 (Previous Month)">‹</button>
+      </div>
+
+      <div class="flex items-center space-x-1 font-semibold text-sm text-slate-700 tracking-wide cursor-pointer hover:text-blue-600 transition"
+        onclick="selectCustomPickerHeaderMonth()" title="ចុចដើម្បីជ្រើសរើសខែទាំងមូល (选择整月)">
+        <span id="customPickerTitleYear">2026 年</span>
+        <span id="customPickerTitleMonth">11 月</span>
+      </div>
+
+      <div class="flex items-center space-x-2">
+        <button type="button" onclick="changeCustomPickerMonth(1)"
+          class="text-slate-400 hover:text-blue-600 px-1 py-0.5 text-xs transition cursor-pointer font-bold select-none"
+          title="下一月 (Next Month)">›</button>
+        <button type="button" onclick="changeCustomPickerYear(1)"
+          class="text-slate-400 hover:text-blue-600 px-1 py-0.5 text-xs transition cursor-pointer font-bold select-none"
+          title="下一年 (Next Year)">»</button>
+      </div>
+    </div>
+
+    <!-- Weekday Row: 日 一 二 三 四 五 六 -->
+    <div class="grid grid-cols-7 text-center text-xs text-slate-400 font-medium py-1.5 border-b border-slate-100 mb-1 select-none">
+      <div>日</div>
+      <div>一</div>
+      <div>二</div>
+      <div>三</div>
+      <div>四</div>
+      <div>五</div>
+      <div>六</div>
+    </div>
+
+    <!-- Days Grid (42 cells: 6 rows x 7 cols) -->
+    <div id="customPickerDaysGrid" class="grid grid-cols-7 gap-y-1 text-center text-xs">
+      <!-- Generated dynamically by renderCustomCalendar() -->
+    </div>
+  </div>
+
   <!-- A. ADD/EDIT ITEM MODAL -->
   <div id="itemModal" onclick="if(isSafeModalBackdropClick(event)) closeItemModal()"
     class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 hidden">
@@ -26304,32 +26351,62 @@
     };
 
     // ==========================================
-    // CUSTOM YEAR-MONTH PICKER COMPONENT
+    // CUSTOM ELEMENT-UI DATEPICKER CALENDAR COMPONENT (MATCHES IMAGE 1)
     // ==========================================
-    const KHMER_MONTHS_PICKER_DATA = [
-      { num: '01', kh: 'មករា', en: 'Jan' },
-      { num: '02', kh: 'កុម្ភៈ', en: 'Feb' },
-      { num: '03', kh: 'មីនា', en: 'Mar' },
-      { num: '04', kh: 'មេសា', en: 'Apr' },
-      { num: '05', kh: 'ឧសភា', en: 'May' },
-      { num: '06', kh: 'មិថុនា', en: 'Jun' },
-      { num: '07', kh: 'កក្កដា', en: 'Jul' },
-      { num: '08', kh: 'សីហា', en: 'Aug' },
-      { num: '09', kh: 'កញ្ញា', en: 'Sep' },
-      { num: '10', kh: 'តុលា', en: 'Oct' },
-      { num: '11', kh: 'វិច្ឆិកា', en: 'Nov' },
-      { num: '12', kh: 'ធ្នូ', en: 'Dec' }
-    ];
+    function getTxStandardDate(t) {
+      if (!t) return '';
+      const raw = String(t.date || t.timestamp || '').trim();
+      if (!raw) return '';
+      const m1 = raw.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+      if (m1) {
+        return `${m1[1]}-${m1[2].padStart(2, '0')}-${m1[3].padStart(2, '0')}`;
+      }
+      const m2 = raw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+      if (m2) {
+        return `${m2[3]}-${m2[2].padStart(2, '0')}-${m2[1].padStart(2, '0')}`;
+      }
+      const d = new Date(raw);
+      if (!isNaN(d.getTime())) {
+        const yr = d.getFullYear();
+        const mo = String(d.getMonth() + 1).padStart(2, '0');
+        const da = String(d.getDate()).padStart(2, '0');
+        return `${yr}-${mo}-${da}`;
+      }
+      return '';
+    }
+    window.getTxStandardDate = getTxStandardDate;
+
+    function matchesTxDateRange(t, startVal, endVal) {
+      if (!startVal && !endVal) return true;
+      const txDate = getTxStandardDate(t);
+      if (!txDate) return true;
+
+      let s = startVal ? startVal.trim() : '';
+      let e = endVal ? endVal.trim() : '';
+
+      if (s && s.length === 7) s = s + '-01';
+      if (e && e.length === 7) e = e + '-31';
+
+      if (s && e) {
+        const low = s <= e ? s : e;
+        const high = s <= e ? e : s;
+        return txDate >= low && txDate <= high;
+      }
+      if (s) return txDate >= s;
+      if (e) return txDate <= e;
+      return true;
+    }
+    window.matchesTxDateRange = matchesTxDateRange;
 
     let customPickerState = {
       inputId: null,
       triggerBtn: null,
       callback: null,
       year: new Date().getFullYear(),
-      themeColor: 'emerald'
+      month: new Date().getMonth() + 1
     };
 
-        window.closeCustomYearMonthPicker = function() {
+    window.closeCustomYearMonthPicker = function() {
       const pop = document.getElementById('customYearMonthPickerModal');
       if (pop) {
         pop.classList.add('hidden');
@@ -26340,46 +26417,44 @@
       customPickerState.callback = null;
     };
 
-    window.renderCustomPickerMonths = function() {
-      const grid = document.getElementById('customPickerMonthGrid');
-      if (!grid) return;
-      const curVal = (document.getElementById(customPickerState.inputId)?.value || '').trim();
-      const isEmerald = customPickerState.themeColor === 'emerald';
-      const activeClass = isEmerald ? 'bg-emerald-600 text-white font-bold shadow-xs' : 'bg-amber-600 text-white font-bold shadow-xs';
-      const normalClass = 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80 hover:border-slate-300 font-medium';
-
-      grid.innerHTML = KHMER_MONTHS_PICKER_DATA.map(m => {
-        const ym = `${customPickerState.year}-${m.num}`;
-        const isSelected = curVal === ym;
-        return `
-          <button type="button" onclick="selectCustomPickerMonth('${m.num}')"
-            class="flex flex-col items-center justify-center p-2 rounded-xl transition cursor-pointer text-center ${isSelected ? activeClass : normalClass}">
-            <span class="text-xs font-bold leading-tight">${m.kh}</span>
-            <span class="text-[10px] ${isSelected ? 'text-white/90' : 'text-slate-400'} font-mono">${m.num} (${m.en})</span>
-          </button>
-        `;
-      }).join('');
-    };
-
     window.changeCustomPickerYear = function(delta) {
       customPickerState.year += delta;
       if (customPickerState.year < 2020) customPickerState.year = 2020;
       if (customPickerState.year > 2035) customPickerState.year = 2035;
-      const yrSelect = document.getElementById('customPickerYearSelect');
-      if (yrSelect) yrSelect.value = String(customPickerState.year);
-      renderCustomPickerMonths();
+      renderCustomCalendar();
     };
 
-    window.onCustomPickerYearSelectChange = function(val) {
-      const y = parseInt(val, 10);
-      if (!isNaN(y)) {
-        customPickerState.year = y;
-        renderCustomPickerMonths();
+    window.changeCustomPickerMonth = function(delta) {
+      customPickerState.month += delta;
+      if (customPickerState.month < 1) {
+        customPickerState.month = 12;
+        customPickerState.year -= 1;
+      } else if (customPickerState.month > 12) {
+        customPickerState.month = 1;
+        customPickerState.year += 1;
+      }
+      if (customPickerState.year < 2020) customPickerState.year = 2020;
+      if (customPickerState.year > 2035) customPickerState.year = 2035;
+      renderCustomCalendar();
+    };
+
+    window.selectCustomPickerDate = function(dateStr) {
+      if (customPickerState.inputId) {
+        const inp = document.getElementById(customPickerState.inputId);
+        if (inp) inp.value = dateStr;
+        const dispId = 'disp' + customPickerState.inputId.charAt(0).toUpperCase() + customPickerState.inputId.slice(1);
+        const disp = document.getElementById(dispId);
+        if (disp) disp.textContent = dateStr;
+      }
+      const cb = customPickerState.callback;
+      closeCustomYearMonthPicker();
+      if (typeof cb === 'function') {
+        cb();
       }
     };
 
-    window.selectCustomPickerMonth = function(monthNum) {
-      const ym = `${customPickerState.year}-${monthNum}`;
+    window.selectCustomPickerHeaderMonth = function() {
+      const ym = `${customPickerState.year}-${String(customPickerState.month).padStart(2, '0')}`;
       if (customPickerState.inputId) {
         const inp = document.getElementById(customPickerState.inputId);
         if (inp) inp.value = ym;
@@ -26394,41 +26469,95 @@
       }
     };
 
-    window.selectCustomPickerClear = function() {
-      if (customPickerState.inputId) {
-        const inp = document.getElementById(customPickerState.inputId);
-        if (inp) inp.value = '';
-        const dispId = 'disp' + customPickerState.inputId.charAt(0).toUpperCase() + customPickerState.inputId.slice(1);
-        const disp = document.getElementById(dispId);
-        if (disp) disp.textContent = 'ជ្រើសខែ';
+    window.renderCustomCalendar = function() {
+      const titleYear = document.getElementById('customPickerTitleYear');
+      const titleMonth = document.getElementById('customPickerTitleMonth');
+      if (titleYear) titleYear.textContent = `${customPickerState.year} 年`;
+      if (titleMonth) titleMonth.textContent = `${customPickerState.month} 月`;
+
+      const grid = document.getElementById('customPickerDaysGrid');
+      if (!grid) return;
+
+      const year = customPickerState.year;
+      const month = customPickerState.month;
+
+      const firstDay = new Date(year, month - 1, 1).getDay(); // 0 = Sun
+      const prevDaysCount = firstDay === 0 ? 7 : firstDay;
+      const daysInCurrentMonth = new Date(year, month, 0).getDate();
+      const daysInPrevMonth = new Date(year, month - 1, 0).getDate();
+
+      const cells = [];
+      // 1. Previous month trailing days
+      for (let i = prevDaysCount - 1; i >= 0; i--) {
+        const d = daysInPrevMonth - i;
+        const pDate = new Date(year, month - 2, d);
+        const pY = pDate.getFullYear();
+        const pM = String(pDate.getMonth() + 1).padStart(2, '0');
+        const pD = String(d).padStart(2, '0');
+        cells.push({
+          day: d,
+          dateStr: `${pY}-${pM}-${pD}`,
+          isCurrentMonth: false
+        });
       }
-      const cb = customPickerState.callback;
-      closeCustomYearMonthPicker();
-      if (typeof cb === 'function') {
-        cb();
+
+      // 2. Current month days
+      for (let d = 1; d <= daysInCurrentMonth; d++) {
+        const cM = String(month).padStart(2, '0');
+        const cD = String(d).padStart(2, '0');
+        cells.push({
+          day: d,
+          dateStr: `${year}-${cM}-${cD}`,
+          isCurrentMonth: true
+        });
       }
+
+      // 3. Next month leading days (fill up to 42 cells)
+      let nextDay = 1;
+      while (cells.length < 42) {
+        const nDate = new Date(year, month, nextDay);
+        const nY = nDate.getFullYear();
+        const nM = String(nDate.getMonth() + 1).padStart(2, '0');
+        const nD = String(nextDay).padStart(2, '0');
+        cells.push({
+          day: nextDay,
+          dateStr: `${nY}-${nM}-${nD}`,
+          isCurrentMonth: false
+        });
+        nextDay++;
+      }
+
+      const todayStr = (function() {
+        const n = new Date();
+        return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;
+      })();
+
+      const selectedStr = (document.getElementById(customPickerState.inputId)?.value || '').trim();
+
+      let html = '';
+      cells.forEach(c => {
+        const isSelected = selectedStr === c.dateStr;
+        const isToday = todayStr === c.dateStr;
+
+        let cellClass = 'w-7 h-7 mx-auto flex items-center justify-center text-xs rounded-full cursor-pointer transition select-none leading-none ';
+
+        if (isSelected) {
+          cellClass += 'bg-blue-600 text-white font-bold shadow-xs';
+        } else if (!c.isCurrentMonth) {
+          cellClass += 'text-slate-300 hover:text-slate-600 hover:bg-slate-100';
+        } else if (isToday) {
+          cellClass += 'text-blue-500 font-extrabold hover:bg-blue-50';
+        } else {
+          cellClass += 'text-slate-700 hover:bg-slate-100 font-medium';
+        }
+
+        html += `<button type="button" onclick="selectCustomPickerDate('${c.dateStr}')" class="${cellClass}" title="${c.dateStr}">${c.day}</button>`;
+      });
+
+      grid.innerHTML = html;
     };
 
-    window.selectCustomPickerCurrentMonth = function() {
-      const now = new Date();
-      const y = now.getFullYear();
-      const m = String(now.getMonth() + 1).padStart(2, '0');
-      const ym = `${y}-${m}`;
-      if (customPickerState.inputId) {
-        const inp = document.getElementById(customPickerState.inputId);
-        if (inp) inp.value = ym;
-        const dispId = 'disp' + customPickerState.inputId.charAt(0).toUpperCase() + customPickerState.inputId.slice(1);
-        const disp = document.getElementById(dispId);
-        if (disp) disp.textContent = ym;
-      }
-      const cb = customPickerState.callback;
-      closeCustomYearMonthPicker();
-      if (typeof cb === 'function') {
-        cb();
-      }
-    };
-
-        window.openCustomYearMonthPicker = function(inputId, triggerBtn, optEvent) {
+    window.openCustomYearMonthPicker = function(inputId, triggerBtn, optEvent) {
       const ev = (optEvent && typeof optEvent.stopPropagation === 'function') ? optEvent : ((typeof window !== 'undefined' && window.event && typeof window.event.stopPropagation === 'function') ? window.event : null);
       if (ev) {
         ev.stopPropagation();
@@ -26449,52 +26578,29 @@
       customPickerState.triggerBtn = triggerBtn;
 
       const isStockOut = String(inputId || '').toLowerCase().includes('stockout');
-      customPickerState.themeColor = isStockOut ? 'amber' : 'emerald';
       customPickerState.callback = isStockOut 
         ? (typeof filterStockOutHistoryTable === 'function' ? filterStockOutHistoryTable : window.filterStockOutHistoryTable) 
         : (typeof filterStockInHistoryTable === 'function' ? filterStockInHistoryTable : window.filterStockInHistoryTable);
 
-      const curBtn = document.getElementById('btnCustomPickerCurrentMonth');
-      if (curBtn) {
-        if (isStockOut) {
-          curBtn.className = 'px-2.5 py-1 text-amber-600 hover:bg-amber-50 rounded-lg transition cursor-pointer flex items-center gap-1';
-        } else {
-          curBtn.className = 'px-2.5 py-1 text-emerald-600 hover:bg-emerald-50 rounded-lg transition cursor-pointer flex items-center gap-1';
-        }
-      }
-
       const curVal = (document.getElementById(inputId)?.value || '').trim();
-      const curValMatch = curVal.match(/^(\d{4})-(\d{1,2})$/);
-      if (curValMatch) {
-        customPickerState.year = parseInt(curValMatch[1], 10);
+      const curDateMatch = curVal.match(/^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?$/);
+      if (curDateMatch) {
+        customPickerState.year = parseInt(curDateMatch[1], 10);
+        customPickerState.month = parseInt(curDateMatch[2], 10);
       } else {
-        customPickerState.year = new Date().getFullYear();
+        const now = new Date();
+        customPickerState.year = now.getFullYear();
+        customPickerState.month = now.getMonth() + 1;
       }
 
-      const yrSelect = document.getElementById('customPickerYearSelect');
-      if (yrSelect) {
-        const startYr = 2020;
-        const endYr = 2035;
-        let html = '';
-        for (let y = startYr; y <= endYr; y++) {
-          html += `<option value="${y}" ${y === customPickerState.year ? 'selected' : ''}>ឆ្នាំ ${y}</option>`;
-        }
-        yrSelect.innerHTML = html;
-        if (isStockOut) {
-          yrSelect.className = 'bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-800 font-extrabold text-xs sm:text-sm rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer';
-        } else {
-          yrSelect.className = 'bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-800 font-extrabold text-xs sm:text-sm rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer';
-        }
-      }
-
-      renderCustomPickerMonths();
+      renderCustomCalendar();
 
       pop.classList.remove('hidden');
       pop.style.display = 'block';
 
       const rect = triggerBtn.getBoundingClientRect();
-      const popWidth = 290;
-      const popHeight = 260;
+      const popWidth = 280;
+      const popHeight = 290;
 
       let left = rect.left;
       if (left + popWidth > window.innerWidth - 10) {
@@ -26886,43 +26992,6 @@
               setTimeout(function() { window.print(); }, 250);
             };
           </sc` + `ript>
-          <!-- Custom Year-Month Picker Floating Popover -->
-  <div id="customYearMonthPickerModal" class="hidden fixed z-[9999] bg-white rounded-2xl shadow-2xl border border-slate-200/90 p-3 w-[290px] max-w-[calc(100vw-20px)] select-none text-slate-800 transition-all">
-    <!-- Popover Header: Year Selector & Close -->
-    <div class="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-100">
-      <div class="flex items-center gap-1">
-        <button type="button" onclick="changeCustomPickerYear(-1)" class="w-7 h-7 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600 flex items-center justify-center transition active:scale-95 cursor-pointer" title="ឆ្នាំមុន (Previous Year)">
-          <i class="fa-solid fa-chevron-left text-xs"></i>
-        </button>
-        <select id="customPickerYearSelect" onchange="onCustomPickerYearSelectChange(this.value)" class="bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-800 font-extrabold text-xs sm:text-sm rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer">
-          <!-- Populated by JS -->
-        </select>
-        <button type="button" onclick="changeCustomPickerYear(1)" class="w-7 h-7 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600 flex items-center justify-center transition active:scale-95 cursor-pointer" title="ឆ្នាំបន្ទាប់ (Next Year)">
-          <i class="fa-solid fa-chevron-right text-xs"></i>
-        </button>
-      </div>
-      <button type="button" onclick="closeCustomYearMonthPicker()" class="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition cursor-pointer" title="បិទ (Close)">
-        <i class="fa-solid fa-xmark text-sm"></i>
-      </button>
-    </div>
-
-    <!-- Month Grid: 3 columns x 4 rows -->
-    <div id="customPickerMonthGrid" class="grid grid-cols-3 gap-1.5 mb-2.5">
-      <!-- Populated by JS -->
-    </div>
-
-    <!-- Popover Footer -->
-    <div class="flex items-center justify-between pt-2 border-t border-slate-100 text-xs font-semibold">
-      <button type="button" onclick="selectCustomPickerClear()" class="px-2.5 py-1 text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer flex items-center gap-1">
-        <i class="fa-regular fa-trash-can text-[11px]"></i>
-        <span>សម្អាត</span>
-      </button>
-      <button type="button" onclick="selectCustomPickerCurrentMonth()" id="btnCustomPickerCurrentMonth" class="px-2.5 py-1 text-emerald-600 hover:bg-emerald-50 rounded-lg transition cursor-pointer flex items-center gap-1">
-        <i class="fa-regular fa-calendar-check text-[11px]"></i>
-        <span>ខែនេះ</span>
-      </button>
-    </div>
-  </div>
 </body>
         </html>
       `);
@@ -27245,22 +27314,11 @@
         });
       }
 
-      // Month range filtering
+      // Date/Month range filtering (matches custom datepicker)
       const mStart = (document.getElementById('stockInMonthStart')?.value || '').trim();
       const mEnd = (document.getElementById('stockInMonthEnd')?.value || '').trim();
       if (mStart || mEnd) {
-        baseList = baseList.filter(t => {
-          const m = getTxMonth(t);
-          if (!m) return true;
-          if (mStart && mEnd) {
-            const low = mStart <= mEnd ? mStart : mEnd;
-            const high = mStart <= mEnd ? mEnd : mStart;
-            return m >= low && m <= high;
-          }
-          if (mStart) return m >= mStart;
-          if (mEnd) return m <= mEnd;
-          return true;
-        });
+        baseList = baseList.filter(t => matchesTxDateRange(t, mStart, mEnd));
       }
       const sInp = document.getElementById('stockInHistorySearch');
       if (sInp) {
@@ -28003,22 +28061,11 @@
         });
       }
 
-      // Month range filtering
+      // Date/Month range filtering (matches custom datepicker)
       const mStart = (document.getElementById('stockOutMonthStart')?.value || '').trim();
       const mEnd = (document.getElementById('stockOutMonthEnd')?.value || '').trim();
       if (mStart || mEnd) {
-        baseList = baseList.filter(t => {
-          const m = getTxMonth(t);
-          if (!m) return true;
-          if (mStart && mEnd) {
-            const low = mStart <= mEnd ? mStart : mEnd;
-            const high = mStart <= mEnd ? mEnd : mStart;
-            return m >= low && m <= high;
-          }
-          if (mStart) return m >= mStart;
-          if (mEnd) return m <= mEnd;
-          return true;
-        });
+        baseList = baseList.filter(t => matchesTxDateRange(t, mStart, mEnd));
       }
       const sInp = document.getElementById('stockOutHistorySearch');
       let q = (sInp?.value || '').trim().toLowerCase();
