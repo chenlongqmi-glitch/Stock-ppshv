@@ -1687,6 +1687,26 @@
           <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-400/20 text-amber-200 border border-amber-300/30">Admin</span>
         </a>
 
+        <!-- ADMIN & SUPERADMIN EXCLUSIVE: គ្រប់គ្រង User & សិទ្ធិ -->
+        <a href="#users" onclick="navigateTab('users')" id="navUsers"
+          class="hidden nav-link flex items-center justify-between px-3.5 py-2.5 rounded-xl hover:bg-white/15 hover:text-white transition-all text-blue-100/90 font-medium">
+          <div class="flex items-center">
+            <i class="fa-solid fa-users-gear w-6 text-center text-blue-300"></i>
+            <span class="ml-2">គ្រប់គ្រង User & សិទ្ធិ</span>
+          </div>
+          <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-400/20 text-blue-200 border border-blue-300/30">Admin</span>
+        </a>
+
+        <!-- ADMIN & SUPERADMIN EXCLUSIVE: ការកំណត់ & Telegram -->
+        <a href="#settings" onclick="navigateTab('settings')" id="navSettings"
+          class="hidden nav-link flex items-center justify-between px-3.5 py-2.5 rounded-xl hover:bg-white/15 hover:text-white transition-all text-blue-100/90 font-medium">
+          <div class="flex items-center">
+            <i class="fa-solid fa-gear w-6 text-center text-blue-300"></i>
+            <span class="ml-2">ការកំណត់ & Telegram</span>
+          </div>
+          <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-400/20 text-blue-200 border border-blue-300/30">Admin</span>
+        </a>
+
 
 
       </nav>
@@ -2399,7 +2419,7 @@
           </button>
 
           <!-- Top Right Settings Menu Dropdown -->
-          <div class="relative z-[90] shrink-0" id="topSettingsDropdownContainer">
+          <div class="relative z-[90] shrink-0 sticky right-0 ml-auto" id="topSettingsDropdownContainer">
             <button type="button" id="topSettingsBtn" onclick="toggleSettingsDropdown()"
               title="ការកំណត់ និងគណនី (Settings & Quick Menu)"
               class="relative p-1.5 sm:px-2.5 sm:py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 hover:text-blue-600 transition-all flex items-center justify-center hover:scale-105 active:scale-95 shadow-sm">
@@ -4646,6 +4666,12 @@
                     class="px-2.5 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 font-semibold rounded-xl text-xs border border-sky-200 transition flex items-center space-x-1">
                     <i class="fa-solid fa-box-open"></i>
                     <span class="hidden sm:inline">សួរនាំទំនិញ</span>
+                  </button>
+                  <button type="button" onclick="toggleSettingsDropdown()" title="ការកំណត់ (Settings & Quick Menu)"
+                    class="p-2 sm:px-2.5 sm:py-1.5 text-slate-600 hover:text-blue-600 hover:bg-slate-100 rounded-xl transition text-xs border border-slate-200 flex items-center space-x-1.5 shrink-0"
+                    id="chatHeaderSettingsBtn">
+                    <i class="fa-solid fa-gear text-xs sm:text-sm text-slate-600"></i>
+                    <span class="hidden xl:inline text-xs font-bold text-slate-700">ការកំណត់</span>
                   </button>
                 </div>
               </div>
@@ -15489,11 +15515,15 @@
         topMenuManageWarehousesBtn.classList.toggle('hidden', !canAccessSettings);
       }
 
-      // 6. Sidebar: Manage Warehouses & Divider
+      // 6. Sidebar: Manage Warehouses, Users, Settings & Divider
       const navWarehouses = document.getElementById('navWarehouses');
       const navAdminSectionDivider = document.getElementById('navAdminSectionDivider');
+      const navUsers = document.getElementById('navUsers');
+      const navSettings = document.getElementById('navSettings');
       if (navWarehouses) navWarehouses.classList.toggle('hidden', !canAccessSettings);
-      if (navAdminSectionDivider) navAdminSectionDivider.classList.toggle('hidden', !canAccessSettings);
+      if (navAdminSectionDivider) navAdminSectionDivider.classList.toggle('hidden', !canAccessSettings && !canAccessUsers);
+      if (navUsers) navUsers.classList.toggle('hidden', !canAccessUsers);
+      if (navSettings) navSettings.classList.toggle('hidden', !canAccessSettings);
     }
 
     function showAppView() {
@@ -38529,7 +38559,8 @@
     // Close top dropdowns on outside click
     document.addEventListener('click', function (e) {
       const settingsContainer = document.getElementById('topSettingsDropdownContainer');
-      if (settingsContainer && !settingsContainer.contains(e.target)) {
+      const chatSettingsBtn = document.getElementById('chatHeaderSettingsBtn');
+      if (settingsContainer && !settingsContainer.contains(e.target) && (!chatSettingsBtn || !chatSettingsBtn.contains(e.target))) {
         closeSettingsDropdown();
       }
       const notifBtn = document.getElementById('notifBellBtn');
