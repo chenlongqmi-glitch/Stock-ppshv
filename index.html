@@ -1777,7 +1777,7 @@
 
       <!-- IMPERSONATION / SWITCH USER NOTIFICATION BANNER (បង្ហាញពេលស្ថិតក្នុង Switch Mode) -->
       <div id="impersonationBanner"
-        class="bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white px-4 md:px-6 py-2 shadow-lg border-b border-amber-400/40 flex flex-wrap items-center justify-between gap-2 text-xs font-medium z-30 hidden shrink-0 animate-pulse">
+        class="bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white px-4 md:px-6 py-2 shadow-lg border-b border-amber-400/40 flex flex-wrap items-center justify-between gap-2 text-xs font-medium relative z-[80] hidden shrink-0 animate-pulse">
         <div class="flex items-center space-x-2 min-w-0">
           <span class="px-2.5 py-0.5 rounded-full bg-black/30 border border-white/25 text-amber-200 text-[10px] font-black uppercase tracking-wider flex items-center shrink-0">
             <i class="fa-solid fa-user-secret mr-1.5 text-amber-300 text-xs"></i> Switch Mode
@@ -1801,7 +1801,7 @@
 
       <!-- ACTIVE USER SESSION INFO BANNER (ផ្នែកខាងលើបង្អស់) -->
       <div id="activeSessionBanner"
-        class="bg-gradient-to-r from-blue-700 via-indigo-700 to-slate-900 text-white px-4 md:px-6 py-2 shadow-md border-b border-white/15 flex flex-wrap items-center justify-between gap-2.5 z-20 flex-shrink-0">
+        class="bg-gradient-to-r from-blue-700 via-indigo-700 to-slate-900 text-white px-4 md:px-6 py-2 shadow-md border-b border-white/15 flex flex-wrap items-center justify-between gap-2.5 relative z-[80] flex-shrink-0">
         <div class="flex items-center space-x-3 min-w-0">
           <div class="relative flex-shrink-0 cursor-pointer group" onclick="openProfileModal()" title="ចុចដើម្បីកែប្រែព័ត៌មានផ្ទាល់ខ្លួន និងរូបថត Profile">
             <div id="activeSessionAvatar"
@@ -4662,8 +4662,8 @@
     <!-- ========================================== -->
   <!-- MODAL: Stock In Popup (កត់ត្រាចូលស្តុក Popup) -->
   <!-- ========================================== -->
-  <div id="stockInModal" class="hidden fixed inset-0 z-[95] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex justify-center items-center p-3 sm:p-5 py-8 custom-scrollbar" onclick="if(isSafeModalBackdropClick(event)) closeStockInForm()">
-    <div class="relative w-full max-w-5xl xl:max-w-6xl space-y-4 shrink-0 my-auto" onclick="event.stopPropagation()">
+  <div id="stockInModal" class="hidden fixed inset-0 z-[75] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex justify-center items-start p-3 sm:p-5 pt-[112px] sm:pt-[120px] pb-16 custom-scrollbar" onclick="if(isSafeModalBackdropClick(event)) closeStockInForm()">
+    <div class="relative w-full max-w-5xl xl:max-w-6xl space-y-4 shrink-0" onclick="event.stopPropagation()">
       <div id="stockInFormCard" class="glass-card p-3 sm:p-4 lg:p-4 rounded-2xl sm:rounded-3xl shadow-sm border-2 border-emerald-300/80 bg-gradient-to-br from-emerald-50/30 via-white to-teal-50/20">
 
             <!-- Top Mode Switcher Menu (1. Single Item vs 2. Multi-Item Batch) -->
@@ -5066,8 +5066,8 @@
   <!-- ========================================== -->
   <!-- MODAL: Stock Out Popup (កត់ត្រាចេញពីស្តុក Popup) -->
   <!-- ========================================== -->
-  <div id="stockOutModal" class="hidden fixed inset-0 z-[95] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex justify-center items-center p-3 sm:p-5 py-8 custom-scrollbar" onclick="if(isSafeModalBackdropClick(event)) closeStockOutForm()">
-    <div class="relative w-full max-w-5xl xl:max-w-6xl space-y-4 shrink-0 my-auto" onclick="event.stopPropagation()">
+  <div id="stockOutModal" class="hidden fixed inset-0 z-[75] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex justify-center items-start p-3 sm:p-5 pt-[112px] sm:pt-[120px] pb-16 custom-scrollbar" onclick="if(isSafeModalBackdropClick(event)) closeStockOutForm()">
+    <div class="relative w-full max-w-5xl xl:max-w-6xl space-y-4 shrink-0" onclick="event.stopPropagation()">
       <div id="stockOutFormCard" class="glass-card p-3 sm:p-4 lg:p-4 rounded-2xl sm:rounded-3xl shadow-sm border-2 border-amber-300/80 bg-gradient-to-br from-amber-50/30 via-white to-orange-50/20">
 
             <!-- Stock Out Mode Switcher (Single Station vs Multi-Station Batch Distribution) -->
@@ -28923,6 +28923,36 @@
     }
     window.handleStockOutModeHeaderClick = handleStockOutModeHeaderClick;
 
+    function adjustStockInModalOffset() {
+      const modal = document.getElementById('stockInModal');
+      if (!modal) return;
+      const header = document.querySelector('header');
+      if (header) {
+        const rect = header.getBoundingClientRect();
+        const headerBottom = Math.round(rect.bottom);
+        // Align starting exactly at the red line (bottom of header) + 4px breathing room
+        modal.style.paddingTop = Math.max(0, headerBottom + 4) + 'px';
+      }
+    }
+    window.adjustStockInModalOffset = adjustStockInModalOffset;
+
+    function adjustStockOutModalOffset() {
+      const modal = document.getElementById('stockOutModal');
+      if (!modal) return;
+      const header = document.querySelector('header');
+      if (header) {
+        const rect = header.getBoundingClientRect();
+        const headerBottom = Math.round(rect.bottom);
+        modal.style.paddingTop = Math.max(0, headerBottom + 4) + 'px';
+      }
+    }
+    window.adjustStockOutModalOffset = adjustStockOutModalOffset;
+
+    window.addEventListener('resize', function() {
+      if (window._isStockInFormOpen) adjustStockInModalOffset();
+      if (window._isStockOutFormOpen) adjustStockOutModalOffset();
+    });
+
     function openStockInForm(mode) {
       if (typeof hideCustomProductDropdown === 'function') hideCustomProductDropdown();
       switchStockInEntryMode(mode || stockInEntryMode || 'SINGLE');
@@ -28934,6 +28964,7 @@
 
       // 1. បង្ហាញផ្ទាំង Popup Modal (Show popup modal)
       if (modal) {
+        adjustStockInModalOffset();
         modal.classList.remove('hidden');
         modal.style.removeProperty('display');
         modal.scrollTop = 0;
@@ -29009,6 +29040,7 @@
 
       // 1. បង្ហាញផ្ទាំង Popup Modal (Show popup modal)
       if (modal) {
+        adjustStockOutModalOffset();
         modal.classList.remove('hidden');
         modal.style.removeProperty('display');
         modal.scrollTop = 0;
@@ -29099,11 +29131,7 @@
       const lockChk2 = document.getElementById('stockInLockDocNoSubmit');
 
       if (modal) {
-        if (stockInEntryMode === 'MULTI') {
-          modal.className = 'hidden fixed inset-0 z-[95] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex justify-center items-start p-3 sm:p-5 pt-16 sm:pt-20 pb-16 custom-scrollbar';
-        } else {
-          modal.className = 'hidden fixed inset-0 z-[95] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex justify-center items-center p-3 sm:p-5 py-8 custom-scrollbar';
-        }
+        adjustStockInModalOffset();
         if (window._isStockInFormOpen) {
           modal.classList.remove('hidden');
           modal.style.removeProperty('display');
@@ -29608,11 +29636,7 @@
       const lockChk2 = document.getElementById('stockOutLockDocNoSubmit');
 
       if (modal) {
-        if (stockOutEntryMode === 'MULTI') {
-          modal.className = 'hidden fixed inset-0 z-[95] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex justify-center items-start p-3 sm:p-5 pt-16 sm:pt-20 pb-16 custom-scrollbar';
-        } else {
-          modal.className = 'hidden fixed inset-0 z-[95] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex justify-center items-center p-3 sm:p-5 py-8 custom-scrollbar';
-        }
+        adjustStockOutModalOffset();
         if (window._isStockOutFormOpen) {
           modal.classList.remove('hidden');
           modal.style.removeProperty('display');
