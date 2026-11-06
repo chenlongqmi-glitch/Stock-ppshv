@@ -5039,7 +5039,7 @@
                     <h4 class="font-bold text-slate-800 text-sm sm:text-base">📋 បញ្ជីទំនិញបានបញ្ចូលត្រៀមកត់ត្រាចូលស្តុក (Batch Queue List)</h4>
                     <span id="stockInBatchBadgeTable" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">0 មុខទំនិញ</span>
                   </div>
-                  <p class="text-xs text-slate-500 font-khmer">មុខទំនិញដែលបានចុច «បញ្ចូលទិន្នន័យក្នុង List» នឹងត្រូវរក្សាទុកក្រោមលេខឯកសាររួមតែមួយ</p>
+                  <p class="text-xs text-slate-500 font-khmer">មុខទំនិញដែលបានចុច «បញ្ចូលទិន្នន័យក្នុង List» នឹងត្រូវរក្សាទុកក្រោមលេខឯកសាររួមតែមួយ (ចុច ២ដងលើជួរទំនិញ ឬចុចប៊ូតុងកែ ដើម្បីកែប្រែ ឬលុបទិន្នន័យ)</p>
                 </div>
               </div>
               <div class="flex items-center gap-2">
@@ -5491,7 +5491,7 @@
                     <h4 class="font-bold text-slate-800 text-sm sm:text-base">📋 បញ្ជីទំនិញបានបញ្ចូលត្រៀមកត់ត្រាចេញពីស្តុក (Batch Queue List)</h4>
                     <span id="stockOutBatchBadgeTable" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-200">0 មុខទំនិញ</span>
                   </div>
-                  <p class="text-xs text-slate-500 font-khmer">មុខទំនិញដែលបានចុច «បញ្ចូលទិន្នន័យក្នុង List» នឹងត្រូវកត់ត្រាចេញក្រោមលេខឯកសាររួមតែមួយ</p>
+                  <p class="text-xs text-slate-500 font-khmer">មុខទំនិញដែលបានចុច «បញ្ចូលទិន្នន័យក្នុង List» នឹងត្រូវកត់ត្រាចេញក្រោមលេខឯកសាររួមតែមួយ (ចុច ២ដងលើជួរទំនិញ ឬចុចប៊ូតុងកែ ដើម្បីកែប្រែ ឬលុបទិន្នន័យ)</p>
                 </div>
               </div>
               <div class="flex items-center gap-2">
@@ -29964,13 +29964,15 @@ window.toggleExportStockInDropdown = function(e) {
       tbody.innerHTML = stockInBatchQueue.map((item, idx) => {
         const fallbackImg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2394a3b8'%3E%3Cpath d='M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z'/%3E%3C/svg%3E";
         return `
-          <tr class="hover:bg-emerald-50/40 transition">
+          <tr ondblclick="openEditStockInBatchItemModal(${idx})"
+              class="hover:bg-emerald-50/70 transition cursor-pointer select-none group"
+              title="ចុច ២ដង (Double-Click) ដើម្បីកែប្រែទិន្នន័យ ឬលុបទំនិញនេះចេញពី List">
             <td class="p-2.5 text-center font-bold text-slate-500">${idx + 1}</td>
             <td class="p-2.5">
               <div class="flex items-center gap-2.5 min-w-0">
                 <img src="${item.imageUrl || fallbackImg}" alt="" class="w-10 h-10 object-cover shrink-0 rounded-2xl border border-slate-200 bg-white shadow-3xs aspect-square" onerror="this.onerror=null;this.src='${fallbackImg}';">
                 <div class="min-w-0 flex-1">
-                  <div class="font-bold text-slate-800 text-xs sm:text-sm truncate" title="${escapeHtml(item.itemName)}">${escapeHtml(item.itemName)}</div>
+                  <div class="font-bold text-slate-800 text-xs sm:text-sm truncate" style="font-family: 'Kantumruy Pro', 'Microsoft YaHei', sans-serif;" title="${escapeHtml(item.itemName)}">${escapeHtml(item.itemName)}</div>
                   <div class="text-[11px] font-mono text-emerald-700 font-bold truncate">SKU: ${escapeHtml(item.sku)}</div>
                 </div>
               </div>
@@ -29993,9 +29995,14 @@ window.toggleExportStockInDropdown = function(e) {
               ${escapeHtml(item.notes)}
             </td>
             <td class="p-2.5 text-center">
-              <button type="button" onclick="removeStockInBatchItem(${idx})" class="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition cursor-pointer" title="លុបទំនិញនេះចេញពី List">
-                <i class="fa-solid fa-trash-can text-xs"></i>
-              </button>
+              <div class="flex items-center justify-center gap-1">
+                <button type="button" onclick="event.stopPropagation(); openEditStockInBatchItemModal(${idx})" class="p-1.5 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-100 rounded-lg transition cursor-pointer" title="កែប្រែទិន្នន័យ (ចុច ២ដងលើជួរក៏បាន)">
+                  <i class="fa-solid fa-pen-to-square text-xs"></i>
+                </button>
+                <button type="button" onclick="event.stopPropagation(); removeStockInBatchItem(${idx})" class="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition cursor-pointer" title="លុបទំនិញនេះចេញពី List">
+                  <i class="fa-solid fa-trash-can text-xs"></i>
+                </button>
+              </div>
             </td>
           </tr>
         `;
@@ -30013,6 +30020,291 @@ window.toggleExportStockInDropdown = function(e) {
       }
     }
     window.removeStockInBatchItem = removeStockInBatchItem;
+
+    function loadStockInBatchItemToForm(idx) {
+      if (idx < 0 || idx >= stockInBatchQueue.length) return;
+      const it = stockInBatchQueue[idx];
+      if (!it) return;
+
+      const skuEl = document.getElementById('stockInSku');
+      if (skuEl) skuEl.value = it.sku || '';
+      const codeEl = document.getElementById('stockInItemCode');
+      if (codeEl) codeEl.value = it.itemCode || '';
+      const sizeEl = document.getElementById('stockInSize');
+      if (sizeEl) sizeEl.value = it.size || '';
+      const colorEl = document.getElementById('stockInColor');
+      if (colorEl) colorEl.value = it.color || '';
+      const zoneEl = document.getElementById('stockInZone');
+      if (zoneEl) zoneEl.value = it.zone || '';
+      const bQtyEl = document.getElementById('stockInQtyBulk');
+      if (bQtyEl) bQtyEl.value = it.bulkQty || '';
+      const rQtyEl = document.getElementById('stockInQtyRetail');
+      if (rQtyEl) rQtyEl.value = it.retailQty || '';
+      const notesEl = document.getElementById('stockInNotes');
+      if (notesEl) notesEl.value = it.notes || '-';
+      const whEl = document.getElementById('stockInLocation');
+      if (whEl && it.warehouse) whEl.value = it.warehouse;
+
+      stockInBatchQueue.splice(idx, 1);
+      renderStockInBatchQueue();
+
+      if (typeof handleStockInProductSelect === 'function' && it.sku) {
+        handleStockInProductSelect(it.sku);
+      }
+      Swal.close();
+      if (skuEl) skuEl.focus();
+    }
+    window.loadStockInBatchItemToForm = loadStockInBatchItemToForm;
+
+    function openEditStockInBatchItemModal(idx) {
+      if (idx < 0 || idx >= stockInBatchQueue.length) return;
+      const it = stockInBatchQueue[idx];
+      if (!it) return;
+
+      const item = (AppState.items || []).find(i => (i.sku && it.sku && i.sku.toLowerCase() === it.sku.toLowerCase()) || (i.name && it.itemName && i.name.toLowerCase() === it.itemName.toLowerCase()));
+      const iName = escapeHtml(it.itemName || item?.name || it.sku || '');
+      const curDocNo = escapeHtml(it.docNo || document.getElementById('stockInDocNo')?.value || '');
+      const curSize = escapeHtml(it.size || '');
+      const curColor = escapeHtml(it.color || '');
+      const curZone = escapeHtml(it.zone || '');
+      const curNotes = (it.notes === '-' || !it.notes) ? '' : escapeHtml(it.notes);
+      const curReceiver = escapeHtml(it.receivedBy || AppState.currentUser?.fullName || AppState.currentUser?.username || '');
+
+      const pQty = Math.max(1, Number(it.packQty || item?.packQty || 1));
+      const pUnit = (it.packUnit || item?.packUnit || 'ប្រអប់').trim();
+      const rUnit = (it.baseUnit || item?.unit || 'ដុំ').trim() || 'ដុំ';
+
+      const initialBulk = Number(it.bulkQty || 0);
+      const initialRetail = Number(it.retailQty || 0);
+
+      const curLocation = it.warehouse || it.location || '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+
+      const isSuperAdminUser = (AppState.currentUser && (AppState.currentUser.role === 'SuperAdmin' || String(AppState.currentUser.username).toLowerCase() === 'superadmin' || AppState.currentUser.userId === 'USR-SA'));
+      const isAdminUser = isSuperAdminUser || (AppState.currentUser && (AppState.currentUser.role === 'Admin' || String(AppState.currentUser.username).toLowerCase() === 'admin' || String(AppState.currentUser.username).toLowerCase() === 'singvan327@gmail.com'));
+      let editWhList = [];
+      if (isAdminUser) {
+        editWhList = ['中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)', '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)'];
+        if (curLocation && !editWhList.some(w => typeof isSameWarehouse === 'function' ? isSameWarehouse(w, curLocation) : w === curLocation)) {
+          editWhList.push(curLocation);
+        }
+      } else {
+        editWhList = [curLocation || AppState.currentUser?.warehouse || 'K3 ស្ថានីយ (ភ្នំពេញ) 01'];
+      }
+      const whOptions = editWhList.map(w => `<option value="${escapeHtml(w)}" ${(typeof isSameWarehouse === 'function' ? isSameWarehouse(curLocation, w) : curLocation === w) ? 'selected' : ''}>${escapeHtml(w)}</option>`).join('');
+
+      window.recalcBatchStockInEditTotal = function() {
+        const b = parseFloat(document.getElementById('swalBatchEditQtyBulk')?.value) || 0;
+        const r = parseFloat(document.getElementById('swalBatchEditQtyRetail')?.value) || 0;
+        const total = (b * pQty) + r;
+        const sumEl = document.getElementById('swalBatchEditTotalSummary');
+        if (sumEl) {
+          let str = `${total} ${rUnit}`;
+          if (b > 0 && r > 0) {
+            str += ` (${b} ${pUnit} + ${r} ${rUnit})`;
+          } else if (b > 0) {
+            str += ` (${b} ${pUnit})`;
+          }
+          sumEl.textContent = str;
+        }
+      };
+
+      Swal.fire({
+        title: '<div class="flex items-center justify-center gap-2 text-emerald-800 text-lg font-bold"><i class="fa-solid fa-pen-to-square text-emerald-600"></i><span>កែសម្រួល ឬលុបទិន្នន័យទំនិញក្នុង List</span></div>',
+        html: `
+          <div class="text-left text-xs sm:text-sm space-y-3 p-1 font-khmer">
+            <div class="p-2.5 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center justify-between">
+              <div class="flex items-center gap-2.5 min-w-0">
+                <img src="${it.imageUrl || 'data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' viewBox=\\'0 0 24 24\\' fill=\\'%2394a3b8\\'%3E%3Cpath d=\\'M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z\\'/%3E%3C/svg%3E'}" class="w-10 h-10 object-cover rounded-xl border border-slate-200 bg-white shrink-0 shadow-3xs aspect-square">
+                <div class="min-w-0">
+                  <p class="font-bold text-slate-800 text-xs sm:text-sm truncate" style="font-family: 'Kantumruy Pro', 'Microsoft YaHei', sans-serif;">${iName}</p>
+                  <p class="text-xs text-emerald-700 font-mono font-bold mt-0.5">SKU: ${escapeHtml(it.sku || '-')}</p>
+                </div>
+              </div>
+              <span class="px-2.5 py-1 bg-emerald-100 border border-emerald-300 text-emerald-900 rounded-lg font-bold text-xs shrink-0">ចូលស្តុក (Batch)</span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">លេខឯកសារ (Doc No)</label>
+                <input type="text" value="${curDocNo}" readonly class="w-full h-9 px-3 bg-slate-100 border border-slate-300 rounded-lg text-xs font-mono font-bold text-emerald-800 cursor-not-allowed">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
+                  <i class="fa-solid fa-warehouse text-slate-500 text-xs"></i>
+                  <span>ទីតាំងឃ្លាំងទទួល</span>
+                </label>
+                <select id="swalBatchEditLocation" class="w-full h-9 px-2 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500">
+                  ${whOptions}
+                </select>
+              </div>
+            </div>
+
+            <div class="space-y-1.5">
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <label class="text-xs font-bold text-slate-700 flex items-center gap-1">
+                    <i class="fa-solid fa-boxes-stacked text-emerald-600 text-xs"></i>
+                    <span>ចំនួនចូលស្តុក *</span>
+                  </label>
+                  ${pQty > 1 ? `<span class="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">1 ${escapeHtml(pUnit)} = ${pQty} ${escapeHtml(rUnit)}</span>` : ''}
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                  <div>
+                    <span class="block text-[10.5px] font-bold text-emerald-800 mb-0.5">ជាដុំ (${escapeHtml(pUnit)})</span>
+                    <input id="swalBatchEditQtyBulk" type="number" min="0" step="any" value="${initialBulk}"
+                      oninput="recalcBatchStockInEditTotal()"
+                      class="w-full h-9 px-2 text-center bg-white border-2 border-emerald-400 rounded-lg text-sm font-black text-emerald-800 outline-none focus:ring-2 focus:ring-emerald-600">
+                  </div>
+                  <div>
+                    <span class="block text-[10.5px] font-bold text-slate-700 mb-0.5">ជារាយ (${escapeHtml(rUnit)})</span>
+                    <input id="swalBatchEditQtyRetail" type="number" min="0" step="any" value="${initialRetail}"
+                      oninput="recalcBatchStockInEditTotal()"
+                      class="w-full h-9 px-2 text-center bg-white border-2 border-slate-300 rounded-lg text-sm font-black text-slate-800 outline-none focus:ring-2 focus:ring-emerald-600">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Live Total Summary Badge -->
+              <div class="flex items-center justify-between px-3 py-1.5 bg-emerald-50/90 border border-emerald-200 rounded-xl text-xs shadow-3xs">
+                <span class="text-slate-600 font-semibold flex items-center gap-1.5">
+                  <i class="fa-solid fa-calculator text-emerald-600 text-xs"></i>
+                  <span>សរុបចូលស្តុកទាំងអស់:</span>
+                  <span id="swalBatchEditTotalSummary" class="font-black text-emerald-800 text-sm font-mono ml-1">
+                    ${(initialBulk * pQty) + initialRetail} ${escapeHtml(rUnit)}${initialBulk > 0 && initialRetail > 0 ? ` (${initialBulk} ${escapeHtml(pUnit)} + ${initialRetail} ${escapeHtml(rUnit)})` : (initialBulk > 0 ? ` (${initialBulk} ${escapeHtml(pUnit)})` : '')}
+                  </span>
+                </span>
+                <span class="text-[10px] font-bold text-emerald-700 bg-white px-2 py-0.5 rounded border border-emerald-200">
+                  សរុបជារាយ
+                </span>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">ខ្នាត</label>
+                <input id="swalBatchEditSize" type="text" value="${curSize}" placeholder="ឧ. Pixcell" class="w-full h-8 px-2.5 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">ពណ៌</label>
+                <input id="swalBatchEditColor" type="text" value="${curColor}" placeholder="ឧ. ខ្មៅ" class="w-full h-8 px-2.5 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500">
+              </div>
+              <div id="swalBatchZoneContainer" class="relative">
+                <div class="flex items-center justify-between mb-1">
+                  <label class="block text-xs font-bold text-slate-700">តំបន់</label>
+                  <button type="button" onclick="openStockInZoneDropdown('swalBatchEditZone', 'swalBatchEditZoneChevron')" class="text-[10px] text-emerald-700 hover:text-emerald-900 font-extrabold flex items-center gap-0.5">
+                    <i class="fa-solid fa-location-dot text-rose-500 text-[10px]"></i>
+                    <span>រើស Zone</span>
+                  </button>
+                </div>
+                <div class="relative">
+                  <i class="fa-solid fa-location-dot absolute left-2.5 top-2 text-rose-500 text-xs pointer-events-none"></i>
+                  <input id="swalBatchEditZone" type="text" value="${curZone}" placeholder="រើស ឬកែ Zone..."
+                    autocomplete="off"
+                    onclick="openStockInZoneDropdown('swalBatchEditZone', 'swalBatchEditZoneChevron')"
+                    onfocus="openStockInZoneDropdown('swalBatchEditZone', 'swalBatchEditZoneChevron')"
+                    oninput="currentZonePickerTargetInputId='swalBatchEditZone'; currentZonePickerTargetChevronId='swalBatchEditZoneChevron'; handleStockInZoneInput(this.value)"
+                    onkeydown="if(event.key==='Escape') closeStockInZoneDropdown();"
+                    class="w-full h-8 pl-8 pr-7 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-indigo-700 cursor-pointer shadow-3xs hover:border-emerald-400">
+                  <button type="button" onclick="openStockInZoneDropdown('swalBatchEditZone', 'swalBatchEditZoneChevron')"
+                    class="absolute right-1 top-1 p-1 text-slate-400 hover:text-emerald-600 text-xs transition">
+                    <i class="fa-solid fa-chevron-down text-[10px] transition-transform duration-200" id="swalBatchEditZoneChevron"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">អ្នកទទួល</label>
+              <input id="swalBatchEditReceiver" type="text" value="${curReceiver}" class="w-full h-9 px-3 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500">
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">កំណត់សម្គាល់</label>
+              <input id="swalBatchEditNotes" type="text" value="${curNotes}" placeholder="កំណត់សម្គាល់បន្ថែម..." class="w-full h-9 px-3 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500">
+            </div>
+
+            <button type="button" onclick="loadStockInBatchItemToForm(${idx})" class="w-full py-2 px-3 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer shadow-3xs">
+              <i class="fa-solid fa-arrow-up-from-bracket text-emerald-600"></i>
+              <span>ទាញទិន្នន័យដាក់ចូលប្រអប់បញ្ចូលខាងលើវិញ (Edit in Form)</span>
+            </button>
+          </div>
+        `,
+        showCancelButton: true,
+        showDenyButton: true,
+        confirmButtonColor: '#047857',
+        denyButtonColor: '#dc2626',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: '<i class="fa-solid fa-check mr-1"></i> រក្សាទុកការកែប្រែ',
+        denyButtonText: '<i class="fa-solid fa-trash-can mr-1"></i> លុបទំនិញនេះចេញពី List',
+        cancelButtonText: 'បោះបង់',
+        focusConfirm: false,
+        didOpen: () => {
+          const zInput = document.getElementById('swalBatchEditZone');
+          if (zInput) {
+            zInput.addEventListener('focus', () => openStockInZoneDropdown('swalBatchEditZone', 'swalBatchEditZoneChevron'));
+            zInput.addEventListener('click', () => openStockInZoneDropdown('swalBatchEditZone', 'swalBatchEditZoneChevron'));
+          }
+        },
+        willClose: () => {
+          closeStockInZoneDropdown();
+        },
+        preConfirm: () => {
+          const bulkVal = parseFloat(document.getElementById('swalBatchEditQtyBulk')?.value) || 0;
+          const retailVal = parseFloat(document.getElementById('swalBatchEditQtyRetail')?.value) || 0;
+          const totalVal = (bulkVal * pQty) + retailVal;
+          if (totalVal <= 0) {
+            Swal.showValidationMessage('ចំនួនចូលស្តុកត្រូវតែធំជាង 0!');
+            return false;
+          }
+          return {
+            bulkQty: bulkVal,
+            retailQty: retailVal,
+            effectiveQty: totalVal,
+            location: document.getElementById('swalBatchEditLocation')?.value || curLocation,
+            size: document.getElementById('swalBatchEditSize')?.value.trim() || '',
+            color: document.getElementById('swalBatchEditColor')?.value.trim() || '',
+            zone: document.getElementById('swalBatchEditZone')?.value.trim() || '',
+            receivedBy: document.getElementById('swalBatchEditReceiver')?.value.trim() || curReceiver,
+            notes: document.getElementById('swalBatchEditNotes')?.value.trim() || '-'
+          };
+        }
+      }).then(res => {
+        if (res.isConfirmed && res.value) {
+          const updated = res.value;
+          it.bulkQty = updated.bulkQty;
+          it.retailQty = updated.retailQty;
+          it.effectiveQty = updated.effectiveQty;
+          it.location = updated.location;
+          it.warehouse = updated.location;
+          it.size = updated.size;
+          it.color = updated.color;
+          it.zone = updated.zone;
+          it.receivedBy = updated.receivedBy;
+          it.notes = updated.notes;
+          it.newStock = Number(it.oldStock || 0) + updated.effectiveQty;
+          renderStockInBatchQueue();
+          Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'success',
+            title: 'បានកែសម្រួលទិន្នន័យក្នុង List ជោគជ័យ!',
+            showConfirmButton: false,
+            timer: 2000
+          });
+        } else if (res.isDenied) {
+          removeStockInBatchItem(idx);
+          Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'success',
+            title: 'បានលុបទំនិញចេញពី List ជោគជ័យ!',
+            showConfirmButton: false,
+            timer: 2000
+          });
+        }
+      });
+    }
+    window.openEditStockInBatchItemModal = openEditStockInBatchItemModal;
 
     function clearStockInBatchQueue() {
       if (stockInBatchQueue.length === 0) return;
@@ -30477,13 +30769,15 @@ window.toggleExportStockInDropdown = function(e) {
       tbody.innerHTML = stockOutBatchQueue.map((item, idx) => {
         const fallbackImg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2394a3b8'%3E%3Cpath d='M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z'/%3E%3C/svg%3E";
         return `
-          <tr class="hover:bg-amber-50/40 transition">
+          <tr ondblclick="openEditStockOutBatchItemModal(${idx})"
+              class="hover:bg-amber-50/70 transition cursor-pointer select-none group"
+              title="ចុច ២ដង (Double-Click) ដើម្បីកែប្រែទិន្នន័យ ឬលុបទំនិញនេះចេញពី List">
             <td class="p-2.5 text-center font-bold text-slate-500">${idx + 1}</td>
             <td class="p-2.5">
               <div class="flex items-center gap-2.5 min-w-0">
                 <img src="${item.imageUrl || fallbackImg}" alt="" class="w-10 h-10 object-cover shrink-0 rounded-2xl border border-slate-200 bg-white shadow-3xs aspect-square" onerror="this.onerror=null;this.src='${fallbackImg}';">
                 <div class="min-w-0 flex-1">
-                  <div class="font-bold text-slate-800 text-xs sm:text-sm truncate" title="${escapeHtml(item.itemName)}">${escapeHtml(item.itemName)}</div>
+                  <div class="font-bold text-slate-800 text-xs sm:text-sm truncate" style="font-family: 'Kantumruy Pro', 'Microsoft YaHei', sans-serif;" title="${escapeHtml(item.itemName)}">${escapeHtml(item.itemName)}</div>
                   <div class="text-[11px] font-mono text-amber-800 font-bold truncate">SKU: ${escapeHtml(item.sku)}</div>
                 </div>
               </div>
@@ -30506,9 +30800,14 @@ window.toggleExportStockInDropdown = function(e) {
               ${escapeHtml(item.notes)}
             </td>
             <td class="p-2.5 text-center">
-              <button type="button" onclick="removeStockOutBatchItem(${idx})" class="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition cursor-pointer" title="លុបទំនិញនេះចេញពី List">
-                <i class="fa-solid fa-trash-can text-xs"></i>
-              </button>
+              <div class="flex items-center justify-center gap-1">
+                <button type="button" onclick="event.stopPropagation(); openEditStockOutBatchItemModal(${idx})" class="p-1.5 text-amber-700 hover:text-amber-900 hover:bg-amber-100 rounded-lg transition cursor-pointer" title="កែប្រែទិន្នន័យ (ចុច ២ដងលើជួរក៏បាន)">
+                  <i class="fa-solid fa-pen-to-square text-xs"></i>
+                </button>
+                <button type="button" onclick="event.stopPropagation(); removeStockOutBatchItem(${idx})" class="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition cursor-pointer" title="លុបទំនិញនេះចេញពី List">
+                  <i class="fa-solid fa-trash-can text-xs"></i>
+                </button>
+              </div>
             </td>
           </tr>
         `;
@@ -30526,6 +30825,268 @@ window.toggleExportStockInDropdown = function(e) {
       }
     }
     window.removeStockOutBatchItem = removeStockOutBatchItem;
+
+    function loadStockOutBatchItemToForm(idx) {
+      if (idx < 0 || idx >= stockOutBatchQueue.length) return;
+      const it = stockOutBatchQueue[idx];
+      if (!it) return;
+
+      const skuEl = document.getElementById('stockOutSku');
+      if (skuEl) skuEl.value = it.sku || '';
+      const codeEl = document.getElementById('stockOutItemCode');
+      if (codeEl) codeEl.value = it.itemCode || '';
+      const sizeEl = document.getElementById('stockOutSize');
+      if (sizeEl) sizeEl.value = it.size || '';
+      const colorEl = document.getElementById('stockOutColor');
+      if (colorEl) colorEl.value = it.color || '';
+      const zoneEl = document.getElementById('stockOutZone');
+      if (zoneEl) zoneEl.value = it.zone || '';
+      const bQtyEl = document.getElementById('stockOutQtyBulk');
+      if (bQtyEl) bQtyEl.value = it.bulkQty || '';
+      const rQtyEl = document.getElementById('stockOutQtyRetail');
+      if (rQtyEl) rQtyEl.value = it.retailQty || '';
+      const notesEl = document.getElementById('stockOutNotes');
+      if (notesEl) notesEl.value = it.notes || '-';
+      const toLocEl = document.getElementById('stockOutToLocation');
+      if (toLocEl && it.toLocation) toLocEl.value = it.toLocation;
+      const issuerEl = document.getElementById('stockOutIssuer');
+      if (issuerEl && it.issuer) issuerEl.value = it.issuer;
+      const reasonEl = document.getElementById('stockOutReason');
+      if (reasonEl && it.reason) reasonEl.value = it.reason;
+
+      stockOutBatchQueue.splice(idx, 1);
+      renderStockOutBatchQueue();
+
+      if (typeof handleStockOutProductSelect === 'function' && it.sku) {
+        handleStockOutProductSelect(it.sku);
+      }
+      Swal.close();
+      if (skuEl) skuEl.focus();
+    }
+    window.loadStockOutBatchItemToForm = loadStockOutBatchItemToForm;
+
+    function openEditStockOutBatchItemModal(idx) {
+      if (idx < 0 || idx >= stockOutBatchQueue.length) return;
+      const it = stockOutBatchQueue[idx];
+      if (!it) return;
+
+      const item = (AppState.items || []).find(i => (i.sku && it.sku && i.sku.toLowerCase() === it.sku.toLowerCase()) || (i.name && it.itemName && i.name.toLowerCase() === it.itemName.toLowerCase()));
+      const iName = escapeHtml(it.itemName || item?.name || it.sku || '');
+      const curDocNo = escapeHtml(it.docNo || document.getElementById('stockOutDocNo')?.value || '');
+      const curSize = escapeHtml(it.size || '');
+      const curColor = escapeHtml(it.color || '');
+      const curZone = escapeHtml(it.zone || '');
+      const curNotes = (it.notes === '-' || !it.notes) ? '' : escapeHtml(it.notes);
+      const curIssuer = escapeHtml(it.issuer || AppState.currentUser?.fullName || AppState.currentUser?.username || '');
+      const curReason = escapeHtml(it.reason || '');
+
+      const pQty = Math.max(1, Number(it.packQty || item?.packQty || 1));
+      const pUnit = (it.packUnit || item?.packUnit || 'ប្រអប់').trim();
+      const rUnit = (it.baseUnit || item?.unit || 'ដុំ').trim() || 'ដុំ';
+
+      const initialBulk = Number(it.bulkQty || 0);
+      const initialRetail = Number(it.retailQty || 0);
+
+      const curToLocation = it.toLocation || it.warehouse || 'អតិថិជន/ដកប្រើប្រាស់';
+
+      const whList = (typeof getWarehouseNamesList === 'function') ? getWarehouseNamesList() : (typeof WAREHOUSES_LIST !== 'undefined' ? WAREHOUSES_LIST : ['中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)', '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)']);
+      let toWhOptions = whList.map(w => `<option value="${escapeHtml(w)}" ${(typeof isSameWarehouse === 'function' ? isSameWarehouse(curToLocation, w) : curToLocation === w) ? 'selected' : ''}>${escapeHtml(w)}</option>`).join('');
+      if (!whList.some(w => (typeof isSameWarehouse === 'function' ? isSameWarehouse(curToLocation, w) : curToLocation === w))) {
+        toWhOptions = `<option value="${escapeHtml(curToLocation)}" selected>${escapeHtml(curToLocation)}</option>` + toWhOptions;
+      }
+
+      window.recalcBatchStockOutEditTotal = function() {
+        const b = parseFloat(document.getElementById('swalBatchEditOutQtyBulk')?.value) || 0;
+        const r = parseFloat(document.getElementById('swalBatchEditOutQtyRetail')?.value) || 0;
+        const total = (b * pQty) + r;
+        const sumEl = document.getElementById('swalBatchEditOutTotalSummary');
+        if (sumEl) {
+          let str = `${total} ${rUnit}`;
+          if (b > 0 && r > 0) {
+            str += ` (${b} ${pUnit} + ${r} ${rUnit})`;
+          } else if (b > 0) {
+            str += ` (${b} ${pUnit})`;
+          }
+          sumEl.textContent = str;
+        }
+      };
+
+      Swal.fire({
+        title: '<div class="flex items-center justify-center gap-2 text-amber-800 text-lg font-bold"><i class="fa-solid fa-pen-to-square text-amber-600"></i><span>កែសម្រួល ឬលុបទិន្នន័យចេញស្តុកក្នុង List</span></div>',
+        html: `
+          <div class="text-left text-xs sm:text-sm space-y-3 p-1 font-khmer">
+            <div class="p-2.5 bg-amber-50 rounded-xl border border-amber-200 flex items-center justify-between">
+              <div class="flex items-center gap-2.5 min-w-0">
+                <img src="${it.imageUrl || 'data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' viewBox=\\'0 0 24 24\\' fill=\\'%2394a3b8\\'%3E%3Cpath d=\\'M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z\\'/%3E%3C/svg%3E'}" class="w-10 h-10 object-cover rounded-xl border border-slate-200 bg-white shrink-0 shadow-3xs aspect-square">
+                <div class="min-w-0">
+                  <p class="font-bold text-slate-800 text-xs sm:text-sm truncate" style="font-family: 'Kantumruy Pro', 'Microsoft YaHei', sans-serif;">${iName}</p>
+                  <p class="text-xs text-amber-800 font-mono font-bold mt-0.5">SKU: ${escapeHtml(it.sku || '-')}</p>
+                </div>
+              </div>
+              <span class="px-2.5 py-1 bg-amber-100 border border-amber-300 text-amber-900 rounded-lg font-bold text-xs shrink-0">ចេញស្តុក (Batch)</span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">លេខឯកសារ (Doc No)</label>
+                <input type="text" value="${curDocNo}" readonly class="w-full h-9 px-3 bg-slate-100 border border-slate-300 rounded-lg text-xs font-mono font-bold text-amber-900 cursor-not-allowed">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
+                  <i class="fa-solid fa-truck-ramp-box text-slate-500 text-xs"></i>
+                  <span>ទៅកាន់ទីតាំង/ស្ថានីយ</span>
+                </label>
+                <select id="swalBatchEditOutToLocation" class="w-full h-9 px-2 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-amber-500">
+                  ${toWhOptions}
+                </select>
+              </div>
+            </div>
+
+            <div class="space-y-1.5">
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <label class="text-xs font-bold text-slate-700 flex items-center gap-1">
+                    <i class="fa-solid fa-boxes-stacked text-amber-600 text-xs"></i>
+                    <span>ចំនួនចេញស្តុក *</span>
+                  </label>
+                  ${pQty > 1 ? `<span class="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">1 ${escapeHtml(pUnit)} = ${pQty} ${escapeHtml(rUnit)}</span>` : ''}
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                  <div>
+                    <span class="block text-[10.5px] font-bold text-amber-900 mb-0.5">ជាដុំ (${escapeHtml(pUnit)})</span>
+                    <input id="swalBatchEditOutQtyBulk" type="number" min="0" step="any" value="${initialBulk}"
+                      oninput="recalcBatchStockOutEditTotal()"
+                      class="w-full h-9 px-2 text-center bg-white border-2 border-amber-400 rounded-lg text-sm font-black text-amber-900 outline-none focus:ring-2 focus:ring-amber-600">
+                  </div>
+                  <div>
+                    <span class="block text-[10.5px] font-bold text-slate-700 mb-0.5">ជារាយ (${escapeHtml(rUnit)})</span>
+                    <input id="swalBatchEditOutQtyRetail" type="number" min="0" step="any" value="${initialRetail}"
+                      oninput="recalcBatchStockOutEditTotal()"
+                      class="w-full h-9 px-2 text-center bg-white border-2 border-slate-300 rounded-lg text-sm font-black text-slate-800 outline-none focus:ring-2 focus:ring-amber-600">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Live Total Summary Badge -->
+              <div class="flex items-center justify-between px-3 py-1.5 bg-amber-50/90 border border-amber-200 rounded-xl text-xs shadow-3xs">
+                <span class="text-slate-600 font-semibold flex items-center gap-1.5">
+                  <i class="fa-solid fa-calculator text-amber-600 text-xs"></i>
+                  <span>សរុបចេញស្តុកទាំងអស់:</span>
+                  <span id="swalBatchEditOutTotalSummary" class="font-black text-amber-900 text-sm font-mono ml-1">
+                    ${(initialBulk * pQty) + initialRetail} ${escapeHtml(rUnit)}${initialBulk > 0 && initialRetail > 0 ? ` (${initialBulk} ${escapeHtml(pUnit)} + ${initialRetail} ${escapeHtml(rUnit)})` : (initialBulk > 0 ? ` (${initialBulk} ${escapeHtml(pUnit)})` : '')}
+                  </span>
+                </span>
+                <span class="text-[10px] font-bold text-amber-800 bg-white px-2 py-0.5 rounded border border-amber-200">
+                  សរុបជារាយ
+                </span>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">ខ្នាត</label>
+                <input id="swalBatchEditOutSize" type="text" value="${curSize}" placeholder="ឧ. Pixcell" class="w-full h-8 px-2.5 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-amber-500">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">ពណ៌</label>
+                <input id="swalBatchEditOutColor" type="text" value="${curColor}" placeholder="ឧ. ខ្មៅ" class="w-full h-8 px-2.5 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-amber-500">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">តំបន់</label>
+                <input id="swalBatchEditOutZone" type="text" value="${curZone}" placeholder="Zone..." class="w-full h-8 px-2.5 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-amber-500 font-bold text-indigo-700">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">អ្នកបើកចេញ (Issuer)</label>
+                <input id="swalBatchEditOutIssuer" type="text" value="${curIssuer}" class="w-full h-9 px-3 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-amber-500">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">មូលហេតុ (Reason)</label>
+                <input id="swalBatchEditOutReason" type="text" value="${curReason}" placeholder="មូលហេតុដកចេញ..." class="w-full h-9 px-3 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-amber-500">
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">កំណត់សម្គាល់</label>
+              <input id="swalBatchEditOutNotes" type="text" value="${curNotes}" placeholder="កំណត់សម្គាល់បន្ថែម..." class="w-full h-9 px-3 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-amber-500">
+            </div>
+
+            <button type="button" onclick="loadStockOutBatchItemToForm(${idx})" class="w-full py-2 px-3 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer shadow-3xs">
+              <i class="fa-solid fa-arrow-up-from-bracket text-amber-600"></i>
+              <span>ទាញទិន្នន័យដាក់ចូលប្រអប់បញ្ចូលខាងលើវិញ (Edit in Form)</span>
+            </button>
+          </div>
+        `,
+        showCancelButton: true,
+        showDenyButton: true,
+        confirmButtonColor: '#d97706',
+        denyButtonColor: '#dc2626',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: '<i class="fa-solid fa-check mr-1"></i> រក្សាទុកការកែប្រែ',
+        denyButtonText: '<i class="fa-solid fa-trash-can mr-1"></i> លុបទំនិញនេះចេញពី List',
+        cancelButtonText: 'បោះបង់',
+        focusConfirm: false,
+        preConfirm: () => {
+          const bulkVal = parseFloat(document.getElementById('swalBatchEditOutQtyBulk')?.value) || 0;
+          const retailVal = parseFloat(document.getElementById('swalBatchEditOutQtyRetail')?.value) || 0;
+          const totalVal = (bulkVal * pQty) + retailVal;
+          if (totalVal <= 0) {
+            Swal.showValidationMessage('ចំនួនចេញស្តុកត្រូវតែធំជាង 0!');
+            return false;
+          }
+          return {
+            bulkQty: bulkVal,
+            retailQty: retailVal,
+            effectiveQty: totalVal,
+            toLocation: document.getElementById('swalBatchEditOutToLocation')?.value || curToLocation,
+            size: document.getElementById('swalBatchEditOutSize')?.value.trim() || '',
+            color: document.getElementById('swalBatchEditOutColor')?.value.trim() || '',
+            zone: document.getElementById('swalBatchEditOutZone')?.value.trim() || '',
+            issuer: document.getElementById('swalBatchEditOutIssuer')?.value.trim() || curIssuer,
+            reason: document.getElementById('swalBatchEditOutReason')?.value.trim() || '',
+            notes: document.getElementById('swalBatchEditOutNotes')?.value.trim() || '-'
+          };
+        }
+      }).then(res => {
+        if (res.isConfirmed && res.value) {
+          const updated = res.value;
+          it.bulkQty = updated.bulkQty;
+          it.retailQty = updated.retailQty;
+          it.effectiveQty = updated.effectiveQty;
+          it.toLocation = updated.toLocation;
+          it.warehouse = updated.toLocation;
+          it.size = updated.size;
+          it.color = updated.color;
+          it.zone = updated.zone;
+          it.issuer = updated.issuer;
+          it.reason = updated.reason;
+          it.notes = updated.notes;
+          it.newStock = Math.max(0, Number(it.oldStock || 0) - updated.effectiveQty);
+          renderStockOutBatchQueue();
+          Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'success',
+            title: 'បានកែសម្រួលទិន្នន័យក្នុង List ជោគជ័យ!',
+            showConfirmButton: false,
+            timer: 2000
+          });
+        } else if (res.isDenied) {
+          removeStockOutBatchItem(idx);
+          Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'success',
+            title: 'បានលុបទំនិញចេញពី List ជោគជ័យ!',
+            showConfirmButton: false,
+            timer: 2000
+          });
+        }
+      });
+    }
+    window.openEditStockOutBatchItemModal = openEditStockOutBatchItemModal;
 
     function clearStockOutBatchQueue() {
       if (stockOutBatchQueue.length === 0) return;
