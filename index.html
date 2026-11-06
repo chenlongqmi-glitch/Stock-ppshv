@@ -8407,31 +8407,6 @@
         rawNotes: "សាកល្បង",
         timestamp: "2026-11-05 08:00:30",
         _createdAt: new Date('2026-11-05T08:00:30').getTime()
-      },
-      {
-        txId: "IN-20261105-4783_SKU-3445",
-        docNo: "IN-20261105-4783",
-        date: "2026-11-05",
-        type: "STOCK_IN",
-        sku: "SKU-3445",
-        itemName: "地毯",
-        size: "老",
-        color: "-",
-        zone: "A08",
-        quantity: 1,
-        unit: "ដុំ",
-        oldStock: 0,
-        newStock: 1,
-        toLocation: "机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)",
-        warehouse: "机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)",
-        location: "机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)",
-        receivedBy: "陈龙",
-        user: "陈龙",
-        notes: "សាកល្បង",
-        userNote: "សាកល្បង",
-        rawNotes: "សាកល្បង",
-        timestamp: "2026-11-05 08:01:03",
-        _createdAt: new Date('2026-11-05T08:01:03').getTime()
       }
     ];
     window.VERIFIED_PRODUCTION_STOCK_IN_TRANSACTIONS = VERIFIED_PRODUCTION_STOCK_IN_TRANSACTIONS;
@@ -8439,7 +8414,7 @@
     // Immediate self-healing cleanup of ghost deleted stock out transactions
     (() => {
       try {
-        const ghostList = ['TX-20261010214533-646', 'TX-20261010192242-919', 'TX-20261010190529-308', 'DOC-IN-20260929-5181', 'IN-20261105-5408'];
+        const ghostList = ['TX-20261010214533-646', 'TX-20261010192242-919', 'TX-20261010190529-308', 'DOC-IN-20260929-5181', 'IN-20261105-5408', 'IN-20261105-4783_SKU-3445'];
         const ghostSet = new Set(ghostList.map(k => k.toUpperCase()));
         try {
           const raw = localStorage.getItem('inventory_deleted_txs_db');
@@ -8447,17 +8422,11 @@
             const arr = JSON.parse(raw);
             if (Array.isArray(arr)) {
               arr.forEach(k => {
-                if (k) {
-                  const upper = String(k).trim().toUpperCase();
-                  if (!VERIFIED_PRODUCTION_ACTIVE_DOCS.has(upper)) {
-                    ghostSet.add(upper);
-                  }
-                }
+                if (k) ghostSet.add(String(k).trim().toUpperCase());
               });
             }
           }
         } catch(e) {}
-        VERIFIED_PRODUCTION_ACTIVE_DOCS.forEach(k => ghostSet.delete(k));
         localStorage.setItem('inventory_deleted_txs_db', JSON.stringify(Array.from(ghostSet)));
 
         for (let i = 0; i < localStorage.length; i++) {
@@ -8469,10 +8438,14 @@
               const list = JSON.parse(raw);
               if (Array.isArray(list)) {
                 const filtered = list.filter(t => {
+                  if (!t) return false;
                   const doc = String(t.docNo || '').trim().toUpperCase();
                   const tx = String(t.txId || t.id || '').trim().toUpperCase();
-                  if (VERIFIED_PRODUCTION_ACTIVE_DOCS.has(doc) || VERIFIED_PRODUCTION_ACTIVE_DOCS.has(tx)) return true;
-                  return (!doc || !ghostSet.has(doc)) && (!tx || !ghostSet.has(tx));
+                  const sku = String(t.sku || t.code || t.itemName || '').trim().toUpperCase();
+                  if (doc && sku && ghostSet.has(`${doc}_${sku}`)) return false;
+                  if (tx && ghostSet.has(tx)) return false;
+                  if (doc && ghostSet.has(doc)) return false;
+                  return true;
                 });
                 localStorage.setItem(key, JSON.stringify(filtered));
               }
@@ -9499,7 +9472,7 @@
 
     // Persistent Deleted Transactions Registry (Prevents ghost deleted transactions from resurrecting)
     function getDeletedTransactionKeys() {
-      const knownDeleted = ['TX-20261010214533-646', 'TX-20261010192242-919', 'TX-20261010190529-308', 'DOC-IN-20260929-5181', 'IN-20261105-5408'];
+      const knownDeleted = ['TX-20261010214533-646', 'TX-20261010192242-919', 'TX-20261010190529-308', 'DOC-IN-20260929-5181', 'IN-20261105-5408', 'IN-20261105-4783_SKU-3445'];
       const set = new Set(knownDeleted.map(k => k.toUpperCase()));
       try {
         const raw = localStorage.getItem('inventory_deleted_txs_db');
@@ -9507,31 +9480,21 @@
           const arr = JSON.parse(raw);
           if (Array.isArray(arr)) {
             arr.forEach(k => {
-              if (k) {
-                const upper = String(k).trim().toUpperCase();
-                if (!VERIFIED_PRODUCTION_ACTIVE_DOCS.has(upper)) {
-                  set.add(upper);
-                }
-              }
+              if (k) set.add(String(k).trim().toUpperCase());
             });
           }
         }
       } catch (e) {}
-      if (typeof VERIFIED_PRODUCTION_ACTIVE_DOCS !== 'undefined') {
-        VERIFIED_PRODUCTION_ACTIVE_DOCS.forEach(k => set.delete(k));
-      }
       return set;
     }
 
     function recordDeletedTransaction(txId, docNo, sku) {
       try {
         const set = getDeletedTransactionKeys();
-        if (txId && (!VERIFIED_PRODUCTION_ACTIVE_DOCS || !VERIFIED_PRODUCTION_ACTIVE_DOCS.has(String(txId).trim().toUpperCase()))) {
-          set.add(String(txId).trim().toUpperCase());
-        }
+        if (txId) set.add(String(txId).trim().toUpperCase());
         if (docNo && sku) {
           set.add(`${String(docNo).trim().toUpperCase()}_${String(sku).trim().toUpperCase()}`);
-        } else if (docNo && (!VERIFIED_PRODUCTION_ACTIVE_DOCS || !VERIFIED_PRODUCTION_ACTIVE_DOCS.has(String(docNo).trim().toUpperCase()))) {
+        } else if (docNo) {
           set.add(String(docNo).trim().toUpperCase());
         }
         localStorage.setItem('inventory_deleted_txs_db', JSON.stringify(Array.from(set)));
@@ -9553,11 +9516,6 @@
       const doc = String(t.docNo || '').trim().toUpperCase();
       const tx = String(t.txId || t.id || '').trim().toUpperCase();
       const sku = String(t.sku || t.code || t.itemName || '').trim().toUpperCase();
-      if (typeof VERIFIED_PRODUCTION_ACTIVE_DOCS !== 'undefined') {
-        if (VERIFIED_PRODUCTION_ACTIVE_DOCS.has(doc) || VERIFIED_PRODUCTION_ACTIVE_DOCS.has(tx)) {
-          return false;
-        }
-      }
       const set = getDeletedTransactionKeys();
       if (doc && sku && set.has(`${doc}_${sku}`)) return true;
       if (tx && set.has(tx)) return true;
@@ -29409,24 +29367,24 @@ window.toggleExportStockInDropdown = function(e) {
     // =========================================================================
     // មុខងារកែត្រូវ (EDIT) និង លុបចេញ (DELETE) ប្រតិបត្តិការចូលស្តុក / ចេញស្តុក
     // =========================================================================
-    function findTransactionRecord(txId, docNo, type) {
-      const cleanTxId = String(txId || '').trim();
-      const cleanDocNo = String(docNo || '').trim();
+    function findTransactionRecord(txId, docNo, type, optSku) {
+      const cleanTxId = String(txId || '').trim().toLowerCase();
+      const cleanDocNo = String(docNo || '').trim().toLowerCase();
+      const cleanSku = String(optSku || '').trim().toLowerCase();
       const list = (type === 'STOCK_OUT') ? (AppState.stockOutHistory || []) : (AppState.stockInHistory || []);
-      let found = list.find(t => {
-        const tTxId = String(t.txId || '').trim();
-        const tDocNo = String(t.docNo || '').trim();
+      const matches = t => {
+        if (!t) return false;
+        if (type && t.type && String(t.type).toUpperCase() !== String(type).toUpperCase()) return false;
+        const tTxId = String(t.txId || '').trim().toLowerCase();
+        const tDocNo = String(t.docNo || '').trim().toLowerCase();
+        const tSku = String(t.sku || t.itemCode || t.code || '').trim().toLowerCase();
+        if (cleanSku && tSku && tSku !== cleanSku) return false;
         return (cleanTxId && (tTxId === cleanTxId || tDocNo === cleanTxId)) ||
                (cleanDocNo && (tDocNo === cleanDocNo || tTxId === cleanDocNo));
-      });
+      };
+      let found = list.find(matches);
       if (!found && Array.isArray(LOCAL_DB.transactions)) {
-        found = LOCAL_DB.transactions.find(t => {
-          if (type && t.type !== type) return false;
-          const tTxId = String(t.txId || '').trim();
-          const tDocNo = String(t.docNo || '').trim();
-          return (cleanTxId && (tTxId === cleanTxId || tDocNo === cleanTxId)) ||
-                 (cleanDocNo && (tDocNo === cleanDocNo || tTxId === cleanDocNo));
-        });
+        found = LOCAL_DB.transactions.find(matches);
       }
       return found;
     }
@@ -31726,7 +31684,7 @@ window.toggleExportStockInDropdown = function(e) {
         }
       }).then((res) => {
         if (res.isDenied) {
-          confirmDeleteStockInRecord(tx.txId || txId, tx.docNo || docNo);
+          confirmDeleteStockInRecord(tx, tx.docNo || docNo, tx.sku);
           return;
         }
         if (!res.isConfirmed || !res.value) return;
@@ -31878,8 +31836,13 @@ window.toggleExportStockInDropdown = function(e) {
       });
     }
 
-    function confirmDeleteStockInRecord(txId, docNo) {
-      const tx = findTransactionRecord(txId, docNo, 'STOCK_IN');
+    function confirmDeleteStockInRecord(txOrTxId, docNo, optSku) {
+      let tx = null;
+      if (txOrTxId && typeof txOrTxId === 'object') {
+        tx = txOrTxId;
+      } else {
+        tx = findTransactionRecord(txOrTxId, docNo, 'STOCK_IN', optSku);
+      }
       if (!tx) {
         Swal.fire({ icon: 'error', title: 'រកមិនឃើញទិន្នន័យប្រតិបត្តិការទេ!', confirmButtonColor: '#047857' });
         return;
@@ -32226,7 +32189,7 @@ window.toggleExportStockInDropdown = function(e) {
         }
       }).then((res) => {
         if (res.isDenied) {
-          confirmDeleteStockOutRecord(tx.txId || txId, tx.docNo || docNo);
+          confirmDeleteStockOutRecord(tx, tx.docNo || docNo, tx.sku);
           return;
         }
         if (!res.isConfirmed || !res.value) return;
@@ -32352,8 +32315,13 @@ window.toggleExportStockInDropdown = function(e) {
       });
     }
 
-    function confirmDeleteStockOutRecord(txId, docNo) {
-      const tx = findTransactionRecord(txId, docNo, 'STOCK_OUT');
+    function confirmDeleteStockOutRecord(txOrTxId, docNo, optSku) {
+      let tx = null;
+      if (txOrTxId && typeof txOrTxId === 'object') {
+        tx = txOrTxId;
+      } else {
+        tx = findTransactionRecord(txOrTxId, docNo, 'STOCK_OUT', optSku);
+      }
       if (!tx) {
         Swal.fire({ icon: 'error', title: 'រកមិនឃើញទិន្នន័យប្រតិបត្តិការទេ!', confirmButtonColor: '#b45309' });
         return;

@@ -85,7 +85,7 @@ const DEFAULT_DRIVE_FOLDER_URL = 'https://drive.google.com/drive/u/2/folders/1_p
 function onOpen(e) {
   try {
     standardizeAndFormatTransactionsSheet();
-  } catch(eAuto) {}
+  } catch (eAuto) { }
 }
 
 /**
@@ -211,7 +211,7 @@ function doPost(e) {
     const action = req.action || (e && e.parameter && e.parameter.action);
     let payload = (req.payload !== undefined) ? req.payload : req;
     if (e && e.parameter && e.parameter.payload && (!payload || Object.keys(payload).length === 0)) {
-      try { payload = JSON.parse(e.parameter.payload); } catch (ex) {}
+      try { payload = JSON.parse(e.parameter.payload); } catch (ex) { }
     }
 
     const result = handleApiRequest({ action: action, payload: payload });
@@ -326,7 +326,7 @@ function handleTelegramUserApproval(userId, username, targetStatus) {
     try {
       invalidateAppCache();
       setGlobalDataVersion();
-    } catch (cErr) {}
+    } catch (cErr) { }
 
     logActivity('ADMIN_TELEGRAM', 'Admin', targetStatus === 'Active' ? 'APPROVE_USER' : 'REJECT_USER', `${targetStatus} user ${username} via Telegram`);
 
@@ -520,16 +520,16 @@ function setAppScriptCache(key, obj, ttlSeconds) {
     if (str.length < 95000) {
       CacheService.getScriptCache().put(key, str, ttlSeconds || 300);
     }
-  } catch (e) {}
+  } catch (e) { }
 }
 
 function setGlobalDataVersion() {
   try {
     var v = String(Date.now());
-    try { PropertiesService.getScriptProperties().setProperty('GLOBAL_DATA_VERSION', v); } catch(ep) {}
-    try { CacheService.getScriptCache().put('GLOBAL_DATA_VERSION', v, 21600); } catch(ec) {}
+    try { PropertiesService.getScriptProperties().setProperty('GLOBAL_DATA_VERSION', v); } catch (ep) { }
+    try { CacheService.getScriptCache().put('GLOBAL_DATA_VERSION', v, 21600); } catch (ec) { }
     return v;
-  } catch(e) {
+  } catch (e) {
     return String(Date.now());
   }
 }
@@ -601,28 +601,28 @@ function checkDataVersion(payload) {
   var serverVersion = '';
   try {
     serverVersion = PropertiesService.getScriptProperties().getProperty('GLOBAL_DATA_VERSION') || '';
-  } catch(e) {}
+  } catch (e) { }
   if (!serverVersion) {
     try {
       serverVersion = cache.get('GLOBAL_DATA_VERSION') || '';
-    } catch(e) {}
+    } catch (e) { }
   }
   if (!serverVersion) {
     serverVersion = setGlobalDataVersion();
   } else {
     // Keep cache fresh with latest serverVersion
-    try { cache.put('GLOBAL_DATA_VERSION', serverVersion, 21600); } catch(e) {}
+    try { cache.put('GLOBAL_DATA_VERSION', serverVersion, 21600); } catch (e) { }
   }
 
   var hasUpdates = (!clientVersion || clientVersion !== serverVersion);
   var lastPendingRegTime = '0';
   try {
     lastPendingRegTime = cache.get('LAST_PENDING_REG_TIMESTAMP') || PropertiesService.getScriptProperties().getProperty('LAST_PENDING_REG_TIMESTAMP') || '0';
-  } catch(e) { lastPendingRegTime = '0'; }
+  } catch (e) { lastPendingRegTime = '0'; }
   var lastPendingCount = '0';
   try {
     lastPendingCount = cache.get('PENDING_USERS_COUNT') || '0';
-  } catch(e) { lastPendingCount = '0'; }
+  } catch (e) { lastPendingCount = '0'; }
 
   // Online Presence Tracking across all stations and devices
   var onlineList = [];
@@ -661,7 +661,7 @@ function invalidateAppCache() {
       'USERS_ALL',
       'SETTINGS_CACHE'
     ]);
-  } catch (e) {}
+  } catch (e) { }
 }
 
 /**
@@ -783,7 +783,7 @@ function executeLocalApiAction(req) {
 
         return getDashboardStats(payload.user, payload.warehouseFilter);
 
-            case 'checkDataVersion':
+      case 'checkDataVersion':
       case 'getSyncHeartbeat':
         return checkDataVersion(payload);
 
@@ -814,6 +814,9 @@ function executeLocalApiAction(req) {
       case 'repairStockInWarehouses':
         return repairStockInWarehouses();
 
+      case 'repairStockInMistake':
+        return repairStockInMistake();
+
       case 'getRawStockInData': {
         const ss = SpreadsheetApp.getActiveSpreadsheet();
         const s = ss.getSheetByName(SHEETS.STOCK_IN);
@@ -829,25 +832,6 @@ function executeLocalApiAction(req) {
         if (!sInSheet) return { success: false, message: 'Stock_in sheet not found' };
 
         const targetRecords = [
-          {
-            docNo: 'IN-20261105-4783',
-            date: '2026-11-05',
-            sku: 'SKU-3445',
-            itemName: '地毯',
-            size: '老',
-            color: '-',
-            zone: 'A08',
-            qty: 1,
-            unit: 'ដុំ',
-            oldStock: '0 ដុំ',
-            newStock: '1 ដុំ',
-            movement: '0 ដុំ ➔ 1 ដុំ',
-            warehouse: '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)',
-            receivedBy: '陈龙',
-            notes: 'សាកល្បង',
-            user: '陈龙',
-            timestamp: '2026-11-05 08:01:03'
-          },
           {
             docNo: 'IN-20261105-4783',
             date: '2026-11-05',
@@ -1047,7 +1031,7 @@ function executeLocalApiAction(req) {
             list.push({ id: f.getId(), name: f.getName(), created: f.getDateCreated().toISOString() });
           }
           return { success: true, files: list };
-        } catch(e) {
+        } catch (e) {
           return { success: false, error: e.toString() };
         }
       }
@@ -1092,7 +1076,7 @@ function executeLocalApiAction(req) {
       case 'alignSheetToSystem':
         return migrateAndAlignItemsSheet();
 
-            case 'removeZoneNumberColumn':
+      case 'removeZoneNumberColumn':
       case 'deleteZoneNumberColumn':
         return removeZoneNumberColumnFromItemsSheet();
 
@@ -1376,11 +1360,12 @@ function fixAllSheetHeaders(optSs) {
   const ss = optSs || SpreadsheetApp.getActiveSpreadsheet();
   if (!ss) return { success: false, message: 'Spreadsheet not found' };
 
-  try { migrateAndAlignItemsSheet(ss); } catch(e1) {}
-  try { ensureStockSheetsInitialized(ss); } catch(e2) {}
-  try { alignAndBackfillStockSheets(ss); } catch(e3) {}
-  try { standardizeAndFormatTransactionsSheet(ss); } catch(e4) {}
-  try { syncDispatchesFromStockOutGAS(ss); } catch(e5) {}
+  try { migrateAndAlignItemsSheet(ss); } catch (e1) { }
+  try { ensureStockSheetsInitialized(ss); } catch (e2) { }
+  try { alignAndBackfillStockSheets(ss); } catch (e3) { }
+  try { standardizeAndFormatTransactionsSheet(ss); } catch (e4) { }
+  try { syncDispatchesFromStockOutGAS(ss); } catch (e5) { }
+  try { repairStockInMistake(ss); } catch (e6) { }
 
   return { success: true, message: 'ជួសជុល និងតម្រឹម Header គ្រប់ Sheet ជោគជ័យ (Items, Stock_in, Stock_out, Transactions, Dispatches)' };
 }
@@ -1434,7 +1419,7 @@ function setupDatabase() {
     formatHeaderRow(txSheet, headers.length, '#0f766e');
 
   } else {
-    try { standardizeAndFormatTransactionsSheet(ss); } catch(eTx) {}
+    try { standardizeAndFormatTransactionsSheet(ss); } catch (eTx) { }
   }
 
 
@@ -1757,7 +1742,7 @@ function ensureStockSheetsInitialized(ss) {
         }
         if (inRowsToAppend.length > 0) {
           stockInSheet.getRange(2, 1, inRowsToAppend.length, stockInHeaders.length).setValues(inRowsToAppend);
-          try { stockInSheet.getDataRange().setFontFamily('Siemreap'); } catch(e) {}
+          try { stockInSheet.getDataRange().setFontFamily('Siemreap'); } catch (e) { }
         }
       }
 
@@ -1834,7 +1819,7 @@ function ensureStockSheetsInitialized(ss) {
         }
         if (outRowsToAppend.length > 0) {
           stockOutSheet.getRange(2, 1, outRowsToAppend.length, stockOutHeaders.length).setValues(outRowsToAppend);
-          try { stockOutSheet.getDataRange().setFontFamily('Siemreap'); } catch(e) {}
+          try { stockOutSheet.getDataRange().setFontFamily('Siemreap'); } catch (e) { }
         }
       }
     }
@@ -1861,7 +1846,7 @@ function ensureStockSheetsInitialized(ss) {
         }
       }
     }
-  } catch(e) {}
+  } catch (e) { }
 
   // ស្វ័យប្រវត្តិកែសម្រួល និងតម្រឹមជួរឈរ Sheet Stock_out បើពិនិត្យឃើញថាមានជួរឈរខុស ឬខ្វះជួរឈរ 17 columns
   try {
@@ -1873,7 +1858,7 @@ function ensureStockSheetsInitialized(ss) {
         standardizeAndFormatStockOutSheet(ss);
       }
     }
-  } catch(eShift) {}
+  } catch (eShift) { }
 
   // ស្វ័យប្រវត្តិកែសម្រួល និងតម្រឹមជួរឈរ Sheet Transactions បើពិនិត្យឃើញថាមាន UnitPrice / TotalAmount ឬមិនទាន់គ្រប់ 12 columns ស្តង់ដារ
   try {
@@ -1886,7 +1871,7 @@ function ensureStockSheetsInitialized(ss) {
         standardizeAndFormatTransactionsSheet(ss);
       }
     }
-  } catch(eTxStd) {}
+  } catch (eTxStd) { }
 
   return { stockInSheet: stockInSheet, stockOutSheet: stockOutSheet };
 }
@@ -1943,7 +1928,7 @@ function alignAndBackfillStockSheets(optSs) {
             `${oldSt} ${unit}`,
             `${newSt} ${unit}`,
             moveStr,
-            (function() {
+            (function () {
               let whCandidate = String(r[12] || '').trim();
               const rUserCheck = String(r[15] || '').trim();
               const rRecCheck = String(r[13] || '').trim();
@@ -2006,12 +1991,12 @@ function alignAndBackfillStockSheets(optSs) {
   // 3. Stock_out Sheet (17 ជួរឈរស្តង់ដារ)
   try {
     standardizeAndFormatStockOutSheet(ss);
-  } catch(eOut) {}
+  } catch (eOut) { }
 
   // 4. Transactions Sheet (12 ជួរឈរស្តង់ដារ - លុប UnitPrice/TotalAmount & តម្រឹម From/To)
   try {
     standardizeAndFormatTransactionsSheet(ss);
-  } catch(eTx) {}
+  } catch (eTx) { }
 
   return { success: true, message: 'បានកែសម្រួលជួរឈរ ស្តុកចាស់ ➔ ថ្មី ក្នុង Google Sheet ជោគជ័យ' };
 }
@@ -2159,7 +2144,7 @@ function ensureUsersInitialized(ss) {
       sheet.getRange(1, 16).setValue('BoundDevices');
       sheet.getRange(1, 17).setValue('Password');
       sheet.getRange(1, 18).setValue('Permissions');
-    } catch (colErr) {}
+    } catch (colErr) { }
 
     // Backfill and record plain passwords for all existing users in Google Sheets
     try {
@@ -2250,7 +2235,7 @@ function ensureUsersInitialized(ss) {
         ]);
       }
 
-    } catch (syncErr) {}
+    } catch (syncErr) { }
   }
   return sheet;
 }
@@ -2274,7 +2259,7 @@ function resetUsersKeepSuperAdminOnly() {
   try {
     invalidateAppCache();
     setGlobalDataVersion();
-  } catch (cErr) {}
+  } catch (cErr) { }
   return { success: true, deletedCount: deletedCount, message: 'Deleted ' + deletedCount + ' users, kept SuperAdmin only.' };
 }
 
@@ -2434,7 +2419,7 @@ function loginUser(usernameOrData, password, extraDeviceInfo) {
               if (uLower) cache.put('active_dev_' + uLower + '_' + devType, devId, 21600);
               if (uId) cache.put('active_dev_' + uId + '_' + devType, devId, 21600);
             }
-          } catch (errCache) {}
+          } catch (errCache) { }
         }
 
         let userPerms = null;
@@ -2926,7 +2911,7 @@ function resetPasswordWithOtp(payload) {
 
     }
 
-  } catch (e) {}
+  } catch (e) { }
 
 
 
@@ -3010,7 +2995,7 @@ function resetPasswordWithOtp(payload) {
 
     }
 
-  } catch (e) {}
+  } catch (e) { }
 
 
 
@@ -3206,7 +3191,7 @@ function registerUser(userData) {
   setGlobalDataVersion();
   try {
     CacheService.getScriptCache().put('LAST_PENDING_REG_TIMESTAMP', String(Date.now()), 21600);
-  } catch(e) {}
+  } catch (e) { }
 
   // Push interactive registration card into ChatMessages sheet for Admin in-app LiveChat review
   try {
@@ -3255,7 +3240,7 @@ function registerUser(userData) {
       if (liveUrl && liveUrl.startsWith('https://script.google.com/')) {
         webAppUrl = liveUrl;
       }
-    } catch (uErr) {}
+    } catch (uErr) { }
 
     const approveUrl = `${webAppUrl}?action=approveUserTelegram&userId=${encodeURIComponent(userId)}&u=${encodeURIComponent(userData.username)}`;
     const rejectUrl = `${webAppUrl}?action=rejectUserTelegram&userId=${encodeURIComponent(userId)}&u=${encodeURIComponent(userData.username)}`;
@@ -3564,7 +3549,7 @@ function getUsersList(userOrPayload) {
         role: String(data[i][6] || '').trim(),
         status: String(data[i][7] || 'Active').trim(),
         createdAt: data[i][8],
-        warehouse: (function(){
+        warehouse: (function () {
           const rawW = String(data[i][9] || '').replace(/[\u200b\ufeff]/g, '').trim();
           if (rawW) return rawW;
           return (data[i][6] === 'Admin' || data[i][6] === 'SuperAdmin') ? 'ALL' : '1-K3 ស្ថានីយ (ភ្នំពេញ)';
@@ -3574,7 +3559,7 @@ function getUsersList(userOrPayload) {
         deleteReason: data[i][12] || '',
         deleteRequestedBy: data[i][13] || '',
         deleteRequestedAt: data[i][14] || '',
-        boundDevices: (function() {
+        boundDevices: (function () {
           if (data[i][15]) {
             try {
               const b = JSON.parse(data[i][15]);
@@ -3585,7 +3570,7 @@ function getUsersList(userOrPayload) {
           }
           return { desktop: null, mobile: null };
         })(),
-        permissions: (function() {
+        permissions: (function () {
           if (data[i][17]) {
             try {
               return typeof data[i][17] === 'string' ? JSON.parse(data[i][17]) : data[i][17];
@@ -3620,19 +3605,21 @@ function getUsersList(userOrPayload) {
   if (isSuperAdmin) {
     return { success: true, users: users.filter(u => !isSelf(u)) };
   } else if (isAdmin) {
-    return { success: true, users: users.filter(u => {
-      const r = String(u.role || '').trim().toLowerCase();
-      const uName = cleanUname(u.username);
-      const uId = String(u.userId || '').toUpperCase();
-      const isSA = (r === 'superadmin' || uName === 'superadmin' || uId === 'USR-SA');
-      if (isSA) return false; // Admin cannot see SuperAdmin
-      const isPending = (u.status === 'Pending' || u.status === 'Pending_Admin' || u.status === 'Pending_SuperAdmin');
-      if (!isPending) {
-        const isOtherAdmin = (r === 'admin' || uName === 'admin' || uName === 'singvan327@gmail.com') && !isSelf(u);
-        if (isOtherAdmin) return false; // Admin sees own Admin account with (ខ្ញុំ) badge, but not other Admins
-      }
-      return true;
-    }) };
+    return {
+      success: true, users: users.filter(u => {
+        const r = String(u.role || '').trim().toLowerCase();
+        const uName = cleanUname(u.username);
+        const uId = String(u.userId || '').toUpperCase();
+        const isSA = (r === 'superadmin' || uName === 'superadmin' || uId === 'USR-SA');
+        if (isSA) return false; // Admin cannot see SuperAdmin
+        const isPending = (u.status === 'Pending' || u.status === 'Pending_Admin' || u.status === 'Pending_SuperAdmin');
+        if (!isPending) {
+          const isOtherAdmin = (r === 'admin' || uName === 'admin' || uName === 'singvan327@gmail.com') && !isSelf(u);
+          if (isOtherAdmin) return false; // Admin sees own Admin account with (ខ្ញុំ) badge, but not other Admins
+        }
+        return true;
+      })
+    };
 
   } else if (isStationManager) {
 
@@ -3787,7 +3774,7 @@ function checkDeviceSession(payload) {
     const cache = CacheService.getScriptCache();
     if (cache) {
       const cachedDevId = (targetUsername ? cache.get('active_dev_' + targetUsername + '_' + devType) : null) ||
-                          (targetUserId ? cache.get('active_dev_' + targetUserId + '_' + devType) : null);
+        (targetUserId ? cache.get('active_dev_' + targetUserId + '_' + devType) : null);
       if (cachedDevId && myDevId && cachedDevId !== myDevId) {
         return {
           success: true,
@@ -3799,7 +3786,7 @@ function checkDeviceSession(payload) {
         };
       }
     }
-  } catch (e) {}
+  } catch (e) { }
 
   // 2. Direct single user lookup in spreadsheet
   try {
@@ -3818,7 +3805,7 @@ function checkDeviceSession(payload) {
           try {
             const parsed = JSON.parse(row[15]);
             bound = (devType === 'DESKTOP') ? parsed.desktop : parsed.mobile;
-          } catch (err) {}
+          } catch (err) { }
         }
 
         if (bound && bound.deviceId && myDevId && bound.deviceId !== myDevId) {
@@ -3828,7 +3815,7 @@ function checkDeviceSession(payload) {
               if (uName) cache.put('active_dev_' + uName + '_' + devType, bound.deviceId, 21600);
               if (uId) cache.put('active_dev_' + uId + '_' + devType, bound.deviceId, 21600);
             }
-          } catch (err) {}
+          } catch (err) { }
 
           return {
             success: true,
@@ -4025,8 +4012,8 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
     const rowEmail = String(data[i][3] || '').trim().toLowerCase();
 
     const isMatch = (rowId && (rowId === rawId || rowIdLower === cleanId)) ||
-                    (rowUser && (rowUser === cleanUsername || rowUser === cleanId)) ||
-                    (rawEmail && rowEmail && rowEmail === rawEmail);
+      (rowUser && (rowUser === cleanUsername || rowUser === cleanId)) ||
+      (rawEmail && rowEmail && rowEmail === rawEmail);
 
     if (isMatch) {
       const existingRole = String(data[i][6] || '');
@@ -4057,14 +4044,14 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
       if (av) {
         try {
           if (av.length <= 49000) sheet.getRange(i + 1, 11).setValue(av);
-        } catch (e) {}
+        } catch (e) { }
       }
       if (phone && String(phone).trim() !== '') sheet.getRange(i + 1, 12).setValue(String(phone).trim());
       if (userIdOrPayload && typeof userIdOrPayload === 'object' && userIdOrPayload.permissions !== undefined) {
         try {
           const permStr = typeof userIdOrPayload.permissions === 'object' ? JSON.stringify(userIdOrPayload.permissions) : String(userIdOrPayload.permissions);
           sheet.getRange(i + 1, 18).setValue(permStr);
-        } catch (e) {}
+        } catch (e) { }
       }
       if (st === 'Pending_Deletion') {
         if (deleteReason) sheet.getRange(i + 1, 13).setValue(deleteReason);
@@ -4083,7 +4070,7 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
             if (liveUrl && liveUrl.startsWith('https://script.google.com/')) {
               webAppUrl = liveUrl;
             }
-          } catch (uErr) {}
+          } catch (uErr) { }
 
           const reviewUrl = `${webAppUrl}?action=reviewUserDeletionTelegram&userId=${encodeURIComponent(uId)}&u=${encodeURIComponent(targetUName)}`;
 
@@ -4150,7 +4137,7 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
             `✅ <b>ស្ថានភាព:</b> 🟢 <b>Active (គណនីបើកដំណើរការរួចរាល់ - SuperAdmin មិនចាំបាច់អនុម័តទេ)</b>`;
 
           sendTelegramAlert(alertMsg, null, [DEFAULT_TELEGRAM_CHAT_ID]);
-        } catch (e) {}
+        } catch (e) { }
       }
 
       // Forward to SuperAdmin Telegram if st === 'Pending_SuperAdmin' (legacy backward compatibility)
@@ -4170,7 +4157,7 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
 
             }
 
-          } catch (uErr) {}
+          } catch (uErr) { }
 
 
 
@@ -4237,7 +4224,7 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
 
 
           // Dispatch Immediate Telegram Alert with One-Click Approve/Reject buttons EXCLUSIVELY to Admin
-    sendTelegramAlert(regAlert, replyMarkup, [DEFAULT_TELEGRAM_ADMIN_CHAT_ID]);
+          sendTelegramAlert(regAlert, replyMarkup, [DEFAULT_TELEGRAM_ADMIN_CHAT_ID]);
 
         } catch (tgErr) {
 
@@ -4250,7 +4237,7 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
       try {
         invalidateAppCache();
         setGlobalDataVersion();
-      } catch (cErr) {}
+      } catch (cErr) { }
 
       return { success: true, message: 'បានកែប្រែព័ត៌មានអ្នកប្រើប្រាស់ជោគជ័យ' };
 
@@ -4331,8 +4318,8 @@ function deleteUser(userIdOrPayload, adminUser, deleteReason) {
     const rowUserClean = rowUsername.toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
 
     const isMatch = (rawTargetId && rowUserId && (rowUserId === rawTargetId || rowUserId.toLowerCase() === cleanTargetId)) ||
-                    (cleanTargetUser && rowUserClean && (rowUserClean === cleanTargetUser)) ||
-                    (rawTargetEmail && rowEmail && rowEmail === rawTargetEmail);
+      (cleanTargetUser && rowUserClean && (rowUserClean === cleanTargetUser)) ||
+      (rawTargetEmail && rowEmail && rowEmail === rawTargetEmail);
 
     if (isMatch) {
       if (rowUsername.toLowerCase() === adminUsername) {
@@ -4356,7 +4343,7 @@ function deleteUser(userIdOrPayload, adminUser, deleteReason) {
     try {
       invalidateAppCache();
       setGlobalDataVersion();
-    } catch (cErr) {}
+    } catch (cErr) { }
 
     logActivity('USERS', adminUsername || 'Admin', 'DELETE_USER', `លុបអ្នកប្រើប្រាស់: ${deletedFullName} (@${finalUsername}) [${deletedCount} ជួរ]`);
 
@@ -4372,7 +4359,7 @@ function deleteUser(userIdOrPayload, adminUser, deleteReason) {
         `🚦 <b>ស្ថានភាព:</b> ❌ <b>បានលុបចេញពីប្រព័ន្ធភ្លាមៗ</b>`;
 
       sendTelegramAlert(delAlert);
-    } catch (tgErr) {}
+    } catch (tgErr) { }
 
     return {
       success: true,
@@ -4387,10 +4374,10 @@ function deleteUser(userIdOrPayload, adminUser, deleteReason) {
 function cleanupDuplicateUsers(optSs) {
   let ss = optSs;
   if (!ss) {
-    try { ss = SpreadsheetApp.getActiveSpreadsheet(); } catch(e) {}
+    try { ss = SpreadsheetApp.getActiveSpreadsheet(); } catch (e) { }
   }
   if (!ss) {
-    try { ss = SpreadsheetApp.openById('1zIK2d2uF3EYzaM9f4N2eOzR-HAmBihfxfHzK3xdgV_A'); } catch(e) {}
+    try { ss = SpreadsheetApp.openById('1zIK2d2uF3EYzaM9f4N2eOzR-HAmBihfxfHzK3xdgV_A'); } catch (e) { }
   }
   if (!ss) return { success: false, message: 'Spreadsheet not accessible' };
 
@@ -4428,7 +4415,7 @@ function cleanupDuplicateUsers(optSs) {
     try {
       invalidateAppCache();
       setGlobalDataVersion();
-    } catch(e) {}
+    } catch (e) { }
   }
 
   return { success: true, removedCount: removedCount };
@@ -4482,7 +4469,7 @@ function requestUserDeletion(payload) {
     const rowUsername = String(data[i][1] || '').trim().replace(/^@/, '').toLowerCase();
 
     const isMatch = (rowUserId && (rowUserId === String(uId).trim() || rowUserIdLower === cleanTargetUId)) ||
-                    (rowUsername && (rowUsername === cleanTargetUId || rowUsername === cleanTargetUName));
+      (rowUsername && (rowUsername === cleanTargetUId || rowUsername === cleanTargetUName));
 
     if (isMatch) {
 
@@ -4519,7 +4506,7 @@ function requestUserDeletion(payload) {
   try {
     invalidateAppCache();
     setGlobalDataVersion();
-  } catch (cErr) {}
+  } catch (cErr) { }
 
   logActivity('USERS', String(adminUser), 'REQUEST_DELETE_USER', `ស្នើសុំលុបអ្នកប្រើប្រាស់: ${targetDisplayName} (${uId}) - មូលហេតុ: ${reason}`);
 
@@ -4546,7 +4533,7 @@ function requestUserDeletion(payload) {
         ]
       }
     );
-  } catch(e) {}
+  } catch (e) { }
 
   return {
     success: true,
@@ -4573,7 +4560,7 @@ function approveUserDeletion(payload) {
     const rowUsername = String(data[i][1] || '').trim().replace(/^@/, '').toLowerCase();
 
     const isMatch = (rowUserId && (rowUserId === String(uId).trim() || rowUserIdLower === cleanTargetUId)) ||
-                    (rowUsername && (rowUsername === cleanTargetUId || rowUsername === cleanTargetUName));
+      (rowUsername && (rowUsername === cleanTargetUId || rowUsername === cleanTargetUName));
 
     if (isMatch) {
       const targetDisplayName = data[i][2] || data[i][1] || rowUsername;
@@ -4585,7 +4572,7 @@ function approveUserDeletion(payload) {
       try {
         invalidateAppCache();
         setGlobalDataVersion();
-      } catch (cErr) {}
+      } catch (cErr) { }
 
       const logMsg = `អនុម័តលុបអ្នកប្រើប្រាស់: ${targetDisplayName} (@${rowUsername}) | មូលហេតុ Admin: ${adminDeleteReason || '-'} | មូលហេតុ SuperAdmin: ${superAdminReason || '-'}`;
       logActivity('USERS', String(adminUser), 'APPROVE_DELETE_USER', logMsg);
@@ -4623,7 +4610,7 @@ function approveUserDeletion(payload) {
             adminDeleteReason: adminDeleteReason
           })
         ]);
-      } catch (cErr) {}
+      } catch (cErr) { }
 
       // Telegram notification to SuperAdmin & team
       try {
@@ -4637,7 +4624,7 @@ function approveUserDeletion(payload) {
           `⏰ <b>កាលបរិច្ឆេទ:</b> ${new Date().toLocaleString('km-KH')}\n` +
           `✅ គណនីត្រូវបានលុបចេញពីប្រព័ន្ធទាំងស្រុងជាស្ថាពរ។`
         );
-      } catch (e) {}
+      } catch (e) { }
 
       return {
         success: true,
@@ -4678,7 +4665,7 @@ function rejectUserDeletion(payload) {
     const rowUsername = String(data[i][1] || '').trim().replace(/^@/, '').toLowerCase();
 
     const isMatch = (rowUserId && (rowUserId === String(uId).trim() || rowUserIdLower === cleanTargetUId)) ||
-                    (rowUsername && (rowUsername === cleanTargetUId || rowUsername === cleanTargetUName));
+      (rowUsername && (rowUsername === cleanTargetUId || rowUsername === cleanTargetUName));
 
     if (isMatch) {
       const targetDisplayName = data[i][2] || data[i][1] || rowUsername;
@@ -4693,7 +4680,7 @@ function rejectUserDeletion(payload) {
       try {
         invalidateAppCache();
         setGlobalDataVersion();
-      } catch (cErr) {}
+      } catch (cErr) { }
 
       const logMsg = `បដិសេធការលុបគណនី: ${targetDisplayName} (@${rowUsername}) | មូលហេតុបដិសេធ SuperAdmin: ${superAdminReason || '-'}`;
       logActivity('USERS', String(adminUser), 'REJECT_DELETE_USER', logMsg);
@@ -4731,7 +4718,7 @@ function rejectUserDeletion(payload) {
             adminDeleteReason: adminDeleteReason
           })
         ]);
-      } catch (cErr) {}
+      } catch (cErr) { }
 
       try {
         sendTelegramAlert(
@@ -4743,7 +4730,7 @@ function rejectUserDeletion(payload) {
           `⏰ <b>កាលបរិច្ឆេទ:</b> ${new Date().toLocaleString('km-KH')}\n` +
           `ℹ️ គណនីត្រូវបានរក្សាទុក និងដំណើរការជា Active ដដែល។`
         );
-      } catch (e) {}
+      } catch (e) { }
 
       return {
         success: true,
@@ -4921,9 +4908,9 @@ function handleTelegramUserDeletionApproval(userId, username, actionType, e) {
       try {
         invalidateAppCache();
         setGlobalDataVersion();
-      } catch (cErr) {}
+      } catch (cErr) { }
       logActivity('SUPERADMIN_WEB', 'SuperAdmin', 'APPROVE_DELETE_USER', `អនុម័តលុបអ្នកប្រើប្រាស់: ${userFullName} (@${username}) | មូលហេតុ Admin: ${delReason} | មូលហេតុ SuperAdmin: ${superAdminReason}`);
-      
+
       try {
         sendTelegramAlert(
           `🗑️ <b>[ការលុបគណនីបានអនុម័តដោយ SuperAdmin]</b>\n` +
@@ -4934,7 +4921,7 @@ function handleTelegramUserDeletionApproval(userId, username, actionType, e) {
           `✍️ <b>មូលហេតុ SuperAdmin:</b> <i>"${superAdminReason || 'យល់ព្រមតាមសំណើ'}"</i>\n` +
           `✅ គណនីត្រូវបាន SuperAdmin អនុម័តលុបចេញពីប្រព័ន្ធជាស្ថាពរ។`
         );
-      } catch(e) {}
+      } catch (e) { }
 
       return HtmlService.createHtmlOutput(`
         <!DOCTYPE html>
@@ -4960,9 +4947,9 @@ function handleTelegramUserDeletionApproval(userId, username, actionType, e) {
       try {
         invalidateAppCache();
         setGlobalDataVersion();
-      } catch (cErr) {}
+      } catch (cErr) { }
       logActivity('SUPERADMIN_WEB', 'SuperAdmin', 'REJECT_DELETE_USER', `បដិសេធការលុបគណនី: ${userFullName} (@${username}) | មូលហេតុ SuperAdmin: ${superAdminReason}`);
-      
+
       try {
         sendTelegramAlert(
           `🛡️ <b>[បានបដិសេធសំណើសុំលុបគណនី]</b>\n` +
@@ -4972,7 +4959,7 @@ function handleTelegramUserDeletionApproval(userId, username, actionType, e) {
           `✍️ <b>មូលហេតុបដិសេធ:</b> <i>"${superAdminReason || 'រក្សាទុកគណនីជា Active'}"</i>\n` +
           `ℹ️ សំណើសុំលុបត្រូវបាន SuperAdmin បដិសេធ។ គណនីនៅតែ Active ដដែល។`
         );
-      } catch(e) {}
+      } catch (e) { }
 
       return HtmlService.createHtmlOutput(`
         <!DOCTYPE html>
@@ -4991,7 +4978,7 @@ function handleTelegramUserDeletionApproval(userId, username, actionType, e) {
         </body></html>
       `).setTitle('បានបដិសេធការលុប');
     }
-  } catch(err) {
+  } catch (err) {
     return HtmlService.createHtmlOutput('កំហុស៖ ' + err.toString());
   }
 }
@@ -5063,7 +5050,7 @@ function updateUserProfile(payload) {
 
           if (avatar.length <= 49000) sheet.getRange(i + 1, 11).setValue(avatar);
 
-        } catch (e) {}
+        } catch (e) { }
 
       }
 
@@ -5142,7 +5129,7 @@ function getBootstrapData(payload) {
   if (!serverVersion) {
     try {
       serverVersion = PropertiesService.getScriptProperties().getProperty('GLOBAL_DATA_VERSION');
-    } catch(e) {}
+    } catch (e) { }
     if (!serverVersion) serverVersion = setGlobalDataVersion();
   }
 
@@ -5190,7 +5177,7 @@ function getBootstrapData(payload) {
       try {
         var usersRes = getUsersList(payload);
         return Object.assign({}, cached, { users: usersRes.users || [] });
-      } catch (e) {}
+      } catch (e) { }
     }
     return cached;
   }
@@ -5223,11 +5210,11 @@ function getBootstrapData(payload) {
     try {
       var usersRes = getUsersList(payload, ss);
       result.users = usersRes.users || [];
-      var pCount = (result.users || []).filter(function(u) {
+      var pCount = (result.users || []).filter(function (u) {
         return u.status === 'Pending_Admin' || u.status === 'Pending';
       }).length;
       CacheService.getScriptCache().put('PENDING_USERS_COUNT', String(pCount), 21600);
-    } catch (e) {}
+    } catch (e) { }
   }
 
   setAppScriptCache(cacheKey, result, 30);
@@ -5688,7 +5675,7 @@ function uploadImageToGoogleDrive(base64Data, fileName, folderName) {
     // កំណត់សិទ្ធិ Folder ឱ្យ Anyone with link can view
     try {
       folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    } catch (fErr) {}
+    } catch (fErr) { }
 
     // ញែក MIME type និង base64 payload
     let contentType = 'image/jpeg';
@@ -5729,13 +5716,13 @@ function uploadImageToGoogleDrive(base64Data, fileName, folderName) {
       }
       try {
         folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-      } catch (fErr2) {}
+      } catch (fErr2) { }
       file = folder.createFile(blob);
     }
 
     try {
       file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    } catch (shareErr) {}
+    } catch (shareErr) { }
 
     const fileId = file.getId();
     // High-performance direct content CDN URL for <img> tags without CORS or cookie auth requirements
@@ -5832,7 +5819,7 @@ function saveOrUpdateItem(itemDataOrPayload, username) {
 
 
   const isNew = targetRow <= 0;
-  const normStr = function(s) { return String(s || '').trim().toLowerCase().replace(/\s+/g, ' '); };
+  const normStr = function (s) { return String(s || '').trim().toLowerCase().replace(/\s+/g, ' '); };
   const newNameNorm = normStr(itemData.name);
   const newSizeNorm = normStr(itemData.size);
   const newColorNorm = normStr(itemData.color);
@@ -6198,8 +6185,8 @@ function deleteItem(skuOrPayload, username) {
       logActivity(user || 'Admin', 'Admin', 'DELETE_ITEM', `Deleted item ${itemName} (${sku}) at ${itemLoc}`);
 
       invalidateAppCache();
-    invalidateAppCache();
-  return { success: true, message: 'បានលុបទំនិញជោគជ័យ!' };
+      invalidateAppCache();
+      return { success: true, message: 'បានលុបទំនិញជោគជ័យ!' };
 
     }
 
@@ -6633,7 +6620,7 @@ function recordStockIn(dataOrPayload, user) {
         }
       }
     }
-  } catch(eU) {}
+  } catch (eU) { }
 
   const locNorm = location.toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
   if (userWhMapInGAS[locNorm] || userWhMapInGAS[location.toLowerCase()]) {
@@ -6819,7 +6806,7 @@ function recordStockIn(dataOrPayload, user) {
         ];
       }
       sInSheet.appendRow(inRowToAppend);
-      try { SpreadsheetApp.flush(); } catch(eFlush1) {}
+      try { SpreadsheetApp.flush(); } catch (eFlush1) { }
     }
   } catch (errIn) {
     Logger.log('Error writing to Stock_in sheet: ' + errIn.toString());
@@ -6829,16 +6816,16 @@ function recordStockIn(dataOrPayload, user) {
 
   try {
     CacheService.getScriptCache().removeAll(['ITEMS_ALL', 'TX_SHEETS_SYNC_ALL', 'TX_SHEETS_SYNC_STOCK_IN']);
-  } catch(e) {}
+  } catch (e) { }
 
   try {
     repairStockInWarehouses(ss);
-  } catch(eRepair) {}
+  } catch (eRepair) { }
 
   try {
     setGlobalDataVersion();
     SpreadsheetApp.flush();
-  } catch(eFlush2) {}
+  } catch (eFlush2) { }
 
   return {
     success: true,
@@ -7054,7 +7041,7 @@ function recordStockInBatch(payloadOrData, userParam) {
           notes: ('[ឯកសារ: ' + finalDocNo + '] [អ្នកទទួល: ' + (it.receivedBy || (u ? u.fullName : 'Staff')) + '] [ខ្នាត: ' + (it.size || '') + '] [ពណ៌: ' + (it.color || '') + '] [តំបន់: ' + (it.zone || '') + '] [ស្តុក: ' + movementStr + '] ' + (it.notes || '')).trim(),
           user: u ? (u.fullName || u.username) : (it.receivedBy || 'Staff')
         });
-      } catch(eTx) {}
+      } catch (eTx) { }
     }
 
     stockUpdates.forEach(su => {
@@ -7070,11 +7057,11 @@ function recordStockInBatch(payloadOrData, userParam) {
 
     try {
       CacheService.getScriptCache().removeAll(['ITEMS_ALL', 'TX_SHEETS_SYNC_ALL', 'TX_SHEETS_SYNC_STOCK_IN']);
-    } catch(e) {}
+    } catch (e) { }
 
     try {
       repairStockInWarehouses(ss);
-    } catch(eRepair) {}
+    } catch (eRepair) { }
 
     setGlobalDataVersion();
     SpreadsheetApp.flush();
@@ -7089,7 +7076,7 @@ function recordStockInBatch(payloadOrData, userParam) {
     Logger.log('recordStockInBatch error: ' + err.toString());
     return { success: false, message: 'កំហុសកត់ត្រាចូលស្តុក: ' + err.toString() };
   } finally {
-    try { lock.releaseLock(); } catch(e) {}
+    try { lock.releaseLock(); } catch (e) { }
   }
 }
 
@@ -7263,7 +7250,7 @@ function recordStockOutBatch(payloadOrData, userParam) {
           notes: ('[ឯកសារ: ' + finalDocNo + '] [អ្នកបើក: ' + (it.issuer || (u ? u.fullName : 'Staff')) + '] [ខ្នាត: ' + (it.size || '') + '] [ពណ៌: ' + (it.color || '') + '] [ស្តុក: ' + movementStr + '] ' + (it.notes || '')).trim(),
           user: u ? (u.fullName || u.username) : (it.issuer || 'Staff')
         });
-      } catch(eTx) {}
+      } catch (eTx) { }
     }
 
     stockUpdates.forEach(su => {
@@ -7280,7 +7267,7 @@ function recordStockOutBatch(payloadOrData, userParam) {
     try {
       CacheService.getScriptCache().remove('TX_SHEETS_SYNC_ALL');
       CacheService.getScriptCache().remove('TX_SHEETS_SYNC_STOCK_OUT');
-    } catch(e) {}
+    } catch (e) { }
 
     setGlobalDataVersion();
     SpreadsheetApp.flush();
@@ -7295,7 +7282,7 @@ function recordStockOutBatch(payloadOrData, userParam) {
     Logger.log('recordStockOutBatch error: ' + err.toString());
     return { success: false, message: 'កំហុសកត់ត្រាចេញស្តុក: ' + err.toString() };
   } finally {
-    try { lock.releaseLock(); } catch(e) {}
+    try { lock.releaseLock(); } catch (e) { }
   }
 }
 
@@ -7305,10 +7292,10 @@ function recordStockOutBatch(payloadOrData, userParam) {
 function syncMissingStockInRecords(optSs) {
   let ss = optSs;
   if (!ss) {
-    try { ss = SpreadsheetApp.getActiveSpreadsheet(); } catch(e) {}
+    try { ss = SpreadsheetApp.getActiveSpreadsheet(); } catch (e) { }
   }
   if (!ss) {
-    try { ss = SpreadsheetApp.openById('1zIK2d2uF3EYzaM9f4N2eOzR-HAmBihfxfHzK3xdgV_A'); } catch(e) {}
+    try { ss = SpreadsheetApp.openById('1zIK2d2uF3EYzaM9f4N2eOzR-HAmBihfxfHzK3xdgV_A'); } catch (e) { }
   }
   if (!ss) return { success: false, message: 'Spreadsheet not accessible' };
 
@@ -7324,25 +7311,6 @@ function syncMissingStockInRecords(optSs) {
   }
 
   const missingRows = [
-    {
-      docNo: 'IN-20261105-4783',
-      date: '2026-11-05',
-      sku: 'SKU-3445',
-      itemName: '地毯',
-      size: '把',
-      color: '-',
-      zone: 'A08',
-      quantity: 1,
-      unit: 'ដុំ',
-      oldStock: '0 ដុំ',
-      newStock: '1 ដុំ',
-      movement: '0 ដុំ ➔ 1 ដុំ',
-      warehouse: '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)',
-      receivedBy: '陈龙',
-      notes: 'សាកល្បង',
-      user: '陈龙',
-      timestamp: '2026-11-05 14:07:56'
-    },
     {
       docNo: 'IN-20261105-4783',
       date: '2026-11-05',
@@ -7453,7 +7421,7 @@ function syncMissingStockInRecords(optSs) {
     SpreadsheetApp.flush();
     try {
       CacheService.getScriptCache().removeAll(['ITEMS_ALL', 'TX_SHEETS_SYNC_ALL', 'TX_SHEETS_SYNC_STOCK_IN']);
-    } catch(e) {}
+    } catch (e) { }
     setGlobalDataVersion();
   }
 
@@ -7463,10 +7431,10 @@ function syncMissingStockInRecords(optSs) {
 function repairStockInWarehouses(optSs) {
   let ss = optSs;
   if (!ss) {
-    try { ss = SpreadsheetApp.getActiveSpreadsheet(); } catch(e) {}
+    try { ss = SpreadsheetApp.getActiveSpreadsheet(); } catch (e) { }
   }
   if (!ss) {
-    try { ss = SpreadsheetApp.openById('1zIK2d2uF3EYzaM9f4N2eOzR-HAmBihfxfHzK3xdgV_A'); } catch(e) {}
+    try { ss = SpreadsheetApp.openById('1zIK2d2uF3EYzaM9f4N2eOzR-HAmBihfxfHzK3xdgV_A'); } catch (e) { }
   }
   if (!ss) return { success: false, message: 'Spreadsheet not accessible' };
   let fixedCount = 0;
@@ -7547,7 +7515,7 @@ function repairStockInWarehouses(optSs) {
             }
           }
         }
-      } catch(eU) {}
+      } catch (eU) { }
 
       for (let r = 1; r < data.length; r++) {
         let curWh = String(data[r][finalWhIdx] || '').trim();
@@ -7562,7 +7530,7 @@ function repairStockInWarehouses(optSs) {
         if (curWh && (userWhMap[curWh.toLowerCase()] || userWhMap[curWhNorm])) {
           properWh = userWhMap[curWh.toLowerCase()] || userWhMap[curWhNorm];
           if (!rRec || rRec === 'undefined' || rRec === '-') {
-            try { sInSheet.getRange(r + 1, finalRecIdx + 1).setValue(curWh); } catch(eFixRec) {}
+            try { sInSheet.getRange(r + 1, finalRecIdx + 1).setValue(curWh); } catch (eFixRec) { }
           }
         } else if (rUser && (userWhMap[rUser.toLowerCase()] || userWhMap[rUserNorm])) {
           const uStation = userWhMap[rUser.toLowerCase()] || userWhMap[rUserNorm];
@@ -7586,7 +7554,7 @@ function repairStockInWarehouses(optSs) {
           } else {
             curDoc = 'IN-20261018-' + (1000 + r);
           }
-          try { sInSheet.getRange(r + 1, finalDocIdx + 1).setValue(curDoc); } catch(eFixDoc) {}
+          try { sInSheet.getRange(r + 1, finalDocIdx + 1).setValue(curDoc); } catch (eFixDoc) { }
           fixedCount++;
         }
 
@@ -7625,7 +7593,7 @@ function repairStockInWarehouses(optSs) {
         }
       }
     }
-  } catch(eIn) {
+  } catch (eIn) {
     Logger.log('repairStockInWarehouses Stock_in error: ' + eIn.toString());
   }
 
@@ -7695,7 +7663,7 @@ function repairStockInWarehouses(optSs) {
         }
       }
     }
-  } catch(eTx) {
+  } catch (eTx) {
     Logger.log('repairStockInWarehouses Transactions error: ' + eTx.toString());
   }
 
@@ -7703,6 +7671,156 @@ function repairStockInWarehouses(optSs) {
     success: true,
     fixedCount: fixedCount,
     message: `បានកែសម្រួលជួរឈរ Warehouse ក្នុង Stock_in និង Transactions ចំនួន ${fixedCount} កន្លែងជោគជ័យ!`
+  };
+}
+
+/**
+ * ជួសជុលទិន្នន័យប្រតិបត្តិការ Stock_in និង Transactions ដោយស្ដារ SKU-2089 និងលុប SKU-3445
+ */
+function repairStockInMistake(optSs) {
+  let ss = optSs;
+  if (!ss) {
+    try { ss = SpreadsheetApp.getActiveSpreadsheet(); } catch (e) { }
+  }
+  if (!ss) {
+    try { ss = SpreadsheetApp.openById('1zIK2d2uF3EYzaM9f4N2eOzR-HAmBihfxfHzK3xdgV_A'); } catch (e) { }
+  }
+  if (!ss) return { success: false, message: 'Spreadsheet not accessible' };
+
+  const sInSheet = ss.getSheetByName('Stock_in') || ss.getSheetByName(SHEETS.STOCK_IN);
+  const txSheet = ss.getSheetByName('Transactions') || ss.getSheetByName(SHEETS.TRANSACTIONS);
+  const itemsSheet = ss.getSheetByName(SHEETS.ITEMS);
+
+  let deletedStockIn = 0;
+  let insertedStockIn = 0;
+  let deletedTx = 0;
+  let insertedTx = 0;
+
+  // 1. Stock_in sheet
+  if (sInSheet && sInSheet.getLastRow() > 1) {
+    const data = sInSheet.getDataRange().getValues();
+    for (let i = data.length - 1; i >= 1; i--) {
+      const doc = String(data[i][0] || '').trim().toUpperCase();
+      const sku = String(data[i][2] || '').trim().toUpperCase();
+      if (doc === 'IN-20261105-4783' && sku === 'SKU-3445') {
+        sInSheet.deleteRow(i + 1);
+        deletedStockIn++;
+      }
+    }
+    const freshData = sInSheet.getDataRange().getValues();
+    let hasSku2089 = false;
+    for (let i = 1; i < freshData.length; i++) {
+      const doc = String(freshData[i][0] || '').trim().toUpperCase();
+      const sku = String(freshData[i][2] || '').trim().toUpperCase();
+      if (doc === 'IN-20261105-4783' && sku === 'SKU-2089') {
+        hasSku2089 = true;
+        break;
+      }
+    }
+    if (!hasSku2089) {
+      sInSheet.appendRow([
+        'IN-20261105-4783',
+        '2026-11-05',
+        'SKU-2089',
+        'ក្រដាសជូតមាត់-抽纸',
+        'LM',
+        'ស',
+        'A07',
+        3,
+        'ដុំ',
+        '0 ដុំ',
+        '3 ដុំ',
+        '0 ដុំ ➔ 3 ដុំ',
+        '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
+        '陈龙',
+        'សាកល្បង',
+        '陈龙',
+        '2026-11-05 08:00:00'
+      ]);
+      insertedStockIn++;
+    }
+  }
+
+  // 2. Transactions sheet
+  if (txSheet && txSheet.getLastRow() > 1) {
+    const txData = txSheet.getDataRange().getValues();
+    for (let i = txData.length - 1; i >= 1; i--) {
+      const txId = String(txData[i][0] || '').trim().toUpperCase();
+      const txSku = String(txData[i][3] || '').trim().toUpperCase();
+      const txNotes = String(txData[i][9] || '').toUpperCase();
+      if ((txId === 'IN-20261105-4783' || txNotes.includes('IN-20261105-4783')) && txSku === 'SKU-3445') {
+        txSheet.deleteRow(i + 1);
+        deletedTx++;
+      }
+    }
+    const freshTx = txSheet.getDataRange().getValues();
+    let hasSku2089Tx = false;
+    for (let i = 1; i < freshTx.length; i++) {
+      const txId = String(freshTx[i][0] || '').trim().toUpperCase();
+      const txSku = String(freshTx[i][3] || '').trim().toUpperCase();
+      const txNotes = String(freshTx[i][9] || '').toUpperCase();
+      if ((txId === 'IN-20261105-4783' || txNotes.includes('IN-20261105-4783')) && txSku === 'SKU-2089') {
+        hasSku2089Tx = true;
+        break;
+      }
+    }
+    if (!hasSku2089Tx) {
+      txSheet.appendRow([
+        'IN-20261105-4783',
+        '2026-11-05',
+        'STOCK_IN',
+        'SKU-2089',
+        'ក្រដាសជូតមាត់-抽纸',
+        3,
+        'ដុំ',
+        'អ្នកផ្គត់ផ្គង់ (Supplier)',
+        '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
+        '[ឯកសារ: IN-20261105-4783] [អ្នកទទួល: 陈龙] [ខ្នាត: LM] [ពណ៌: ស] [តំបន់: A07] [ស្តុក: 0 ដុំ ➔ 3 ដុំ] សាកល្បង',
+        '陈龙',
+        '2026-11-05 08:00:00',
+        0,
+        0
+      ]);
+      insertedTx++;
+    }
+  }
+
+  // 3. Items sheet
+  if (itemsSheet && itemsSheet.getLastRow() > 1) {
+    const itemsData = itemsSheet.getDataRange().getValues();
+    const itemHeaders = (itemsData[0] || []).map(h => String(h || '').trim().toLowerCase());
+    const idxStock = itemHeaders.indexOf('currentstock') >= 0 ? itemHeaders.indexOf('currentstock') : 9;
+    const idxZone = itemHeaders.indexOf('zone') >= 0 ? itemHeaders.indexOf('zone') : 11;
+    const idxPackQty = itemHeaders.indexOf('packqty') >= 0 ? itemHeaders.indexOf('packqty') : 7;
+    const idxUpdated = itemHeaders.indexOf('updatedat') >= 0 ? itemHeaders.indexOf('updatedat') : 16;
+    for (let i = 1; i < itemsData.length; i++) {
+      const sku = String(itemsData[i][0] || '').trim().toUpperCase();
+      if (sku === 'SKU-3445') {
+        itemsSheet.getRange(i + 1, idxStock + 1).setValue(0);
+        itemsSheet.getRange(i + 1, idxZone + 1).setValue('-');
+        itemsSheet.getRange(i + 1, idxPackQty + 1).setValue(1);
+        itemsSheet.getRange(i + 1, idxUpdated + 1).setValue(new Date());
+      } else if (sku === 'SKU-2089') {
+        itemsSheet.getRange(i + 1, idxStock + 1).setValue(3);
+        itemsSheet.getRange(i + 1, idxZone + 1).setValue('A07: 3 ដុំ');
+        itemsSheet.getRange(i + 1, idxPackQty + 1).setValue(7);
+        itemsSheet.getRange(i + 1, idxUpdated + 1).setValue(new Date());
+      }
+    }
+  }
+
+  try {
+    SpreadsheetApp.flush();
+    invalidateAppCache();
+    setGlobalDataVersion();
+  } catch (eCache) { }
+
+  return {
+    success: true,
+    deletedStockIn: deletedStockIn,
+    insertedStockIn: insertedStockIn,
+    deletedTx: deletedTx,
+    insertedTx: insertedTx
   };
 }
 
@@ -7723,11 +7841,11 @@ function cleanDisplayNoteGAS(rawNote) {
       if (p && typeof p === 'object') {
         s = String(p.userNote || p.notes || p.note || '').trim();
       }
-    } catch(e) {}
+    } catch (e) { }
   }
 
   // 1. Extract note content if explicitly labeled [កំណត់សម្គាល់: ...] or [Note: ...] or [Notes: ...]
-  s = s.replace(/\[\s*(?:កំណត់សម្គាល់|Note|Notes)\s*[:=：]\s*([^\]]+)\]/gi, function(m, p1) { return ' ' + p1 + ' '; });
+  s = s.replace(/\[\s*(?:កំណត់សម្គាល់|Note|Notes)\s*[:=：]\s*([^\]]+)\]/gi, function (m, p1) { return ' ' + p1 + ' '; });
 
   // 2. Remove any bracket starting with known system tag keywords (both closed and unclosed at end)
   s = s.replace(/\[\s*(?:ឯកសារ|លេខឯកសារ|អ្នកទទួល|អ្នកបើក|អ្នកបើកចេញ|អ្នកបើកទំនិញ|ខ្នាត|ពណ៌|តំបន់|មូលហេតុ|ចូល|ចូលជាដុំ|ចូលជារាយ|ចេញ|ចេញជាដុំ|ចេញជារាយ|ដុំ|រាយ|ចែក|ស្តុក|ស្តុកចាស់|ស្តុកថ្មី|ស្តុកនៅសល់|ទទួលពី(?:\s*Admin)?|Stock|OldStock|NewStock|RemainingStock|Movement|StockMovement|Doc|DocNo|Receiver|Issuer|Size|Color|Zone|Reason|Station|Status|Warehouse|ឃ្លាំង|ទីតាំង|SKU|Item|ItemName|Total|សរុប)(?:\s*[:=：]|\s)[^\]]*(?:\]|$)/gi, ' ');
@@ -7807,7 +7925,7 @@ function recordStockOut(dataOrPayload, user) {
           }
         }
       }
-    } catch(eDupe) {}
+    } catch (eDupe) { }
   }
 
 
@@ -8040,7 +8158,7 @@ function recordStockOut(dataOrPayload, user) {
     CacheService.getScriptCache().remove('TX_SHEETS_SYNC_STOCK_OUT');
     setGlobalDataVersion();
     SpreadsheetApp.flush();
-  } catch(e) {}
+  } catch (e) { }
 
   return {
     success: true,
@@ -8363,7 +8481,7 @@ function recordTransactionInternal(ss, tx) {
           }
         }
       }
-    } catch(eU) {}
+    } catch (eU) { }
 
     const toNorm = String(toLoc || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
     const uNorm = String(tx.user || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
@@ -8423,13 +8541,13 @@ function recordTransactionInternal(ss, tx) {
       tx.user,
       tsFormatted
     ]);
-    try { SpreadsheetApp.flush(); } catch(eFlush3) {}
+    try { SpreadsheetApp.flush(); } catch (eFlush3) { }
   }
 
   try {
     setGlobalDataVersion();
     CacheService.getScriptCache().removeAll(['ITEMS_ALL', 'TX_SHEETS_SYNC_ALL', 'TX_SHEETS_SYNC_STOCK_IN', 'TX_SHEETS_SYNC_STOCK_OUT', 'DASHBOARD_STATS_ALL']);
-  } catch(eVer) {}
+  } catch (eVer) { }
 
   return { txId: txId };
 }
@@ -8459,12 +8577,12 @@ function syncSheetsTransactionsInternal(ss, targetType) {
 
     // Auto-fix corrupted numeric toLocation in column 9 (row[8])
     if (/^\d+$/.test(String(row[8] || '').trim())) {
-      try { txSheet.getRange(i + 1, 9).setValue('中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)'); } catch(eFix) {}
+      try { txSheet.getRange(i + 1, 9).setValue('中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)'); } catch (eFix) { }
     }
 
     let dStr = '';
     if (row[1] instanceof Date) {
-      try { dStr = Utilities.formatDate(row[1], 'GMT+7', 'yyyy-MM-dd'); } catch(e) {}
+      try { dStr = Utilities.formatDate(row[1], 'GMT+7', 'yyyy-MM-dd'); } catch (e) { }
     } else if (row[1]) {
       dStr = String(row[1]).slice(0, 10);
     }
@@ -8507,9 +8625,9 @@ function syncSheetsTransactionsInternal(ss, targetType) {
 
         let dStr = '';
         if (row[idxDate] instanceof Date) {
-          try { dStr = Utilities.formatDate(row[idxDate], 'GMT+7', 'yyyy-MM-dd'); } catch(e) {}
+          try { dStr = Utilities.formatDate(row[idxDate], 'GMT+7', 'yyyy-MM-dd'); } catch (e) { }
         } else if (row[idxDate]) {
-          try { dStr = Utilities.formatDate(new Date(row[idxDate]), 'GMT+7', 'yyyy-MM-dd'); } catch(e) { dStr = String(row[idxDate]).slice(0, 10); }
+          try { dStr = Utilities.formatDate(new Date(row[idxDate]), 'GMT+7', 'yyyy-MM-dd'); } catch (e) { dStr = String(row[idxDate]).slice(0, 10); }
         }
 
         const qty = Number(row[idxQty] || 0);
@@ -8613,9 +8731,9 @@ function syncSheetsTransactionsInternal(ss, targetType) {
 
         let dStr = '';
         if (row[idxDate] instanceof Date) {
-          try { dStr = Utilities.formatDate(row[idxDate], 'GMT+7', 'yyyy-MM-dd'); } catch(e) {}
+          try { dStr = Utilities.formatDate(row[idxDate], 'GMT+7', 'yyyy-MM-dd'); } catch (e) { }
         } else if (row[idxDate]) {
-          try { dStr = Utilities.formatDate(new Date(row[idxDate]), 'GMT+7', 'yyyy-MM-dd'); } catch(e) { dStr = String(row[idxDate]).slice(0, 10); }
+          try { dStr = Utilities.formatDate(new Date(row[idxDate]), 'GMT+7', 'yyyy-MM-dd'); } catch (e) { dStr = String(row[idxDate]).slice(0, 10); }
         }
 
         const qty = Number(row[idxQty] || 0);
@@ -8814,7 +8932,7 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
           }
         }
       }
-    } catch(e) {}
+    } catch (e) { }
 
     for (let r = data.length - 1; r >= 1; r--) {
       const row = data[r];
@@ -8831,7 +8949,7 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
 
       let dStr = '';
       if (row[dateIdx] instanceof Date) {
-        try { dStr = Utilities.formatDate(row[dateIdx], 'GMT+7', 'yyyy-MM-dd'); } catch(e) {}
+        try { dStr = Utilities.formatDate(row[dateIdx], 'GMT+7', 'yyyy-MM-dd'); } catch (e) { }
       } else if (row[dateIdx]) {
         try {
           const pd = new Date(row[dateIdx]);
@@ -8840,14 +8958,14 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
           } else {
             dStr = String(row[dateIdx]).slice(0, 10);
           }
-        } catch(e) {
+        } catch (e) {
           dStr = String(row[dateIdx]).slice(0, 10);
         }
       }
 
       if (!docNo) {
         docNo = 'IN-' + (dStr ? dStr.replace(/-/g, '') : '20261018') + '-' + (1000 + r);
-        try { sInSheet.getRange(r + 1, docIdx + 1).setValue(docNo); } catch(eFixDoc) {}
+        try { sInSheet.getRange(r + 1, docIdx + 1).setValue(docNo); } catch (eFixDoc) { }
       }
 
       if (filters && filters.startDate && dStr && dStr < filters.startDate) continue;
@@ -8885,7 +9003,7 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
           }
         }
         wh = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(wh) : wh;
-        try { sInSheet.getRange(r + 1, whIdx + 1).setValue(wh); } catch(eFixWh) {}
+        try { sInSheet.getRange(r + 1, whIdx + 1).setValue(wh); } catch (eFixWh) { }
       } else {
         wh = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(wh) : wh;
       }
@@ -8895,11 +9013,11 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
         const uNameNorm = uName.replace(/[\u200b\ufeff\s_-]/g, '');
         const uFullNorm = String(user && user.fullName || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
         const isMyWh = (userWhMap[rowUserNorm] && matchesTargetWarehouseGAS(userWhMap[rowUserNorm], targetWarehouse)) ||
-                       (userWhMap[recByNorm] && matchesTargetWarehouseGAS(userWhMap[recByNorm], targetWarehouse)) ||
-                       (userWhMap[whNorm] && matchesTargetWarehouseGAS(userWhMap[whNorm], targetWarehouse));
-        const isMyTx = (uName && (rowUserNorm === uNameNorm || rowUserNorm === uFullNorm || whNorm === uNameNorm)) || 
-                       (recByNorm && (recByNorm === uNameNorm || recByNorm === uFullNorm || whNorm === uFullNorm)) ||
-                       isMyWh;
+          (userWhMap[recByNorm] && matchesTargetWarehouseGAS(userWhMap[recByNorm], targetWarehouse)) ||
+          (userWhMap[whNorm] && matchesTargetWarehouseGAS(userWhMap[whNorm], targetWarehouse));
+        const isMyTx = (uName && (rowUserNorm === uNameNorm || rowUserNorm === uFullNorm || whNorm === uNameNorm)) ||
+          (recByNorm && (recByNorm === uNameNorm || recByNorm === uFullNorm || whNorm === uFullNorm)) ||
+          isMyWh;
         if (!matchesTarget && !isMyTx) {
           continue;
         }
@@ -8921,17 +9039,17 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
       if (filters && typeof filters.search === 'string' && filters.search.trim()) {
         const q = filters.search.trim().toLowerCase();
         const match = docNo.toLowerCase().includes(q) ||
-                      sku.toLowerCase().includes(q) ||
-                      itemName.toLowerCase().includes(q) ||
-                      wh.toLowerCase().includes(q) ||
-                      notes.toLowerCase().includes(q);
+          sku.toLowerCase().includes(q) ||
+          itemName.toLowerCase().includes(q) ||
+          wh.toLowerCase().includes(q) ||
+          notes.toLowerCase().includes(q);
         if (!match) continue;
       }
 
       let tsFormatted = '';
       if (tsIdx >= 0 && row[tsIdx]) {
         if (row[tsIdx] instanceof Date) {
-          try { tsFormatted = Utilities.formatDate(row[tsIdx], 'GMT+7', 'yyyy-MM-dd HH:mm:ss'); } catch(e) {}
+          try { tsFormatted = Utilities.formatDate(row[tsIdx], 'GMT+7', 'yyyy-MM-dd HH:mm:ss'); } catch (e) { }
         } else {
           tsFormatted = String(row[tsIdx]);
         }
@@ -9034,18 +9152,18 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
             const uNameNorm = uName.replace(/[\u200b\ufeff\s_-]/g, '');
             const uFullNorm = String(user && user.fullName || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
             const isMyWh = (userWhMap[rUserNorm] && matchesTargetWarehouseGAS(userWhMap[rUserNorm], targetWarehouse)) ||
-                           (userWhMap[rRecNorm] && matchesTargetWarehouseGAS(userWhMap[rRecNorm], targetWarehouse)) ||
-                           (userWhMap[toLocNorm] && matchesTargetWarehouseGAS(userWhMap[toLocNorm], targetWarehouse));
-            const isMyTx = (uName && (rUserNorm === uNameNorm || rUserNorm === uFullNorm || toLocNorm === uNameNorm)) || 
-                           (rRecNorm && (rRecNorm === uNameNorm || rRecNorm === uFullNorm || toLocNorm === uFullNorm)) ||
-                           isMyWh;
+              (userWhMap[rRecNorm] && matchesTargetWarehouseGAS(userWhMap[rRecNorm], targetWarehouse)) ||
+              (userWhMap[toLocNorm] && matchesTargetWarehouseGAS(userWhMap[toLocNorm], targetWarehouse));
+            const isMyTx = (uName && (rUserNorm === uNameNorm || rUserNorm === uFullNorm || toLocNorm === uNameNorm)) ||
+              (rRecNorm && (rRecNorm === uNameNorm || rRecNorm === uFullNorm || toLocNorm === uFullNorm)) ||
+              isMyWh;
             if (!matchesTarget && !isMyTx) continue;
             if (!matchesTarget && isMyTx) toLoc = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(targetWarehouse) : targetWarehouse;
           }
 
           let dStr = '';
           if (tRow[tDateIdx] instanceof Date) {
-            try { dStr = Utilities.formatDate(tRow[tDateIdx], 'GMT+7', 'yyyy-MM-dd'); } catch(e) {}
+            try { dStr = Utilities.formatDate(tRow[tDateIdx], 'GMT+7', 'yyyy-MM-dd'); } catch (e) { }
           } else if (tRow[tDateIdx]) {
             dStr = String(tRow[tDateIdx]).slice(0, 10);
           }
@@ -9084,7 +9202,7 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
           if (transactions.length >= limit) break;
         }
       }
-    } catch(eTxMerge) {}
+    } catch (eTxMerge) { }
 
     return transactions;
   } catch (err) {
@@ -9173,7 +9291,7 @@ function getStockOutTransactionsFromSheet(ss, filters, user) {
 
       let dStr = '';
       if (row[dateIdx] instanceof Date) {
-        try { dStr = Utilities.formatDate(row[dateIdx], 'GMT+7', 'yyyy-MM-dd'); } catch(e) {}
+        try { dStr = Utilities.formatDate(row[dateIdx], 'GMT+7', 'yyyy-MM-dd'); } catch (e) { }
       } else if (row[dateIdx]) {
         try {
           const pd = new Date(row[dateIdx]);
@@ -9182,7 +9300,7 @@ function getStockOutTransactionsFromSheet(ss, filters, user) {
           } else {
             dStr = String(row[dateIdx]).slice(0, 10);
           }
-        } catch(e) {
+        } catch (e) {
           dStr = String(row[dateIdx]).slice(0, 10);
         }
       }
@@ -9219,10 +9337,10 @@ function getStockOutTransactionsFromSheet(ss, filters, user) {
       if (filters && filters.search) {
         const q = String(filters.search).toLowerCase();
         const match = docNo.toLowerCase().includes(q) ||
-                      sku.toLowerCase().includes(q) ||
-                      itemName.toLowerCase().includes(q) ||
-                      fromWh.toLowerCase().includes(q) ||
-                      notes.toLowerCase().includes(q);
+          sku.toLowerCase().includes(q) ||
+          itemName.toLowerCase().includes(q) ||
+          fromWh.toLowerCase().includes(q) ||
+          notes.toLowerCase().includes(q);
         if (!match) continue;
       }
 
@@ -9271,10 +9389,10 @@ function getTransactionHistory(filtersOrPayload, userParam) {
   let filters = filtersOrPayload || {};
   let user = userParam;
   if (typeof filters === 'string') {
-    try { filters = JSON.parse(filters); } catch(e) { filters = {}; }
+    try { filters = JSON.parse(filters); } catch (e) { filters = {}; }
   }
   if (filters && typeof filters.filters === 'string') {
-    try { filters.filters = JSON.parse(filters.filters); } catch(e) {}
+    try { filters.filters = JSON.parse(filters.filters); } catch (e) { }
   }
   if (filters && filters.filters && typeof filters.filters === 'object') {
     user = filters.user || userParam;
@@ -9322,7 +9440,7 @@ function getTransactionHistory(filtersOrPayload, userParam) {
     try {
       syncSheetsTransactionsInternal(ss, targetType);
       CacheService.getScriptCache().put(syncCacheKey, '1', 60);
-    } catch(syncErr) {
+    } catch (syncErr) {
       Logger.log('syncSheetsTransactionsInternal error: ' + syncErr.toString());
     }
   }
@@ -9358,7 +9476,7 @@ function getTransactionHistory(filtersOrPayload, userParam) {
         if (rSku && !stockInMetaMap['SKU_' + rSku]) stockInMetaMap['SKU_' + rSku] = metaObj;
       }
     }
-  } catch(eMap) {}
+  } catch (eMap) { }
 
   const itemsMetaMap = {};
   try {
@@ -9376,7 +9494,7 @@ function getTransactionHistory(filtersOrPayload, userParam) {
         }
       }
     }
-  } catch(eItm) {}
+  } catch (eItm) { }
 
   const data = sheet.getDataRange().getValues();
   const txHeaders = (data[0] || []).map(h => String(h || '').trim().toLowerCase());
@@ -9473,7 +9591,7 @@ function getTransactionHistory(filtersOrPayload, userParam) {
         }
       }
     }
-  } catch(eU) {}
+  } catch (eU) { }
 
   for (let i = data.length - 1; i >= 1; i--) {
     const row = data[i];
@@ -9522,10 +9640,10 @@ function getTransactionHistory(filtersOrPayload, userParam) {
       const uNameStr = user ? String(user.username || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '') : '';
       const uFullStr = user ? String(user.fullName || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '') : '';
       const isMyWh = (userWhMapGAS[rowUserNorm] && matchesTargetWarehouseGAS(userWhMapGAS[rowUserNorm], targetWarehouse)) ||
-                     (userWhMapGAS[recByNorm] && matchesTargetWarehouseGAS(userWhMapGAS[recByNorm], targetWarehouse));
+        (userWhMapGAS[recByNorm] && matchesTargetWarehouseGAS(userWhMapGAS[recByNorm], targetWarehouse));
       const isMyTx = (uNameStr && (rowUserNorm === uNameStr || recByNorm === uNameStr || toLocNorm === uNameStr)) ||
-                     (uFullStr && (rowUserNorm === uFullStr || recByNorm === uFullStr || toLocNorm === uFullStr)) ||
-                     isMyWh;
+        (uFullStr && (rowUserNorm === uFullStr || recByNorm === uFullStr || toLocNorm === uFullStr)) ||
+        isMyWh;
       if (!isAdmUser) {
         if (!matchesTarget && !isMyTx) {
           continue;
@@ -9553,7 +9671,7 @@ function getTransactionHistory(filtersOrPayload, userParam) {
           txDate = String(row[idxDate]).slice(0, 10);
         }
       }
-    } catch(e) {
+    } catch (e) {
       txDate = String(row[idxDate] || '').slice(0, 10);
     }
 
@@ -9736,11 +9854,20 @@ function deleteStockTransaction(payloadOrData, user) {
     const txRows = txSheet.getDataRange().getValues();
     const txHeaders = (txRows[0] || []).map(h => String(h || '').trim().toLowerCase());
     const idxTxId = txHeaders.indexOf('txid') >= 0 ? txHeaders.indexOf('txid') : 0;
+    const idxTxSku = txHeaders.indexOf('sku') >= 0 ? txHeaders.indexOf('sku') : (txHeaders.indexOf('item_code') >= 0 ? txHeaders.indexOf('item_code') : 3);
     const idxTxNotes = txHeaders.indexOf('reason_notes') >= 0 ? txHeaders.indexOf('reason_notes') : (txHeaders.indexOf('notes') >= 0 ? txHeaders.indexOf('notes') : 9);
     for (let i = txRows.length - 1; i >= 1; i--) {
       const rTxId = String(txRows[i][idxTxId] || '').trim();
       const rNotes = String(txRows[i][idxTxNotes] || '');
-      if ((txId && rTxId.toLowerCase() === txId.toLowerCase()) || (docNo && (rTxId.toLowerCase() === docNo.toLowerCase() || rNotes.toLowerCase().includes(docNo.toLowerCase())))) {
+      const rSku = String(txRows[i][idxTxSku] || '').trim();
+      const docMatch = (docNo && (rTxId.toLowerCase() === docNo.toLowerCase() || rNotes.toLowerCase().includes(docNo.toLowerCase())));
+      const txMatch = (txId && rTxId.toLowerCase() === txId.toLowerCase());
+      if (sku && (docMatch || txMatch)) {
+        if (rSku.toLowerCase() === sku.toLowerCase()) {
+          txSheet.deleteRow(i + 1);
+          break;
+        }
+      } else if (docMatch || txMatch) {
         txSheet.deleteRow(i + 1);
         break;
       }
@@ -9780,6 +9907,12 @@ function deleteStockTransaction(payloadOrData, user) {
       }
     }
   }
+
+  try {
+    SpreadsheetApp.flush();
+    invalidateAppCache();
+    setGlobalDataVersion();
+  } catch (eCache) { }
 
   logActivity(u ? (u.fullName || u.username) : 'Staff', 'Staff', 'DELETE_TX', `Deleted transaction ${docNo || txId} (${txType}) for SKU: ${sku}`);
 
@@ -9848,7 +9981,7 @@ function updateStockTransaction(payloadOrData, user) {
       const rTxId = String(txRows[i][idxTxId] || '').trim();
       const rNotes = String(txRows[i][idxTxNotes] || '');
       const isMatch = (txId && rTxId.toLowerCase() === txId.toLowerCase()) ||
-                      (docNo && (rTxId.toLowerCase() === docNo.toLowerCase() || rNotes.toLowerCase().includes(docNo.toLowerCase())));
+        (docNo && (rTxId.toLowerCase() === docNo.toLowerCase() || rNotes.toLowerCase().includes(docNo.toLowerCase())));
       if (isMatch) {
         const rowNum = i + 1;
         if (data.newQuantity !== undefined && idxTxQty >= 0) txSheet.getRange(rowNum, idxTxQty + 1).setValue(newQty);
@@ -9929,7 +10062,7 @@ function updateStockTransaction(payloadOrData, user) {
       const rDoc = String(docIdx >= 0 ? rows[i][docIdx] : rows[i][0]).trim();
       const rTx = String(rows[i][0] || '').trim();
       const isMatch = (docNo && (rDoc.toLowerCase() === docNo.toLowerCase() || rTx.toLowerCase() === docNo.toLowerCase())) ||
-                      (txId && (rDoc.toLowerCase() === txId.toLowerCase() || rTx.toLowerCase() === txId.toLowerCase()));
+        (txId && (rDoc.toLowerCase() === txId.toLowerCase() || rTx.toLowerCase() === txId.toLowerCase()));
       if (isMatch) {
         const rowNum = i + 1;
         const curUnit = data.unit || (unitIdx >= 0 ? String(rows[i][unitIdx] || '').trim() : '');
@@ -10614,7 +10747,7 @@ function deleteDamagedStock(dataOrPayload, user) {
               }
             }
           }
-        } catch (eDel) {}
+        } catch (eDel) { }
       }
 
       sheet.deleteRow(i + 1);
@@ -11509,297 +11642,297 @@ function logActivity(user, role, action, details) {
 
     sheet.appendRow([logId, new Date(), user || 'SYSTEM', role || 'Staff', action, details || '']);
 
-  } catch (e) {}
+  } catch (e) { }
 
 }
 
 
 
-    // ==========================================
+// ==========================================
 
-    // 8. LIVE CHAT ENGINE (រវាងឃ្លាំង និង ADMIN)
+// 8. LIVE CHAT ENGINE (រវាងឃ្លាំង និង ADMIN)
 
-    // ==========================================
+// ==========================================
 
 
 
-    function ensureChatSheetInitialized(ss) {
-      let sheet = ss.getSheetByName(SHEETS.CHAT);
-      if (!sheet) {
-        sheet = ss.insertSheet(SHEETS.CHAT);
-        const headers = [
-          'MsgID', 'Timestamp', 'ChannelID', 'SenderUsername', 'SenderFullName',
-          'SenderRole', 'SenderWarehouse', 'SenderAvatar', 'MessageText', 'ItemReference',
-          'IsAudio', 'AudioData', 'ReadBy', 'IsEdited', 'AudioDuration'
-        ];
-        sheet.appendRow(headers);
-        const range = sheet.getRange(1, 1, 1, headers.length);
-        range.setBackground('#1e293b').setFontColor('#ffffff').setFontWeight('bold');
-        sheet.setFrozenRows(1);
-      }
-      return sheet;
+function ensureChatSheetInitialized(ss) {
+  let sheet = ss.getSheetByName(SHEETS.CHAT);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEETS.CHAT);
+    const headers = [
+      'MsgID', 'Timestamp', 'ChannelID', 'SenderUsername', 'SenderFullName',
+      'SenderRole', 'SenderWarehouse', 'SenderAvatar', 'MessageText', 'ItemReference',
+      'IsAudio', 'AudioData', 'ReadBy', 'IsEdited', 'AudioDuration'
+    ];
+    sheet.appendRow(headers);
+    const range = sheet.getRange(1, 1, 1, headers.length);
+    range.setBackground('#1e293b').setFontColor('#ffffff').setFontWeight('bold');
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function sendChatMessage(chatData, user) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ensureChatSheetInitialized(ss);
+
+    const msgId = 'MSG-' + Utilities.formatDate(new Date(), 'GMT+7', 'yyMMddHHmmss') + '-' + Math.floor(Math.random() * 1000);
+    const now = new Date();
+    const timestampStr = Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd HH:mm:ss');
+
+    let channelId = chatData.channelId || 'ALL_WAREHOUSES';
+    const msgText = String(chatData.messageText || '').trim();
+    const hasReg = Boolean(chatData.registrationData) || msgText.includes('សំណើសុំចុះឈ្មោះ') || msgText.includes('ADMIN NOTIFICATION');
+    const hasDel = msgText.includes('សំណើសុំលុប') || msgText.includes('ការឆ្លើយតបសំណើសុំលុប');
+    if (hasReg || hasDel) {
+      channelId = 'ADMIN_DIRECT';
+    }
+    const senderUsername = chatData.senderUsername || (user ? user.username : 'Staff');
+    const senderFullName = chatData.senderFullName || (user ? (user.fullName || user.username) : senderUsername);
+    const senderRole = chatData.senderRole || (user ? user.role : 'Stock Keeper');
+    const senderWarehouse = chatData.senderWarehouse || (user ? user.warehouse : 'ឃ្លាំងទូទៅ');
+    const senderAvatar = chatData.senderAvatar || (user ? user.avatar : '') || '';
+    const messageText = msgText;
+
+    let itemReference = '';
+    if (chatData.itemReference) {
+      itemReference = (typeof chatData.itemReference === 'string') ? chatData.itemReference : JSON.stringify(chatData.itemReference);
+    } else if (chatData.registrationData) {
+      itemReference = (typeof chatData.registrationData === 'string') ? chatData.registrationData : JSON.stringify(chatData.registrationData);
     }
 
-    function sendChatMessage(chatData, user) {
-      try {
-        const ss = SpreadsheetApp.getActiveSpreadsheet();
-        const sheet = ensureChatSheetInitialized(ss);
+    const isAudio = Boolean(chatData.isAudio);
+    const audioData = chatData.audioData || '';
+    const audioDuration = Number(chatData.audioDuration || 0);
 
-        const msgId = 'MSG-' + Utilities.formatDate(new Date(), 'GMT+7', 'yyMMddHHmmss') + '-' + Math.floor(Math.random() * 1000);
-        const now = new Date();
-        const timestampStr = Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd HH:mm:ss');
-
-        let channelId = chatData.channelId || 'ALL_WAREHOUSES';
-        const msgText = String(chatData.messageText || '').trim();
-        const hasReg = Boolean(chatData.registrationData) || msgText.includes('សំណើសុំចុះឈ្មោះ') || msgText.includes('ADMIN NOTIFICATION');
-        const hasDel = msgText.includes('សំណើសុំលុប') || msgText.includes('ការឆ្លើយតបសំណើសុំលុប');
-        if (hasReg || hasDel) {
-          channelId = 'ADMIN_DIRECT';
-        }
-        const senderUsername = chatData.senderUsername || (user ? user.username : 'Staff');
-        const senderFullName = chatData.senderFullName || (user ? (user.fullName || user.username) : senderUsername);
-        const senderRole = chatData.senderRole || (user ? user.role : 'Stock Keeper');
-        const senderWarehouse = chatData.senderWarehouse || (user ? user.warehouse : 'ឃ្លាំងទូទៅ');
-        const senderAvatar = chatData.senderAvatar || (user ? user.avatar : '') || '';
-        const messageText = msgText;
-
-        let itemReference = '';
-        if (chatData.itemReference) {
-          itemReference = (typeof chatData.itemReference === 'string') ? chatData.itemReference : JSON.stringify(chatData.itemReference);
-        } else if (chatData.registrationData) {
-          itemReference = (typeof chatData.registrationData === 'string') ? chatData.registrationData : JSON.stringify(chatData.registrationData);
-        }
-
-        const isAudio = Boolean(chatData.isAudio);
-        const audioData = chatData.audioData || '';
-        const audioDuration = Number(chatData.audioDuration || 0);
-
-        if (!messageText && !itemReference && !audioData) {
-          return { success: false, message: 'Message cannot be empty' };
-        }
-
-        sheet.appendRow([
-          msgId,
-          timestampStr,
-          channelId,
-          senderUsername,
-          senderFullName,
-          senderRole,
-          senderWarehouse,
-          senderAvatar,
-          messageText,
-          itemReference,
-          isAudio,
-          audioData,
-          JSON.stringify([senderUsername]),
-          false,
-          audioDuration
-        ]);
-
-        return {
-          success: true,
-          message: 'Message sent',
-          chatMessage: {
-            msgId,
-            timestamp: timestampStr,
-            channelId,
-            senderUsername,
-            senderFullName,
-            senderRole,
-            senderWarehouse,
-            senderAvatar,
-            messageText,
-            itemReference: chatData.itemReference || null,
-            isAudio,
-            audioData,
-            audioDuration,
-            readBy: [senderUsername],
-            isEdited: false
-          }
-        };
-      } catch (e) {
-        return { success: false, message: e.toString() };
-      }
+    if (!messageText && !itemReference && !audioData) {
+      return { success: false, message: 'Message cannot be empty' };
     }
 
-    function editChatMessage(msgId, newText, user) {
-      try {
-        const ss = SpreadsheetApp.getActiveSpreadsheet();
-        const sheet = ensureChatSheetInitialized(ss);
-        const data = sheet.getDataRange().getValues();
+    sheet.appendRow([
+      msgId,
+      timestampStr,
+      channelId,
+      senderUsername,
+      senderFullName,
+      senderRole,
+      senderWarehouse,
+      senderAvatar,
+      messageText,
+      itemReference,
+      isAudio,
+      audioData,
+      JSON.stringify([senderUsername]),
+      false,
+      audioDuration
+    ]);
 
-        for (let i = 1; i < data.length; i++) {
-          if (String(data[i][0]) === String(msgId)) {
-            // Permission check: only author or Admin/SuperAdmin can edit
-            if (user && user.role !== 'Admin' && user.role !== 'SuperAdmin') {
-              if (String(data[i][3]).toLowerCase() !== String(user.username || '').toLowerCase()) {
-                return { success: false, message: 'Unauthorized to edit this message' };
-              }
-            }
-            sheet.getRange(i + 1, 9).setValue(newText); // Column 9: MessageText
-            sheet.getRange(i + 1, 14).setValue(true);   // Column 14: IsEdited
-            return { success: true, message: 'Message updated' };
+    return {
+      success: true,
+      message: 'Message sent',
+      chatMessage: {
+        msgId,
+        timestamp: timestampStr,
+        channelId,
+        senderUsername,
+        senderFullName,
+        senderRole,
+        senderWarehouse,
+        senderAvatar,
+        messageText,
+        itemReference: chatData.itemReference || null,
+        isAudio,
+        audioData,
+        audioDuration,
+        readBy: [senderUsername],
+        isEdited: false
+      }
+    };
+  } catch (e) {
+    return { success: false, message: e.toString() };
+  }
+}
+
+function editChatMessage(msgId, newText, user) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ensureChatSheetInitialized(ss);
+    const data = sheet.getDataRange().getValues();
+
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][0]) === String(msgId)) {
+        // Permission check: only author or Admin/SuperAdmin can edit
+        if (user && user.role !== 'Admin' && user.role !== 'SuperAdmin') {
+          if (String(data[i][3]).toLowerCase() !== String(user.username || '').toLowerCase()) {
+            return { success: false, message: 'Unauthorized to edit this message' };
           }
         }
-        return { success: false, message: 'Message not found' };
-      } catch (e) {
-        return { success: false, message: e.toString() };
+        sheet.getRange(i + 1, 9).setValue(newText); // Column 9: MessageText
+        sheet.getRange(i + 1, 14).setValue(true);   // Column 14: IsEdited
+        return { success: true, message: 'Message updated' };
       }
     }
+    return { success: false, message: 'Message not found' };
+  } catch (e) {
+    return { success: false, message: e.toString() };
+  }
+}
 
-    function deleteChatMessage(msgId, user) {
-      try {
-        const ss = SpreadsheetApp.getActiveSpreadsheet();
-        const sheet = ensureChatSheetInitialized(ss);
-        const data = sheet.getDataRange().getValues();
+function deleteChatMessage(msgId, user) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ensureChatSheetInitialized(ss);
+    const data = sheet.getDataRange().getValues();
 
-        for (let i = 1; i < data.length; i++) {
-          if (String(data[i][0]) === String(msgId)) {
-            // Permission check: only author or Admin/SuperAdmin can delete
-            if (user && user.role !== 'Admin' && user.role !== 'SuperAdmin') {
-              if (String(data[i][3]).toLowerCase() !== String(user.username || '').toLowerCase()) {
-                return { success: false, message: 'Unauthorized to delete this message' };
-              }
-            }
-            sheet.deleteRow(i + 1);
-            return { success: true, message: 'Message deleted' };
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][0]) === String(msgId)) {
+        // Permission check: only author or Admin/SuperAdmin can delete
+        if (user && user.role !== 'Admin' && user.role !== 'SuperAdmin') {
+          if (String(data[i][3]).toLowerCase() !== String(user.username || '').toLowerCase()) {
+            return { success: false, message: 'Unauthorized to delete this message' };
           }
         }
-        return { success: false, message: 'Message not found' };
-      } catch (e) {
-        return { success: false, message: e.toString() };
+        sheet.deleteRow(i + 1);
+        return { success: true, message: 'Message deleted' };
       }
     }
+    return { success: false, message: 'Message not found' };
+  } catch (e) {
+    return { success: false, message: e.toString() };
+  }
+}
 
-    function markChatMessagesRead(channelId, user) {
-      try {
-        if (!user || !user.username) return { success: true };
-        const ss = SpreadsheetApp.getActiveSpreadsheet();
-        const sheet = ensureChatSheetInitialized(ss);
-        const data = sheet.getDataRange().getValues();
-        const myUser = String(user.username);
+function markChatMessagesRead(channelId, user) {
+  try {
+    if (!user || !user.username) return { success: true };
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ensureChatSheetInitialized(ss);
+    const data = sheet.getDataRange().getValues();
+    const myUser = String(user.username);
 
-        for (let i = 1; i < data.length; i++) {
-          const rowChannel = String(data[i][2]);
-          const senderUser = String(data[i][3]);
+    for (let i = 1; i < data.length; i++) {
+      const rowChannel = String(data[i][2]);
+      const senderUser = String(data[i][3]);
 
-          if ((rowChannel === channelId || channelId === 'ALL') && senderUser !== myUser) {
-            let readBy = [];
-            try {
-              readBy = data[i][12] ? JSON.parse(data[i][12]) : [];
-            } catch (e) {
-              readBy = [senderUser];
-            }
-            if (!Array.isArray(readBy)) readBy = [senderUser];
-
-            if (!readBy.includes(myUser)) {
-              readBy.push(myUser);
-              sheet.getRange(i + 1, 13).setValue(JSON.stringify(readBy));
-            }
-          }
+      if ((rowChannel === channelId || channelId === 'ALL') && senderUser !== myUser) {
+        let readBy = [];
+        try {
+          readBy = data[i][12] ? JSON.parse(data[i][12]) : [];
+        } catch (e) {
+          readBy = [senderUser];
         }
-        return { success: true };
-      } catch (e) {
-        return { success: false, message: e.toString() };
+        if (!Array.isArray(readBy)) readBy = [senderUser];
+
+        if (!readBy.includes(myUser)) {
+          readBy.push(myUser);
+          sheet.getRange(i + 1, 13).setValue(JSON.stringify(readBy));
+        }
       }
     }
+    return { success: true };
+  } catch (e) {
+    return { success: false, message: e.toString() };
+  }
+}
 
-    function getChatMessages(channelId, user) {
-      try {
-        const ss = SpreadsheetApp.getActiveSpreadsheet();
-        const sheet = ensureChatSheetInitialized(ss);
-        const data = sheet.getDataRange().getValues();
-        if (data.length <= 1) return { success: true, messages: [] };
+function getChatMessages(channelId, user) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ensureChatSheetInitialized(ss);
+    const data = sheet.getDataRange().getValues();
+    if (data.length <= 1) return { success: true, messages: [] };
 
-        const targetChannel = channelId || 'ALL_WAREHOUSES';
-        const messages = [];
+    const targetChannel = channelId || 'ALL_WAREHOUSES';
+    const messages = [];
 
-        for (let i = 1; i < data.length; i++) {
-          const row = data[i];
-          const rowChannel = String(row[2]);
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const rowChannel = String(row[2]);
 
-          // Direct chat channels are identified by channelId or composite e.g. "WH01_WH02" or "WH01_ADMIN"
-          if (rowChannel === targetChannel || targetChannel === 'ALL') {
-            const rText = String(row[8] || '');
-            const rRef = String(row[9] || '');
-            const rId = String(row[0] || '');
+      // Direct chat channels are identified by channelId or composite e.g. "WH01_WH02" or "WH01_ADMIN"
+      if (rowChannel === targetChannel || targetChannel === 'ALL') {
+        const rText = String(row[8] || '');
+        const rRef = String(row[9] || '');
+        const rId = String(row[0] || '');
 
-            // STRICT USER REQUIREMENT: ការចេញ ឬចូលទំនិញ មិនត្រូវមានសារបង្ហាញនៅក្នងlivechatទេ for all user
-            const isStockNotice = rId.includes('MSG-DSP') || rId.includes('DSP-') ||
-              rText.includes('ដំណឹងទំនិញផ្ញើចេញ') || rText.includes('Stock Out') || rText.includes('Stock In') ||
-              rText.includes('ដំណឹងទំនិញចូល') || rText.includes('ដំណឹងទំនិញ') || rText.includes('Incoming Dispatches') ||
-              rText.includes('ទទួលទំនិញចូលស្តុកពី Admin') || rText.includes('ដំណឹងស្តុកចេញ') || rText.includes('ដំណឹងស្តុកចូល') ||
-              (rRef && (rRef.includes('toLocation') || rRef.includes('STOCK_OUT') || rRef.includes('STOCK_IN')));
-            if (isStockNotice) {
-              continue;
-            }
-            // Strict Privacy: Never expose registration cards, deletion notices, or admin notifications in ALL_WAREHOUSES (បន្ទប់រួម)
-            if (targetChannel === 'ALL_WAREHOUSES') {
-              const rText = String(row[8] || '');
-              const rRef = String(row[9] || '');
-              const rId = String(row[0] || '');
-              if (rText.includes('សំណើសុំចុះឈ្មោះ') || rText.includes('ADMIN NOTIFICATION') || rText.includes('សំណើសុំលុប') || rText.includes('ការឆ្លើយតបសំណើសុំលុប') || rRef.includes('USER_REGISTRATION') || rRef.includes('USER_DELETION') || rId.includes('REG') || rId.includes('DEL')) {
-                continue;
-              }
-            }
-
-            let itemRef = null;
-            if (row[9]) {
-              try { itemRef = JSON.parse(row[9]); } catch (err) { itemRef = row[9]; }
-            }
-
-            let readByList = [String(row[3])];
-            if (row[12]) {
-              try {
-                const parsed = JSON.parse(row[12]);
-                if (Array.isArray(parsed)) readByList = parsed;
-              } catch (e) {
-                readByList = [String(row[3])];
-              }
-            }
-
-            messages.push({
-              msgId: row[0],
-              timestamp: row[1],
-              channelId: row[2],
-              senderUsername: row[3],
-              senderFullName: row[4],
-              senderRole: row[5],
-              senderWarehouse: row[6],
-              senderAvatar: row[7],
-              messageText: row[8],
-              itemReference: itemRef,
-              isAudio: Boolean(row[10]),
-              audioData: row[11] || '',
-              readBy: readByList,
-              isEdited: Boolean(row[13]),
-              audioDuration: Number(row[14] || 0),
-              registrationData: (itemRef && (itemRef.type === 'USER_REGISTRATION' || itemRef.username || itemRef.userId)) ? itemRef : null
-            });
+        // STRICT USER REQUIREMENT: ការចេញ ឬចូលទំនិញ មិនត្រូវមានសារបង្ហាញនៅក្នងlivechatទេ for all user
+        const isStockNotice = rId.includes('MSG-DSP') || rId.includes('DSP-') ||
+          rText.includes('ដំណឹងទំនិញផ្ញើចេញ') || rText.includes('Stock Out') || rText.includes('Stock In') ||
+          rText.includes('ដំណឹងទំនិញចូល') || rText.includes('ដំណឹងទំនិញ') || rText.includes('Incoming Dispatches') ||
+          rText.includes('ទទួលទំនិញចូលស្តុកពី Admin') || rText.includes('ដំណឹងស្តុកចេញ') || rText.includes('ដំណឹងស្តុកចូល') ||
+          (rRef && (rRef.includes('toLocation') || rRef.includes('STOCK_OUT') || rRef.includes('STOCK_IN')));
+        if (isStockNotice) {
+          continue;
+        }
+        // Strict Privacy: Never expose registration cards, deletion notices, or admin notifications in ALL_WAREHOUSES (បន្ទប់រួម)
+        if (targetChannel === 'ALL_WAREHOUSES') {
+          const rText = String(row[8] || '');
+          const rRef = String(row[9] || '');
+          const rId = String(row[0] || '');
+          if (rText.includes('សំណើសុំចុះឈ្មោះ') || rText.includes('ADMIN NOTIFICATION') || rText.includes('សំណើសុំលុប') || rText.includes('ការឆ្លើយតបសំណើសុំលុប') || rRef.includes('USER_REGISTRATION') || rRef.includes('USER_DELETION') || rId.includes('REG') || rId.includes('DEL')) {
+            continue;
           }
         }
 
-        var onlineList = [];
-        if (user) {
-          onlineList = recordUserPresence(user);
-        } else {
-          onlineList = getGlobalOnlineUsers();
+        let itemRef = null;
+        if (row[9]) {
+          try { itemRef = JSON.parse(row[9]); } catch (err) { itemRef = row[9]; }
         }
 
-        return { success: true, messages: messages, onlineUsers: onlineList, onlineCount: onlineList.length };
-      } catch (e) {
-        return { success: false, message: e.toString(), messages: [], onlineUsers: [] };
+        let readByList = [String(row[3])];
+        if (row[12]) {
+          try {
+            const parsed = JSON.parse(row[12]);
+            if (Array.isArray(parsed)) readByList = parsed;
+          } catch (e) {
+            readByList = [String(row[3])];
+          }
+        }
+
+        messages.push({
+          msgId: row[0],
+          timestamp: row[1],
+          channelId: row[2],
+          senderUsername: row[3],
+          senderFullName: row[4],
+          senderRole: row[5],
+          senderWarehouse: row[6],
+          senderAvatar: row[7],
+          messageText: row[8],
+          itemReference: itemRef,
+          isAudio: Boolean(row[10]),
+          audioData: row[11] || '',
+          readBy: readByList,
+          isEdited: Boolean(row[13]),
+          audioDuration: Number(row[14] || 0),
+          registrationData: (itemRef && (itemRef.type === 'USER_REGISTRATION' || itemRef.username || itemRef.userId)) ? itemRef : null
+        });
       }
     }
 
-    function getChatChannels(user) {
-      return {
-        success: true,
-        channels: [
-          { id: 'ALL_WAREHOUSES', name: '📢 បន្ទប់ជជែកទូទៅ (All Warehouses & Admin)', type: 'group' }
-        ]
-      };
+    var onlineList = [];
+    if (user) {
+      onlineList = recordUserPresence(user);
+    } else {
+      onlineList = getGlobalOnlineUsers();
     }
+
+    return { success: true, messages: messages, onlineUsers: onlineList, onlineCount: onlineList.length };
+  } catch (e) {
+    return { success: false, message: e.toString(), messages: [], onlineUsers: [] };
+  }
+}
+
+function getChatChannels(user) {
+  return {
+    success: true,
+    channels: [
+      { id: 'ALL_WAREHOUSES', name: '📢 បន្ទប់ជជែកទូទៅ (All Warehouses & Admin)', type: 'group' }
+    ]
+  };
+}
 
 
 /**
@@ -11846,7 +11979,7 @@ function resetItemsStockToZero(payload, user) {
   try {
     invalidateAppCache();
     setGlobalDataVersion();
-  } catch (cErr) {}
+  } catch (cErr) { }
 
   return {
     success: true,
@@ -11972,11 +12105,11 @@ function removeZoneNumberColumnFromItemsSheet(optSs) {
     const ss = optSs || SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName(SHEETS.ITEMS);
     if (!sheet || sheet.getLastRow() === 0) return { success: true, message: 'Sheet Items ទទេ' };
-    
+
     const lastCol = Math.max(1, sheet.getLastColumn());
     const firstRow = sheet.getRange(1, 1, 1, lastCol).getValues()[0] || [];
     const zNumIdx = firstRow.findIndex(h => String(h || '').trim().toLowerCase() === 'zonenumber');
-    
+
     if (zNumIdx >= 0) {
       sheet.deleteColumn(zNumIdx + 1);
       return { success: true, message: 'បានលុបជួរឈរ ZoneNumber ចេញពី Items Sheet ជោគជ័យ!' };
@@ -12073,8 +12206,8 @@ function standardizeAndFormatStockInSheet(optSs) {
   // Format entire data range
   const dataRange = stockInSheet.getRange(2, 1, totalRows, numCols);
   dataRange.setFontFamily('Siemreap')
-           .setFontSize(10)
-           .setVerticalAlignment('middle');
+    .setFontSize(10)
+    .setVerticalAlignment('middle');
 
   // Set row heights
   for (let r = 2; r <= totalRows + 1; r++) {
@@ -12140,7 +12273,7 @@ function standardizeAndFormatStockInSheet(optSs) {
     if (stockInSheet.getMaxColumns() > stockInHeaders.length) {
       stockInSheet.deleteColumns(stockInHeaders.length + 1, stockInSheet.getMaxColumns() - stockInHeaders.length);
     }
-  } catch(e) {}
+  } catch (e) { }
 
   // Freeze Header & Enable Gridlines
   stockInSheet.setFrozenRows(1);
@@ -12151,7 +12284,7 @@ function standardizeAndFormatStockInSheet(optSs) {
     const existingFilter = stockInSheet.getFilter();
     if (existingFilter) existingFilter.remove();
     stockInSheet.getRange(1, 1, totalRows + 1, numCols).createFilter();
-  } catch(e) {}
+  } catch (e) { }
 
   // Clear cache
   CacheService.getScriptCache().removeAll(['TX_SHEETS_SYNC_ALL', 'TX_SHEETS_SYNC_STOCK_IN']);
@@ -12168,12 +12301,12 @@ function standardizeAndFormatStockOutSheet(optSs) {
   if (!ss) {
     try {
       ss = SpreadsheetApp.getActiveSpreadsheet();
-    } catch (e) {}
+    } catch (e) { }
   }
   if (!ss) {
     try {
       ss = SpreadsheetApp.openById('1zIK2d2uF3EYzaM9f4N2eOzR-HAmBihfxfHzK3xdgV_A');
-    } catch (e) {}
+    } catch (e) { }
   }
   if (!ss) {
     return { success: false, message: 'Could not access spreadsheet' };
@@ -12280,13 +12413,13 @@ function standardizeAndFormatStockOutSheet(optSs) {
       let dateVal = (dateIdx >= 0 && row[dateIdx] !== undefined && row[dateIdx] !== '') ? row[dateIdx] : (txMeta ? txMeta.date : '');
       let dateStr = '';
       if (dateVal instanceof Date) {
-        try { dateStr = Utilities.formatDate(dateVal, 'GMT+7', 'yyyy-MM-dd'); } catch(e) {}
+        try { dateStr = Utilities.formatDate(dateVal, 'GMT+7', 'yyyy-MM-dd'); } catch (e) { }
       } else if (dateVal) {
         try {
           const pd = new Date(dateVal);
           if (!isNaN(pd.getTime())) dateStr = Utilities.formatDate(pd, 'GMT+7', 'yyyy-MM-dd');
           else dateStr = String(dateVal).slice(0, 10);
-        } catch(e) { dateStr = String(dateVal).slice(0, 10); }
+        } catch (e) { dateStr = String(dateVal).slice(0, 10); }
       }
       if (!dateStr) dateStr = Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd');
 
@@ -12394,7 +12527,7 @@ function standardizeAndFormatStockOutSheet(optSs) {
       let tsVal = (tsIdx >= 0 && row[tsIdx] !== undefined && String(row[tsIdx]).trim() !== '') ? row[tsIdx] : (txMeta ? txMeta.timestamp : null);
       let tsFormatted = '';
       if (tsVal instanceof Date) {
-        try { tsFormatted = Utilities.formatDate(tsVal, 'GMT+7', 'yyyy-MM-dd HH:mm:ss'); } catch(e) {}
+        try { tsFormatted = Utilities.formatDate(tsVal, 'GMT+7', 'yyyy-MM-dd HH:mm:ss'); } catch (e) { }
       } else if (tsVal) {
         const tsStr = String(tsVal).trim();
         if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/.test(tsStr)) {
@@ -12407,7 +12540,7 @@ function standardizeAndFormatStockOutSheet(optSs) {
             } else {
               tsFormatted = dateStr + ' 00:00:00';
             }
-          } catch(e) {
+          } catch (e) {
             tsFormatted = dateStr + ' 00:00:00';
           }
         }
@@ -12450,7 +12583,7 @@ function standardizeAndFormatStockOutSheet(optSs) {
       let dateVal = tx.date;
       let dateStr = '';
       if (dateVal instanceof Date) {
-        try { dateStr = Utilities.formatDate(dateVal, 'GMT+7', 'yyyy-MM-dd'); } catch(e) {}
+        try { dateStr = Utilities.formatDate(dateVal, 'GMT+7', 'yyyy-MM-dd'); } catch (e) { }
       } else if (dateVal) {
         dateStr = String(dateVal).slice(0, 10);
       }
@@ -12516,8 +12649,8 @@ function standardizeAndFormatStockOutSheet(optSs) {
     const totalRows = cleanRows.length;
     const dataRange = stockOutSheet.getRange(2, 1, totalRows, numCols);
     dataRange.setFontFamily('Siemreap')
-             .setFontSize(10)
-             .setVerticalAlignment('middle');
+      .setFontSize(10)
+      .setVerticalAlignment('middle');
 
     for (let r = 2; r <= totalRows + 1; r++) {
       stockOutSheet.setRowHeight(r, 28);
@@ -12557,7 +12690,7 @@ function standardizeAndFormatStockOutSheet(optSs) {
       const existingFilter = stockOutSheet.getFilter();
       if (existingFilter) existingFilter.remove();
       stockOutSheet.getRange(1, 1, totalRows + 1, numCols).createFilter();
-    } catch(e) {}
+    } catch (e) { }
   }
 
   // Column widths for 17 columns
@@ -12589,7 +12722,7 @@ function standardizeAndFormatStockOutSheet(optSs) {
     if (stockOutSheet.getMaxColumns() > stockOutHeaders.length) {
       stockOutSheet.deleteColumns(stockOutHeaders.length + 1, stockOutSheet.getMaxColumns() - stockOutHeaders.length);
     }
-  } catch(e) {}
+  } catch (e) { }
 
   stockOutSheet.setFrozenRows(1);
   stockOutSheet.setHiddenGridlines(false);
@@ -12610,10 +12743,10 @@ function standardizeAndFormatStockOutSheet(optSs) {
 function standardizeAndFormatTransactionsSheet(optSs) {
   let ss = optSs;
   if (!ss) {
-    try { ss = SpreadsheetApp.getActiveSpreadsheet(); } catch (e) {}
+    try { ss = SpreadsheetApp.getActiveSpreadsheet(); } catch (e) { }
   }
   if (!ss) {
-    try { ss = SpreadsheetApp.openById('1zIK2d2uF3EYzaM9f4N2eOzR-HAmBihfxfHzK3xdgV_A'); } catch (e) {}
+    try { ss = SpreadsheetApp.openById('1zIK2d2uF3EYzaM9f4N2eOzR-HAmBihfxfHzK3xdgV_A'); } catch (e) { }
   }
   if (!ss) return { success: false, message: 'Could not access spreadsheet' };
 
@@ -12665,7 +12798,7 @@ function standardizeAndFormatTransactionsSheet(optSs) {
         const qty = Number(row[inQtyIdx] || 0);
         let dStr = '';
         if (row[inDateIdx] instanceof Date) {
-          try { dStr = Utilities.formatDate(row[inDateIdx], 'GMT+7', 'yyyy-MM-dd'); } catch(e) {}
+          try { dStr = Utilities.formatDate(row[inDateIdx], 'GMT+7', 'yyyy-MM-dd'); } catch (e) { }
         } else if (row[inDateIdx]) {
           dStr = String(row[inDateIdx]).slice(0, 10);
         }
@@ -12688,7 +12821,7 @@ function standardizeAndFormatTransactionsSheet(optSs) {
         let tsFormatted = '';
         const tsVal = inTsIdx >= 0 ? row[inTsIdx] : null;
         if (tsVal instanceof Date) {
-          try { tsFormatted = Utilities.formatDate(tsVal, 'GMT+7', 'yyyy-MM-dd HH:mm:ss'); } catch(e) {}
+          try { tsFormatted = Utilities.formatDate(tsVal, 'GMT+7', 'yyyy-MM-dd HH:mm:ss'); } catch (e) { }
         } else if (tsVal) {
           tsFormatted = String(tsVal).trim();
         }
@@ -12723,7 +12856,7 @@ function standardizeAndFormatTransactionsSheet(optSs) {
         }
       }
     }
-  } catch(eIn) {}
+  } catch (eIn) { }
 
   try {
     const sOutSheet = ss.getSheetByName('Stock_out') || ss.getSheetByName(SHEETS.STOCK_OUT);
@@ -12759,7 +12892,7 @@ function standardizeAndFormatTransactionsSheet(optSs) {
         const qty = Number(row[outQtyIdx] || 0);
         let dStr = '';
         if (row[outDateIdx] instanceof Date) {
-          try { dStr = Utilities.formatDate(row[outDateIdx], 'GMT+7', 'yyyy-MM-dd'); } catch(e) {}
+          try { dStr = Utilities.formatDate(row[outDateIdx], 'GMT+7', 'yyyy-MM-dd'); } catch (e) { }
         } else if (row[outDateIdx]) {
           dStr = String(row[outDateIdx]).slice(0, 10);
         }
@@ -12786,7 +12919,7 @@ function standardizeAndFormatTransactionsSheet(optSs) {
         let tsFormatted = '';
         const tsVal = outTsIdx >= 0 ? row[outTsIdx] : null;
         if (tsVal instanceof Date) {
-          try { tsFormatted = Utilities.formatDate(tsVal, 'GMT+7', 'yyyy-MM-dd HH:mm:ss'); } catch(e) {}
+          try { tsFormatted = Utilities.formatDate(tsVal, 'GMT+7', 'yyyy-MM-dd HH:mm:ss'); } catch (e) { }
         } else if (tsVal) {
           tsFormatted = String(tsVal).trim();
         }
@@ -12821,7 +12954,7 @@ function standardizeAndFormatTransactionsSheet(optSs) {
         }
       }
     }
-  } catch(eOut) {}
+  } catch (eOut) { }
 
   // 2. Read existing rows in Transactions sheet and transform
   const cleanRows = [];
@@ -12861,13 +12994,13 @@ function standardizeAndFormatTransactionsSheet(optSs) {
       let dateVal = row[idxDate];
       let dateStr = '';
       if (dateVal instanceof Date) {
-        try { dateStr = Utilities.formatDate(dateVal, 'GMT+7', 'yyyy-MM-dd'); } catch(e) {}
+        try { dateStr = Utilities.formatDate(dateVal, 'GMT+7', 'yyyy-MM-dd'); } catch (e) { }
       } else if (dateVal) {
         try {
           const pd = new Date(dateVal);
           if (!isNaN(pd.getTime())) dateStr = Utilities.formatDate(pd, 'GMT+7', 'yyyy-MM-dd');
           else dateStr = String(dateVal).slice(0, 10);
-        } catch(e) { dateStr = String(dateVal).slice(0, 10); }
+        } catch (e) { dateStr = String(dateVal).slice(0, 10); }
       }
       if (!dateStr) dateStr = Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd');
 
@@ -12891,7 +13024,7 @@ function standardizeAndFormatTransactionsSheet(optSs) {
       let finalTs = '';
       const txMatch = txId.match(/TX-(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/);
       if (txMatch) {
-     
+
         finalTs = String(rawTs).trim();
       }
       if (!finalTs || finalTs.length < 11) finalTs = dateStr + ' 00:00:00';
@@ -12899,7 +13032,7 @@ function standardizeAndFormatTransactionsSheet(optSs) {
       // 2. Extract Document Number
       let docNo = '';
       const docMatch = (rawNotes + ' ' + rawFrom).match(/(?:DOC-IN|DOC-OUT|IN-|OUT-)\d+-\d+/i) ||
-                       (rawNotes + ' ' + rawFrom).match(/\[(?:ឯកសារ|Doc|DocNo):\s*([^\]]+)\]/i);
+        (rawNotes + ' ' + rawFrom).match(/\[(?:ឯកសារ|Doc|DocNo):\s*([^\]]+)\]/i);
       if (docMatch) docNo = docMatch[1] ? docMatch[1].trim() : docMatch[0].trim();
       if (!docNo) {
         const digMatch = (rawNotes + ' ' + rawFrom).match(/(\d{8}-\d+)/);
@@ -12909,11 +13042,11 @@ function standardizeAndFormatTransactionsSheet(optSs) {
       // Lookup in metadata maps
       const docNum = docNo ? docNo.replace(/\D/g, '') : '';
       const sInMeta = (docNo && stockInMap[docNo.toUpperCase()]) || (docNum && stockInMap[docNum]) ||
-                      (qty > 0 && stockInMap[sku.toLowerCase() + '_' + qty + '_' + dateStr]) ||
-                      (qty > 0 && stockInMap[sku.toLowerCase() + '_' + qty]) || null;
+        (qty > 0 && stockInMap[sku.toLowerCase() + '_' + qty + '_' + dateStr]) ||
+        (qty > 0 && stockInMap[sku.toLowerCase() + '_' + qty]) || null;
       const sOutMeta = (docNo && stockOutMap[docNo.toUpperCase()]) || (docNum && stockOutMap[docNum]) ||
-                       (qty > 0 && stockOutMap[sku.toLowerCase() + '_' + qty + '_' + dateStr]) ||
-                       (qty > 0 && stockOutMap[sku.toLowerCase() + '_' + qty]) || null;
+        (qty > 0 && stockOutMap[sku.toLowerCase() + '_' + qty + '_' + dateStr]) ||
+        (qty > 0 && stockOutMap[sku.toLowerCase() + '_' + qty]) || null;
 
       let finalFrom = '';
       let finalTo = '';
@@ -13074,13 +13207,13 @@ function standardizeAndFormatTransactionsSheet(optSs) {
   // Header styling
   const headerRange = txSheet.getRange(1, 1, 1, numCols);
   headerRange.setBackground('#0f766e')
-             .setFontColor('#ffffff')
-             .setFontFamily('Siemreap')
-             .setFontSize(10)
-             .setFontWeight('bold')
-             .setHorizontalAlignment('center')
-             .setVerticalAlignment('middle')
-             .setWrap(false);
+    .setFontColor('#ffffff')
+    .setFontFamily('Siemreap')
+    .setFontSize(10)
+    .setFontWeight('bold')
+    .setHorizontalAlignment('center')
+    .setVerticalAlignment('middle')
+    .setWrap(false);
   txSheet.setRowHeight(1, 35);
 
   if (cleanRows.length > 0) {
@@ -13089,8 +13222,8 @@ function standardizeAndFormatTransactionsSheet(optSs) {
     const totalRows = cleanRows.length;
     const dataRange = txSheet.getRange(2, 1, totalRows, numCols);
     dataRange.setFontFamily('Siemreap')
-             .setFontSize(10)
-             .setVerticalAlignment('middle');
+      .setFontSize(10)
+      .setVerticalAlignment('middle');
 
     for (let r = 2; r <= totalRows + 1; r++) {
       txSheet.setRowHeight(r, 28);
@@ -13125,7 +13258,7 @@ function standardizeAndFormatTransactionsSheet(optSs) {
       const existingFilter = txSheet.getFilter();
       if (existingFilter) existingFilter.remove();
       txSheet.getRange(1, 1, totalRows + 1, numCols).createFilter();
-    } catch(e) {}
+    } catch (e) { }
   }
 
   // Column widths for 12 columns
@@ -13151,7 +13284,7 @@ function standardizeAndFormatTransactionsSheet(optSs) {
     if (txSheet.getMaxColumns() > numCols) {
       txSheet.deleteColumns(numCols + 1, txSheet.getMaxColumns() - numCols);
     }
-  } catch(e) {}
+  } catch (e) { }
 
   txSheet.setFrozenRows(1);
   txSheet.setHiddenGridlines(false);
@@ -13217,7 +13350,7 @@ function recordBatchDispatch(dataOrPayload, user, dispatchesList) {
           d.retailQty || 0,
           d.unit || data.unit || 'ដើម',
           d.packUnit || data.packUnit || 'ប្រអប់',
-          (function() {
+          (function () {
             let fl = d.fromLocation || data.fromLocation || '';
             if (!fl || /^\d+$/.test(String(fl).trim()) || fl === 'ALL' || fl === 'គ្រប់ស្ថានីយទាំងអស់') return '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
             return (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(fl) : fl;
@@ -13336,7 +13469,7 @@ function deleteDispatch(payloadOrData, user) {
     if (docNo && !delList.includes(docNo)) delList.push(docNo);
     if (delList.length > 500) delList = delList.slice(-500);
     userProperties.setProperty('DELETED_DISPATCHES', JSON.stringify(delList));
-  } catch(eProp) {}
+  } catch (eProp) { }
 
   logActivity(u ? (u.fullName || u.username) : 'Admin', 'Admin', 'DELETE_DISPATCH', `Deleted dispatch ${dId || docNo}`);
 
@@ -13364,7 +13497,7 @@ function syncDispatchesFromStockOutGAS(optSs) {
     const userProperties = PropertiesService.getScriptProperties();
     const delList = JSON.parse(userProperties.getProperty('DELETED_DISPATCHES') || '[]');
     delList.forEach(k => { if (k) deletedKeys.add(String(k).trim().toUpperCase()); });
-  } catch(eProp) {}
+  } catch (eProp) { }
 
   const existingDispatches = new Set();
   const dspData = dspSheet.getDataRange().getValues();
@@ -13539,7 +13672,7 @@ function getPendingDispatches(targetWarehouse) {
   // Clean any legacy corrupted/duplicate synthetic rows from Dispatches sheet
   try {
     sanitizeDispatchesSheet(ss);
-  } catch(eSan) {}
+  } catch (eSan) { }
 
   const values = sheet.getDataRange().getValues();
   if (values.length <= 1) return { success: true, dispatches: [] };
