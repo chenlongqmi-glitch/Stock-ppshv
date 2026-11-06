@@ -659,7 +659,11 @@ function invalidateAppCache() {
       'REQS_ALL',
       'REQS_V1',
       'USERS_ALL',
-      'SETTINGS_CACHE'
+      'SETTINGS_CACHE',
+      'TX_SHEETS_SYNC_ALL',
+      'TX_SHEETS_SYNC_STOCK_IN',
+      'TX_SHEETS_SYNC_STOCK_OUT',
+      'DASHBOARD_STATS_ALL'
     ]);
   } catch (e) { }
 }
@@ -8846,7 +8850,7 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
     const uEmail = String(user && user.email || '').toLowerCase();
     const isSA = uRole === 'superadmin' || uName === 'superadmin' || (user && user.isSuperAdmin === true);
     const isRegular = uRole.includes('ស្ថានីយ') || uRole.includes('កាន់ស្តុក') || uRole.includes('ប្រធានក្រុម') || uRole.includes('ប្រធាន') || uRole.includes('បុគ្គលិក') || uRole.includes('user') || uRole.includes('keeper') || uRole.includes('staff') || uRole.includes('viewer');
-    const isAdm = !isRegular && (isSA || uRole === 'admin' || uRole === 'administrator' || uRole === 'អ្នកគ្រប់គ្រងប្រព័ន្ធ' || (uRole.includes('admin') && !uRole.includes('superadmin')) || uName === 'admin' || uName === 'singvan' || uName === 'singvan327@gmail.com' || uEmail === 'singvan327@gmail.com' || uName === 'ppshv2024@gmail.com' || uEmail === 'ppshv2024@gmail.com');
+    const isAdm = isSA || uRole === 'admin' || uRole === 'administrator' || uRole === 'អ្នកគ្រប់គ្រងប្រព័ន្ធ' || uRole.includes('admin') || uName === 'admin' || uName === 'singvan' || uName.includes('singvan') || uEmail.includes('singvan') || uName.includes('ppshv') || (user && user.warehouse === 'ALL');
     // Strictly restrict station users to their own station warehouse!
     if (!isAdm && user && user.warehouse && user.warehouse !== 'ALL' && user.warehouse !== 'គ្រប់ឃ្លាំង' && user.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
       targetWarehouse = toCanonicalWarehouseNameGAS(user.warehouse);
@@ -9257,7 +9261,7 @@ function getStockOutTransactionsFromSheet(ss, filters, user) {
     const uEmailOut = String(user && user.email || '').toLowerCase();
     const isSAOut = uRoleOut === 'superadmin' || uNameOut === 'superadmin' || (user && user.isSuperAdmin === true);
     const isRegularOut = uRoleOut.includes('ស្ថានីយ') || uRoleOut.includes('កាន់ស្តុក') || uRoleOut.includes('ប្រធានក្រុម') || uRoleOut.includes('ប្រធាន') || uRoleOut.includes('បុគ្គលិក') || uRoleOut.includes('user') || uRoleOut.includes('keeper') || uRoleOut.includes('staff') || uRoleOut.includes('viewer');
-    const isAdmOut = !isRegularOut && (isSAOut || uRoleOut === 'admin' || uRoleOut === 'administrator' || uRoleOut === 'អ្នកគ្រប់គ្រងប្រព័ន្ធ' || (uRoleOut.includes('admin') && !uRoleOut.includes('superadmin')) || uNameOut === 'admin' || uNameOut === 'singvan' || uNameOut === 'singvan327@gmail.com' || uEmailOut === 'singvan327@gmail.com' || uNameOut === 'ppshv2024@gmail.com' || uEmailOut === 'ppshv2024@gmail.com');
+    const isAdmOut = isSAOut || uRoleOut === 'admin' || uRoleOut === 'administrator' || uRoleOut === 'អ្នកគ្រប់គ្រងប្រព័ន្ធ' || uRoleOut.includes('admin') || uNameOut === 'admin' || uNameOut === 'singvan' || uNameOut.includes('singvan') || uEmailOut.includes('singvan') || uNameOut.includes('ppshv') || (user && user.warehouse === 'ALL');
     if (filters && (filters.warehouse === 'ALL' || filters.warehouse === 'គ្រប់ស្ថានីយទាំងអស់' || filters.warehouse === 'គ្រប់ឃ្លាំង')) {
       targetWarehouse = null;
     } else if (!isAdmOut && user && user.warehouse && user.warehouse !== 'ALL' && user.warehouse !== 'គ្រប់ឃ្លាំង' && user.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
@@ -9867,7 +9871,7 @@ function deleteStockTransaction(payloadOrData, user) {
           txSheet.deleteRow(i + 1);
           break;
         }
-      } else if (docMatch || txMatch) {
+      } else if (!sku && (docMatch || txMatch)) {
         txSheet.deleteRow(i + 1);
         break;
       }
@@ -9901,7 +9905,7 @@ function deleteStockTransaction(payloadOrData, user) {
           targetSheet.deleteRow(i + 1);
           break;
         }
-      } else if (docMatch || txMatch) {
+      } else if (!sku && (docMatch || txMatch)) {
         targetSheet.deleteRow(i + 1);
         break;
       }
@@ -9980,9 +9984,11 @@ function updateStockTransaction(payloadOrData, user) {
     for (let i = 1; i < txRows.length; i++) {
       const rTxId = String(txRows[i][idxTxId] || '').trim();
       const rNotes = String(txRows[i][idxTxNotes] || '');
+      const rSku = String(txRows[i][idxTxSku] || '').trim();
       const isMatch = (txId && rTxId.toLowerCase() === txId.toLowerCase()) ||
         (docNo && (rTxId.toLowerCase() === docNo.toLowerCase() || rNotes.toLowerCase().includes(docNo.toLowerCase())));
-      if (isMatch) {
+      const isSkuMatch = !sku || !rSku || rSku.toLowerCase() === sku.toLowerCase();
+      if (isMatch && isSkuMatch) {
         const rowNum = i + 1;
         if (data.newQuantity !== undefined && idxTxQty >= 0) txSheet.getRange(rowNum, idxTxQty + 1).setValue(newQty);
         if (data.fromLocation && idxTxFrom >= 0) txSheet.getRange(rowNum, idxTxFrom + 1).setValue(data.fromLocation);
@@ -10061,9 +10067,11 @@ function updateStockTransaction(payloadOrData, user) {
     for (let i = 1; i < rows.length; i++) {
       const rDoc = String(docIdx >= 0 ? rows[i][docIdx] : rows[i][0]).trim();
       const rTx = String(rows[i][0] || '').trim();
+      const rSku = String((skuIdx >= 0 ? rows[i][skuIdx] : '') || '').trim();
       const isMatch = (docNo && (rDoc.toLowerCase() === docNo.toLowerCase() || rTx.toLowerCase() === docNo.toLowerCase())) ||
         (txId && (rDoc.toLowerCase() === txId.toLowerCase() || rTx.toLowerCase() === txId.toLowerCase()));
-      if (isMatch) {
+      const isSkuMatch = !sku || !rSku || rSku.toLowerCase() === sku.toLowerCase();
+      if (isMatch && isSkuMatch) {
         const rowNum = i + 1;
         const curUnit = data.unit || (unitIdx >= 0 ? String(rows[i][unitIdx] || '').trim() : '');
         const oStock = (data.oldStock !== undefined) ? data.oldStock : (oldStIdx >= 0 ? rows[i][oldStIdx] : '');
