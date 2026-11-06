@@ -27455,7 +27455,7 @@
     };
 
 
-    window.exportStockInHistoryToPDF = function() {
+        window.exportStockInHistoryToPDF = function() {
       const list = window._currentStockInDisplayList || AppState.stockInHistory || [];
       if (!list || list.length === 0) {
         Swal.fire({
@@ -27487,37 +27487,60 @@
       const printDate = new Date().toLocaleString('km-KH', { dateStyle: 'medium', timeStyle: 'short' }) || new Date().toLocaleString();
       const currentUser = AppState.currentUser?.fullName || AppState.currentUser?.username || 'Admin';
 
-      let totalQty = 0;
-      const rows = list.map((t, idx) => {
-        let docId = t.docNo || t.txId || 'N/A';
+      // 1. Move docId to red box: Collect unique document numbers for header
+      const docSet = new Set();
+      list.forEach(t => {
+        let docId = t.docNo || t.txId || '';
         if ((!t.docNo || t.docNo === t.txId || t.docNo.startsWith('TX-')) && t.notes) {
           const docMatch = t.notes.match(/\[ឯកសារ:\s*([^\]]+)\]/);
           if (docMatch) docId = docMatch[1].trim();
         }
+        docId = String(docId || '').replace(/^DOC-/i, '').trim();
+        if (docId && docId !== 'N/A' && docId !== '-') docSet.add(docId);
+      });
+      const docNumbersDisplay = docSet.size > 0 ? Array.from(docSet).join(', ') : '-';
+
+      const rows = list.map((t, idx) => {
         const dStr = t.date || (t.timestamp ? String(t.timestamp).slice(0, 10) : '');
         const timeStr = t.time || '';
         const fullDate = (dStr + ' ' + timeStr).trim() || '-';
         const q = Number(t.quantity || 0);
-        totalQty += q;
 
-        const sizeStr = t.size && t.size !== '-' ? t.size : '';
-        const colorStr = t.color && t.color !== '-' ? t.color : '';
+        // Resolve product item for thumbnail image
+        const item = (AppState.items || []).find(i => (i.sku && t.sku && i.sku.toLowerCase() === t.sku.toLowerCase()) || (i.name && t.itemName && i.name.toLowerCase() === t.itemName.toLowerCase()));
+
+        let rawImg = t.imageUrl || item?.imageUrl || '';
+        if (rawImg.includes('GMT') || rawImg.includes('2026') || (!rawImg.startsWith('http') && !rawImg.startsWith('data:') && !rawImg.startsWith('blob:') && !rawImg.startsWith('assets/'))) {
+          rawImg = '';
+        }
+        if ((!rawImg || !rawImg.startsWith('http')) && (t.sku === 'SKU-3037' || (t.itemName && t.itemName.includes('ស្រោមដៃ')))) {
+          rawImg = 'https://lh3.googleusercontent.com/d/1Yo9HGMr3NkbOIieI8ccxhgaaPNNksPs9';
+        }
+        let imgUrl = (typeof formatDriveImageUrl === 'function') ? formatDriveImageUrl(rawImg) : rawImg;
+        if (!imgUrl && (t.sku === 'SKU-3037' || (t.itemName && t.itemName.includes('ស្រោមដៃ')))) {
+          imgUrl = 'https://lh3.googleusercontent.com/d/1Yo9HGMr3NkbOIieI8ccxhgaaPNNksPs9';
+        }
+        const fallbackImg = 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=150';
+
+        const sizeStr = t.size && t.size !== '-' ? t.size : (item?.size || '');
+        const colorStr = t.color && t.color !== '-' ? t.color : (item?.color || '');
         const variantStr = [sizeStr, colorStr].filter(Boolean).join(' / ') || '-';
-        const oldSt = (t.oldStock !== undefined && t.oldStock !== null && t.oldStock !== '-') ? t.oldStock : '-';
-        const newSt = (t.newStock !== undefined && t.newStock !== null && t.newStock !== '-') ? t.newStock : '-';
         const cleanNote = (typeof cleanDisplayNote === 'function') ? cleanDisplayNote(t.userNote !== undefined ? t.userNote : t.notes) : (t.userNote || t.notes || '-');
 
         return `
           <tr>
             <td style="text-align: center;">${idx + 1}</td>
-            <td style="font-family: monospace; font-weight: 600; color: #047857; white-space: nowrap;">${escapeHtml(docId.replace(/^DOC-/i, ''))}</td>
-            <td style="white-space: nowrap; font-size: 10.5px;">${escapeHtml(fullDate)}</td>
-            <td style="font-family: monospace; font-weight: bold; color: #1e293b;">${escapeHtml(t.sku || t.code || '-')}</td>
+            <td style="white-space: nowrap; font-size: 10.5px; text-align: center;">${escapeHtml(fullDate)}</td>
+            <td style="font-family: monospace; font-weight: bold; color: #1e293b; text-align: center;">${escapeHtml(t.sku || t.code || '-')}</td>
             <td style="font-weight: 600;">${escapeHtml(t.itemName || '-')}</td>
+            <td style="text-align: center; vertical-align: middle; padding: 2px;">
+              <img src="${imgUrl || fallbackImg}"
+                   style="width: 34px; height: 34px; object-fit: cover; border-radius: 6px; border: 1px solid #cbd5e1; display: inline-block; vertical-align: middle;"
+                   onerror="this.style.display='none'">
+            </td>
             <td style="text-align: center; font-size: 10.5px;">${escapeHtml(variantStr)}</td>
-            <td style="text-align: center; font-size: 10.5px;">${escapeHtml(t.zone || '-')}</td>
-            <td style="text-align: center; font-weight: bold; color: #047857; background: #ecfdf5;">+${q} ${escapeHtml(t.unit || 'ដុំ')}</td>
-            <td style="text-align: center; font-size: 10.5px; color: #64748b;">${oldSt} ➔ ${newSt}</td>
+            <td style="text-align: center; font-size: 10.5px;">${escapeHtml(t.zone || item?.zone || '-')}</td>
+            <td style="text-align: center; font-weight: bold; color: #047857; background: #ecfdf5;">${q} ${escapeHtml(t.unit || 'ដុំ')}</td>
             <td style="font-size: 10.5px;">${escapeHtml(t.toLocation || t.location || t.warehouse || '-')}</td>
             <td style="font-size: 10.5px;">${escapeHtml(t.receivedBy || t.user || '-')}</td>
             <td style="font-size: 10px; color: #475569; max-width: 120px;">${escapeHtml(cleanNote)}</td>
@@ -27536,7 +27559,7 @@
           <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
           <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@400;500;600;700&family=Siemreap&display=swap" rel="stylesheet">
           <style>
-            * { box-sizing: border-box; font-family: 'Kantumruy Pro', 'Siemreap', Arial, sans-serif; }
+            * { box-sizing: border-box; font-family: 'Kantumruy Pro', 'Siemreap', Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             body { padding: 18px; color: #0f172a; font-size: 11px; line-height: 1.4; background: #fff; margin: 0; }
             .toolbar { display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 10px 16px; border: 1px solid #e2e8f0; border-radius: 10px; margin-bottom: 16px; }
             .btn-print { background: #059669; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px; }
@@ -27545,7 +27568,7 @@
             .company-name { font-size: 18px; font-weight: bold; color: #065f46; margin: 0; }
             .report-title { font-size: 14px; font-weight: bold; color: #0f172a; margin: 3px 0 0 0; }
             .report-sub { font-size: 11px; color: #64748b; margin-top: 2px; }
-            .meta-box { text-align: right; font-size: 11px; color: #334155; line-height: 1.5; }
+            .meta-box { text-align: right; font-size: 11px; color: #334155; line-height: 1.6; max-width: 400px; }
             .summary-bar { display: flex; gap: 12px; margin-bottom: 12px; }
             .stat-pill { background: #f1f5f9; border: 1px solid #cbd5e1; padding: 6px 12px; border-radius: 8px; font-size: 11px; }
             .stat-pill b { color: #059669; }
@@ -27580,27 +27603,26 @@
             <div class="meta-box">
               <div><strong>កាលបរិច្ឆេទបង្កើត៖</strong> ${escapeHtml(printDate)}</div>
               <div><strong>អ្នកទាញយក៖</strong> ${escapeHtml(currentUser)}</div>
+              <div style="margin-top: 4px;"><strong>លេខឯកសារ៖</strong> <span style="font-family: monospace; font-weight: bold; color: #047857; font-size: 11.5px;">${escapeHtml(docNumbersDisplay)}</span></div>
             </div>
           </div>
           <div class="summary-bar">
             <div class="stat-pill">ប្រតិបត្តិការសរុប៖ <b>${list.length}</b></div>
-            <div class="stat-pill">បរិមាណចូលសរុប៖ <b>${totalQty}</b></div>
           </div>
           <table>
             <thead>
               <tr>
-                <th style="width: 25px; text-align: center;">ល.រ</th>
-                <th style="width: 110px;">លេខឯកសារ</th>
-                <th style="width: 100px;">កាលបរិច្ឆេទ</th>
-                <th style="width: 75px;">SKU</th>
+                <th style="width: 28px; text-align: center;">ល.រ</th>
+                <th style="width: 105px; text-align: center;">កាលបរិច្ឆេទ</th>
+                <th style="width: 80px; text-align: center;">SKU</th>
                 <th>ឈ្មោះទំនិញ</th>
-                <th style="width: 75px; text-align: center;">ខ្នាត/ពណ៌</th>
-                <th style="width: 45px; text-align: center;">តំបន់</th>
+                <th style="width: 48px; text-align: center;">រូបភាព</th>
+                <th style="width: 80px; text-align: center;">ខ្នាត/ពណ៌</th>
+                <th style="width: 50px; text-align: center;">តំបន់</th>
                 <th style="width: 75px; text-align: center;">ចំនួនចូល</th>
-                <th style="width: 80px; text-align: center;">ស្តុកចាស់➔ថ្មី</th>
-                <th style="width: 95px;">ឃ្លាំងទទួល</th>
-                <th style="width: 80px;">អ្នកទទួល</th>
-                <th style="width: 110px;">កំណត់ចំណាំ</th>
+                <th style="width: 110px;">ឃ្លាំងទទួល</th>
+                <th style="width: 85px;">អ្នកទទួល</th>
+                <th style="width: 115px;">កំណត់ចំណាំ</th>
               </tr>
             </thead>
             <tbody>
@@ -27624,7 +27646,7 @@
           <sc` + `ript>
             window.onload = function() {
               window.focus();
-              setTimeout(function() { window.print(); }, 250);
+              setTimeout(function() { window.print(); }, 400);
             };
           </sc` + `ript>
 </body>
@@ -27665,18 +27687,40 @@
       const printDate = new Date().toLocaleString('km-KH', { dateStyle: 'medium', timeStyle: 'short' }) || new Date().toLocaleString();
       const currentUser = AppState.currentUser?.fullName || AppState.currentUser?.username || 'Admin';
 
-      let totalQty = 0;
-      const rows = list.map((t, idx) => {
-        let docId = t.docNo || t.txId || 'N/A';
+      // Collect unique document numbers for header
+      const docSet = new Set();
+      list.forEach(t => {
+        let docId = t.docNo || t.txId || '';
         if ((!t.docNo || t.docNo === t.txId || t.docNo.startsWith('TX-')) && t.notes) {
           const docMatch = t.notes.match(/\[ឯកសារ:\s*([^\]]+)\]/);
           if (docMatch) docId = docMatch[1].trim();
         }
+        docId = String(docId || '').replace(/^DOC-/i, '').trim();
+        if (docId && docId !== 'N/A' && docId !== '-') docSet.add(docId);
+      });
+      const docNumbersDisplay = docSet.size > 0 ? Array.from(docSet).join(', ') : '-';
+
+      const rows = list.map((t, idx) => {
         const dStr = t.date || (t.timestamp ? String(t.timestamp).slice(0, 10) : '');
         const timeStr = t.time || '';
         const fullDate = (dStr + ' ' + timeStr).trim() || '-';
         const q = Number(t.quantity || 0);
-        totalQty += q;
+
+        // Resolve product item for thumbnail image
+        const item = (AppState.items || []).find(i => (i.sku && t.sku && i.sku.toLowerCase() === t.sku.toLowerCase()) || (i.name && t.itemName && i.name.toLowerCase() === t.itemName.toLowerCase()));
+
+        let rawImg = t.imageUrl || item?.imageUrl || '';
+        if (rawImg.includes('GMT') || rawImg.includes('2026') || (!rawImg.startsWith('http') && !rawImg.startsWith('data:') && !rawImg.startsWith('blob:') && !rawImg.startsWith('assets/'))) {
+          rawImg = '';
+        }
+        if ((!rawImg || !rawImg.startsWith('http')) && (t.sku === 'SKU-3037' || (t.itemName && t.itemName.includes('ស្រោមដៃ')))) {
+          rawImg = 'https://lh3.googleusercontent.com/d/1Yo9HGMr3NkbOIieI8ccxhgaaPNNksPs9';
+        }
+        let imgUrl = (typeof formatDriveImageUrl === 'function') ? formatDriveImageUrl(rawImg) : rawImg;
+        if (!imgUrl && (t.sku === 'SKU-3037' || (t.itemName && t.itemName.includes('ស្រោមដៃ')))) {
+          imgUrl = 'https://lh3.googleusercontent.com/d/1Yo9HGMr3NkbOIieI8ccxhgaaPNNksPs9';
+        }
+        const fallbackImg = 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=150';
 
         let issuer = t.issuer || t.user || '';
         if ((!issuer || issuer === '-' || issuer === 'Admin' || issuer === 'superadmin') && t.notes) {
@@ -27692,23 +27736,24 @@
         }
         if (!reasonStr) reasonStr = 'ដកប្រើប្រាស់';
 
-        const sizeStr = t.size && t.size !== '-' ? t.size : '';
-        const colorStr = t.color && t.color !== '-' ? t.color : '';
+        const sizeStr = t.size && t.size !== '-' ? t.size : (item?.size || '');
+        const colorStr = t.color && t.color !== '-' ? t.color : (item?.color || '');
         const variantStr = [sizeStr, colorStr].filter(Boolean).join(' / ') || '-';
-        const oldSt = (t.oldStock !== undefined && t.oldStock !== null && t.oldStock !== '-') ? t.oldStock : '-';
-        const newSt = (t.newStock !== undefined && t.newStock !== null && t.newStock !== '-') ? t.newStock : '-';
         const cleanNote = (typeof cleanDisplayNote === 'function') ? cleanDisplayNote(t.userNote !== undefined ? t.userNote : t.notes) : (t.userNote || t.notes || '-');
 
         return `
           <tr>
             <td style="text-align: center;">${idx + 1}</td>
-            <td style="font-family: monospace; font-weight: 600; color: #b45309; white-space: nowrap;">${escapeHtml(docId.replace(/^DOC-/i, ''))}</td>
-            <td style="white-space: nowrap; font-size: 10.5px;">${escapeHtml(fullDate)}</td>
-            <td style="font-family: monospace; font-weight: bold; color: #1e293b;">${escapeHtml(t.sku || t.code || '-')}</td>
+            <td style="white-space: nowrap; font-size: 10.5px; text-align: center;">${escapeHtml(fullDate)}</td>
+            <td style="font-family: monospace; font-weight: bold; color: #1e293b; text-align: center;">${escapeHtml(t.sku || t.code || '-')}</td>
             <td style="font-weight: 600;">${escapeHtml(t.itemName || '-')}</td>
+            <td style="text-align: center; vertical-align: middle; padding: 2px;">
+              <img src="${imgUrl || fallbackImg}"
+                   style="width: 34px; height: 34px; object-fit: cover; border-radius: 6px; border: 1px solid #cbd5e1; display: inline-block; vertical-align: middle;"
+                   onerror="this.style.display='none'">
+            </td>
             <td style="text-align: center; font-size: 10.5px;">${escapeHtml(variantStr)}</td>
             <td style="text-align: center; font-weight: bold; color: #b45309; background: #fffbeb;">-${q} ${escapeHtml(t.unit || 'ដុំ')}</td>
-            <td style="text-align: center; font-size: 10.5px; color: #64748b;">${oldSt} ➔ ${newSt}</td>
             <td style="font-size: 10.5px;">${escapeHtml(t.toLocation || t.location || '-')}</td>
             <td style="font-size: 10.5px;">${escapeHtml(reasonStr)}</td>
             <td style="font-size: 10.5px;">${escapeHtml(issuer)}</td>
@@ -27728,7 +27773,7 @@
           <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
           <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@400;500;600;700&family=Siemreap&display=swap" rel="stylesheet">
           <style>
-            * { box-sizing: border-box; font-family: 'Kantumruy Pro', 'Siemreap', Arial, sans-serif; }
+            * { box-sizing: border-box; font-family: 'Kantumruy Pro', 'Siemreap', Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             body { padding: 18px; color: #0f172a; font-size: 11px; line-height: 1.4; background: #fff; margin: 0; }
             .toolbar { display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 10px 16px; border: 1px solid #e2e8f0; border-radius: 10px; margin-bottom: 16px; }
             .btn-print { background: #b45309; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px; }
@@ -27737,7 +27782,7 @@
             .company-name { font-size: 18px; font-weight: bold; color: #92400e; margin: 0; }
             .report-title { font-size: 14px; font-weight: bold; color: #0f172a; margin: 3px 0 0 0; }
             .report-sub { font-size: 11px; color: #64748b; margin-top: 2px; }
-            .meta-box { text-align: right; font-size: 11px; color: #334155; line-height: 1.5; }
+            .meta-box { text-align: right; font-size: 11px; color: #334155; line-height: 1.6; max-width: 400px; }
             .summary-bar { display: flex; gap: 12px; margin-bottom: 12px; }
             .stat-pill { background: #f1f5f9; border: 1px solid #cbd5e1; padding: 6px 12px; border-radius: 8px; font-size: 11px; }
             .stat-pill b { color: #b45309; }
@@ -27772,27 +27817,26 @@
             <div class="meta-box">
               <div><strong>កាលបរិច្ឆេទបង្កើត៖</strong> ${escapeHtml(printDate)}</div>
               <div><strong>អ្នកទាញយក៖</strong> ${escapeHtml(currentUser)}</div>
+              <div style="margin-top: 4px;"><strong>លេខឯកសារ៖</strong> <span style="font-family: monospace; font-weight: bold; color: #b45309; font-size: 11.5px;">${escapeHtml(docNumbersDisplay)}</span></div>
             </div>
           </div>
           <div class="summary-bar">
             <div class="stat-pill">ប្រតិបត្តិការសរុប៖ <b>${list.length}</b></div>
-            <div class="stat-pill">បរិមាណបើកចេញសរុប៖ <b>${totalQty}</b></div>
           </div>
           <table>
             <thead>
               <tr>
-                <th style="width: 25px; text-align: center;">ល.រ</th>
-                <th style="width: 110px;">លេខឯកសារ</th>
-                <th style="width: 100px;">កាលបរិច្ឆេទ</th>
-                <th style="width: 75px;">SKU</th>
+                <th style="width: 28px; text-align: center;">ល.រ</th>
+                <th style="width: 105px; text-align: center;">កាលបរិច្ឆេទ</th>
+                <th style="width: 80px; text-align: center;">SKU</th>
                 <th>ឈ្មោះទំនិញ</th>
-                <th style="width: 75px; text-align: center;">ខ្នាត/ពណ៌</th>
+                <th style="width: 48px; text-align: center;">រូបភាព</th>
+                <th style="width: 80px; text-align: center;">ខ្នាត/ពណ៌</th>
                 <th style="width: 75px; text-align: center;">ចំនួនបើកចេញ</th>
-                <th style="width: 80px; text-align: center;">ស្តុកចាស់➔នៅសល់</th>
-                <th style="width: 105px;">ទៅកាន់ទីតាំង</th>
-                <th style="width: 80px;">មូលហេតុ</th>
-                <th style="width: 80px;">អ្នកបើក</th>
-                <th style="width: 110px;">កំណត់ចំណាំ</th>
+                <th style="width: 110px;">ទៅកាន់ទីតាំង</th>
+                <th style="width: 85px;">មូលហេតុ</th>
+                <th style="width: 85px;">អ្នកបើក</th>
+                <th style="width: 115px;">កំណត់ចំណាំ</th>
               </tr>
             </thead>
             <tbody>
@@ -27809,24 +27853,23 @@
               <div class="sig-line">ហត្ថលេខា & ឈ្មោះ</div>
             </div>
             <div class="sig-col">
-              <b>ប្រធានឃ្លាំង / អភិបាល</b>
+              <b>ប្រធានផ្នែក / អភិបាល</b>
               <div class="sig-line">ហត្ថលេខា & ឈ្មោះ</div>
             </div>
           </div>
           <sc` + `ript>
             window.onload = function() {
               window.focus();
-              setTimeout(function() { window.print(); }, 250);
+              setTimeout(function() { window.print(); }, 400);
             };
           </sc` + `ript>
-        </body>
+</body>
         </html>
       `);
       win.document.close();
     };
 
-
-    window.toggleExportStockInDropdown = function(e) {
+window.toggleExportStockInDropdown = function(e) {
       if (e) e.stopPropagation();
       const menu = document.getElementById('exportStockInMenu');
       if (!menu) return;
