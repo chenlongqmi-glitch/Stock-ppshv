@@ -4818,6 +4818,7 @@
                         0 ដើម
                       </span>
                     </div>
+                    <span id="stockInOldFormulaText" class="text-[10px] text-slate-400 font-medium mt-1 block text-left"></span>
                     <span id="stockInOldStockDisplay" class="hidden">0 ដុំ + 0 រាយ</span>
                   </div>
 
@@ -5242,6 +5243,7 @@
                         0 ដើម
                       </span>
                     </div>
+                    <span id="stockOutOldFormulaText" class="text-[10px] text-slate-400 font-medium mt-1 block text-left"></span>
                     <span id="stockOutOldStockDisplay" class="hidden">0 ដុំ</span>
                   </div>
 
@@ -22472,12 +22474,35 @@
       const newDisplay = document.getElementById('stockInNewTotalDisplay');
       if (newDisplay) newDisplay.innerText = `${newBulk} ${bUnit} + ${newRetail} ${rUnit}`;
 
+      const skuInput = document.getElementById('stockInSku');
+      const hasItem = skuInput && skuInput.value.trim().length > 0;
+      const pQty = Number(document.getElementById('stockInPackQtyVal')?.value || 1);
+      const totalOldRetail = (oldBulk * pQty) + oldRetail;
+      const totalNewRetail = (newBulk * pQty) + newRetail;
+
+      const oldFormulaEl = document.getElementById('stockInOldFormulaText');
+      if (oldFormulaEl) {
+        if (hasItem && bUnit) {
+          if (pQty > 1) {
+            oldFormulaEl.innerText = `1 ${bUnit} = ${pQty} ${rUnit} (សរុបស្តុកចាស់: ${totalOldRetail} ${rUnit})`;
+          } else {
+            oldFormulaEl.innerText = `(សរុបស្តុកចាស់: ${totalOldRetail} ${rUnit})`;
+          }
+          oldFormulaEl.classList.remove('hidden');
+        } else {
+          oldFormulaEl.innerText = '';
+          oldFormulaEl.classList.add('hidden');
+        }
+      }
+
       const formulaEl = document.getElementById('stockInFormulaText');
       if (formulaEl) {
-        const pQty = Number(document.getElementById('stockInPackQtyVal')?.value || 1);
-        if (bUnit) {
-          const totalRetail = (newBulk * pQty) + newRetail;
-          formulaEl.innerText = `1 ${bUnit} = ${pQty} ${rUnit} (សរុបស្តុកថ្មី: ${totalRetail} ${rUnit})`;
+        if (hasItem && bUnit) {
+          if (pQty > 1) {
+            formulaEl.innerText = `1 ${bUnit} = ${pQty} ${rUnit} (សរុបស្តុកថ្មី: ${totalNewRetail} ${rUnit})`;
+          } else {
+            formulaEl.innerText = `(សរុបស្តុកថ្មី: ${totalNewRetail} ${rUnit})`;
+          }
           formulaEl.classList.remove('hidden');
         } else {
           formulaEl.innerText = '';
@@ -24086,12 +24111,35 @@
       const remDisplay = document.getElementById('stockOutRemainingDisplay');
       if (remDisplay) remDisplay.innerText = `${newBulk} ${bUnit} + ${newRetail} ${rUnit}`;
 
+      const skuInputOut = document.getElementById('stockOutSku');
+      const hasItemOut = skuInputOut && skuInputOut.value.trim().length > 0;
+      const pQty = Number(document.getElementById('stockOutPackQtyVal')?.value || 1);
+      const totalOldRetail = (oldBulk * pQty) + oldRetail;
+      const totalRem = (newBulk * pQty) + newRetail;
+
+      const oldFormulaEl = document.getElementById('stockOutOldFormulaText');
+      if (oldFormulaEl) {
+        if (hasItemOut && bUnit) {
+          if (pQty > 1) {
+            oldFormulaEl.innerText = `1 ${bUnit} = ${pQty} ${rUnit} (សរុបស្តុកចាស់: ${totalOldRetail} ${rUnit})`;
+          } else {
+            oldFormulaEl.innerText = `(សរុបស្តុកចាស់: ${totalOldRetail} ${rUnit})`;
+          }
+          oldFormulaEl.classList.remove('hidden');
+        } else {
+          oldFormulaEl.innerText = '';
+          oldFormulaEl.classList.add('hidden');
+        }
+      }
+
       const formulaEl = document.getElementById('stockOutFormulaText');
       if (formulaEl) {
-        const pQty = Number(document.getElementById('stockOutPackQtyVal')?.value || 1);
-        if (bUnit) {
-          const totalRem = (newBulk * pQty) + newRetail;
-          formulaEl.innerText = `1 ${bUnit} = ${pQty} ${rUnit} (សរុបនៅសល់: ${totalRem} ${rUnit})`;
+        if (hasItemOut && bUnit) {
+          if (pQty > 1) {
+            formulaEl.innerText = `1 ${bUnit} = ${pQty} ${rUnit} (សរុបនៅសល់: ${totalRem} ${rUnit})`;
+          } else {
+            formulaEl.innerText = `(សរុបនៅសល់: ${totalRem} ${rUnit})`;
+          }
           formulaEl.classList.remove('hidden');
         } else {
           formulaEl.innerText = '';
