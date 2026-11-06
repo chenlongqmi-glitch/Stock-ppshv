@@ -6759,34 +6759,42 @@ function recordStockInBatch(payloadOrData, userParam) {
         }
       }
 
-      if (!itemFound) continue;
+      if (!itemFound) {
+        // Fallback so no item in batch is ever silently dropped from transactions
+        targetRow = -1;
+        itemName = itemName || it.name || sku;
+        unit = unit || 'ដុំ';
+        currentStock = 0;
+      }
 
       const newStock = currentStock + qty;
-      itemsData[targetRow - 1][idxCurrentStock] = newStock;
-      stockUpdates.push({ row: targetRow, col: idxCurrentStock + 1, val: newStock });
+      if (itemFound && targetRow > 0) {
+        itemsData[targetRow - 1][idxCurrentStock] = newStock;
+        stockUpdates.push({ row: targetRow, col: idxCurrentStock + 1, val: newStock });
 
-      if (idxPackStock >= 0) {
-        const pQty = idxPackQty >= 0 ? Number(itemsData[targetRow - 1][idxPackQty] || 1) : 1;
-        stockUpdates.push({ row: targetRow, col: idxPackStock + 1, val: pQty > 1 ? Math.floor(newStock / pQty) : newStock });
-      }
+        if (idxPackStock >= 0) {
+          const pQty = idxPackQty >= 0 ? Number(itemsData[targetRow - 1][idxPackQty] || 1) : 1;
+          stockUpdates.push({ row: targetRow, col: idxPackStock + 1, val: pQty > 1 ? Math.floor(newStock / pQty) : newStock });
+        }
 
-      if (idxZone >= 0 && it.zone && String(it.zone).trim() && String(it.zone).trim() !== '-') {
-        const curZoneStr = String(itemsData[targetRow - 1][idxZone] || '').trim();
-        const inZone = String(it.zone).trim();
-        if (!curZoneStr || curZoneStr === '-' || curZoneStr === 'តំបន់ A') {
-          itemsData[targetRow - 1][idxZone] = inZone;
-          stockUpdates.push({ row: targetRow, col: idxZone + 1, val: inZone });
-        } else {
-          const existingZones = curZoneStr.split(/[,;\/]+/).map(z => z.trim()).filter(Boolean);
-          if (!existingZones.includes(inZone)) {
-            existingZones.push(inZone);
-            const combinedZone = existingZones.join(', ');
-            itemsData[targetRow - 1][idxZone] = combinedZone;
-            stockUpdates.push({ row: targetRow, col: idxZone + 1, val: combinedZone });
+        if (idxZone >= 0 && it.zone && String(it.zone).trim() && String(it.zone).trim() !== '-') {
+          const curZoneStr = String(itemsData[targetRow - 1][idxZone] || '').trim();
+          const inZone = String(it.zone).trim();
+          if (!curZoneStr || curZoneStr === '-' || curZoneStr === 'តំបន់ A') {
+            itemsData[targetRow - 1][idxZone] = inZone;
+            stockUpdates.push({ row: targetRow, col: idxZone + 1, val: inZone });
+          } else {
+            const existingZones = curZoneStr.split(/[,;\/]+/).map(z => z.trim()).filter(Boolean);
+            if (!existingZones.includes(inZone)) {
+              existingZones.push(inZone);
+              const combinedZone = existingZones.join(', ');
+              itemsData[targetRow - 1][idxZone] = combinedZone;
+              stockUpdates.push({ row: targetRow, col: idxZone + 1, val: combinedZone });
+            }
           }
         }
+        stockUpdates.push({ row: targetRow, col: idxUpdatedAt + 1, val: now });
       }
-      stockUpdates.push({ row: targetRow, col: idxUpdatedAt + 1, val: now });
 
       let location = String(it.warehouse || it.toLocation || it.location || '').trim();
       if (!location || location === 'ALL' || location === 'គ្រប់ស្ថានីយទាំងអស់' || /^d+$/.test(location)) {
@@ -7172,6 +7180,63 @@ function syncMissingStockInRecords(optSs) {
       notes: 'សាកល្បង',
       user: '陈龙',
       timestamp: '2026-11-05 14:07:56'
+    },
+    {
+      docNo: 'IN-20261105-4783',
+      date: '2026-11-05',
+      sku: 'SKU-2089',
+      itemName: 'ក្រដាសជូតមាត់-抽纸',
+      size: 'LM',
+      color: 'ស',
+      zone: 'A07',
+      quantity: 3,
+      unit: 'ដុំ',
+      oldStock: '0 ដុំ',
+      newStock: '3 ដុំ',
+      movement: '0 ដុំ ➔ 3 ដុំ',
+      warehouse: '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
+      receivedBy: '陈龙',
+      notes: 'សាកល្បង',
+      user: '陈龙',
+      timestamp: '2026-11-05 14:07:56'
+    },
+    {
+      docNo: 'IN-20261105-1711',
+      date: '2026-11-05',
+      sku: 'SKU-9144',
+      itemName: 'ទឹកលុប-涂改液',
+      size: 'Pixcell',
+      color: 'ស',
+      zone: 'A01',
+      quantity: 10,
+      unit: 'ប្រអប់',
+      oldStock: '0 ដើម',
+      newStock: '10 ប្រអប់',
+      movement: '0 ដើម ➔ 10 ប្រអប់',
+      warehouse: '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
+      receivedBy: '陈龙',
+      notes: 'សាកល្បង',
+      user: '陈龙',
+      timestamp: '2026-11-05 10:15:20'
+    },
+    {
+      docNo: 'IN-20261104-8000',
+      date: '2026-11-04',
+      sku: 'SKU-2980',
+      itemName: 'អាយកូម 对讲机',
+      size: 'xiaomi',
+      color: 'ស',
+      zone: 'A02',
+      quantity: 15,
+      unit: 'គ្រឿង',
+      oldStock: '0 គ្រឿង',
+      newStock: '15 គ្រឿង',
+      movement: '0 គ្រឿង ➔ 15 គ្រឿង',
+      warehouse: '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)',
+      receivedBy: '陈龙',
+      notes: '-',
+      user: '陈龙',
+      timestamp: '2026-11-04 16:30:10'
     }
   ];
 
