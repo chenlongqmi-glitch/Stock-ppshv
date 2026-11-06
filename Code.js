@@ -692,7 +692,7 @@ function executeLocalApiAction(req) {
     const payload = req.payload || {};
 
     const MUTATIONS = {
-      'recordStockIn': true, 'recordStockOut': true, 'adjustStock': true, 'recordStockTransfer': true,
+      'recordStockIn': true, 'recordStockInBatch': true, 'stockInBatch': true, 'recordStockOut': true, 'recordStockOutBatch': true, 'stockOutBatch': true, 'syncMissingStockInRecords': true, 'adjustStock': true, 'recordStockTransfer': true,
       'saveOrUpdateItem': true, 'saveItem': true, 'createProduct': true, 'updateProduct': true, 'deleteItem': true,
       'resetItemsStockToZero': true, 'resetStockToZero': true,
       'registerUser': true, 'register': true, 'verifyOtpAndRegister': true, 'approveUser': true, 'rejectUser': true,
@@ -950,6 +950,17 @@ function executeLocalApiAction(req) {
       case 'recordStockIn':
       case 'stockIn':
         return recordStockIn(payload.data || payload, payload.user);
+
+      case 'recordStockInBatch':
+      case 'stockInBatch':
+        return recordStockInBatch(payload.data || payload, payload.user);
+
+      case 'recordStockOutBatch':
+      case 'stockOutBatch':
+        return recordStockOutBatch(payload.data || payload, payload.user);
+
+      case 'syncMissingStockInRecords':
+        return syncMissingStockInRecords();
 
       case 'repairStockInWarehouses':
       case 'repairStockIn':
@@ -6662,6 +6673,547 @@ function recordStockIn(dataOrPayload, user) {
  * ស្វែងរក និងកែសម្រួលជួរឈរ Warehouse ក្នុង Sheet 'Stock_in' និង 'Transactions'
  * ប្រសិនបើមានក្រឡាណាទទេ ឬលេខ (ដូចជា 51) ឬ 'ALL' ឱ្យមកជាឈ្មោះឃ្លាំងស្តង់ដារត្រឹមត្រូវ
  */
+
+/**
+ * Record a batch of Stock In transactions atomically with Script Lock
+ */
+function recordStockInBatch(payloadOrData, userParam) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(30000);
+  } catch (eLock) {
+    return { success: false, message: 'ប្រព័ន្ធកំពុងរវល់ សូមព្យាយាមរក្សាទុកម្តងទៀត (Server Busy Lock)' };
+  }
+
+  try {
+    let payload = payloadOrData || {};
+    let u = userParam || payload.user;
+    let items = payload.items || payload.batch || [];
+    let docNo = payload.docNo || (items[0] && items[0].docNo) || '';
+
+    if (!Array.isArray(items) || items.length === 0) {
+      if (payload.data && Array.isArray(payload.data.items)) {
+        items = payload.data.items;
+        docNo = payload.data.docNo || docNo;
+      } else if (payload.data && !Array.isArray(payload.data)) {
+        items = [payload.data];
+      }
+    }
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return { success: false, message: 'គ្មានទំនិញក្នុង List សម្រាប់កត់ត្រាចូលស្តុកឡើយ' };
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet() || SpreadsheetApp.openById('1zIK2d2uF3EYzaM9f4N2eOzR-HAmBihfxfHzK3xdgV_A');
+    const itemsSheet = ss.getSheetByName(SHEETS.ITEMS) || ss.getSheetByName('Items');
+    if (!itemsSheet) return { success: false, message: 'រកមិនឃើញតារាង Items' };
+
+    const stockSheets = ensureStockSheetsInitialized(ss);
+    const sInSheet = stockSheets ? stockSheets.stockInSheet : (ss.getSheetByName('Stock_in') || ss.getSheetByName(SHEETS.STOCK_IN));
+    if (!sInSheet) return { success: false, message: 'រកមិនឃើញតារាង Stock_in' };
+
+    const itemsData = itemsSheet.getDataRange().getValues();
+    const headers = (itemsData[0] || []).map(h => String(h || '').trim().toLowerCase());
+    const idxCurrentStock = headers.indexOf('currentstock') >= 0 ? headers.indexOf('currentstock') : 9;
+    const idxUpdatedAt = headers.indexOf('updatedat') >= 0 ? headers.indexOf('updatedat') : (headers.length > 0 ? headers.length - 1 : 17);
+    const idxUnit = headers.indexOf('unit') >= 0 ? headers.indexOf('unit') : 6;
+    const idxName = headers.indexOf('itemname') >= 0 ? headers.indexOf('itemname') : 2;
+    const idxPackStock = headers.indexOf('packstock');
+    const idxPackQty = headers.indexOf('packqty');
+    const idxZone = headers.indexOf('zone');
+
+    const sInLastCol = Math.max(17, sInSheet.getLastColumn());
+    const inHeaders = (sInSheet.getRange(1, 1, 1, sInLastCol).getValues()[0] || []).map(h => String(h || '').trim().toLowerCase());
+
+    const now = new Date();
+    const dateFormatted = Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd');
+    const dCompact = Utilities.formatDate(now, 'GMT+7', 'yyyyMMdd');
+    const tsFormatted = Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd HH:mm:ss');
+    const finalDocNo = (docNo && String(docNo).trim()) ? String(docNo).trim() : ('IN-' + dCompact + '-' + Math.floor(1000 + Math.random() * 9000));
+
+    const successItems = [];
+    const rowsToAppend = [];
+    const stockUpdates = [];
+
+    for (let itIdx = 0; itIdx < items.length; itIdx++) {
+      const it = items[itIdx];
+      if (!it) continue;
+      const sku = String(it.sku || it.code || '').trim();
+      const qty = Number(it.quantity || it.effectiveQty || it.inputQty || 0);
+      if (qty <= 0) continue;
+
+      let itemFound = false;
+      let targetRow = -1;
+      let currentStock = 0;
+      let itemName = it.itemName || '';
+      let unit = it.unit || it.baseUnit || 'ដុំ';
+
+      for (let i = 1; i < itemsData.length; i++) {
+        if (String(itemsData[i][0]).trim() === sku || String(itemsData[i][1]).trim() === sku) {
+          targetRow = i + 1;
+          itemName = itemName || itemsData[i][idxName] || '';
+          unit = unit || itemsData[i][idxUnit] || 'ដុំ';
+          currentStock = Number(itemsData[i][idxCurrentStock] || 0);
+          itemFound = true;
+          break;
+        }
+      }
+
+      if (!itemFound) continue;
+
+      const newStock = currentStock + qty;
+      itemsData[targetRow - 1][idxCurrentStock] = newStock;
+      stockUpdates.push({ row: targetRow, col: idxCurrentStock + 1, val: newStock });
+
+      if (idxPackStock >= 0) {
+        const pQty = idxPackQty >= 0 ? Number(itemsData[targetRow - 1][idxPackQty] || 1) : 1;
+        stockUpdates.push({ row: targetRow, col: idxPackStock + 1, val: pQty > 1 ? Math.floor(newStock / pQty) : newStock });
+      }
+
+      if (idxZone >= 0 && it.zone && String(it.zone).trim() && String(it.zone).trim() !== '-') {
+        const curZoneStr = String(itemsData[targetRow - 1][idxZone] || '').trim();
+        const inZone = String(it.zone).trim();
+        if (!curZoneStr || curZoneStr === '-' || curZoneStr === 'តំបន់ A') {
+          itemsData[targetRow - 1][idxZone] = inZone;
+          stockUpdates.push({ row: targetRow, col: idxZone + 1, val: inZone });
+        } else {
+          const existingZones = curZoneStr.split(/[,;\/]+/).map(z => z.trim()).filter(Boolean);
+          if (!existingZones.includes(inZone)) {
+            existingZones.push(inZone);
+            const combinedZone = existingZones.join(', ');
+            itemsData[targetRow - 1][idxZone] = combinedZone;
+            stockUpdates.push({ row: targetRow, col: idxZone + 1, val: combinedZone });
+          }
+        }
+      }
+      stockUpdates.push({ row: targetRow, col: idxUpdatedAt + 1, val: now });
+
+      let location = String(it.warehouse || it.toLocation || it.location || '').trim();
+      if (!location || location === 'ALL' || location === 'គ្រប់ស្ថានីយទាំងអស់' || /^d+$/.test(location)) {
+        location = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+      }
+      location = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(location) : location;
+
+      const oldStockVal = Number(it.oldStock !== undefined ? it.oldStock : currentStock);
+      const newStockVal = Number(it.newStock !== undefined ? it.newStock : newStock);
+      const movementStr = oldStockVal + ' ' + unit + ' ➔ ' + newStockVal + ' ' + unit;
+      const cleanUserNote = cleanDisplayNoteGAS(it.userNote !== undefined ? it.userNote : (it.notes || ''));
+      const finalNote = (cleanUserNote && cleanUserNote !== '-') ? cleanUserNote : '-';
+
+      let rowValues;
+      if (inHeaders.length >= 17 && inHeaders[0]) {
+        rowValues = inHeaders.map(h => {
+          if (h.includes('docno') || h.includes('doc') || h.includes('លេខឯកសារ')) return finalDocNo;
+          if (h === 'date' || h.includes('កាលបរិច្ឆេទ')) return dateFormatted;
+          if (h === 'sku' || h.includes('កូដ')) return sku;
+          if (h.includes('itemname') || h === 'item' || h === 'name' || h.includes('ឈ្មោះ')) return itemName;
+          if (h === 'size' || h.includes('ខ្នាត')) return it.size || '';
+          if (h === 'color' || h.includes('ពណ៌')) return it.color || '';
+          if (h === 'zone' || h.includes('តំបន់')) return it.zone || '';
+          if (h.includes('quantity') || h === 'qty' || h.includes('ចំនួន')) return qty;
+          if (h === 'unit' || h.includes('ឯកតា')) return unit;
+          if (h.includes('oldstock') || h.includes('ស្តុកចាស់')) return oldStockVal + ' ' + unit;
+          if (h.includes('newstock') || h.includes('ស្តុកថ្មី')) return newStockVal + ' ' + unit;
+          if (h.includes('movement') || h.includes('ចរន្ត') || h.includes('ស្តុកចាស់ ➔ ថ្មី')) return movementStr;
+          if (h.includes('warehouse') || h.includes('ឃ្លាំង') || h.includes('ស្ថានីយ')) return location;
+          if (h.includes('receivedby') || h.includes('receiver') || h.includes('អ្នកទទួល')) return it.receivedBy || (u ? (u.fullName || u.username) : 'Staff');
+          if (h.includes('notes') || h.includes('note') || h.includes('សម្គាល់')) return finalNote;
+          if (h === 'user' || h.includes('អ្នកប្រើ') || h.includes('បុគ្គលិក')) return u ? (u.fullName || u.username) : (it.receivedBy || 'Staff');
+          if (h.includes('timestamp') || h.includes('ពេល') || h.includes('ម៉ោង')) return tsFormatted;
+          return '';
+        });
+      } else {
+        rowValues = [
+          finalDocNo,
+          dateFormatted,
+          sku,
+          itemName,
+          it.size || '',
+          it.color || '',
+          it.zone || '',
+          qty,
+          unit,
+          oldStockVal + ' ' + unit,
+          newStockVal + ' ' + unit,
+          movementStr,
+          location,
+          it.receivedBy || (u ? (u.fullName || u.username) : 'Staff'),
+          finalNote,
+          u ? (u.fullName || u.username) : (it.receivedBy || 'Staff'),
+          tsFormatted
+        ];
+      }
+
+      rowsToAppend.push(rowValues);
+      successItems.push({ sku: sku, itemName: itemName, quantity: qty, newStock: newStock, toLocation: location });
+
+      try {
+        const costPrice = Number(it.unitPrice || 0);
+        const totalAmount = qty * (costPrice > 0 ? costPrice : Number(itemsData[targetRow - 1][5] || 0));
+        const cleanSupplier = (it.supplier && !it.supplier.startsWith('Doc:') && !it.supplier.includes('Admin') && !/^\d+$/.test(it.supplier) && it.supplier !== '-') ? it.supplier : 'អ្នកផ្គត់ផ្គង់ (Supplier)';
+        recordTransactionInternal(ss, {
+          txId: finalDocNo,
+          type: 'STOCK_IN',
+          sku: sku,
+          itemName: itemName,
+          quantity: qty,
+          unit: unit,
+          unitPrice: costPrice,
+          totalAmount: totalAmount,
+          fromLocation: cleanSupplier,
+          toLocation: location,
+          notes: ('[ឯកសារ: ' + finalDocNo + '] [អ្នកទទួល: ' + (it.receivedBy || (u ? u.fullName : 'Staff')) + '] [ខ្នាត: ' + (it.size || '') + '] [ពណ៌: ' + (it.color || '') + '] [តំបន់: ' + (it.zone || '') + '] [ស្តុក: ' + movementStr + '] ' + (it.notes || '')).trim(),
+          user: u ? (u.fullName || u.username) : (it.receivedBy || 'Staff')
+        });
+      } catch(eTx) {}
+    }
+
+    stockUpdates.forEach(su => {
+      itemsSheet.getRange(su.row, su.col).setValue(su.val);
+    });
+
+    rowsToAppend.forEach(r => {
+      sInSheet.appendRow(r);
+    });
+
+    SpreadsheetApp.flush();
+    logActivity(u ? (u.fullName || u.username) : 'Staff', 'Staff', 'STOCK_IN_BATCH', 'Stock In Batch ' + successItems.length + ' items [' + finalDocNo + ']');
+
+    try {
+      CacheService.getScriptCache().removeAll(['ITEMS_ALL', 'TX_SHEETS_SYNC_ALL', 'TX_SHEETS_SYNC_STOCK_IN']);
+    } catch(e) {}
+
+    try {
+      repairStockInWarehouses(ss);
+    } catch(eRepair) {}
+
+    setGlobalDataVersion();
+    SpreadsheetApp.flush();
+
+    return {
+      success: true,
+      message: 'បានកត់ត្រាចូលស្តុក ' + successItems.length + ' មុខទំនិញជោគជ័យ!',
+      docNo: finalDocNo,
+      items: successItems
+    };
+  } catch (err) {
+    Logger.log('recordStockInBatch error: ' + err.toString());
+    return { success: false, message: 'កំហុសកត់ត្រាចូលស្តុក: ' + err.toString() };
+  } finally {
+    try { lock.releaseLock(); } catch(e) {}
+  }
+}
+
+/**
+ * Record a batch of Stock Out transactions atomically with Script Lock
+ */
+function recordStockOutBatch(payloadOrData, userParam) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(30000);
+  } catch (eLock) {
+    return { success: false, message: 'ប្រព័ន្ធកំពុងរវល់ សូមព្យាយាមរក្សាទុកម្តងទៀត (Server Busy Lock)' };
+  }
+
+  try {
+    let payload = payloadOrData || {};
+    let u = userParam || payload.user;
+    let items = payload.items || payload.batch || [];
+    let docNo = payload.docNo || (items[0] && items[0].docNo) || '';
+
+    if (!Array.isArray(items) || items.length === 0) {
+      if (payload.data && Array.isArray(payload.data.items)) {
+        items = payload.data.items;
+        docNo = payload.data.docNo || docNo;
+      } else if (payload.data && !Array.isArray(payload.data)) {
+        items = [payload.data];
+      }
+    }
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return { success: false, message: 'គ្មានទំនិញក្នុង List សម្រាប់កត់ត្រាចេញស្តុកឡើយ' };
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet() || SpreadsheetApp.openById('1zIK2d2uF3EYzaM9f4N2eOzR-HAmBihfxfHzK3xdgV_A');
+    const itemsSheet = ss.getSheetByName(SHEETS.ITEMS) || ss.getSheetByName('Items');
+    if (!itemsSheet) return { success: false, message: 'រកមិនឃើញតារាង Items' };
+
+    const stockSheets = ensureStockSheetsInitialized(ss);
+    const sOutSheet = stockSheets ? stockSheets.stockOutSheet : (ss.getSheetByName('Stock_out') || ss.getSheetByName(SHEETS.STOCK_OUT));
+    if (!sOutSheet) return { success: false, message: 'រកមិនឃើញតារាង Stock_out' };
+
+    const itemsData = itemsSheet.getDataRange().getValues();
+    const headers = (itemsData[0] || []).map(h => String(h || '').trim().toLowerCase());
+    const idxCurrentStock = headers.indexOf('currentstock') >= 0 ? headers.indexOf('currentstock') : 9;
+    const idxUpdatedAt = headers.indexOf('updatedat') >= 0 ? headers.indexOf('updatedat') : (headers.length > 0 ? headers.length - 1 : 17);
+    const idxUnit = headers.indexOf('unit') >= 0 ? headers.indexOf('unit') : 6;
+    const idxName = headers.indexOf('itemname') >= 0 ? headers.indexOf('itemname') : 2;
+    const idxPackStock = headers.indexOf('packstock');
+    const idxPackQty = headers.indexOf('packqty');
+
+    const sOutLastCol = Math.max(17, sOutSheet.getLastColumn());
+    const outHeaders = (sOutSheet.getRange(1, 1, 1, sOutLastCol).getValues()[0] || []).map(h => String(h || '').trim().toLowerCase());
+
+    const now = new Date();
+    const dateFormatted = Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd');
+    const dCompact = Utilities.formatDate(now, 'GMT+7', 'yyyyMMdd');
+    const tsFormatted = Utilities.formatDate(now, 'GMT+7', 'yyyy-MM-dd HH:mm:ss');
+    const finalDocNo = (docNo && String(docNo).trim()) ? String(docNo).trim() : ('OUT-' + dCompact + '-' + Math.floor(1000 + Math.random() * 9000));
+
+    const successItems = [];
+    const rowsToAppend = [];
+    const stockUpdates = [];
+
+    for (let itIdx = 0; itIdx < items.length; itIdx++) {
+      const it = items[itIdx];
+      if (!it) continue;
+      const sku = String(it.sku || it.code || '').trim();
+      const qty = Number(it.quantity || it.effectiveQty || it.inputQty || 0);
+      if (qty <= 0) continue;
+
+      let itemFound = false;
+      let targetRow = -1;
+      let currentStock = 0;
+      let itemName = it.itemName || '';
+      let unit = it.unit || it.baseUnit || 'ដុំ';
+
+      for (let i = 1; i < itemsData.length; i++) {
+        if (String(itemsData[i][0]).trim() === sku || String(itemsData[i][1]).trim() === sku) {
+          targetRow = i + 1;
+          itemName = itemName || itemsData[i][idxName] || '';
+          unit = unit || itemsData[i][idxUnit] || 'ដុំ';
+          currentStock = Number(itemsData[i][idxCurrentStock] || 0);
+          itemFound = true;
+          break;
+        }
+      }
+
+      if (!itemFound) continue;
+
+      const newStock = Math.max(0, currentStock - qty);
+      itemsData[targetRow - 1][idxCurrentStock] = newStock;
+      stockUpdates.push({ row: targetRow, col: idxCurrentStock + 1, val: newStock });
+
+      if (idxPackStock >= 0) {
+        const pQty = idxPackQty >= 0 ? Number(itemsData[targetRow - 1][idxPackQty] || 1) : 1;
+        stockUpdates.push({ row: targetRow, col: idxPackStock + 1, val: pQty > 1 ? Math.floor(newStock / pQty) : newStock });
+      }
+      stockUpdates.push({ row: targetRow, col: idxUpdatedAt + 1, val: now });
+
+      let fromLoc = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+      let toLoc = String(it.toLocation || it.location || it.warehouse || it.customer || 'ដកប្រើប្រាស់').trim();
+      toLoc = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(toLoc) : toLoc;
+
+      const oldStockVal = Number(it.oldStock !== undefined ? it.oldStock : currentStock);
+      const remStockVal = Number(it.newStock !== undefined ? it.newStock : newStock);
+      const movementStr = oldStockVal + ' ' + unit + ' ➔ ' + remStockVal + ' ' + unit;
+      const cleanUserNote = cleanDisplayNoteGAS(it.userNote !== undefined ? it.userNote : (it.notes || ''));
+      const finalNote = (cleanUserNote && cleanUserNote !== '-') ? cleanUserNote : '-';
+
+      let rowValues;
+      if (outHeaders.length >= 17 && outHeaders[0]) {
+        rowValues = outHeaders.map(h => {
+          if (h.includes('docno') || h.includes('doc') || h.includes('លេខឯកសារ')) return finalDocNo;
+          if (h === 'date' || h.includes('កាលបរិច្ឆេទ')) return dateFormatted;
+          if (h === 'sku' || h.includes('កូដ')) return sku;
+          if (h.includes('itemname') || h === 'item' || h === 'name' || h.includes('ឈ្មោះ')) return itemName;
+          if (h === 'size' || h.includes('ខ្នាត')) return it.size || '';
+          if (h === 'color' || h.includes('ពណ៌')) return it.color || '';
+          if (h === 'zone' || h.includes('តំបន់')) return it.zone || '';
+          if (h.includes('quantity') || h === 'qty' || h.includes('ចំនួន')) return qty;
+          if (h === 'unit' || h.includes('ឯកតា')) return unit;
+          if (h.includes('oldstock') || h.includes('ស្តុកចាស់')) return oldStockVal + ' ' + unit;
+          if (h.includes('newstock') || h.includes('ស្តុកនៅសល់') || h.includes('remstock')) return remStockVal + ' ' + unit;
+          if (h.includes('movement') || h.includes('ចរន្ត')) return movementStr;
+          if (h.includes('from') || h.includes('ចេញពី')) return fromLoc;
+          if (h.includes('to') || h.includes('ទៅកាន់') || h.includes('គោលដៅ')) return toLoc;
+          if (h.includes('notes') || h.includes('note') || h.includes('សម្គាល់')) return finalNote;
+          if (h.includes('issuer') || h.includes('អ្នកបើក')) return it.issuer || (u ? (u.fullName || u.username) : 'Staff');
+          if (h.includes('timestamp') || h.includes('ពេល') || h.includes('ម៉ោង')) return tsFormatted;
+          return '';
+        });
+      } else {
+        rowValues = [
+          finalDocNo,
+          dateFormatted,
+          sku,
+          itemName,
+          it.size || '',
+          it.color || '',
+          it.zone || '',
+          qty,
+          unit,
+          oldStockVal + ' ' + unit,
+          remStockVal + ' ' + unit,
+          movementStr,
+          fromLoc,
+          toLoc,
+          finalNote,
+          it.issuer || (u ? (u.fullName || u.username) : 'Staff'),
+          tsFormatted
+        ];
+      }
+
+      rowsToAppend.push(rowValues);
+      successItems.push({ sku: sku, itemName: itemName, quantity: qty, newStock: newStock, toLocation: toLoc });
+
+      try {
+        const costPrice = Number(it.unitPrice || 0);
+        const totalAmount = qty * (costPrice > 0 ? costPrice : Number(itemsData[targetRow - 1][5] || 0));
+        recordTransactionInternal(ss, {
+          txId: finalDocNo,
+          type: 'STOCK_OUT',
+          sku: sku,
+          itemName: itemName,
+          quantity: qty,
+          unit: unit,
+          unitPrice: costPrice,
+          totalAmount: totalAmount,
+          fromLocation: fromLoc,
+          toLocation: toLoc,
+          notes: ('[ឯកសារ: ' + finalDocNo + '] [អ្នកបើក: ' + (it.issuer || (u ? u.fullName : 'Staff')) + '] [ខ្នាត: ' + (it.size || '') + '] [ពណ៌: ' + (it.color || '') + '] [ស្តុក: ' + movementStr + '] ' + (it.notes || '')).trim(),
+          user: u ? (u.fullName || u.username) : (it.issuer || 'Staff')
+        });
+      } catch(eTx) {}
+    }
+
+    stockUpdates.forEach(su => {
+      itemsSheet.getRange(su.row, su.col).setValue(su.val);
+    });
+
+    rowsToAppend.forEach(r => {
+      sOutSheet.appendRow(r);
+    });
+
+    SpreadsheetApp.flush();
+    logActivity(u ? (u.fullName || u.username) : 'Staff', 'Staff', 'STOCK_OUT_BATCH', 'Stock Out Batch ' + successItems.length + ' items [' + finalDocNo + ']');
+
+    try {
+      CacheService.getScriptCache().remove('TX_SHEETS_SYNC_ALL');
+      CacheService.getScriptCache().remove('TX_SHEETS_SYNC_STOCK_OUT');
+    } catch(e) {}
+
+    setGlobalDataVersion();
+    SpreadsheetApp.flush();
+
+    return {
+      success: true,
+      message: 'បានកត់ត្រាចេញស្តុក ' + successItems.length + ' មុខទំនិញជោគជ័យ!',
+      docNo: finalDocNo,
+      items: successItems
+    };
+  } catch (err) {
+    Logger.log('recordStockOutBatch error: ' + err.toString());
+    return { success: false, message: 'កំហុសកត់ត្រាចេញស្តុក: ' + err.toString() };
+  } finally {
+    try { lock.releaseLock(); } catch(e) {}
+  }
+}
+
+/**
+ * ស្វែងរក និងបំពេញបន្ថែមទិន្នន័យប្រតិបត្តិការ Stock_in ដែលខ្វះចន្លោះ
+ */
+function syncMissingStockInRecords(optSs) {
+  let ss = optSs;
+  if (!ss) {
+    try { ss = SpreadsheetApp.getActiveSpreadsheet(); } catch(e) {}
+  }
+  if (!ss) {
+    try { ss = SpreadsheetApp.openById('1zIK2d2uF3EYzaM9f4N2eOzR-HAmBihfxfHzK3xdgV_A'); } catch(e) {}
+  }
+  if (!ss) return { success: false, message: 'Spreadsheet not accessible' };
+
+  const sInSheet = ss.getSheetByName('Stock_in') || ss.getSheetByName(SHEETS.STOCK_IN);
+  if (!sInSheet) return { success: false, message: 'Stock_in sheet not found' };
+
+  const data = sInSheet.getDataRange().getValues();
+  const existingDocs = new Set();
+  for (let r = 1; r < data.length; r++) {
+    const doc = String(data[r][0] || '').trim().toUpperCase();
+    const sku = String(data[r][2] || '').trim().toUpperCase();
+    if (doc && sku) existingDocs.add(doc + '_' + sku);
+  }
+
+  const missingRows = [
+    {
+      docNo: 'IN-20261105-4783',
+      date: '2026-11-05',
+      sku: 'SKU-3445',
+      itemName: '地毯',
+      size: '把',
+      color: '-',
+      zone: 'A08',
+      quantity: 1,
+      unit: 'ដុំ',
+      oldStock: '0 ដុំ',
+      newStock: '1 ដុំ',
+      movement: '0 ដុំ ➔ 1 ដុំ',
+      warehouse: '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)',
+      receivedBy: '陈龙',
+      notes: 'សាកល្បង',
+      user: '陈龙',
+      timestamp: '2026-11-05 14:07:56'
+    },
+    {
+      docNo: 'IN-20261105-4783',
+      date: '2026-11-05',
+      sku: 'SKU-9816',
+      itemName: 'កាត-母卡',
+      size: 'Simcard',
+      color: 'ស',
+      zone: 'A07',
+      quantity: 4,
+      unit: 'សន្លឹក',
+      oldStock: '0 សន្លឹក',
+      newStock: '1 កញ្ចប់',
+      movement: '0 សន្លឹក ➔ 4 សន្លឹក',
+      warehouse: '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)',
+      receivedBy: '陈龙',
+      notes: 'សាកល្បង',
+      user: '陈龙',
+      timestamp: '2026-11-05 14:07:56'
+    }
+  ];
+
+  let added = 0;
+  missingRows.forEach(row => {
+    const key = row.docNo.toUpperCase() + '_' + row.sku.toUpperCase();
+    if (!existingDocs.has(key)) {
+      sInSheet.appendRow([
+        row.docNo,
+        row.date,
+        row.sku,
+        row.itemName,
+        row.size,
+        row.color,
+        row.zone,
+        row.quantity,
+        row.unit,
+        row.oldStock,
+        row.newStock,
+        row.movement,
+        row.warehouse,
+        row.receivedBy,
+        row.notes,
+        row.user,
+        row.timestamp
+      ]);
+      existingDocs.add(key);
+      added++;
+    }
+  });
+
+  if (added > 0) {
+    SpreadsheetApp.flush();
+    try {
+      CacheService.getScriptCache().removeAll(['ITEMS_ALL', 'TX_SHEETS_SYNC_ALL', 'TX_SHEETS_SYNC_STOCK_IN']);
+    } catch(e) {}
+    setGlobalDataVersion();
+  }
+
+  return { success: true, addedCount: added, message: 'បានត្រួតពិនិត្យ និងបន្ថែម ' + added + ' ប្រតិបត្តិការដែលខ្វះក្នុង Stock_in' };
+}
+
 function repairStockInWarehouses(optSs) {
   let ss = optSs;
   if (!ss) {

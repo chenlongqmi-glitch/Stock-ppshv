@@ -234,6 +234,11 @@
       -webkit-tap-highlight-color: transparent;
       letter-spacing: normal !important;
       line-height: 1.62;
+      font-synthesis: weight style;
+    }
+
+    body, table, th, td, p, span, div, h1, h2, h3, h4, h5, h6, .font-khmer {
+      font-synthesis: weight style;
     }
 
     .font-khmer {
@@ -12630,7 +12635,7 @@
 
     const TURBO_MUTATION_ACTIONS = new Set([
       'registerUser', 'register',
-      'recordStockIn', 'recordStockOut', 'recordStockTransfer', 'adjustStock', 'recordStockAdjustment',
+      'recordStockIn', 'recordStockInBatch', 'stockInBatch', 'recordStockOut', 'recordStockOutBatch', 'stockOutBatch', 'syncMissingStockInRecords', 'recordStockTransfer', 'adjustStock', 'recordStockAdjustment',
       'saveOrUpdateItem', 'saveItem', 'createProduct', 'updateProduct', 'deleteItem',
       'updateUserProfile', 'updateProfile', 'addWarehouse', 'deleteWarehouse',
       'updateUserStatus', 'deleteUser', 'requestUserDeletion', 'approveUserDeletion',
@@ -12793,7 +12798,7 @@
         } else if (gasUrl && gasUrl.startsWith('https://script.google.com/')) {
           try {
             const controller = new AbortController();
-            const timeoutMs = (action === 'uploadImageToDrive' || action === 'uploadProductImage' || action === 'syncAllItems' || action === 'syncItems') ? 60000 : (action === 'checkDataVersion' || action === 'getSyncHeartbeat') ? 3500 : 25000;
+            const timeoutMs = (action === 'uploadImageToDrive' || action === 'uploadProductImage' || action === 'syncAllItems' || action === 'syncItems') ? 60000 : (action === 'checkDataVersion' || action === 'getSyncHeartbeat') ? 10000 : 25000;
             const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
             const READ_ACTIONS = new Set([
@@ -14422,6 +14427,14 @@
         return { success: true, message: 'បានកត់ត្រាទំនិញចូលស្តុកជោគជ័យ!' };
       }
 
+      if (action === 'recordStockInBatch' || action === 'stockInBatch') {
+        const items = payload.items || [];
+        items.forEach(it => {
+          simulateLocalApi('recordStockIn', { data: it, user: payload.user || u });
+        });
+        return { success: true, count: items.length, message: 'បានកត់ត្រាទំនិញចូលស្តុកជាកញ្ចប់ជោគជ័យ!' };
+      }
+
       if (action === 'recordStockOut') {
         const d = payload.data || payload;
         const notesFormatted = [
@@ -14472,6 +14485,14 @@
         }
         addNotification('STOCK_OUT', 'នាំចេញស្តុកទំនិញ (Stock Out)', `-${qtyNum} ${d.unit || 'ដុំ'} នៃ ${d.itemName || d.sku} (ឯកសារ: ${d.docNo || 'N/A'})`, d.toLocation || d.fromLocation || u?.warehouse, u?.username || 'Staff');
         return { success: true, message: 'បានកត់ត្រាទំនិញចេញពីស្តុកជោគជ័យ!' };
+      }
+
+      if (action === 'recordStockOutBatch' || action === 'stockOutBatch') {
+        const items = payload.items || [];
+        items.forEach(it => {
+          simulateLocalApi('recordStockOut', { data: it, user: payload.user || u });
+        });
+        return { success: true, count: items.length, message: 'បានកត់ត្រាទំនិញចេញពីស្តុកជាកញ្ចប់ជោគជ័យ!' };
       }
 
       if (action === 'recordStockTransfer') {
@@ -28252,6 +28273,9 @@ window.toggleExportStockInDropdown = function(e) {
         const sizeStr = escapeHtml(rawSize);
         const colorStr = escapeHtml(rawColor);
         const zoneStr = escapeHtml(rawZone);
+        const hasValidSize = !!sizeStr && sizeStr !== '-' && sizeStr !== 'N/A' && sizeStr !== 'null';
+        const hasValidColor = !!colorStr && colorStr !== '-' && colorStr !== 'N/A' && colorStr !== 'null';
+        const hasValidZone = !!zoneStr && zoneStr !== '-' && zoneStr !== 'N/A' && zoneStr !== 'null';
 
         const parseStockNum = (v) => {
           if (v === undefined || v === null || v === '' || v === '-') return null;
@@ -28452,17 +28476,17 @@ window.toggleExportStockInDropdown = function(e) {
             </td>
 
             <!-- 4. ខ្នាត/ពណ៌/តំបន់ (ប្រអប់ខាងក្រោម ស្មើគ្នាជាមួយប្រអប់២ខាងលើ) -->
-            <td class="px-2 py-2.5 text-slate-700 text-xs align-middle overflow-hidden">
-              <div class="inline-flex flex-col items-stretch justify-center gap-1 max-w-full">
-                ${(sizeStr || colorStr) ? `
-                  <div class="inline-flex items-center gap-1">
-                    ${sizeStr ? `<span class="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 truncate shrink-0" title="ខ្នាត: ${sizeStr}">${sizeStr}</span>` : ''}
-                    ${colorStr ? `<span class="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 truncate shrink-0" title="ពណ៌: ${colorStr}">${colorStr}</span>` : ''}
+            <td class="px-2 py-2.5 text-slate-700 text-xs align-middle">
+              <div class="inline-flex flex-col items-stretch justify-center gap-1 w-full max-w-[84px] mx-auto">
+                ${(hasValidSize || hasValidColor) ? `
+                  <div class="flex items-center gap-1 w-full">
+                    ${hasValidSize ? `<span class="${hasValidColor ? 'flex-1' : 'w-full'} min-w-0 inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 truncate text-center" title="ខ្នាត: ${sizeStr}">${sizeStr}</span>` : ''}
+                    ${hasValidColor ? `<span class="${hasValidSize ? 'flex-1' : 'w-full'} min-w-0 inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 truncate text-center" title="ពណ៌: ${colorStr}">${colorStr}</span>` : ''}
                   </div>
-                ` : (!zoneStr ? '<span class="text-slate-400 font-medium text-[11px]">-</span>' : '')}
-                ${zoneStr ? `
+                ` : (!hasValidZone ? '<span class="text-slate-400 font-medium text-[11px] text-center block">-</span>' : '')}
+                ${hasValidZone ? `
                   <div class="w-full">
-                    <span class="inline-flex items-center justify-center gap-1 w-full px-1.5 py-0.5 rounded-md text-[10px] font-black bg-indigo-50 text-indigo-700 border border-indigo-200/90 shadow-3xs truncate" title="តំបន់: ${zoneStr}">
+                    <span class="inline-flex items-center justify-center gap-1 w-full px-1.5 py-0.5 rounded-md text-[10px] font-black bg-indigo-50 text-indigo-700 border border-indigo-200/90 shadow-3xs truncate text-center" title="តំបន់: ${zoneStr}">
                       <i class="fa-solid fa-location-dot text-rose-500 text-[9px] shrink-0"></i>
                       <span class="truncate">${zoneStr}</span>
                     </span>
@@ -28562,8 +28586,8 @@ window.toggleExportStockInDropdown = function(e) {
             </td>
 
             <!-- 8. ឃ្លាំងទទួល -->
-            <td class="px-2 py-2.5 text-slate-700 font-medium text-[11px] align-middle overflow-hidden">
-              <span class="block truncate" title="${loc}">${loc}</span>
+            <td class="px-2.5 py-2.5 text-slate-700 font-medium text-[11px] align-middle">
+              <span class="block whitespace-normal break-words leading-tight" title="${loc}">${loc}</span>
             </td>
 
             <!-- 9. អ្នកទទួល & កំណត់សម្គាល់ -->
@@ -29102,8 +29126,8 @@ window.toggleExportStockInDropdown = function(e) {
             </td>
 
             <!-- 8. ចេញទៅឃ្លាំង/ស្ថានីយ -->
-            <td class="px-2 py-2.5 text-slate-700 font-medium text-[11px] align-middle overflow-hidden">
-              <span class="block truncate" title="${loc}">${loc}</span>
+            <td class="px-2.5 py-2.5 text-slate-700 font-medium text-[11px] align-middle">
+              <span class="block whitespace-normal break-words leading-tight" title="${loc}">${loc}</span>
             </td>
 
             <!-- 9. អ្នកបើក & កំណត់សម្គាល់ -->
@@ -29961,39 +29985,41 @@ window.toggleExportStockInDropdown = function(e) {
           if (it.zone) localItem.zone = it.zone;
         }
 
-        // Send backend API call
-        const payload = {
-          data: {
-            docNo,
-            sku: it.sku,
-            code: it.itemCode,
-            itemName: it.itemName,
-            size: it.size,
-            unit: it.baseUnit,
-            packUnit: it.packUnit,
-            packQty: it.packQty,
-            bulkQty: it.bulkQty,
-            retailQty: it.retailQty,
-            inUnitMode: it.mode,
-            inputQty: (it.bulkQty > 0 && it.retailQty === 0) ? it.bulkQty : it.effectiveQty,
-            color: it.color,
-            zone: it.zone,
-            quantity: it.effectiveQty,
-            oldStock: it.oldStock,
-            newStock: it.newStock,
-            unitPrice: 0,
-            supplier: it.supplier,
-            fromLocation: it.supplier,
-            toLocation: it.location,
-            warehouse: it.location,
-            location: it.location,
-            receivedBy: it.receivedBy,
-            notes: it.notes
-          },
-          user: AppState.currentUser
-        };
-        apiCall('recordStockIn', payload).catch(err => console.error('Batch stockIn apiCall error:', err));
       }
+
+      // Send ATOMIC BATCH to Google Apps Script (Guaranteed atomic write, no dropped transactions)
+      const batchPayload = {
+        docNo: docNo,
+        items: itemsToProcess.map(it => ({
+          sku: it.sku,
+          code: it.itemCode,
+          itemName: it.itemName,
+          imageUrl: it.imageUrl,
+          size: it.size,
+          color: it.color,
+          zone: it.zone,
+          quantity: it.effectiveQty,
+          bulkQty: it.bulkQty,
+          retailQty: it.retailQty,
+          mode: it.mode,
+          baseUnit: it.baseUnit,
+          packUnit: it.packUnit,
+          packQty: it.packQty,
+          oldStock: it.oldStock,
+          newStock: it.newStock,
+          supplier: it.supplier,
+          location: it.location,
+          warehouse: it.location,
+          receivedBy: it.receivedBy,
+          notes: it.notes,
+          userNote: it.notes
+        })),
+        user: AppState.currentUser
+      };
+
+      apiCall('recordStockInBatch', batchPayload).catch(err => {
+        console.error('Batch stockIn apiCall error:', err);
+      });
 
       // Save local storage
       try {
@@ -30522,37 +30548,44 @@ window.toggleExportStockInDropdown = function(e) {
           LOCAL_DB.dispatches.unshift(dspItem);
         }
 
-        // Send backend API call
-        const payload = {
-          data: {
-            docNo,
-            sku: it.sku,
-            code: it.itemCode,
-            itemName: it.itemName,
-            size: it.size,
-            unit: it.baseUnit,
-            packUnit: it.packUnit,
-            packQty: it.packQty,
-            bulkQty: it.bulkQty,
-            retailQty: it.retailQty,
-            outUnitMode: (it.bulkQty > 0 && it.retailQty === 0) ? 'BULK' : 'RETAIL',
-            color: it.color,
-            zone: it.zone,
-            quantity: it.effectiveQty,
-            oldStock: it.oldStock,
-            newStock: it.newStock,
-            unitPrice: it.unitPrice,
-            fromLocation: 'បញ្ជូនមកពីចុងស៊ីន',
-            toLocation: it.toLocation,
-            issuer: it.issuer,
-            reason: it.reason,
-            notes: it.notes,
-            userNote: it.notes
-          },
-          user: AppState.currentUser
-        };
-        apiCall('recordStockOut', payload).catch(err => console.error('Batch stockOut apiCall error:', err));
       }
+
+      // Send ATOMIC BATCH to Google Apps Script (Guaranteed atomic write, no dropped transactions)
+      const batchOutPayload = {
+        docNo: docNo,
+        items: itemsToProcess.map(it => ({
+          sku: it.sku,
+          code: it.itemCode,
+          itemName: it.itemName,
+          imageUrl: it.imageUrl,
+          size: it.size,
+          color: it.color,
+          zone: it.zone,
+          quantity: it.effectiveQty,
+          bulkQty: it.bulkQty,
+          retailQty: it.retailQty,
+          outUnitMode: (it.bulkQty > 0 && it.retailQty === 0) ? 'BULK' : 'RETAIL',
+          baseUnit: it.baseUnit,
+          packUnit: it.packUnit,
+          packQty: it.packQty,
+          oldStock: it.oldStock,
+          newStock: it.newStock,
+          unitPrice: it.unitPrice,
+          fromLocation: 'បញ្ជូនមកពីចុងស៊ីន',
+          toLocation: it.toLocation,
+          warehouse: it.toLocation,
+          location: it.toLocation,
+          issuer: it.issuer,
+          reason: it.reason,
+          notes: it.notes,
+          userNote: it.notes
+        })),
+        user: AppState.currentUser
+      };
+
+      apiCall('recordStockOutBatch', batchOutPayload).catch(err => {
+        console.error('Batch stockOut apiCall error:', err);
+      });
 
       // Save local storage
       try {
