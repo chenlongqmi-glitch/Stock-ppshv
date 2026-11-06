@@ -8938,7 +8938,7 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
       }
 
       transactions.push({
-        txId: docNo || ('TX-IN-' + r),
+        txId: docNo ? (docNo + '_' + (sku || r)) : ('TX-IN-' + r),
         docNo: docNo,
         date: dStr,
         type: 'STOCK_IN',
@@ -9227,7 +9227,7 @@ function getStockOutTransactionsFromSheet(ss, filters, user) {
       }
 
       transactions.push({
-        txId: docNo || ('TX-OUT-' + r),
+        txId: docNo ? (docNo + '_' + (sku || r)) : ('TX-OUT-' + r),
         docNo: docNo,
         date: dStr,
         type: 'STOCK_OUT',
@@ -9762,11 +9762,19 @@ function deleteStockTransaction(payloadOrData, user) {
     const rows = targetSheet.getDataRange().getValues();
     const headers = (rows[0] || []).map(h => String(h || '').trim().toLowerCase());
     const docIdx = headers.findIndex(h => h.includes('docno') || h.includes('doc') || h.includes('ឯកសារ') || h.includes('txid'));
+    const skuIdx = headers.findIndex(h => h.includes('sku') || h.includes('កូដ'));
     for (let i = rows.length - 1; i >= 1; i--) {
       const rDoc = String((docIdx >= 0 ? rows[i][docIdx] : rows[i][0]) || '').trim();
       const rTx = String(rows[i][0] || '').trim();
-      if ((docNo && (rDoc.toLowerCase() === docNo.toLowerCase() || rTx.toLowerCase() === docNo.toLowerCase())) ||
-          (txId && (rDoc.toLowerCase() === txId.toLowerCase() || rTx.toLowerCase() === txId.toLowerCase()))) {
+      const rSku = String((skuIdx >= 0 ? rows[i][skuIdx] : '') || '').trim();
+      const docMatch = (docNo && (rDoc.toLowerCase() === docNo.toLowerCase() || rTx.toLowerCase() === docNo.toLowerCase()));
+      const txMatch = (txId && (rDoc.toLowerCase() === txId.toLowerCase() || rTx.toLowerCase() === txId.toLowerCase()));
+      if (sku && (docMatch || txMatch)) {
+        if (rSku.toLowerCase() === sku.toLowerCase()) {
+          targetSheet.deleteRow(i + 1);
+          break;
+        }
+      } else if (docMatch || txMatch) {
         targetSheet.deleteRow(i + 1);
         break;
       }
