@@ -822,6 +822,187 @@ function executeLocalApiAction(req) {
         return { success: true, rows: vals };
       }
 
+      case 'backfillStockInRecords': {
+        const ss = SpreadsheetApp.getActiveSpreadsheet() || SpreadsheetApp.openById('1zIK2d2uF3EYzaM9f4N2eOzR-HAmBihfxfHzK3xdgV_A');
+        const sInSheet = ss.getSheetByName('Stock_in') || ss.getSheetByName(SHEETS.STOCK_IN);
+        const txSheet = ss.getSheetByName('Transactions') || ss.getSheetByName(SHEETS.TRANSACTIONS);
+        if (!sInSheet) return { success: false, message: 'Stock_in sheet not found' };
+
+        const targetRecords = [
+          {
+            docNo: 'IN-20261105-4783',
+            date: '2026-11-05',
+            sku: 'SKU-3445',
+            itemName: '地毯',
+            size: '老',
+            color: '-',
+            zone: 'A08',
+            qty: 1,
+            unit: 'ដុំ',
+            oldStock: '0 ដុំ',
+            newStock: '1 ដុំ',
+            movement: '0 ដុំ ➔ 1 ដុំ',
+            warehouse: '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)',
+            receivedBy: '陈龙',
+            notes: 'សាកល្បង',
+            user: '陈龙',
+            timestamp: '2026-11-05 08:01:03'
+          },
+          {
+            docNo: 'IN-20261105-4783',
+            date: '2026-11-05',
+            sku: 'SKU-9816',
+            itemName: 'កាត-母卡',
+            size: 'Simcard',
+            color: 'ស',
+            zone: 'A07',
+            qty: 4,
+            unit: 'សន្លឹក',
+            oldStock: '0 សន្លឹក',
+            newStock: '1 កញ្ចប់',
+            movement: '0 សន្លឹក ➔ 1 កញ្ចប់',
+            warehouse: '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)',
+            receivedBy: '陈龙',
+            notes: 'សាកល្បង',
+            user: '陈龙',
+            timestamp: '2026-11-05 08:00:30'
+          },
+          {
+            docNo: 'IN-20261105-4783',
+            date: '2026-11-05',
+            sku: 'SKU-2089',
+            itemName: 'ក្រដាសជូតមាត់-抽纸',
+            size: 'LM',
+            color: 'ស',
+            zone: 'A07',
+            qty: 3,
+            unit: 'ដុំ',
+            oldStock: '0 ដុំ',
+            newStock: '3 ដុំ',
+            movement: '0 ដុំ ➔ 3 ដុំ',
+            warehouse: '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
+            receivedBy: '陈龙',
+            notes: 'សាកល្បង',
+            user: '陈龙',
+            timestamp: '2026-11-05 08:00:00'
+          },
+          {
+            docNo: 'IN-20261105-1711',
+            date: '2026-11-05',
+            sku: 'SKU-9144',
+            itemName: 'ទឹកលុប-涂改液',
+            size: 'Pixcell',
+            color: 'ស',
+            zone: 'A01',
+            qty: 10,
+            unit: 'ប្រអប់',
+            oldStock: '0 ដើម',
+            newStock: '10 ប្រអប់',
+            movement: '0 ដើម ➔ 10 ប្រអប់',
+            warehouse: '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
+            receivedBy: '陈龙',
+            notes: 'សាកល្បង',
+            user: '陈龙',
+            timestamp: '2026-11-05 07:50:00'
+          },
+          {
+            docNo: 'IN-20261104-8000',
+            date: '2026-11-04',
+            sku: 'SKU-2980',
+            itemName: 'អាយកូម 对讲机',
+            size: 'xiaomi',
+            color: 'ស',
+            zone: 'A02',
+            qty: 15,
+            unit: 'គ្រឿង',
+            oldStock: '0 គ្រឿង',
+            newStock: '15 គ្រឿង',
+            movement: '0 គ្រឿង ➔ 15 គ្រឿង',
+            warehouse: '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)',
+            receivedBy: '陈龙',
+            notes: 'សាកល្បង',
+            user: '陈龙',
+            timestamp: '2026-11-04 09:00:00'
+          }
+        ];
+
+        // 1. Populate Stock_in sheet
+        const sInData = sInSheet.getDataRange().getValues();
+        const existingKeys = new Set();
+        for (let r = 1; r < sInData.length; r++) {
+          const doc = String(sInData[r][0] || '').trim().toUpperCase();
+          const sku = String(sInData[r][2] || '').trim().toUpperCase();
+          if (doc && sku) existingKeys.add(doc + '_' + sku);
+        }
+
+        let insertedIn = 0;
+        targetRecords.forEach(rec => {
+          const key = rec.docNo.toUpperCase() + '_' + rec.sku.toUpperCase();
+          if (!existingKeys.has(key)) {
+            sInSheet.appendRow([
+              rec.docNo,
+              rec.date,
+              rec.sku,
+              rec.itemName,
+              rec.size,
+              rec.color,
+              rec.zone,
+              rec.qty,
+              rec.unit,
+              rec.oldStock,
+              rec.newStock,
+              rec.movement,
+              rec.warehouse,
+              rec.receivedBy,
+              rec.notes,
+              rec.user,
+              rec.timestamp
+            ]);
+            existingKeys.add(key);
+            insertedIn++;
+          }
+        });
+
+        // 2. Also ensure Transactions sheet has them
+        let insertedTx = 0;
+        if (txSheet) {
+          const txData = txSheet.getDataRange().getValues();
+          const txKeys = new Set();
+          for (let r = 1; r < txData.length; r++) {
+            const txId = String(txData[r][0] || '').trim().toUpperCase();
+            const txSku = String(txData[r][3] || '').trim().toUpperCase();
+            if (txId && txSku) txKeys.add(txId + '_' + txSku);
+          }
+          targetRecords.forEach(rec => {
+            const key = rec.docNo.toUpperCase() + '_' + rec.sku.toUpperCase();
+            if (!txKeys.has(key)) {
+              txSheet.appendRow([
+                rec.docNo,
+                rec.date,
+                'STOCK_IN',
+                rec.sku,
+                rec.itemName,
+                rec.qty,
+                rec.unit,
+                'អ្នកផ្គត់ផ្គង់ (Supplier)',
+                rec.warehouse,
+                `[ឯកសារ: ${rec.docNo}] [អ្នកទទួល: ${rec.receivedBy}] [ខ្នាត: ${rec.size}] [ពណ៌: ${rec.color}] [តំបន់: ${rec.zone}] [ស្តុក: ${rec.movement}] ${rec.notes}`,
+                rec.user,
+                rec.timestamp,
+                0,
+                0
+              ]);
+              txKeys.add(key);
+              insertedTx++;
+            }
+          });
+        }
+
+        SpreadsheetApp.flush();
+        CacheService.getScriptCache().removeAll(['ITEMS_ALL', 'TX_SHEETS_SYNC_ALL', 'TX_SHEETS_SYNC_STOCK_IN']);
+        return { success: true, insertedIn: insertedIn, insertedTx: insertedTx, totalRecords: targetRecords.length };
+      }
+
       case 'standardizeTransactionsSheet': {
         return standardizeAndFormatTransactionsSheet();
       }
@@ -9117,7 +9298,9 @@ function getTransactionHistory(filtersOrPayload, userParam) {
     const sInSheet = ss.getSheetByName('Stock_in') || ss.getSheetByName(SHEETS.STOCK_IN) || ss.getSheetByName('ស្តុកចូល');
     if (sInSheet) {
       const stockInTxs = getStockInTransactionsFromSheet(ss, filters, user);
-      return { success: true, transactions: stockInTxs || [] };
+      if (stockInTxs && stockInTxs.length > 0) {
+        return { success: true, transactions: stockInTxs };
+      }
     }
   }
 
@@ -9126,7 +9309,9 @@ function getTransactionHistory(filtersOrPayload, userParam) {
     const sOutSheet = ss.getSheetByName('Stock_out') || ss.getSheetByName(SHEETS.STOCK_OUT);
     if (sOutSheet) {
       const stockOutTxs = getStockOutTransactionsFromSheet(ss, filters, user);
-      return { success: true, transactions: stockOutTxs || [] };
+      if (stockOutTxs && stockOutTxs.length > 0) {
+        return { success: true, transactions: stockOutTxs };
+      }
     }
   }
 

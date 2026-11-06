@@ -14011,6 +14011,15 @@
           loadLocalTransactionsFromStorage();
         }
         let txs = (LOCAL_DB.transactions && LOCAL_DB.transactions.length > 0) ? [...LOCAL_DB.transactions] : [];
+        if (!txs.length) {
+          try {
+            const cachedIn = localStorage.getItem('inventory_stock_in_history_db');
+            const cachedOut = localStorage.getItem('inventory_stock_out_history_db');
+            const inArr = cachedIn ? JSON.parse(cachedIn) : [];
+            const outArr = cachedOut ? JSON.parse(cachedOut) : [];
+            txs = [...inArr, ...outArr];
+          } catch(e) {}
+        }
         if (filters.type && filters.type !== 'ALL') {
           txs = txs.filter(t => t.type === filters.type);
         }
@@ -26765,7 +26774,10 @@
           let uniqueFinalHistory = [];
           const seenHistoryKeys = new Set();
           // Server records (cleanTxs) are authoritative and come FIRST! Multi-item docNo preserved via `${tDoc}_${tSku}`.
-          [...cleanTxs, ...localPending].forEach(t => {
+          const baseRecords = (cleanTxs && cleanTxs.length > 0)
+            ? cleanTxs
+            : ((cachedTxs && cachedTxs.length > 0) ? cachedTxs : (AppState.stockInHistory || []));
+          [...baseRecords, ...localPending].forEach(t => {
             const tDoc = String(t.docNo || t.txId || '').trim().toUpperCase();
             const tSku = String(t.sku || t.code || t.itemName || '').trim().toLowerCase();
             const k = `${tDoc}_${tSku}`;
@@ -26816,16 +26828,20 @@
             });
           }
 
-          AppState.stockInHistory = uniqueFinalHistory;
-          try {
-            if (stationStorageKey) localStorage.setItem(stationStorageKey, JSON.stringify(uniqueFinalHistory));
-            localStorage.setItem(scopedHistoryKey, JSON.stringify(uniqueFinalHistory));
-            localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(uniqueFinalHistory));
-          } catch(e) {}
-          // Synchronize LOCAL_DB.transactions with cleanTxs so deleted items are completely purged from storage
-          if (LOCAL_DB.transactions) {
-            LOCAL_DB.transactions = LOCAL_DB.transactions.filter(t => t.type !== 'STOCK_IN' && !isTransactionDeleted(t)).concat(uniqueFinalHistory);
-            saveLocalTransactionsToStorage();
+          if (uniqueFinalHistory.length > 0) {
+            AppState.stockInHistory = uniqueFinalHistory;
+            try {
+              if (stationStorageKey) localStorage.setItem(stationStorageKey, JSON.stringify(uniqueFinalHistory));
+              localStorage.setItem(scopedHistoryKey, JSON.stringify(uniqueFinalHistory));
+              localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(uniqueFinalHistory));
+            } catch(e) {}
+            // Synchronize LOCAL_DB.transactions with cleanTxs so deleted items are completely purged from storage
+            if (LOCAL_DB.transactions) {
+              LOCAL_DB.transactions = LOCAL_DB.transactions.filter(t => t.type !== 'STOCK_IN' && !isTransactionDeleted(t)).concat(uniqueFinalHistory);
+              saveLocalTransactionsToStorage();
+            }
+          } else if (cachedTxs && cachedTxs.length > 0) {
+            AppState.stockInHistory = cachedTxs;
           }
           if (typeof syncItemStockFromHistory === 'function') {
             syncItemStockFromHistory(AppState.items);
@@ -28742,15 +28758,20 @@ window.toggleExportStockInDropdown = function(e) {
             return 0;
           });
 
-          AppState.stockOutHistory = cleanTxs;
-          try {
-            if (stationStorageKey) localStorage.setItem(stationStorageKey, JSON.stringify(cleanTxs));
-            localStorage.setItem('inventory_stock_out_history_db', JSON.stringify(cleanTxs));
-          } catch(e) {}
-          // Synchronize LOCAL_DB.transactions with cleanTxs so deleted items are completely purged from storage
-          if (LOCAL_DB.transactions) {
-            LOCAL_DB.transactions = LOCAL_DB.transactions.filter(t => t.type !== 'STOCK_OUT' && !isTransactionDeleted(t)).concat(cleanTxs);
-            saveLocalTransactionsToStorage();
+          const finalOutHistory = (cleanTxs && cleanTxs.length > 0) ? cleanTxs : (cachedTxs || []);
+          if (finalOutHistory.length > 0) {
+            AppState.stockOutHistory = finalOutHistory;
+            try {
+              if (stationStorageKey) localStorage.setItem(stationStorageKey, JSON.stringify(finalOutHistory));
+              localStorage.setItem('inventory_stock_out_history_db', JSON.stringify(finalOutHistory));
+            } catch(e) {}
+            // Synchronize LOCAL_DB.transactions with cleanTxs so deleted items are completely purged from storage
+            if (LOCAL_DB.transactions) {
+              LOCAL_DB.transactions = LOCAL_DB.transactions.filter(t => t.type !== 'STOCK_OUT' && !isTransactionDeleted(t)).concat(finalOutHistory);
+              saveLocalTransactionsToStorage();
+            }
+          } else if (cachedTxs && cachedTxs.length > 0) {
+            AppState.stockOutHistory = cachedTxs;
           }
           if (typeof syncDispatchesWithOperations === 'function') syncDispatchesWithOperations();
           if (typeof syncItemStockFromHistory === 'function') {
