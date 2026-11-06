@@ -6281,13 +6281,13 @@
           </div>
 
           <div class="grid grid-cols-2 gap-2">
-            <div class="p-2.5 bg-indigo-50/60 rounded-xl border border-indigo-100">
+            <div class="p-2.5 bg-indigo-50/60 rounded-xl border border-indigo-100 flex flex-col justify-center min-h-[52px]">
               <span class="text-[10px] text-indigo-700 font-bold uppercase block">តំបន់ / លេខតំបន់</span>
-              <span id="largeImgModalZone" class="font-bold text-indigo-900 block mt-0.5 truncate">តំបន់ A (Z-01)</span>
+              <span id="largeImgModalZone" class="font-bold text-indigo-900 block mt-0.5 break-words text-[11px] sm:text-xs leading-snug">តំបន់ A (Z-01)</span>
             </div>
-            <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
-              <span class="text-[10px] text-slate-400 font-bold uppercase block">អ្នកបញ្ចូល</span>
-              <span id="largeImgModalLocation" class="font-bold text-slate-700 block mt-0.5 truncate">-</span>
+            <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-100 flex flex-col justify-center min-h-[52px]">
+              <span id="largeImgModalLocLabel" class="text-[10px] text-slate-400 font-bold uppercase block">ទីតាំង / អ្នកបញ្ចូល</span>
+              <span id="largeImgModalLocation" class="font-bold text-slate-700 block mt-0.5 break-words text-[11px] sm:text-xs leading-snug">-</span>
             </div>
           </div>
 
@@ -32445,8 +32445,28 @@
       document.getElementById('largeImgModalName').innerText = name || '-';
       document.getElementById('largeImgModalBarcode').innerText = barcode || '-';
       document.getElementById('largeImgModalStock').innerText = `${stock || 0} ${unit || 'ដុំ'}`;
-      document.getElementById('largeImgModalLocation').innerText = location || '-';
-      document.getElementById('largeImgModalZone').innerText = zone || '-';
+      
+      const locEl = document.getElementById('largeImgModalLocation');
+      if (locEl) {
+        locEl.innerText = location || '-';
+        locEl.title = location || '-';
+      }
+      
+      const zoneEl = document.getElementById('largeImgModalZone');
+      if (zoneEl) {
+        zoneEl.innerText = zone || '-';
+        zoneEl.title = zone || '-';
+      }
+
+      const locLabelEl = document.getElementById('largeImgModalLocLabel');
+      if (locLabelEl) {
+        const locStr = String(location || '').trim();
+        if (locStr.includes('库') || locStr.includes('ឃ្លាំង') || locStr.includes('ស្ថានីយ') || locStr.includes('机电')) {
+          locLabelEl.innerText = 'ទីតាំង / ឃ្លាំង';
+        } else {
+          locLabelEl.innerText = 'អ្នកបញ្ចូល / ទីតាំង';
+        }
+      }
 
       const editBtn = document.getElementById('largeImgEditBtn');
       if (editBtn) editBtn.dataset.sku = sku;
