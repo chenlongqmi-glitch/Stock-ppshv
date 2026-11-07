@@ -12862,11 +12862,12 @@
               'getCategoriesList', 'getCategories', 'getWarehousesList', 'getWarehouses',
               'getWarehousesDetailed', 'getDashboardStats', 'getDashboardData', 'getUsersList',
               'getUsers', 'getProductRequests', 'getRequisitions',
-              'checkUserStatus', 'checkSession', 'ping', 'flushCodeCache'
+              'checkUserStatus', 'checkSession', 'ping', 'flushCodeCache',
+              'getTransactionHistory', 'getTransactions'
             ]);
 
             const payloadStr = JSON.stringify(payload || {});
-            const shouldUseGet = READ_ACTIONS.has(action) && (payloadStr.length < 800) && !action.toLowerCase().includes('transaction');
+            const shouldUseGet = READ_ACTIONS.has(action) && (payloadStr.length < 1800);
 
             let resp;
             let textRes = '';
@@ -28810,7 +28811,7 @@ window.toggleExportStockInDropdown = function(e) {
 
       try {
         const queryWh = isPrivileged 
-          ? (AppState.selectedAdminWarehouseFilter || 'ALL')
+          ? 'ALL'
           : (myStationWh || curU.warehouse || 'ALL');
         const res = await apiCall('getTransactionHistory', { filters: { type: 'STOCK_OUT', limit: 200, warehouse: queryWh }, user: AppState.currentUser, forceRefresh: forceRefresh });
         if (res && res.success && Array.isArray(res.transactions)) {
@@ -32325,6 +32326,8 @@ window.toggleExportStockInDropdown = function(e) {
           }
         }).then(r => {
           if (typeof API_CACHE !== 'undefined' && API_CACHE.clear) API_CACHE.clear();
+          try { localStorage.setItem('inventory_tx_sync_signal', Date.now().toString()); } catch(e){}
+          if (typeof loadStockInHistory === 'function') loadStockInHistory(true);
           if (!r || !r.success) console.warn('Update stock in cloud warning:', r?.message);
         }).catch(e => {
           if (typeof API_CACHE !== 'undefined' && API_CACHE.clear) API_CACHE.clear();
@@ -32425,6 +32428,9 @@ window.toggleExportStockInDropdown = function(e) {
             zone: tx.zone
           }
         }).then(r => {
+          if (typeof API_CACHE !== 'undefined' && API_CACHE.clear) API_CACHE.clear();
+          try { localStorage.setItem('inventory_tx_sync_signal', Date.now().toString()); } catch(e){}
+          if (typeof loadStockInHistory === 'function') loadStockInHistory(true);
           if (!r || !r.success) console.warn('Delete stock in cloud warning:', r?.message);
         }).catch(e => console.warn('Delete stock in cloud error:', e));
 
@@ -32804,6 +32810,8 @@ window.toggleExportStockInDropdown = function(e) {
           }
         }).then(r => {
           if (typeof API_CACHE !== 'undefined' && API_CACHE.clear) API_CACHE.clear();
+          try { localStorage.setItem('inventory_tx_sync_signal', Date.now().toString()); } catch(e){}
+          if (typeof loadStockOutHistory === 'function') loadStockOutHistory(true);
           if (!r || !r.success) console.warn('Update stock out cloud warning:', r?.message);
         }).catch(e => {
           if (typeof API_CACHE !== 'undefined' && API_CACHE.clear) API_CACHE.clear();
@@ -32904,6 +32912,9 @@ window.toggleExportStockInDropdown = function(e) {
             zone: tx.zone
           }
         }).then(r => {
+          if (typeof API_CACHE !== 'undefined' && API_CACHE.clear) API_CACHE.clear();
+          try { localStorage.setItem('inventory_tx_sync_signal', Date.now().toString()); } catch(e){}
+          if (typeof loadStockOutHistory === 'function') loadStockOutHistory(true);
           if (!r || !r.success) console.warn('Delete stock out cloud warning:', r?.message);
         }).catch(e => console.warn('Delete stock out cloud error:', e));
 
@@ -41068,6 +41079,18 @@ window.toggleExportStockInDropdown = function(e) {
             loadStockOutHistory(true);
           }
           silentAutoRefresh();
+        }
+      });
+
+      window.addEventListener('storage', (e) => {
+        if (!AppState.currentUser) return;
+        if (e.key === 'inventory_tx_sync_signal' || e.key === 'inventory_stock_in_history_db' || e.key === 'inventory_stock_out_history_db' || e.key === 'inventory_deleted_txs_db') {
+          if (typeof API_CACHE !== 'undefined' && API_CACHE.clear) API_CACHE.clear();
+          if (AppState.currentTab === 'stockin' && typeof loadStockInHistory === 'function') {
+            loadStockInHistory(true);
+          } else if (AppState.currentTab === 'stockout' && typeof loadStockOutHistory === 'function') {
+            loadStockOutHistory(true);
+          }
         }
       });
     }

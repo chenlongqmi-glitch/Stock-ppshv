@@ -9795,10 +9795,18 @@ function deleteStockTransaction(payloadOrData, user) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
   const txId = String(data.txId || '').trim();
-  const docNo = String(data.docNo || '').trim();
+  let docNo = String(data.docNo || '').trim();
   const txType = String(data.type || 'STOCK_IN').toUpperCase();
-  const sku = String(data.sku || '').trim();
+  let sku = String(data.sku || '').trim();
   const qty = Number(data.quantity || 0);
+
+  if (!sku && txId && txId.includes('_')) {
+    const parts = txId.split('_');
+    if (parts.length > 1 && parts[parts.length - 1].toUpperCase().startsWith('SKU-')) {
+      sku = parts[parts.length - 1].trim();
+      if (!docNo) docNo = parts.slice(0, -1).join('_');
+    }
+  }
 
   // 1. Revert stock in Items sheet
   if (sku && qty > 0) {
@@ -9929,9 +9937,16 @@ function updateStockTransaction(payloadOrData, user) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
   const txId = String(data.txId || '').trim();
-  const docNo = String(data.docNo || '').trim();
+  let docNo = String(data.docNo || '').trim();
   const txType = String(data.type || 'STOCK_IN').toUpperCase();
-  const sku = String(data.sku || '').trim();
+  let sku = String(data.sku || '').trim();
+  if (!sku && txId && txId.includes('_')) {
+    const parts = txId.split('_');
+    if (parts.length > 1 && parts[parts.length - 1].toUpperCase().startsWith('SKU-')) {
+      sku = parts[parts.length - 1].trim();
+      if (!docNo) docNo = parts.slice(0, -1).join('_');
+    }
+  }
   const oldQty = Number(data.oldQuantity || 0);
   const newQty = Number(data.newQuantity !== undefined ? data.newQuantity : (data.quantity || 0));
   const qtyDiff = newQty - oldQty;
@@ -9979,6 +9994,7 @@ function updateStockTransaction(payloadOrData, user) {
     const idxTxFrom = txHeaders.indexOf('fromlocation') >= 0 ? txHeaders.indexOf('fromlocation') : (txHeaders.indexOf('from') >= 0 ? txHeaders.indexOf('from') : 7);
     const idxTxTo = txHeaders.indexOf('tolocation') >= 0 ? txHeaders.indexOf('tolocation') : (txHeaders.indexOf('to') >= 0 ? txHeaders.indexOf('to') : 8);
     const idxTxNotes = txHeaders.indexOf('reason_notes') >= 0 ? txHeaders.indexOf('reason_notes') : (txHeaders.indexOf('notes') >= 0 ? txHeaders.indexOf('notes') : 9);
+    const idxTxSku = txHeaders.indexOf('sku') >= 0 ? txHeaders.indexOf('sku') : (txHeaders.indexOf('item_code') >= 0 ? txHeaders.indexOf('item_code') : 3);
     const idxTxUser = txHeaders.indexOf('user') >= 0 ? txHeaders.indexOf('user') : 10;
 
     for (let i = 1; i < txRows.length; i++) {
@@ -10132,6 +10148,12 @@ function updateStockTransaction(payloadOrData, user) {
       }
     }
   }
+
+  try {
+    SpreadsheetApp.flush();
+    invalidateAppCache();
+    setGlobalDataVersion();
+  } catch (eCache) { }
 
   logActivity(u ? (u.fullName || u.username) : 'Staff', 'Staff', 'UPDATE_TX', `Updated transaction ${docNo || txId} (${txType}) for SKU: ${sku}`);
 
