@@ -7899,8 +7899,8 @@
   <!-- Inspired by khmer-lunar-calendar.com (Clean, Compact, Buddhist Era & Holidays) -->
   <!-- ========================================================================= -->
   <div id="khmerCalendarModal" onclick="if(isSafeModalBackdropClick(event)) closeKhmerCalendarModal()"
-    class="hidden fixed inset-0 top-0 left-0 right-0 bottom-0 z-[100] flex items-center justify-center p-2 sm:p-4 md:p-5 bg-slate-950/75 backdrop-blur-md app-modal-backdrop select-none overflow-y-auto custom-scrollbar">
-    <div class="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200/90 dark:border-slate-800 w-full max-w-[95vw] md:max-w-[820px] lg:max-w-[880px] xl:max-w-[920px] max-h-[96vh] md:max-h-[92vh] overflow-hidden flex flex-col md:flex-row transition-all shrink-0 m-auto mx-auto my-auto" onclick="event.stopPropagation()">
+    class="hidden fixed inset-0 top-0 left-0 right-0 bottom-0 z-[500] flex items-center justify-center p-2 sm:p-3 md:p-4 bg-slate-950/75 backdrop-blur-md app-modal-backdrop select-none overflow-y-auto overflow-x-hidden custom-scrollbar">
+    <div id="khmerCalendarCard" class="relative bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200/90 dark:border-slate-800 w-full max-w-[96vw] sm:max-w-[94vw] md:max-w-[820px] lg:max-w-[880px] xl:max-w-[920px] overflow-hidden flex flex-col md:flex-row transition-transform duration-150 shrink-0 m-auto mx-auto my-auto origin-center" onclick="event.stopPropagation()">
       
       <!-- ================= LEFT COLUMN: CALENDAR GRID & CONTROLS ================= -->
       <div class="w-full md:w-[440px] lg:w-[470px] xl:w-[490px] shrink-0 border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-800 flex flex-col justify-between overflow-y-auto custom-scrollbar min-h-0">
@@ -11806,10 +11806,14 @@
       modal.style.left = '0px';
       modal.style.right = '0px';
       modal.style.bottom = '0px';
-      modal.style.zIndex = '100';
+      modal.style.zIndex = '500';
       modal.style.paddingTop = '';
       modal.style.paddingBottom = '';
       modal.style.overflowY = 'auto';
+      const fitFn = typeof autoFitModalToScreen === 'function' ? autoFitModalToScreen : (typeof window.autoFitModalToScreen === 'function' ? window.autoFitModalToScreen : null);
+      if (fitFn && window._isKhmerCalendarOpen) {
+        requestAnimationFrame(() => fitFn('khmerCalendarModal', 'khmerCalendarCard'));
+      }
     }
     window.adjustKhmerCalendarModalOffset = adjustKhmerCalendarModalOffset;
 
@@ -11828,6 +11832,10 @@
         modal.classList.remove('hidden');
         modal.style.removeProperty('display');
         modal.scrollTop = 0;
+        const fitFn = typeof autoFitModalToScreen === 'function' ? autoFitModalToScreen : (typeof window.autoFitModalToScreen === 'function' ? window.autoFitModalToScreen : null);
+        if (fitFn) {
+          requestAnimationFrame(() => fitFn('khmerCalendarModal', 'khmerCalendarCard'));
+        }
       }
       window._isKhmerCalendarOpen = true;
       document.body.style.overflow = 'hidden';
@@ -11842,6 +11850,11 @@
         modal.style.removeProperty('top');
         modal.style.removeProperty('padding-top');
         modal.style.removeProperty('padding-bottom');
+      }
+      const card = document.getElementById('khmerCalendarCard');
+      if (card) {
+        card.style.transform = '';
+        card.style.marginBottom = '';
       }
       window._isKhmerCalendarOpen = false;
       if (!window._isStockInFormOpen && !window._isStockOutFormOpen) {
@@ -12287,6 +12300,12 @@
 
       // 5. Update Side List of Holidays & Events ("ផ្នែកខាង")
       renderKhmerHolidaysList(y, m);
+
+      // 6. Recalculate auto-fit when view or month changes
+      const fitFn = typeof autoFitModalToScreen === 'function' ? autoFitModalToScreen : (typeof window.autoFitModalToScreen === 'function' ? window.autoFitModalToScreen : null);
+      if (fitFn && window._isKhmerCalendarOpen) {
+        requestAnimationFrame(() => fitFn('khmerCalendarModal', 'khmerCalendarCard'));
+      }
     }
 
     function updateCalDetailCard(date) {
@@ -12401,6 +12420,10 @@
         modal.classList.remove('hidden');
         modal.style.removeProperty('display');
         modal.scrollTop = 0;
+        const fitFn = typeof autoFitModalToScreen === 'function' ? autoFitModalToScreen : (typeof window.autoFitModalToScreen === 'function' ? window.autoFitModalToScreen : null);
+        if (fitFn) {
+          requestAnimationFrame(() => fitFn('khmerCalendarModal', 'khmerCalendarCard'));
+        }
       }
       window._isKhmerCalendarOpen = true;
       document.body.style.overflow = 'hidden';
@@ -29402,7 +29425,10 @@ window.toggleExportStockInDropdown = function(e) {
         adjustStockOutModalOffset();
         autoFitModalToScreen('stockOutModal', 'stockOutModalContentWrapper');
       }
-      if (window._isKhmerCalendarOpen && typeof adjustKhmerCalendarModalOffset === 'function') adjustKhmerCalendarModalOffset();
+      if (window._isKhmerCalendarOpen) {
+        if (typeof adjustKhmerCalendarModalOffset === 'function') adjustKhmerCalendarModalOffset();
+        if (typeof autoFitModalToScreen === 'function') autoFitModalToScreen('khmerCalendarModal', 'khmerCalendarCard');
+      }
     });
 
     function openStockInForm(mode) {
