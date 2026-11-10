@@ -8313,46 +8313,20 @@
     const VERIFIED_PRODUCTION_STOCK_IN_TRANSACTIONS = [];
     window.VERIFIED_PRODUCTION_STOCK_IN_TRANSACTIONS = VERIFIED_PRODUCTION_STOCK_IN_TRANSACTIONS;
 
-    // Immediate self-healing cleanup of ghost deleted stock out transactions
+    // Production Stock In & Out Transactions (100% Authoritative Single Source of Truth from Google Sheets)
     (() => {
       try {
-        const ghostList = ['TX-20261010214533-646', 'TX-20261010192242-919', 'TX-20261010190529-308', 'DOC-IN-20260929-5181', 'IN-20261105-5408', 'IN-20261105-4783_SKU-3445'];
-        const ghostSet = new Set(ghostList.map(k => k.toUpperCase()));
-        try {
-          const raw = localStorage.getItem('inventory_deleted_txs_db');
-          if (raw) {
-            const arr = JSON.parse(raw);
-            if (Array.isArray(arr)) {
-              arr.forEach(k => {
-                if (k) ghostSet.add(String(k).trim().toUpperCase());
-              });
-            }
+        // Clear any old corrupted deleted markers that mistakenly targeted active documents
+        const raw = localStorage.getItem('inventory_deleted_txs_db');
+        if (raw) {
+          const arr = JSON.parse(raw);
+          if (Array.isArray(arr)) {
+            const safeArr = arr.filter(k => {
+              const ku = String(k || '').trim().toUpperCase();
+              return !ku.includes('IN-202611') && !ku.includes('OUT-202611');
+            });
+            localStorage.setItem('inventory_deleted_txs_db', JSON.stringify(safeArr));
           }
-        } catch(e) {}
-        localStorage.setItem('inventory_deleted_txs_db', JSON.stringify(Array.from(ghostSet)));
-
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (!key || (!key.includes('stock_in_history') && !key.includes('stock_out_history') && !key.includes('transactions_db'))) continue;
-          try {
-            const raw = localStorage.getItem(key);
-            if (raw && (raw.startsWith('[') || raw.startsWith('{'))) {
-              const list = JSON.parse(raw);
-              if (Array.isArray(list)) {
-                const filtered = list.filter(t => {
-                  if (!t) return false;
-                  const doc = String(t.docNo || '').trim().toUpperCase();
-                  const tx = String(t.txId || t.id || '').trim().toUpperCase();
-                  const sku = String(t.sku || t.code || t.itemName || '').trim().toUpperCase();
-                  if (doc && sku && ghostSet.has(`${doc}_${sku}`)) return false;
-                  if (tx && ghostSet.has(tx)) return false;
-                  if (doc && ghostSet.has(doc)) return false;
-                  return true;
-                });
-                localStorage.setItem(key, JSON.stringify(filtered));
-              }
-            }
-          } catch(e) {}
         }
       } catch(e) {}
     })();
@@ -26544,12 +26518,16 @@
 
     let _stockInFetchPromise = null;
     async function loadStockInHistory(forceRefresh = true, btn = null) {
+      if (forceRefresh) {
+        _stockInFetchPromise = null;
+      }
       if (_stockInFetchPromise) {
         return _stockInFetchPromise;
       }
       _stockInFetchPromise = (async () => {
         const refreshIcon = btn ? btn.querySelector('i') : null;
         if (refreshIcon) refreshIcon.classList.add('fa-spin');
+
         const curU = AppState.currentUser || (function(){ try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch(e){ return null; } })() || {};
         const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : (curU.role === 'Admin' || curU.role === 'SuperAdmin' || curU.username === 'superadmin' || curU.username === 'admin');
         const resolvedWh = curU.warehouse || (typeof getUserStationWarehouse === 'function' ? getUserStationWarehouse(curU) : '');
@@ -26558,101 +26536,172 @@
         const scopedHistoryKey = isPrivileged ? 'inventory_stock_in_history_db' : `inventory_stock_in_history_db_${userStorageKey}`;
         const stationStorageKey = myStationWh ? `inventory_stock_in_history_wh_${String(myStationWh).toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '')}` : '';
 
-        const seenRecent = new Set();
-        const recentPendingToKeep = [];
-        [(AppState.stockInHistory || []), (LOCAL_DB.transactions || [])].forEach(list => {
-          (list || []).forEach(t => {
-            if (!t || (t.type && t.type !== 'STOCK_IN') || (typeof isTransactionDeleted === 'function' && isTransactionDeleted(t))) return;
-            if (!isPrivileged && myStationWh) {
-              const tWh = t.toLocation || t.location || t.warehouse;
-              const tUserSt = (typeof getUserStationWarehouse === 'function') ? (getUserStationWarehouse(t.user) || getUserStationWarehouse(t.receivedBy)) : '';
-              const isCreatorOrRec = (typeof isSameUserOrAlias === 'function') ? (isSameUserOrAlias(t.user, curU) || isSameUserOrAlias(t.receivedBy, curU)) : false;
-              const tUNorm = String(t.user || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
-              const tRNorm = String(t.receivedBy || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
-              const curUNorm = String(curU.username || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
-              const curFNorm = String(curU.fullName || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
-              const isMyUserTx = (curUNorm && (tUNorm === curUNorm || tRNorm === curUNorm)) ||
-                                 (curFNorm && (tUNorm === curFNorm || tRNorm === curFNorm));
-              const isForMyStation = (tWh && (matchesTargetWarehouse(tWh, myStationWh) || isSameWarehouse(tWh, myStationWh))) ||
-                                     (tUserSt && isSameWarehouse(tUserSt, myStationWh)) ||
-                                     isCreatorOrRec ||
-                                     isMyUserTx;
-              if (!isForMyStation) return;
-            }
-            const k = (String(t.docNo || t.txId || '').trim() + '_' + String(t.sku || t.code || t.itemName || '').trim()).toUpperCase();
-            if (k && seenRecent.has(k)) return;
-            if (k) seenRecent.add(k);
-            recentPendingToKeep.push(t);
-          });
-        });
         if (forceRefresh) {
           API_CACHE.clear();
         }
-        // Merge all local & cached transactions so all records belonging to this station are instantly available
-        const seenInitial = new Set();
-        let cachedTxs = [];
-        const sourcesToMerge = [
-          AppState.stockInHistory,
-          recentPendingToKeep,
-          (function() {
-            try {
-              const st = stationStorageKey ? localStorage.getItem(stationStorageKey) : null;
-              return st ? JSON.parse(st) : [];
-            } catch(e) { return []; }
-          })(),
-          (function() {
-            try {
-              const sc = scopedHistoryKey ? localStorage.getItem(scopedHistoryKey) : null;
-              return sc ? JSON.parse(sc) : [];
-            } catch(e) { return []; }
-          })(),
-          (function() {
-            try {
-              const db = localStorage.getItem('inventory_stock_in_history_db');
-              return db ? JSON.parse(db) : [];
-            } catch(e) { return []; }
-          })(),
-          LOCAL_DB.transactions
-        ];
 
-        sourcesToMerge.forEach(sourceList => {
-          if (!Array.isArray(sourceList)) return;
-          sourceList.forEach(t => {
-            if (!t || (t.type && t.type !== 'STOCK_IN')) return;
-            if (typeof isTransactionDeleted === 'function' && isTransactionDeleted(t)) return;
-            const doc = String(t.docNo || t.txId || '').trim().toUpperCase();
-            const sku = String(t.sku || t.code || t.itemName || '').trim().toLowerCase();
-            if (doc.startsWith('MOCK-TEST-') || doc.startsWith('TEST-TX-')) return;
-            const dedupeKey = `${doc}_${sku}`;
-            if (doc) {
-              if (seenInitial.has(dedupeKey)) return;
-              seenInitial.add(dedupeKey);
-            }
-            cachedTxs.push(t);
-          });
-        });
-
-        // Strictly purge any cached transactions not belonging to this station
-        if (!isPrivileged && myStationWh && cachedTxs && cachedTxs.length > 0) {
-          cachedTxs = cachedTxs.filter(t => {
-            const tWh = t.toLocation || t.location || t.warehouse;
-            const uSt = (typeof getUserStationWarehouse === 'function') ? (getUserStationWarehouse(t.user) || getUserStationWarehouse(t.receivedBy)) : '';
-            const isCreatorOrRec = (typeof isSameUserOrAlias === 'function') ? (isSameUserOrAlias(t.user, curU) || isSameUserOrAlias(t.receivedBy, curU)) : false;
-            const tUNorm = String(t.user || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
-            const tRNorm = String(t.receivedBy || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
-            const curUNorm = String(curU.username || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
-            const curFNorm = String(curU.fullName || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
-            const isMyUserTx = (curUNorm && (tUNorm === curUNorm || tRNorm === curUNorm)) ||
-                               (curFNorm && (tUNorm === curFNorm || tRNorm === curFNorm));
-            return (tWh && (matchesTargetWarehouse(tWh, myStationWh) || isSameWarehouse(tWh, myStationWh))) ||
-                   (uSt && isSameWarehouse(uSt, myStationWh)) ||
-                   isCreatorOrRec ||
-                   isMyUserTx;
-          });
+        // Show live loading state from Google Sheets (Never pre-render stale divergent localStorage data)
+        const tbody = document.getElementById('stockInHistoryTableBody');
+        if (tbody && (!AppState.stockInHistory || AppState.stockInHistory.length === 0 || forceRefresh)) {
+          tbody.innerHTML = '<tr><td colspan="9" class="text-center py-6 text-slate-500 font-medium"><i class="fa-solid fa-spinner fa-spin mr-2 text-emerald-600"></i> កំពុងទាញយកទិន្នន័យផ្ទាល់ពី Google Sheets...</td></tr>';
         }
 
-        if (cachedTxs && cachedTxs.length > 0) {
-          const getCompTime = (t) => {
+        try {
+          const normalizeStr = (s) => String(s || '').replace(/[\u200b\ufeff\s_-]/g, '').toLowerCase();
+          const uName = normalizeStr(curU.username);
+          const uFull = normalizeStr(curU.fullName);
+          const userWhMap = (typeof getUserWarehouseMap === 'function') ? getUserWarehouseMap() : {};
+
+          // Query Google Sheets directly: Station managers query station, Admins query ALL
+          const queryWh = isPrivileged 
+            ? 'ALL'
+            : (myStationWh || curU.warehouse || 'ALL');
+          const minimalUser = {
+            username: curU.username || '',
+            role: curU.role || '',
+            warehouse: curU.warehouse || ''
+          };
+
+          const res = await apiCall('getTransactionHistory', {
+            filters: { type: 'STOCK_IN', limit: 200, warehouse: queryWh },
+            user: minimalUser,
+            forceRefresh: Boolean(forceRefresh)
+          });
+
+          let serverTxs = [];
+          if (res && res.success && Array.isArray(res.transactions)) {
+            serverTxs = res.transactions;
+          } else if (res && res.isLocalFallback && (!AppState.stockInHistory || AppState.stockInHistory.length === 0)) {
+            try {
+              const cachedRaw = localStorage.getItem('inventory_stock_in_history_db');
+              if (cachedRaw) serverTxs = JSON.parse(cachedRaw) || [];
+            } catch(e) {}
+          }
+
+          const cleanTxs = (serverTxs || []).filter(t => {
+            if (!t) return false;
+            const doc = String(t.docNo || t.txId || '').toUpperCase();
+            const isTest = doc.startsWith('MOCK-TEST-') || doc.startsWith('TEST-TX-');
+            return !isTest;
+          });
+
+          cleanTxs.forEach(t => {
+            t._serverConfirmed = true;
+            if (typeof unmarkDeletedTransaction === 'function') {
+              unmarkDeletedTransaction(t.txId, t.docNo, t.sku);
+            }
+          });
+
+          cleanTxs.forEach(t => {
+            const item = (AppState.items || []).find(i => (i.sku && t.sku && i.sku.toLowerCase() === t.sku.toLowerCase()) || (i.name && t.itemName && i.name.toLowerCase() === t.itemName.toLowerCase()));
+            if (!t.size && t.notes) {
+              const sm = t.notes.match(/\[(?:ខ្នាត|Size):\s*([^\]]+)\]/i);
+              if (sm) t.size = sm[1].trim();
+            }
+            if (!t.color && t.notes) {
+              const cm = t.notes.match(/\[(?:ពណ៌|Color):\s*([^\]]+)\]/i);
+              if (cm) t.color = cm[1].trim();
+            }
+            if (!t.zone && t.notes) {
+              const zm = t.notes.match(/\[(?:តំបន់|Zone):\s*([^\]]+)\]/i);
+              if (zm) t.zone = zm[1].trim();
+            }
+            if (!t.size && item?.size) t.size = String(item.size).trim();
+            if (!t.color && item?.color) t.color = String(item.color).trim();
+            if (!t.zone && item?.zone) t.zone = String(item.zone).trim();
+
+            const isMyTx = isSameUserOrAlias(t.user, curU) || isSameUserOrAlias(t.receivedBy, curU);
+            const userSt = getUserStationWarehouse(t.user) || getUserStationWarehouse(t.receivedBy);
+            const tUserClean = normalizeStr(t.user);
+            const tRecClean = normalizeStr(t.receivedBy);
+
+            const origWh = String(t.toLocation || t.location || t.warehouse || '').trim();
+            const origWhNorm = normalizeStr(origWh);
+            
+            const isKnownWarehouse = (w) => {
+              if (!w || w === '-' || w === 'ALL' || w === 'គ្រប់ស្ថានីយទាំងអស់' || w === 'គ្រប់ឃ្លាំង' || /^\d+$/.test(w)) return false;
+              if (userWhMap[normalizeStr(w)]) return false;
+              if (getUserStationWarehouse(w)) return false;
+              return true;
+            };
+
+            let rawWh = origWh;
+            if (isKnownWarehouse(origWh)) {
+              rawWh = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(origWh) : origWh;
+            } else {
+              const origWhSt = getUserStationWarehouse(origWh);
+              if (origWhSt) {
+                if (!t.receivedBy || t.receivedBy === 'undefined' || t.receivedBy === '-') t.receivedBy = origWh;
+                rawWh = origWhSt;
+              } else if (userWhMap[origWhNorm]) {
+                if (!t.receivedBy || t.receivedBy === 'undefined' || t.receivedBy === '-') t.receivedBy = origWh;
+                rawWh = userWhMap[origWhNorm];
+              } else if (userSt) {
+                rawWh = userSt;
+              } else if (userWhMap[tUserClean]) {
+                rawWh = userWhMap[tUserClean];
+              } else if (userWhMap[tRecClean]) {
+                rawWh = userWhMap[tRecClean];
+              } else if (isMyTx && myStationWh) {
+                rawWh = myStationWh;
+              } else {
+                const nStr = t.rawNotes || t.notes || '';
+                const stMatch = nStr.match(/(?:K\d+[^\]\n\r]+)/i);
+                if (stMatch) {
+                  rawWh = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(stMatch[0]) : stMatch[0];
+                } else {
+                  rawWh = isPrivileged ? '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)' : (myStationWh || '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)');
+                }
+              }
+            }
+
+            t.toLocation = rawWh;
+            t.warehouse = rawWh;
+            t.location = rawWh;
+
+            const cleanN = cleanDisplayNote(t.userNote || t.notes || '');
+            t.userNote = cleanN;
+            t.notes = cleanN;
+          });
+
+          // PRESERVE ONLY RECENT LOCAL PENDING TRANSACTIONS (< 45 seconds old) that are still saving to cloud
+          const nowTs = Date.now();
+          const localPending = [];
+          const seenPendingKeys = new Set();
+          (AppState.stockInHistory || []).forEach(loc => {
+            if (!loc || loc.type !== 'STOCK_IN') return;
+            if (loc._isLocalPending === true && loc._createdAt && (nowTs - loc._createdAt < 45000)) {
+              const locDoc = String(loc.docNo || loc.txId || '').trim().toUpperCase();
+              const locSku = String(loc.sku || loc.code || loc.itemName || '').trim().toLowerCase();
+              const k = `${locDoc}_${locSku}`;
+              const alreadyInServer = cleanTxs.some(c => {
+                const cDoc = String(c.docNo || c.txId || '').trim().toUpperCase();
+                const cSku = String(c.sku || c.code || c.itemName || '').trim().toLowerCase();
+                return (cDoc === locDoc && (!locSku || !cSku || cSku === locSku));
+              });
+              if (!alreadyInServer && !seenPendingKeys.has(k)) {
+                seenPendingKeys.add(k);
+                localPending.push(loc);
+              }
+            }
+          });
+
+          let uniqueFinalHistory = [];
+          const seenHistoryKeys = new Set();
+          // Server records (cleanTxs) from Google Sheets are 100% authoritative and come FIRST!
+          [...cleanTxs, ...localPending].forEach(t => {
+            const tDoc = String(t.docNo || t.txId || '').trim().toUpperCase();
+            const tSku = String(t.sku || t.code || t.itemName || '').trim().toLowerCase();
+            const k = `${tDoc}_${tSku}`;
+            if (k) {
+              if (seenHistoryKeys.has(k)) return;
+              seenHistoryKeys.add(k);
+            }
+            uniqueFinalHistory.push(t);
+          });
+
+          // Ensure newest entries are ALWAYS at the top
+          const getComparableTxTime = (t) => {
             if (!t) return 0;
             if (t._createdAt && typeof t._createdAt === 'number') return t._createdAt;
             if (t.timestamp) {
@@ -26665,314 +26714,48 @@
             }
             return 0;
           };
-          cachedTxs.sort((a, b) => getCompTime(b) - getCompTime(a));
-          cachedTxs.forEach(t => {
-            t.rawNotes = t.rawNotes || t.notes;
-            const cleanN = cleanDisplayNote(t.userNote || t.notes || '');
-            t.userNote = cleanN;
-            t.notes = cleanN;
+          uniqueFinalHistory.sort((a, b) => {
+            const timeA = getComparableTxTime(a);
+            const timeB = getComparableTxTime(b);
+            if (timeA !== timeB) return timeB - timeA;
+            return 0;
           });
-          AppState.stockInHistory = cachedTxs;
+
+          // Strictly isolate station history: Non-admin station users NEVER see other stations/warehouses
+          if (!isPrivileged && myStationWh) {
+            uniqueFinalHistory = uniqueFinalHistory.filter(t => {
+              const tWh = t.toLocation || t.location || t.warehouse;
+              const uSt = (typeof getUserStationWarehouse === 'function') ? (getUserStationWarehouse(t.user) || getUserStationWarehouse(t.receivedBy)) : '';
+              const isCreatorOrRec = (typeof isSameUserOrAlias === 'function') ? (isSameUserOrAlias(t.user, curU) || isSameUserOrAlias(t.receivedBy, curU)) : false;
+              const tUNorm = normalizeStr(t.user);
+              const tRNorm = normalizeStr(t.receivedBy);
+              const isMyUserTx = (uName && (tUNorm === uName || tRNorm === uName)) ||
+                                 (uFull && (tUNorm === uFull || tRNorm === uFull));
+              return (tWh && (matchesTargetWarehouse(tWh, myStationWh) || isSameWarehouse(tWh, myStationWh))) ||
+                     (uSt && isSameWarehouse(uSt, myStationWh)) ||
+                     isCreatorOrRec ||
+                     isMyUserTx;
+            });
+          }
+
+          AppState.stockInHistory = uniqueFinalHistory;
+          try {
+            if (stationStorageKey) localStorage.setItem(stationStorageKey, JSON.stringify(uniqueFinalHistory));
+            localStorage.setItem(scopedHistoryKey, JSON.stringify(uniqueFinalHistory));
+            localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(uniqueFinalHistory));
+          } catch(e) {}
+
+          if (LOCAL_DB.transactions) {
+            LOCAL_DB.transactions = LOCAL_DB.transactions.filter(t => t.type !== 'STOCK_IN').concat(uniqueFinalHistory);
+            saveLocalTransactionsToStorage();
+          }
+
+          if (typeof syncItemStockFromHistory === 'function') {
+            syncItemStockFromHistory(AppState.items);
+            syncItemStockFromHistory(LOCAL_DB.items);
+          }
           filterStockInHistoryTable();
-        } else {
-          const tbody = document.getElementById('stockInHistoryTableBody');
-          if (tbody) {
-            tbody.innerHTML = '<tr><td colspan="9" class="text-center py-6 text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-1"></i> កំពុងផ្ទុកទិន្នន័យពី Google Sheets...</td></tr>';
-          }
-        }
-
-        try {
-          const normalizeStr = (s) => String(s || '').replace(/[\u200b\ufeff\s_-]/g, '').toLowerCase();
-          const uName = normalizeStr(curU.username);
-          const uFull = normalizeStr(curU.fullName);
-          const userWhMap = (typeof getUserWarehouseMap === 'function') ? getUserWarehouseMap() : {};
-
-          // Query Google Sheets: Station managers only query their station! Admins query ALL to guarantee full real-time cloud data
-          const queryWh = isPrivileged 
-            ? 'ALL'
-            : (myStationWh || curU.warehouse || 'ALL');
-          const minimalUser = {
-            username: curU.username || '',
-            role: curU.role || '',
-            warehouse: curU.warehouse || ''
-          };
-          const res = await apiCall('getTransactionHistory', { filters: { type: 'STOCK_IN', limit: 200, warehouse: queryWh }, user: minimalUser, forceRefresh: Boolean(forceRefresh) });
-          if (res && res.success && Array.isArray(res.transactions)) {
-            if (res.isLocalFallback) {
-              if (!AppState.stockInHistory || AppState.stockInHistory.length === 0) {
-                AppState.stockInHistory = res.transactions;
-              }
-              filterStockInHistoryTable();
-              // Auto-retry in 1.2s to reach cloud so client never stays on stale local fallback
-              clearTimeout(window._stockInFallbackRetryTimer);
-              window._stockInFallbackRetryTimer = setTimeout(() => {
-                loadStockInHistory(true);
-              }, 1200);
-              return;
-            }
-            const cleanTxs = res.transactions.filter(t => {
-              const doc = String(t.docNo || t.txId || '').toUpperCase();
-              const isTest = doc.startsWith('MOCK-TEST-') || doc.startsWith('TEST-TX-');
-              return !isTest;
-            });
-            cleanTxs.forEach(t => {
-              t._serverConfirmed = true;
-              if (typeof unmarkDeletedTransaction === 'function') {
-                unmarkDeletedTransaction(t.txId, t.docNo, t.sku);
-              }
-            });
-
-            cleanTxs.forEach(t => {
-              const item = (AppState.items || []).find(i => (i.sku && t.sku && i.sku.toLowerCase() === t.sku.toLowerCase()) || (i.name && t.itemName && i.name.toLowerCase() === t.itemName.toLowerCase()));
-              if (!t.size && t.notes) {
-                const sm = t.notes.match(/\[(?:ខ្នាត|Size):\s*([^\]]+)\]/i);
-                if (sm) t.size = sm[1].trim();
-              }
-              if (!t.color && t.notes) {
-                const cm = t.notes.match(/\[(?:ពណ៌|Color):\s*([^\]]+)\]/i);
-                if (cm) t.color = cm[1].trim();
-              }
-              if (!t.zone && t.notes) {
-                const zm = t.notes.match(/\[(?:តំបន់|Zone):\s*([^\]]+)\]/i);
-                if (zm) t.zone = zm[1].trim();
-              }
-              if (!t.size && item?.size) t.size = String(item.size).trim();
-              if (!t.color && item?.color) t.color = String(item.color).trim();
-              if (!t.zone && item?.zone) t.zone = String(item.zone).trim();
-
-              // Find matching local transaction if any (to preserve optimistic client-side data)
-              const localMatch = (AppState.stockInHistory || []).find(loc => 
-                (loc.docNo && t.docNo && String(loc.docNo).trim().toUpperCase() === String(t.docNo).trim().toUpperCase()) ||
-                (loc.txId && t.txId && String(loc.txId).trim().toUpperCase() === String(t.txId).trim().toUpperCase()) ||
-                (loc.sku && t.sku && loc.sku.toLowerCase() === t.sku.toLowerCase() && Number(loc.quantity) === Number(t.quantity) && Math.abs((loc._createdAt || 0) - (t._createdAt || Date.now())) < 600000)
-              ) || (LOCAL_DB.transactions || []).find(loc =>
-                loc.type === 'STOCK_IN' &&
-                ((loc.docNo && t.docNo && String(loc.docNo).trim().toUpperCase() === String(t.docNo).trim().toUpperCase()) ||
-                 (loc.txId && t.txId && String(loc.txId).trim().toUpperCase() === String(t.txId).trim().toUpperCase()) ||
-                 (loc.sku && t.sku && loc.sku.toLowerCase() === t.sku.toLowerCase() && Number(loc.quantity) === Number(t.quantity) && Math.abs((loc._createdAt || 0) - (t._createdAt || Date.now())) < 600000))
-              );
-
-              const isMyTx = isSameUserOrAlias(t.user, curU) || isSameUserOrAlias(t.receivedBy, curU);
-              const userSt = getUserStationWarehouse(t.user) || getUserStationWarehouse(t.receivedBy);
-              const tUserClean = normalizeStr(t.user);
-              const tRecClean = normalizeStr(t.receivedBy);
-
-              // Sanitize warehouse: Stock In must NEVER be "ALL" or "គ្រប់ស្ថានីយទាំងអស់"
-              const origWh = String(t.toLocation || t.location || t.warehouse || '').trim();
-              const origWhNorm = normalizeStr(origWh);
-              
-              const isKnownWarehouse = (w) => {
-                if (!w || w === '-' || w === 'ALL' || w === 'គ្រប់ស្ថានីយទាំងអស់' || w === 'គ្រប់ឃ្លាំង' || /^\d+$/.test(w)) return false;
-                if (userWhMap[normalizeStr(w)]) return false; // Name of a person
-                if (getUserStationWarehouse(w)) return false; // Name of a person
-                return true;
-              };
-
-              let rawWh = origWh;
-              if (isKnownWarehouse(origWh)) {
-                rawWh = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(origWh) : origWh;
-              } else {
-                // If origWh was recorded as a person's name (e.g. Hong Kimly)
-                const origWhSt = getUserStationWarehouse(origWh);
-                if (origWhSt) {
-                  if (!t.receivedBy || t.receivedBy === 'undefined' || t.receivedBy === '-') t.receivedBy = origWh;
-                  rawWh = origWhSt;
-                } else if (userWhMap[origWhNorm]) {
-                  if (!t.receivedBy || t.receivedBy === 'undefined' || t.receivedBy === '-') t.receivedBy = origWh;
-                  rawWh = userWhMap[origWhNorm];
-                } else if (localMatch && localMatch.toLocation && isKnownWarehouse(localMatch.toLocation)) {
-                  rawWh = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(localMatch.toLocation) : localMatch.toLocation;
-                } else if (userSt) {
-                  rawWh = userSt;
-                } else if (userWhMap[tUserClean]) {
-                  rawWh = userWhMap[tUserClean];
-                } else if (userWhMap[tRecClean]) {
-                  rawWh = userWhMap[tRecClean];
-                } else if (isMyTx && myStationWh) {
-                  rawWh = myStationWh;
-                } else {
-                  const nStr = t.rawNotes || t.notes || '';
-                  const stMatch = nStr.match(/(?:K\d+[^\]\n\r]+)/i);
-                  if (stMatch) {
-                    rawWh = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(stMatch[0]) : stMatch[0];
-                  } else {
-                    rawWh = isPrivileged ? '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)' : (myStationWh || '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)');
-                  }
-                }
-              }
-
-              t.toLocation = rawWh;
-              t.warehouse = rawWh;
-              t.location = rawWh;
-
-              // Merge fields from localMatch so optimistic details are never overwritten
-              if (localMatch) {
-                if (localMatch.docNo && (!t.docNo || t.docNo.startsWith('TX-IN-'))) t.docNo = localMatch.docNo;
-                if (localMatch.bulkQty !== undefined) t.bulkQty = localMatch.bulkQty;
-                if (localMatch.retailQty !== undefined) t.retailQty = localMatch.retailQty;
-                if (localMatch.inUnitMode) t.inUnitMode = localMatch.inUnitMode;
-                if (localMatch.packQty) t.packQty = localMatch.packQty;
-                if (localMatch.packUnit) t.packUnit = localMatch.packUnit;
-                if (localMatch.size && !t.size) t.size = localMatch.size;
-                if (localMatch.color && !t.color) t.color = localMatch.color;
-                if (localMatch.zone && !t.zone) t.zone = localMatch.zone;
-                if (localMatch.receivedBy && (!t.receivedBy || t.receivedBy === 'undefined')) t.receivedBy = localMatch.receivedBy;
-                if (localMatch.user && (!t.user || t.user === 'undefined' || t.user === 'Staff')) t.user = localMatch.user;
-              }
-
-              // Sanitize notes so raw bracket metadata is NEVER stored or displayed
-              const cleanN = cleanDisplayNote(t.userNote || t.notes || '');
-              t.userNote = cleanN;
-              t.notes = cleanN;
-
-              // Preserve local recent edit if edited within 60 seconds
-              const localExisting = (AppState.stockInHistory || []).find(e => (e.txId && e.txId === t.txId) || (e.docNo && e.docNo === t.docNo));
-              if (localExisting && localExisting._lastEditedAt && (Date.now() - localExisting._lastEditedAt < 60000)) {
-                t.notes = localExisting.notes;
-                t.userNote = localExisting.userNote || localExisting.notes;
-                t._lastEditedAt = localExisting._lastEditedAt;
-              }
-            });
-
-            // PRESERVE RECENT LOCAL PENDING TRANSACTIONS (so newly submitted items NEVER disappear)
-            const nowTs = Date.now();
-            const seenPendingKeys = new Set();
-            const localPending = [];
-            [(AppState.stockInHistory || []), (LOCAL_DB.transactions || [])].forEach(sourceList => {
-              sourceList.forEach(loc => {
-                if (!loc || loc.type !== 'STOCK_IN' || isTransactionDeleted(loc)) return;
-                if (!isPrivileged && myStationWh) {
-                  const locWh = loc.toLocation || loc.location || loc.warehouse;
-                  const locUserSt = (typeof getUserStationWarehouse === 'function') ? (getUserStationWarehouse(loc.user) || getUserStationWarehouse(loc.receivedBy)) : '';
-                  const isCreatorOrRec = (typeof isSameUserOrAlias === 'function') ? (isSameUserOrAlias(loc.user, curU) || isSameUserOrAlias(loc.receivedBy, curU)) : false;
-                  const lUNorm = normalizeStr(loc.user);
-                  const lRNorm = normalizeStr(loc.receivedBy);
-                  const isMyUserTx = (uName && (lUNorm === uName || lRNorm === uName)) ||
-                                     (uFull && (lUNorm === uFull || lRNorm === uFull));
-                  const isForMyStation = (locWh && (matchesTargetWarehouse(locWh, myStationWh) || isSameWarehouse(locWh, myStationWh))) ||
-                                        (locUserSt && isSameWarehouse(locUserSt, myStationWh)) ||
-                                        isCreatorOrRec ||
-                                        isMyUserTx;
-                  if (!isForMyStation) return;
-                }
-                const locDoc = String(loc.docNo || loc.txId || '').trim().toUpperCase();
-                const locSku = String(loc.sku || loc.code || loc.itemName || '').trim().toLowerCase();
-                const k = `${locDoc}_${locSku}`;
-                if (k && seenPendingKeys.has(k)) return;
-                if (k) seenPendingKeys.add(k);
-                const matchingServerTx = cleanTxs.find(c => {
-                  const cDoc = String(c.docNo || c.txId || '').trim().toUpperCase();
-                  const cSku = String(c.sku || c.code || c.itemName || '').trim().toLowerCase();
-                  return (cDoc === locDoc && (!locSku || !cSku || cSku === locSku)) ||
-                         (c.txId && loc.txId && String(c.txId).trim().toUpperCase() === String(loc.txId).trim().toUpperCase() && (!locSku || !cSku || cSku === locSku)) ||
-                         (locSku && cSku && locSku === cSku && Number(c.quantity) === Number(loc.quantity) && Math.abs((loc._createdAt || nowTs) - (c._createdAt || nowTs)) < 1800000);
-                });
-                if (matchingServerTx) {
-                  // Server record confirmed
-                  matchingServerTx._isLocalPending = false;
-                  matchingServerTx._serverConfirmed = true;
-                  matchingServerTx._createdAt = loc._createdAt || matchingServerTx._createdAt;
-                  if ((!isKnownWarehouse(matchingServerTx.toLocation) || matchingServerTx.toLocation === 'ALL' || matchingServerTx.toLocation === 'គ្រប់ស្ថានីយទាំងអស់') && loc.toLocation) {
-                    matchingServerTx.toLocation = loc.toLocation;
-                    matchingServerTx.warehouse = loc.toLocation;
-                    matchingServerTx.location = loc.toLocation;
-                  }
-                  if (loc.docNo && (!matchingServerTx.docNo || matchingServerTx.docNo.startsWith('TX-IN-') || matchingServerTx.docNo === matchingServerTx.txId)) {
-                    matchingServerTx.docNo = loc.docNo;
-                  }
-                  return;
-                }
-                // Only keep very recent unconfirmed pending items (< 90 seconds) to avoid resurrection of ghost data
-                if (loc._isLocalPending === true && !isTransactionDeleted(loc) && loc._createdAt && (nowTs - loc._createdAt < 90000)) {
-                  localPending.push(loc);
-                }
-              });
-            });
-
-            let uniqueFinalHistory = [];
-            const seenHistoryKeys = new Set();
-            // Server records (cleanTxs) are 100% authoritative and come FIRST!
-            const baseRecords = (cleanTxs && cleanTxs.length > 0)
-              ? cleanTxs
-              : ((cachedTxs && cachedTxs.length > 0) ? cachedTxs : (AppState.stockInHistory || []));
-            [...baseRecords, ...localPending].forEach(t => {
-              const tDoc = String(t.docNo || t.txId || '').trim().toUpperCase();
-              const tSku = String(t.sku || t.code || t.itemName || '').trim().toLowerCase();
-              const k = `${tDoc}_${tSku}`;
-              if (k) {
-                if (seenHistoryKeys.has(k)) return;
-                seenHistoryKeys.add(k);
-              }
-              uniqueFinalHistory.push(t);
-            });
-
-            // Ensure newest entries are ALWAYS at the top (ទិន្នន័យដែលបញ្ចូលក្រោយគេ ត្រូវបង្ហាញនៅលើគេ)
-            const getComparableTxTime = (t) => {
-              if (!t) return 0;
-              if (t._createdAt && typeof t._createdAt === 'number') return t._createdAt;
-              if (t.timestamp) {
-                const dt = new Date(String(t.timestamp).replace(' ', 'T')).getTime();
-                if (!isNaN(dt)) return dt;
-              }
-              if (t.date) {
-                const dt = new Date(String(t.date).slice(0, 10)).getTime();
-                if (!isNaN(dt)) return dt;
-              }
-              return 0;
-            };
-            uniqueFinalHistory.sort((a, b) => {
-              const timeA = getComparableTxTime(a);
-              const timeB = getComparableTxTime(b);
-              if (timeA !== timeB) {
-                return timeB - timeA;
-              }
-              return 0;
-            });
-
-            // Strictly isolate station history: Non-admin station users NEVER see other stations/warehouses!
-            if (!isPrivileged && myStationWh) {
-              uniqueFinalHistory = uniqueFinalHistory.filter(t => {
-                const tWh = t.toLocation || t.location || t.warehouse;
-                const uSt = (typeof getUserStationWarehouse === 'function') ? (getUserStationWarehouse(t.user) || getUserStationWarehouse(t.receivedBy)) : '';
-                const isCreatorOrRec = (typeof isSameUserOrAlias === 'function') ? (isSameUserOrAlias(t.user, curU) || isSameUserOrAlias(t.receivedBy, curU)) : false;
-                const tUNorm = normalizeStr(t.user);
-                const tRNorm = normalizeStr(t.receivedBy);
-                const isMyUserTx = (uName && (tUNorm === uName || tRNorm === uName)) ||
-                                   (uFull && (tUNorm === uFull || tRNorm === uFull));
-                return (tWh && (matchesTargetWarehouse(tWh, myStationWh) || isSameWarehouse(tWh, myStationWh))) ||
-                       (uSt && isSameWarehouse(uSt, myStationWh)) ||
-                       isCreatorOrRec ||
-                       isMyUserTx;
-              });
-            }
-
-            if (uniqueFinalHistory.length > 0) {
-              AppState.stockInHistory = uniqueFinalHistory;
-              try {
-                if (stationStorageKey) localStorage.setItem(stationStorageKey, JSON.stringify(uniqueFinalHistory));
-                localStorage.setItem(scopedHistoryKey, JSON.stringify(uniqueFinalHistory));
-                localStorage.setItem('inventory_stock_in_history_db', JSON.stringify(uniqueFinalHistory));
-              } catch(e) {}
-              // Synchronize LOCAL_DB.transactions with cleanTxs so deleted items are completely purged from storage
-              if (LOCAL_DB.transactions) {
-                LOCAL_DB.transactions = LOCAL_DB.transactions.filter(t => t.type !== 'STOCK_IN').concat(uniqueFinalHistory);
-                saveLocalTransactionsToStorage();
-              }
-            } else if (cachedTxs && cachedTxs.length > 0) {
-              AppState.stockInHistory = cachedTxs;
-            }
-            if (typeof syncItemStockFromHistory === 'function') {
-              syncItemStockFromHistory(AppState.items);
-              syncItemStockFromHistory(LOCAL_DB.items);
-            }
-            filterStockInHistoryTable();
-            if (typeof renderItemsTable === 'function') renderItemsTable();
-            return;
-          } else if (AppState.stockInHistory && AppState.stockInHistory.length > 0) {
-            filterStockInHistoryTable();
-          } else {
-            renderStockInHistoryTable([]);
-          }
+          if (typeof renderItemsTable === 'function') renderItemsTable();
         } catch (err) {
           console.warn('loadStockInHistory error:', err);
           filterStockInHistoryTable();
@@ -28772,6 +28555,9 @@ window.toggleExportStockInDropdown = function(e) {
 
     let _stockOutFetchPromise = null;
     async function loadStockOutHistory(forceRefresh = true, btn = null) {
+      if (forceRefresh) {
+        _stockOutFetchPromise = null;
+      }
       if (_stockOutFetchPromise) {
         return _stockOutFetchPromise;
       }
@@ -28788,69 +28574,10 @@ window.toggleExportStockInDropdown = function(e) {
         const myStationWh = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(resolvedWh) : resolvedWh;
         const stationStorageKey = (myStationWh && myStationWh !== 'ALL') ? `inventory_stock_out_history_wh_${String(myStationWh).toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '')}` : '';
 
-        let cachedTxs = (AppState.stockOutHistory && AppState.stockOutHistory.length > 0)
-          ? AppState.stockOutHistory.filter(t => !isTransactionDeleted(t))
-          : null;
-        if (!cachedTxs || cachedTxs.length === 0) {
-          try {
-            const stored = (stationStorageKey ? localStorage.getItem(stationStorageKey) : null) || localStorage.getItem('inventory_stock_out_history_db');
-            if (stored !== null) {
-              const parsed = JSON.parse(stored);
-              if (Array.isArray(parsed) && parsed.length > 0) {
-                cachedTxs = parsed.filter(t => {
-                  const doc = String(t.docNo || t.txId || '').toUpperCase();
-                  const isTest = doc.startsWith('MOCK-TEST-') || doc.startsWith('TEST-TX-');
-                  return !isTest && !isTransactionDeleted(t);
-                });
-              }
-            }
-          } catch(e) {}
-        }
-
-        if (!cachedTxs && !forceRefresh) {
-          try {
-            const storedGen = localStorage.getItem('inventory_transactions_db');
-            if (storedGen) {
-              const parsedGen = JSON.parse(storedGen);
-              if (Array.isArray(parsedGen) && parsedGen.length > 0) {
-                cachedTxs = parsedGen.filter(t => {
-                  const doc = String(t.docNo || t.txId || '').toUpperCase();
-                  const isTest = doc.startsWith('MOCK-TEST-') || doc.startsWith('TEST-TX-');
-                  return t.type === 'STOCK_OUT' && !isTest && !isTransactionDeleted(t);
-                });
-              }
-            }
-          } catch(e) {}
-        }
-
-        if (cachedTxs && cachedTxs.length > 0) {
-          const getCompTime = (t) => {
-            if (!t) return 0;
-            if (t._createdAt && typeof t._createdAt === 'number') return t._createdAt;
-            if (t.timestamp) {
-              const dt = new Date(String(t.timestamp).replace(' ', 'T')).getTime();
-              if (!isNaN(dt)) return dt;
-            }
-            if (t.date) {
-              const dt = new Date(String(t.date).slice(0, 10)).getTime();
-              if (!isNaN(dt)) return dt;
-            }
-            return 0;
-          };
-          cachedTxs.sort((a, b) => getCompTime(b) - getCompTime(a));
-          cachedTxs.forEach(t => {
-            t.rawNotes = t.rawNotes || t.notes;
-            const cleanN = cleanDisplayNote(t.userNote || t.notes || '');
-            t.userNote = cleanN;
-            t.notes = cleanN;
-          });
-          AppState.stockOutHistory = cachedTxs;
-          filterStockOutHistoryTable();
-        } else {
-          const tbody = document.getElementById('stockOutHistoryTableBody');
-          if (tbody) {
-            tbody.innerHTML = '<tr><td colspan="9" class="text-center py-6 text-slate-400 text-sm"><i class="fa-solid fa-spinner fa-spin mr-1"></i> កំពុងផ្ទុកទិន្នន័យពី Google Sheets...</td></tr>';
-          }
+        // Show live loading state from Google Sheets (Never pre-render stale divergent localStorage data)
+        const tbody = document.getElementById('stockOutHistoryTableBody');
+        if (tbody && (!AppState.stockOutHistory || AppState.stockOutHistory.length === 0 || forceRefresh)) {
+          tbody.innerHTML = '<tr><td colspan="9" class="text-center py-6 text-slate-500 font-medium text-sm"><i class="fa-solid fa-spinner fa-spin mr-2 text-amber-600"></i> កំពុងទាញយកទិន្នន័យផ្ទាល់ពី Google Sheets...</td></tr>';
         }
 
         try {
@@ -28862,110 +28589,96 @@ window.toggleExportStockInDropdown = function(e) {
             role: curU.role || '',
             warehouse: curU.warehouse || ''
           };
-          const res = await apiCall('getTransactionHistory', { filters: { type: 'STOCK_OUT', limit: 200, warehouse: queryWh }, user: minimalUser, forceRefresh: Boolean(forceRefresh) });
+          const res = await apiCall('getTransactionHistory', {
+            filters: { type: 'STOCK_OUT', limit: 200, warehouse: queryWh },
+            user: minimalUser,
+            forceRefresh: Boolean(forceRefresh)
+          });
+
+          let serverTxs = [];
           if (res && res.success && Array.isArray(res.transactions)) {
-            if (res.isLocalFallback) {
-              if (!AppState.stockOutHistory || AppState.stockOutHistory.length === 0) {
-                AppState.stockOutHistory = res.transactions;
-              }
-              filterStockOutHistoryTable();
-              clearTimeout(window._stockOutFallbackRetryTimer);
-              window._stockOutFallbackRetryTimer = setTimeout(() => {
-                loadStockOutHistory(true);
-              }, 1200);
-              return;
-            }
-            const cleanTxs = res.transactions.filter(t => {
-              const doc = String(t.docNo || t.txId || '').toUpperCase();
-              const isTest = doc.startsWith('MOCK-TEST-') || doc.startsWith('TEST-TX-');
-              return !isTest;
-            });
-            cleanTxs.forEach(t => {
-              t._serverConfirmed = true;
-              if (typeof unmarkDeletedTransaction === 'function') {
-                unmarkDeletedTransaction(t.txId, t.docNo, t.sku);
-              }
-            });
-
-            // Enrich metadata (Size, Color, Zone, Warehouse) from notes or AppState.items if missing
-            cleanTxs.forEach(t => {
-              const item = (AppState.items || []).find(i => (i.sku && t.sku && i.sku.toLowerCase() === t.sku.toLowerCase()) || (i.name && t.itemName && i.name.toLowerCase() === t.itemName.toLowerCase()));
-              if (!t.size && t.notes) {
-                const sm = t.notes.match(/\[(?:ខ្នាត|Size):\s*([^\]]+)\]/i);
-                if (sm) t.size = sm[1].trim();
-              }
-              if (!t.color && t.notes) {
-                const cm = t.notes.match(/\[(?:ពណ៌|Color):\s*([^\]]+)\]/i);
-                if (cm) t.color = cm[1].trim();
-              }
-              if (!t.zone && t.notes) {
-                const zm = t.notes.match(/\[(?:តំបន់|Zone):\s*([^\]]+)\]/i);
-                if (zm) t.zone = zm[1].trim();
-              }
-              if (!t.size && item?.size) t.size = String(item.size).trim();
-              if (!t.color && item?.color) t.color = String(item.color).trim();
-              if (!t.zone && item?.zone) t.zone = String(item.zone).trim();
-
-              // Repair numeric or missing fromLocation (e.g. legacy '7' from packstock bug)
-              if (!t.fromLocation || t.fromLocation === '-' || /^\d+$/.test(String(t.fromLocation).trim())) {
-                t.fromLocation = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
-              }
-              if (!t.toLocation) {
-                t.toLocation = t.warehouse || t.location || 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
-              }
-
-              // Sanitize notes so raw bracket metadata is NEVER stored or displayed
-              const cleanN = cleanDisplayNote(t.userNote || t.notes || '');
-              t.userNote = cleanN;
-              t.notes = cleanN;
-
-              // Preserve local recent edit if edited within 60 seconds
-              const localExisting = (AppState.stockOutHistory || []).find(e => (e.txId && e.txId === t.txId) || (e.docNo && e.docNo === t.docNo));
-              if (localExisting && localExisting._lastEditedAt && (Date.now() - localExisting._lastEditedAt < 60000)) {
-                t.notes = localExisting.notes;
-                t.userNote = localExisting.userNote || localExisting.notes;
-                t._lastEditedAt = localExisting._lastEditedAt;
-              }
-            });
-
-            // Ensure newest entries are ALWAYS at the top (ទិន្នន័យដែលបញ្ចូលក្រោយគេ ត្រូវបង្ហាញនៅលើគេ)
-            cleanTxs.sort((a, b) => {
-              const timeA = String(a.timestamp || a._createdAt || a.date || '');
-              const timeB = String(b.timestamp || b._createdAt || b.date || '');
-              if (timeA && timeB && timeA !== timeB) {
-                return timeB.localeCompare(timeA);
-              }
-              return 0;
-            });
-
-            const finalOutHistory = (cleanTxs && cleanTxs.length > 0) ? cleanTxs : (cachedTxs || []);
-            if (finalOutHistory.length > 0) {
-              AppState.stockOutHistory = finalOutHistory;
-              try {
-                if (stationStorageKey) localStorage.setItem(stationStorageKey, JSON.stringify(finalOutHistory));
-                localStorage.setItem('inventory_stock_out_history_db', JSON.stringify(finalOutHistory));
-              } catch(e) {}
-              // Synchronize LOCAL_DB.transactions with cleanTxs so deleted items are completely purged from storage
-              if (LOCAL_DB.transactions) {
-                LOCAL_DB.transactions = LOCAL_DB.transactions.filter(t => t.type !== 'STOCK_OUT').concat(finalOutHistory);
-                saveLocalTransactionsToStorage();
-              }
-            } else if (cachedTxs && cachedTxs.length > 0) {
-              AppState.stockOutHistory = cachedTxs;
-            }
-            if (typeof syncDispatchesWithOperations === 'function') syncDispatchesWithOperations();
-            if (typeof syncItemStockFromHistory === 'function') {
-              syncItemStockFromHistory(AppState.items);
-              syncItemStockFromHistory(LOCAL_DB.items);
-            }
-            filterStockOutHistoryTable();
-            if (typeof renderItemsTable === 'function') renderItemsTable();
-            return;
-          } else if (AppState.stockOutHistory && AppState.stockOutHistory.length > 0) {
-            filterStockOutHistoryTable();
-          } else {
-            renderStockOutHistoryTable([]);
+            serverTxs = res.transactions;
+          } else if (res && res.isLocalFallback && (!AppState.stockOutHistory || AppState.stockOutHistory.length === 0)) {
+            try {
+              const cachedRaw = localStorage.getItem('inventory_stock_out_history_db');
+              if (cachedRaw) serverTxs = JSON.parse(cachedRaw) || [];
+            } catch(e) {}
           }
+
+          const cleanTxs = (serverTxs || []).filter(t => {
+            if (!t) return false;
+            const doc = String(t.docNo || t.txId || '').toUpperCase();
+            const isTest = doc.startsWith('MOCK-TEST-') || doc.startsWith('TEST-TX-');
+            return !isTest;
+          });
+
+          cleanTxs.forEach(t => {
+            t._serverConfirmed = true;
+            if (typeof unmarkDeletedTransaction === 'function') {
+              unmarkDeletedTransaction(t.txId, t.docNo, t.sku);
+            }
+          });
+
+          // Enrich metadata (Size, Color, Zone, Warehouse) from notes or AppState.items if missing
+          cleanTxs.forEach(t => {
+            const item = (AppState.items || []).find(i => (i.sku && t.sku && i.sku.toLowerCase() === t.sku.toLowerCase()) || (i.name && t.itemName && i.name.toLowerCase() === t.itemName.toLowerCase()));
+            if (!t.size && t.notes) {
+              const sm = t.notes.match(/\[(?:ខ្នាត|Size):\s*([^\]]+)\]/i);
+              if (sm) t.size = sm[1].trim();
+            }
+            if (!t.color && t.notes) {
+              const cm = t.notes.match(/\[(?:ពណ៌|Color):\s*([^\]]+)\]/i);
+              if (cm) t.color = cm[1].trim();
+            }
+            if (!t.zone && t.notes) {
+              const zm = t.notes.match(/\[(?:តំបន់|Zone):\s*([^\]]+)\]/i);
+              if (zm) t.zone = zm[1].trim();
+            }
+            if (!t.size && item?.size) t.size = String(item.size).trim();
+            if (!t.color && item?.color) t.color = String(item.color).trim();
+            if (!t.zone && item?.zone) t.zone = String(item.zone).trim();
+
+            if (!t.fromLocation || t.fromLocation === '-' || /^\d+$/.test(String(t.fromLocation).trim())) {
+              t.fromLocation = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+            }
+            if (!t.toLocation) {
+              t.toLocation = t.warehouse || t.location || 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
+            }
+
+            const cleanN = cleanDisplayNote(t.userNote || t.notes || '');
+            t.userNote = cleanN;
+            t.notes = cleanN;
+          });
+
+          // Ensure newest entries are ALWAYS at the top
+          cleanTxs.sort((a, b) => {
+            const timeA = String(a.timestamp || a._createdAt || a.date || '');
+            const timeB = String(b.timestamp || b._createdAt || b.date || '');
+            if (timeA && timeB && timeA !== timeB) {
+              return timeB.localeCompare(timeA);
+            }
+            return 0;
+          });
+
+          AppState.stockOutHistory = cleanTxs;
+          try {
+            if (stationStorageKey) localStorage.setItem(stationStorageKey, JSON.stringify(cleanTxs));
+            localStorage.setItem('inventory_stock_out_history_db', JSON.stringify(cleanTxs));
+          } catch(e) {}
+
+          if (LOCAL_DB.transactions) {
+            LOCAL_DB.transactions = LOCAL_DB.transactions.filter(t => t.type !== 'STOCK_OUT').concat(cleanTxs);
+            saveLocalTransactionsToStorage();
+          }
+
+          if (typeof syncDispatchesWithOperations === 'function') syncDispatchesWithOperations();
+          if (typeof syncItemStockFromHistory === 'function') {
+            syncItemStockFromHistory(AppState.items);
+            syncItemStockFromHistory(LOCAL_DB.items);
+          }
+          filterStockOutHistoryTable();
+          if (typeof renderItemsTable === 'function') renderItemsTable();
+          return;
         } catch (err) {
           console.warn('loadStockOutHistory error:', err);
           filterStockOutHistoryTable();
