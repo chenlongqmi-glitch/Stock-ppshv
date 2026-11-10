@@ -7282,6 +7282,47 @@ function recordStockOutBatch(payloadOrData, userParam) {
       sOutSheet.appendRow(r);
     });
 
+    // Auto-create dispatches in Dispatches sheet for station destinations
+    try {
+      const dspSheet = ensureDispatchesSheet(ss);
+      const dispatchesList = (payload.dispatches && Array.isArray(payload.dispatches)) ? payload.dispatches : [];
+      const nowDsp = new Date();
+      items.forEach((it, idx) => {
+        let toLoc = String(it.toLocation || it.location || it.warehouse || '').trim();
+        toLoc = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(toLoc) : toLoc;
+        const isInternalHQ = toLoc.includes('机电') || toLoc.includes('អគ្គិសនី') || toLoc.includes('中心库房') || toLoc.includes('ឃ្លាំងស្តុកនៅចុងស៊ីង') || toLoc.includes('ចុងស៊ីង') || toLoc.includes('ចុងស៊ីន') || toLoc.includes('អតិថិជន') || toLoc.includes('ដកប្រើប្រាស់');
+        if (toLoc && !isInternalHQ) {
+          const matchedDsp = dispatchesList[idx] || dispatchesList.find(d => d.sku === it.sku);
+          const dspId = (matchedDsp && matchedDsp.dispatchId) ? matchedDsp.dispatchId : ('DSP-' + Utilities.formatDate(nowDsp, 'GMT+7', 'yyyyMMdd') + '-' + Math.floor(1000 + Math.random() * 9000));
+          const cleanUserNote = cleanDisplayNoteGAS(it.userNote !== undefined ? it.userNote : (it.notes || ''));
+          dspSheet.appendRow([
+            dspId,
+            finalDocNo,
+            dateFormatted,
+            Utilities.formatDate(nowDsp, 'GMT+7', 'HH:mm:ss'),
+            it.sku || '',
+            it.itemName || '',
+            it.size || '',
+            it.color || '',
+            Number(it.quantity || it.effectiveQty || 0),
+            Number(it.bulkQty || 0),
+            Number(it.retailQty || 0),
+            it.unit || it.baseUnit || 'ដុំ',
+            it.packUnit || 'ប្រអប់',
+            '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
+            toLoc,
+            it.issuer || (u ? (u.fullName || u.username) : 'Admin'),
+            'PENDING',
+            '', '', '', '', '',
+            (cleanUserNote && cleanUserNote !== '-') ? cleanUserNote : '-',
+            nowDsp
+          ]);
+        }
+      });
+    } catch (eDsp) {
+      Logger.log('Error creating dispatches in recordStockOutBatch: ' + eDsp);
+    }
+
     SpreadsheetApp.flush();
     logActivity(u ? (u.fullName || u.username) : 'Staff', 'Staff', 'STOCK_OUT_BATCH', 'Stock Out Batch ' + successItems.length + ' items [' + finalDocNo + ']');
 
@@ -13474,12 +13515,19 @@ function confirmStationReception(payload, user) {
       for (let i = 1; i < data.length; i++) {
         if (String(data[i][0]).trim() === String(d.dispatchId).trim()) {
           const row = i + 1;
-          sheet.getRange(row, 17).setValue('RECEIVED'); // Status
+          const status = d.discrepancy ? 'RECEIVED_WITH_DISCREPANCY' : 'RECEIVED';
+          sheet.getRange(row, 17).setValue(status); // Status
           sheet.getRange(row, 18).setValue(d.zone || d.receivedZone || ''); // ReceivedZone
-          sheet.getRange(row, 19).setValue(d.quantity || d.receivedQty || 0); // ReceivedQty
+          sheet.getRange(row, 19).setValue(d.receivedQuantity !== undefined ? d.receivedQuantity : (d.quantity || d.receivedQty || 0)); // ReceivedQty
           sheet.getRange(row, 20).setValue(u ? (u.fullName || u.username) : (d.receivedBy || 'Staff')); // ReceivedBy
           sheet.getRange(row, 21).setValue(new Date()); // ReceivedAt
-          if (d.docNo) sheet.getRange(row, 22).setValue(d.docNo); // StockInDocNo
+          if (d.stockInDocNo || d.docNo) sheet.getRange(row, 22).setValue(d.stockInDocNo || d.docNo); // StockInDocNo
+          if (d.discrepancyNotes || d.receiverNotes) {
+            const curNote = String(sheet.getRange(row, 23).getValue() || '');
+            const discrepancyTag = d.discrepancy ? `[DISCREPANCY: Sent ${d.originalQuantity || d.quantity}, Recv ${d.receivedQuantity}] ` : '';
+            const newNote = (curNote && curNote !== '-') ? (curNote + ' | ' + discrepancyTag + (d.discrepancyNotes || d.receiverNotes)) : (discrepancyTag + (d.discrepancyNotes || d.receiverNotes));
+            sheet.getRange(row, 23).setValue(newNote);
+          }
           break;
         }
       }
@@ -13487,6 +13535,15 @@ function confirmStationReception(payload, user) {
   } catch (err) {
     Logger.log('Error updating Dispatches sheet: ' + err.toString());
   }
+
+  // 3. Activity Logging
+  try {
+    if (d.discrepancy) {
+      logActivity(u ? (u.fullName || u.username) : 'Staff', 'Staff', 'DISPATCH_DISCREPANCY',
+        `Discrepancy at ${d.toLocation}: Sent ${d.originalQuantity || d.quantity}, Received ${d.receivedQuantity} of ${d.itemName} (${d.sku}) [${d.masterDocNo}]`
+      );
+    }
+  } catch (eLog) { }
 
   return {
     success: true,
