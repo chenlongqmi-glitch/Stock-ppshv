@@ -46082,11 +46082,6 @@
     // HIGH-STANDARD CROSS-MONITOR ADAPTIVE ENGINE & REAL-TIME DRAG SCALER
     // =========================================================================
     (function initCrossMonitorAutoScaler() {
-      // 默认 Auto: Clear any legacy persistent manual zoom so the application always defaults to Auto on startup
-      try {
-        localStorage.removeItem('inventory_user_zoom');
-      } catch (e) { }
-
       let lastSw = 0;
       let lastSh = 0;
       let lastDpr = 0;
@@ -46196,8 +46191,7 @@
 
       function applyAdaptiveScaling(isForced = false) {
         const auto = calculateMonitorProfileAndScale();
-        // 默认 Auto: Use session-based manual override only if actively adjusted in this tab
-        const savedZoom = sessionStorage.getItem('inventory_user_zoom');
+        const savedZoom = localStorage.getItem('inventory_user_zoom');
         let effectiveScale = auto.scale;
         let isManual = false;
 
@@ -46276,8 +46270,8 @@
           sidebarZoomText.textContent = percentText;
         }
 
-        // Trigger toast on real monitor profile transition only (never on manual + / - clicks)
-        if (!isManual && lastAppliedProfile && (lastAppliedProfile !== auto.profile)) {
+        // Trigger toast on real monitor transition
+        if (lastAppliedProfile && (lastAppliedProfile !== auto.profile || Math.abs(lastAppliedScale - effectiveScale) > 0.05)) {
           showMonitorTransitionToast(auto.name, effectiveScale, auto.icon);
         }
 
@@ -46350,16 +46344,45 @@
         const current = parseFloat(document.documentElement.style.getPropertyValue('--app-ui-scale')) || 1.0;
         let newZoom = Math.round((current + delta) * 10) / 10;
         newZoom = Math.max(0.70, Math.min(1.60, newZoom));
-        sessionStorage.setItem('inventory_user_zoom', newZoom);
+        localStorage.setItem('inventory_user_zoom', newZoom);
         applyAdaptiveScaling(true);
         scheduleZoomDockAutoCollapse();
+
+        if (typeof Swal !== 'undefined' && Swal.mixin) {
+          const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 900,
+            timerProgressBar: false
+          });
+          Toast.fire({
+            icon: 'info',
+            title: `<span class="text-xs font-bold text-slate-800">${delta > 0 ? '🔍 ពង្រីក (Zoom In)' : '🔎 បង្រួម (Zoom Out)'} ៖ <span class="text-blue-600 font-extrabold">${Math.round(newZoom * 100)}%</span></span>`
+          });
+        }
       };
 
       window.resetAppZoom = function () {
-        sessionStorage.removeItem('inventory_user_zoom');
-        try { localStorage.removeItem('inventory_user_zoom'); } catch (e) { }
+        localStorage.removeItem('inventory_user_zoom');
         applyAdaptiveScaling(true);
+        const auto = calculateMonitorProfileAndScale();
+        showMonitorTransitionToast(auto.name, auto.scale, auto.icon);
         scheduleZoomDockAutoCollapse();
+
+        if (typeof Swal !== 'undefined' && Swal.mixin) {
+          const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 1000,
+            timerProgressBar: false
+          });
+          Toast.fire({
+            icon: 'success',
+            title: `<span class="text-xs font-bold text-slate-800">🔄 កំណត់ទំហំស្វ័យប្រវត្តិ (Auto Scale) ៖ <span class="text-blue-600 font-extrabold">${Math.round(auto.scale * 100)}%</span></span>`
+          });
+        }
       };
 
       // Toggle Floating Zoom Quick Dock
