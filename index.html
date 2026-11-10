@@ -734,17 +734,33 @@
       display: none !important;
     }
 
-    /* Auto-Fit Responsive Scaling for Auth Modal (Login / Register / OTP) */
+    /* Auto-Fit Responsive Scaling for Auth Modal (Login / Register / OTP): 100% Centered on All Screens */
     #authSection {
-      min-height: 100vh;
-      min-height: 100dvh;
-      background: radial-gradient(circle at 50% 50%, rgba(30, 41, 59, 0.94) 0%, rgba(15, 23, 42, 0.97) 50%, rgba(2, 6, 23, 0.99) 100%);
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      height: 100dvh !important;
+      z-index: 50 !important;
+      overflow: hidden !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      background: radial-gradient(circle at 50% 50%, rgba(30, 41, 59, 0.94) 0%, rgba(15, 23, 42, 0.97) 50%, rgba(2, 6, 23, 0.99) 100%) !important;
     }
 
     .auth-modal-card {
-      transform-origin: center center;
-      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      position: fixed !important;
+      top: 50% !important;
+      left: 50% !important;
+      margin: 0 !important;
+      transform: translate(-50%, -50%) !important;
+      transform-origin: center center !important;
+      transition: transform 0.15s ease-out;
       will-change: transform;
+      box-sizing: border-box !important;
     }
 
     /* Prevent browser autofill background & styling */
@@ -1286,15 +1302,15 @@
   <!-- 1. AUTHENTICATION & LOGIN SCREEN (MODERN SPLIT DESIGN) -->
   <!-- ========================================== -->
   <div id="authSection"
-    class="fixed inset-0 z-50 flex items-start lg:items-center justify-center p-3 sm:p-6 lg:p-8 overflow-y-auto lg:overflow-hidden overscroll-contain">
-    <div
-      class="w-full max-w-lg sm:max-w-2xl lg:max-w-[1040px] lg:w-[1040px] min-h-[580px] lg:min-h-[640px] auth-modal-card bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden border border-slate-200/80 grid grid-cols-1 lg:grid-cols-2 my-auto shrink-0">
+    class="fixed inset-0 z-50 flex items-center justify-center p-0 m-0 overflow-hidden select-none">
+    <div id="authModalCard"
+      class="w-[94vw] sm:w-[90vw] md:w-[780px] lg:w-[980px] max-w-[980px] auth-modal-card bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden border border-slate-200/80 grid grid-cols-1 md:grid-cols-2 m-0 shrink-0 select-auto">
 
       <!-- ===================================== -->
       <!-- ផ្នែកខាងឆ្វេង (LEFT BRANDING PANEL): RICH GRADIENT HERO + LOGO + COMPANY -->
       <!-- ===================================== -->
       <div
-        class="lg:col-span-1 bg-gradient-to-br from-blue-700 via-indigo-700 to-slate-950 p-7 sm:p-9 lg:p-11 text-white flex flex-col justify-between relative overflow-hidden">
+        class="md:col-span-1 bg-gradient-to-br from-blue-700 via-indigo-700 to-slate-950 p-6 sm:p-8 lg:p-10 text-white flex flex-col justify-between relative overflow-hidden">
 
         <!-- Decorative Ambient Glows -->
         <div class="absolute -top-24 -left-24 w-72 h-72 bg-blue-500/20 rounded-full blur-3xl pointer-events-none"></div>
@@ -1362,7 +1378,7 @@
       <!-- ===================================== -->
       <!-- ផ្នែកខាងស្តាំ (RIGHT INTERACTIVE PANEL): LOGIN / REGISTER / OTP -->
       <!-- ===================================== -->
-      <div class="lg:col-span-1 p-7 sm:p-9 lg:p-11 flex flex-col justify-center bg-white relative overflow-hidden">
+      <div class="md:col-span-1 p-6 sm:p-8 lg:p-10 flex flex-col justify-center bg-white relative overflow-hidden">
 
         <!-- Login Card -->
         <div id="loginCard" class="w-full space-y-4 sm:space-y-5">
@@ -44852,54 +44868,80 @@ window.toggleExportStockInDropdown = function(e) {
     }
 
     // =========================================================
-    // Dynamic Auto-Scale Auth Modal for All Screen Sizes & Monitors
+    // Dynamic Auto-Scale Auth Modal for All Screen Sizes & Monitors:
+    // Mathematically 100% Centered Vertically & Horizontally (上下左右居中)
     // =========================================================
     function autoScaleAuthCard() {
       const authCard = document.querySelector('.auth-modal-card');
       const authSec = document.getElementById('authSection');
       if (!authCard || !authSec) return;
 
-      const vh = window.innerHeight;
-      const vw = window.innerWidth;
-
-      // On mobile / tablet screens (< 1024px, 1-column stacked layout):
-      if (vw < 1024) {
-        authCard.style.transform = 'none';
-        authCard.style.marginTop = '';
-        authCard.style.marginBottom = '';
-        authSec.style.overflowY = 'auto';
+      // Do nothing if authSec is hidden or user is already authenticated
+      if (authSec.classList.contains('hidden') || authSec.style.display === 'none' || document.documentElement.classList.contains('app-authenticated')) {
         return;
       }
 
-      // On Desktop / Laptop (>= 1024px):
-      // Keep natural crisp 100% size (scale = 1.0). Only scale down if screen height is very small (< 620px)
-      authSec.style.overflowY = 'auto';
-      const baseH = 580;
-      
-      let scale = 1.0;
-      if (vh < 620) {
-        scale = Math.max(0.75, (vh * 0.92) / baseH);
+      authSec.style.overflow = 'hidden';
+
+      const vh = window.innerHeight || document.documentElement.clientHeight || window.screen.availHeight || 600;
+      const vw = window.innerWidth || document.documentElement.clientWidth || window.screen.availWidth || 1024;
+
+      // Temporarily set scale(1) to accurately measure unscaled dimensions
+      authCard.style.setProperty('transform', 'translate(-50%, -50%) scale(1)', 'important');
+      authCard.style.position = 'fixed';
+      authCard.style.top = '50%';
+      authCard.style.left = '50%';
+      authCard.style.margin = '0';
+      authCard.style.marginTop = '0';
+      authCard.style.marginBottom = '0';
+      authCard.style.transformOrigin = 'center center';
+
+      const naturalH = authCard.offsetHeight || authCard.scrollHeight || 540;
+      const naturalW = authCard.offsetWidth || authCard.scrollWidth || 960;
+
+      // Dynamic safe padding: tighter margins on smaller screens
+      const paddingY = vh < 480 ? 12 : (vh < 680 ? 20 : 36);
+      const paddingX = vw < 600 ? 12 : (vw < 900 ? 20 : 36);
+
+      const availH = Math.max(160, vh - paddingY);
+      const availW = Math.max(240, vw - paddingX);
+
+      let fitScale = 1.0;
+      if (naturalH > availH || naturalW > availW) {
+        const scaleH = availH / naturalH;
+        const scaleW = availW / naturalW;
+        fitScale = Math.min(1.0, scaleH, scaleW);
       }
 
-      if (scale === 1.0) {
-        authCard.style.transform = 'none';
-        authCard.style.marginTop = '';
-        authCard.style.marginBottom = '';
-      } else {
-        authCard.style.transform = `scale(${scale.toFixed(3)})`;
-        authCard.style.transformOrigin = 'center center';
-        const scaledH = baseH * scale;
-        const marginOffset = (scaledH - baseH) / 2;
-        authCard.style.marginTop = `${marginOffset.toFixed(1)}px`;
-        authCard.style.marginBottom = `${marginOffset.toFixed(1)}px`;
-      }
+      // Safe minimum clamp so text and inputs stay sharp and legible
+      fitScale = Math.max(0.35, Math.round(fitScale * 1000) / 1000);
+
+      authCard.style.setProperty('transform', `translate(-50%, -50%) scale(${fitScale})`, 'important');
+      authCard.style.position = 'fixed';
+      authCard.style.top = '50%';
+      authCard.style.left = '50%';
+      authCard.style.margin = '0';
+      authCard.style.marginTop = '0';
+      authCard.style.marginBottom = '0';
+      authCard.style.transformOrigin = 'center center';
     }
+    window.autoScaleAuthCard = autoScaleAuthCard;
 
     // Auto-scale on resize, orientation change, DOM ready, and window load
     window.addEventListener('resize', autoScaleAuthCard, { passive: true });
     window.addEventListener('orientationchange', autoScaleAuthCard, { passive: true });
-    window.addEventListener('DOMContentLoaded', autoScaleAuthCard);
-    window.addEventListener('load', autoScaleAuthCard);
+    window.addEventListener('DOMContentLoaded', () => {
+      autoScaleAuthCard();
+      requestAnimationFrame(autoScaleAuthCard);
+      setTimeout(autoScaleAuthCard, 50);
+      setTimeout(autoScaleAuthCard, 200);
+    });
+    window.addEventListener('load', () => {
+      autoScaleAuthCard();
+      requestAnimationFrame(autoScaleAuthCard);
+      setTimeout(autoScaleAuthCard, 50);
+      setTimeout(autoScaleAuthCard, 200);
+    });
 
     // Also auto-scale on toggleAuthView
     const _origToggleAuthView = window.toggleAuthView;
@@ -44907,7 +44949,9 @@ window.toggleExportStockInDropdown = function(e) {
       if (typeof _origToggleAuthView === 'function') {
         _origToggleAuthView(view);
       }
+      requestAnimationFrame(autoScaleAuthCard);
       setTimeout(autoScaleAuthCard, 50);
+      setTimeout(autoScaleAuthCard, 200);
     };
 
     // =========================================================================
