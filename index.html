@@ -631,6 +631,28 @@
       background: #94a3b8;
     }
 
+    #stockOutToLocationDropdown {
+      overflow: hidden !important;
+    }
+    #stockOutToLocationDropdown::-webkit-scrollbar {
+      display: none !important;
+      width: 0 !important;
+      height: 0 !important;
+    }
+    #stockOutToLocationScrollBox::-webkit-scrollbar {
+      width: 5px;
+    }
+    #stockOutToLocationScrollBox::-webkit-scrollbar-track {
+      background: transparent !important;
+    }
+    #stockOutToLocationScrollBox::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    #stockOutToLocationScrollBox::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+
     .glass-card {
       background: rgba(255, 255, 255, 0.95);
       backdrop-filter: blur(8px);
@@ -24028,8 +24050,10 @@
       }
       stockOutToLocationDropdownEl = document.createElement('div');
       stockOutToLocationDropdownEl.id = 'stockOutToLocationDropdown';
-      stockOutToLocationDropdownEl.className = 'fixed bg-white border border-slate-200/90 rounded-2xl shadow-2xl z-[9999] p-2 transition-all duration-150 font-sans hidden animate-in fade-in zoom-in-95 custom-scrollbar';
+      stockOutToLocationDropdownEl.className = 'fixed bg-white border border-slate-200/90 rounded-2xl shadow-2xl z-[9999] overflow-hidden transition-all duration-150 font-sans hidden animate-in fade-in zoom-in-95';
       stockOutToLocationDropdownEl.style.backgroundColor = '#ffffff';
+      stockOutToLocationDropdownEl.style.overflow = 'hidden';
+      stockOutToLocationDropdownEl.style.padding = '0';
       stockOutToLocationDropdownEl.style.boxShadow = '0 20px 40px -10px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.08)';
       stockOutToLocationDropdownEl.style.fontFamily = "'Kantumruy Pro', 'Battambang', sans-serif";
       document.body.appendChild(stockOutToLocationDropdownEl);
@@ -24044,7 +24068,7 @@
       const currentVal = soTo.value || '';
       const options = Array.from(soTo.options);
 
-      let html = '<div class="space-y-1 max-h-72 overflow-y-auto pr-0.5 custom-scrollbar">';
+      let html = '<div id="stockOutToLocationScrollBox" class="p-2 space-y-1 overflow-y-auto" style="max-height: 280px; scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent;">';
       options.forEach(opt => {
         if (!opt.value) return;
         const isSelected = (opt.value === currentVal);
@@ -24087,7 +24111,13 @@
 
       // Available vertical space downwards from rect.bottom to window bottom
       const availableBelow = Math.max(160, window.innerHeight - top - 16);
-      dropdown.style.maxHeight = `${Math.min(340, availableBelow)}px`;
+      const targetMaxHeight = Math.min(320, availableBelow);
+      dropdown.style.maxHeight = `${targetMaxHeight}px`;
+
+      const scrollBox = dropdown.querySelector('#stockOutToLocationScrollBox');
+      if (scrollBox) {
+        scrollBox.style.maxHeight = `${targetMaxHeight}px`;
+      }
     }
 
     function openStockOutToLocationDropdown() {
