@@ -2239,6 +2239,23 @@ function ensureUsersInitialized(ss) {
         ]);
       }
 
+      // Auto-heal toll station users so their warehouse in Users sheet is properly isolated to their station
+      for (let i = 1; i < data.length; i++) {
+        const rowUName = String(data[i][1] || '').trim().toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+        const rowRole = String(data[i][6] || '').trim();
+        const rowWh = String(data[i][9] || '').trim();
+        const isStation = rowRole.includes('ស្ថានីយ') || rowRole.includes('កាន់ស្តុក') || rowRole.includes('ប្រធានក្រុម') || rowRole.includes('បុគ្គលិក');
+        if (isStation) {
+          if (!rowWh || rowWh === 'ALL' || rowWh.includes('中心库房') || rowWh.includes('机电') || rowWh === 'គ្រប់ស្ថានីយទាំងអស់' || rowWh === 'គ្រប់ឃ្លាំង') {
+            if (rowUName.includes('leng') || rowUName.includes('srey') || rowUName.includes('meas')) {
+              sheet.getRange(i + 1, 10).setValue('K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02');
+            } else if (rowUName.includes('hong') || rowUName.includes('kimly') || rowUName.includes('touch') || rowUName.includes('dara')) {
+              sheet.getRange(i + 1, 10).setValue('K3 ស្ថានីយ (ភ្នំពេញ) 01');
+            }
+          }
+        }
+      }
+
     } catch (syncErr) { }
   }
   return sheet;
@@ -8849,11 +8866,16 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
     const uName = String(user && user.username || '').toLowerCase();
     const uEmail = String(user && user.email || '').toLowerCase();
     const isSA = uRole === 'superadmin' || uName === 'superadmin' || (user && user.isSuperAdmin === true);
-    const isRegular = uRole.includes('ស្ថានីយ') || uRole.includes('កាន់ស្តុក') || uRole.includes('ប្រធានក្រុម') || uRole.includes('ប្រធាន') || uRole.includes('បុគ្គលិក') || uRole.includes('user') || uRole.includes('keeper') || uRole.includes('staff') || uRole.includes('viewer');
-    const isAdm = isSA || uRole === 'admin' || uRole === 'administrator' || uRole === 'អ្នកគ្រប់គ្រងប្រព័ន្ធ' || uRole.includes('admin') || uName === 'admin' || uName === 'singvan' || uName.includes('singvan') || uEmail.includes('singvan') || uName.includes('ppshv') || (user && user.warehouse === 'ALL');
+    const isStationRole = uRole.includes('ស្ថានីយ') || uRole.includes('កាន់ស្តុក') || uRole.includes('ប្រធានក្រុម') || uRole.includes('ប្រធាន') || uRole.includes('បុគ្គលិក') || uRole.includes('user') || uRole.includes('keeper') || uRole.includes('staff') || uRole.includes('viewer');
+    const isAdm = !isStationRole && (isSA || uRole === 'admin' || uRole === 'administrator' || uRole === 'អ្នកគ្រប់គ្រងប្រព័ន្ធ' || uRole.includes('admin') || uName === 'admin' || uName === 'singvan' || uName.includes('singvan') || uEmail.includes('singvan') || uName.includes('ppshv'));
     // Strictly restrict station users to their own station warehouse!
-    if (!isAdm && user && user.warehouse && user.warehouse !== 'ALL' && user.warehouse !== 'គ្រប់ឃ្លាំង' && user.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
-      targetWarehouse = toCanonicalWarehouseNameGAS(user.warehouse);
+    if (!isAdm) {
+      let stWh = (user && user.warehouse && user.warehouse !== 'ALL' && user.warehouse !== 'គ្រប់ឃ្លាំង' && user.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់' && !user.warehouse.includes('中心库房') && !user.warehouse.includes('机电')) ? user.warehouse : '';
+      if (!stWh) {
+        const uClean = uName.replace(/[\u200b\ufeff\s_-]/g, '');
+        stWh = userWhMap[uName] || userWhMap[uClean] || '';
+      }
+      targetWarehouse = stWh ? toCanonicalWarehouseNameGAS(stWh) : 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02';
     } else if (filters && (filters.warehouse === 'ALL' || filters.warehouse === 'គ្រប់ស្ថានីយទាំងអស់' || filters.warehouse === 'គ្រប់ឃ្លាំង')) {
       targetWarehouse = null;
     } else if (filters && filters.warehouse && filters.warehouse !== 'ALL' && filters.warehouse !== 'គ្រប់ឃ្លាំង' && filters.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
@@ -9014,19 +9036,26 @@ function getStockInTransactionsFromSheet(ss, filters, user) {
 
       if (targetWarehouse) {
         const matchesTarget = matchesTargetWarehouseGAS(wh, targetWarehouse);
-        const uNameNorm = uName.replace(/[\u200b\ufeff\s_-]/g, '');
-        const uFullNorm = String(user && user.fullName || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
-        const isMyWh = (userWhMap[rowUserNorm] && matchesTargetWarehouseGAS(userWhMap[rowUserNorm], targetWarehouse)) ||
-          (userWhMap[recByNorm] && matchesTargetWarehouseGAS(userWhMap[recByNorm], targetWarehouse)) ||
-          (userWhMap[whNorm] && matchesTargetWarehouseGAS(userWhMap[whNorm], targetWarehouse));
-        const isMyTx = (uName && (rowUserNorm === uNameNorm || rowUserNorm === uFullNorm || whNorm === uNameNorm)) ||
-          (recByNorm && (recByNorm === uNameNorm || recByNorm === uFullNorm || whNorm === uFullNorm)) ||
-          isMyWh;
-        if (!matchesTarget && !isMyTx) {
-          continue;
-        }
-        if (!matchesTarget && isMyTx) {
-          wh = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(targetWarehouse) : targetWarehouse;
+        if (!isAdm) {
+          // Strictly isolate station history: Toll stations can ONLY see transactions belonging to their own station!
+          if (!matchesTarget) {
+            continue;
+          }
+        } else {
+          const uNameNorm = uName.replace(/[\u200b\ufeff\s_-]/g, '');
+          const uFullNorm = String(user && user.fullName || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+          const isMyWh = (userWhMap[rowUserNorm] && matchesTargetWarehouseGAS(userWhMap[rowUserNorm], targetWarehouse)) ||
+            (userWhMap[recByNorm] && matchesTargetWarehouseGAS(userWhMap[recByNorm], targetWarehouse)) ||
+            (userWhMap[whNorm] && matchesTargetWarehouseGAS(userWhMap[whNorm], targetWarehouse));
+          const isMyTx = (uName && (rowUserNorm === uNameNorm || rowUserNorm === uFullNorm || whNorm === uNameNorm)) ||
+            (recByNorm && (recByNorm === uNameNorm || recByNorm === uFullNorm || whNorm === uFullNorm)) ||
+            isMyWh;
+          if (!matchesTarget && !isMyTx) {
+            continue;
+          }
+          if (!matchesTarget && isMyTx) {
+            wh = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(targetWarehouse) : targetWarehouse;
+          }
         }
       }
 
@@ -9260,14 +9289,26 @@ function getStockOutTransactionsFromSheet(ss, filters, user) {
     const uNameOut = String(user && user.username || '').toLowerCase();
     const uEmailOut = String(user && user.email || '').toLowerCase();
     const isSAOut = uRoleOut === 'superadmin' || uNameOut === 'superadmin' || (user && user.isSuperAdmin === true);
-    const isRegularOut = uRoleOut.includes('ស្ថានីយ') || uRoleOut.includes('កាន់ស្តុក') || uRoleOut.includes('ប្រធានក្រុម') || uRoleOut.includes('ប្រធាន') || uRoleOut.includes('បុគ្គលិក') || uRoleOut.includes('user') || uRoleOut.includes('keeper') || uRoleOut.includes('staff') || uRoleOut.includes('viewer');
-    const isAdmOut = isSAOut || uRoleOut === 'admin' || uRoleOut === 'administrator' || uRoleOut === 'អ្នកគ្រប់គ្រងប្រព័ន្ធ' || uRoleOut.includes('admin') || uNameOut === 'admin' || uNameOut === 'singvan' || uNameOut.includes('singvan') || uEmailOut.includes('singvan') || uNameOut.includes('ppshv') || (user && user.warehouse === 'ALL');
-    if (filters && (filters.warehouse === 'ALL' || filters.warehouse === 'គ្រប់ស្ថានីយទាំងអស់' || filters.warehouse === 'គ្រប់ឃ្លាំង')) {
+    const isStationRoleOut = uRoleOut.includes('ស្ថានីយ') || uRoleOut.includes('កាន់ស្តុក') || uRoleOut.includes('ប្រធានក្រុម') || uRoleOut.includes('ប្រធាន') || uRoleOut.includes('បុគ្គលិក') || uRoleOut.includes('user') || uRoleOut.includes('keeper') || uRoleOut.includes('staff') || uRoleOut.includes('viewer');
+    const isAdmOut = !isStationRoleOut && (isSAOut || uRoleOut === 'admin' || uRoleOut === 'administrator' || uRoleOut === 'អ្នកគ្រប់គ្រងប្រព័ន្ធ' || uRoleOut.includes('admin') || uNameOut === 'admin' || uNameOut === 'singvan' || uNameOut.includes('singvan') || uEmailOut.includes('singvan') || uNameOut.includes('ppshv'));
+    
+    // Strictly isolate station history for stock out: Toll stations can ONLY see transactions where fromLocation or toLocation matches their station!
+    if (!isAdmOut) {
+      let stWh = (user && user.warehouse && user.warehouse !== 'ALL' && user.warehouse !== 'គ្រប់ឃ្លាំង' && user.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់' && !user.warehouse.includes('中心库房') && !user.warehouse.includes('机电')) ? user.warehouse : '';
+      if (!stWh) {
+        const uClean = uNameOut.replace(/[\u200b\ufeff\s_-]/g, '');
+        const map = {
+          'ហុងគិមលី': 'K3 ស្ថានីយ (ភ្នំពេញ) 01', 'ហុងគីមលី': 'K3 ស្ថានីយ (ភ្នំពេញ) 01', 'hongkimly': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+          'ទូចជីវី': 'K3 ស្ថានីយ (ភ្នំពេញ) 01', 'touchvgvy': 'K3 ស្ថានីយ (ភ្នំពេញ) 01', 'chandara': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
+          'ស្រីមាស': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02', 'sreymeas': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02', 'lengreymeas': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02', 'lengsreymeas': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02', 'ឡេងស្រីមាស': 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02'
+        };
+        stWh = map[uNameOut] || map[uClean] || '';
+      }
+      targetWarehouse = stWh ? toCanonicalWarehouseNameGAS(stWh) : 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02';
+    } else if (filters && (filters.warehouse === 'ALL' || filters.warehouse === 'គ្រប់ស្ថានីយទាំងអស់' || filters.warehouse === 'គ្រប់ឃ្លាំង')) {
       targetWarehouse = null;
-    } else if (!isAdmOut && user && user.warehouse && user.warehouse !== 'ALL' && user.warehouse !== 'គ្រប់ឃ្លាំង' && user.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
-      targetWarehouse = user.warehouse;
     } else if (filters && filters.warehouse && filters.warehouse !== 'ALL' && filters.warehouse !== 'គ្រប់ឃ្លាំង' && filters.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
-      targetWarehouse = filters.warehouse;
+      targetWarehouse = toCanonicalWarehouseNameGAS(filters.warehouse);
     }
 
     const limit = (filters && filters.limit) ? Number(filters.limit) : 200;
@@ -9524,9 +9565,16 @@ function getTransactionHistory(filtersOrPayload, userParam) {
   const transactions = [];
 
   let targetWarehouse = null;
-  const isAdmUser = (user && (user.role === 'Admin' || user.role === 'SuperAdmin' || String(user.username).toLowerCase() === 'admin' || String(user.username).toLowerCase() === 'superadmin'));
-  if (!isAdmUser && user && user.warehouse && user.warehouse !== 'ALL' && user.warehouse !== 'គ្រប់ឃ្លាំង' && user.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
-    targetWarehouse = toCanonicalWarehouseNameGAS(user.warehouse);
+  const userRoleStr = String(user && user.role || '');
+  const isStationUser = userRoleStr.includes('ស្ថានីយ') || userRoleStr.includes('កាន់ស្តុក') || userRoleStr.includes('ប្រធានក្រុម') || userRoleStr.includes('ប្រធាន') || userRoleStr.includes('បុគ្គលិក');
+  const isAdmUser = !isStationUser && (user && (user.role === 'Admin' || user.role === 'SuperAdmin' || String(user.username).toLowerCase() === 'admin' || String(user.username).toLowerCase() === 'superadmin'));
+  if (!isAdmUser) {
+    let stWh = (user && user.warehouse && user.warehouse !== 'ALL' && user.warehouse !== 'គ្រប់ឃ្លាំង' && user.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់' && !user.warehouse.includes('中心库房') && !user.warehouse.includes('机电')) ? user.warehouse : '';
+    if (!stWh) {
+      const uClean = String(user && user.username || '').toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '');
+      stWh = userWhMapGAS[uClean] || '';
+    }
+    targetWarehouse = stWh ? toCanonicalWarehouseNameGAS(stWh) : 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02';
   } else if (filters.warehouse && filters.warehouse !== 'ALL' && filters.warehouse !== 'គ្រប់ឃ្លាំង' && filters.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់') {
     targetWarehouse = toCanonicalWarehouseNameGAS(filters.warehouse);
   }
@@ -9649,7 +9697,7 @@ function getTransactionHistory(filtersOrPayload, userParam) {
         (uFullStr && (rowUserNorm === uFullStr || recByNorm === uFullStr || toLocNorm === uFullStr)) ||
         isMyWh;
       if (!isAdmUser) {
-        if (!matchesTarget && !isMyTx) {
+        if (!matchesTarget) {
           continue;
         }
       } else {
