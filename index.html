@@ -2082,6 +2082,34 @@
     window.isUserPrivilegedAdmin = isUserPrivilegedAdmin;
     window.isPrivilegedAdmin = isUserPrivilegedAdmin;
 
+    // Helper to check if a user is authorized to manage Central Warehouse & Electromechanical (🏢 中心库房 & 机电)
+    function isUserCentralOrElectromechanicalAdmin(user) {
+      const u = user || AppState?.currentUser || (function(){ try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch(e){ return null; } })() || {};
+      if (isUserSuperAdmin(u)) return true;
+      if (isUserAdmin(u)) return true;
+
+      const role = String(u.role || '').toLowerCase();
+      const wh = String(u.warehouse || '');
+
+      // Reject all toll stations explicitly
+      if (
+        role.includes('ស្ថានីយ') ||
+        wh.includes('K3') || wh.includes('K26') || wh.includes('K43') ||
+        wh.includes('K76') || wh.includes('K114') || wh.includes('K135') ||
+        wh.includes('K172') || wh.includes('K182')
+      ) {
+        return false;
+      }
+
+      // Allow users explicitly assigned to Central Warehouse or Electromechanical
+      if (wh.includes('中心库房') || wh.includes('机电') || wh.includes('ឃ្លាំងស្តុកនៅចុងស៊ីង') || wh.includes('អគ្គិសនី') || wh === 'ALL') {
+        return true;
+      }
+
+      return false;
+    }
+    window.isUserCentralOrElectromechanicalAdmin = isUserCentralOrElectromechanicalAdmin;
+
     const KNOWN_USER_ALIASES_MAP = {
       'hongkimly': ['hongkimly', 'hongkhimly', 'ហុងគិមលី', 'ហុងគីមលី', 'ហុងគឹមលី', 'ហុង គិមលី', 'ហុង គីមលី', 'ហុង គឹមលី', 'hong kimly', 'hong khimly', 'hong', 'kimly', 'khimly'],
       'hongkhimly': ['hongkimly', 'hongkhimly', 'ហុងគិមលី', 'ហុងគីមលី', 'ហុងគឹមលី', 'ហុង គិមលី', 'ហុង គីមលី', 'ហុង គឹមលី', 'hong kimly', 'hong khimly', 'hong', 'kimly', 'khimly'],
@@ -22169,7 +22197,9 @@
           onStockInItemChange();
         } else if (mode === 'stockOut') {
           const curU = AppState.currentUser || (function(){ try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch(e){ return null; } })() || {};
-          const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : false;
+          const isPrivileged = (typeof isUserCentralOrElectromechanicalAdmin === 'function')
+        ? isUserCentralOrElectromechanicalAdmin(curU)
+        : ((typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : false);
           let curStock = 0;
           if (isPrivileged) {
             const adminWh = (AppState.selectedAdminWarehouseFilter && AppState.selectedAdminWarehouseFilter !== 'ALL')
@@ -22262,7 +22292,9 @@
       customProductDropdownEl.style.maxHeight = '380px';
 
       const curU = AppState.currentUser || (function(){ try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch(e){ return null; } })() || {};
-      const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : false;
+      const isPrivileged = (typeof isUserCentralOrElectromechanicalAdmin === 'function')
+        ? isUserCentralOrElectromechanicalAdmin(curU)
+        : ((typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : false);
 
       const q = (inputEl.value || '').trim().toLowerCase();
       let matches = AppState.items || [];
@@ -22330,7 +22362,9 @@
         const pQty = Number(item.packQty || 1);
         const pUnit = (item.packUnit || '').trim();
         const curU = AppState.currentUser || (function(){ try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch(e){ return null; } })() || {};
-        const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : false;
+        const isPrivileged = (typeof isUserCentralOrElectromechanicalAdmin === 'function')
+        ? isUserCentralOrElectromechanicalAdmin(curU)
+        : ((typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : false);
         let curStock = Number(item.currentStock || 0);
         let curBulk = 0, curRetail = 0;
         if (mode === 'stockOut') {
@@ -23639,10 +23673,23 @@
         } catch(e) {}
       }
       u = u || {};
-      const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(u) : false;
-      const currentList = (typeof getWarehouseNamesList === 'function') ? getWarehouseNamesList() : WAREHOUSES_LIST;
+      const isPrivileged = (typeof isUserCentralOrElectromechanicalAdmin === 'function')
+        ? isUserCentralOrElectromechanicalAdmin(u)
+        : ((typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(u) : false);
+
+      const fieldWrapper = document.getElementById('stockOutField_toLocation');
+      const colorField = document.getElementById('stockOutField_color');
 
       if (isPrivileged) {
+        // បង្ហាញសម្រាប់តែ User ដែលគ្រប់គ្រង 中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង) & 机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន) ប៉ុណ្ណោះ
+        if (fieldWrapper) {
+          fieldWrapper.classList.remove('hidden');
+          fieldWrapper.style.removeProperty('display');
+        }
+        if (colorField) {
+          colorField.classList.remove('md:col-span-2');
+        }
+
         soTo.disabled = false;
         soTo.classList.remove('pointer-events-none', 'bg-slate-100', 'cursor-not-allowed');
         const lbl = document.getElementById('stockOutToLocationLabel');
@@ -23690,20 +23737,24 @@
         return;
       }
 
-      // សម្រាប់អ្នកប្រើប្រាស់នៅតាមស្ថានីយ: ទីតាំងគោលដៅចេញ គឺដកប្រើប្រាស់ក្នុងស្ថានីយ ឬតាមផ្នែកនានា
+      // សម្រាប់គ្រប់ស្ថានីយទាំងអស់: មិនចាំបាច់បង្ហាញមុខងារនេះទេ (លាក់ចេញពី Form ១០០%)
+      // ព្រោះអាចបើកចេញប្រើប្រាស់សម្រាប់តែស្ថានីយរបស់ខ្លួនឯងប៉ុណ្ណោះ
       const myWh = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(u.warehouse) : u.warehouse) || 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
+      if (fieldWrapper) {
+        fieldWrapper.classList.add('hidden');
+        fieldWrapper.style.setProperty('display', 'none', 'important');
+      }
+      if (colorField) {
+        colorField.classList.add('md:col-span-2');
+      }
+
       soTo.disabled = false;
-      soTo.classList.remove('pointer-events-none', 'bg-slate-100', 'cursor-not-allowed');
-      const lbl = document.getElementById('stockOutToLocationLabel');
-      if (lbl) lbl.innerText = 'គោលដៅ / គោលបំណងចេញ';
-      soTo.innerHTML = `
-        <option value="ដកប្រើប្រាស់ក្នុងស្ថានីយ (Station Internal Use)" selected>🏢 ដកប្រើប្រាស់ក្នុងស្ថានីយ (Station Internal Use)</option>
-        <option value="គន្លងផ្លូវ (Toll Booths)">🛣️ គន្លងផ្លូវ (Toll Booths)</option>
-        <option value="ការិយាល័យស្ថានីយ (Station Office)">📁 ការិយាល័យស្ថានីយ (Station Office)</option>
-        <option value="បាត់បង់ ឬ ខូចខាត (Damaged/Lost)">⚠️ បាត់បង់ ឬ ខូចខាត (Damaged/Lost)</option>
-        <option value="អតិថិជនក្រៅ (External Customer)">👤 អតិថិជនក្រៅ (External Customer)</option>
-      `;
-      soTo.value = 'ដកប្រើប្រាស់ក្នុងស្ថានីយ (Station Internal Use)';
+      soTo.innerHTML = `<option value="${escapeHtml(myWh)}" selected>${escapeHtml(myWh)}</option>`;
+      soTo.value = myWh;
+
+      if (typeof closeStockOutToLocationDropdown === 'function') {
+        closeStockOutToLocationDropdown();
+      }
 
       // Also ensure multi-station batch dispatch button is completely hidden for station users
       const modeSwitcher = document.getElementById('btnStockOutModeMulti')?.parentElement;
@@ -24477,7 +24528,9 @@
       const item = (itemCode ? AppState.items.find(i => i.sku === itemCode) : null) || findItemByInput(inputVal);
       if (item) {
         const curU = AppState.currentUser || (function(){ try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch(e){ return null; } })() || {};
-        const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : false;
+        const isPrivileged = (typeof isUserCentralOrElectromechanicalAdmin === 'function')
+        ? isUserCentralOrElectromechanicalAdmin(curU)
+        : ((typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : false);
         let curStock = Number(item.currentStock || 0);
         if (isPrivileged) {
           const adminWh = (AppState.selectedAdminWarehouseFilter && AppState.selectedAdminWarehouseFilter !== 'ALL') ? AppState.selectedAdminWarehouseFilter : '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
@@ -24773,7 +24826,9 @@
 
     function setStockOutMode(mode) {
       const curU = AppState.currentUser || (function(){ try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch(e){ return null; } })() || {};
-      const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : false;
+      const isPrivileged = (typeof isUserCentralOrElectromechanicalAdmin === 'function')
+        ? isUserCentralOrElectromechanicalAdmin(curU)
+        : ((typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : false);
       if (!isPrivileged) {
         mode = 'SINGLE';
       }
@@ -26468,7 +26523,9 @@
       const unitPrice = Number(document.getElementById('stockOutUnitPrice')?.value || 0);
       let toLocation = document.getElementById('stockOutToLocation')?.value || '';
       const curU = AppState.currentUser || (function(){ try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch(e){ return null; } })() || {};
-      const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : false;
+      const isPrivileged = (typeof isUserCentralOrElectromechanicalAdmin === 'function')
+        ? isUserCentralOrElectromechanicalAdmin(curU)
+        : ((typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : false);
       if (!isPrivileged) {
         toLocation = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(curU.warehouse) : curU.warehouse) || toLocation || 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
       }
@@ -30670,7 +30727,9 @@ window.toggleExportStockInDropdown = function(e) {
 
       let toLocation = document.getElementById('stockOutToLocation')?.value || '';
       const curU = AppState.currentUser || {};
-      const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : false;
+      const isPrivileged = (typeof isUserCentralOrElectromechanicalAdmin === 'function')
+        ? isUserCentralOrElectromechanicalAdmin(curU)
+        : ((typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : false);
       if (!isPrivileged) {
         toLocation = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(curU.warehouse) : curU.warehouse) || toLocation || 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
       }
@@ -32614,25 +32673,13 @@ window.toggleExportStockInDropdown = function(e) {
       };
 
       const curU = AppState.currentUser || (function(){ try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch(e){ return null; } })() || {};
-      const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : false;
+      const isPrivileged = (typeof isUserCentralOrElectromechanicalAdmin === 'function')
+        ? isUserCentralOrElectromechanicalAdmin(curU)
+        : ((typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : false);
       let whOptions = '';
       if (!isPrivileged) {
-        const stationPurposes = [
-          '🏢 ដកប្រើប្រាស់ក្នុងស្ថានីយ (Station Internal Use)',
-          '🛣️ គន្លងផ្លូវ (Toll Booths)',
-          '📁 ការិយាល័យស្ថានីយ (Station Office)',
-          '⚠️ បាត់បង់ ឬ ខូចខាត (Damaged/Lost)',
-          '👤 អតិថិជនក្រៅ (External Customer)'
-        ];
-        let hasMatched = false;
-        whOptions = stationPurposes.map(p => {
-          const isSelected = (!hasMatched && (curLocation === p || (curLocation && p.includes(curLocation))));
-          if (isSelected) hasMatched = true;
-          return `<option value="${escapeHtml(p)}" ${isSelected ? 'selected' : ''}>${escapeHtml(p)}</option>`;
-        }).join('');
-        if (!hasMatched && curLocation) {
-          whOptions = `<option value="${escapeHtml(curLocation)}" selected>📍 ${escapeHtml(curLocation)}</option>` + whOptions;
-        }
+        const myWh = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(curU.warehouse) : curU.warehouse) || 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
+        whOptions = `<option value="${escapeHtml(myWh)}" selected>📍 ${escapeHtml(myWh)}</option>`;
       } else {
         const whList = (typeof getWarehouseNamesList === "function") ? getWarehouseNamesList() : (AppState.warehouses || WAREHOUSES_LIST);
         whOptions = `<option value="អតិថិជន/ដកប្រើប្រាស់" ${curLocation === 'អតិថិជន/ដកប្រើប្រាស់' ? 'selected' : ''}>អតិថិជន/ដកប្រើប្រាស់</option>` +
@@ -32698,7 +32745,7 @@ window.toggleExportStockInDropdown = function(e) {
                     <i class="fa-solid fa-warehouse text-slate-500 text-xs"></i>
                     <span>គោលដៅ / ឃ្លាំង</span>
                   </label>
-                  <select id="swalEditOutLocation" class="w-full h-9 px-2 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-amber-500 mt-5.5 sm:mt-5.5">
+                  <select id="swalEditOutLocation" ${!isPrivileged ? 'disabled' : ''} class="w-full h-9 px-2 ${!isPrivileged ? 'bg-slate-100 cursor-not-allowed' : 'bg-white'} border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-amber-500 mt-5.5 sm:mt-5.5">
                     ${whOptions}
                   </select>
                 </div>
@@ -32754,7 +32801,7 @@ window.toggleExportStockInDropdown = function(e) {
             retailQty: r,
             docNo: document.getElementById('swalEditOutDocNo')?.value.trim(),
             date: document.getElementById('swalEditOutDate')?.value,
-            location: document.getElementById('swalEditOutLocation')?.value,
+            location: !isPrivileged ? ((typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(curU.warehouse) : curU.warehouse) || 'K3 ស្ថានីយ (ភ្នំពេញ) 01') : document.getElementById('swalEditOutLocation')?.value,
             issuer: document.getElementById('swalEditOutIssuer')?.value.trim(),
             reason: document.getElementById('swalEditOutReason')?.value.trim(),
             notes: document.getElementById('swalEditOutNotes')?.value.trim()
