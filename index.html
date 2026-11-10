@@ -17268,8 +17268,8 @@
 
       // 3. Pre-load stock-in and stock-out transactions so they are instantly ready without spinner delay
       try {
-        if (typeof loadStockInHistory === 'function') loadStockInHistory(true);
-        if (typeof loadStockOutHistory === 'function') loadStockOutHistory(true);
+        if (typeof loadStockInHistory === 'function') loadStockInHistory(false);
+        if (typeof loadStockOutHistory === 'function') loadStockOutHistory(false);
       } catch (e) {}
 
       // 4. Check Calendar Note Alerts (1-Day Advance & Due Date)
@@ -17556,7 +17556,7 @@
           stockInLocEl.selectedIndex = 0;
         }
         if (typeof loadStockInHistory === 'function') {
-          loadStockInHistory(true);
+          loadStockInHistory(false);
         }
         if (typeof renderPendingIncomingDispatches === 'function') {
           renderPendingIncomingDispatches();
@@ -17565,7 +17565,7 @@
 
       if (tabName === 'stockout') {
         if (typeof loadStockOutHistory === 'function') {
-          loadStockOutHistory(true);
+          loadStockOutHistory(false);
         }
       }
       purgeAutofillFromSearchInputs();
@@ -26517,7 +26517,7 @@
     AppState.stockOutHistory = [];
 
     let _stockInFetchPromise = null;
-    async function loadStockInHistory(forceRefresh = true, btn = null) {
+    async function loadStockInHistory(forceRefresh = false, btn = null) {
       if (forceRefresh) {
         _stockInFetchPromise = null;
       }
@@ -26540,9 +26540,10 @@
           API_CACHE.clear();
         }
 
-        // Show live loading state from Google Sheets (Never pre-render stale divergent localStorage data)
+        // Show live loading state from Google Sheets ONLY when table is completely empty (no flickering on background sync)
         const tbody = document.getElementById('stockInHistoryTableBody');
-        if (tbody && (!AppState.stockInHistory || AppState.stockInHistory.length === 0 || forceRefresh)) {
+        const hasExistingRows = tbody && tbody.children && tbody.children.length > 0 && !tbody.innerText.includes('កំពុងទាញយក');
+        if (tbody && (!AppState.stockInHistory || AppState.stockInHistory.length === 0) && !hasExistingRows) {
           tbody.innerHTML = '<tr><td colspan="9" class="text-center py-6 text-slate-500 font-medium"><i class="fa-solid fa-spinner fa-spin mr-2 text-emerald-600"></i> កំពុងទាញយកទិន្នន័យផ្ទាល់ពី Google Sheets...</td></tr>';
         }
 
@@ -26568,15 +26569,21 @@
             forceRefresh: Boolean(forceRefresh)
           });
 
-          let serverTxs = [];
+          let serverTxs = null;
           if (res && res.success && Array.isArray(res.transactions)) {
             serverTxs = res.transactions;
-          } else if (res && res.isLocalFallback && (!AppState.stockInHistory || AppState.stockInHistory.length === 0)) {
-            try {
-              const cachedRaw = localStorage.getItem('inventory_stock_in_history_db');
-              if (cachedRaw) serverTxs = JSON.parse(cachedRaw) || [];
-            } catch(e) {}
+          } else {
+            // Keep existing in-memory transactions on temporary network timeout/error
+            if (AppState.stockInHistory && AppState.stockInHistory.length > 0) {
+              serverTxs = AppState.stockInHistory;
+            } else {
+              try {
+                const cachedRaw = (stationStorageKey && localStorage.getItem(stationStorageKey)) || localStorage.getItem(scopedHistoryKey) || localStorage.getItem('inventory_stock_in_history_db');
+                if (cachedRaw) serverTxs = JSON.parse(cachedRaw) || [];
+              } catch(e) {}
+            }
           }
+          if (!serverTxs) serverTxs = [];
 
           const cleanTxs = (serverTxs || []).filter(t => {
             if (!t) return false;
@@ -28554,7 +28561,7 @@ window.toggleExportStockInDropdown = function(e) {
     }
 
     let _stockOutFetchPromise = null;
-    async function loadStockOutHistory(forceRefresh = true, btn = null) {
+    async function loadStockOutHistory(forceRefresh = false, btn = null) {
       if (forceRefresh) {
         _stockOutFetchPromise = null;
       }
@@ -28574,9 +28581,10 @@ window.toggleExportStockInDropdown = function(e) {
         const myStationWh = (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(resolvedWh) : resolvedWh;
         const stationStorageKey = (myStationWh && myStationWh !== 'ALL') ? `inventory_stock_out_history_wh_${String(myStationWh).toLowerCase().replace(/[\u200b\ufeff\s_-]/g, '')}` : '';
 
-        // Show live loading state from Google Sheets (Never pre-render stale divergent localStorage data)
+        // Show live loading state from Google Sheets ONLY when table is completely empty (no flickering on background sync)
         const tbody = document.getElementById('stockOutHistoryTableBody');
-        if (tbody && (!AppState.stockOutHistory || AppState.stockOutHistory.length === 0 || forceRefresh)) {
+        const hasExistingRows = tbody && tbody.children && tbody.children.length > 0 && !tbody.innerText.includes('កំពុងទាញយក');
+        if (tbody && (!AppState.stockOutHistory || AppState.stockOutHistory.length === 0) && !hasExistingRows) {
           tbody.innerHTML = '<tr><td colspan="9" class="text-center py-6 text-slate-500 font-medium text-sm"><i class="fa-solid fa-spinner fa-spin mr-2 text-amber-600"></i> កំពុងទាញយកទិន្នន័យផ្ទាល់ពី Google Sheets...</td></tr>';
         }
 
@@ -28595,15 +28603,21 @@ window.toggleExportStockInDropdown = function(e) {
             forceRefresh: Boolean(forceRefresh)
           });
 
-          let serverTxs = [];
+          let serverTxs = null;
           if (res && res.success && Array.isArray(res.transactions)) {
             serverTxs = res.transactions;
-          } else if (res && res.isLocalFallback && (!AppState.stockOutHistory || AppState.stockOutHistory.length === 0)) {
-            try {
-              const cachedRaw = localStorage.getItem('inventory_stock_out_history_db');
-              if (cachedRaw) serverTxs = JSON.parse(cachedRaw) || [];
-            } catch(e) {}
+          } else {
+            // Keep existing in-memory transactions on temporary network timeout/error
+            if (AppState.stockOutHistory && AppState.stockOutHistory.length > 0) {
+              serverTxs = AppState.stockOutHistory;
+            } else {
+              try {
+                const cachedRaw = (stationStorageKey && localStorage.getItem(stationStorageKey)) || localStorage.getItem('inventory_stock_out_history_db');
+                if (cachedRaw) serverTxs = JSON.parse(cachedRaw) || [];
+              } catch(e) {}
+            }
           }
+          if (!serverTxs) serverTxs = [];
 
           const cleanTxs = (serverTxs || []).filter(t => {
             if (!t) return false;
@@ -40717,9 +40731,9 @@ window.toggleExportStockInDropdown = function(e) {
         } else if (AppState.currentTab === 'reports') {
           if (typeof loadReportTransactions === 'function') loadReportTransactions();
         } else if (AppState.currentTab === 'stockin') {
-          if (typeof loadStockInHistory === 'function') loadStockInHistory(true);
+          if (typeof loadStockInHistory === 'function') loadStockInHistory(false);
         } else if (AppState.currentTab === 'stockout') {
-          if (typeof loadStockOutHistory === 'function') loadStockOutHistory(true);
+          if (typeof loadStockOutHistory === 'function') loadStockOutHistory(false);
         }
       }
 
@@ -40844,9 +40858,9 @@ window.toggleExportStockInDropdown = function(e) {
         if (AppState.currentUser && document.visibilityState === 'visible') {
           applyLocalRoleSyncIfChanged();
           if (AppState.currentTab === 'stockin' && typeof loadStockInHistory === 'function') {
-            loadStockInHistory(true);
+            loadStockInHistory(false);
           } else if (AppState.currentTab === 'stockout' && typeof loadStockOutHistory === 'function') {
-            loadStockOutHistory(true);
+            loadStockOutHistory(false);
           }
           silentAutoRefresh();
         }
@@ -40855,9 +40869,9 @@ window.toggleExportStockInDropdown = function(e) {
         if (AppState.currentUser) {
           applyLocalRoleSyncIfChanged();
           if (AppState.currentTab === 'stockin' && typeof loadStockInHistory === 'function') {
-            loadStockInHistory(true);
+            loadStockInHistory(false);
           } else if (AppState.currentTab === 'stockout' && typeof loadStockOutHistory === 'function') {
-            loadStockOutHistory(true);
+            loadStockOutHistory(false);
           }
           silentAutoRefresh();
         }
@@ -40868,9 +40882,9 @@ window.toggleExportStockInDropdown = function(e) {
         if (e.key === 'inventory_tx_sync_signal' || e.key === 'inventory_stock_in_history_db' || e.key === 'inventory_stock_out_history_db' || e.key === 'inventory_deleted_txs_db') {
           if (typeof API_CACHE !== 'undefined' && API_CACHE.clear) API_CACHE.clear();
           if (AppState.currentTab === 'stockin' && typeof loadStockInHistory === 'function') {
-            loadStockInHistory(true);
+            loadStockInHistory(false);
           } else if (AppState.currentTab === 'stockout' && typeof loadStockOutHistory === 'function') {
-            loadStockOutHistory(true);
+            loadStockOutHistory(false);
           }
         }
       });
@@ -40931,9 +40945,9 @@ window.toggleExportStockInDropdown = function(e) {
           // Immediately sync active tab transaction history in parallel (< 1 second)
           const activeHistorySync = [];
           if (AppState.currentTab === 'stockin' && typeof loadStockInHistory === 'function') {
-            activeHistorySync.push(loadStockInHistory(true));
+            activeHistorySync.push(loadStockInHistory(false));
           } else if (AppState.currentTab === 'stockout' && typeof loadStockOutHistory === 'function') {
-            activeHistorySync.push(loadStockOutHistory(true));
+            activeHistorySync.push(loadStockOutHistory(false));
           }
 
           // Run bootstrap sync and active table updates concurrently
@@ -40944,10 +40958,10 @@ window.toggleExportStockInDropdown = function(e) {
 
           // Update non-active history tab in background
           if (AppState.currentTab !== 'stockin' && typeof loadStockInHistory === 'function') {
-            loadStockInHistory(true);
+            loadStockInHistory(false);
           }
           if (AppState.currentTab !== 'stockout' && typeof loadStockOutHistory === 'function') {
-            loadStockOutHistory(true);
+            loadStockOutHistory(false);
           }
 
           if (!isEditingInForm) {
@@ -40979,10 +40993,10 @@ window.toggleExportStockInDropdown = function(e) {
           const nowTs = Date.now();
           if (AppState.currentTab === 'stockin' && typeof loadStockInHistory === 'function' && (nowTs - (window._lastStockInAutoSync || 0) > 3500)) {
             window._lastStockInAutoSync = nowTs;
-            await loadStockInHistory(true);
+            await loadStockInHistory(false);
           } else if (AppState.currentTab === 'stockout' && typeof loadStockOutHistory === 'function' && (nowTs - (window._lastStockOutAutoSync || 0) > 4000)) {
             window._lastStockOutAutoSync = nowTs;
-            await loadStockOutHistory(true);
+            await loadStockOutHistory(false);
           }
         }
       } catch (e) {
