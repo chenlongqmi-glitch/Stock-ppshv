@@ -46228,23 +46228,8 @@
       }
 
       function showMonitorTransitionToast(name, scale, icon) {
-        const toast = document.getElementById('monitorTransitionToast');
-        const titleEl = document.getElementById('toastMonitorTitle');
-        const descEl = document.getElementById('toastMonitorDesc');
-        const iconEl = document.getElementById('toastMonitorIcon');
-        if (!toast || !titleEl || !descEl) return;
-
-        titleEl.textContent = `អេក្រង់៖ ${name}`;
-        descEl.textContent = `ទំហំ UI & អក្សរបានកែសម្រួល៖ ${Math.round(scale * 100)}%`;
-        if (iconEl && icon) {
-          iconEl.className = `fa-solid ${icon} text-sm`;
-        }
-
-        toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
-        clearTimeout(toastTimeout);
-        toastTimeout = setTimeout(() => {
-          toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
-        }, 2200);
+        // Disabled per user request - silent scaling without popups
+        return;
       }
 
       function applyAdaptiveScaling(isForced = false) {
@@ -46405,42 +46390,12 @@
         localStorage.setItem('inventory_user_zoom', newZoom);
         applyAdaptiveScaling(true);
         scheduleZoomDockAutoCollapse();
-
-        if (typeof Swal !== 'undefined' && Swal.mixin) {
-          const Toast = Swal.mixin({
-            toast: true,
-            position: 'top-end',
-            showConfirmButton: false,
-            timer: 900,
-            timerProgressBar: false
-          });
-          Toast.fire({
-            icon: 'info',
-            title: `<span class="text-xs font-bold text-slate-800">${delta > 0 ? '🔍 ពង្រីក (Zoom In)' : '🔎 បង្រួម (Zoom Out)'} ៖ <span class="text-blue-600 font-extrabold">${Math.round(newZoom * 100)}%</span></span>`
-          });
-        }
       };
 
       window.resetAppZoom = function () {
         localStorage.removeItem('inventory_user_zoom');
         applyAdaptiveScaling(true);
-        const auto = calculateMonitorProfileAndScale();
-        showMonitorTransitionToast(auto.name, auto.scale, auto.icon);
         scheduleZoomDockAutoCollapse();
-
-        if (typeof Swal !== 'undefined' && Swal.mixin) {
-          const Toast = Swal.mixin({
-            toast: true,
-            position: 'top-end',
-            showConfirmButton: false,
-            timer: 1000,
-            timerProgressBar: false
-          });
-          Toast.fire({
-            icon: 'success',
-            title: `<span class="text-xs font-bold text-slate-800">🔄 កំណត់ទំហំស្វ័យប្រវត្តិ (Auto Scale) ៖ <span class="text-blue-600 font-extrabold">${Math.round(auto.scale * 100)}%</span></span>`
-          });
-        }
       };
 
       // Toggle Floating Zoom Quick Dock
