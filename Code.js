@@ -13515,6 +13515,30 @@ function confirmStationReception(payload, user) {
   const d = payload.dispatch || payload.data || payload;
   const u = user || payload.user;
 
+  // 0. Verify if already received by another user in Dispatches sheet
+  try {
+    const sheet = ss.getSheetByName(SHEETS.DISPATCHES || 'Dispatches');
+    if (sheet && d.dispatchId) {
+      const data = sheet.getDataRange().getValues();
+      for (let i = 1; i < data.length; i++) {
+        if (String(data[i][0]).trim() === String(d.dispatchId).trim()) {
+          const curStatus = String(data[i][16] || '').trim().toUpperCase();
+          if (curStatus === 'RECEIVED' || curStatus === 'RECEIVED_WITH_DISCREPANCY') {
+            return {
+              success: false,
+              alreadyReceived: true,
+              receivedBy: data[i][19] || 'Staff',
+              receivedAt: data[i][20] || '',
+              stockInDocNo: data[i][21] || '',
+              message: `ទំនិញនេះត្រូវបានដាក់បញ្ចូលក្នុងស្តុករួចរាល់ហើយដោយ user ឈ្មោះ "${data[i][19] || 'Staff'}"! មិនអាចបញ្ចូលម្តងទៀតបានឡើយ។`
+            };
+          }
+          break;
+        }
+      }
+    }
+  } catch (eCheck) { }
+
   // 1. Record Stock In
   const inRes = recordStockIn(d, u);
 

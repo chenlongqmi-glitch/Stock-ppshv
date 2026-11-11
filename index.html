@@ -27008,8 +27008,32 @@
         return;
       }
 
+      if (dispatch.status === 'RECEIVED' || dispatch.status === 'RECEIVED_WITH_DISCREPANCY') {
+        Swal.fire({
+          icon: 'info',
+          title: 'ទំនិញត្រូវបានទទួលរួចរាល់ហើយ',
+          html: `
+            <div class="text-left text-xs font-khmer space-y-2 p-1">
+              <p class="text-slate-700">ទំនិញ <b>${escapeHtml(dispatch.itemName)}</b> (${escapeHtml(dispatch.sku)}) ត្រូវបានដាក់បញ្ចូលក្នុងស្តុករួចរាល់ហើយ ដោយ user ឈ្មោះ <b class="text-emerald-700">${escapeHtml(dispatch.receivedBy || 'Staff')}</b>!</p>
+              <div class="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900 text-xs">
+                <p>📦 <b>ចំនួនបានទទួល:</b> ${dispatch.receivedQuantity || dispatch.quantity} ${escapeHtml(dispatch.unit || 'ដើម')}</p>
+                <p>📍 <b>តំបន់ស្តុក:</b> ${escapeHtml(dispatch.receivedZone || '-')}</p>
+                <p>📄 <b>លេខប័ណ្ណស្តុកចូល:</b> ${escapeHtml(dispatch.stockInDocNo || '-')}</p>
+              </div>
+              <p class="text-slate-500 text-[11px]">👉 លោកអ្នកមិនអាចប្រតិបត្តិការបញ្ចូលទំនិញនេះម្តងទៀតបានឡើយ។</p>
+            </div>
+          `,
+          confirmButtonColor: '#046c4e',
+          confirmButtonText: 'យល់ព្រម'
+        });
+        if (typeof renderPendingIncomingDispatches === 'function') renderPendingIncomingDispatches();
+        return;
+      }
+
       const modal = document.getElementById('stationReceptionModal');
       if (!modal) return;
+      if (modal.dataset) modal.dataset.dispatchId = dispatch.dispatchId;
+      window._currentReceivingDispatchId = dispatch.dispatchId;
 
       document.getElementById('receptionDispatchId').value = dispatch.dispatchId;
       document.getElementById('receptionSku').value = dispatch.sku;
@@ -27114,7 +27138,11 @@
 
     function closeStationReceptionModal() {
       const modal = document.getElementById('stationReceptionModal');
-      if (modal) modal.classList.add('hidden');
+      if (modal) {
+        modal.classList.add('hidden');
+        if (modal.dataset) modal.dataset.dispatchId = '';
+      }
+      window._currentReceivingDispatchId = null;
     }
 
     async function handleConfirmStationReception(e) {
@@ -27132,6 +27160,19 @@
       const dispatch = (LOCAL_DB.dispatches || []).find(d => d.dispatchId === dispatchId);
       if (!dispatch) {
         Swal.fire('រកមិនឃើញទិន្នន័យ', 'មិនអាចស្វែងរកទិន្នន័យដែលបានផ្ញើមកទេ!', 'error');
+        return;
+      }
+
+      if (dispatch.status === 'RECEIVED' || dispatch.status === 'RECEIVED_WITH_DISCREPANCY') {
+        closeStationReceptionModal();
+        Swal.fire({
+          icon: 'info',
+          title: 'ទំនិញត្រូវបានទទួលរួចរាល់ហើយ',
+          html: `<div class="text-left text-xs font-khmer space-y-1.5 p-1"><p>ទំនិញ <b>${escapeHtml(dispatch.itemName)}</b> ត្រូវបានដាក់បញ្ចូលក្នុងស្តុករួចរាល់ហើយដោយ user ឈ្មោះ <b class="text-emerald-700">${escapeHtml(dispatch.receivedBy || 'Staff')}</b>!</p><p class="text-slate-500 text-[11px]">👉 លោកអ្នកមិនអាចប្រតិបត្តិការបញ្ចូលទំនិញនេះម្តងទៀតបានឡើយ។</p></div>`,
+          confirmButtonColor: '#059669',
+          confirmButtonText: 'យល់ព្រម'
+        });
+        renderPendingIncomingDispatches();
         return;
       }
 
@@ -27381,6 +27422,9 @@
       });
 
       renderPendingIncomingDispatches();
+      if (typeof updateIncomingDispatchesBadge === 'function') updateIncomingDispatchesBadge(true);
+      if (typeof checkPendingDispatchesNotification === 'function') checkPendingDispatchesNotification();
+      if (typeof renderNotificationDrawer === 'function') renderNotificationDrawer();
       if (typeof renderStockInHistoryTable === 'function') renderStockInHistoryTable(AppState.stockInHistory);
       if (typeof renderItemsTable === 'function') renderItemsTable();
     }
@@ -27403,7 +27447,15 @@
         ((typeof matchesTargetWarehouse === 'function') ? matchesTargetWarehouse(d.toLocation, myWh) : isSameWarehouse(d.toLocation, myWh))
       );
 
-      if (pendingList.length === 0) return;
+      if (pendingList.length === 0) {
+        if (typeof Swal !== 'undefined' && Swal.isVisible()) {
+          const swalTitle = Swal.getTitle();
+          if (swalTitle && swalTitle.textContent.includes('ដំណឹងទំនិញផ្ញើមកពី Admin')) {
+            Swal.close();
+          }
+        }
+        return;
+      }
 
       // Track already notified dispatch IDs in sessionStorage to avoid repeated nagging
       if (!window._alertedDispatchIds) {
@@ -42143,6 +42195,8 @@
             targetDsp.receivedZone = msg.zone;
             targetDsp.receivedBy = msg.receiver;
             targetDsp.receivedQuantity = msg.quantity;
+            if (msg.dispatch && msg.dispatch.stockInDocNo) targetDsp.stockInDocNo = msg.dispatch.stockInDocNo;
+            if (msg.dispatch && msg.dispatch.receivedDateStr) targetDsp.receivedDateStr = msg.dispatch.receivedDateStr;
             if (typeof saveLocalDispatchesToStorage === 'function') saveLocalDispatchesToStorage();
           }
         }
@@ -42158,11 +42212,49 @@
             targetDsp.discrepancyDiff = msg.discrepancyDiff;
             targetDsp.discrepancyNotes = msg.receiverNotes;
             targetDsp.discrepancyResolved = false;
+            if (msg.dispatch && msg.dispatch.stockInDocNo) targetDsp.stockInDocNo = msg.dispatch.stockInDocNo;
+            if (msg.dispatch && msg.dispatch.receivedDateStr) targetDsp.receivedDateStr = msg.dispatch.receivedDateStr;
             if (typeof saveLocalDispatchesToStorage === 'function') saveLocalDispatchesToStorage();
           }
           if (typeof checkDiscrepanciesNotificationForManager === 'function') {
             checkDiscrepanciesNotificationForManager();
           }
+        }
+        if (msg.type === 'DISPATCH_RECEIVED' || msg.type === 'DISPATCH_DISCREPANCY') {
+          // If Swal pending dispatch alert is showing, check if there are still pending dispatches for my warehouse
+          const curU = AppState.currentUser || {};
+          const myWh = (typeof getUserStationWarehouse === 'function' ? getUserStationWarehouse(curU) : '') || curU.warehouse || '';
+          const remainingPending = (LOCAL_DB.dispatches || []).filter(d =>
+            d && d.status === 'PENDING' &&
+            ((typeof matchesTargetWarehouse === 'function') ? matchesTargetWarehouse(d.toLocation, myWh) : isSameWarehouse(d.toLocation, myWh))
+          );
+          if (remainingPending.length === 0) {
+            if (typeof Swal !== 'undefined' && Swal.isVisible()) {
+              const swalTitle = Swal.getTitle();
+              if (swalTitle && swalTitle.textContent.includes('ដំណឹងទំនិញផ្ញើមកពី Admin')) {
+                Swal.close();
+              }
+            }
+          }
+
+          // If station reception modal is currently open for this dispatchId, close it and inform user
+          const modal = document.getElementById('stationReceptionModal');
+          if (modal && !modal.classList.contains('hidden')) {
+            const openDspId = modal.dataset?.dispatchId || window._currentReceivingDispatchId || document.getElementById('receptionDispatchId')?.value;
+            if (openDspId && String(openDspId) === String(msg.dispatchId)) {
+              if (typeof closeStationReceptionModal === 'function') closeStationReceptionModal();
+              Swal.fire({
+                icon: 'info',
+                title: 'ទំនិញត្រូវបានទទួលរួចរាល់ហើយ',
+                text: `ទំនិញនេះត្រូវបានទទួលចូលស្តុករួចរាល់ដោយ user ឈ្មោះ "${msg.receiver || 'Staff'}"!`,
+                confirmButtonColor: '#059669',
+                confirmButtonText: 'យល់ព្រម'
+              });
+            }
+          }
+
+          if (typeof updateIncomingDispatchesBadge === 'function') updateIncomingDispatchesBadge(true);
+          if (typeof renderNotificationDrawer === 'function') renderNotificationDrawer();
         }
         if ((AppState.currentTab === 'incoming' || AppState.currentTab === 'stockin') && typeof renderPendingIncomingDispatches === 'function') {
           renderPendingIncomingDispatches();
@@ -43095,6 +43187,9 @@
           }
         } else if (type === 'INCOMING_DISPATCH') {
           navigateTab('incoming');
+        } else if (type === 'DISPATCH_RECEIVED_INFO') {
+          navigateTab('incoming');
+          if (typeof switchPendingDispatchesTab === 'function') switchPendingDispatchesTab('RECEIVED');
         } else if (type === 'STOCK_IN') {
           navigateTab('stockin');
         } else if (type === 'STOCK_OUT') {
@@ -43152,6 +43247,33 @@
         });
       }
 
+      // ដំណឹងទំនិញដែលបានដាក់បញ្ចូលក្នុងស្តុករួចដោយ user ក្នុងស្ថានីយតែមួយ
+      if (!isPrivileged) {
+        const stationReceivedDispatches = (LOCAL_DB.dispatches || []).filter(d => {
+          if (!d || (d.status !== 'RECEIVED' && d.status !== 'RECEIVED_WITH_DISCREPANCY')) return false;
+          return (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(d.toLocation, myWh) : isSameWarehouse(d.toLocation, myWh));
+        });
+
+        stationReceivedDispatches.forEach(d => {
+          const notifId = 'dsp_rcv_' + (d.dispatchId || d.masterDocNo || d.sku);
+          if (isNotificationDismissed(notifId)) return;
+          const recvUser = d.receivedBy || 'Staff';
+          const qty = (d.receivedQuantity != null ? d.receivedQuantity : d.quantity);
+          const unit = d.unit || 'គ្រឿង';
+          const docNo = d.masterDocNo ? ` [${d.masterDocNo}]` : (d.stockInDocNo ? ` [${d.stockInDocNo}]` : '');
+          filteredList.unshift({
+            id: notifId,
+            type: 'DISPATCH_RECEIVED_INFO',
+            title: `✅ ទំនិញបានដាក់បញ្ចូលក្នុងស្តុករួច`,
+            message: `មានទំនិញ ${d.itemName} (${qty} ${unit})${docNo} បានដាក់បញ្ចូលក្នុងស្តុករួចដោយ user ឈ្មោះ "${recvUser}"`,
+            time: d.receivedDateStr || d.date || 'ថ្មីៗ',
+            warehouse: d.toLocation || myWh,
+            user: recvUser,
+            targetDispatchId: d.dispatchId
+          });
+        });
+      }
+
       const listEl = document.getElementById('notifList');
       const badge = document.getElementById('notifBadge');
       if (badge) {
@@ -43176,20 +43298,22 @@
           (n.type === 'CALENDAR_NOTE_DUE') ? 'bg-rose-600 animate-ping' :
             (n.type === 'CALENDAR_NOTE_1DAY') ? 'bg-amber-500 animate-pulse' :
               (n.type === 'INCOMING_DISPATCH') ? 'bg-amber-500 animate-pulse' :
-                (n.type === 'USER_DELETION_APPROVED') ? 'bg-emerald-500' :
-                  (n.type === 'USER_DELETION_REJECTED') ? 'bg-slate-500' :
-                    (n.type === 'STOCK_OUT') ? 'bg-amber-500' :
-                      (n.type === 'STOCK_IN') ? 'bg-emerald-500' :
-                        (n.type === 'USER_REGISTRATION') ? 'bg-amber-500 animate-pulse' : 'bg-blue-500';
+                (n.type === 'DISPATCH_RECEIVED_INFO') ? 'bg-emerald-500' :
+                  (n.type === 'USER_DELETION_APPROVED') ? 'bg-emerald-500' :
+                    (n.type === 'USER_DELETION_REJECTED') ? 'bg-slate-500' :
+                      (n.type === 'STOCK_OUT') ? 'bg-amber-500' :
+                        (n.type === 'STOCK_IN') ? 'bg-emerald-500' :
+                          (n.type === 'USER_REGISTRATION') ? 'bg-amber-500 animate-pulse' : 'bg-blue-500';
 
         const actionText = (n.type === 'USER_REGISTRATION') ? 'ចុចពិនិត្យ & អនុម័ត ❯' :
           (n.type === 'CALENDAR_NOTE_DUE' || n.type === 'CALENDAR_NOTE_1DAY') ? 'បើកមើលប្រតិទិន ❯' :
             (n.type === 'INCOMING_DISPATCH') ? 'ចុចទទួលចូលស្តុក ❯' :
-              (n.type === 'USER_DELETION_REQUEST') ? (isActorSuperAdmin ? 'ចុចមើលព័ត៌មានលម្អិត ❯' : 'ចុចត្រួតពិនិត្យ ❯') :
-                (n.type === 'STOCK_IN') ? 'ចុចមើលស្តុកចូល ❯' :
-                  (n.type === 'STOCK_OUT') ? 'ចុចមើលស្តុកចេញ ❯' :
-                    (n.type === 'TRANSFER') ? 'ចុចមើលការផ្ទេរ ❯' :
-                      (n.type === 'REQUEST') ? 'ចុចមើលសំណើ ❯' : 'ចុចមើល ❯';
+              (n.type === 'DISPATCH_RECEIVED_INFO') ? 'មើលបញ្ជីបានទទួល ❯' :
+                (n.type === 'USER_DELETION_REQUEST') ? (isActorSuperAdmin ? 'ចុចមើលព័ត៌មានលម្អិត ❯' : 'ចុចត្រួតពិនិត្យ ❯') :
+                  (n.type === 'STOCK_IN') ? 'ចុចមើលស្តុកចូល ❯' :
+                    (n.type === 'STOCK_OUT') ? 'ចុចមើលស្តុកចេញ ❯' :
+                      (n.type === 'TRANSFER') ? 'ចុចមើលការផ្ទេរ ❯' :
+                        (n.type === 'REQUEST') ? 'ចុចមើលសំណើ ❯' : 'ចុចមើល ❯';
 
         return `
           <div ${clickHandler}
