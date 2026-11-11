@@ -1164,6 +1164,9 @@ function executeLocalApiAction(req) {
       case 'deletePendingDispatch':
         return deleteDispatch(payload.data || payload, payload.user);
 
+      case 'resetDispatchToPending':
+        return resetDispatchToPending(payload.data || payload, payload.user);
+
       case 'getPendingDispatches':
       case 'getDispatches':
         return getPendingDispatches(payload.warehouse || payload.toLocation || payload);
@@ -7319,6 +7322,8 @@ function recordStockOutBatch(payloadOrData, userParam) {
           ]);
         }
       });
+      setGlobalDataVersion();
+      CacheService.getScriptCache().removeAll(['GLOBAL_DATA_VERSION', 'TX_SHEETS_SYNC_ALL', 'TX_SHEETS_SYNC_STOCK_OUT']);
     } catch (eDsp) {
       Logger.log('Error creating dispatches in recordStockOutBatch: ' + eDsp);
     }
@@ -8158,7 +8163,11 @@ function recordStockOut(dataOrPayload, user) {
   const isInternalHQ = destLocation.includes('机电') || destLocation.includes('អគ្គិសនី') || destLocation.includes('中心库房') || destLocation.includes('ឃ្លាំងស្តុកនៅចុងស៊ីង') || destLocation.includes('ចុងស៊ីង') || destLocation.includes('ចុងស៊ីន') || destLocation.includes('អតិថិជន') || destLocation.includes('ដកប្រើប្រាស់');
   const uRole = String(u ? (u.role || '') : '').toLowerCase();
   const uName = String(u ? (u.username || '') : '').toLowerCase();
-  const isPrivilegedUser = u && (uRole.includes('admin') || uRole.includes('superadmin') || uRole.includes('អភិបាល') || uName === 'admin' || uName === 'superadmin');
+  const uEmail = String(u ? (u.email || '') : '').toLowerCase();
+  const isPrivilegedUser = u && (
+    uRole.includes('admin') || uRole.includes('superadmin') || uRole.includes('អភិបាល') ||
+    uName === 'admin' || uName === 'superadmin' || uName === 'singvan' || uEmail.includes('singvan')
+  );
   const isStationDestination = isPrivilegedUser && destLocation && !isInternalHQ;
   if (isStationDestination) {
     try {
@@ -8192,6 +8201,8 @@ function recordStockOut(dataOrPayload, user) {
         finalNote,
         nowDsp
       ]);
+      setGlobalDataVersion();
+      CacheService.getScriptCache().removeAll(['GLOBAL_DATA_VERSION', 'TX_SHEETS_SYNC_ALL']);
     } catch (errDsp) {
       Logger.log('Error auto-creating dispatch in recordStockOut: ' + errDsp.toString());
     }
@@ -13616,6 +13627,61 @@ function deleteDispatch(payloadOrData, user) {
 }
 
 /**
+ * 🔄 កំណត់ស្ថានភាពទំនិញបញ្ជូនទៅកាន់ស្ថានីយឱ្យទៅជា PENDING ឡើងវិញ (Reset Dispatch to PENDING)
+ */
+function resetDispatchToPending(payloadOrData, user) {
+  const data = (payloadOrData && payloadOrData.data) ? payloadOrData.data : (payloadOrData || {});
+  const targetDoc = String(data.docNo || data.masterDocNo || payloadOrData.docNo || payloadOrData || '').trim().toUpperCase();
+  const targetDspId = String(data.dispatchId || payloadOrData.dispatchId || '').trim();
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const dspSheet = ensureDispatchesSheet(ss);
+  let updatedCount = 0;
+
+  if (dspSheet && dspSheet.getLastRow() > 1) {
+    const vals = dspSheet.getDataRange().getValues();
+    for (let i = 1; i < vals.length; i++) {
+      const dId = String(vals[i][0] || '').trim();
+      const doc = String(vals[i][1] || '').trim().toUpperCase();
+      const isMatch = (targetDoc && doc === targetDoc) ||
+                      (targetDspId && dId.toLowerCase() === targetDspId.toLowerCase()) ||
+                      (targetDoc && dId.toUpperCase().includes(targetDoc.replace(/[^A-Za-z0-9]/g, '')));
+      if (isMatch) {
+        const row = i + 1;
+        dspSheet.getRange(row, 17).setValue('PENDING'); // Status
+        dspSheet.getRange(row, 18).setValue(''); // ReceivedZone
+        dspSheet.getRange(row, 19).setValue(0); // ReceivedQty
+        dspSheet.getRange(row, 20).setValue(''); // ReceivedBy
+        dspSheet.getRange(row, 21).setValue(''); // ReceivedAt
+        dspSheet.getRange(row, 22).setValue(''); // StockInDocNo
+        dspSheet.getRange(row, 23).setValue('ដូចាស់យកថ្មីទៅប្រើវិញ'); // Notes
+        updatedCount++;
+      }
+    }
+  }
+
+  // Also clean up simulated reception Stock_in rows if any
+  const inSheet = ss.getSheetByName('Stock_in') || ss.getSheetByName(SHEETS.STOCK_IN);
+  let deletedStockIn = 0;
+  if (inSheet && inSheet.getLastRow() > 1) {
+    const inVals = inSheet.getDataRange().getValues();
+    for (let r = inVals.length - 1; r >= 1; r--) {
+      const inDoc = String(inVals[r][0] || '').trim().toUpperCase();
+      const inNotes = String(inVals[r][14] || '').trim().toUpperCase();
+      if (inDoc === 'IN-20261111-2098' || inDoc === 'IN-20261111-3296' || inNotes.includes('IN-20261111-2098') || inNotes.includes('IN-20261111-3296') || inNotes.includes('OUT-20261111-6375')) {
+        inSheet.deleteRow(r + 1);
+        deletedStockIn++;
+      }
+    }
+  }
+
+  // Clear caches & bump version
+  setGlobalDataVersion();
+  CacheService.getScriptCache().removeAll(['GLOBAL_DATA_VERSION', 'ITEMS_ALL']);
+  return { success: true, updated: updatedCount, deletedStockIn: deletedStockIn };
+}
+
+/**
  * 🔄 ធ្វើសមកាលកម្មប្រតិបត្តិការបើកទំនិញចេញ (Stock Out) ទៅកាន់ Dispatches Sheet
  * ដើម្បីឱ្យ SuperAdmin និង Admin ទាំងពីររូប អាចមើលឃើញរាល់ប្រតិបត្តិការទាំងអស់ ១០០%
  */
@@ -13653,13 +13719,12 @@ function syncDispatchesFromStockOutGAS(optSs) {
     for (let i = 1; i < inData.length; i++) {
       const row = inData[i];
       const inDoc = String(row[0] || '').trim().toUpperCase();
-      const inSku = String(row[2] || '').trim().toLowerCase();
-      const inWh = String(row[12] || '').trim().toLowerCase();
       const inNotes = String(row[14] || '').trim().toUpperCase();
       if (inDoc) receivedKeys.add(inDoc);
-      if (inSku && inWh) receivedKeys.add(inSku + '_' + inWh);
-      const mDoc = inNotes.match(/\[(?:ទទួលពី\s*Admin|Doc|ឯកសារ):\s*([^\]]+)\]/i);
+      const mDoc = inNotes.match(/\[(?:ទទួលពី\s*Admin|Doc|ឯកសារ|Dispatch|DSP|OUT):\s*([^\]]+)\]/i);
       if (mDoc) receivedKeys.add(mDoc[1].trim().toUpperCase());
+      const mOut = inNotes.match(/(OUT-\d{8}-\d+)/i);
+      if (mOut) receivedKeys.add(mOut[1].trim().toUpperCase());
     }
   }
 
@@ -13716,7 +13781,7 @@ function syncDispatchesFromStockOutGAS(optSs) {
       const tsVal = row[idxTs];
       if (tsVal instanceof Date) dTime = Utilities.formatDate(tsVal, 'GMT+7', 'HH:mm:ss');
 
-      const isRcv = receivedKeys.has(docNo) || receivedKeys.has(sku.toLowerCase() + '_' + toLoc.toLowerCase());
+      const isRcv = receivedKeys.has(docNo);
 
       let fl = String(row[idxFrom] || '').trim();
       if (!fl || fl === '-' || fl === '-2' || /^\d+$/.test(fl) || fl.startsWith('[') || fl.includes('Admin')) {
