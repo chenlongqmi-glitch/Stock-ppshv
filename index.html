@@ -9841,6 +9841,38 @@
     }
     window.deductItemZoneBreakdown = deductItemZoneBreakdown;
 
+    function determineStockOutFromLocation(item, user, currentFilter) {
+      const u = user || AppState.currentUser || (function () { try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch (e) { return null; } })() || {};
+      const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(u) : false;
+      if (!isPrivileged) {
+        const userWh = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(u?.warehouse) : u?.warehouse);
+        if (userWh && userWh !== 'ALL') return userWh;
+      }
+      const filterWh = currentFilter || AppState.selectedAdminWarehouseFilter || '';
+      if (filterWh && filterWh !== 'ALL' && !isAdminComboWarehouse(filterWh) && !filterWh.includes('គ្រប់')) {
+        return (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(filterWh) : filterWh;
+      }
+      if (item) {
+        const stStock = (typeof getItemStationStock === 'function') ? getItemStationStock(item, 'ALL') : null;
+        if (stStock && Array.isArray(stStock.breakdowns) && stStock.breakdowns.length > 0) {
+          const hqBk = stStock.breakdowns.find(b => (b.warehouse.includes('机电') || b.warehouse.includes('中心库房')) && b.total > 0);
+          if (hqBk) return hqBk.warehouse;
+          const anyBk = stStock.breakdowns.find(b => b.total > 0);
+          if (anyBk) return anyBk.warehouse;
+        }
+        const isItemMe = (item.category && (item.category.includes('机电') || item.category.includes('អគ្គិសនី'))) || (item.name && item.name.includes('机电'));
+        if (isItemMe) return '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)';
+        if (item.warehouse && !item.warehouse.includes('គ្រប់')) {
+          return (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(item.warehouse) : item.warehouse;
+        }
+        if (Array.isArray(item.warehouses) && item.warehouses.length > 0) {
+          return (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(item.warehouses[0]) : item.warehouses[0];
+        }
+      }
+      return '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+    }
+    window.determineStockOutFromLocation = determineStockOutFromLocation;
+
     function alignItemZoneBreakdownWithStock(item) {
       if (!item) return;
       const targetStock = Math.max(0, Number(item.currentStock || 0));
@@ -20426,6 +20458,30 @@
         }
       });
 
+      // 1. Reconcile Central HQ warehouses (中心库房 & 机电)
+      // When stock is dispatched from Central HQ, fromLocation might be recorded as generic "中心库房"
+      // or "បញ្ជូនមកពីចុងស៊ីន", while the item was originally stocked in under "机电" (or vice versa).
+      // Any negative balance in an HQ warehouse must offset against positive balance in other HQ warehouse(s)!
+      const isHqWh = (w) => w && (w.includes('中心库房') || w.includes('机电') || w === 'ALL' || w === 'គ្រប់ស្ថានីយទាំងអស់' || w === 'គ្រប់ឃ្លាំង');
+      const centralKeys = Object.keys(whNetMap).filter(isHqWh);
+      let negCentral = 0;
+      centralKeys.forEach(k => {
+        if (whNetMap[k] < 0) {
+          negCentral += whNetMap[k];
+          whNetMap[k] = 0;
+        }
+      });
+      if (negCentral < 0) {
+        for (const k of centralKeys) {
+          if (whNetMap[k] > 0) {
+            const deduct = Math.min(whNetMap[k], -negCentral);
+            whNetMap[k] -= deduct;
+            negCentral += deduct;
+            if (negCentral === 0) break;
+          }
+        }
+      }
+
       // Build warehouse breakdowns list
       const breakdowns = [];
       let totalStationTxNet = 0;
@@ -20480,11 +20536,11 @@
           const existingBk = breakdowns.find(b => (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(b.warehouse, zWh) : isSameWarehouse(b.warehouse, zWh)));
           if (existingBk) {
             if (existingBk.total < zoneWhMap[zWh]) {
-              existingBk.total = zoneWhMap[zWh];
+              existingBk.total = Math.min(catalogStock > 0 ? catalogStock : zoneWhMap[zWh], zoneWhMap[zWh]);
             }
           } else {
             const shortWh = (typeof getStationShortCode === 'function') ? getStationShortCode(zWh) : (zWh.split(' ')[0] || zWh);
-            breakdowns.push({ warehouse: zWh, shortWh, total: zoneWhMap[zWh] });
+            breakdowns.push({ warehouse: zWh, shortWh, total: Math.min(catalogStock > 0 ? catalogStock : zoneWhMap[zWh], zoneWhMap[zWh]) });
           }
         }
       }
@@ -20504,6 +20560,25 @@
         }
       }
 
+      // 2. Ensure central warehouse breakdowns do not exceed the remaining catalog stock
+      // (Authoritative synchronization: item.currentStock was decremented on stock out;
+      // transactions must never display a higher un-deducted inventory than what actually remains)
+      if (catalogStock >= 0) {
+        const stationTotal = breakdowns.filter(b => !b.warehouse.includes('中心库房') && !b.warehouse.includes('机电')).reduce((s, b) => s + b.total, 0);
+        const maxCentralAllowed = Math.max(0, catalogStock - stationTotal);
+        const centralBks = breakdowns.filter(b => b.warehouse.includes('中心库房') || b.warehouse.includes('机电'));
+        const currentCentralTotal = centralBks.reduce((s, b) => s + b.total, 0);
+        if (currentCentralTotal > maxCentralAllowed) {
+          let excess = currentCentralTotal - maxCentralAllowed;
+          for (const cb of centralBks) {
+            const reduceBy = Math.min(cb.total, excess);
+            cb.total -= reduceBy;
+            excess -= reduceBy;
+            if (excess <= 0) break;
+          }
+        }
+      }
+
       breakdowns.sort((a, b) => b.total - a.total);
 
       // Determine effective total for targetWh
@@ -20517,7 +20592,7 @@
         : 0;
 
       if (!targetWh || targetWh === 'ALL' || targetWh === '🏢 គ្រប់ស្ថានីយទាំងអស់' || targetWh === 'គ្រប់ឃ្លាំង') {
-        effectiveTotal = Math.max(catalogStock, totalBreakdowns, zoneSum);
+        effectiveTotal = (catalogStock > 0) ? catalogStock : Math.max(totalBreakdowns, zoneSum);
         hasStationTx = true;
       } else if (typeof isAdminComboWarehouse === 'function' && isAdminComboWarehouse(targetWh)) {
         // Combo: 中心库房 & 机电
@@ -20880,10 +20955,10 @@
         }
 
         if (!effectiveWhForDisplay || effectiveWhForDisplay === 'ALL' || effectiveWhForDisplay === '🏢 គ្រប់ស្ថានីយទាំងអស់' || effectiveWhForDisplay === 'គ្រប់ឃ្លាំង') {
-          curStock = Math.max(curStock, Number(stStock.total || 0), zoneSum);
+          curStock = (item.currentStock !== undefined && item.currentStock !== null && !isNaN(Number(item.currentStock))) ? Number(item.currentStock) : Math.max(Number(stStock.total || 0), zoneSum);
         } else {
           curStock = Number(stStock.total || 0);
-          if (zoneSum > curStock && stStock.hasExactStationTx) {
+          if (zoneSum > curStock && stStock.hasExactStationTx && zoneSum <= (Number(item.currentStock) || zoneSum)) {
             curStock = zoneSum;
           }
         }
@@ -26146,17 +26221,9 @@
       const remainingStock = oldStock - grandTotalQty;
 
       // Determine Origin Warehouse
-      const fromLocation = (function () {
-        const activeWh = (typeof getEffectiveStationFilter === 'function') ? getEffectiveStationFilter() : 'ALL';
-        if (activeWh && activeWh !== 'ALL' && !isAdminComboWarehouse(activeWh) && !/^\d+$/.test(activeWh)) return activeWh;
-        if (AppState.currentUser && AppState.currentUser.warehouse && AppState.currentUser.warehouse !== 'ALL' && !/^\d+$/.test(AppState.currentUser.warehouse)) {
-          return (typeof toCanonicalWarehouseName === 'function') ? toCanonicalWarehouseName(AppState.currentUser.warehouse) : AppState.currentUser.warehouse;
-        }
-        if (item?.location && item.location !== 'គ្រប់ស្ថានីយទាំងអស់' && !/^\d+$/.test(item.location)) {
-          return item.location;
-        }
-        return '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
-      })();
+      const fromLocation = (typeof determineStockOutFromLocation === 'function')
+        ? determineStockOutFromLocation(item, AppState.currentUser, (typeof getEffectiveStationFilter === 'function') ? getEffectiveStationFilter() : 'ALL')
+        : '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
 
       // SweetAlert Confirmation breakdown
       const stationRowsHtml = allocations.map(a => `
@@ -27865,6 +27932,11 @@
       const item = AppState.items.find(i => i.sku === sku);
       const itemName = item?.name || sku;
 
+      // Determine Source/Origin Warehouse (机电 vs 中心库房 vs Station)
+      const fromLoc = (typeof determineStockOutFromLocation === 'function')
+        ? determineStockOutFromLocation(item, curU, AppState.selectedAdminWarehouseFilter)
+        : '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+
       // Notes: យកខ្លឹមសារពី (កំណត់សម្គាល់បន្ថែម) ជាក់ស្តែង
       const finalNotes = (rawNotes && rawNotes !== '-') ? rawNotes : '-';
 
@@ -27887,7 +27959,7 @@
           oldStock,
           newStock: remainingStock,
           unitPrice,
-          fromLocation: 'បញ្ជូនមកពីចុងស៊ីន',
+          fromLocation: fromLoc,
           toLocation,
           issuer,
           reason,
@@ -32059,6 +32131,9 @@
       }
 
       const itemName = item?.name || sku;
+      const fromLocation = (typeof determineStockOutFromLocation === 'function')
+        ? determineStockOutFromLocation(item, curU, AppState.selectedAdminWarehouseFilter)
+        : '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
 
       const queueItem = {
         id: 'OUT-Q-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
@@ -32070,6 +32145,7 @@
         size,
         color,
         zone,
+        fromLocation,
         toLocation,
         warehouse: toLocation,
         baseUnit,
@@ -32567,6 +32643,7 @@
         const it = itemsToProcess[idx];
         const tempTxId = 'TX-' + dateStr.replace(/-/g, '') + '-' + Math.floor(1000 + Math.random() * 9000);
         const itemObj = (AppState.items || []).find(i => i.sku === it.sku);
+        const fromLoc = it.fromLocation || ((typeof determineStockOutFromLocation === 'function') ? determineStockOutFromLocation(itemObj, AppState.currentUser, AppState.selectedAdminWarehouseFilter) : '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)');
 
         const newTx = {
           txId: tempTxId,
@@ -32591,7 +32668,7 @@
           oldStock: it.oldStock,
           newStock: it.newStock,
           unitPrice: it.unitPrice,
-          fromLocation: 'បញ្ជូនមកពីចុងស៊ីន',
+          fromLocation: fromLoc,
           toLocation: it.toLocation,
           warehouse: it.toLocation,
           location: it.toLocation,
@@ -32609,13 +32686,23 @@
         if (!LOCAL_DB.transactions) LOCAL_DB.transactions = [];
         LOCAL_DB.transactions.unshift(newTx);
 
-        // Update local item stock
+        // Update local item stock & deduct zone breakdown
         if (itemObj) {
           itemObj.currentStock = it.newStock;
+          const pQty = Number(itemObj.packQty || 1);
+          itemObj.packStock = pQty > 1 ? Math.floor(it.newStock / pQty) : it.newStock;
+          if (typeof deductItemZoneBreakdown === 'function') {
+            deductItemZoneBreakdown(itemObj, it.zone, it.effectiveQty);
+          }
         }
         const localItem = (LOCAL_DB.items || []).find(i => i.sku === it.sku);
         if (localItem) {
           localItem.currentStock = it.newStock;
+          const pQty = Number(localItem.packQty || 1);
+          localItem.packStock = pQty > 1 ? Math.floor(it.newStock / pQty) : it.newStock;
+          if (typeof deductItemZoneBreakdown === 'function') {
+            deductItemZoneBreakdown(localItem, it.zone, it.effectiveQty);
+          }
         }
 
         // If dispatched to a station, create incoming dispatch
@@ -32637,7 +32724,7 @@
             dispatchNo: docNo,
             date: dateStr,
             time: timeStr,
-            fromLocation: '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
+            fromLocation: fromLoc,
             toLocation: it.toLocation,
             toStation: it.toLocation,
             stationName: it.toLocation,
@@ -32705,7 +32792,7 @@
           oldStock: it.oldStock,
           newStock: it.newStock,
           unitPrice: it.unitPrice,
-          fromLocation: 'បញ្ជូនមកពីចុងស៊ីន',
+          fromLocation: it.fromLocation || ((typeof determineStockOutFromLocation === 'function') ? determineStockOutFromLocation((AppState.items || []).find(i => i.sku === it.sku), AppState.currentUser, AppState.selectedAdminWarehouseFilter) : '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)'),
           toLocation: it.toLocation,
           warehouse: it.toLocation,
           location: it.toLocation,

@@ -7200,7 +7200,11 @@ function recordStockOutBatch(payloadOrData, userParam) {
       }
       stockUpdates.push({ row: targetRow, col: idxUpdatedAt + 1, val: now });
 
-      let fromLoc = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+      let fromLoc = String(it.fromLocation || payload.fromLocation || (u ? u.warehouse : '') || '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)').trim();
+      fromLoc = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(fromLoc) : fromLoc;
+      if (!fromLoc || fromLoc === 'ALL' || fromLoc === 'គ្រប់ស្ថានីយទាំងអស់' || fromLoc === 'គ្រប់ឃ្លាំង') {
+        fromLoc = '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+      }
       let toLoc = String(it.toLocation || it.location || it.warehouse || it.customer || 'ដកប្រើប្រាស់').trim();
       toLoc = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(toLoc) : toLoc;
 
