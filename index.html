@@ -1964,22 +1964,15 @@
   <!-- ========================================== -->
   <div id="mainApp" class="hidden flex-1 flex flex-col md:flex-row overflow-hidden relative">
 
-    <!-- Floating Arrow Toggle Button to Reveal Sidebar (ស្លីម និងបង្រួមតូច មិនលានចេញធំពេក) -->
-    <button id="sidebarToggleArrowBtn" onclick="event.stopPropagation(); toggleMobileSidebar(true);" type="button"
-      class="fixed top-1/2 -translate-y-1/2 left-0 z-40 h-10 w-[18px] hover:w-6 bg-gradient-to-r from-blue-600 via-indigo-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white rounded-r-lg shadow-md border border-l-0 border-white/50 flex items-center justify-center transition-all duration-150 cursor-pointer group select-none"
-      title="ចុចបង្ហាញ Menu (Show Menu)">
-      <i class="fa-solid fa-chevron-right text-[10px] text-white/95 group-hover:translate-x-0.5 transition-transform"></i>
-    </button>
-
-    <!-- Sidebar Backdrop Overlay (Auto-hide when clicking white canvas area) -->
+    <!-- Sidebar Backdrop Overlay for Mobile -->
     <div id="sidebarBackdrop" onclick="toggleMobileSidebar(false)"
-      class="fixed inset-0 bg-slate-950/20 backdrop-blur-[0.5px] z-[190] hidden transition-opacity duration-300 cursor-pointer"
+      class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[190] hidden transition-opacity duration-300 md:hidden cursor-pointer"
       title="ចុចដើម្បីបិទ Menu (Click to close menu)">
     </div>
 
-    <!-- SIDEBAR NAVIGATION (Slide-Over Drawer on All Screens) -->
+    <!-- SIDEBAR NAVIGATION (Default Open on Desktop, Slide-Over Drawer on Mobile) -->
     <aside id="sidebar"
-      class="fixed inset-y-0 left-0 z-[200] w-72 max-w-[85vw] md:w-64 -translate-x-full bg-gradient-to-b from-blue-700 via-indigo-800 to-slate-950 text-white flex flex-col flex-shrink-0 border-r border-indigo-500/30 shadow-2xl transition-transform duration-300 ease-in-out overflow-hidden">
+      class="fixed inset-y-0 left-0 z-[200] w-72 max-w-[85vw] -translate-x-full md:translate-x-0 md:static md:w-64 bg-gradient-to-b from-blue-700 via-indigo-800 to-slate-950 text-white flex flex-col flex-shrink-0 border-r border-indigo-500/30 shadow-2xl transition-all duration-300 ease-in-out overflow-hidden">
 
       <!-- Ambient Glow Decorators -->
       <div class="absolute -top-20 -left-20 w-48 h-48 bg-blue-400/20 rounded-full blur-3xl pointer-events-none"></div>
@@ -2110,7 +2103,7 @@
           <div id="sidebarSettingsSubList" class="hidden mt-1 pl-3 pr-1 space-y-1 text-xs">
             <!-- 1. Switch User (SuperAdmin) -->
             <button type="button"
-              onclick="toggleMobileSidebar(false); handleTopMenuSwitchUser();"
+              onclick="if(window.innerWidth < 768) toggleMobileSidebar(false); handleTopMenuSwitchUser();"
               id="sidebarSwitchUserBtn"
               class="hidden w-full text-left px-3.5 py-2 rounded-xl hover:bg-white/15 text-amber-200 font-medium transition flex items-center justify-between cursor-pointer">
               <span class="flex items-center gap-2"><i
@@ -2121,7 +2114,7 @@
 
             <!-- 2. Google Sheet Direct Access (SuperAdmin) -->
             <button type="button"
-              onclick="toggleMobileSidebar(false); handleOpenGoogleSheet();"
+              onclick="if(window.innerWidth < 768) toggleMobileSidebar(false); handleOpenGoogleSheet();"
               id="sidebarGoogleSheetBtn"
               class="hidden w-full text-left px-3.5 py-2 rounded-xl hover:bg-white/15 text-emerald-200 font-medium transition flex items-center justify-between cursor-pointer">
               <span class="flex items-center gap-2"><i
@@ -2131,7 +2124,7 @@
 
             <!-- 3. Profile ផ្ទាល់ខ្លួន -->
             <button type="button"
-              onclick="toggleMobileSidebar(false); handleTopMenuProfile();"
+              onclick="if(window.innerWidth < 768) toggleMobileSidebar(false); handleTopMenuProfile();"
               id="sidebarProfileBtn"
               class="w-full text-left px-3.5 py-2 rounded-xl hover:bg-white/15 text-blue-100 font-medium transition flex items-center gap-2 cursor-pointer">
               <i class="fa-solid fa-id-card text-blue-300 text-xs w-4 text-center"></i>
@@ -2172,7 +2165,7 @@
             </a>
 
             <!-- 7. Logout -->
-            <button type="button" onclick="toggleMobileSidebar(false); handleLogout();"
+            <button type="button" onclick="if(window.innerWidth < 768) toggleMobileSidebar(false); handleLogout();"
               class="w-full text-left px-3.5 py-2 rounded-xl hover:bg-rose-500/20 text-rose-300 font-medium transition flex items-center gap-2 cursor-pointer">
               <i class="fa-solid fa-power-off text-rose-400 text-xs w-4 text-center"></i>
               <span>ចាកចេញ (Logout)</span>
@@ -2731,7 +2724,7 @@
       <header
         class="h-14 sm:h-16 bg-white border-b border-slate-200 px-2 sm:px-4 md:px-6 flex items-center justify-between relative z-[80] flex-shrink-0">
         <div class="flex items-center space-x-2 sm:space-x-3 min-w-0 shrink-0">
-          <button id="sidebarOpenHeaderBtn" onclick="event.stopPropagation(); toggleMobileSidebar(true);" title="បើក Menu (Open Menu)"
+          <button id="sidebarOpenHeaderBtn" onclick="event.stopPropagation(); toggleMobileSidebar();" title="បើក/បិទ Menu (Toggle Menu)"
             class="p-1.5 sm:p-2 rounded-lg text-slate-600 hover:text-blue-600 hover:bg-slate-100 shrink-0 flex items-center justify-center transition-colors">
             <i class="fa-solid fa-bars text-base sm:text-lg"></i>
           </button>
@@ -18747,8 +18740,10 @@
       const preStyle = document.getElementById('preRenderTabStyle');
       if (preStyle) preStyle.remove();
 
-      // Automatically close sidebar drawer on navigation
-      toggleMobileSidebar(false);
+      // Automatically close sidebar drawer on mobile navigation
+      if (window.innerWidth < 768) {
+        toggleMobileSidebar(false);
+      }
 
       const u = AppState.currentUser;
       const isSuperAdmin = (typeof isUserSuperAdmin === 'function') ? isUserSuperAdmin(u) : (u && (u.role === 'SuperAdmin' || String(u.username).toLowerCase() === 'superadmin'));
@@ -46286,9 +46281,27 @@
     function toggleMobileSidebar(forceState) {
       const sidebar = document.getElementById('sidebar');
       const backdrop = document.getElementById('sidebarBackdrop');
-      const toggleArrowBtn = document.getElementById('sidebarToggleArrowBtn');
       if (!sidebar) return;
 
+      const isDesktop = window.innerWidth >= 768;
+
+      if (isDesktop) {
+        // Desktop handling: default is open. Toggling collapses/expands via md:hidden
+        if (typeof forceState === 'boolean') {
+          if (forceState) {
+            sidebar.classList.remove('md:hidden');
+          } else {
+            sidebar.classList.add('md:hidden');
+          }
+        } else {
+          sidebar.classList.toggle('md:hidden');
+        }
+        if (backdrop) backdrop.classList.add('hidden');
+        document.body.classList.remove('mobile-drawer-open');
+        return;
+      }
+
+      // Mobile handling (< 768px): slide-over drawer
       const shouldOpen = (typeof forceState === 'boolean')
         ? forceState
         : !sidebar.classList.contains('translate-x-0');
@@ -46297,45 +46310,45 @@
         sidebar.classList.remove('-translate-x-full');
         sidebar.classList.add('translate-x-0');
         if (backdrop) backdrop.classList.remove('hidden');
-        if (toggleArrowBtn) toggleArrowBtn.classList.add('hidden');
         document.body.classList.add('mobile-drawer-open');
       } else {
         sidebar.classList.remove('translate-x-0');
         sidebar.classList.add('-translate-x-full');
         if (backdrop) backdrop.classList.add('hidden');
-        if (toggleArrowBtn) toggleArrowBtn.classList.remove('hidden');
         document.body.classList.remove('mobile-drawer-open');
       }
     }
     window.toggleMobileSidebar = toggleMobileSidebar;
     window.toggleAppSidebar = toggleMobileSidebar;
 
-    // Auto-hide sidebar when clicking outside on the white canvas area
+    // Auto-hide mobile drawer when clicking outside (mobile only)
     document.addEventListener('click', function (e) {
+      if (window.innerWidth >= 768) return; // Keep desktop sidebar always open
+
       const sidebar = document.getElementById('sidebar');
       if (!sidebar || !sidebar.classList.contains('translate-x-0')) return;
 
-      // Clicked inside sidebar itself -> keep open for interactions
+      // Clicked inside sidebar itself -> keep open
       if (sidebar.contains(e.target)) return;
 
       // Clicked on opener buttons -> their respective handlers handle it
-      const toggleArrowBtn = document.getElementById('sidebarToggleArrowBtn');
       const headerBtn = document.getElementById('sidebarOpenHeaderBtn');
       const mobileNavMenu = document.getElementById('mobileNavMenu');
-      if (toggleArrowBtn && toggleArrowBtn.contains(e.target)) return;
       if (headerBtn && headerBtn.contains(e.target)) return;
       if (mobileNavMenu && mobileNavMenu.contains(e.target)) return;
 
-      // Clicked on white canvas / backdrop / main content outside sidebar -> auto-hide
+      // Clicked on backdrop / canvas outside sidebar on mobile -> auto-hide drawer
       toggleMobileSidebar(false);
     });
 
-    // Close sidebar on Escape key
+    // Close mobile drawer on Escape key
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') {
-        const sidebar = document.getElementById('sidebar');
-        if (sidebar && sidebar.classList.contains('translate-x-0')) {
-          toggleMobileSidebar(false);
+        if (window.innerWidth < 768) {
+          const sidebar = document.getElementById('sidebar');
+          if (sidebar && sidebar.classList.contains('translate-x-0')) {
+            toggleMobileSidebar(false);
+          }
         }
       }
     });
