@@ -194,8 +194,7 @@
       will-change: zoom;
     }
 
-    /* Ensure SweetAlert & Modals Scale with Active Monitor */
-    .swal2-container,
+    /* Ensure Modals Scale with Active Monitor */
     .app-scale-target {
       zoom: var(--app-ui-scale, 1);
     }
@@ -417,6 +416,113 @@
       background-color: rgba(2, 6, 23, 0.72) !important;
       backdrop-filter: blur(14px) !important;
       -webkit-backdrop-filter: blur(14px) !important;
+    }
+
+    /* ==========================================================================
+       UNIVERSAL MODAL & SWEETALERT2 CENTERING ON ALL SCREEN SIZES
+       Guarantees every modal stays 100% visible, fully centered (top/bottom/left/right),
+       and never cuts off buttons or content regardless of monitor or screen resolution.
+       ========================================================================== */
+    .swal2-container {
+      zoom: 1 !important; /* Critical: Never zoom the fixed viewport backdrop */
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      height: 100dvh !important;
+      padding: 0.75rem !important;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+      box-sizing: border-box !important;
+      -webkit-overflow-scrolling: touch !important;
+      z-index: 9999 !important;
+    }
+
+    .swal2-popup {
+      margin: auto !important;
+      max-height: min(92vh, 92dvh) !important;
+      max-width: min(96vw, 620px) !important;
+      display: flex !important;
+      flex-direction: column !important;
+      overflow: hidden !important;
+      border-radius: 1.5rem !important;
+      box-shadow: 0 25px 50px -12px rgba(2, 6, 23, 0.45) !important;
+      box-sizing: border-box !important;
+      padding: 0 !important;
+      border: 1px solid rgba(226, 232, 240, 0.9) !important;
+    }
+
+    .swal2-title {
+      flex-shrink: 0 !important;
+      padding: 1.1rem 1.25rem 0.5rem 1.25rem !important;
+      margin: 0 !important;
+    }
+
+    .swal2-html-container {
+      flex: 1 1 auto !important;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+      max-height: calc(92vh - 9.5rem) !important;
+      max-height: calc(92dvh - 9.5rem) !important;
+      margin: 0 !important;
+      padding: 0.25rem 1.25rem 0.75rem 1.25rem !important;
+      -webkit-overflow-scrolling: touch !important;
+      scrollbar-width: thin;
+      scrollbar-color: #cbd5e1 transparent;
+    }
+
+    .swal2-html-container::-webkit-scrollbar {
+      width: 5px;
+    }
+    .swal2-html-container::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .swal2-html-container::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 10px;
+    }
+    .swal2-html-container::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+
+    .swal2-actions {
+      flex-shrink: 0 !important;
+      margin: 0 !important;
+      padding: 0.65rem 1.25rem 1rem 1.25rem !important;
+      gap: 0.5rem !important;
+      width: 100% !important;
+      display: flex !important;
+      justify-content: center !important;
+      flex-wrap: wrap !important;
+      border-top: 1px solid #f1f5f9 !important;
+      background: #ffffff !important;
+      z-index: 10 !important;
+    }
+
+    .swal2-actions button {
+      margin: 0.2rem !important;
+      min-height: 2.25rem !important;
+      padding: 0.45rem 1.1rem !important;
+      font-size: 0.825rem !important;
+      border-radius: 0.75rem !important;
+    }
+
+    /* All Custom Modals & Dialogs: Centered top/bottom/left/right */
+    .app-modal-backdrop {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      height: 100dvh !important;
+      padding: 0.75rem !important;
+      overflow-y: auto !important;
+      box-sizing: border-box !important;
     }
 
     /* Khmer Lunar Calendar Modal: Perfectly Centered on All Screens */
@@ -898,18 +1004,30 @@
 
       /* Mobile Standard Modals & SweetAlert2 */
       .swal2-popup {
-        width: 92vw !important;
-        max-width: 420px !important;
-        padding: 1.25rem 1rem !important;
+        width: 95vw !important;
+        max-width: 95vw !important;
         border-radius: 1.25rem !important;
+        padding: 0 !important;
       }
 
       .swal2-title {
-        font-size: 1.1rem !important;
+        font-size: 1rem !important;
+        padding: 0.85rem 1rem 0.35rem 1rem !important;
       }
 
       .swal2-html-container {
-        font-size: 0.85rem !important;
+        font-size: 0.825rem !important;
+        padding: 0.25rem 0.75rem 0.5rem 0.75rem !important;
+        max-height: calc(90dvh - 8.5rem) !important;
+      }
+
+      .swal2-actions {
+        padding: 0.5rem 0.75rem 0.75rem 0.75rem !important;
+      }
+
+      .swal2-actions button {
+        width: 100% !important;
+        margin: 0.15rem 0 !important;
       }
     }
 
@@ -33338,33 +33456,34 @@
       const whOptions = editWhList.map(w => `<option value="${escapeHtml(w)}" ${(typeof isSameWarehouse === 'function' ? isSameWarehouse(curLocation, w) : curLocation === w) ? 'selected' : ''}>${escapeHtml(w)}</option>`).join('');
 
       Swal.fire({
-        title: '<div class="flex items-center justify-center gap-2 text-emerald-800 text-lg font-bold"><i class="fa-solid fa-pen-to-square text-emerald-600"></i><span>ផ្ទាំងកែតម្រូវ ឬលុបទិន្នន័យចូលស្តុក</span></div>',
+        title: '<div class="flex items-center justify-center gap-2 text-emerald-800 text-base sm:text-lg font-bold"><i class="fa-solid fa-pen-to-square text-emerald-600"></i><span>ផ្ទាំងកែតម្រូវ ឬលុបទិន្នន័យចូលស្តុក</span></div>',
+        width: 'min(580px, 95vw)',
         html: `
-          <div class="text-left text-xs sm:text-sm space-y-3 p-1">
-            <div class="p-2.5 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center justify-between">
+          <div class="text-left text-xs space-y-2 p-0.5">
+            <div class="p-2 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center justify-between">
               <div>
                 <p class="font-bold text-slate-800 text-xs sm:text-sm">${iName}</p>
-                <p class="text-xs text-slate-500 font-mono mt-0.5">SKU: ${escapeHtml(tx.sku || '-')}</p>
+                <p class="text-[11px] text-slate-500 font-mono mt-0.5">SKU: ${escapeHtml(tx.sku || '-')}</p>
               </div>
-              <span class="px-2.5 py-1 bg-emerald-100 border border-emerald-300 text-emerald-900 rounded-lg font-bold text-xs">ចូលស្តុក</span>
+              <span class="px-2.5 py-0.5 bg-emerald-100 border border-emerald-300 text-emerald-900 rounded-lg font-bold text-xs">ចូលស្តុក</span>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
-                <label class="block text-xs font-bold text-slate-700 mb-1">លេខឯកសារ (Doc No)</label>
-                <input id="swalEditDocNo" type="text" value="${curDocNo}" class="w-full h-9 px-3 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500 font-mono font-bold text-emerald-800">
+                <label class="block text-xs font-bold text-slate-700 mb-0.5">លេខឯកសារ (Doc No)</label>
+                <input id="swalEditDocNo" type="text" value="${curDocNo}" class="w-full h-8.5 px-3 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500 font-mono font-bold text-emerald-800">
               </div>
               <div>
-                <label class="block text-xs font-bold text-slate-700 mb-1">កាលបរិច្ឆេទ</label>
-                <input id="swalEditDate" type="date" value="${curDate}" class="w-full h-9 px-3 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500">
+                <label class="block text-xs font-bold text-slate-700 mb-0.5">កាលបរិច្ឆេទ</label>
+                <input id="swalEditDate" type="date" value="${curDate}" class="w-full h-8.5 px-3 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500">
               </div>
             </div>
 
-            <div class="space-y-1.5">
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div class="space-y-1">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <!-- ចំនួនចូលស្តុក: ជាដុំ និងជារាយ -->
                 <div>
-                  <div class="flex items-center justify-between mb-1">
+                  <div class="flex items-center justify-between mb-0.5">
                     <label class="text-xs font-bold text-slate-700 flex items-center gap-1">
                       <i class="fa-solid fa-boxes-stacked text-emerald-600 text-xs"></i>
                       <span>ចំនួនចូលស្តុក *</span>
@@ -33376,35 +33495,35 @@
                       <span class="block text-[10.5px] font-bold text-emerald-800 mb-0.5">ជាដុំ (${escapeHtml(pUnit)})</span>
                       <input id="swalEditQtyBulk" type="number" min="0" step="any" value="${initialBulk}"
                         oninput="recalcSwalEditStockInTotal()"
-                        class="w-full h-9 px-2 text-center bg-white border-2 border-emerald-400 rounded-lg text-sm font-black text-emerald-800 outline-none focus:ring-2 focus:ring-emerald-600">
+                        class="w-full h-8.5 px-2 text-center bg-white border-2 border-emerald-400 rounded-lg text-sm font-black text-emerald-800 outline-none focus:ring-2 focus:ring-emerald-600">
                     </div>
                     <div>
                       <span class="block text-[10.5px] font-bold text-slate-700 mb-0.5">ជារាយ (${escapeHtml(rUnit)})</span>
                       <input id="swalEditQtyRetail" type="number" min="0" step="any" value="${initialRetail}"
                         oninput="recalcSwalEditStockInTotal()"
-                        class="w-full h-9 px-2 text-center bg-white border-2 border-slate-300 rounded-lg text-sm font-black text-slate-800 outline-none focus:ring-2 focus:ring-emerald-600">
+                        class="w-full h-8.5 px-2 text-center bg-white border-2 border-slate-300 rounded-lg text-sm font-black text-slate-800 outline-none focus:ring-2 focus:ring-emerald-600">
                     </div>
                   </div>
                 </div>
 
                 <!-- ទីតាំងឃ្លាំងទទួល -->
                 <div>
-                  <label class="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
+                  <label class="block text-xs font-bold text-slate-700 mb-0.5 flex items-center gap-1">
                     <i class="fa-solid fa-warehouse text-slate-500 text-xs"></i>
                     <span>ទីតាំងឃ្លាំងទទួល</span>
                   </label>
-                  <select id="swalEditLocation" class="w-full h-9 px-2 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500 mt-5.5 sm:mt-5.5">
+                  <select id="swalEditLocation" class="w-full h-8.5 px-2 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500 mt-5 sm:mt-5">
                     ${whOptions}
                   </select>
                 </div>
               </div>
 
               <!-- Live Total Summary Badge -->
-              <div class="flex items-center justify-between px-3 py-1.5 bg-emerald-50/90 border border-emerald-200 rounded-xl text-xs shadow-3xs">
+              <div class="flex items-center justify-between px-3 py-1 bg-emerald-50/90 border border-emerald-200 rounded-xl text-xs shadow-3xs">
                 <span class="text-slate-600 font-semibold flex items-center gap-1.5">
                   <i class="fa-solid fa-calculator text-emerald-600 text-xs"></i>
                   <span>សរុបចូលស្តុកទាំងអស់:</span>
-                  <span id="swalEditTotalSummary" class="font-black text-emerald-800 text-sm font-mono ml-1">
+                  <span id="swalEditTotalSummary" class="font-black text-emerald-800 text-xs sm:text-sm font-mono ml-1">
                     ${(initialBulk * pQty) + initialRetail} ${escapeHtml(rUnit)}${initialBulk > 0 && initialRetail > 0 ? ` (${initialBulk} ${escapeHtml(pUnit)} + ${initialRetail} ${escapeHtml(rUnit)})` : (initialBulk > 0 ? ` (${initialBulk} ${escapeHtml(pUnit)})` : '')}
                   </span>
                 </span>
@@ -33416,15 +33535,15 @@
 
             <div class="grid grid-cols-3 gap-2">
               <div>
-                <label class="block text-xs font-bold text-slate-700 mb-1">ខ្នាត</label>
+                <label class="block text-xs font-bold text-slate-700 mb-0.5">ខ្នាត</label>
                 <input id="swalEditSize" type="text" value="${curSize}" placeholder="ឧ. Pixcell" class="w-full h-8 px-2.5 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500">
               </div>
               <div>
-                <label class="block text-xs font-bold text-slate-700 mb-1">ពណ៌</label>
+                <label class="block text-xs font-bold text-slate-700 mb-0.5">ពណ៌</label>
                 <input id="swalEditColor" type="text" value="${curColor}" placeholder="ឧ. ខ្មៅ" class="w-full h-8 px-2.5 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500">
               </div>
               <div id="swalZoneContainer" class="relative">
-                <div class="flex items-center justify-between mb-1">
+                <div class="flex items-center justify-between mb-0.5">
                   <label class="block text-xs font-bold text-slate-700">តំបន់</label>
                   <button type="button" onclick="openStockInZoneDropdown('swalEditZone', 'swalEditZoneChevron')" class="text-[10px] text-emerald-700 hover:text-emerald-900 font-extrabold flex items-center gap-0.5">
                     <i class="fa-solid fa-location-dot text-rose-500 text-[10px]"></i>
@@ -33449,13 +33568,13 @@
             </div>
 
             <div>
-              <label class="block text-xs font-bold text-slate-700 mb-1">អ្នកទទួល</label>
-              <input id="swalEditReceiver" type="text" value="${curReceiver}" class="w-full h-9 px-3 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500">
+              <label class="block text-xs font-bold text-slate-700 mb-0.5">អ្នកទទួល</label>
+              <input id="swalEditReceiver" type="text" value="${curReceiver}" class="w-full h-8.5 px-3 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500">
             </div>
 
             <div>
-              <label class="block text-xs font-bold text-slate-700 mb-1">កំណត់សម្គាល់</label>
-              <input id="swalEditNotes" type="text" value="${curNotes}" placeholder="កំណត់សម្គាល់បន្ថែម..." class="w-full h-9 px-3 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500">
+              <label class="block text-xs font-bold text-slate-700 mb-0.5">កំណត់សម្គាល់</label>
+              <input id="swalEditNotes" type="text" value="${curNotes}" placeholder="កំណត់សម្គាល់បន្ថែម..." class="w-full h-8.5 px-3 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-emerald-500">
             </div>
           </div>
         `,
@@ -33893,33 +34012,34 @@
       }
 
       Swal.fire({
-        title: '<div class="flex items-center justify-center gap-2 text-amber-900 text-lg font-bold"><i class="fa-solid fa-pen-to-square text-amber-600"></i><span>ផ្ទាំងកែតម្រូវ ឬលុបទិន្នន័យចេញពីស្តុក</span></div>',
+        title: '<div class="flex items-center justify-center gap-2 text-amber-900 text-base sm:text-lg font-bold"><i class="fa-solid fa-pen-to-square text-amber-600"></i><span>ផ្ទាំងកែតម្រូវ ឬលុបទិន្នន័យចេញពីស្តុក</span></div>',
+        width: 'min(580px, 95vw)',
         html: `
-          <div class="text-left text-xs sm:text-sm space-y-3 p-1">
-            <div class="p-2.5 bg-amber-50 rounded-xl border border-amber-200 flex items-center justify-between">
+          <div class="text-left text-xs space-y-2 p-0.5">
+            <div class="p-2 bg-amber-50 rounded-xl border border-amber-200 flex items-center justify-between">
               <div>
                 <p class="font-bold text-slate-800 text-xs sm:text-sm">${iName}</p>
-                <p class="text-xs text-slate-500 font-mono mt-0.5">SKU: ${escapeHtml(tx.sku || '-')}</p>
+                <p class="text-[11px] text-slate-500 font-mono mt-0.5">SKU: ${escapeHtml(tx.sku || '-')}</p>
               </div>
-              <span class="px-2.5 py-1 bg-amber-100 border border-amber-300 text-amber-900 rounded-lg font-bold text-xs">ចេញស្តុក</span>
+              <span class="px-2.5 py-0.5 bg-amber-100 border border-amber-300 text-amber-900 rounded-lg font-bold text-xs">ចេញស្តុក</span>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
-                <label class="block text-xs font-bold text-slate-700 mb-1">លេខឯកសារ (Doc No)</label>
-                <input id="swalEditOutDocNo" type="text" value="${curDocNo}" class="w-full h-9 px-3 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-amber-500 font-mono font-bold text-amber-900">
+                <label class="block text-xs font-bold text-slate-700 mb-0.5">លេខឯកសារ (Doc No)</label>
+                <input id="swalEditOutDocNo" type="text" value="${curDocNo}" class="w-full h-8.5 px-3 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-amber-500 font-mono font-bold text-amber-900">
               </div>
               <div>
-                <label class="block text-xs font-bold text-slate-700 mb-1">កាលបរិច្ឆេទ</label>
-                <input id="swalEditOutDate" type="date" value="${curDate}" class="w-full h-9 px-3 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-amber-500">
+                <label class="block text-xs font-bold text-slate-700 mb-0.5">កាលបរិច្ឆេទ</label>
+                <input id="swalEditOutDate" type="date" value="${curDate}" class="w-full h-8.5 px-3 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-amber-500">
               </div>
             </div>
 
-            <div class="space-y-1.5">
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div class="space-y-1">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <!-- ចំនួនបើកចេញ: ជាដុំ និងជារាយ -->
                 <div>
-                  <div class="flex items-center justify-between mb-1">
+                  <div class="flex items-center justify-between mb-0.5">
                     <label class="text-xs font-bold text-slate-700 flex items-center gap-1">
                       <i class="fa-solid fa-boxes-stacked text-amber-600 text-xs"></i>
                       <span>ចំនួនបើកចេញ *</span>
@@ -33931,35 +34051,35 @@
                       <span class="block text-[10.5px] font-bold text-amber-900 mb-0.5">ជាដុំ (${escapeHtml(pUnit)})</span>
                       <input id="swalEditOutQtyBulk" type="number" min="0" step="any" value="${initialBulk}"
                         oninput="recalcSwalEditStockOutTotal()"
-                        class="w-full h-9 px-2 text-center bg-white border-2 border-amber-400 rounded-lg text-sm font-black text-amber-900 outline-none focus:ring-2 focus:ring-amber-600">
+                        class="w-full h-8.5 px-2 text-center bg-white border-2 border-amber-400 rounded-lg text-sm font-black text-amber-900 outline-none focus:ring-2 focus:ring-amber-600">
                     </div>
                     <div>
                       <span class="block text-[10.5px] font-bold text-slate-700 mb-0.5">ជារាយ (${escapeHtml(rUnit)})</span>
                       <input id="swalEditOutQtyRetail" type="number" min="0" step="any" value="${initialRetail}"
                         oninput="recalcSwalEditStockOutTotal()"
-                        class="w-full h-9 px-2 text-center bg-white border-2 border-slate-300 rounded-lg text-sm font-black text-slate-800 outline-none focus:ring-2 focus:ring-amber-600">
+                        class="w-full h-8.5 px-2 text-center bg-white border-2 border-slate-300 rounded-lg text-sm font-black text-slate-800 outline-none focus:ring-2 focus:ring-amber-600">
                     </div>
                   </div>
                 </div>
 
                 <!-- គោលដៅ / ឃ្លាំង -->
                 <div>
-                  <label class="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1">
+                  <label class="block text-xs font-bold text-slate-700 mb-0.5 flex items-center gap-1">
                     <i class="fa-solid fa-warehouse text-slate-500 text-xs"></i>
                     <span>គោលដៅ / ឃ្លាំង</span>
                   </label>
-                  <select id="swalEditOutLocation" class="w-full h-9 px-2 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-amber-500 mt-5.5 sm:mt-5.5">
+                  <select id="swalEditOutLocation" class="w-full h-8.5 px-2 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-amber-500 mt-5 sm:mt-5">
                     ${whOptions}
                   </select>
                 </div>
               </div>
 
               <!-- Live Total Summary Badge -->
-              <div class="flex items-center justify-between px-3 py-1.5 bg-amber-50/90 border border-amber-200 rounded-xl text-xs shadow-3xs">
+              <div class="flex items-center justify-between px-3 py-1 bg-amber-50/90 border border-amber-200 rounded-xl text-xs shadow-3xs">
                 <span class="text-slate-600 font-semibold flex items-center gap-1.5">
                   <i class="fa-solid fa-calculator text-amber-600 text-xs"></i>
                   <span>សរុបបើកចេញទាំងអស់:</span>
-                  <span id="swalEditOutTotalSummary" class="font-black text-amber-900 text-sm font-mono ml-1">
+                  <span id="swalEditOutTotalSummary" class="font-black text-amber-900 text-xs sm:text-sm font-mono ml-1">
                     ${(initialBulk * pQty) + initialRetail} ${escapeHtml(rUnit)}${initialBulk > 0 && initialRetail > 0 ? ` (${initialBulk} ${escapeHtml(pUnit)} + ${initialRetail} ${escapeHtml(rUnit)})` : (initialBulk > 0 ? ` (${initialBulk} ${escapeHtml(pUnit)})` : '')}
                   </span>
                 </span>
@@ -33970,14 +34090,14 @@
             </div>
 
             <div>
-              <label class="block text-xs font-bold text-slate-700 mb-1">អ្នកបើកចេញ</label>
-              <input id="swalEditOutIssuer" type="text" value="${curIssuer}" class="w-full h-9 px-3 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-amber-500">
+              <label class="block text-xs font-bold text-slate-700 mb-0.5">អ្នកបើកចេញ</label>
+              <input id="swalEditOutIssuer" type="text" value="${curIssuer}" class="w-full h-8.5 px-3 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-amber-500">
               <input id="swalEditOutReason" type="hidden" value="${curReason}">
             </div>
 
             <div>
-              <label class="block text-xs font-bold text-slate-700 mb-1">កំណត់សម្គាល់</label>
-              <input id="swalEditOutNotes" type="text" value="${curNotes}" placeholder="កំណត់សម្គាល់បន្ថែម..." class="w-full h-9 px-3 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-amber-500">
+              <label class="block text-xs font-bold text-slate-700 mb-0.5">កំណត់សម្គាល់</label>
+              <input id="swalEditOutNotes" type="text" value="${curNotes}" placeholder="កំណត់សម្គាល់បន្ថែម..." class="w-full h-8.5 px-3 bg-white border border-slate-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-amber-500">
             </div>
           </div>
         `,
