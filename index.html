@@ -411,7 +411,8 @@
     #restockDamagedModal,
     #warehouseModal,
     #stationReceptionModal,
-    #khmerCalendarModal {
+    #khmerCalendarModal,
+    #onlineUsersModal {
       background-color: rgba(2, 6, 23, 0.72) !important;
       backdrop-filter: blur(14px) !important;
       -webkit-backdrop-filter: blur(14px) !important;
@@ -4603,10 +4604,12 @@
                     <i class="fa-solid fa-comments text-violet-600 mr-2"></i>
                     បណ្តាញ Live Chat (គ្រប់ឃ្លាំង & Admin)
                   </h3>
-                  <div id="chatOnlinePresenceBadge"
-                    class="flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200 shadow-2xs transition">
+                  <div id="chatOnlinePresenceBadge" onclick="openOnlineUsersModal()"
+                    class="flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[10px] font-bold border border-emerald-200 shadow-2xs cursor-pointer transition"
+                    title="ចុចដើម្បីមើលអ្នកកំពុង Online ទាំងអស់">
                     <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                     <span id="chatOnlineCountText">Online: 1</span>
+                    <i class="fa-solid fa-chevron-right text-[8px] opacity-70"></i>
                   </div>
                 </div>
                 <div class="relative">
@@ -4650,7 +4653,8 @@
                     <span>អ្នកកំពុង Online (គ្រប់ស្ថានីយ & Admin)</span>
                   </span>
                   <span id="chatStaffOnlineCountBadge"
-                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[9px] font-bold shadow-3xs transition">
+                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[9px] font-bold shadow-3xs cursor-pointer transition"
+                    onclick="openOnlineUsersModal()" title="ចុចមើលអ្នកកំពុង Online ទាំងអស់">
                     <span id="chatStaffOnlineCountText">0 Online</span>
                   </span>
                 </div>
@@ -4689,6 +4693,12 @@
                 </div>
 
                 <div class="flex items-center space-x-1.5 sm:space-x-2 flex-shrink-0">
+                  <button type="button" onclick="openOnlineUsersModal()" title="មើលអ្នកកំពុង Online ទាំងអស់"
+                    class="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold rounded-xl text-xs border border-emerald-200 transition flex items-center space-x-1">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span id="chatHeaderOnlineCountText" class="hidden sm:inline">អ្នក Online</span>
+                    <i class="fa-solid fa-users text-[11px]"></i>
+                  </button>
                   <button type="button" onclick="loadChatMessages()" title="ទាញយកសារថ្មី"
                     class="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition text-xs border border-slate-200">
                     <i class="fa-solid fa-arrows-rotate" id="chatRefreshIcon"></i>
@@ -18555,6 +18565,7 @@
         'stockOutHistorySearch',
         'reqSearchInput',
         'chatSearchInput',
+        'onlineUsersSearchInput',
         'switchUserSearchInput'
       ];
       searchIds.forEach(id => {
@@ -41981,6 +41992,11 @@
       if (typeof renderSwitchUserList === 'function') {
         renderSwitchUserList();
       }
+
+      // 5. Re-render Online Users Modal immediately
+      if (typeof renderOnlineUsersModalList === 'function') {
+        renderOnlineUsersModalList();
+      }
     }
 
     function applyUserRoleChangeInstantly(targetUserIdOrUsername, newRole, newWh, newStatus, newFullName) {
@@ -44958,6 +44974,10 @@
       if (badge) {
         badge.innerText = `Online: ${count}`;
       }
+      const headerBtnBadge = document.getElementById('chatHeaderOnlineCountText');
+      if (headerBtnBadge) {
+        headerBtnBadge.innerText = `អ្នក Online (${count})`;
+      }
 
       // Update Online Contacts Count badge (count ALL other online users, regardless of role or station)
       const staffOnlineBadge = document.getElementById('chatStaffOnlineCountText');
@@ -45003,6 +45023,155 @@
       }
 
       checkAndRefreshOnlineContacts();
+    }
+
+    // --- Online Users Modal & Interaction ---
+    function openOnlineUsersModal() {
+      if (typeof closeProfileModal === 'function') closeProfileModal();
+      const modal = document.getElementById('onlineUsersModal');
+      if (modal) {
+        modal.classList.remove('hidden');
+        renderOnlineUsersModalList();
+      }
+    }
+
+    function closeOnlineUsersModal() {
+      const modal = document.getElementById('onlineUsersModal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function filterOnlineUsersModalList() {
+      const sInp = document.getElementById('onlineUsersSearchInput');
+      let q = (sInp?.value || '').toLowerCase().trim();
+      if ((q === 'superadmin' || q === 'super admin' || q === 'admin') && document.activeElement !== sInp) {
+        if (sInp) sInp.value = '';
+        q = '';
+      }
+      document.querySelectorAll('.online-user-modal-item').forEach(el => {
+        const text = el.innerText.toLowerCase();
+        el.classList.toggle('hidden', q && !text.includes(q));
+      });
+    }
+
+    function renderOnlineUsersModalList() {
+      const container = document.getElementById('onlineUsersListContainer');
+      if (!container) return;
+
+      let onlineUsers = getOnlineUsersList();
+      const myUsername = String(AppState.currentUser?.username || '').toLowerCase();
+      const isActorSuperAdmin = (AppState.currentUser?.role === 'SuperAdmin') || (myUsername === 'superadmin');
+      const isActorAdmin = !isActorSuperAdmin && (AppState.currentUser?.role === 'Admin' || myUsername === 'admin');
+
+      // Show all online users regardless of role or station, enrich with registered details
+      const allKnownForModal = [...(AppState.users || []), ...(LOCAL_DB.users || [])];
+      onlineUsers = onlineUsers.map(u => {
+        const un = String(u.username || '').toLowerCase();
+        const uid = String(u.userId || '').toLowerCase();
+        const found = allKnownForModal.find(ku => {
+          const kun = String(ku.username || '').toLowerCase();
+          const kuid = String(ku.userId || '').toLowerCase();
+          return (kun && kun === un) || (kuid && kuid === uid);
+        });
+        if (found) {
+          return {
+            ...u,
+            fullName: found.fullName || u.fullName || u.username,
+            role: found.role || u.role || '',
+            warehouse: found.warehouse || u.warehouse || '',
+            avatar: found.avatar || u.avatar || ''
+          };
+        }
+        return u;
+      });
+
+      if (!onlineUsers || onlineUsers.length === 0) {
+        container.innerHTML = `
+          <div class="py-8 text-center text-slate-400 text-xs">
+            <i class="fa-solid fa-user-slash text-2xl text-slate-300 mb-2"></i>
+            <p>មិនមានអ្នកប្រើប្រាស់ផ្សេងទៀតកំពុង Online ទេ</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = onlineUsers.map(u => {
+        const isMe = (String(u.username || '').toLowerCase() === myUsername);
+        const avatar = u.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${u.username || 'user'}`;
+        const role = u.role || 'Staff';
+        const warehouse = u.warehouse || 'ឃ្លាំងទូទៅ';
+
+        // Direct chat target channel calculation
+        let directTargetChannel = 'ALL_WAREHOUSES';
+        let directTargetTitle = '📢 បន្ទប់ជជែកទូទៅ (All Stations & Admin)';
+        let directTargetSubtitle = 'ទំនាក់ទំនងសាធារណៈគ្រប់ស្ថានីយទាំងអស់';
+        let directTargetAvatar = avatar;
+
+        if (String(u.username).toLowerCase() === 'admin') {
+          directTargetChannel = 'ADMIN_DIRECT';
+          directTargetTitle = `🛡️ Admin (${u.fullName || u.username})`;
+          directTargetSubtitle = `ជជែកផ្ទាល់ជាមួយ Admin (@${u.username})`;
+          directTargetAvatar = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150';
+        } else if (String(u.username).toLowerCase() === 'superadmin') {
+          directTargetChannel = 'SUPERADMIN_DIRECT';
+          directTargetTitle = `👑 SuperAdmin (${u.fullName || u.username})`;
+          directTargetSubtitle = `ជជែកផ្ទាល់ជាមួយ SuperAdmin (@${u.username})`;
+          directTargetAvatar = 'assets/superadmin_avatar.jpg';
+        } else {
+          const myUname = String(AppState.currentUser?.username || '').toLowerCase();
+          directTargetChannel = getDirectChannelId(myUname, u.username);
+          directTargetTitle = `💬 ${u.fullName || u.username}`;
+          directTargetSubtitle = `${u.role || 'បុគ្គលិក'} • ${u.warehouse || ''}`;
+          directTargetAvatar = avatar;
+        }
+
+        return `
+          <div class="online-user-modal-item p-3 rounded-2xl bg-slate-50 hover:bg-emerald-50/50 border border-slate-200 hover:border-emerald-200 transition flex items-center justify-between space-x-3">
+            <div class="flex items-center space-x-3 min-w-0">
+              <div class="relative shrink-0">
+                <img src="${avatar}" onerror="this.src='https://api.dicebear.com/7.x/bottts/svg?seed=${u.username || 'user'}'"
+                  class="w-10 h-10 rounded-xl object-cover border border-emerald-300 shadow-2xs">
+                <span class="w-3 h-3 bg-emerald-500 border-2 border-white rounded-full absolute -bottom-0.5 -right-0.5 animate-pulse"></span>
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center space-x-1.5">
+                  <p class="font-bold text-xs text-slate-800 truncate">${escapeHtml(u.fullName || u.username)}</p>
+                  ${isMe ? '<span class="text-[9px] font-bold text-emerald-600 bg-emerald-100 px-1.5 py-0.2 rounded-full">(អ្នកផ្ទាល់)</span>' : ''}
+                </div>
+                <div class="flex items-center space-x-1.5 text-[11px] text-slate-400 mt-0.5">
+                  <span class="font-mono text-slate-500">@${escapeHtml(u.username)}</span>
+                  <span>•</span>
+                  <span class="px-1.5 py-0.2 rounded text-[9px] font-bold ${role === 'SuperAdmin' ? 'bg-amber-100 text-amber-800 font-black' :
+            role === 'Admin' ? 'bg-purple-100 text-purple-700' :
+              (role === 'អ្នកគ្រប់គ្រងស្ថានីយ' || role === 'អ្នកគ្រប់គ្រង') ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-200 text-slate-700'
+          }">${escapeHtml(role)}</span>
+                </div>
+                <p class="text-[10px] text-slate-500 truncate mt-0.5"><i class="fa-solid fa-location-dot text-rose-500 mr-1"></i>${escapeHtml(warehouse)}</p>
+              </div>
+            </div>
+
+            <div class="shrink-0">
+              ${isMe ? `
+                <span class="text-[10px] font-bold text-emerald-600 px-2.5 py-1 rounded-xl bg-emerald-100/70 border border-emerald-200 flex items-center space-x-1">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  <span>សកម្ម</span>
+                </span>
+              ` : `
+                <button type="button" onclick="startDirectChatFromModal('${directTargetChannel}', '${escapeHtml(directTargetTitle)}', '${escapeHtml(directTargetSubtitle)}', '${directTargetAvatar}')"
+                  class="px-3 py-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold shadow-sm transition flex items-center space-x-1">
+                  <i class="fa-solid fa-paper-plane text-[10px]"></i>
+                  <span>ឆាត</span>
+                </button>
+              `}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function startDirectChatFromModal(channelId, title, subtitle, avatar) {
+      closeOnlineUsersModal();
+      switchChatChannel(channelId, title, subtitle, avatar);
+      showActiveChatOnMobile();
     }
 
     // --- Mobile Responsive Navigation for Live Chat ---
@@ -47389,6 +47558,61 @@
     <div>
       <p class="font-bold text-white text-xs leading-tight" id="toastMonitorTitle">អេក្រង់បានផ្លាស់ប្តូរ</p>
       <p class="text-[11px] text-blue-200/90 font-mono" id="toastMonitorDesc">កែសម្រួល UI & អក្សរ: 100%</p>
+    </div>
+  </div>
+
+  <!-- Modal: Online Users List (អ្នកកំពុង Online ទាំងអស់) -->
+  <div id="onlineUsersModal"
+    class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-950/75 backdrop-blur-md app-modal-backdrop flex items-center justify-center p-3 sm:p-4">
+    <div
+      class="bg-white rounded-3xl shadow-2xl border border-slate-100 w-full max-w-md overflow-hidden transform transition-all animate-fade-in">
+      <!-- Modal Header -->
+      <div
+        class="px-5 py-4 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white flex items-center justify-between">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-9 h-9 rounded-2xl bg-white/20 flex items-center justify-center text-white shadow-inner">
+            <i class="fa-solid fa-users text-sm"></i>
+          </div>
+          <div>
+            <h4 class="font-black text-sm">អ្នកកំពុង Online ទាំងអស់</h4>
+            <p class="text-[11px] text-emerald-100/90 font-medium">វត្តមានបុគ្គលិក & ស្ថានីយសកម្ម</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeOnlineUsersModal()"
+          class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+
+      <!-- Modal Search & Filter -->
+      <div class="p-3 bg-slate-50/80 border-b border-slate-100">
+        <div class="relative">
+          <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+          <input type="search" id="onlineUsersSearchInput" name="online_search_no_autofill" autocomplete="off"
+            autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true"
+            oninput="filterOnlineUsersModalList()"
+            onfocus="if (this.value.toLowerCase() === 'superadmin') this.value = '';"
+            placeholder="ស្វែងរកតាមឈ្មោះ ឬឃ្លាំង..."
+            class="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-4 max-h-[60vh] overflow-y-auto custom-scrollbar space-y-2" id="onlineUsersListContainer">
+        <!-- Injected dynamically by renderOnlineUsersModalList() -->
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="px-5 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs">
+        <span class="text-slate-400 font-medium flex items-center">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse mr-1.5"></span>
+          ស្វ័យប្រវត្តិតាមវត្តមានផ្ទាល់
+        </span>
+        <button type="button" onclick="closeOnlineUsersModal()"
+          class="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl font-bold transition">
+          បិទ
+        </button>
+      </div>
     </div>
   </div>
 </body>
