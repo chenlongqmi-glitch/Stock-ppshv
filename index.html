@@ -1537,7 +1537,7 @@
   <!-- 1. AUTHENTICATION & LOGIN SCREEN (MODERN SPLIT DESIGN) -->
   <!-- ========================================== -->
   <div id="authSection"
-    class="fixed inset-0 z-50 flex items-start lg:items-center justify-center p-3 sm:p-6 lg:p-8 overflow-y-auto lg:overflow-hidden overscroll-contain">
+    class="fixed inset-0 z-[9990] flex items-start lg:items-center justify-center p-3 sm:p-6 lg:p-8 overflow-y-auto lg:overflow-hidden overscroll-contain">
     <div
       class="w-full max-w-lg sm:max-w-2xl lg:max-w-[1040px] lg:w-[1040px] min-h-[580px] lg:min-h-[640px] auth-modal-card bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden border border-slate-200/80 grid grid-cols-1 lg:grid-cols-2 my-auto shrink-0">
 
@@ -15982,6 +15982,18 @@
 
       // 1. Instant Screen Transition (< 10ms)
       showAppView();
+      if (typeof navigateTab === 'function') {
+        navigateTab('dashboard');
+      }
+      // Ensure sidebar menu is shown by default after login
+      const _loginSidebar = document.getElementById('sidebar');
+      if (_loginSidebar) {
+        _loginSidebar.classList.remove('md:hidden', 'hidden');
+        if (window.innerWidth >= 768) {
+          _loginSidebar.classList.remove('-translate-x-full');
+          _loginSidebar.classList.add('md:translate-x-0');
+        }
+      }
 
       // 2. Immediate Local Data Hydration (Never wait for cloud!)
       if (!AppState.items || AppState.items.length === 0) {
@@ -17297,6 +17309,17 @@
       document.documentElement.classList.add('app-authenticated');
       document.getElementById('authSection').classList.add('hidden');
       document.getElementById('mainApp').classList.remove('hidden');
+      const sidebarEl = document.getElementById('sidebar');
+      if (sidebarEl) {
+        sidebarEl.classList.remove('md:hidden', 'hidden');
+        if (window.innerWidth >= 768) {
+          sidebarEl.classList.remove('-translate-x-full');
+          sidebarEl.classList.add('md:translate-x-0');
+        }
+      }
+      const backdropEl = document.getElementById('sidebarBackdrop');
+      if (backdropEl) backdropEl.classList.add('hidden');
+      document.body.classList.remove('mobile-drawer-open');
       const u = AppState.currentUser;
       if (!u) return;
 
@@ -17934,6 +17957,15 @@
           document.documentElement.classList.remove('app-authenticated');
           document.getElementById('authSection').classList.remove('hidden');
           document.getElementById('mainApp').classList.add('hidden');
+          const sidebarEl = document.getElementById('sidebar');
+          if (sidebarEl) {
+            sidebarEl.classList.remove('md:hidden', 'hidden', 'translate-x-0');
+            sidebarEl.classList.add('-translate-x-full');
+          }
+          const backdropEl = document.getElementById('sidebarBackdrop');
+          if (backdropEl) backdropEl.classList.add('hidden');
+          document.body.classList.remove('mobile-drawer-open');
+          if (typeof toggleSidebarSettingsMenu === 'function') toggleSidebarSettingsMenu(false);
           toggleAuthView('login');
           loadRememberedCredentials();
 
@@ -37974,10 +38006,9 @@
     // MY PROFILE FUNCTIONS (សម្រាប់ User និង Admin កែប្រែព័ត៌មានផ្ទាល់ខ្លួន)
     // ====================================================
     function openProfileModal() {
-      // Close mobile sidebar if open
-      const sidebar = document.getElementById('sidebar');
-      if (sidebar && window.innerWidth < 768 && !sidebar.classList.contains('hidden')) {
-        sidebar.classList.add('hidden');
+      // Close mobile sidebar drawer if open on small screens
+      if (window.innerWidth < 768 && typeof toggleMobileSidebar === 'function') {
+        toggleMobileSidebar(false);
       }
 
       let u = AppState.currentUser;
