@@ -510,8 +510,8 @@
       border-radius: 0.75rem !important;
     }
 
-    /* All Custom Modals & Dialogs: Centered top/bottom/left/right when open */
-    .app-modal-backdrop:not(.hidden) {
+    /* All Custom Modals & Dialogs: Centered top/bottom/left/right */
+    .app-modal-backdrop {
       display: flex !important;
       align-items: center !important;
       justify-content: center !important;
@@ -525,14 +525,8 @@
       box-sizing: border-box !important;
     }
 
-    .app-modal-backdrop.hidden,
-    .app-modal-backdrop[hidden],
-    .app-modal-backdrop[style*="display: none"] {
-      display: none !important;
-    }
-
     /* Khmer Lunar Calendar Modal: Perfectly Centered on All Screens */
-    #khmerCalendarModal:not(.hidden) {
+    #khmerCalendarModal {
       position: fixed !important;
       inset: 0 !important;
       width: 100vw !important;
@@ -3127,6 +3121,9 @@
             </div>
           </div>
       </header>
+
+      <!-- OPEN FEATURE TABS BAR (TAGS VIEW) -->
+      <div id="openTabsBar" class="shrink-0 bg-white border-b border-slate-200/90 flex items-center overflow-x-auto select-none shadow-[0_1px_2px_rgba(15,23,42,0.03)]" style="scrollbar-width: none; -ms-overflow-style: none;"></div>
 
       <!-- SCROLLABLE PAGE BODY -->
       <main class="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-slate-50/70">
@@ -15981,6 +15978,7 @@
       }
 
       // 1. Instant Screen Transition (< 10ms) -> Default to Product Inventory + Sidebar Menu Open
+      sessionStorage.removeItem('inventory_open_tabs');
       showAppView();
       if (typeof navigateTab === 'function') {
         navigateTab('items', { keepMenuOpen: true });
@@ -17938,6 +17936,9 @@
           sessionStorage.removeItem('inventory_user');
           localStorage.removeItem('inventory_user');
           sessionStorage.removeItem('inventory_active_tab');
+          sessionStorage.removeItem('inventory_open_tabs');
+          const openTabsBarEl = document.getElementById('openTabsBar');
+          if (openTabsBarEl) openTabsBarEl.innerHTML = '';
           sessionStorage.removeItem('inventory_scroll_top');
           sessionStorage.removeItem('inventory_items_scroll_top');
           sessionStorage.removeItem('inventory_item_search_query');
@@ -19065,6 +19066,125 @@
         loadUsersList();
       }
       if (tabName === 'settings') loadSettings();
+      if (typeof recordVisitedTab === 'function') recordVisitedTab(tabName);
+    }
+
+    // === HORIZONTAL OPEN TABS BAR (TAGS VIEW) ===
+    const OPEN_TABS_STORAGE_KEY = 'inventory_open_tabs';
+    const TAGS_VIEW_LABELS = {
+      items: 'បញ្ជីទំនិញទាំងអស់',
+      dashboard: 'ផ្ទាំងគ្រប់គ្រង',
+      stockin: 'ស្តុកចូល (Stock In)',
+      stockout: 'ស្តុកចេញ (Stock Out)',
+      transfer: 'ផ្ទេរ & កែតម្រូវស្តុក',
+      damaged: 'ទំនិញខូចក្នុងឃ្លាំង',
+      reports: 'របាយការណ៍ចរន្តស្តុក',
+      requests: 'ស្នើសុំទំនិញបន្ថែម',
+      chat: 'Live Chat គ្រប់ឃ្លាំង',
+      warehouses: 'គ្រប់គ្រងស្ថានីយ',
+      users: 'គ្រប់គ្រង User & សិទ្ធិ',
+      settings: 'ការកំណត់ & Telegram'
+    };
+
+    function getTagsViewTabLabel(tabName) {
+      if (tabName === 'incoming') {
+        const u = (typeof AppState !== 'undefined') ? AppState.currentUser : null;
+        const isPriv = u && typeof isUserPrivilegedAdmin === 'function' && isUserPrivilegedAdmin(u);
+        return isPriv ? 'តាមដានការទទួលតាមស្ថានីយ' : 'ទទួលទំនិញពី Admin';
+      }
+      return TAGS_VIEW_LABELS[tabName] || tabName;
+    }
+
+    function getVisitedTabsList() {
+      let list = ['items'];
+      try {
+        const raw = sessionStorage.getItem(OPEN_TABS_STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            list = parsed.filter(t => typeof t === 'string' && t.trim() !== '');
+          }
+        }
+      } catch (e) { /* ignore storage errors */ }
+      if (!list.includes('items')) list.unshift('items');
+      else if (list[0] !== 'items') {
+        list = ['items', ...list.filter(t => t !== 'items')];
+      }
+      return list;
+    }
+
+    function saveVisitedTabsList(list) {
+      try {
+        sessionStorage.setItem(OPEN_TABS_STORAGE_KEY, JSON.stringify(list));
+      } catch (e) { /* ignore storage errors */ }
+    }
+
+    function renderOpenTabsBar(activeTabName) {
+      const bar = document.getElementById('openTabsBar');
+      if (!bar) return;
+      const active = activeTabName || sessionStorage.getItem('inventory_active_tab') || 'items';
+      const tabs = getVisitedTabsList();
+
+      bar.innerHTML = tabs.map(tab => {
+        const isActive = tab === active;
+        const isPinned = tab === 'items';
+        const label = getTagsViewTabLabel(tab);
+        const dotClass = isActive
+          ? 'bg-blue-600 shadow-[0_0_0_2px_rgba(37,99,235,0.12)]'
+          : 'bg-slate-300 group-hover:bg-slate-400';
+        const btnClass = isActive
+          ? 'text-slate-700 font-semibold bg-white'
+          : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50/80 font-medium bg-white';
+        const closeBtn = isPinned ? '' : `
+          <span onclick="event.stopPropagation(); closeVisitedTab('${tab}')" title="បិទផ្ទាំងនេះ"
+            class="ml-1 w-4 h-4 rounded-full inline-flex items-center justify-center text-slate-300 hover:text-slate-600 hover:bg-slate-200/70 transition-colors">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </span>`;
+        return `
+          <button type="button" data-tag-tab="${tab}" onclick="navigateTab('${tab}')"
+            class="group relative shrink-0 inline-flex items-center gap-2 px-4 h-9 text-[12.5px] border-r border-slate-200/80 transition-colors whitespace-nowrap cursor-pointer ${btnClass}">
+            <span class="w-2.5 h-2.5 rounded-full shrink-0 transition-colors ${dotClass}"></span>
+            <span>${label}</span>
+            ${closeBtn}
+          </button>`;
+      }).join('');
+
+      const activeBtn = bar.querySelector(`[data-tag-tab="${active}"]`);
+      if (activeBtn && typeof activeBtn.scrollIntoView === 'function') {
+        activeBtn.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
+      }
+    }
+
+    function recordVisitedTab(tabName) {
+      if (!tabName) return;
+      const list = getVisitedTabsList();
+      if (!list.includes(tabName)) {
+        list.push(tabName);
+      }
+      saveVisitedTabsList(list);
+      renderOpenTabsBar(tabName);
+    }
+
+    function closeVisitedTab(tabName) {
+      if (!tabName || tabName === 'items') return;
+      const list = getVisitedTabsList();
+      const idx = list.indexOf(tabName);
+      if (idx === -1) return;
+      const updated = list.filter(t => t !== tabName);
+      saveVisitedTabsList(updated);
+
+      const currentActive = (typeof AppState !== 'undefined' && AppState.currentTab)
+        ? AppState.currentTab
+        : (sessionStorage.getItem('inventory_active_tab') || 'items');
+
+      if (currentActive === tabName) {
+        const fallback = updated[Math.max(0, idx - 1)] || 'items';
+        navigateTab(fallback);
+      } else {
+        renderOpenTabsBar(currentActive);
+      }
     }
 
     let isBackgroundRefreshing = false;
