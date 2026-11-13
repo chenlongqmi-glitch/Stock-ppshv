@@ -1169,7 +1169,13 @@ function executeLocalApiAction(req) {
 
       case 'getPendingDispatches':
       case 'getDispatches':
-        return getPendingDispatches(payload.warehouse || payload.toLocation || payload);
+        var targetWh = '';
+        if (typeof payload === 'string') {
+          targetWh = payload;
+        } else if (payload && typeof payload === 'object') {
+          targetWh = payload.warehouse || payload.toLocation || payload.targetWarehouse || (payload.data && (payload.data.warehouse || payload.data.toLocation)) || '';
+        }
+        return getPendingDispatches(targetWh);
 
       case 'recordStockOut':
 
@@ -8163,23 +8169,18 @@ function recordStockOut(dataOrPayload, user) {
     Logger.log('Error writing to Stock_out sheet: ' + errOut.toString());
   }
 
-  // 3. បញ្ជូនទិន្នន័យចូលក្នុងមុខងារ ទទួលទំនិញចូលស្តុកពី Admin (Dispatches Sheet) របស់ស្ថានីយទទួល (សម្រាប់តែ Admin dispatch ទៅស្ថានីយប៉ុណ្ណោះ)
+  // 3. បញ្ជូនទិន្នន័យចូលក្នុងមុខងារ ទទួលទំនិញចូលស្តុកពី Admin (Dispatches Sheet) របស់ស្ថានីយទទួល (រាល់ការបើកចេញទៅកាន់ស្ថានីយ)
   const destLocation = String(data.toLocation || '').trim();
   const isInternalHQ = destLocation.includes('机电') || destLocation.includes('អគ្គិសនី') || destLocation.includes('中心库房') || destLocation.includes('ឃ្លាំងស្តុកនៅចុងស៊ីង') || destLocation.includes('ចុងស៊ីង') || destLocation.includes('ចុងស៊ីន') || destLocation.includes('អតិថិជន') || destLocation.includes('ដកប្រើប្រាស់');
-  const uRole = String(u ? (u.role || '') : '').toLowerCase();
-  const uName = String(u ? (u.username || '') : '').toLowerCase();
-  const uEmail = String(u ? (u.email || '') : '').toLowerCase();
-  const isPrivilegedUser = u && (
-    uRole.includes('admin') || uRole.includes('superadmin') || uRole.includes('អភិបាល') ||
-    uName === 'admin' || uName === 'superadmin' || uName === 'singvan' || uEmail.includes('singvan')
-  );
-  const isStationDestination = isPrivilegedUser && destLocation && !isInternalHQ;
+  const isStationDestination = destLocation && !isInternalHQ;
   if (isStationDestination) {
     try {
       const dspSheet = ensureDispatchesSheet(ss);
       const nowDsp = new Date();
       const dObj = data.dispatch || (dataOrPayload && dataOrPayload.dispatch) || {};
       const dspId = dObj.dispatchId || ('DSP-' + Utilities.formatDate(nowDsp, 'GMT+7', 'yyyyMMdd') + '-' + Math.floor(1000 + Math.random() * 9000));
+      const canDestLocation = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(destLocation) : destLocation;
+      const cleanUserNote = cleanDisplayNoteGAS(data.userNote !== undefined ? data.userNote : (data.notes || ''));
       dspSheet.appendRow([
         dspId,
         data.docNo || '',
@@ -8195,7 +8196,7 @@ function recordStockOut(dataOrPayload, user) {
         unit,
         data.packUnit || 'ប្រអប់',
         location,
-        destLocation,
+        canDestLocation,
         data.issuer || (u ? (u.fullName || u.username) : 'Admin'),
         'PENDING',
         '',
@@ -8203,11 +8204,11 @@ function recordStockOut(dataOrPayload, user) {
         '',
         '',
         '',
-        finalNote,
+        (cleanUserNote && cleanUserNote !== '-') ? cleanUserNote : '-',
         nowDsp
       ]);
       setGlobalDataVersion();
-      CacheService.getScriptCache().removeAll(['GLOBAL_DATA_VERSION', 'TX_SHEETS_SYNC_ALL']);
+      CacheService.getScriptCache().removeAll(['GLOBAL_DATA_VERSION', 'TX_SHEETS_SYNC_ALL', 'TX_SHEETS_SYNC_STOCK_OUT']);
     } catch (errDsp) {
       Logger.log('Error auto-creating dispatch in recordStockOut: ' + errDsp.toString());
     }
@@ -13756,10 +13757,11 @@ function syncDispatchesFromStockOutGAS(optSs) {
     const dId = String(dspData[i][0] || '').trim();
     const docNo = String(dspData[i][1] || '').trim().toUpperCase();
     const sku = String(dspData[i][4] || '').trim().toLowerCase();
-    const toLoc = String(dspData[i][14] || '').trim().toLowerCase();
-    if (dId) existingDispatches.add(dId);
-    if (docNo && sku) existingDispatches.add(docNo + '_' + sku);
-    if (docNo && toLoc) existingDispatches.add(docNo + '_' + toLoc);
+    if (dId) existingDispatches.add(dId.toUpperCase());
+    if (docNo && sku) {
+      existingDispatches.add(docNo + '_' + sku);
+      existingDispatches.add(docNo + '_' + sku + '_' + String(dspData[i][8] || 0));
+    }
   }
 
   // Set of received Stock_in docNos/notes
@@ -13805,21 +13807,24 @@ function syncDispatchesFromStockOutGAS(optSs) {
       const toLoc = String(row[idxTo] || '').trim();
       const sku = String(row[idxSku] || '').trim();
 
-      const isInternalHQ = toLoc.includes('机电') || toLoc.includes('អគ្គិសនី') || toLoc.includes('中心库房') || toLoc.includes('ឃ្លាំងស្តុកនៅចុងស៊ីង') || toLoc.includes('ចុងស៊ីង') || toLoc.includes('ចុងស៊ីន');
+      const canToLoc = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(toLoc) : toLoc;
+      const isInternalHQ = canToLoc.includes('机电') || canToLoc.includes('អគ្គិសនី') || canToLoc.includes('中心库房') || canToLoc.includes('ឃ្លាំងស្តុកនៅចុងស៊ីង') || canToLoc.includes('ចុងស៊ីង') || canToLoc.includes('ចុងស៊ីន') || canToLoc.includes('អតិថិជន') || canToLoc.includes('ដកប្រើប្រាស់');
       if (isInternalHQ) continue;
 
-      const isStation = toLoc && !toLoc.includes('អតិថិជន') && !toLoc.includes('ដកប្រើប្រាស់') && (
-        toLoc.includes('ស្ថានីយ') || toLoc.includes('K3') || toLoc.includes('K26') || toLoc.includes('K43') ||
-        toLoc.includes('K76') || toLoc.includes('K114') || toLoc.includes('K135') || toLoc.includes('K172') || toLoc.includes('K182') || toLoc.includes('综合办')
+      const isStation = canToLoc && (
+        canToLoc.includes('ស្ថានីយ') || canToLoc.includes('K3') || canToLoc.includes('K26') || canToLoc.includes('K43') ||
+        canToLoc.includes('K76') || canToLoc.includes('K114') || canToLoc.includes('K135') || canToLoc.includes('K172') || canToLoc.includes('K182') || canToLoc.includes('综合办')
       );
       if (!isStation) continue;
 
       const sigKey = docNo + '_' + sku.toLowerCase();
-      if (existingDispatches.has(sigKey) || (docNo && existingDispatches.has(docNo + '_' + toLoc.toLowerCase()))) continue;
+      const sigKeyWithQty = docNo + '_' + sku.toLowerCase() + '_' + String(row[idxQty] || 0);
+      if (existingDispatches.has(sigKey) || existingDispatches.has(sigKeyWithQty)) continue;
 
       const dspId = 'DSP-' + (docNo ? docNo.replace(/[^A-Za-z0-9]/g, '') : Date.now()) + '-' + sku;
       if (deletedKeys.has(docNo) || deletedKeys.has(dspId.toUpperCase())) continue;
       existingDispatches.add(sigKey);
+      existingDispatches.add(sigKeyWithQty);
 
       let dDate = row[idxDate];
       let dDateStr = '';
@@ -13854,7 +13859,7 @@ function syncDispatchesFromStockOutGAS(optSs) {
         String(row[idxUnit] || 'ដើម').trim(),
         'ប្រអប់', // PackUnit
         fl,
-        toLoc,
+        canToLoc,
         String(row[idxUser] || 'Admin').trim(),
         isRcv ? 'RECEIVED' : 'PENDING',
         '', // ReceivedZone
@@ -13916,6 +13921,14 @@ function sanitizeDispatchesSheet(optSs) {
 }
 
 function getPendingDispatches(targetWarehouse) {
+  var cleanWh = '';
+  if (typeof targetWarehouse === 'string') {
+    cleanWh = targetWarehouse.trim();
+  } else if (targetWarehouse && typeof targetWarehouse === 'object') {
+    cleanWh = String(targetWarehouse.warehouse || targetWarehouse.toLocation || targetWarehouse.targetWarehouse || '').trim();
+  }
+  const wh = (cleanWh && cleanWh !== 'ALL' && cleanWh !== 'គ្រប់ស្ថានីយទាំងអស់' && cleanWh !== 'គ្រប់ឃ្លាំង' && cleanWh !== '[object Object]') ? cleanWh : null;
+
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ensureDispatchesSheet(ss);
 
@@ -13924,11 +13937,15 @@ function getPendingDispatches(targetWarehouse) {
     sanitizeDispatchesSheet(ss);
   } catch (eSan) { }
 
+  // Auto-sync any dispatches from Stock_out sheet so station users never miss a shipment!
+  try {
+    syncDispatchesFromStockOutGAS(ss);
+  } catch (eSync) { }
+
   const values = sheet.getDataRange().getValues();
   if (values.length <= 1) return { success: true, dispatches: [] };
 
   const dispatches = [];
-  const wh = (targetWarehouse && targetWarehouse !== 'ALL') ? String(targetWarehouse).trim() : null;
 
   for (let i = values.length - 1; i >= 1; i--) {
     const row = values[i];

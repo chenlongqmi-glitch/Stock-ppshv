@@ -19836,6 +19836,15 @@
         }
       }
 
+      if (tabName === 'incoming') {
+        if (typeof renderPendingIncomingDispatches === 'function') {
+          renderPendingIncomingDispatches();
+        }
+        if (typeof refreshPendingIncomingDispatches === 'function') {
+          refreshPendingIncomingDispatches();
+        }
+      }
+
       if (tabName === 'stockout') {
         if (typeof loadStockOutHistory === 'function') {
           loadStockOutHistory(false);
@@ -27849,7 +27858,7 @@
       const isSuperAdmin = (typeof isUserSuperAdmin === 'function' ? isUserSuperAdmin(u) : (u.role === 'SuperAdmin' || String(u.username).toLowerCase() === 'superadmin'));
       const isAdmin = (typeof isUserAdmin === 'function' ? isUserAdmin(u) : (u.role === 'Admin' || String(u.username).toLowerCase() === 'admin' || String(u.username).toLowerCase() === 'singvan327@gmail.com' || String(u.username).toLowerCase() === 'ppshv2024@gmail.com'));
       const isPrivileged = isSuperAdmin || isAdmin || (typeof isUserPrivilegedAdmin === 'function' && isUserPrivilegedAdmin(u));
-      const userWarehouse = u.warehouse || '';
+      const userWarehouse = (typeof getUserEffectiveStation === 'function' ? getUserEffectiveStation(u) : '') || (typeof getUserStationWarehouse === 'function' ? getUserStationWarehouse(u) : '') || u.warehouse || '';
 
       // កំណត់ទិន្នន័យបង្ហាញ៖ SuperAdmin និង Admin ទាំងពីរនាក់ អាចមើលឃើញរាល់ប្រតិបត្តិការទាំងអស់ ១០០% ដូចគ្នាទាំងស្រុង
       let userDispatches = allDispatches;
@@ -28320,7 +28329,7 @@
       const isSuperAdmin = isUserSuperAdmin(u);
       const isAdmin = isUserAdmin(u);
       const isPrivileged = isSuperAdmin || isAdmin;
-      const userWarehouse = u.warehouse || '';
+      const userWarehouse = (typeof getUserEffectiveStation === 'function' ? getUserEffectiveStation(u) : '') || (typeof getUserStationWarehouse === 'function' ? getUserStationWarehouse(u) : '') || u.warehouse || '';
 
       const navText = document.getElementById('navIncomingDispatchesText');
       if (navText) {
@@ -29279,6 +29288,8 @@
         newStock: remainingStock,
         fromLocation: payload.data.fromLocation,
         toLocation: toLocation,
+        warehouse: payload.data.fromLocation,
+        location: payload.data.fromLocation,
         issuer: issuer,
         reason: reason,
         notes: finalNotes
@@ -31608,9 +31619,23 @@
           const fromL = t.fromLocation || '';
           const toL = t.toLocation || '';
           const loc = t.location || t.warehouse || '';
-          return (typeof matchesTargetWarehouse === 'function')
-            ? (matchesTargetWarehouse(fromL, activeWh) || matchesTargetWarehouse(toL, activeWh) || matchesTargetWarehouse(loc, activeWh))
-            : (isSameWarehouse(fromL, activeWh) || isSameWarehouse(toL, activeWh) || isSameWarehouse(loc, activeWh));
+
+          // A warehouse's Stock Out history ONLY includes goods dispatched OUT from that warehouse!
+          // Dispatches where the station is the DESTINATION (toLocation) must NEVER appear in its Stock Out!
+          if (fromL) {
+            return (typeof matchesTargetWarehouse === 'function')
+              ? matchesTargetWarehouse(fromL, activeWh)
+              : isSameWarehouse(fromL, activeWh);
+          }
+
+          // Legacy fallback: if fromLocation is not recorded, match loc ONLY IF activeWh is NOT the destination toLocation!
+          const isDest = toL ? ((typeof matchesTargetWarehouse === 'function') ? matchesTargetWarehouse(toL, activeWh) : isSameWarehouse(toL, activeWh)) : false;
+          if (!isDest && loc) {
+            return (typeof matchesTargetWarehouse === 'function')
+              ? matchesTargetWarehouse(loc, activeWh)
+              : isSameWarehouse(loc, activeWh);
+          }
+          return false;
         });
       }
 
@@ -33887,8 +33912,8 @@
           unitPrice: it.unitPrice,
           fromLocation: fromLoc,
           toLocation: it.toLocation,
-          warehouse: it.toLocation,
-          location: it.toLocation,
+          warehouse: fromLoc,
+          location: fromLoc,
           issuer: it.issuer,
           reason: it.reason,
           user: AppState.currentUser?.username || it.issuer,
@@ -34002,33 +34027,36 @@
       // Send ATOMIC BATCH to Google Apps Script (Guaranteed atomic write, no dropped transactions)
       const batchOutPayload = {
         docNo: docNo,
-        items: itemsToProcess.map(it => ({
-          sku: it.sku,
-          code: it.itemCode,
-          itemName: it.itemName,
-          imageUrl: it.imageUrl,
-          size: it.size,
-          color: it.color,
-          zone: it.zone,
-          quantity: it.effectiveQty,
-          bulkQty: it.bulkQty,
-          retailQty: it.retailQty,
-          outUnitMode: (it.bulkQty > 0 && it.retailQty === 0) ? 'BULK' : 'RETAIL',
-          baseUnit: it.baseUnit,
-          packUnit: it.packUnit,
-          packQty: it.packQty,
-          oldStock: it.oldStock,
-          newStock: it.newStock,
-          unitPrice: it.unitPrice,
-          fromLocation: it.fromLocation || ((typeof determineStockOutFromLocation === 'function') ? determineStockOutFromLocation((AppState.items || []).find(i => i.sku === it.sku), AppState.currentUser, AppState.selectedAdminWarehouseFilter) : '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)'),
-          toLocation: it.toLocation,
-          warehouse: it.toLocation,
-          location: it.toLocation,
-          issuer: it.issuer,
-          reason: it.reason,
-          notes: it.notes,
-          userNote: it.notes
-        })),
+        items: itemsToProcess.map(it => {
+          const itemFromLoc = it.fromLocation || ((typeof determineStockOutFromLocation === 'function') ? determineStockOutFromLocation((AppState.items || []).find(i => i.sku === it.sku), AppState.currentUser, AppState.selectedAdminWarehouseFilter) : '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)');
+          return {
+            sku: it.sku,
+            code: it.itemCode,
+            itemName: it.itemName,
+            imageUrl: it.imageUrl,
+            size: it.size,
+            color: it.color,
+            zone: it.zone,
+            quantity: it.effectiveQty,
+            bulkQty: it.bulkQty,
+            retailQty: it.retailQty,
+            outUnitMode: (it.bulkQty > 0 && it.retailQty === 0) ? 'BULK' : 'RETAIL',
+            baseUnit: it.baseUnit,
+            packUnit: it.packUnit,
+            packQty: it.packQty,
+            oldStock: it.oldStock,
+            newStock: it.newStock,
+            unitPrice: it.unitPrice,
+            fromLocation: itemFromLoc,
+            toLocation: it.toLocation,
+            warehouse: itemFromLoc,
+            location: itemFromLoc,
+            issuer: it.issuer,
+            reason: it.reason,
+            notes: it.notes,
+            userNote: it.notes
+          };
+        }),
         dispatches: createdBatchDispatches,
         user: AppState.currentUser
       };
