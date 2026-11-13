@@ -13544,8 +13544,29 @@ function confirmStationReception(payload, user) {
     }
   } catch (eCheck) { }
 
-  // 1. Record Stock In
-  const inRes = recordStockIn(d, u);
+  // 1. Prepare Stock In Payload with actual received quantity
+  const actualQty = (d.receivedQuantity !== undefined && d.receivedQuantity !== null) ? Number(d.receivedQuantity) : Number(d.quantity || 0);
+  const stockInTx = payload.stockInTx || {
+    docNo: d.stockInDocNo || d.docNo,
+    sku: d.sku,
+    itemName: d.itemName,
+    quantity: actualQty,
+    bulkQty: (d.receivedBulkQty !== undefined && d.receivedBulkQty !== null) ? Number(d.receivedBulkQty) : (d.bulkQty || 0),
+    retailQty: (d.receivedRetailQty !== undefined && d.receivedRetailQty !== null) ? Number(d.receivedRetailQty) : (d.retailQty || 0),
+    unit: d.unit,
+    packUnit: d.packUnit,
+    packQty: d.packQty,
+    zone: d.receivedZone || d.zone || '',
+    warehouse: d.toLocation,
+    toLocation: d.toLocation,
+    fromLocation: d.fromLocation,
+    supplier: `Admin (${d.issuer || '中心库房 & 机电'})`,
+    receivedBy: u ? (u.fullName || u.username) : (d.receivedBy || 'Staff'),
+    notes: `[ទទួលពី Admin: ${d.masterDocNo || '-'}] ${d.receiverNotes || d.notes || ''}${d.discrepancy ? ` [គម្លាតខុសគ្នា: ផ្ញើ ${d.originalQuantity || d.quantity}, ទទួល ${actualQty}]` : ''}`
+  };
+
+  // Record Stock In atomically
+  const inRes = recordStockIn(stockInTx, u);
 
   // 2. Update status in Dispatches sheet if exists
   try {
@@ -13557,14 +13578,14 @@ function confirmStationReception(payload, user) {
           const row = i + 1;
           const status = d.discrepancy ? 'RECEIVED_WITH_DISCREPANCY' : 'RECEIVED';
           sheet.getRange(row, 17).setValue(status); // Status
-          sheet.getRange(row, 18).setValue(d.zone || d.receivedZone || ''); // ReceivedZone
-          sheet.getRange(row, 19).setValue(d.receivedQuantity !== undefined ? d.receivedQuantity : (d.quantity || d.receivedQty || 0)); // ReceivedQty
+          sheet.getRange(row, 18).setValue(d.zone || d.receivedZone || stockInTx.zone || ''); // ReceivedZone
+          sheet.getRange(row, 19).setValue(actualQty); // ReceivedQty (Actual)
           sheet.getRange(row, 20).setValue(u ? (u.fullName || u.username) : (d.receivedBy || 'Staff')); // ReceivedBy
           sheet.getRange(row, 21).setValue(new Date()); // ReceivedAt
-          if (d.stockInDocNo || d.docNo) sheet.getRange(row, 22).setValue(d.stockInDocNo || d.docNo); // StockInDocNo
+          if (d.stockInDocNo || stockInTx.docNo) sheet.getRange(row, 22).setValue(d.stockInDocNo || stockInTx.docNo); // StockInDocNo
           if (d.discrepancyNotes || d.receiverNotes) {
             const curNote = String(sheet.getRange(row, 23).getValue() || '');
-            const discrepancyTag = d.discrepancy ? `[DISCREPANCY: Sent ${d.originalQuantity || d.quantity}, Recv ${d.receivedQuantity}] ` : '';
+            const discrepancyTag = d.discrepancy ? `[DISCREPANCY: Sent ${d.originalQuantity || d.quantity}, Recv ${actualQty}] ` : '';
             const newNote = (curNote && curNote !== '-') ? (curNote + ' | ' + discrepancyTag + (d.discrepancyNotes || d.receiverNotes)) : (discrepancyTag + (d.discrepancyNotes || d.receiverNotes));
             sheet.getRange(row, 23).setValue(newNote);
           }
@@ -13580,7 +13601,7 @@ function confirmStationReception(payload, user) {
   try {
     if (d.discrepancy) {
       logActivity(u ? (u.fullName || u.username) : 'Staff', 'Staff', 'DISPATCH_DISCREPANCY',
-        `Discrepancy at ${d.toLocation}: Sent ${d.originalQuantity || d.quantity}, Received ${d.receivedQuantity} of ${d.itemName} (${d.sku}) [${d.masterDocNo}]`
+        `Discrepancy at ${d.toLocation}: Sent ${d.originalQuantity || d.quantity}, Received ${actualQty} of ${d.itemName} (${d.sku}) [${d.masterDocNo}]`
       );
     }
   } catch (eLog) { }

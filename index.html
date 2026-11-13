@@ -17080,6 +17080,22 @@
             }
           }, 300);
         }
+        // Alerts for Station Users & Central Managers on Login
+        const myWh = user.warehouse || '';
+        const isCentralWh = isSuperAdmin || isAdmin || myWh.includes('中心库房') || myWh.includes('机电');
+        if (!isCentralWh) {
+          setTimeout(() => {
+            if (typeof checkPendingDispatchesNotification === 'function') {
+              checkPendingDispatchesNotification();
+            }
+          }, 350);
+        } else {
+          setTimeout(() => {
+            if (typeof checkDiscrepanciesNotificationForManager === 'function') {
+              checkDiscrepanciesNotificationForManager();
+            }
+          }, 450);
+        }
       });
 
       // 4. Background Non-Blocking Cloud Synchronization
@@ -28264,17 +28280,7 @@
         return;
       }
 
-      // Mark discrepancy resolved on the dispatch record
-      if (LOCAL_DB.dispatches) {
-        const dsp = LOCAL_DB.dispatches.find(d => (d.masterDocNo === docNo || d.dispatchId === docNo) && (!sku || d.sku === sku));
-        if (dsp) {
-          dsp.discrepancyResolved = true;
-          saveLocalDispatchesToStorage();
-          if (typeof renderPendingIncomingDispatches === 'function') renderPendingIncomingDispatches();
-        }
-      }
-
-      // Open the edit modal with suggestedQty pre-filled
+      // Open the edit modal with suggestedQty pre-filled (discrepancyResolved is marked upon actual save)
       openEditStockOutModal(tx.txId, tx.docNo, tx);
 
       if (suggestedQty !== undefined && suggestedQty !== null) {
@@ -28669,6 +28675,7 @@
       dispatch.discrepancy = isDiscrepancy;
       dispatch.originalQuantity = originalDispatchedQty;
       dispatch.receivedQuantity = actualTotal;
+      dispatch.quantity = actualTotal; // keep dispatch quantity aligned with actual received count
       dispatch.discrepancyDiff = discrepancyDiff;
       dispatch.discrepancyNotes = notes;
       dispatch.discrepancyResolved = false;
@@ -28774,16 +28781,14 @@
         });
       }
 
-      // 7. Background API sync (record Stock In and update Dispatches table)
-      Promise.allSettled([
-        apiCall('recordStockIn', { data: newTx, user: AppState.currentUser }),
-        apiCall('confirmStationReception', { dispatch: dispatch, user: AppState.currentUser })
-      ]).then(() => {
-        if (typeof loadStockInHistory === 'function') loadStockInHistory();
-        if (typeof syncDispatchesWithOperations === 'function') syncDispatchesWithOperations();
-      }).catch(err => {
-        console.warn('Background sync reception error:', err);
-      });
+      // 7. Background API sync (single atomic call to record Stock In and update Dispatches table)
+      apiCall('confirmStationReception', { dispatch: dispatch, stockInTx: newTx, user: AppState.currentUser })
+        .then(() => {
+          if (typeof loadStockInHistory === 'function') loadStockInHistory();
+          if (typeof syncDispatchesWithOperations === 'function') syncDispatchesWithOperations();
+        }).catch(err => {
+          console.warn('Background sync reception error:', err);
+        });
 
       closeStationReceptionModal();
 
@@ -28852,14 +28857,15 @@
         return;
       }
 
-      // Track already notified dispatch IDs in sessionStorage to avoid repeated nagging
+      // Track already notified dispatch IDs in sessionStorage per user so ALL station users get alerted
+      const userKey = 'ppshv_alerted_dispatches_' + (u.userId || u.username);
       if (!window._alertedDispatchIds) {
         window._alertedDispatchIds = new Set();
-        try {
-          const stored = JSON.parse(sessionStorage.getItem('ppshv_alerted_dispatches') || '[]');
-          if (Array.isArray(stored)) stored.forEach(id => window._alertedDispatchIds.add(id));
-        } catch (e) { }
       }
+      try {
+        const stored = JSON.parse(sessionStorage.getItem(userKey) || '[]');
+        if (Array.isArray(stored)) stored.forEach(id => window._alertedDispatchIds.add(id));
+      } catch (e) { }
 
       const unalerted = pendingList.filter(d => d.dispatchId && !window._alertedDispatchIds.has(d.dispatchId));
       if (unalerted.length === 0) return;
@@ -28869,7 +28875,7 @@
         if (d.dispatchId) window._alertedDispatchIds.add(d.dispatchId);
       });
       try {
-        sessionStorage.setItem('ppshv_alerted_dispatches', JSON.stringify(Array.from(window._alertedDispatchIds)));
+        sessionStorage.setItem(userKey, JSON.stringify(Array.from(window._alertedDispatchIds)));
       } catch (e) { }
 
       // 🔊 Play Chime sound
@@ -28950,14 +28956,15 @@
 
       if (unresolvedDiscrepancies.length === 0) return;
 
-      // Track already notified discrepancy IDs in sessionStorage
+      // Track already notified discrepancy IDs in sessionStorage per user
+      const userKey = 'ppshv_alerted_discrepancies_' + (u.userId || u.username);
       if (!window._alertedDiscrepancyIds) {
         window._alertedDiscrepancyIds = new Set();
-        try {
-          const stored = JSON.parse(sessionStorage.getItem('ppshv_alerted_discrepancies') || '[]');
-          if (Array.isArray(stored)) stored.forEach(id => window._alertedDiscrepancyIds.add(id));
-        } catch (e) { }
       }
+      try {
+        const stored = JSON.parse(sessionStorage.getItem(userKey) || '[]');
+        if (Array.isArray(stored)) stored.forEach(id => window._alertedDiscrepancyIds.add(id));
+      } catch (e) { }
 
       const unalerted = unresolvedDiscrepancies.filter(d => d.dispatchId && !window._alertedDiscrepancyIds.has(d.dispatchId));
       if (unalerted.length === 0) return;
@@ -28967,7 +28974,7 @@
         if (d.dispatchId) window._alertedDiscrepancyIds.add(d.dispatchId);
       });
       try {
-        sessionStorage.setItem('ppshv_alerted_discrepancies', JSON.stringify(Array.from(window._alertedDiscrepancyIds)));
+        sessionStorage.setItem(userKey, JSON.stringify(Array.from(window._alertedDiscrepancyIds)));
       } catch (e) { }
 
       if (typeof playNotificationSound === 'function') {
@@ -33971,11 +33978,22 @@
       if (createdBatchDispatches.length > 0) {
         if (typeof saveLocalDispatchesToStorage === 'function') saveLocalDispatchesToStorage();
         if (typeof updateIncomingDispatchesBadge === 'function') updateIncomingDispatchesBadge();
+        const targetStation = createdBatchDispatches[0].toLocation;
+        const issuerName = createdBatchDispatches[0].issuer || 'Admin';
+        if (typeof addNotification === 'function') {
+          addNotification(
+            'STOCK_DISPATCH',
+            `📦 ទំនិញផ្ញើមកពី Admin (${docNo})`,
+            `Admin (${issuerName}) បានបើកចេញទំនិញចំនួន ${createdBatchDispatches.length} មុខ មកកាន់ ${targetStation}`,
+            targetStation,
+            issuerName
+          );
+        }
         if (typeof broadcastInventoryMutation === 'function') {
           broadcastInventoryMutation('BATCH_DISPATCH', {
             dispatches: createdBatchDispatches,
-            toLocation: createdBatchDispatches[0].toLocation,
-            issuer: createdBatchDispatches[0].issuer,
+            toLocation: targetStation,
+            issuer: issuerName,
             docNo: docNo
           });
         }
@@ -43598,11 +43616,11 @@
             if (!exists) {
               if (!LOCAL_DB.dispatches) LOCAL_DB.dispatches = [];
               LOCAL_DB.dispatches.unshift(d);
-              if (myWh && (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(d.toLocation, myWh) : isSameWarehouse(d.toLocation, myWh))) {
-                hasNewForMe = true;
-              }
             }
           });
+          if (myWh && msg.dispatches.some(d => (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(d.toLocation, myWh) : isSameWarehouse(d.toLocation, myWh)))) {
+            hasNewForMe = true;
+          }
           if (typeof saveLocalDispatchesToStorage === 'function') saveLocalDispatchesToStorage();
           if (typeof updateIncomingDispatchesBadge === 'function') updateIncomingDispatchesBadge(true);
           if (hasNewForMe && typeof playIncomingDispatchAlertSound === 'function') {
@@ -44609,6 +44627,16 @@
           }
         } else if (type === 'INCOMING_DISPATCH') {
           navigateTab('incoming');
+        } else if (type === 'DISPATCH_DISCREPANCY') {
+          if (targetUserId) {
+            if (typeof openEditStockOutByDocNo === 'function') {
+              openEditStockOutByDocNo(targetUserId, targetUsername);
+            } else {
+              navigateTab('stockout');
+            }
+          } else {
+            navigateTab('stockout');
+          }
         } else if (type === 'DISPATCH_RECEIVED_INFO') {
           navigateTab('incoming');
           if (typeof switchPendingDispatchesTab === 'function') switchPendingDispatchesTab('RECEIVED');
@@ -44696,6 +44724,33 @@
         });
       }
 
+      // ដំណឹងកែប្រែទិន្នន័យ (គម្លាតខុសចំនួន) ផ្ញើទៅកាន់អ្នកគ្រប់គ្រង (中心库房 & 机电)
+      const isCentralManager = isPrivileged || myWh.includes('中心库房') || myWh.includes('机电');
+      if (isCentralManager) {
+        const unresolvedDiscrepancies = (LOCAL_DB.dispatches || []).filter(d =>
+          d && (d.discrepancy || d.status === 'RECEIVED_WITH_DISCREPANCY') && !d.discrepancyResolved
+        );
+        unresolvedDiscrepancies.forEach(d => {
+          const notifId = 'dsp_disc_' + (d.dispatchId || d.masterDocNo || d.sku);
+          if (isNotificationDismissed(notifId)) return;
+          const origQty = d.originalQuantity || d.quantity;
+          const recvQty = d.receivedQuantity != null ? d.receivedQuantity : origQty;
+          const diff = d.discrepancyDiff != null ? d.discrepancyDiff : (recvQty - origQty);
+          const diffStr = diff > 0 ? `+${diff}` : `${diff}`;
+          filteredList.unshift({
+            id: notifId,
+            type: 'DISPATCH_DISCREPANCY',
+            title: `⚠️ គម្លាតខុសចំនួន: ${d.toLocation}`,
+            message: `ស្ថានីយ ${d.toLocation} បានកែប្រែទទួល ${d.itemName} ចំនួន ${recvQty}/${origQty} ${d.unit || 'ដើម'} (${diffStr})។ សូមកែប្រែទិន្នន័យចេញពីស្តុក!`,
+            time: d.receivedDateStr || d.date || 'ថ្មីៗ',
+            warehouse: d.toLocation,
+            user: d.receivedBy || 'Staff',
+            targetUserId: d.masterDocNo,
+            targetUsername: d.sku
+          });
+        });
+      }
+
       const listEl = document.getElementById('notifList');
       const badge = document.getElementById('notifBadge');
       if (badge) {
@@ -44717,6 +44772,7 @@
         const clickHandler = `onclick="handleNotificationItemClick('${safeType}', '${safeUserId}', '${safeUsername}')"`;
 
         const dotColor = (n.type === 'USER_DELETION_REQUEST') ? 'bg-rose-600 animate-ping' :
+          (n.type === 'DISPATCH_DISCREPANCY') ? 'bg-rose-600 animate-pulse' :
           (n.type === 'CALENDAR_NOTE_DUE') ? 'bg-rose-600 animate-ping' :
             (n.type === 'CALENDAR_NOTE_1DAY') ? 'bg-amber-500 animate-pulse' :
               (n.type === 'INCOMING_DISPATCH') ? 'bg-amber-500 animate-pulse' :
@@ -44728,6 +44784,7 @@
                           (n.type === 'USER_REGISTRATION') ? 'bg-amber-500 animate-pulse' : 'bg-blue-500';
 
         const actionText = (n.type === 'USER_REGISTRATION') ? 'ចុចពិនិត្យ & អនុម័ត ❯' :
+          (n.type === 'DISPATCH_DISCREPANCY') ? 'ចុចកែប្រែទិន្នន័យចេញពីស្តុក ❯' :
           (n.type === 'CALENDAR_NOTE_DUE' || n.type === 'CALENDAR_NOTE_1DAY') ? 'បើកមើលប្រតិទិន ❯' :
             (n.type === 'INCOMING_DISPATCH') ? 'ចុចទទួលចូលស្តុក ❯' :
               (n.type === 'DISPATCH_RECEIVED_INFO') ? 'មើលបញ្ជីបានទទួល ❯' :
