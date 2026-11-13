@@ -412,6 +412,7 @@
     #restockDamagedModal,
     #warehouseModal,
     #stationReceptionModal,
+    #marketRatesModal,
     #khmerCalendarModal {
       background-color: rgba(2, 6, 23, 0.72) !important;
       backdrop-filter: blur(14px) !important;
@@ -2259,6 +2260,46 @@
               id="activeSessionWarehouseName">...</span>
           </div>
 
+          <!-- LIVE MARKET RATES TICKER & WIDGET (សាំង/ម៉ាស៊ូត, ហាងឆេងមាស, អត្រាប្តូរប្រាក់ USD/KHR) -->
+          <div id="topMarketRatesWidget" onclick="openMarketRatesModal()"
+            class="hidden md:flex items-center gap-1.5 lg:gap-2.5 bg-white/10 hover:bg-white/20 px-2.5 sm:px-3 h-[30px] rounded-xl border border-white/20 backdrop-blur-md shadow-sm transition-all text-white text-xs cursor-pointer select-none group shrink-0 whitespace-nowrap hover:scale-[1.01] active:scale-[0.99]"
+            title="ចុចដើម្បីមើលព័ត៌មានលម្អិត និងកែប្រែហាងឆេងទីផ្សារ (Gasoline, Gold, Exchange Rate)">
+            <!-- 1. Fuel (សាំង & ម៉ាស៊ូត) -->
+            <div class="flex items-center gap-1 text-[11px] font-medium text-amber-200">
+              <i class="fa-solid fa-gas-pump text-amber-300 text-[10.5px]"></i>
+              <span class="text-blue-100/90 text-[10px] hidden xl:inline">សាំង:</span>
+              <span id="topBarRateGasoline" class="font-bold text-amber-300 font-mono text-[11px]">4,150៛</span>
+              <span class="text-white/30 mx-0.5">|</span>
+              <span class="text-blue-100/90 text-[10px] hidden xl:inline">ម៉ាស៊ូត:</span>
+              <span id="topBarRateDiesel" class="font-bold text-orange-300 font-mono text-[11px]">3,900៛</span>
+            </div>
+
+            <span class="w-1 h-1 rounded-full bg-white/30 hidden lg:inline-block"></span>
+
+            <!-- 2. Gold (ហាងឆេងមាស ព្រឹក/ល្ងាច) -->
+            <div class="hidden lg:flex items-center gap-1 text-[11px] font-medium text-yellow-300">
+              <i class="fa-solid fa-coins text-yellow-300 text-[10.5px]"></i>
+              <span class="text-blue-100/90 text-[10px] hidden xl:inline">មាស:</span>
+              <span id="topBarRateGold" class="font-bold text-yellow-200 font-mono text-[11px]">$4,714/តម្លឹង</span>
+              <span id="topBarGoldTimeTag" class="text-[9px] px-1 py-0.2 rounded bg-amber-400/20 text-amber-200 border border-amber-300/30 font-bold hidden xl:inline">ព្រឹក</span>
+            </div>
+
+            <span class="w-1 h-1 rounded-full bg-white/30 hidden sm:inline-block"></span>
+
+            <!-- 3. Exchange Rate (USD ➔ KHR) -->
+            <div class="flex items-center gap-1 text-[11px] font-medium text-emerald-300">
+              <i class="fa-solid fa-dollar-sign text-emerald-300 text-[10.5px]"></i>
+              <span class="text-blue-100/90 text-[10px] hidden xl:inline">ដុល្លារ:</span>
+              <span class="font-mono text-[10px] text-emerald-200 font-medium">1$ =</span>
+              <span id="topBarRateUsdKhr" class="font-bold text-emerald-300 font-mono text-[11px]">4,065៛</span>
+            </div>
+
+            <!-- Detail Indicator Arrow -->
+            <span class="w-3.5 h-3.5 rounded-full bg-white/10 group-hover:bg-white/25 flex items-center justify-center text-[8.5px] text-blue-200 group-hover:text-amber-300 transition-colors ml-0.5">
+              <i class="fa-solid fa-chevron-right text-[8px]"></i>
+            </span>
+          </div>
+
           <!-- Live Clock & Date Badge for SuperAdmin and Admin (រូបភាពទី 1 នៅខាងឆ្វេងដៃនៃរូបភាពទី 2) -->
           <div id="sessionBannerClockDateBtn" onclick="toggleKhmerCalendarModal()"
             class="hidden items-center space-x-1.5 bg-white/10 hover:bg-white/20 px-2.5 h-[30px] rounded-xl border border-white/20 backdrop-blur-md shadow-sm transition-colors text-white text-xs cursor-pointer select-none group shrink-0 whitespace-nowrap"
@@ -2787,6 +2828,13 @@
               <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
               <span class="relative inline-flex rounded-full h-2 w-2 bg-rose-500 border border-white"></span>
             </span>
+          </button>
+
+          <!-- Mobile Market Rates Button -->
+          <button id="mobileMarketRatesBtn" onclick="openMarketRatesModal()"
+            class="relative md:hidden flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-white border border-emerald-300/60 shadow-xs shadow-emerald-500/30 transition-all active:scale-95 shrink-0"
+            title="ហាងឆេងទីផ្សារ (សាំង, មាស, អត្រាប្តូរប្រាក់)">
+            <i class="fa-solid fa-chart-line text-xs"></i>
           </button>
 
           <!-- Mobile Screen Zoom Controls (Zoom In / Zoom Out on Mobile Phones) -->
@@ -8853,6 +8901,263 @@
   </div>
 
   <!-- ========================================================================= -->
+  <!-- LIVE MARKET RATES MODAL (ផ្ទាំងតាមដានហាងឆេងទីផ្សារប្រចាំថ្ងៃ)               -->
+  <!-- តម្លៃសាំង & ម៉ាស៊ូត (ក្រសួងពាណិជ្ជកម្ម) | ហាងឆេងមាស (ព្រឹក-ល្ងាច) | ដុល្លារ-រៀល   -->
+  <!-- ========================================================================= -->
+  <div id="marketRatesModal" onclick="if(isSafeModalBackdropClick(event)) closeMarketRatesModal()"
+    class="hidden fixed inset-0 z-[500] w-screen h-screen overflow-y-auto bg-slate-950/75 backdrop-blur-md app-modal-backdrop flex items-center justify-center p-3 sm:p-5 m-0 select-none">
+    <div class="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-200/90 overflow-hidden flex flex-col my-auto transition-transform duration-200"
+      onclick="event.stopPropagation()">
+
+      <!-- Header -->
+      <div class="px-5 py-3.5 bg-gradient-to-r from-blue-700 via-indigo-700 to-slate-900 text-white flex items-center justify-between shadow-xs">
+        <div class="flex items-center space-x-3">
+          <div class="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-amber-300 shadow-inner">
+            <i class="fa-solid fa-chart-line text-base"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-sm sm:text-base leading-tight flex items-center gap-2">
+              <span>ហាងឆេងទីផ្សារប្រចាំថ្ងៃ (Live Market Rates)</span>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/30 text-emerald-300 border border-emerald-400/30">Live Sync</span>
+            </h3>
+            <p class="text-[11px] text-blue-200/90 mt-0.5">តម្លៃប្រេងឥន្ធនៈ (MoC) • ហាងឆេងមាស (ព្រឹក & ល្ងាច) • អត្រាប្តូរប្រាក់ USD ➔ KHR</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeMarketRatesModal()"
+          class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition active:scale-95 cursor-pointer"
+          title="បិទផ្ទាំងនេះ">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+
+      <!-- Body Container -->
+      <div class="p-4 sm:p-5 space-y-4 max-h-[82vh] overflow-y-auto custom-scrollbar bg-slate-50/50">
+
+        <!-- CARD 1: តម្លៃប្រេងឥន្ធនៈ (Fuel Prices - ក្រសួងពាណិជ្ជកម្ម MoC) -->
+        <div class="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-xs relative overflow-hidden">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+            <div class="flex items-center space-x-2.5">
+              <span class="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center text-xs">
+                <i class="fa-solid fa-gas-pump"></i>
+              </span>
+              <div>
+                <h4 class="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-2">
+                  <span>តម្លៃប្រេងឥន្ធនៈលក់រាយ (Fuel Retail Price)</span>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200" id="fuelEffectiveBadge">ក្រសួងពាណិជ្ជកម្ម</span>
+                </h4>
+                <p class="text-[10.5px] text-slate-500 mt-0.5">កំណត់តម្លៃពិដានរៀងរាល់ ១០ ថ្ងៃម្តង (1st, 11th, 21st) ដោយក្រសួងពាណិជ្ជកម្ម</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <button type="button" onclick="openEditFuelRatesDialog()"
+                class="px-2.5 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 font-bold text-[11px] flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
+                title="កែប្រែ ឬ Update តម្លៃសាំងពេលមានសេចក្តីជូនដំណឹងថ្មី">
+                <i class="fa-solid fa-pen-to-square text-[10.5px] text-amber-600"></i>
+                <span>Update តម្លៃសាំង</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Fuel Tiles Grid -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3">
+            <!-- Regular Gasoline -->
+            <div class="p-3.5 rounded-xl bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-transparent border border-amber-200/80 flex items-center justify-between">
+              <div>
+                <span class="text-[10px] font-bold text-amber-800 uppercase tracking-wide flex items-center gap-1">
+                  <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                  សាំងធម្មតា (Regular EA92)
+                </span>
+                <div class="flex items-baseline gap-1 mt-1">
+                  <span id="modalFuelGasolinePrice" class="text-xl sm:text-2xl font-black text-amber-950 font-mono">4,150</span>
+                  <span class="text-xs font-bold text-amber-800">៛ / លីត្រ</span>
+                </div>
+                <span class="text-[10px] text-slate-500 font-mono mt-0.5 block" id="modalFuelGasolineUsd">≈ $1.02 / L</span>
+              </div>
+              <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center text-lg shadow-sm">
+                <i class="fa-solid fa-gas-pump"></i>
+              </div>
+            </div>
+
+            <!-- Diesel -->
+            <div class="p-3.5 rounded-xl bg-gradient-to-br from-orange-500/10 via-amber-500/5 to-transparent border border-orange-200/80 flex items-center justify-between">
+              <div>
+                <span class="text-[10px] font-bold text-orange-800 uppercase tracking-wide flex items-center gap-1">
+                  <span class="w-2 h-2 rounded-full bg-orange-600"></span>
+                  ប្រេងម៉ាស៊ូត (Diesel 50ppm)
+                </span>
+                <div class="flex items-baseline gap-1 mt-1">
+                  <span id="modalFuelDieselPrice" class="text-xl sm:text-2xl font-black text-orange-950 font-mono">3,900</span>
+                  <span class="text-xs font-bold text-orange-800">៛ / លីត្រ</span>
+                </div>
+                <span class="text-[10px] text-slate-500 font-mono mt-0.5 block" id="modalFuelDieselUsd">≈ $0.96 / L</span>
+              </div>
+              <div class="w-10 h-10 rounded-xl bg-orange-600 text-white flex items-center justify-center text-lg shadow-sm">
+                <i class="fa-solid fa-oil-can"></i>
+              </div>
+            </div>
+          </div>
+          <div class="mt-2.5 flex items-center justify-between text-[10.5px] text-slate-400 font-medium pt-2 border-t border-slate-100">
+            <span>📅 សុពលភាពអនុវត្ត៖ <b id="modalFuelEffectiveDate" class="text-slate-700">11 - 20 វិច្ឆិកា 2026</b></span>
+            <span>Update ចុងក្រោយ៖ <span id="modalFuelLastUpdate" class="font-mono text-slate-600">ទាន់ពេលវេលា</span></span>
+          </div>
+        </div>
+
+        <!-- CARD 2: ហាងឆេងមាស (Gold Rates - ព្រឹក & ល្ងាច) -->
+        <div class="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-xs relative overflow-hidden">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+            <div class="flex items-center space-x-2.5">
+              <span class="w-7 h-7 rounded-lg bg-yellow-50 text-yellow-600 flex items-center justify-center text-xs">
+                <i class="fa-solid fa-coins"></i>
+              </span>
+              <div>
+                <h4 class="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-2">
+                  <span>ហាងឆេងមាស (Gold Price - ព្រឹក & ល្ងាច)</span>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-yellow-100 text-yellow-800 border border-yellow-200">2 ដង/ថ្ងៃ</span>
+                </h4>
+                <p class="text-[10.5px] text-slate-500 mt-0.5">Update ពេលព្រឹក (08:00 AM) ម្តង និងពេលល្ងាច (05:00 PM) ម្តង</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <button type="button" onclick="refreshLiveGoldRate(true)"
+                class="px-2.5 py-1.5 rounded-xl bg-yellow-50 hover:bg-yellow-100 text-yellow-800 border border-yellow-200 font-bold text-[11px] flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
+                title="ទាញយកតម្លៃមាសស្រស់ពី Live Spot">
+                <i class="fa-solid fa-rotate text-[10.5px] text-yellow-600" id="goldRefreshSpinner"></i>
+                <span>ទាញយកតម្លៃស្រស់</span>
+              </button>
+              <button type="button" onclick="openEditGoldRatesDialog()"
+                class="px-2.5 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 font-bold text-[11px] flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
+                title="កែសម្រួលតម្លៃមាសផ្ទាល់">
+                <i class="fa-solid fa-sliders text-[10.5px]"></i>
+                <span>កែប្រែ</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Morning vs Evening Comparison Tiles -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3">
+            <!-- Morning Tile -->
+            <div class="p-3.5 rounded-xl bg-gradient-to-br from-amber-50 to-yellow-50/50 border border-amber-200/80">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-black text-amber-900 flex items-center gap-1.5">
+                  <i class="fa-solid fa-sun text-amber-500"></i>
+                  <span>តម្លៃពេលព្រឹក (Morning)</span>
+                </span>
+                <span class="text-[10px] px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 font-mono font-bold" id="goldMorningTimeTag">08:00 AM</span>
+              </div>
+              <div class="mt-2.5 space-y-1.5">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-slate-600 font-medium">១ តម្លឹង (1 Damlung):</span>
+                  <span id="goldMorningDamlung" class="font-mono font-black text-amber-950 text-sm sm:text-base">$4,714.00</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-slate-600 font-medium">១ ជី (1 Chi):</span>
+                  <span id="goldMorningChi" class="font-mono font-bold text-amber-800 text-xs sm:text-sm">$471.40</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Evening Tile -->
+            <div class="p-3.5 rounded-xl bg-gradient-to-br from-indigo-50 to-blue-50/50 border border-indigo-200/80">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-black text-indigo-900 flex items-center gap-1.5">
+                  <i class="fa-solid fa-moon text-indigo-500"></i>
+                  <span>តម្លៃពេលល្ងាច (Evening)</span>
+                </span>
+                <span class="text-[10px] px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 font-mono font-bold" id="goldEveningTimeTag">05:00 PM</span>
+              </div>
+              <div class="mt-2.5 space-y-1.5">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-slate-600 font-medium">១ តម្លឹង (1 Damlung):</span>
+                  <span id="goldEveningDamlung" class="font-mono font-black text-indigo-950 text-sm sm:text-base">$4,718.00</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-slate-600 font-medium">១ ជី (1 Chi):</span>
+                  <span id="goldEveningChi" class="font-mono font-bold text-indigo-800 text-xs sm:text-sm">$471.80</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-2.5 flex flex-wrap items-center justify-between text-[10.5px] text-slate-500 pt-2 border-t border-slate-100 gap-2">
+            <span>⚡ មាសអន្តរជាតិ Spot (XAU/USD): <b id="modalGoldSpotPrice" class="font-mono text-slate-700">$3,910.10 / Ounce</b></span>
+            <span>Update ចុងក្រោយ៖ <span id="modalGoldLastUpdate" class="font-mono text-slate-600">មុននេះបន្តិច</span></span>
+          </div>
+        </div>
+
+        <!-- CARD 3: អត្រាប្តូរប្រាក់ (USD ➔ KHR Live Rate & Quick Converter) -->
+        <div class="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-xs relative overflow-hidden">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+            <div class="flex items-center space-x-2.5">
+              <span class="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-xs">
+                <i class="fa-solid fa-dollar-sign"></i>
+              </span>
+              <div>
+                <h4 class="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-2">
+                  <span>អត្រាប្តូរប្រាក់ដុល្លារ ➔ រៀល (USD to KHR)</span>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>Update គ្រប់ពេល</span>
+                  </span>
+                </h4>
+                <p class="text-[10.5px] text-slate-500 mt-0.5">ភ្ជាប់ API ផ្ទាល់តាមដានតម្លៃប្តូរប្រាក់ជាក់ស្តែង (Real-Time Live Sync)</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <button type="button" onclick="refreshLiveExchangeRate(true)"
+                class="px-2.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-[11px] flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
+                title="ទាញយកអត្រាប្តូរប្រាក់ស្រស់ភ្លាមៗ">
+                <i class="fa-solid fa-rotate text-[10.5px] text-emerald-600" id="exchangeRefreshSpinner"></i>
+                <span>Refresh ឥឡូវនេះ</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Highlight Rate Tile -->
+          <div class="pt-3 flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-xl bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-transparent border border-emerald-200/80">
+            <div class="flex items-baseline gap-2">
+              <span class="text-sm font-bold text-emerald-950 font-mono">1 USD ($)</span>
+              <span class="text-xs text-slate-400">=</span>
+              <span id="modalUsdKhrRateBig" class="text-2xl sm:text-3xl font-black text-emerald-700 font-mono">4,065.80</span>
+              <span class="text-sm font-bold text-emerald-900">៛ (KHR)</span>
+            </div>
+            <span class="text-[10.5px] text-slate-500 font-mono" id="modalExchangeLastUpdate">បាន Update: មុននេះបន្តិច</span>
+          </div>
+
+          <!-- Quick Currency Calculator -->
+          <div class="mt-3 p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+            <span class="text-[11px] font-bold text-slate-700 block mb-2">🧮 ម៉ាស៊ីនគណនាប្តូរប្រាក់រហ័ស (Quick Currency Converter)</span>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div class="flex items-center bg-white border border-slate-200 rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-emerald-500">
+                <span class="text-xs font-bold text-slate-500 mr-2">$</span>
+                <input type="number" id="calcInputUsd" value="100" min="0" step="any"
+                  oninput="handleCurrencyCalc('USD')"
+                  class="w-full text-xs font-mono font-bold text-slate-800 outline-none bg-transparent" placeholder="ចំនួនទឹកប្រាក់ USD">
+              </div>
+              <div class="flex items-center bg-white border border-slate-200 rounded-xl px-3 py-1.5 focus-within:ring-2 focus-within:ring-emerald-500">
+                <span class="text-xs font-bold text-slate-500 mr-2">៛</span>
+                <input type="number" id="calcInputKhr" value="406580" min="0" step="any"
+                  oninput="handleCurrencyCalc('KHR')"
+                  class="w-full text-xs font-mono font-bold text-slate-800 outline-none bg-transparent" placeholder="ចំនួនទឹកប្រាក់ រៀល">
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="px-5 py-3 bg-slate-100 border-t border-slate-200 flex items-center justify-between">
+        <span class="text-[11px] text-slate-500">ប្រភព៖ ក្រសួងពាណិជ្ជកម្មកម្ពុជា • Spot Gold • Open Exchange Rates</span>
+        <button type="button" onclick="closeMarketRatesModal()"
+          class="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold transition active:scale-95 cursor-pointer">
+          បិទ
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
   <!-- KHMER LUNAR CALENDAR MODAL (ប្រតិទិនចន្ទគតិខ្មែរ)                           -->
   <!-- Inspired by khmer-lunar-calendar.com (Clean, Compact, Buddhist Era & Holidays) -->
   <!-- ========================================================================= -->
@@ -13817,6 +14122,497 @@
     window.calSelectDate = calSelectDate;
     window.calCopySelectedDate = calCopySelectedDate;
     window.renderKhmerHolidaysList = renderKhmerHolidaysList;
+
+    // =========================================================================
+    // LIVE MARKET RATES ENGINE (សាំង & ម៉ាស៊ូត, ហាងឆេងមាស ព្រឹក-ល្ងាច, អត្រាប្តូរប្រាក់)
+    // =========================================================================
+    const MARKET_RATES_KEY = 'inventory_market_rates';
+    const DEFAULT_MARKET_RATES = {
+      fuel: {
+        gasoline: 4150,     // សាំងធម្មតា (EA92) ៛/L
+        diesel: 3900,       // ម៉ាស៊ូត ៛/L
+        super: 4650,        // សាំងស៊ុបពែរ (EA95) ៛/L
+        effectiveDate: '11 - 20 វិច្ឆិកា 2026',
+        updatedAt: '2026-11-13 08:00:00',
+        source: 'ក្រសួងពាណិជ្ជកម្ម (MoC)'
+      },
+      gold: {
+        morning: {
+          pricePerOunce: 3910.10,
+          pricePerDamlung: 4714.20,
+          pricePerChi: 471.42,
+          time: '08:00 AM',
+          date: '2026-11-13'
+        },
+        evening: {
+          pricePerOunce: 3915.50,
+          pricePerDamlung: 4720.70,
+          pricePerChi: 472.07,
+          time: '05:00 PM',
+          date: '2026-11-12'
+        },
+        current: {
+          pricePerOunce: 3910.10,
+          pricePerDamlung: 4714.20,
+          pricePerChi: 471.42,
+          updatedAt: '2026-11-13 09:00:00'
+        }
+      },
+      exchange: {
+        usdToKhr: 4065.80,
+        updatedAt: '2026-11-13 09:25:00',
+        source: 'open.er-api.com'
+      }
+    };
+
+    function getLocalMarketRates() {
+      try {
+        const raw = localStorage.getItem(MARKET_RATES_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          return {
+            fuel: Object.assign({}, DEFAULT_MARKET_RATES.fuel, parsed.fuel || {}),
+            gold: Object.assign({}, DEFAULT_MARKET_RATES.gold, parsed.gold || {}),
+            exchange: Object.assign({}, DEFAULT_MARKET_RATES.exchange, parsed.exchange || {})
+          };
+        }
+      } catch (e) { }
+      return JSON.parse(JSON.stringify(DEFAULT_MARKET_RATES));
+    }
+
+    function saveLocalMarketRates(rates) {
+      try {
+        localStorage.setItem(MARKET_RATES_KEY, JSON.stringify(rates));
+      } catch (e) { }
+      updateTopBarRatesUI(rates);
+      renderMarketRatesModal(rates);
+    }
+
+    function formatCambodiaDate(d = new Date()) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+
+    function updateTopBarRatesUI(optRates) {
+      const rates = optRates || getLocalMarketRates();
+      // 1. Fuel
+      const gasEl = document.getElementById('topBarRateGasoline');
+      const dslEl = document.getElementById('topBarRateDiesel');
+      if (gasEl) gasEl.innerText = `${Number(rates.fuel.gasoline || 4150).toLocaleString()}៛`;
+      if (dslEl) dslEl.innerText = `${Number(rates.fuel.diesel || 3900).toLocaleString()}៛`;
+
+      // 2. Gold
+      const goldEl = document.getElementById('topBarRateGold');
+      const tagEl = document.getElementById('topBarGoldTimeTag');
+      const hour = new Date().getHours();
+      const isEvening = hour >= 12;
+      const goldObj = isEvening ? (rates.gold.evening || rates.gold.current) : (rates.gold.morning || rates.gold.current);
+      if (goldEl) {
+        const damlungPrice = goldObj.pricePerDamlung || rates.gold.current.pricePerDamlung || 4714;
+        goldEl.innerText = `$${Math.round(damlungPrice).toLocaleString()}/តម្លឹង`;
+      }
+      if (tagEl) {
+        tagEl.innerText = isEvening ? 'ល្ងាច' : 'ព្រឹក';
+      }
+
+      // 3. Exchange Rate
+      const exEl = document.getElementById('topBarRateUsdKhr');
+      if (exEl) {
+        const khr = Number(rates.exchange.usdToKhr || 4065.8).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 1 });
+        exEl.innerText = `${khr}៛`;
+      }
+    }
+
+    async function fetchLiveExchangeRate(silent = true) {
+      const spinner = document.getElementById('exchangeRefreshSpinner');
+      if (spinner) spinner.classList.add('fa-spin');
+      try {
+        const res = await fetch('https://open.er-api.com/v6/latest/USD', { cache: 'no-cache' });
+        if (res.ok) {
+          const data = await res.json();
+          const khr = data?.rates?.KHR;
+          if (khr && khr > 3500 && khr < 4500) {
+            const rates = getLocalMarketRates();
+            rates.exchange.usdToKhr = Math.round(khr * 100) / 100;
+            rates.exchange.updatedAt = new Date().toISOString();
+            rates.exchange.source = 'open.er-api.com (Live)';
+            saveLocalMarketRates(rates);
+            if (!silent && typeof Swal !== 'undefined') {
+              Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: `អត្រាប្តូរប្រាក់ស្រស់: 1$ = ${rates.exchange.usdToKhr}៛`,
+                showConfirmButton: false,
+                timer: 2000
+              });
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[MarketRates] Exchange API fetch notice:', e);
+      } finally {
+        if (spinner) spinner.classList.remove('fa-spin');
+      }
+    }
+
+    async function fetchLiveGoldRate(silent = true) {
+      const spinner = document.getElementById('goldRefreshSpinner');
+      if (spinner) spinner.classList.add('fa-spin');
+      try {
+        const res = await fetch('https://api.gold-api.com/price/XAU', { cache: 'no-cache' });
+        if (res.ok) {
+          const data = await res.json();
+          const ouncePrice = Number(data?.price);
+          if (ouncePrice && ouncePrice > 1000 && ouncePrice < 10000) {
+            const rates = getLocalMarketRates();
+            const damlungPrice = Math.round((ouncePrice * 1.205653) * 100) / 100;
+            const chiPrice = Math.round((damlungPrice / 10) * 100) / 100;
+            const now = new Date();
+            const hour = now.getHours();
+            const todayStr = formatCambodiaDate(now);
+            const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+
+            rates.gold.current = {
+              pricePerOunce: ouncePrice,
+              pricePerDamlung: damlungPrice,
+              pricePerChi: chiPrice,
+              updatedAt: now.toISOString()
+            };
+
+            // Morning update snapshot (00:00 - 11:59)
+            if (hour < 12) {
+              rates.gold.morning = {
+                pricePerOunce: ouncePrice,
+                pricePerDamlung: damlungPrice,
+                pricePerChi: chiPrice,
+                time: timeStr,
+                date: todayStr
+              };
+            } else {
+              // Evening update snapshot (12:00 - 23:59)
+              rates.gold.evening = {
+                pricePerOunce: ouncePrice,
+                pricePerDamlung: damlungPrice,
+                pricePerChi: chiPrice,
+                time: timeStr,
+                date: todayStr
+              };
+            }
+
+            saveLocalMarketRates(rates);
+            if (!silent && typeof Swal !== 'undefined') {
+              Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: `ហាងឆេងមាសស្រស់: $${damlungPrice.toLocaleString()}/តម្លឹង`,
+                showConfirmButton: false,
+                timer: 2000
+              });
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[MarketRates] Gold API fetch notice:', e);
+      } finally {
+        if (spinner) spinner.classList.remove('fa-spin');
+      }
+    }
+
+    function renderMarketRatesModal(optRates) {
+      const rates = optRates || getLocalMarketRates();
+      const modal = document.getElementById('marketRatesModal');
+      if (!modal) return;
+
+      // 1. Fuel Card Values
+      const fGas = document.getElementById('modalFuelGasolinePrice');
+      const fDsl = document.getElementById('modalFuelDieselPrice');
+      const fGasUsd = document.getElementById('modalFuelGasolineUsd');
+      const fDslUsd = document.getElementById('modalFuelDieselUsd');
+      const fEff = document.getElementById('modalFuelEffectiveDate');
+      const fLast = document.getElementById('modalFuelLastUpdate');
+
+      const khrRate = rates.exchange.usdToKhr || 4065;
+      if (fGas) fGas.innerText = Number(rates.fuel.gasoline || 4150).toLocaleString();
+      if (fDsl) fDsl.innerText = Number(rates.fuel.diesel || 3900).toLocaleString();
+      if (fGasUsd) fGasUsd.innerText = `≈ $${(Number(rates.fuel.gasoline || 4150) / khrRate).toFixed(2)} / L`;
+      if (fDslUsd) fDslUsd.innerText = `≈ $${(Number(rates.fuel.diesel || 3900) / khrRate).toFixed(2)} / L`;
+      if (fEff) fEff.innerText = rates.fuel.effectiveDate || '11 - 20 វិច្ឆិកា 2026';
+      if (fLast) {
+        const d = rates.fuel.updatedAt ? new Date(rates.fuel.updatedAt) : new Date();
+        fLast.innerText = isNaN(d) ? 'ទាន់ពេលវេលា' : `${d.toLocaleDateString('km-KH')} ${d.toLocaleTimeString('km-KH', { hour: '2-digit', minute: '2-digit' })}`;
+      }
+
+      // 2. Gold Card Values
+      const gmD = document.getElementById('goldMorningDamlung');
+      const gmC = document.getElementById('goldMorningChi');
+      const gmT = document.getElementById('goldMorningTimeTag');
+      const geD = document.getElementById('goldEveningDamlung');
+      const geC = document.getElementById('goldEveningChi');
+      const geT = document.getElementById('goldEveningTimeTag');
+      const gSpot = document.getElementById('modalGoldSpotPrice');
+      const gLast = document.getElementById('modalGoldLastUpdate');
+
+      if (gmD) gmD.innerText = `$${Number(rates.gold.morning.pricePerDamlung || 4714).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      if (gmC) gmC.innerText = `$${Number(rates.gold.morning.pricePerChi || 471.4).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      if (gmT) gmT.innerText = `${rates.gold.morning.time || '08:00 AM'}${rates.gold.morning.date ? ` (${rates.gold.morning.date})` : ''}`;
+
+      if (geD) geD.innerText = `$${Number(rates.gold.evening.pricePerDamlung || 4718).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      if (geC) geC.innerText = `$${Number(rates.gold.evening.pricePerChi || 471.8).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      if (geT) geT.innerText = `${rates.gold.evening.time || '05:00 PM'}${rates.gold.evening.date ? ` (${rates.gold.evening.date})` : ''}`;
+
+      if (gSpot) gSpot.innerText = `$${Number(rates.gold.current.pricePerOunce || 3910.1).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / Ounce`;
+      if (gLast) {
+        const d = rates.gold.current.updatedAt ? new Date(rates.gold.current.updatedAt) : new Date();
+        gLast.innerText = isNaN(d) ? 'មុននេះបន្តិច' : `${d.toLocaleTimeString('km-KH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+      }
+
+      // 3. Exchange Rate Card Values
+      const exBig = document.getElementById('modalUsdKhrRateBig');
+      const exLast = document.getElementById('modalExchangeLastUpdate');
+      if (exBig) exBig.innerText = Number(rates.exchange.usdToKhr || 4065.8).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      if (exLast) {
+        const d = rates.exchange.updatedAt ? new Date(rates.exchange.updatedAt) : new Date();
+        exLast.innerText = isNaN(d) ? 'បាន Update: មុននេះបន្តិច' : `បាន Update: ${d.toLocaleTimeString('km-KH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+      }
+
+      handleCurrencyCalc('USD');
+    }
+
+    function handleCurrencyCalc(source) {
+      const rates = getLocalMarketRates();
+      const rate = rates.exchange.usdToKhr || 4065.8;
+      const usdIn = document.getElementById('calcInputUsd');
+      const khrIn = document.getElementById('calcInputKhr');
+      if (!usdIn || !khrIn) return;
+
+      if (source === 'USD') {
+        const val = parseFloat(usdIn.value);
+        if (isNaN(val) || val < 0) {
+          khrIn.value = '';
+        } else {
+          khrIn.value = Math.round(val * rate);
+        }
+      } else {
+        const val = parseFloat(khrIn.value);
+        if (isNaN(val) || val < 0) {
+          usdIn.value = '';
+        } else {
+          usdIn.value = (val / rate).toFixed(2);
+        }
+      }
+    }
+
+    function openMarketRatesModal() {
+      const modal = document.getElementById('marketRatesModal');
+      if (!modal) return;
+      renderMarketRatesModal();
+      modal.classList.remove('hidden');
+      modal.style.display = 'flex';
+      fetchLiveExchangeRate(true);
+      fetchLiveGoldRate(true);
+    }
+
+    function closeMarketRatesModal() {
+      const modal = document.getElementById('marketRatesModal');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.style.display = 'none';
+      }
+    }
+
+    async function openEditFuelRatesDialog() {
+      const rates = getLocalMarketRates();
+      const curGas = rates.fuel.gasoline || 4150;
+      const curDsl = rates.fuel.diesel || 3900;
+      const curSup = rates.fuel.super || 4650;
+      const curEff = rates.fuel.effectiveDate || '11 - 20 វិច្ឆិកា 2026';
+
+      const { value: formValues } = await Swal.fire({
+        title: '<div class="flex items-center justify-center gap-2 text-amber-600"><i class="fa-solid fa-gas-pump text-xl"></i><span class="text-base font-bold text-slate-800">កែប្រែ / Update តម្លៃប្រេងឥន្ធនៈ (MoC)</span></div>',
+        html: `
+          <div class="text-left text-xs space-y-3 p-1">
+            <p class="text-slate-500 text-[11px] leading-relaxed">
+              បញ្ចូលតម្លៃប្រេងឥន្ធនៈពិដានថ្មីដែលប្រកាសដោយក្រសួងពាណិជ្ជកម្ម (MoC)៖
+            </p>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">⛽ សាំងធម្មតា Regular EA92 (៛ / លីត្រ) <span class="text-rose-500">*</span></label>
+              <input type="number" id="swalFuelGas" value="${curGas}" class="swal2-input !m-0 !w-full !text-sm !font-mono font-bold" placeholder="4150">
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">🛢️ ប្រេងម៉ាស៊ូត Diesel 50ppm (៛ / លីត្រ) <span class="text-rose-500">*</span></label>
+              <input type="number" id="swalFuelDsl" value="${curDsl}" class="swal2-input !m-0 !w-full !text-sm !font-mono font-bold" placeholder="3900">
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">🚀 សាំងស៊ុបពែរ Super EA95 (៛ / លីត្រ)</label>
+              <input type="number" id="swalFuelSup" value="${curSup}" class="swal2-input !m-0 !w-full !text-sm !font-mono" placeholder="4650">
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">📅 កាលបរិច្ឆេទសុពលភាពអនុវត្ត</label>
+              <input type="text" id="swalFuelEff" value="${escapeHtml(curEff)}" class="swal2-input !m-0 !w-full !text-xs font-khmer" placeholder="ឧ. 11 - 20 វិច្ឆិកា 2026">
+            </div>
+          </div>
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: '<i class="fa-solid fa-save mr-1.5"></i> រក្សាទុកតម្លៃថ្មី',
+        cancelButtonText: 'បោះបង់',
+        confirmButtonColor: '#d97706',
+        preConfirm: () => {
+          const gas = parseInt(document.getElementById('swalFuelGas').value, 10);
+          const dsl = parseInt(document.getElementById('swalFuelDsl').value, 10);
+          const sup = parseInt(document.getElementById('swalFuelSup').value, 10) || curSup;
+          const eff = document.getElementById('swalFuelEff').value.trim() || curEff;
+
+          if (!gas || gas <= 0 || !dsl || dsl <= 0) {
+            Swal.showValidationMessage('សូមបញ្ចូលតម្លៃសាំង និងម៉ាស៊ូតឲ្យបានត្រឹមត្រូវ!');
+            return false;
+          }
+          return { gas, dsl, sup, eff };
+        }
+      });
+
+      if (formValues) {
+        rates.fuel.gasoline = formValues.gas;
+        rates.fuel.diesel = formValues.dsl;
+        rates.fuel.super = formValues.sup;
+        rates.fuel.effectiveDate = formValues.eff;
+        rates.fuel.updatedAt = new Date().toISOString();
+        saveLocalMarketRates(rates);
+
+        // Sync to cloud settings if apiCall available
+        try {
+          if (typeof apiCall === 'function') {
+            apiCall('saveSystemSettings', {
+              settings: {
+                MARKET_FUEL_RATES: JSON.stringify(rates.fuel)
+              },
+              user: AppState?.currentUser?.username || 'Admin'
+            }).catch(e => console.warn('[MarketRates] Cloud sync notice:', e));
+          }
+        } catch (e) { }
+
+        Swal.fire({
+          icon: 'success',
+          title: 'បានធ្វើបច្ចុប្បន្នភាពតម្លៃប្រេងរួចរាល់!',
+          html: `<p class="text-xs text-slate-600 mt-1">សាំងធម្មតា៖ <b>${formValues.gas.toLocaleString()}៛</b> | ម៉ាស៊ូត៖ <b>${formValues.dsl.toLocaleString()}៛</b></p>`,
+          timer: 2000,
+          showConfirmButton: false
+        });
+      }
+    }
+
+    async function openEditGoldRatesDialog() {
+      const rates = getLocalMarketRates();
+      const mD = rates.gold.morning.pricePerDamlung || 4714;
+      const eD = rates.gold.evening.pricePerDamlung || 4718;
+
+      const { value: formValues } = await Swal.fire({
+        title: '<div class="flex items-center justify-center gap-2 text-yellow-600"><i class="fa-solid fa-coins text-xl"></i><span class="text-base font-bold text-slate-800">កែសម្រួលតម្លៃហាងឆេងមាសក្នុងស្រុក</span></div>',
+        html: `
+          <div class="text-left text-xs space-y-3 p-1">
+            <p class="text-slate-500 text-[11px] leading-relaxed">
+              លោកអ្នកអាចបញ្ចូលតម្លៃមាស ១ តម្លឹង (USD) តាមហាងមាសជាក់ស្តែងនៅកម្ពុជា៖
+            </p>
+            <div>
+              <label class="block font-bold text-amber-900 mb-1">🌅 តម្លៃពេលព្រឹក (Morning) - $ / តម្លឹង</label>
+              <input type="number" id="swalGoldMorning" value="${mD}" step="any" class="swal2-input !m-0 !w-full !text-sm !font-mono font-bold" placeholder="4714">
+            </div>
+            <div>
+              <label class="block font-bold text-indigo-900 mb-1">🌇 តម្លៃពេលល្ងាច (Evening) - $ / តម្លឹង</label>
+              <input type="number" id="swalGoldEvening" value="${eD}" step="any" class="swal2-input !m-0 !w-full !text-sm !font-mono font-bold" placeholder="4718">
+            </div>
+          </div>
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: '<i class="fa-solid fa-save mr-1.5"></i> រក្សាទុក',
+        cancelButtonText: 'បោះបង់',
+        confirmButtonColor: '#eab308',
+        preConfirm: () => {
+          const mVal = parseFloat(document.getElementById('swalGoldMorning').value);
+          const eVal = parseFloat(document.getElementById('swalGoldEvening').value);
+          if (!mVal || mVal <= 0) {
+            Swal.showValidationMessage('សូមបញ្ចូលតម្លៃមាសឲ្យបានត្រឹមត្រូវ!');
+            return false;
+          }
+          return { mVal, eVal: eVal || mVal };
+        }
+      });
+
+      if (formValues) {
+        const now = new Date();
+        const todayStr = formatCambodiaDate(now);
+        rates.gold.morning.pricePerDamlung = Math.round(formValues.mVal * 100) / 100;
+        rates.gold.morning.pricePerChi = Math.round((formValues.mVal / 10) * 100) / 100;
+        rates.gold.morning.date = todayStr;
+
+        rates.gold.evening.pricePerDamlung = Math.round(formValues.eVal * 100) / 100;
+        rates.gold.evening.pricePerChi = Math.round((formValues.eVal / 10) * 100) / 100;
+        rates.gold.evening.date = todayStr;
+
+        rates.gold.current.pricePerDamlung = rates.gold.evening.pricePerDamlung;
+        rates.gold.current.pricePerChi = rates.gold.evening.pricePerChi;
+        rates.gold.current.updatedAt = now.toISOString();
+
+        saveLocalMarketRates(rates);
+
+        Swal.fire({
+          icon: 'success',
+          title: 'បានរក្សាទុកតម្លៃមាសរួចរាល់!',
+          timer: 1800,
+          showConfirmButton: false
+        });
+      }
+    }
+
+    function refreshLiveExchangeRate(showToast = false) {
+      fetchLiveExchangeRate(!showToast);
+    }
+
+    function refreshLiveGoldRate(showToast = false) {
+      fetchLiveGoldRate(!showToast);
+    }
+
+    function initMarketRatesEngine() {
+      updateTopBarRatesUI();
+      // Initial live fetch
+      fetchLiveExchangeRate(true);
+      fetchLiveGoldRate(true);
+
+      // Recurring check every 5 minutes
+      setInterval(() => {
+        fetchLiveExchangeRate(true);
+        fetchLiveGoldRate(true);
+      }, 5 * 60 * 1000);
+
+      window.addEventListener('online', () => {
+        fetchLiveExchangeRate(true);
+        fetchLiveGoldRate(true);
+      });
+    }
+
+    // Expose functions globally for HTML triggers
+    window.openMarketRatesModal = openMarketRatesModal;
+    window.closeMarketRatesModal = closeMarketRatesModal;
+    window.openEditFuelRatesDialog = openEditFuelRatesDialog;
+    window.openEditGoldRatesDialog = openEditGoldRatesDialog;
+    window.refreshLiveExchangeRate = refreshLiveExchangeRate;
+    window.refreshLiveGoldRate = refreshLiveGoldRate;
+    window.handleCurrencyCalc = handleCurrencyCalc;
+    window.initMarketRatesEngine = initMarketRatesEngine;
+
+    // Run instant initialization
+    try {
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initMarketRatesEngine);
+      } else {
+        initMarketRatesEngine();
+      }
+    } catch (e) { }
 
     // =========================================================================
     // HYPER-PERFORMANCE TURBO ENGINE: IN-MEMORY SWR CACHE & INSTANT OPTIMISTIC UI
@@ -19374,7 +20170,7 @@
       tbody.innerHTML = items.map(item => `
         <tr class="hover:bg-slate-50 transition-colors">
           <td class="px-4 py-3 font-mono font-bold text-blue-600">${item.sku}</td>
-          <td class="px-4 py-3 font-bold text-slate-900">${item.name}</td>
+          <td class="px-4 py-3 font-semibold text-slate-800">${item.name}</td>
           <td class="px-4 py-3"><span class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px]">${item.category}</span></td>
           <td class="px-4 py-3 text-center font-extrabold ${item.currentStock === 0 ? 'text-rose-600' : 'text-amber-600'}">
             ${item.currentStock} ${item.unit}
@@ -21157,7 +21953,7 @@
                   class="w-10 h-10 object-cover rounded-2xl border border-slate-200 bg-white shadow-3xs hover:scale-105 transition-transform duration-200 shrink-0 aspect-square">
               </div>
               <div class="min-w-0 flex-1">
-                <span class="font-bold text-slate-900 block text-xs leading-snug group-hover:text-blue-600 transition truncate" style="font-family: 'Kantumruy Pro', 'Microsoft YaHei', '微软雅黑', 'SimHei', '黑体', 'Noto Sans SC', sans-serif; font-weight: 700;" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span>
+                <span class="font-normal text-slate-800 block text-xs leading-snug group-hover:text-blue-600 transition truncate" style="font-family: 'Kantumruy Pro', 'Microsoft YaHei', '微软雅黑', 'SimHei', '黑体', 'Noto Sans SC', sans-serif; font-weight: normal;" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span>
                 <div class="mt-0.5">
                   <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-mono font-bold border border-slate-200/90 shadow-3xs tracking-tight select-all truncate" title="${escapeHtml(item.sku || '-')}">
                     <i class="fa-solid fa-barcode text-[9px] text-slate-400 shrink-0"></i>
@@ -29296,7 +30092,7 @@
             <td style="text-align: center;">${idx + 1}</td>
             <td style="white-space: nowrap; font-size: 10.5px; text-align: center;">${escapeHtml(fullDate)}</td>
             <td style="font-family: monospace; font-weight: bold; color: #1e293b; text-align: center;">${escapeHtml(t.sku || t.code || '-')}</td>
-            <td style="font-weight: bold; font-size: 11px; color: #0f172a;">${escapeHtml(t.itemName || "-")}</td>
+            <td style="font-weight: normal; font-size: 11px; color: #0f172a;">${escapeHtml(t.itemName || "-")}</td>
             <td style="text-align: center; vertical-align: middle; padding: 2px;">
               <img src="${imgUrl || fallbackImg}"
                    style="width: 34px; height: 34px; object-fit: cover; border-radius: 6px; border: 1px solid #cbd5e1; display: inline-block; vertical-align: middle;"
@@ -29507,7 +30303,7 @@
             <td style="text-align: center;">${idx + 1}</td>
             <td style="white-space: nowrap; font-size: 10.5px; text-align: center;">${escapeHtml(fullDate)}</td>
             <td style="font-family: monospace; font-weight: bold; color: #1e293b; text-align: center;">${escapeHtml(t.sku || t.code || '-')}</td>
-            <td style="font-weight: bold; font-size: 11px; color: #0f172a;">${escapeHtml(t.itemName || "-")}</td>
+            <td style="font-weight: normal; font-size: 11px; color: #0f172a;">${escapeHtml(t.itemName || "-")}</td>
             <td style="text-align: center; vertical-align: middle; padding: 2px;">
               <img src="${imgUrl || fallbackImg}"
                    style="width: 34px; height: 34px; object-fit: cover; border-radius: 6px; border: 1px solid #cbd5e1; display: inline-block; vertical-align: middle;"
@@ -35980,7 +36776,7 @@
             <td style="text-align: center;">${idx + 1}</td>
             <td style="font-family: monospace; font-weight: bold; color: #2563eb;">${i.sku}</td>
             <td style="font-family: monospace;">${i.barcode || '-'}</td>
-            <td style="font-weight: bold; font-size: 11px; color: #0f172a;">${i.name}</td>
+            <td style="font-weight: normal; font-size: 11px; color: #0f172a;">${i.name}</td>
             <td>${i.category}</td>
             <td style="text-align: right;">$${Number(i.costPrice || 0).toFixed(2)}</td>
             <td style="text-align: right; font-weight: bold;">$${Number(i.sellingPrice || 0).toFixed(2)}</td>
@@ -36392,6 +37188,17 @@
             if (sheetUrlInput) sheetUrlInput.value = res.spreadsheetUrl;
             AppState.googleSheetUrl = res.spreadsheetUrl;
             localStorage.setItem('inventory_google_sheet_url', res.spreadsheetUrl);
+          }
+
+          if (res.settings.MARKET_FUEL_RATES) {
+            try {
+              const cloudFuel = JSON.parse(res.settings.MARKET_FUEL_RATES);
+              if (cloudFuel && cloudFuel.gasoline) {
+                const currentRates = getLocalMarketRates();
+                currentRates.fuel = Object.assign(currentRates.fuel, cloudFuel);
+                saveLocalMarketRates(currentRates);
+              }
+            } catch (ef) { }
           }
 
           AppState.settings = Object.assign({}, AppState.settings || {}, res.settings);
