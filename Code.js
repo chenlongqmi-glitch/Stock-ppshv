@@ -5227,6 +5227,7 @@ function getBootstrapData(payload) {
     lowStockItems: dashRes.lowStockItems || [],
     fastMovingItems: dashRes.fastMovingItems || [],
     movementTrend: dashRes.movementTrend || null,
+    settings: getSettingsMap(ss),
     timestamp: new Date().toISOString()
   };
 

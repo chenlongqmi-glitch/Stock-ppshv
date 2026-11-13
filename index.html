@@ -2272,6 +2272,7 @@
               <span class="text-white/30 mx-0.5">|</span>
               <span class="text-blue-100/90 text-[10px] hidden xl:inline">ម៉ាស៊ូត:</span>
               <span id="topBarRateDiesel" class="font-bold text-orange-300 font-mono text-[11px]">5,300៛</span>
+              <span id="topBarFuelStatusTag" class="text-[9px] px-1 py-0.2 rounded bg-emerald-400/20 text-emerald-300 border border-emerald-400/30 font-bold hidden xl:inline">MoC ថ្មី</span>
             </div>
 
             <span class="w-1 h-1 rounded-full bg-white/30 hidden lg:inline-block"></span>
@@ -8941,18 +8942,28 @@
                 <i class="fa-solid fa-gas-pump"></i>
               </span>
               <div>
-                <h4 class="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-2">
+                <h4 class="font-bold text-slate-800 text-xs sm:text-sm flex items-center gap-1.5 flex-wrap">
                   <span>តម្លៃប្រេងឥន្ធនៈលក់រាយ (Fuel Retail Price)</span>
                   <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200" id="fuelEffectiveBadge">ក្រសួងពាណិជ្ជកម្ម</span>
+                  <span id="modalFuelStatusBadge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    <span>ទាន់ពេលវេលា</span>
+                  </span>
                 </h4>
-                <p class="text-[10.5px] text-slate-500 mt-0.5">កំណត់តម្លៃពិដានរៀងរាល់ ១០ ថ្ងៃម្តង (1st, 11th, 21st) ដោយក្រសួងពាណិជ្ជកម្ម</p>
+                <p class="text-[10.5px] text-slate-500 mt-0.5">កំណត់តម្លៃពិដានរៀងរាល់ ១០ ថ្ងៃម្តង (1st, 11th, 21st) ស្របតាម MoC</p>
               </div>
             </div>
-            <div class="flex items-center gap-2 shrink-0">
+            <div class="flex items-center gap-2 shrink-0 flex-wrap">
+              <button type="button" onclick="checkAndSyncFuelRates(false)"
+                class="px-2.5 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[11px] flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
+                title="Sync តម្លៃសាំងពី Cloud/Server ទាន់ពេលវេលា">
+                <i class="fa-solid fa-rotate text-amber-600 text-[10.5px]" id="fuelSyncSpinner"></i>
+                <span>Sync ពពក</span>
+              </button>
               <button type="button" onclick="openEditFuelRatesDialog()"
-                class="px-2.5 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 font-bold text-[11px] flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
+                class="px-2.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-[11px] flex items-center gap-1.5 transition active:scale-95 cursor-pointer shadow-xs"
                 title="កែប្រែ ឬ Update តម្លៃសាំងពេលមានសេចក្តីជូនដំណឹងថ្មី">
-                <i class="fa-solid fa-pen-to-square text-[10.5px] text-amber-600"></i>
+                <i class="fa-solid fa-pen-to-square text-[10.5px]"></i>
                 <span>Update តម្លៃសាំង</span>
               </button>
             </div>
@@ -8996,9 +9007,18 @@
               </div>
             </div>
           </div>
-          <div class="mt-2.5 flex items-center justify-between text-[10.5px] text-slate-400 font-medium pt-2 border-t border-slate-100">
-            <span>📅 សុពលភាពអនុវត្ត៖ <b id="modalFuelEffectiveDate" class="text-slate-700">11 - 21 វិច្ឆិកា 2026</b></span>
-            <span>Update ចុងក្រោយ៖ <span id="modalFuelLastUpdate" class="font-mono text-slate-600">ទាន់ពេលវេលា</span></span>
+          <div class="mt-2.5 flex flex-col sm:flex-row sm:items-center justify-between text-[10.5px] text-slate-500 font-medium pt-2 border-t border-slate-100 gap-1.5">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span>📅 សុពលភាពអនុវត្ត៖ <b id="modalFuelEffectiveDate" class="text-slate-800 font-bold">11 - 21 វិច្ឆិកា 2026</b></span>
+              <span class="text-slate-300">•</span>
+              <span id="modalFuelCycleCountdown" class="text-emerald-700 font-bold">⏳ វដ្ត ១០ ថ្ងៃ MoC</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span>Update ចុងក្រោយ៖ <span id="modalFuelLastUpdate" class="font-mono text-slate-600">ទាន់ពេលវេលា</span></span>
+              <a href="https://www.moc.gov.kh" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1 font-bold">
+                <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i> MoC.gov.kh
+              </a>
+            </div>
           </div>
         </div>
 
@@ -14217,13 +14237,175 @@
       return `${y}-${m}-${day}`;
     }
 
+    const KHMER_MONTH_NAMES = ['', 'មករា', 'កុម្ភៈ', 'មីនា', 'មេសា', 'ឧសភា', 'មិថុនា', 'កក្កដា', 'សីហា', 'កញ្ញា', 'តុលា', 'វិច្ឆិកា', 'ធ្នូ'];
+
+    function getMoCCycleInfo(d = new Date()) {
+      const day = d.getDate();
+      const monthNum = d.getMonth() + 1;
+      const year = d.getFullYear();
+      const monthName = KHMER_MONTH_NAMES[monthNum] || `ខែ${monthNum}`;
+
+      let cycleStart = 1;
+      let cycleEnd = 10;
+      let nextCycleDateStr = `ថ្ងៃទី ១១ ខែ${monthName}`;
+      let daysRemaining = 0;
+
+      if (day >= 1 && day <= 10) {
+        cycleStart = 1;
+        cycleEnd = 10;
+        nextCycleDateStr = `ថ្ងៃទី ១១ ខែ${monthName}`;
+        daysRemaining = 10 - day + 1;
+      } else if (day >= 11 && day <= 20) {
+        cycleStart = 11;
+        cycleEnd = 20;
+        nextCycleDateStr = `ថ្ងៃទី ២១ ខែ${monthName}`;
+        daysRemaining = 20 - day + 1;
+      } else {
+        cycleStart = 21;
+        const lastDay = new Date(year, monthNum, 0).getDate();
+        cycleEnd = lastDay;
+        const nextMonthNum = (monthNum % 12) + 1;
+        const nextMonthName = KHMER_MONTH_NAMES[nextMonthNum] || `ខែ${nextMonthNum}`;
+        nextCycleDateStr = `ថ្ងៃទី ០១ ខែ${nextMonthName}`;
+        daysRemaining = lastDay - day + 1;
+      }
+
+      const cycleSuggestedText = `${String(cycleStart).padStart(2, '0')} - ${cycleEnd} ${monthName} ${year}`;
+      return {
+        day,
+        monthNum,
+        year,
+        monthName,
+        cycleStart,
+        cycleEnd,
+        cycleSuggestedText,
+        nextCycleDateStr,
+        daysRemaining
+      };
+    }
+
+    function checkFuelRatesTimeliness(rates) {
+      const fuel = rates?.fuel || getLocalMarketRates().fuel;
+      const cycleInfo = getMoCCycleInfo();
+      const eff = String(fuel.effectiveDate || '').trim();
+
+      const hasMonth = eff.includes(cycleInfo.monthName) || eff.includes(String(cycleInfo.monthNum));
+      const hasYear = eff.includes(String(cycleInfo.year));
+
+      let inCycle = false;
+      if (cycleInfo.cycleStart === 1 && (eff.includes('01 - 10') || eff.includes('1 - 10') || eff.includes('០១ - ១០'))) {
+        inCycle = true;
+      } else if (cycleInfo.cycleStart === 11 && (eff.includes('11 - 20') || eff.includes('11 - 21') || eff.includes('១១ - ២០') || eff.includes('១១ - ២១'))) {
+        inCycle = true;
+      } else if (cycleInfo.cycleStart === 21 && (eff.includes('21 -') || eff.includes('២១ -'))) {
+        inCycle = true;
+      }
+
+      const isUpToDate = hasMonth && hasYear && inCycle;
+      return {
+        isUpToDate,
+        cycleInfo
+      };
+    }
+
+    async function syncCloudFuelRates(silent = true) {
+      const spinner = document.getElementById('fuelSyncSpinner');
+      if (spinner) spinner.classList.add('fa-spin');
+      try {
+        if (typeof apiCall === 'function') {
+          const res = await apiCall('getSystemSettings');
+          if (res && res.success && res.settings && res.settings.MARKET_FUEL_RATES) {
+            const cloudFuel = JSON.parse(res.settings.MARKET_FUEL_RATES);
+            if (cloudFuel && cloudFuel.gasoline) {
+              const currentRates = getLocalMarketRates();
+              const isDifferent = currentRates.fuel.gasoline !== cloudFuel.gasoline ||
+                                  currentRates.fuel.diesel !== cloudFuel.diesel ||
+                                  currentRates.fuel.effectiveDate !== cloudFuel.effectiveDate;
+              if (isDifferent) {
+                currentRates.fuel = Object.assign(currentRates.fuel, cloudFuel);
+                saveLocalMarketRates(currentRates);
+                if (!silent && typeof Swal !== 'undefined') {
+                  Swal.fire({
+                    icon: 'success',
+                    title: 'បាន Sync តម្លៃសាំងថ្មីពីពពក!',
+                    html: `<p class="text-xs text-slate-600 mt-1">សាំង៖ <b>${cloudFuel.gasoline}៛</b> | ម៉ាស៊ូត៖ <b>${cloudFuel.diesel}៛</b> (${cloudFuel.effectiveDate || ''})</p>`,
+                    timer: 2500,
+                    showConfirmButton: false
+                  });
+                }
+                return;
+              }
+            }
+          }
+        }
+        if (!silent && typeof Swal !== 'undefined') {
+          Swal.fire({
+            icon: 'info',
+            title: 'តម្លៃសាំងទាន់ពេលវេលារួចរាល់!',
+            html: '<p class="text-xs text-slate-600 mt-1">តម្លៃសាំងក្នុងប្រព័ន្ធស្របគ្នានឹងទិន្នន័យចុងក្រោយបំផុត។</p>',
+            timer: 2000,
+            showConfirmButton: false
+          });
+        }
+      } catch (e) {
+        console.warn('[MarketRates] Cloud sync warning:', e);
+      } finally {
+        if (spinner) spinner.classList.remove('fa-spin');
+      }
+    }
+    window.syncCloudFuelRates = syncCloudFuelRates;
+    window.checkAndSyncFuelRates = syncCloudFuelRates;
+
+    function checkProactiveMoCCycleAlert() {
+      const rates = getLocalMarketRates();
+      const timeliness = checkFuelRatesTimeliness(rates);
+      if (!timeliness.isUpToDate) {
+        const u = AppState?.currentUser || {};
+        const isPrivileged = u.role === 'SuperAdmin' || u.role === 'Admin' || String(u.role || '').toLowerCase().includes('admin');
+        const alertSessionKey = `moc_fuel_alert_${timeliness.cycleInfo.cycleStart}_${timeliness.cycleInfo.monthNum}_${timeliness.cycleInfo.year}`;
+        if (isPrivileged && !sessionStorage.getItem(alertSessionKey) && typeof Swal !== 'undefined') {
+          sessionStorage.setItem(alertSessionKey, '1');
+          Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'warning',
+            title: `📢 MoC ដល់វដ្តថ្មី៖ ${timeliness.cycleInfo.cycleSuggestedText}`,
+            html: '<span class="text-xs text-slate-600">សូម Update តម្លៃលក់រាយប្រេងឥន្ធនៈថ្មីឲ្យទាន់ពេលវេលា</span>',
+            showConfirmButton: true,
+            confirmButtonText: 'Update ឥឡូវនេះ',
+            showCancelButton: true,
+            cancelButtonText: 'ពេលក្រោយ',
+            confirmButtonColor: '#d97706',
+            timer: 8000
+          }).then((res) => {
+            if (res.isConfirmed) {
+              openEditFuelRatesDialog();
+            }
+          });
+        }
+      }
+    }
+
     function updateTopBarRatesUI(optRates) {
       const rates = optRates || getLocalMarketRates();
       // 1. Fuel
       const gasEl = document.getElementById('topBarRateGasoline');
       const dslEl = document.getElementById('topBarRateDiesel');
-      if (gasEl) gasEl.innerText = `${Number(rates.fuel.gasoline || 3950).toLocaleString()}៛`;
-      if (dslEl) dslEl.innerText = `${Number(rates.fuel.diesel || 3850).toLocaleString()}៛`;
+      const fuelTag = document.getElementById('topBarFuelStatusTag');
+      if (gasEl) gasEl.innerText = `${Number(rates.fuel.gasoline || 4350).toLocaleString()}៛`;
+      if (dslEl) dslEl.innerText = `${Number(rates.fuel.diesel || 5300).toLocaleString()}៛`;
+      if (fuelTag) {
+        const timeliness = checkFuelRatesTimeliness(rates);
+        if (timeliness.isUpToDate) {
+          fuelTag.className = 'text-[9px] px-1 py-0.2 rounded bg-emerald-400/20 text-emerald-300 border border-emerald-400/30 font-bold hidden xl:inline';
+          fuelTag.innerText = 'MoC ថ្មី';
+          fuelTag.title = `តម្លៃសាំងអនុវត្តទាន់ពេលវេលាតាម MoC (${rates.fuel.effectiveDate || ''})`;
+        } else {
+          fuelTag.className = 'text-[9px] px-1.5 py-0.2 rounded-md bg-amber-400 text-amber-950 font-black animate-pulse';
+          fuelTag.innerText = 'Update សាំង!';
+          fuelTag.title = 'ដល់វដ្ត ១០ ថ្ងៃថ្មីរបស់ក្រសួងពាណិជ្ជកម្ម! ចុចដើម្បី Update';
+        }
+      }
 
       // 2. Gold (Always in / ជី as requested)
       const goldEl = document.getElementById('topBarRateGold');
@@ -14232,7 +14414,7 @@
       const isEvening = hour >= 12;
       const goldObj = isEvening ? (rates.gold.evening || rates.gold.current) : (rates.gold.morning || rates.gold.current);
       if (goldEl) {
-        const chiPrice = goldObj.pricePerChi || rates.gold.current.pricePerChi || 471.4;
+        const chiPrice = goldObj.pricePerChi || rates.gold.current.pricePerChi || 480.0;
         const formattedChi = Number(chiPrice).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 1 });
         goldEl.innerText = `$${formattedChi}/ជី`;
       }
@@ -14351,22 +14533,41 @@
       if (!modal) return;
 
       // 1. Fuel Card Values
+      const timeliness = checkFuelRatesTimeliness(rates);
       const fGas = document.getElementById('modalFuelGasolinePrice');
       const fDsl = document.getElementById('modalFuelDieselPrice');
       const fGasUsd = document.getElementById('modalFuelGasolineUsd');
       const fDslUsd = document.getElementById('modalFuelDieselUsd');
       const fEff = document.getElementById('modalFuelEffectiveDate');
       const fLast = document.getElementById('modalFuelLastUpdate');
+      const fStatusBadge = document.getElementById('modalFuelStatusBadge');
+      const fCountdown = document.getElementById('modalFuelCycleCountdown');
 
       const khrRate = rates.exchange.usdToKhr || 4065;
       if (fGas) fGas.innerText = Number(rates.fuel.gasoline || 4350).toLocaleString();
       if (fDsl) fDsl.innerText = Number(rates.fuel.diesel || 5300).toLocaleString();
       if (fGasUsd) fGasUsd.innerText = `≈ $${(Number(rates.fuel.gasoline || 4350) / khrRate).toFixed(2)} / L`;
       if (fDslUsd) fDslUsd.innerText = `≈ $${(Number(rates.fuel.diesel || 5300) / khrRate).toFixed(2)} / L`;
-      if (fEff) fEff.innerText = rates.fuel.effectiveDate || '11 - 21 វិច្ឆិកា 2026';
+      if (fEff) fEff.innerText = rates.fuel.effectiveDate || timeliness.cycleInfo.cycleSuggestedText;
       if (fLast) {
         const d = rates.fuel.updatedAt ? new Date(rates.fuel.updatedAt) : new Date();
         fLast.innerText = isNaN(d) ? 'ទាន់ពេលវេលា' : `${d.toLocaleDateString('km-KH')} ${d.toLocaleTimeString('km-KH', { hour: '2-digit', minute: '2-digit' })}`;
+      }
+      if (fStatusBadge) {
+        if (timeliness.isUpToDate) {
+          fStatusBadge.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1';
+          fStatusBadge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span><span>ទាន់ពេលវេលា (MoC)</span>';
+        } else {
+          fStatusBadge.className = 'px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-300 animate-pulse flex items-center gap-1';
+          fStatusBadge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-rose-600"></span><span>ដល់ពេល Update វដ្តថ្មី!</span>';
+        }
+      }
+      if (fCountdown) {
+        if (timeliness.isUpToDate) {
+          fCountdown.innerHTML = `នៅសល់ <b class="text-slate-800">${timeliness.cycleInfo.daysRemaining} ថ្ងៃទៀត</b> (វដ្តបន្ទាប់៖ ${timeliness.cycleInfo.nextCycleDateStr})`;
+        } else {
+          fCountdown.innerHTML = `<span class="text-rose-600 font-bold">⚠️ វដ្តថ្មីចាប់ផ្តើមហើយ (${timeliness.cycleInfo.cycleSuggestedText}) សូម Update!</span>`;
+        }
       }
 
       // 2. Gold Card Values
@@ -14379,15 +14580,15 @@
       const gSpot = document.getElementById('modalGoldSpotPrice');
       const gLast = document.getElementById('modalGoldLastUpdate');
 
-      if (gmD) gmD.innerText = `$${Number(rates.gold.morning.pricePerDamlung || 4714).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-      if (gmC) gmC.innerText = `$${Number(rates.gold.morning.pricePerChi || 471.4).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      if (gmD) gmD.innerText = `$${Number(rates.gold.morning.pricePerDamlung || 4800).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      if (gmC) gmC.innerText = `$${Number(rates.gold.morning.pricePerChi || 480.0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
       if (gmT) gmT.innerText = `${rates.gold.morning.time || '08:00 AM'}${rates.gold.morning.date ? ` (${rates.gold.morning.date})` : ''}`;
 
-      if (geD) geD.innerText = `$${Number(rates.gold.evening.pricePerDamlung || 4718).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-      if (geC) geC.innerText = `$${Number(rates.gold.evening.pricePerChi || 471.8).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      if (geD) geD.innerText = `$${Number(rates.gold.evening.pricePerDamlung || 4820).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      if (geC) geC.innerText = `$${Number(rates.gold.evening.pricePerChi || 482.0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
       if (geT) geT.innerText = `${rates.gold.evening.time || '05:00 PM'}${rates.gold.evening.date ? ` (${rates.gold.evening.date})` : ''}`;
 
-      if (gSpot) gSpot.innerText = `$${Number(rates.gold.current.pricePerOunce || 3910.1).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / Ounce`;
+      if (gSpot) gSpot.innerText = `$${Number(rates.gold.current.pricePerOunce || 3980.5).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / Ounce`;
       if (gLast) {
         const d = rates.gold.current.updatedAt ? new Date(rates.gold.current.updatedAt) : new Date();
         gLast.innerText = isNaN(d) ? 'មុននេះបន្តិច' : `${d.toLocaleTimeString('km-KH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
@@ -14437,6 +14638,7 @@
       modal.style.display = 'flex';
       fetchLiveExchangeRate(true);
       fetchLiveGoldRate(true);
+      syncCloudFuelRates(true);
     }
 
     function closeMarketRatesModal() {
@@ -14449,15 +14651,22 @@
 
     async function openEditFuelRatesDialog() {
       const rates = getLocalMarketRates();
+      const timeliness = checkFuelRatesTimeliness(rates);
+      const suggestedCycle = timeliness.cycleInfo.cycleSuggestedText;
+
       const curGas = rates.fuel.gasoline || 4350;
       const curDsl = rates.fuel.diesel || 5300;
       const curSup = rates.fuel.super || 6100;
-      const curEff = rates.fuel.effectiveDate || '11 - 21 វិច្ឆិកា 2026';
+      const curEff = rates.fuel.effectiveDate || suggestedCycle;
 
       const { value: formValues } = await Swal.fire({
         title: '<div class="flex items-center justify-center gap-2 text-amber-600"><i class="fa-solid fa-gas-pump text-xl"></i><span class="text-base font-bold text-slate-800">កែប្រែ / Update តម្លៃប្រេងឥន្ធនៈ (MoC)</span></div>',
         html: `
           <div class="text-left text-xs space-y-3 p-1">
+            <div class="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 flex items-center justify-between text-[11px]">
+              <span>📅 វដ្ត ១០ ថ្ងៃ MoC៖ <b class="text-slate-800">${suggestedCycle}</b></span>
+              <button type="button" onclick="document.getElementById('swalFuelEff').value='${suggestedCycle}'" class="text-blue-600 hover:underline font-bold text-[10.5px]">ដាក់វដ្តនេះ</button>
+            </div>
             <p class="text-slate-500 text-[11px] leading-relaxed">
               បញ្ចូលតម្លៃប្រេងឥន្ធនៈពិដានថ្មីដែលប្រកាសដោយក្រសួងពាណិជ្ជកម្ម (MoC)៖
             </p>
@@ -14475,20 +14684,20 @@
             </div>
             <div>
               <label class="block font-bold text-slate-700 mb-1">📅 កាលបរិច្ឆេទសុពលភាពអនុវត្ត</label>
-              <input type="text" id="swalFuelEff" value="${escapeHtml(curEff)}" class="swal2-input !m-0 !w-full !text-xs font-khmer" placeholder="ឧ. 11 - 21 វិច្ឆិកា 2026">
+              <input type="text" id="swalFuelEff" value="${escapeHtml(curEff)}" class="swal2-input !m-0 !w-full !text-xs font-khmer font-bold" placeholder="ឧ. ${suggestedCycle}">
             </div>
           </div>
         `,
         focusConfirm: false,
         showCancelButton: true,
-        confirmButtonText: '<i class="fa-solid fa-save mr-1.5"></i> រក្សាទុកតម្លៃថ្មី',
+        confirmButtonText: '<i class="fa-solid fa-save mr-1.5"></i> រក្សាទុក & Sync ពពក',
         cancelButtonText: 'បោះបង់',
         confirmButtonColor: '#d97706',
         preConfirm: () => {
           const gas = parseInt(document.getElementById('swalFuelGas').value, 10);
           const dsl = parseInt(document.getElementById('swalFuelDsl').value, 10);
           const sup = parseInt(document.getElementById('swalFuelSup').value, 10) || curSup;
-          const eff = document.getElementById('swalFuelEff').value.trim() || curEff;
+          const eff = document.getElementById('swalFuelEff').value.trim() || suggestedCycle;
 
           if (!gas || gas <= 0 || !dsl || dsl <= 0) {
             Swal.showValidationMessage('សូមបញ្ចូលតម្លៃសាំង និងម៉ាស៊ូតឲ្យបានត្រឹមត្រូវ!');
@@ -14521,8 +14730,8 @@
         Swal.fire({
           icon: 'success',
           title: 'បានធ្វើបច្ចុប្បន្នភាពតម្លៃប្រេងរួចរាល់!',
-          html: `<p class="text-xs text-slate-600 mt-1">សាំងធម្មតា៖ <b>${formValues.gas.toLocaleString()}៛</b> | ម៉ាស៊ូត៖ <b>${formValues.dsl.toLocaleString()}៛</b></p>`,
-          timer: 2000,
+          html: `<p class="text-xs text-slate-600 mt-1">សាំងធម្មតា៖ <b>${formValues.gas.toLocaleString()}៛</b> | ម៉ាស៊ូត៖ <b>${formValues.dsl.toLocaleString()}៛</b><br><span class="text-emerald-700 font-bold mt-1 block">សុពលភាព៖ ${escapeHtml(formValues.eff)}</span></p>`,
+          timer: 2500,
           showConfirmButton: false
         });
       }
@@ -14605,16 +14814,28 @@
       // Initial live fetch
       fetchLiveExchangeRate(true);
       fetchLiveGoldRate(true);
+      setTimeout(() => {
+        syncCloudFuelRates(true);
+        checkProactiveMoCCycleAlert();
+      }, 2000);
 
-      // Recurring check every 5 minutes
+      // Recurring check for exchange & gold every 5 minutes
       setInterval(() => {
         fetchLiveExchangeRate(true);
         fetchLiveGoldRate(true);
       }, 5 * 60 * 1000);
 
+      // Recurring check for timely fuel sync and MoC cycle status every 15 minutes
+      setInterval(() => {
+        syncCloudFuelRates(true);
+        updateTopBarRatesUI();
+        checkProactiveMoCCycleAlert();
+      }, 15 * 60 * 1000);
+
       window.addEventListener('online', () => {
         fetchLiveExchangeRate(true);
         fetchLiveGoldRate(true);
+        syncCloudFuelRates(true);
       });
     }
 
@@ -14625,6 +14846,8 @@
     window.openEditGoldRatesDialog = openEditGoldRatesDialog;
     window.refreshLiveExchangeRate = refreshLiveExchangeRate;
     window.refreshLiveGoldRate = refreshLiveGoldRate;
+    window.syncCloudFuelRates = syncCloudFuelRates;
+    window.checkAndSyncFuelRates = syncCloudFuelRates;
     window.handleCurrencyCalc = handleCurrencyCalc;
     window.initMarketRatesEngine = initMarketRatesEngine;
 
@@ -19255,6 +19478,23 @@
           if (isActorAdmin && typeof checkPendingRegistrationsForAdmin === 'function') {
             checkPendingRegistrationsForAdmin(false);
           }
+
+          if (res.settings) {
+            AppState.settings = Object.assign({}, AppState.settings || {}, res.settings);
+            if (res.settings.MARKET_FUEL_RATES) {
+              try {
+                const cloudFuel = JSON.parse(res.settings.MARKET_FUEL_RATES);
+                if (cloudFuel && cloudFuel.gasoline) {
+                  const curRates = getLocalMarketRates();
+                  const isNewer = !curRates.fuel.updatedAt || new Date(cloudFuel.updatedAt || 0) >= new Date(curRates.fuel.updatedAt);
+                  if (isNewer || curRates.fuel.gasoline !== cloudFuel.gasoline || curRates.fuel.diesel !== cloudFuel.diesel) {
+                    curRates.fuel = Object.assign(curRates.fuel, cloudFuel);
+                    saveLocalMarketRates(curRates);
+                  }
+                }
+              } catch (ef) { }
+            }
+          }
         }
       } catch (err) {
         console.warn('[Bootstrap Sync] Network notice:', err);
@@ -19289,11 +19529,12 @@
         if (typeof loadStockOutHistory === 'function') loadStockOutHistory(false);
       } catch (e) { }
 
-      // 4. Check Calendar Note Alerts (1-Day Advance & Due Date)
+      // 4. Check Calendar Note Alerts & Timely MoC Fuel Cycle Checks
       setTimeout(() => {
         try {
           if (typeof checkAndAlertCalendarNotes === 'function') checkAndAlertCalendarNotes(false);
           if (typeof updateHeaderCalendarBadge === 'function') updateHeaderCalendarBadge();
+          if (typeof checkProactiveMoCCycleAlert === 'function') checkProactiveMoCCycleAlert();
         } catch (e) { }
       }, 2200);
     }
