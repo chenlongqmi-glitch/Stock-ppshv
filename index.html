@@ -17436,16 +17436,6 @@
       }
     }
 
-    function onRegisterRoleChange(role) {
-      const whSelect = document.getElementById('regWarehouse');
-      if (whSelect) {
-        if (role === 'Admin' || role === 'SuperAdmin') {
-          whSelect.value = ADMIN_DEFAULT_COMBO_WH;
-        } else if (whSelect.value === 'ALL' || whSelect.value === ADMIN_DEFAULT_COMBO_WH) {
-          whSelect.value = '';
-        }
-      }
-    }
 
     // =========================================================================
     // IMAGE CROPPER & ZOOM SYSTEM (PROFILE AVATAR & PRODUCT IMAGES)
@@ -25342,9 +25332,6 @@
       updateStockInBadges(oldBulk, oldRetail, newBulk, newRetail, packUnit, baseUnit);
     }
 
-    function calculateStockInTotal() {
-      calculateStockInCalculations();
-    }
 
     function clearStockInAllFields() {
       const isLocked = document.getElementById('stockInLockDocNo')?.checked;
@@ -26935,9 +26922,6 @@
       }
     }
 
-    function calculateStockOutTotal() {
-      calculateStockOutCalculations();
-    }
 
     function clearStockOutAllFields() {
       const isLocked = document.getElementById('stockOutLockDocNo')?.checked;
@@ -27346,380 +27330,6 @@
         if (b) b.value = 0;
         if (r) r.value = 0;
         onMultiStationQtyChange(st.id);
-      });
-    }
-
-    async function handleMultiStationStockOutSubmit(e) {
-      if (e) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-      if (window._isMultiStockOutSubmitting) {
-        console.warn('Multi-Station Stock-Out submit already in progress. Ignoring duplicate click.');
-        return;
-      }
-      if (typeof isCurrentAdminInViewOnlyMode === 'function' && isCurrentAdminInViewOnlyMode()) {
-        const curWh = AppState.selectedAdminWarehouseFilter || 'ស្ថានីយនេះ';
-        Swal.fire({
-          icon: 'warning',
-          title: '🔒 របៀបត្រួតពិនិត្យទិន្នន័យប៉ុណ្ណោះ (View-Only Mode)',
-          html: `<div class="text-left text-xs space-y-2 p-1 font-khmer">
-            <p>ពេលជ្រើសរើសស្ថានីយ <b>${escapeHtml(curWh)}</b> លោកអ្នកបានត្រឹមតែត្រួតពិនិត្យទិន្នន័យតែប៉ុណ្ណោះ <b>មិនអាចប្រតិបត្តិការចេញស្តុកទំនិញបានជាដាច់ខាត</b>!</p>
-            <div class="p-2.5 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 mt-2">
-              💡 ដើម្បីអាចកត់ត្រាចេញស្តុកបាន សូមជ្រើសរើសយក <b>"中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង) & 机电"</b> ឬ <b>"中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)"</b> ឬ <b>"机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)"</b> នៅលើ Header ខាងលើ។
-            </div>
-          </div>`,
-          confirmButtonText: 'យល់ព្រម',
-          confirmButtonColor: '#ea580c'
-        });
-        return;
-      }
-
-      const docNo = document.getElementById('stockOutDocNo')?.value.trim() || generateStockOutDocNo();
-      const rawSku = document.getElementById('stockOutSku')?.value || '';
-      const sku = extractSkuFromInput(rawSku);
-      const itemCode = document.getElementById('stockOutItemCode')?.value.trim() || sku;
-      const baseUnit = document.getElementById('stockOutBaseUnitVal')?.value.trim() || 'ដើម';
-      const packUnit = document.getElementById('stockOutPackUnitVal')?.value.trim() || 'ប្រអប់';
-      const packQty = Math.max(1, Number(document.getElementById('stockOutPackQtyVal')?.value || 1));
-      const oldStock = Number(document.getElementById('stockOutOldStockValue')?.value || 0);
-      if (oldStock <= 0) {
-        Swal.fire({
-          icon: 'warning',
-          title: 'គ្មានទិន្នន័យក្នុងស្តុក',
-          text: 'មុខទំនិញនេះមិនមាននៅក្នុងស្តុកទេ សូមបញ្ចូលមុខទំនិញនេះទៅក្នុងស្តុកជាមុនសិន។',
-          confirmButtonText: 'យល់ព្រម',
-          confirmButtonColor: '#ea580c'
-        });
-        return;
-      }
-      const size = document.getElementById('stockOutSize')?.value.trim() || '';
-      const color = document.getElementById('stockOutColor')?.value.trim() || '';
-      const zone = document.getElementById('stockOutZone')?.value.trim() || '';
-      const unitPrice = Number(document.getElementById('stockOutUnitPrice')?.value || 0);
-      const issuer = AppState.currentUser?.fullName || AppState.currentUser?.username || document.getElementById('stockOutIssuer')?.value.trim() || 'Admin';
-      const reason = 'ចែកចេញតាមស្ថានីយ (Multi-Station Dispatch)';
-      const rawNotes = document.getElementById('stockOutNotes')?.value.trim();
-      const notes = (!rawNotes || rawNotes === '') ? '-' : rawNotes;
-
-      if (!sku) {
-        Swal.fire('សូមជ្រើសរើសទំនិញ', 'សូមវាយបញ្ចូល ឬជ្រើសរើសឈ្មោះទំនិញជាមុនសិន!', 'warning');
-        return;
-      }
-
-      // Gather station allocations
-      const activeStations = getActiveTollStationsList();
-      const allocations = [];
-      let grandTotalQty = 0;
-      let totalBulkQty = 0;
-      let totalRetailQty = 0;
-
-      activeStations.forEach(st => {
-        const bInput = document.getElementById(`multiQtyBulk_${st.id}`);
-        const rInput = document.getElementById(`multiQtyRetail_${st.id}`);
-        const bVal = Math.max(0, Number(bInput?.value || 0));
-        const rVal = Math.max(0, Number(rInput?.value || 0));
-        const stTotal = (bVal * packQty) + rVal;
-        if (stTotal > 0) {
-          allocations.push({
-            station: st,
-            bulkQty: bVal,
-            retailQty: rVal,
-            totalQty: stTotal
-          });
-          grandTotalQty += stTotal;
-          totalBulkQty += bVal;
-          totalRetailQty += rVal;
-        }
-      });
-
-      if (allocations.length === 0 || grandTotalQty <= 0) {
-        Swal.fire({
-          icon: 'warning',
-          title: 'មិនទាន់មានចំនួនចែកចេញ',
-          text: 'សូមបញ្ចូលចំនួនទំនិញសម្រាប់ស្ថានីយយ៉ាងហោចណាស់មួយ (ដុំ ឬ រាយ)!'
-        });
-        return;
-      }
-
-      if (grandTotalQty > oldStock) {
-        Swal.fire({
-          icon: 'error',
-          title: 'ស្តុកមិនគ្រប់គ្រាន់',
-          html: `ចំនួនបើកចេញសរុបគ្រប់ស្ថានីយ (<b class="text-rose-600">${grandTotalQty} ${baseUnit}</b>) លើសពីស្តុកដែលមានក្នុងដៃ (<b class="text-slate-800">${oldStock} ${baseUnit}</b>)!`
-        });
-        return;
-      }
-
-      const item = AppState.items.find(i => i.sku === sku);
-      const itemName = item?.name || sku;
-      const remainingStock = oldStock - grandTotalQty;
-
-      // Determine Origin Warehouse
-      const fromLocation = (typeof determineStockOutFromLocation === 'function')
-        ? determineStockOutFromLocation(item, AppState.currentUser, (typeof getEffectiveStationFilter === 'function') ? getEffectiveStationFilter() : 'ALL')
-        : '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
-
-      // SweetAlert Confirmation breakdown
-      const stationRowsHtml = allocations.map(a => `
-        <tr class="border-b border-slate-100">
-          <td class="py-1.5 px-2 font-bold text-slate-800 text-left">${escapeHtml(a.station.shortName)}</td>
-          <td class="py-1.5 px-2 text-center font-mono font-bold text-amber-700">${a.bulkQty > 0 ? a.bulkQty + ' ' + escapeHtml(packUnit) : '-'}</td>
-          <td class="py-1.5 px-2 text-center font-mono font-bold text-orange-700">${a.retailQty > 0 ? a.retailQty + ' ' + escapeHtml(baseUnit) : '-'}</td>
-          <td class="py-1.5 px-2 text-right font-black text-emerald-800">${a.totalQty} ${escapeHtml(baseUnit)}</td>
-        </tr>
-      `).join('');
-
-      const confirmRes = await Swal.fire({
-        title: '<b>បញ្ជាក់ការបើកទំនិញចែកតាមពហុស្ថានីយ</b>',
-        html: `
-          <div class="text-left text-xs space-y-2.5 p-1 font-khmer">
-            <div class="p-2.5 bg-amber-50 rounded-xl border border-amber-200">
-              <p><b>ទំនិញ:</b> <span class="text-slate-900 font-bold">${escapeHtml(itemName)}</span> (${escapeHtml(sku)})</p>
-              <p><b>ឃ្លាំងចេញ:</b> <span class="text-indigo-800 font-bold">${escapeHtml(fromLocation)}</span> | <b>អ្នកបើក:</b> ${escapeHtml(issuer)}</p>
-              <p><b>លេខឯកសារ:</b> <span class="font-mono font-bold text-amber-900">${escapeHtml(docNo)}</span></p>
-            </div>
-            <div class="max-h-52 overflow-y-auto rounded-xl border border-slate-200 shadow-2xs">
-              <table class="w-full text-xs">
-                <thead class="bg-slate-100 text-[10px] text-slate-700 uppercase sticky top-0">
-                  <tr>
-                    <th class="p-2 text-left">ស្ថានីយគោលដៅ (${allocations.length})</th>
-                    <th class="p-2 text-center">ដុំ</th>
-                    <th class="p-2 text-center">រាយ</th>
-                    <th class="p-2 text-right">សរុប</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100">
-                  ${stationRowsHtml}
-                </tbody>
-                <tfoot class="bg-amber-100/70 font-bold text-amber-950">
-                  <tr>
-                    <td class="p-2 text-left">សរុបទាំងអស់</td>
-                    <td class="p-2 text-center">${totalBulkQty > 0 ? totalBulkQty + ' ' + escapeHtml(packUnit) : '-'}</td>
-                    <td class="p-2 text-center">${totalRetailQty > 0 ? totalRetailQty + ' ' + escapeHtml(baseUnit) : '-'}</td>
-                    <td class="p-2 text-right font-black text-emerald-900">${grandTotalQty} ${escapeHtml(baseUnit)}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-            <div class="flex justify-between items-center text-xs font-bold pt-1 px-1">
-              <span class="text-slate-500">ស្តុកនៅសល់ក្នុង ${escapeHtml(fromLocation)}:</span>
-              <span class="text-emerald-700 font-black text-sm">${remainingStock} ${escapeHtml(baseUnit)}</span>
-            </div>
-          </div>
-        `,
-        showCancelButton: true,
-        confirmButtonColor: '#ea580c',
-        cancelButtonColor: '#64748b',
-        confirmButtonText: '✓ បញ្ជាក់ការបើកចេញ',
-        cancelButtonText: 'បោះបង់'
-      });
-
-      if (!confirmRes.isConfirmed) return;
-
-      if (window._isMultiStockOutSubmitting) return;
-      window._isMultiStockOutSubmitting = true;
-      const submitMultiBtn = document.getElementById('btnSubmitStockOut');
-      if (submitMultiBtn) {
-        submitMultiBtn.disabled = true;
-        submitMultiBtn.classList.add('opacity-60', 'pointer-events-none');
-      }
-      setTimeout(() => {
-        window._isMultiStockOutSubmitting = false;
-        const btn = document.getElementById('btnSubmitStockOut');
-        if (btn) {
-          btn.disabled = false;
-          btn.classList.remove('opacity-60', 'pointer-events-none');
-        }
-      }, 3000);
-
-      const now = new Date();
-      const dateStr = now.toISOString().slice(0, 10);
-      const timeStr = now.toLocaleTimeString();
-
-      // Create Dispatches
-      if (!LOCAL_DB.dispatches) LOCAL_DB.dispatches = [];
-      const createdDispatches = [];
-
-      allocations.forEach((a) => {
-        const destName = String(a.station?.name || '').trim();
-        const isInternalHq = destName.includes('机电') || destName.includes('អគ្គិសនី') || destName.includes('中心库房') || destName.includes('ឃ្លាំងស្តុកនៅចុងស៊ីង') || destName.includes('ចុងស៊ីង') || destName.includes('ចុងស៊ីន');
-        if (isInternalHq) return;
-
-        const dspId = 'DSP-' + dateStr.replace(/-/g, '') + '-' + Math.floor(1000 + Math.random() * 9000) + '-' + a.station.id;
-        const dsp = {
-          dispatchId: dspId,
-          masterDocNo: docNo,
-          date: dateStr,
-          time: timeStr,
-          sku: sku,
-          code: itemCode,
-          itemName: itemName,
-          imageUrl: item?.imageUrl || '',
-          size: size,
-          color: color,
-          unit: baseUnit,
-          packUnit: packUnit,
-          packQty: packQty,
-          bulkQty: a.bulkQty,
-          retailQty: a.retailQty,
-          quantity: a.totalQty,
-          fromLocation: fromLocation,
-          toLocation: a.station.name,
-          toStationId: a.station.id,
-          issuer: issuer,
-          reason: reason,
-          notes: notes,
-          status: 'PENDING',
-          createdAt: now.toISOString()
-        };
-        LOCAL_DB.dispatches.unshift(dsp);
-        createdDispatches.push(dsp);
-
-        // Also add to In-App Notifications for the destination station
-        if (typeof addNotification === 'function') {
-          addNotification('STOCK_DISPATCH', `📦 ទំនិញផ្ញើមកពី Admin (${docNo})`, `Admin (${issuer}) បានបើកចេញ ${itemName} ចំនួន ${a.totalQty} ${baseUnit} មកកាន់ ${a.station.shortName}`, a.station.name, issuer);
-        }
-      });
-      saveLocalDispatchesToStorage();
-
-      // Master Transaction in AppState.stockOutHistory
-      const tempTxId = 'TX-' + dateStr.replace(/-/g, '') + '-' + Math.floor(1000 + Math.random() * 9000);
-      const stationNamesSummary = `${allocations.length} ស្ថានីយ (${allocations.map(a => a.station.badge).join(', ')})`;
-      const masterTx = {
-        txId: tempTxId,
-        docNo: docNo,
-        date: dateStr,
-        time: timeStr,
-        type: 'STOCK_OUT',
-        sku: sku,
-        code: itemCode,
-        itemName: itemName,
-        imageUrl: item?.imageUrl || '',
-        size: size,
-        color: color,
-        zone: zone,
-        quantity: grandTotalQty,
-        bulkQty: totalBulkQty,
-        retailQty: totalRetailQty,
-        outUnitMode: (totalBulkQty > 0 && totalRetailQty === 0) ? 'BULK' : 'RETAIL',
-        unit: baseUnit,
-        packUnit: packUnit,
-        packQty: packQty,
-        oldStock: oldStock,
-        newStock: remainingStock,
-        fromLocation: 'បញ្ជូនមកពីចុងស៊ីន',
-        toLocation: stationNamesSummary,
-        issuer: issuer,
-        reason: reason,
-        notes: (notes && notes !== '-') ? notes : '-'
-      };
-
-      if (!AppState.stockOutHistory) AppState.stockOutHistory = [];
-      const existingMultiIdx = AppState.stockOutHistory.findIndex(t => (docNo && (t.docNo === docNo || t.txId === docNo)));
-      if (existingMultiIdx !== -1) {
-        AppState.stockOutHistory[existingMultiIdx] = masterTx;
-      } else {
-        AppState.stockOutHistory.unshift(masterTx);
-      }
-
-      if (!LOCAL_DB.transactions) LOCAL_DB.transactions = [];
-      const existingLocalMulti = LOCAL_DB.transactions.findIndex(t => (docNo && (t.docNo === docNo || t.txId === docNo)));
-      if (existingLocalMulti !== -1) {
-        LOCAL_DB.transactions[existingLocalMulti] = masterTx;
-      } else {
-        LOCAL_DB.transactions.unshift(masterTx);
-      }
-      saveLocalTransactionsToStorage();
-
-      if (typeof renderStockOutHistoryTable === 'function') renderStockOutHistoryTable(AppState.stockOutHistory);
-
-      // Deduct stock from origin item
-      if (item) {
-        item.currentStock = remainingStock;
-        const pQty = Number(item.packQty || 1);
-        item.packStock = pQty > 1 ? Math.floor(remainingStock / pQty) : remainingStock;
-        if (typeof deductItemZoneBreakdown === 'function') {
-          deductItemZoneBreakdown(item, zone, grandTotalQty);
-        }
-      }
-      const localItem = (LOCAL_DB.items || []).find(i => i.sku === sku);
-      if (localItem) {
-        localItem.currentStock = remainingStock;
-        const pQty = Number(localItem.packQty || 1);
-        localItem.packStock = pQty > 1 ? Math.floor(remainingStock / pQty) : remainingStock;
-        if (typeof deductItemZoneBreakdown === 'function') {
-          deductItemZoneBreakdown(localItem, zone, grandTotalQty);
-        }
-      }
-      saveLocalItemsToStorage();
-      if (typeof renderItemsTable === 'function') renderItemsTable();
-
-      // Reset multi station inputs
-      clearAllMultiStationQtys();
-      clearStockOutAllFields();
-
-      // Real-time broadcast
-      if (typeof broadcastInventoryMutation === 'function') {
-        broadcastInventoryMutation('BATCH_DISPATCH', {
-          masterDocNo: docNo,
-          dispatches: createdDispatches,
-          items: AppState.items
-        });
-      }
-
-      // Background sync to backend
-      const payload = {
-        data: {
-          docNo,
-          sku,
-          code: itemCode,
-          itemName,
-          size,
-          unit: baseUnit,
-          packUnit,
-          packQty,
-          bulkQty: totalBulkQty,
-          retailQty: totalRetailQty,
-          outUnitMode: (totalBulkQty > 0 && totalRetailQty === 0) ? 'BULK' : 'RETAIL',
-          color,
-          zone,
-          quantity: grandTotalQty,
-          oldStock,
-          newStock: remainingStock,
-          unitPrice,
-          fromLocation: 'បញ្ជូនមកពីចុងស៊ីន',
-          toLocation: stationNamesSummary,
-          issuer,
-          reason,
-          notes: (notes && notes !== '-') ? notes : '-',
-          userNote: (notes && notes !== '-') ? notes : '-'
-        },
-        user: AppState.currentUser,
-        dispatches: createdDispatches
-      };
-
-      apiCall('recordStockOut', payload).then(res => {
-        if (res && res.success) {
-          if (typeof loadDashboard === 'function') loadDashboard();
-        }
-      }).catch(err => {
-        console.warn('Background sync batch dispatch error:', err);
-      });
-
-      Swal.fire({
-        icon: 'success',
-        title: 'បានបើកចេញទៅពហុស្ថានីយជោគជ័យ!',
-        html: `
-          <div class="text-left text-xs space-y-1.5 p-2 font-khmer">
-            <p class="text-slate-600">បានចែកទំនិញចេញទៅកាន់ <b>${allocations.length} ស្ថានីយ</b> សរុប <b>${grandTotalQty} ${baseUnit}</b> រួចរាល់!</p>
-            <p class="text-slate-500">ស្ថានីយនីមួយៗបានទទួលសារជូនដំណឹង ហើយអាចផ្ទៀងផ្ទាត់ទទួលចូលស្តុកតាមស្ថានីយរៀងៗខ្លួន។</p>
-          </div>
-        `,
-        timer: 4000,
-        timerProgressBar: true,
-        confirmButtonColor: '#046c4e',
-        confirmButtonText: 'យល់ព្រម'
       });
     }
 
@@ -36367,9 +35977,6 @@
       });
     }
 
-    function exportItemsToCSV() {
-      exportItemsToExcel();
-    }
 
     // =========================================================================
     // EXCEL IMPORT ENGINE (Product Inventory)
@@ -37416,18 +37023,6 @@
       });
     }
 
-    function exportReportToCSV() {
-      exportReportToExcel();
-    }
-
-    function downloadCsv(content, fileName) {
-      const blob = new Blob(["\ufeff" + content], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      a.click();
-    }
 
     function printReportTable() {
       window.print();
@@ -47548,36 +47143,6 @@
       if (e) e.preventDefault();
     }
 
-    function showDemoCredentials() {
-      if (typeof Swal !== 'undefined') {
-        Swal.fire({
-          title: '🔑 គណនីជាក់ស្តែងក្នុងប្រព័ន្ធ (Users)',
-          html: `
-            <div class="text-left text-xs space-y-2.5 p-2 bg-slate-50 rounded-xl border border-slate-200">
-              <div class="p-2 bg-blue-50 rounded-lg border border-blue-200">
-                <p class="font-bold text-blue-800">👑 Admin (គ្រប់ស្ថានីយទាំងអស់):</p>
-                <p class="font-mono text-slate-700">Username: <b class="text-blue-600">admin</b> | Password: <b class="text-blue-600">admin123</b></p>
-              </div>
-              <div class="p-2 bg-amber-50 rounded-lg border border-amber-200">
-                <p class="font-bold text-amber-800">📦 អ្នកកាន់ស្តុក (K3 ភ្នំពេញ 01 - ចាន់ ដារា):</p>
-                <p class="font-mono text-slate-700">Username: <b class="text-amber-700">sdfsdf</b> | Password: <b class="text-amber-700">123456</b></p>
-              </div>
-              <div class="p-2 bg-indigo-50 rounded-lg border border-indigo-200">
-                <p class="font-bold text-indigo-800">🏢 អ្នកគ្រប់គ្រងស្ថានីយ (K3 ភ្នំពេញ 01 - វិន វ៉ាន់ស៊ិញ):</p>
-                <p class="font-mono text-slate-700">Username: <b class="text-indigo-700">singvan327@gmail.com</b> | Password: <b class="text-indigo-700">123456</b></p>
-              </div>
-              <div class="p-2 bg-emerald-50 rounded-lg border border-emerald-200">
-                <p class="font-bold text-emerald-800">👤 ប្រធានក្រុម (K26 កំពង់ស្ពឺ កើត 02 - ចាន់ ឌី):</p>
-                <p class="font-mono text-slate-700">Username: <b class="text-emerald-700">chandy</b> | Password: <b class="text-emerald-700">123456</b></p>
-              </div>
-            </div>
-          `,
-          icon: 'info',
-          confirmButtonText: 'យល់ព្រម',
-          confirmButtonColor: '#2563eb'
-        });
-      }
-    }
 
     // =========================================================
     // Dynamic Auto-Scale Auth Modal for All Screen Sizes & Monitors
@@ -47956,18 +47521,6 @@
       return allUsers.filter(u => u.status === 'Pending_Admin' || u.status === 'Pending' || u.status === 'Pending_SuperAdmin');
     }
 
-    function isRoleForSuperAdminApproval(role) {
-      const r = String(role || '').trim().toLowerCase();
-      return (
-        r.includes('admin') ||
-        r.includes('superadmin') ||
-        r.includes('អ្នកគ្រប់គ្រងស្ថានីយ') ||
-        r.includes('អ្នកគ្រប់គ្រង') ||
-        r.includes('station manager') ||
-        r.includes('stationmanager')
-      );
-    }
-    window.isRoleForSuperAdminApproval = isRoleForSuperAdminApproval;
 
     // Real-Time High-Impact Top Dashboard Alert Banner for Admin
     function renderAdminPendingBanner(pendingUsers) {
