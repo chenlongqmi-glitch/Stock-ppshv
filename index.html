@@ -2731,7 +2731,7 @@
                 var avatarEl = document.getElementById('activeSessionAvatar');
                 var mobAvatar = document.getElementById('headerMobileAvatar');
                 if (avatarEl && (u.avatar || isSA)) {
-                  var avSrc = isSA ? 'assets/superadmin_avatar.jpg' : u.avatar;
+                  var avSrc = (isSA && (!u.avatar || u.avatar.includes('dicebear'))) ? 'assets/superadmin_avatar.jpg' : (u.avatar || 'assets/superadmin_avatar.jpg');
                   if (avSrc) {
                     avatarEl.innerHTML = '<img src="' + avSrc + '" class="w-full h-full object-cover rounded-full pointer-events-none" style="width:100%;height:100%;object-fit:cover;border-radius:9999px;">';
                     if (mobAvatar) mobAvatar.innerHTML = '<img src="' + avSrc + '" class="w-full h-full object-cover rounded-full pointer-events-none" style="width:100%;height:100%;object-fit:cover;border-radius:9999px;"><span class="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 border border-white rounded-full"></span>';
@@ -17443,6 +17443,58 @@
 
 
     // =========================================================================
+    // GLOBAL USER AVATAR SYNCHRONIZER (LIVE APP BAR & PROFILE UPDATE)
+    // =========================================================================
+    function updateGlobalUserAvatar(newAvatarUrl) {
+      if (!newAvatarUrl) return;
+
+      // 1. AppState update
+      if (typeof AppState !== 'undefined' && AppState.currentUser) {
+        AppState.currentUser.avatar = newAvatarUrl;
+        try {
+          sessionStorage.setItem('inventory_user', JSON.stringify(AppState.currentUser));
+        } catch (e) { }
+      }
+
+      // 2. LOCAL_DB update
+      if (typeof LOCAL_DB !== 'undefined' && Array.isArray(LOCAL_DB.users) && AppState.currentUser) {
+        const uName = String(AppState.currentUser.username || '').toLowerCase();
+        const uId = String(AppState.currentUser.userId || '');
+        const idx = LOCAL_DB.users.findIndex(x => (uName && x.username && x.username.toLowerCase() === uName) || (uId && x.userId === uId));
+        if (idx !== -1) {
+          LOCAL_DB.users[idx].avatar = newAvatarUrl;
+          if (typeof saveLocalUsersToStorage === 'function') saveLocalUsersToStorage();
+        }
+      }
+
+      // 3. Top Session Banner Avatar (Desktop)
+      const sessionAvatar = document.getElementById('activeSessionAvatar');
+      if (sessionAvatar) {
+        sessionAvatar.innerHTML = `<img src="${newAvatarUrl}" class="w-full h-full object-cover rounded-full pointer-events-none" style="width:100%;height:100%;object-fit:cover;border-radius:9999px;">`;
+      }
+
+      // 4. Header Mobile Avatar
+      const mobAvatar = document.getElementById('headerMobileAvatar');
+      if (mobAvatar) {
+        mobAvatar.innerHTML = `<img src="${newAvatarUrl}" class="w-full h-full object-cover rounded-full pointer-events-none" style="width:100%;height:100%;object-fit:cover;border-radius:9999px;"><span class="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 border border-white rounded-full"></span>`;
+      }
+
+      // 5. Sidebar User Avatar
+      const sidebarAvatar = document.getElementById('userAvatar');
+      if (sidebarAvatar) {
+        sidebarAvatar.innerHTML = `<img src="${newAvatarUrl}" class="w-full h-full object-cover rounded-lg">`;
+        sidebarAvatar.classList.remove('bg-blue-500');
+      }
+
+      // 6. Profile Modal Preview & Hidden Input
+      const profPrev = document.getElementById('profileAvatarPreview');
+      if (profPrev) profPrev.src = newAvatarUrl;
+      const profData = document.getElementById('profileAvatarData');
+      if (profData) profData.value = newAvatarUrl;
+    }
+    window.updateGlobalUserAvatar = updateGlobalUserAvatar;
+
+    // =========================================================================
     // IMAGE CROPPER & ZOOM SYSTEM (PROFILE AVATAR & PRODUCT IMAGES)
     // =========================================================================
     let currentCropper = null;
@@ -17627,11 +17679,7 @@
         currentCropper = null;
       }
       const imgEl = document.getElementById('cropperImageElement');
-      if (imgEl) {
-        imgEl.onload = null;
-        imgEl.onerror = null;
-        imgEl.removeAttribute('src');
-      }
+      if (imgEl) imgEl.src = '';
     }
 
     function cropperZoomStep(delta) {
@@ -17708,11 +17756,7 @@
         const croppedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
 
         if (typeof currentCropperCallback === 'function') {
-          try {
-            currentCropperCallback(croppedDataUrl);
-          } catch (cbErr) {
-            console.error('Cropper callback error:', cbErr);
-          }
+          currentCropperCallback(croppedDataUrl);
         }
 
         closeImageCropper();
@@ -17805,6 +17849,32 @@
             if (typeof validateProfileForm === 'function') {
               validateProfileForm(true);
             }
+            // Immediately sync cropped avatar to live session header & sidebar!
+            if (typeof updateGlobalUserAvatar === 'function') {
+              updateGlobalUserAvatar(croppedData);
+            }
+            // Auto-upload cropped avatar to Google Drive and sync profile in backend
+            const curU = (typeof AppState !== 'undefined' && AppState.currentUser) ? AppState.currentUser : null;
+            if (curU && (croppedData.startsWith('data:image/') || croppedData.includes(';base64,'))) {
+              if (typeof apiCall === 'function') {
+                apiCall('uploadImageToDrive', {
+                  base64: croppedData,
+                  fileName: 'avatar_' + (curU.username || curU.userId || 'user'),
+                  folderName: 'User_Avatars'
+                }).then(driveRes => {
+                  if (driveRes && driveRes.success && driveRes.url) {
+                    updateGlobalUserAvatar(driveRes.url);
+                    apiCall('updateUserProfile', {
+                      userId: curU.userId,
+                      username: curU.username,
+                      avatar: driveRes.url
+                    }).catch(e => console.warn('Auto profile avatar sync:', e));
+                  }
+                }).catch(driveErr => {
+                  console.warn('Background avatar drive upload:', driveErr);
+                });
+              }
+            }
           }
         }
       });
@@ -17881,6 +17951,32 @@
             if (avatarError) avatarError.classList.add('hidden');
             if (typeof validateProfileForm === 'function') {
               validateProfileForm(true);
+            }
+            // Immediately sync cropped avatar to live session header & sidebar!
+            if (typeof updateGlobalUserAvatar === 'function') {
+              updateGlobalUserAvatar(croppedData);
+            }
+            // Auto-upload cropped avatar to Google Drive and sync profile in backend
+            const curU = (typeof AppState !== 'undefined' && AppState.currentUser) ? AppState.currentUser : null;
+            if (curU && (croppedData.startsWith('data:image/') || croppedData.includes(';base64,'))) {
+              if (typeof apiCall === 'function') {
+                apiCall('uploadImageToDrive', {
+                  base64: croppedData,
+                  fileName: 'avatar_' + (curU.username || curU.userId || 'user'),
+                  folderName: 'User_Avatars'
+                }).then(driveRes => {
+                  if (driveRes && driveRes.success && driveRes.url) {
+                    updateGlobalUserAvatar(driveRes.url);
+                    apiCall('updateUserProfile', {
+                      userId: curU.userId,
+                      username: curU.username,
+                      avatar: driveRes.url
+                    }).catch(e => console.warn('Auto profile avatar sync:', e));
+                  }
+                }).catch(driveErr => {
+                  console.warn('Background avatar drive upload:', driveErr);
+                });
+              }
             }
           }
         }
@@ -18439,10 +18535,12 @@
 
       // Ensure SuperAdmin profile values are fully synchronized with official info
       if (u.userId === 'USR-SA' || (u.username && u.username.toLowerCase() === 'superadmin')) {
-        u.fullName = '陈龙';
-        u.email = 'chenlongqmi@gmail.com';
-        u.phone = '066966606';
-        u.avatar = 'assets/superadmin_avatar.jpg';
+        u.fullName = u.fullName || '陈龙';
+        u.email = u.email || 'chenlongqmi@gmail.com';
+        u.phone = u.phone || '066966606';
+        if (!u.avatar || u.avatar.includes('dicebear')) {
+          u.avatar = 'assets/superadmin_avatar.jpg';
+        }
       }
 
       if (document.getElementById('userDisplayName')) document.getElementById('userDisplayName').innerText = u.fullName || u.username;
@@ -18464,7 +18562,7 @@
       const mobAvatar = document.getElementById('headerMobileAvatar');
       if (sessionAvatar) {
         if (u.avatar && u.avatar.trim()) {
-          sessionAvatar.innerHTML = `<img src="${u.avatar}" class="w-full h-full object-cover rounded-full">`;
+          sessionAvatar.innerHTML = `<img src="${u.avatar}" class="w-full h-full object-cover rounded-full pointer-events-none" style="width:100%;height:100%;object-fit:cover;border-radius:9999px;">`;
         } else {
           sessionAvatar.innerHTML = `<span>${(u.fullName || u.username).charAt(0).toUpperCase()}</span>`;
         }
@@ -39394,12 +39492,15 @@
         const res = await apiCall('updateUserProfile', payload);
 
         if (res && res.success) {
+          const finalAvatar = res.avatarUrl || res.avatar || avatar;
+          updateGlobalUserAvatar(finalAvatar);
+
           // Update AppState.currentUser
           u.username = newUsername;
           u.fullName = fullName;
           u.email = email;
           u.phone = phone;
-          u.avatar = avatar;
+          u.avatar = finalAvatar;
 
           // Update in LOCAL_DB
           const dbIdx = LOCAL_DB.users.findIndex(x =>
@@ -39411,9 +39512,9 @@
             LOCAL_DB.users[dbIdx].fullName = fullName;
             LOCAL_DB.users[dbIdx].email = email;
             LOCAL_DB.users[dbIdx].phone = phone;
-            LOCAL_DB.users[dbIdx].avatar = avatar;
+            LOCAL_DB.users[dbIdx].avatar = finalAvatar;
           } else {
-            LOCAL_DB.users.push({ ...u });
+            LOCAL_DB.users.push({ ...u, avatar: finalAvatar });
           }
           saveLocalUsersToStorage();
 
@@ -39445,6 +39546,7 @@
       } catch (err) {
         console.error('Profile update error:', err);
         // Resilient fallback: ensure local updates apply so UI never stays stale
+        updateGlobalUserAvatar(avatar);
         u.fullName = fullName;
         u.email = email;
         u.phone = phone;

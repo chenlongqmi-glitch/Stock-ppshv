@@ -3141,7 +3141,16 @@ function registerUser(userData) {
 
   const warehouse = userData.warehouse || 'ឃ្លាំងទី ០១ - ភ្នំពេញ (សែនសុខ)';
 
-  const avatar = userData.avatar || '';
+  let avatar = userData.avatar || '';
+  if (avatar && (avatar.startsWith('data:image/') || avatar.includes(';base64,') || (avatar.length > 200 && !avatar.startsWith('http')))) {
+    try {
+      const avatarFileName = 'avatar_' + (userData.username || userId || 'newuser') + '_' + new Date().getTime();
+      const driveRes = uploadImageToGoogleDrive(avatar, avatarFileName, 'User_Avatars');
+      if (driveRes && driveRes.success && driveRes.url) {
+        avatar = driveRes.url;
+      }
+    } catch (e) { }
+  }
 
   const phone = userData.phone || '';
 
@@ -4072,8 +4081,18 @@ function updateUserStatus(userIdOrPayload, status, role, warehouse, adminUser, a
       if (r) sheet.getRange(i + 1, 7).setValue(r);
       if (wh) sheet.getRange(i + 1, 10).setValue(wh);
       if (av) {
+        let finalAv = av;
+        if (av.startsWith('data:image/') || av.includes(';base64,') || (av.length > 200 && !av.startsWith('http'))) {
+          try {
+            const avatarFileName = 'avatar_' + (cleanUsername || cleanId || 'user') + '_' + new Date().getTime();
+            const driveRes = uploadImageToGoogleDrive(av, avatarFileName, 'User_Avatars');
+            if (driveRes && driveRes.success && driveRes.url) {
+              finalAv = driveRes.url;
+            }
+          } catch (e) { }
+        }
         try {
-          if (av.length <= 49000) sheet.getRange(i + 1, 11).setValue(av);
+          if (finalAv && finalAv.length <= 49000) sheet.getRange(i + 1, 11).setValue(finalAv);
         } catch (e) { }
       }
       if (phone && String(phone).trim() !== '') sheet.getRange(i + 1, 12).setValue(String(phone).trim());
@@ -5074,14 +5093,26 @@ function updateUserProfile(payload) {
 
       if (email && String(email).trim() !== '') sheet.getRange(i + 1, 4).setValue(String(email).trim());
 
+      let finalAvatarUrl = avatar;
       if (avatar) {
+        // If avatar is Base64 data, upload to Google Drive in 'User_Avatars' folder
+        if (avatar.startsWith('data:image/') || avatar.includes(';base64,') || (avatar.length > 200 && !avatar.startsWith('http'))) {
+          try {
+            const avatarFileName = 'avatar_' + (newUsername || username || rowUsername || rowUserId || 'user') + '_' + new Date().getTime();
+            const driveRes = uploadImageToGoogleDrive(avatar, avatarFileName, 'User_Avatars');
+            if (driveRes && driveRes.success && driveRes.url) {
+              finalAvatarUrl = driveRes.url;
+            }
+          } catch (driveErr) {
+            if (typeof Logger !== 'undefined') Logger.log('Avatar Google Drive upload error: ' + driveErr.toString());
+          }
+        }
 
         try {
-
-          if (avatar.length <= 49000) sheet.getRange(i + 1, 11).setValue(avatar);
-
+          if (finalAvatarUrl && finalAvatarUrl.length <= 49000) {
+            sheet.getRange(i + 1, 11).setValue(finalAvatarUrl);
+          }
         } catch (e) { }
-
       }
 
       if (phone && String(phone).trim() !== '') sheet.getRange(i + 1, 12).setValue(String(phone).trim());
@@ -5128,7 +5159,22 @@ function updateUserProfile(payload) {
       const activeUser = newUsername || username || rowUsername;
       logActivity(activeUser, String(data[i][6] || 'User'), 'UPDATE_PROFILE', `Updated own profile: username=${activeUser}, fullName=${fullName}, avatarUpdated=${!!avatar}, passwordUpdated=${!!newPassword}`);
 
-      return { success: true, message: 'បានកែប្រែព័ត៌មានផ្ទាល់ខ្លួនជោគជ័យ' };
+      return {
+        success: true,
+        message: 'បានកែប្រែព័ត៌មានផ្ទាល់ខ្លួន និងរក្សាទុករូបភាពទៅ Google Drive ជោគជ័យ',
+        avatarUrl: finalAvatarUrl,
+        avatar: finalAvatarUrl,
+        user: {
+          userId: rowUserId || userId,
+          username: newUsername || rowUsername,
+          fullName: fullName || String(data[i][2]),
+          email: email || String(data[i][3]),
+          phone: phone || String(data[i][11]),
+          avatar: finalAvatarUrl,
+          role: String(data[i][6] || 'User'),
+          warehouse: String(data[i][9] || '')
+        }
+      };
 
     }
 
