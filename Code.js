@@ -13995,6 +13995,30 @@ function getPendingDispatches(targetWarehouse) {
   const values = sheet.getDataRange().getValues();
   if (values.length <= 1) return { success: true, dispatches: [] };
 
+  // Build Item SKU -> { imageUrl, packQty } map from Items sheet
+  const itemMap = {};
+  try {
+    const itemsSheet = ss.getSheetByName(SHEETS.ITEMS || 'Items');
+    if (itemsSheet) {
+      const iData = itemsSheet.getDataRange().getValues();
+      if (iData.length > 1) {
+        const iHeaders = (iData[0] || []).map(h => String(h || '').trim().toLowerCase());
+        const skuIdx = iHeaders.indexOf('sku') >= 0 ? iHeaders.indexOf('sku') : 0;
+        const imgIdx = iHeaders.indexOf('imageurl') >= 0 ? iHeaders.indexOf('imageurl') : (iHeaders.indexOf('image') >= 0 ? iHeaders.indexOf('image') : 11);
+        const pQtyIdx = iHeaders.indexOf('packqty') >= 0 ? iHeaders.indexOf('packqty') : (iHeaders.indexOf('pack quantity') >= 0 ? iHeaders.indexOf('pack quantity') : 7);
+        for (let j = 1; j < iData.length; j++) {
+          const s = String(iData[j][skuIdx] || '').trim();
+          if (s) {
+            itemMap[s.toLowerCase()] = {
+              imageUrl: String(iData[j][imgIdx] || '').trim(),
+              packQty: Number(iData[j][pQtyIdx] || 1)
+            };
+          }
+        }
+      }
+    }
+  } catch (eItemMap) { }
+
   const dispatches = [];
 
   for (let i = values.length - 1; i >= 1; i--) {
@@ -14005,6 +14029,8 @@ function getPendingDispatches(targetWarehouse) {
     if (wh && (typeof matchesTargetWarehouseGAS === 'function' ? !matchesTargetWarehouseGAS(toLoc, wh) : (toLoc !== wh && !toLoc.includes(wh) && !wh.includes(toLoc)))) {
       continue;
     }
+    const rowSku = String(row[4] || '').trim();
+    const itemMeta = itemMap[rowSku.toLowerCase()] || {};
     dispatches.push({
       dispatchId: row[0],
       masterDocNo: row[1],
@@ -14012,6 +14038,7 @@ function getPendingDispatches(targetWarehouse) {
       time: row[3],
       sku: row[4],
       itemName: row[5],
+      imageUrl: itemMeta.imageUrl || '',
       size: row[6],
       color: row[7],
       quantity: Number(row[8] || 0),
@@ -14019,6 +14046,7 @@ function getPendingDispatches(targetWarehouse) {
       retailQty: Number(row[10] || 0),
       unit: row[11],
       packUnit: row[12],
+      packQty: itemMeta.packQty || 1,
       fromLocation: row[13],
       toLocation: row[14],
       issuer: row[15],
