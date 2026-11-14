@@ -5332,36 +5332,6 @@
       </div>
     </nav>
 
-    <!-- Floating Zoom In / Zoom Out Quick Controller for Mobile & iPad -->
-    <div id="mobileFloatingZoomDock"
-      class="hidden fixed bottom-20 md:bottom-6 right-3 z-40 flex items-center bg-slate-900/95 text-white backdrop-blur-md border border-white/20 rounded-full shadow-2xl px-2.5 py-1.5 space-x-1.5 transition-all duration-300 select-none">
-      <button type="button" onclick="adjustAppZoom(-0.10)"
-        class="w-7 h-7 rounded-full bg-white/15 hover:bg-white/30 active:bg-blue-600 active:scale-90 flex items-center justify-center text-xs font-black transition text-white cursor-pointer"
-        title="Zoom Out / បង្រួម (-10%)">
-        <i class="fa-solid fa-magnifying-glass-minus text-[11px]"></i>
-      </button>
-      <span id="mobileFloatingZoomText" onclick="resetAppZoom()"
-        class="text-[11px] font-extrabold font-mono text-cyan-300 px-1.5 cursor-pointer min-w-[36px] text-center leading-none"
-        title="ចុចដើម្បីកំណត់ Auto (Reset 100%)">100%</span>
-      <button type="button" onclick="adjustAppZoom(0.10)"
-        class="w-7 h-7 rounded-full bg-white/15 hover:bg-white/30 active:bg-blue-600 active:scale-90 flex items-center justify-center text-xs font-black transition text-white cursor-pointer"
-        title="Zoom In / ពង្រីក (+10%)">
-        <i class="fa-solid fa-magnifying-glass-plus text-[11px]"></i>
-      </button>
-      <button type="button" onclick="toggleMobileFloatingZoomDock()"
-        class="w-6 h-6 rounded-full text-slate-400 hover:text-white hover:bg-white/10 flex items-center justify-center text-[10px] ml-0.5 transition cursor-pointer"
-        title="បង្រួមទៅជាប៊ូតុងតូច">
-        <i class="fa-solid fa-xmark text-[11px]"></i>
-      </button>
-    </div>
-
-    <!-- Collapsed Mini Zoom FAB Button (Visible by default, unobtrusive) -->
-    <button id="mobileFloatingZoomMinBtn" onclick="toggleMobileFloatingZoomDock()"
-      class="fixed bottom-20 md:bottom-6 right-3 z-40 w-9 h-9 rounded-full bg-blue-600/90 hover:bg-blue-700 text-white backdrop-blur-md border border-white/30 shadow-xl flex items-center justify-center transition-all duration-300 active:scale-90 text-xs font-bold cursor-pointer"
-      title="បើកផ្ទាំង Zoom In / Zoom Out">
-      <i class="fa-solid fa-magnifying-glass text-xs"></i>
-    </button>
-
   </div>
 
   <!-- ========================================== -->
@@ -47703,11 +47673,6 @@
         }
 
         // 3. Update Floating Quick Zoom Dock Text
-        const mobileFloatingZoomText = document.getElementById('mobileFloatingZoomText');
-        if (mobileFloatingZoomText) {
-          mobileFloatingZoomText.textContent = percentText;
-          mobileFloatingZoomText.title = isManual ? `Manual (${percentText}) - ចុច Reset` : `Auto (${percentText})`;
-        }
 
         // 4. Update Sidebar Drawer Zoom Text
         const sidebarZoomText = document.getElementById('sidebarZoomText');
@@ -47772,68 +47737,18 @@
       watchDpi();
 
       // Manual Zoom Controls exposed to window (for Mobile, iPad & Desktop)
-      let _zoomDockCollapseTimer = null;
-      function scheduleZoomDockAutoCollapse() {
-        if (_zoomDockCollapseTimer) clearTimeout(_zoomDockCollapseTimer);
-        _zoomDockCollapseTimer = setTimeout(() => {
-          const dock = document.getElementById('mobileFloatingZoomDock');
-          const minBtn = document.getElementById('mobileFloatingZoomMinBtn');
-          if (dock && !dock.classList.contains('hidden')) {
-            dock.classList.add('hidden');
-            if (minBtn) minBtn.classList.remove('hidden');
-          }
-        }, 5000);
-      }
-
       window.adjustAppZoom = function (delta) {
         const current = parseFloat(document.documentElement.style.getPropertyValue('--app-ui-scale')) || 1.0;
         let newZoom = Math.round((current + delta) * 10) / 10;
         newZoom = Math.max(0.70, Math.min(1.60, newZoom));
         localStorage.setItem('inventory_user_zoom', newZoom);
         applyAdaptiveScaling(true);
-        scheduleZoomDockAutoCollapse();
       };
 
       window.resetAppZoom = function () {
         localStorage.removeItem('inventory_user_zoom');
         applyAdaptiveScaling(true);
-        scheduleZoomDockAutoCollapse();
       };
-
-      // Toggle Floating Zoom Quick Dock
-      function toggleMobileFloatingZoomDock() {
-        const dock = document.getElementById('mobileFloatingZoomDock');
-        const minBtn = document.getElementById('mobileFloatingZoomMinBtn');
-        if (!dock || !minBtn) return;
-        const isCollapsed = dock.classList.contains('hidden');
-        if (isCollapsed) {
-          dock.classList.remove('hidden');
-          minBtn.classList.add('hidden');
-          scheduleZoomDockAutoCollapse();
-          try { localStorage.setItem('inventory_zoom_dock_collapsed', 'false'); } catch (e) { }
-        } else {
-          dock.classList.add('hidden');
-          minBtn.classList.remove('hidden');
-          if (_zoomDockCollapseTimer) clearTimeout(_zoomDockCollapseTimer);
-          try { localStorage.setItem('inventory_zoom_dock_collapsed', 'true'); } catch (e) { }
-        }
-      }
-      window.toggleMobileFloatingZoomDock = toggleMobileFloatingZoomDock;
-
-      try {
-        const dockCollapsedState = localStorage.getItem('inventory_zoom_dock_collapsed');
-        const dock = document.getElementById('mobileFloatingZoomDock');
-        const minBtn = document.getElementById('mobileFloatingZoomMinBtn');
-        // Default to collapsed unless explicitly expanded recently
-        if (dockCollapsedState !== 'false') {
-          if (dock) dock.classList.add('hidden');
-          if (minBtn) minBtn.classList.remove('hidden');
-        } else {
-          if (dock) dock.classList.remove('hidden');
-          if (minBtn) minBtn.classList.add('hidden');
-          scheduleZoomDockAutoCollapse();
-        }
-      } catch (e) { }
 
       window.applyAdaptiveScaling = applyAdaptiveScaling;
 
