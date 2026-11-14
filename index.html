@@ -5141,7 +5141,7 @@
                 <div>
                   <label class="block text-xs font-bold text-slate-700 uppercase mb-1">ឈ្មោះក្រុមហ៊ុន /
                     អាជីវកម្ម</label>
-                  <input type="text" id="setCompanyName" placeholder="ឧ. Smart Inventory Pro"
+                  <input type="text" id="setCompanyName" placeholder="ឧ. ក្រុមហ៊ុនផ្លូវល្បឿនលឿនភ្នំពេញ-ក្រុងព្រះសីហនុ"
                     class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs md:text-sm outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
                 <div>
@@ -30315,6 +30315,22 @@
     };
 
 
+    function getPdfCompanyHeaderInfo() {
+      let name = document.getElementById('setCompanyName')?.value?.trim() || '';
+      if (!name || name === 'ប្រព័ន្ធគ្រប់គ្រងស្តុកទំនិញ' || name === 'ប្រព័ន្ធគ្រប់គ្រងស្តុកទំនិញ PPSHV' || name === 'Smart Inventory Pro') {
+        name = 'ក្រុមហ៊ុនផ្លូវល្បឿនលឿនភ្នំពេញ-ក្រុងព្រះសីហនុ';
+      }
+      let logoUrl = 'assets/logo.png';
+      try {
+        const loc = window.location.href;
+        const base = loc.substring(0, loc.lastIndexOf('/') + 1);
+        logoUrl = base + 'assets/logo.png';
+      } catch (e) {
+        logoUrl = 'assets/logo.png';
+      }
+      return { companyName: name, companyLogoUrl: logoUrl };
+    }
+
     window.exportStockInHistoryToPDF = function () {
       const list = window._currentStockInDisplayList || AppState.stockInHistory || [];
       if (!list || list.length === 0) {
@@ -30330,7 +30346,7 @@
         return;
       }
 
-      const companyName = document.getElementById('setCompanyName')?.value || 'ប្រព័ន្ធគ្រប់គ្រងស្តុកទំនិញ';
+      const { companyName, companyLogoUrl } = getPdfCompanyHeaderInfo();
       const mStart = (document.getElementById('stockInMonthStart')?.value || '').trim();
       const mEnd = (document.getElementById('stockInMonthEnd')?.value || '').trim();
       let dateFilterStr = 'ទិន្នន័យទាំងអស់';
@@ -30420,6 +30436,7 @@
         <!DOCTYPE html>
         <html lang="km">
         <head>
+          <base href="${window.location.href}">
           <meta charset="utf-8">
           <title>របាយការណ៍ប្រវត្តិកត់ត្រាទំនិញចូលស្តុក - ${new Date().toISOString().slice(0, 10)}</title>
           <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -30459,10 +30476,13 @@
             </div>
           </div>
           <div class="header-box">
-            <div>
-              <h1 class="company-name">${escapeHtml(companyName)}</h1>
-              <div class="report-title">របាយការណ៍ប្រវត្តិកត់ត្រាទំនិញចូលស្តុក (Stock In History Report)</div>
-              <div class="report-sub">កាលបរិច្ឆេទកំណត់៖ <strong>${escapeHtml(dateFilterStr)}</strong> | ឃ្លាំង៖ <strong>${escapeHtml(whDisplayName)}</strong></div>
+            <div style="display: flex; align-items: center; gap: 14px;">
+              <img src="${companyLogoUrl}" alt="PPSHV Logo" style="height: 48px; width: auto; object-fit: contain;" onerror="this.onerror=null; this.src='assets/logo.png';">
+              <div>
+                <h1 class="company-name" style="font-size: 16px; font-weight: bold; color: #065f46; margin: 0; line-height: 1.3;">${escapeHtml(companyName)}</h1>
+                <div class="report-title" style="font-size: 13px; font-weight: bold; color: #0f172a; margin: 2px 0 0 0;">របាយការណ៍ប្រវត្តិកត់ត្រាទំនិញចូលស្តុក (Stock In History Report)</div>
+                <div class="report-sub" style="font-size: 11px; color: #64748b; margin-top: 2px;">កាលបរិច្ឆេទកំណត់៖ <strong>${escapeHtml(dateFilterStr)}</strong> | ឃ្លាំង៖ <strong>${escapeHtml(whDisplayName)}</strong></div>
+              </div>
             </div>
             <div class="meta-box">
               <div><strong>កាលបរិច្ឆេទបង្កើត៖</strong> ${escapeHtml(printDate)}</div>
@@ -30531,7 +30551,7 @@
         return;
       }
 
-      const companyName = document.getElementById('setCompanyName')?.value || 'ប្រព័ន្ធគ្រប់គ្រងស្តុកទំនិញ';
+      const { companyName, companyLogoUrl } = getPdfCompanyHeaderInfo();
       const mStart = (document.getElementById('stockOutMonthStart')?.value || '').trim();
       const mEnd = (document.getElementById('stockOutMonthEnd')?.value || '').trim();
       let dateFilterStr = 'ទិន្នន័យទាំងអស់';
@@ -30682,10 +30702,13 @@
             </div>
           </div>
           <div class="header-box">
-            <div>
-              <h1 class="company-name">${escapeHtml(companyName)}</h1>
-              <div class="report-title">របាយការណ៍ប្រវត្តិកត់ត្រាទំនិញចេញពីស្តុក (Stock Out History Report)</div>
-              <div class="report-sub">កាលបរិច្ឆេទកំណត់៖ <strong>${escapeHtml(dateFilterStr)}</strong> | ឃ្លាំង/ទីតាំង៖ <strong>${escapeHtml(whDisplayName)}</strong></div>
+            <div style="display: flex; align-items: center; gap: 14px;">
+              <img src="${companyLogoUrl}" alt="PPSHV Logo" style="height: 48px; width: auto; object-fit: contain;" onerror="this.onerror=null; this.src='assets/logo.png';">
+              <div>
+                <h1 class="company-name" style="font-size: 16px; font-weight: bold; color: #92400e; margin: 0; line-height: 1.3;">${escapeHtml(companyName)}</h1>
+                <div class="report-title" style="font-size: 13px; font-weight: bold; color: #0f172a; margin: 2px 0 0 0;">របាយការណ៍ប្រវត្តិកត់ត្រាទំនិញចេញពីស្តុក (Stock Out History Report)</div>
+                <div class="report-sub" style="font-size: 11px; color: #64748b; margin-top: 2px;">កាលបរិច្ឆេទកំណត់៖ <strong>${escapeHtml(dateFilterStr)}</strong> | ឃ្លាំង/ទីតាំង៖ <strong>${escapeHtml(whDisplayName)}</strong></div>
+              </div>
             </div>
             <div class="meta-box">
               <div><strong>កាលបរិច្ឆេទបង្កើត៖</strong> ${escapeHtml(printDate)}</div>
@@ -34616,11 +34639,13 @@
         `;
       }).join('');
 
+      const { companyName, companyLogoUrl } = getPdfCompanyHeaderInfo();
       const win = window.open('', '_blank');
       win.document.write(`
         <!DOCTYPE html>
         <html>
         <head>
+          <base href="${window.location.href}">
           <title>${docTitle} - ${targetDoc}</title>
           <meta charset="utf-8">
           <style>
@@ -34652,9 +34677,18 @@
               <button class="btn-close" onclick="window.close()">✕ បិទ</button>
             </div>
           </div>
-          <div class="header">
-            <h1 class="title-kh">${docTitle}</h1>
-            <p class="title-en">${docTitleEn}</p>
+          <div class="header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px;">
+            <div style="display: flex; align-items: center; gap: 14px; text-align: left;">
+              <img src="${companyLogoUrl}" alt="PPSHV Logo" style="height: 48px; width: auto; object-fit: contain;" onerror="this.onerror=null; this.src='assets/logo.png';">
+              <div>
+                <div style="font-size: 16px; font-weight: bold; color: #0f172a; line-height: 1.3;">${escapeHtml(companyName)}</div>
+                <div style="font-size: 11px; color: #64748b; font-weight: 600;">CAMBODIAN PPSHV EXPRESSWAY CO., LTD</div>
+              </div>
+            </div>
+            <div style="text-align: right;">
+              <h1 class="title-kh" style="font-size: 17px; font-weight: bold; margin: 0; color: #0f172a;">${docTitle}</h1>
+              <p class="title-en" style="font-size: 11px; font-weight: bold; color: #64748b; margin: 2px 0 0 0;">${docTitleEn}</p>
+            </div>
           </div>
           <div class="meta-box">
             <div class="meta-col">
@@ -36459,7 +36493,7 @@
         else normalCount++;
       });
 
-      const companyName = document.getElementById('setCompanyName')?.value || 'ប្រព័ន្ធគ្រប់គ្រងស្តុកទំនិញ';
+      const { companyName, companyLogoUrl } = getPdfCompanyHeaderInfo();
       const printDate = new Date().toLocaleString('km-KH', { dateStyle: 'full', timeStyle: 'short' }) || new Date().toLocaleString();
 
       const printWindow = window.open('', '_blank');
@@ -36545,6 +36579,7 @@
         <!DOCTYPE html>
         <html lang="km">
         <head>
+          <base href="${window.location.href}">
           <meta charset="UTF-8">
           <title>របាយការណ៍បញ្ជីទំនិញក្នុងស្តុក - ${new Date().toISOString().slice(0, 10)}</title>
           <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -36677,9 +36712,12 @@
             </div>
           </div>
           <div class="header-container">
-            <div>
-              <h1 class="title">${escapeHtml(companyName)}</h1>
-              <p class="subtitle">របាយការណ៍បញ្ជីទំនិញក្នុងស្តុក (Product Inventory Report)</p>
+            <div style="display: flex; align-items: center; gap: 14px;">
+              <img src="${companyLogoUrl}" alt="PPSHV Logo" style="height: 48px; width: auto; object-fit: contain;" onerror="this.onerror=null; this.src='assets/logo.png';">
+              <div>
+                <h1 class="title" style="font-size: 16px; font-weight: bold; color: #1e3a8a; margin: 0; line-height: 1.3;">${escapeHtml(companyName)}</h1>
+                <p class="subtitle" style="font-size: 11px; color: #64748b; margin: 2px 0 0 0; font-weight: 600;">របាយការណ៍បញ្ជីទំនិញក្នុងស្តុក (Product Inventory Report)</p>
+              </div>
             </div>
             <div class="meta-info">
               <div><strong>កាលបរិច្ឆេទ៖</strong> ${escapeHtml(printDate)}</div>
@@ -36765,7 +36803,7 @@
         return;
       }
 
-      const companyName = document.getElementById('setCompanyName')?.value || 'ប្រព័ន្ធគ្រប់គ្រងស្តុកទំនិញ';
+      const { companyName, companyLogoUrl } = getPdfCompanyHeaderInfo();
       const printDate = new Date().toLocaleString('km-KH', { dateStyle: 'full', timeStyle: 'short' }) || new Date().toLocaleString();
 
       const printWindow = window.open('', '_blank');
@@ -36817,9 +36855,12 @@
             </div>
           </div>
           <div class="header-container">
-            <div>
-              <h2 style="margin: 0; color: #1e3a8a;">${companyName}</h2>
-              <p style="margin: 2px 0 0 0; color: #64748b;">របាយការណ៍ចរន្តស្តុកទំនិញ (Stock Transactions Ledger)</p>
+            <div style="display: flex; align-items: center; gap: 14px;">
+              <img src="${companyLogoUrl}" alt="PPSHV Logo" style="height: 48px; width: auto; object-fit: contain;" onerror="this.onerror=null; this.src='assets/logo.png';">
+              <div>
+                <h2 style="margin: 0; color: #1e3a8a; font-size: 16px; font-weight: bold; line-height: 1.3;">${escapeHtml(companyName)}</h2>
+                <p style="margin: 2px 0 0 0; color: #64748b; font-size: 11px; font-weight: 600;">របាយការណ៍ចរន្តស្តុកទំនិញ (Stock Transactions Ledger)</p>
+              </div>
             </div>
             <div style="text-align: right;">
               <div><strong>កាលបរិច្ឆេទ៖</strong> ${printDate}</div>
@@ -36963,7 +37004,7 @@
 
         if (tokenField) tokenField.value = savedTgToken || localSettings.TELEGRAM_BOT_TOKEN || AppState.settings?.TELEGRAM_BOT_TOKEN || DEFAULT_TG_BOT_TOKEN;
         if (chatIdField) chatIdField.value = savedTgChatId || localSettings.TELEGRAM_CHAT_ID || AppState.settings?.TELEGRAM_CHAT_ID || DEFAULT_TG_CHAT_ID;
-        if (compField) compField.value = localSettings.COMPANY_NAME || AppState.settings?.COMPANY_NAME || 'ប្រព័ន្ធគ្រប់គ្រងស្តុកទំនិញ PPSHV';
+        if (compField) compField.value = localSettings.COMPANY_NAME || AppState.settings?.COMPANY_NAME || 'ក្រុមហ៊ុនផ្លូវល្បឿនលឿនភ្នំពេញ-ក្រុងព្រះសីហនុ';
         if (currField) currField.value = localSettings.CURRENCY_SYMBOL || AppState.settings?.CURRENCY_SYMBOL || '$';
         if (emailField) emailField.value = localSettings.ALERT_EMAIL || AppState.settings?.ALERT_EMAIL || 'chhengyiv3@gmail.com, chenlongqmi@gmail.com, ppshv2024@gmail.com';
         if (driveFolderInput) {
