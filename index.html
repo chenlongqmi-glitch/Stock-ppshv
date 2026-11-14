@@ -26065,7 +26065,16 @@
       }
 
       if (typeof broadcastInventoryMutation === 'function') {
-        broadcastInventoryMutation('STOCK_IN', { items: AppState.items, tx: newTx, warehouse: location });
+        broadcastInventoryMutation('STOCK_IN', {
+          items: AppState.items,
+          tx: newTx,
+          warehouse: location,
+          docNo: docNo,
+          itemName: itemName,
+          quantity: effectiveQty,
+          unit: baseUnit,
+          user: AppState.currentUser?.fullName || AppState.currentUser?.username || receiver
+        });
       }
 
       // កែប្រែចំនួនស្តុកជាក់ស្តែងភ្លាមៗ (Instant local stock update)
@@ -26168,7 +26177,7 @@
           }
           if (typeof loadDashboard === 'function') loadDashboard();
           if (typeof broadcastInventoryMutation === 'function') {
-            broadcastInventoryMutation('STOCK_IN', { items: AppState.items, tx: newTx, warehouse: location });
+            broadcastInventoryMutation('STOCK_IN', { items: AppState.items, tx: newTx, warehouse: location, skipAlert: true });
           }
         } else {
           console.warn('Background sync warning:', res?.message);
@@ -29483,6 +29492,20 @@
       // បិទផ្ទាំង Popup Modal ភ្លាមៗ ដើម្បីបង្ហាញតែផ្ទាំងប្រវត្តិកត់ត្រាទំនិញចេញពីស្តុក
       closeStockOutForm();
 
+      if (typeof broadcastInventoryMutation === 'function') {
+        broadcastInventoryMutation('STOCK_OUT', {
+          items: AppState.items,
+          tx: newTx,
+          docNo: docNo,
+          warehouse: payload.data.fromLocation,
+          toLocation: toLocation,
+          itemName: itemName,
+          quantity: qty,
+          unit: baseUnit,
+          user: issuer || AppState.currentUser?.fullName || AppState.currentUser?.username || 'បុគ្គលិក'
+        });
+      }
+
       Swal.fire({
         icon: 'success',
         title: 'ទិន្នន័យបានបញ្ចូលជោគជ័យ',
@@ -29519,7 +29542,7 @@
           }
           if (typeof loadDashboard === 'function') loadDashboard();
           if (typeof broadcastInventoryMutation === 'function') {
-            broadcastInventoryMutation('STOCK_OUT', { items: AppState.items });
+            broadcastInventoryMutation('STOCK_OUT', { items: AppState.items, skipAlert: true });
           }
         }
       }).catch(err => {
@@ -33374,8 +33397,16 @@
         renderStockInHistoryTable(AppState.stockInHistory);
       }
       if (typeof renderItemsTable === 'function') renderItemsTable();
+      const batchInWh = itemsToProcess[0]?.location || itemsToProcess[0]?.warehouse || AppState.currentUser?.warehouse || '';
       if (typeof broadcastInventoryMutation === 'function') {
-        broadcastInventoryMutation('STOCK_IN', { items: AppState.items, docNo: docNo });
+        broadcastInventoryMutation('STOCK_IN', {
+          items: AppState.items,
+          docNo: docNo,
+          warehouse: batchInWh,
+          count: count,
+          itemName: count === 1 ? itemsToProcess[0]?.itemName : `${count} មុខទំនិញ`,
+          user: AppState.currentUser?.fullName || AppState.currentUser?.username || 'បុគ្គលិក'
+        });
       }
 
       Swal.fire({
@@ -34272,8 +34303,17 @@
         renderStockOutHistoryTable(AppState.stockOutHistory);
       }
       if (typeof renderItemsTable === 'function') renderItemsTable();
+      const batchOutWh = itemsToProcess[0]?.fromLocation || AppState.currentUser?.warehouse || '';
       if (typeof broadcastInventoryMutation === 'function') {
-        broadcastInventoryMutation('STOCK_OUT', { items: AppState.items, docNo: docNo });
+        broadcastInventoryMutation('STOCK_OUT', {
+          items: AppState.items,
+          docNo: docNo,
+          warehouse: batchOutWh,
+          toLocation: itemsToProcess[0]?.toLocation || '',
+          count: count,
+          itemName: count === 1 ? itemsToProcess[0]?.itemName : `${count} មុខទំនិញ`,
+          user: AppState.currentUser?.fullName || AppState.currentUser?.username || 'បុគ្គលិក'
+        });
       }
 
       Swal.fire({
@@ -43894,11 +43934,29 @@
         }
 
         if (msg.type === 'STOCK_IN') {
+          const curU = AppState.currentUser || {};
+          const isPriv = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : (curU.role === 'Admin' || curU.role === 'SuperAdmin');
+          const myWh = (typeof getUserStationWarehouse === 'function' ? getUserStationWarehouse(curU) : '') || curU.warehouse || '';
+          const txWh = msg.warehouse || msg.tx?.toLocation || msg.tx?.location || msg.tx?.warehouse || '';
+
+          // មិនចាំបាច់ alert ចូលមក Admin/SuperAdmin ឡើយ តែត្រូវ alert ឱ្យ User ក្នុងស្ថានីយរបស់ខ្លួន
+          if (!isPriv && myWh && myWh !== 'ALL' && txWh && !msg.skipAlert) {
+            const belongsToMyStation = (typeof matchesTargetWarehouse === 'function') ? matchesTargetWarehouse(myWh, txWh) : isSameWarehouse(myWh, txWh);
+            if (belongsToMyStation && typeof addNotification === 'function') {
+              const itemTitle = msg.itemName || msg.tx?.itemName || 'ទំនិញ';
+              const qtyStr = (msg.quantity && msg.unit) ? ` ចំនួន +${msg.quantity} ${msg.unit}` : (msg.count ? ` ចំនួន ${msg.count} មុខ` : '');
+              const docStr = msg.docNo || msg.tx?.docNo ? ` (${msg.docNo || msg.tx?.docNo})` : '';
+              addNotification(
+                'STOCK_IN',
+                `📥 ចូលស្តុកទំនិញ${docStr}`,
+                `${msg.user || 'បុគ្គលិក'} បានកត់ត្រាចូលស្តុក ${itemTitle}${qtyStr} ក្នុង ${txWh}`,
+                txWh,
+                msg.user || 'Staff'
+              );
+            }
+          }
+
           if (msg.tx) {
-            const curU = AppState.currentUser || {};
-            const isPriv = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : (curU.role === 'Admin' || curU.role === 'SuperAdmin');
-            const myWh = (typeof getUserStationWarehouse === 'function' ? getUserStationWarehouse(curU) : '') || curU.warehouse || '';
-            const txWh = msg.tx.toLocation || msg.tx.location || msg.tx.warehouse || msg.warehouse || '';
             const belongsToMe = isPriv || (myWh && (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(txWh, myWh) : isSameWarehouse(txWh, myWh)));
             if (belongsToMe) {
               if (!AppState.stockInHistory) AppState.stockInHistory = [];
@@ -43925,11 +43983,32 @@
         }
 
         if (msg.type === 'STOCK_OUT') {
+          const curU = AppState.currentUser || {};
+          const isPriv = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : (curU.role === 'Admin' || curU.role === 'SuperAdmin');
+          const myWh = (typeof getUserStationWarehouse === 'function' ? getUserStationWarehouse(curU) : '') || curU.warehouse || '';
+          const txWh = msg.warehouse || msg.tx?.fromLocation || msg.tx?.warehouse || msg.tx?.location || '';
+          const toLocWh = msg.toLocation || msg.tx?.toLocation || '';
+
+          // មិនចាំបាច់ alert ចូលមក Admin/SuperAdmin ឡើយ តែត្រូវ alert ឱ្យ User ក្នុងស្ថានីយរបស់ខ្លួន
+          if (!isPriv && myWh && myWh !== 'ALL' && !msg.skipAlert) {
+            const belongsToMyStation = (typeof matchesTargetWarehouse === 'function')
+              ? (matchesTargetWarehouse(myWh, txWh) || matchesTargetWarehouse(myWh, toLocWh))
+              : (isSameWarehouse(myWh, txWh) || isSameWarehouse(myWh, toLocWh));
+            if (belongsToMyStation && typeof addNotification === 'function') {
+              const itemTitle = msg.itemName || msg.tx?.itemName || 'ទំនិញ';
+              const qtyStr = (msg.quantity && msg.unit) ? ` ចំនួន -${msg.quantity} ${msg.unit}` : (msg.count ? ` ចំនួន ${msg.count} មុខ` : '');
+              const docStr = msg.docNo || msg.tx?.docNo ? ` (${msg.docNo || msg.tx?.docNo})` : '';
+              addNotification(
+                'STOCK_OUT',
+                `📤 ចេញស្តុកទំនិញ${docStr}`,
+                `${msg.user || 'បុគ្គលិក'} បានកត់ត្រាចេញពីស្តុក ${itemTitle}${qtyStr} ពី ${txWh || toLocWh}`,
+                txWh || toLocWh,
+                msg.user || 'Staff'
+              );
+            }
+          }
+
           if (msg.tx) {
-            const curU = AppState.currentUser || {};
-            const isPriv = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : (curU.role === 'Admin' || curU.role === 'SuperAdmin');
-            const myWh = (typeof getUserStationWarehouse === 'function' ? getUserStationWarehouse(curU) : '') || curU.warehouse || '';
-            const txWh = msg.tx.fromLocation || msg.tx.toLocation || msg.tx.location || msg.tx.warehouse || msg.warehouse || '';
             const belongsToMe = isPriv || (myWh && (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(txWh, myWh) : isSameWarehouse(txWh, myWh)));
             if (belongsToMe) {
               if (!AppState.stockOutHistory) AppState.stockOutHistory = [];
@@ -44244,14 +44323,14 @@
       const u = AppState.currentUser || {};
       const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(u) : (u.role === 'Admin' || u.role === 'SuperAdmin');
 
-      // មិនចាំបាច់មានសារជូនដំណឹងពេលបញ្ចូលទំនិញចូលស្តុកឡើយ (STOCK_IN)
-      if (type === 'STOCK_IN') return;
-
-      // មិនចាំបាច់មានសារជូនដំណឹងមក super admin ឬក៏ admin ឡើយ (សម្រាប់ STOCK_DISPATCH ឬ STOCK_OUT)
-      if (type === 'STOCK_DISPATCH' || type === 'STOCK_OUT') {
-        if (isPrivileged) return;
-        if (warehouse && (typeof matchesTargetWarehouse === 'function' ? !matchesTargetWarehouse(u.warehouse, warehouse) : (u.warehouse !== warehouse))) {
-          return;
+      // មិនចាំបាច់ alert ចូលមក Admin និង SuperAdmin ឡើយ សម្រាប់ការប្រតិបត្តិការចេញ និងចូលស្តុក (STOCK_IN, STOCK_OUT, STOCK_DISPATCH)
+      // តែត្រូវ alert ឱ្យ User ដែលនៅក្នុងស្ថានីយជាក់ស្តែងទាំងអស់របស់ខ្លួន
+      if (type === 'STOCK_IN' || type === 'STOCK_OUT' || type === 'STOCK_DISPATCH') {
+        if (isPrivileged) return; // Admin & SuperAdmin មិនទទួលបាន alert ចេញ/ចូលស្តុកឡើយ
+        const myWh = (typeof getUserStationWarehouse === 'function' ? getUserStationWarehouse(u) : '') || u.warehouse || '';
+        if (!myWh || myWh === 'ALL') return;
+        if (warehouse && (typeof matchesTargetWarehouse === 'function' ? !matchesTargetWarehouse(myWh, warehouse) : !isSameWarehouse(myWh, warehouse))) {
+          return; // User មកពីស្ថានីយផ្សេងទៀត មិនទទួលបាន alert ឡើយ
         }
       }
 
@@ -44940,6 +45019,15 @@
           if (currentSig && currentSig === ackedSig) return false;
         }
         if (n.type === 'USER_DELETION_REQUEST' && !isActorSuperAdmin) return false;
+        // មិនចាំបាច់ alert ឬបង្ហាញក្នុង drawer របស់ Admin និង SuperAdmin ឡើយ សម្រាប់ការប្រតិបត្តិការចេញ និងចូលស្តុក
+        if (isPrivileged && (n.type === 'STOCK_IN' || n.type === 'STOCK_OUT' || n.type === 'STOCK_DISPATCH')) return false;
+        // តែត្រូវ alert និងបង្ហាញឱ្យ User ក្នុងស្ថានីយជាក់ស្តែងរបស់ខ្លួន
+        if (!isPrivileged && (n.type === 'STOCK_IN' || n.type === 'STOCK_OUT' || n.type === 'STOCK_DISPATCH')) {
+          if (!myWh || myWh === 'ALL') return false;
+          if (n.warehouse && (typeof matchesTargetWarehouse === 'function' ? !matchesTargetWarehouse(myWh, n.warehouse) : !isSameWarehouse(myWh, n.warehouse))) {
+            return false;
+          }
+        }
         return true;
       });
 
