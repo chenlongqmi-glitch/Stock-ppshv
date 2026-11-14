@@ -17525,7 +17525,15 @@
         modal.classList.remove('hidden');
         modal.style.removeProperty('display');
 
+        function cleanupImageListeners() {
+          if (imgEl) {
+            imgEl.onload = null;
+            imgEl.onerror = null;
+          }
+        }
+
         function mountCropper() {
+          cleanupImageListeners();
           if (typeof Cropper === 'undefined') {
             console.error('Cropper.js is not loaded');
             Swal.fire('ដំណឹង', 'បណ្ណាល័យ Cropper.js កំពុងដំណើរការ សូមរង់ចាំបន្តិច...', 'info');
@@ -17553,6 +17561,7 @@
               zoomOnWheel: true,
               zoomOnTouch: true,
               ready: function () {
+                cleanupImageListeners();
                 const canvasData = currentCropper ? currentCropper.getCanvasData() : null;
                 const imageData = currentCropper ? currentCropper.getImageData() : null;
                 cropperBaseRatio = canvasData && imageData && imageData.naturalWidth ? (canvasData.width / imageData.naturalWidth) : 1;
@@ -17574,14 +17583,20 @@
 
         // Initialize when image element is ready
         if (imgEl.complete && imgEl.naturalWidth > 0) {
+          cleanupImageListeners();
           setTimeout(mountCropper, 60);
         } else {
           imgEl.onload = function () {
+            cleanupImageListeners();
             setTimeout(mountCropper, 60);
           };
           imgEl.onerror = function () {
-            console.error('Failed to load image for cropping');
-            Swal.fire('កំហុស', 'មិនអាចបើករូបភាពនេះសម្រាប់កាត់តបានទេ', 'error');
+            cleanupImageListeners();
+            const m = document.getElementById('imageCropperModal');
+            if (m && !m.classList.contains('hidden') && imgEl.getAttribute('src') && imgEl.getAttribute('src') !== '') {
+              console.error('Failed to load image for cropping');
+              Swal.fire('កំហុស', 'មិនអាចបើករូបភាពនេះសម្រាប់កាត់តបានទេ', 'error');
+            }
           };
         }
       }
@@ -17612,7 +17627,11 @@
         currentCropper = null;
       }
       const imgEl = document.getElementById('cropperImageElement');
-      if (imgEl) imgEl.src = '';
+      if (imgEl) {
+        imgEl.onload = null;
+        imgEl.onerror = null;
+        imgEl.removeAttribute('src');
+      }
     }
 
     function cropperZoomStep(delta) {
@@ -17689,7 +17708,11 @@
         const croppedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
 
         if (typeof currentCropperCallback === 'function') {
-          currentCropperCallback(croppedDataUrl);
+          try {
+            currentCropperCallback(croppedDataUrl);
+          } catch (cbErr) {
+            console.error('Cropper callback error:', cbErr);
+          }
         }
 
         closeImageCropper();
