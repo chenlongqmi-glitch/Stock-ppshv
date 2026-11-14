@@ -2970,9 +2970,9 @@
 
           <!-- Real-Time Notification Bell & Dropdown for Admin -->
           <div class="relative z-[90]">
-            <button id="notifBellBtn" onclick="toggleNotificationDropdown()"
+            <button id="notifBellBtn" onclick="if (typeof clearBellNotificationBadge === 'function') clearBellNotificationBadge(); toggleNotificationDropdown();"
               title="ការជូនដំណឹងប្រតិបត្តិការឃ្លាំង (Notifications)"
-              class="relative p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 transition-all">
+              class="relative p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 transition-all cursor-pointer">
               <i class="fa-solid fa-bell text-sm"></i>
               <span id="notifBadge"
                 class="hidden absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-rose-600 text-white text-[10px] font-black rounded-full px-1 flex items-center justify-center border-2 border-white animate-pulse shadow-sm">0</span>
@@ -44207,7 +44207,8 @@
         user: user || 'Staff',
         targetUserId: targetUserId || '',
         targetUsername: targetUsername || '',
-        time: timeStr
+        time: timeStr,
+        timestamp: Date.now()
       };
 
       notificationsList.unshift(notifObj);
@@ -44672,6 +44673,55 @@
     }
     window.dismissNotification = dismissNotification;
 
+    function clearBellNotificationBadge() {
+      const u = (typeof AppState !== 'undefined') ? AppState.currentUser : null;
+      const userKey = u ? (u.userId || u.username) : 'guest';
+      const lastClearedKey = 'bell_badge_last_cleared_' + userKey;
+      const nowTs = Date.now();
+      try {
+        localStorage.setItem(lastClearedKey, String(nowTs));
+        sessionStorage.setItem(lastClearedKey, String(nowTs));
+      } catch (e) { }
+
+      // 1. Dismiss all incoming station dispatches
+      if (typeof dismissStationIncomingAlert === 'function') {
+        dismissStationIncomingAlert();
+      }
+
+      // 2. Mark all current notifications as acknowledged for the bell badge
+      if (Array.isArray(notificationsList)) {
+        notificationsList.forEach(n => {
+          if (n && n.id && typeof markNotificationDismissed === 'function') {
+            markNotificationDismissed(n.id);
+          }
+        });
+      }
+
+      // 3. Mark all current dispatches as acknowledged
+      if (typeof LOCAL_DB !== 'undefined' && Array.isArray(LOCAL_DB.dispatches)) {
+        LOCAL_DB.dispatches.forEach(d => {
+          if (!d) return;
+          if (typeof markNotificationDismissed === 'function') {
+            markNotificationDismissed('dsp_pending_' + (d.dispatchId || d.sku));
+            markNotificationDismissed('dsp_rcv_' + (d.dispatchId || d.masterDocNo || d.sku));
+            markNotificationDismissed('dsp_disc_' + (d.dispatchId || d.masterDocNo || d.sku));
+          }
+        });
+      }
+
+      // 4. Force bell badge number to 0 and hide immediately
+      const badge = document.getElementById('notifBadge');
+      if (badge) {
+        badge.innerText = '0';
+        badge.classList.add('hidden');
+      }
+
+      // 5. Also remove tab alert badge if present
+      const tabBadge = document.getElementById('tabIncomingBadge');
+      if (tabBadge) tabBadge.remove();
+    }
+    window.clearBellNotificationBadge = clearBellNotificationBadge;
+
     function closeNotificationDropdown(clearBadge = false) {
       const drawer = document.getElementById('notifDropdown');
       if (drawer && !drawer.classList.contains('hidden')) {
@@ -44702,17 +44752,32 @@
         const willOpen = drawer.classList.contains('hidden');
         if (willOpen) {
           closeSettingsDropdown();
-          if (typeof dismissStationIncomingAlert === 'function') {
-            dismissStationIncomingAlert();
-          }
+
+          // Immediately clear the bell red badge number on click
+          clearBellNotificationBadge();
+
           if (typeof checkPendingRegistrationsForAdmin === 'function') {
             checkPendingRegistrationsForAdmin(true);
-          } else if (typeof renderNotificationDrawer === 'function') {
+          }
+          if (typeof renderNotificationDrawer === 'function') {
             renderNotificationDrawer();
           }
+
+          // Ensure badge stays hidden while drawer is open
+          const badge = document.getElementById('notifBadge');
+          if (badge) {
+            badge.innerText = '0';
+            badge.classList.add('hidden');
+          }
+
           drawer.classList.remove('hidden');
         } else {
           drawer.classList.add('hidden');
+          const badge = document.getElementById('notifBadge');
+          if (badge) {
+            badge.innerText = '0';
+            badge.classList.add('hidden');
+          }
         }
       }
     }
@@ -44897,14 +44962,33 @@
       const listEl = document.getElementById('notifList');
       const badge = document.getElementById('notifBadge');
       if (badge) {
+        const userKey = u ? (u.userId || u.username) : 'guest';
+        const lastCleared = Number(localStorage.getItem('bell_badge_last_cleared_' + userKey) || sessionStorage.getItem('bell_badge_last_cleared_' + userKey) || 0);
+
         let badgeCount = 0;
         if (!isPrivileged) {
           const incomingAlertCount = (typeof getStationIncomingAlertCount === 'function') ? getStationIncomingAlertCount() : 0;
-          const otherNotifs = filteredList.filter(n => n.type !== 'INCOMING_DISPATCH');
+          const otherNotifs = filteredList.filter(n => {
+            if (n.type === 'INCOMING_DISPATCH') return false;
+            const notifTs = n.timestamp || (n.createdAt ? new Date(n.createdAt).getTime() : 0);
+            if (lastCleared && notifTs && notifTs <= lastCleared) return false;
+            return true;
+          });
           badgeCount = incomingAlertCount + otherNotifs.length;
         } else {
-          badgeCount = filteredList.length;
+          const unreadNotifs = filteredList.filter(n => {
+            const notifTs = n.timestamp || (n.createdAt ? new Date(n.createdAt).getTime() : 0);
+            if (lastCleared && notifTs && notifTs <= lastCleared) return false;
+            return true;
+          });
+          badgeCount = unreadNotifs.length;
         }
+
+        const drawer = document.getElementById('notifDropdown');
+        if (drawer && !drawer.classList.contains('hidden')) {
+          badgeCount = 0;
+        }
+
         badge.innerText = badgeCount;
         badge.classList.toggle('hidden', badgeCount === 0);
       }
