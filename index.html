@@ -23414,7 +23414,7 @@
       if (!dropdown) {
         dropdown = document.createElement('div');
         dropdown.id = 'appQuickPickerDropdown';
-        dropdown.className = 'fixed bg-white/95 backdrop-blur-md border border-slate-200/95 rounded-2xl shadow-2xl z-[9999] p-2 max-h-72 overflow-y-auto font-sans transition-opacity duration-150';
+        dropdown.className = 'fixed bg-white/95 backdrop-blur-md border border-slate-200/95 rounded-2xl shadow-2xl z-[9999] p-2 max-h-72 overflow-y-auto overscroll-contain custom-scrollbar font-sans transition-opacity duration-150';
         dropdown.style.fontFamily = "'Kantumruy Pro', 'Battambang', sans-serif";
         document.body.appendChild(dropdown);
       }
@@ -23494,8 +23494,22 @@
       `;
 
       dropdown.classList.remove('hidden');
+      positionQuickPicker();
+    }
+
+    function positionQuickPicker() {
+      if (!currentActivePickerInput) return;
+      const inputEl = document.getElementById(currentActivePickerInput);
+      const dropdown = document.getElementById('appQuickPickerDropdown');
+      if (!inputEl || !dropdown || dropdown.classList.contains('hidden')) return;
 
       const rect = inputEl.getBoundingClientRect();
+      if (rect.bottom < 0 || rect.top > window.innerHeight) {
+        closeQuickPicker();
+        return;
+      }
+
+      const isZonePicker = (currentActivePickerInput === 'modalZone' || currentActivePickerInput === 'stockInZone');
       const minW = isZonePicker ? 280 : 180;
       const dropdownWidth = Math.max(rect.width, minW);
       dropdown.style.width = `${dropdownWidth}px`;
@@ -23566,8 +23580,20 @@
       }
     });
 
-    window.addEventListener('scroll', function () {
-      closeQuickPicker();
+    window.addEventListener('resize', function () {
+      positionQuickPicker();
+    });
+
+    window.addEventListener('scroll', function (e) {
+      const dropdown = document.getElementById('appQuickPickerDropdown');
+      if (dropdown && !dropdown.classList.contains('hidden')) {
+        // If scrolling inside the dropdown list itself, do NOT close or interfere (allows smooth scroll down)
+        if (e && e.target && (e.target === dropdown || (typeof dropdown.contains === 'function' && dropdown.contains(e.target)))) {
+          return;
+        }
+        // If scrolling the page or modal, reposition to stay anchored to input
+        positionQuickPicker();
+      }
     }, true);
 
     // ==========================================
