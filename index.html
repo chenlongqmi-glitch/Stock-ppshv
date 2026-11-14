@@ -30253,8 +30253,8 @@
 
         return {
           'ល.រ': idx + 1,
-          'លេខឯកសារ': docId.replace(/^DOC-/i, ''),
           'កាលបរិច្ឆេទ': fullDate,
+          'លេខឯកសារ': docId.replace(/^DOC-/i, ''),
           'លេខកូដ (SKU)': t.sku || t.code || '',
           'ឈ្មោះទំនិញ': t.itemName || '',
           'ខ្នាត/ទំហំ': t.size || '',
@@ -30273,8 +30273,8 @@
       const worksheet = XLSX.utils.json_to_sheet(rows);
       worksheet['!cols'] = [
         { wch: 6 },  // ល.រ
-        { wch: 20 }, // លេខឯកសារ
         { wch: 18 }, // កាលបរិច្ឆេទ
+        { wch: 20 }, // លេខឯកសារ
         { wch: 16 }, // SKU
         { wch: 28 }, // ឈ្មោះទំនិញ
         { wch: 12 }, // ខ្នាត
@@ -30351,8 +30351,8 @@
 
         return {
           'ល.រ': idx + 1,
-          'លេខឯកសារ': docId.replace(/^DOC-/i, ''),
           'កាលបរិច្ឆេទ': fullDate,
+          'លេខឯកសារ': docId.replace(/^DOC-/i, ''),
           'លេខកូដ (SKU)': t.sku || t.code || '',
           'ឈ្មោះទំនិញ': t.itemName || '',
           'ខ្នាត/ទំហំ': t.size || '',
@@ -30372,8 +30372,8 @@
       const worksheet = XLSX.utils.json_to_sheet(rows);
       worksheet['!cols'] = [
         { wch: 6 },  // ល.រ
-        { wch: 20 }, // លេខឯកសារ
         { wch: 18 }, // កាលបរិច្ឆេទ
+        { wch: 20 }, // លេខឯកសារ
         { wch: 16 }, // SKU
         { wch: 28 }, // ឈ្មោះទំនិញ
         { wch: 12 }, // ខ្នាត
@@ -30456,6 +30456,13 @@
         const fullDate = (typeof getTxStandardDate === 'function' ? getTxStandardDate(t) : '') || (t.date ? String(t.date).slice(0, 10) : (t.timestamp ? String(t.timestamp).slice(0, 10) : '-'));
         const q = Number(t.quantity || 0);
 
+        let rowDocId = t.docNo || t.txId || '';
+        if ((!t.docNo || t.docNo === t.txId || t.docNo.startsWith('TX-')) && t.notes) {
+          const docMatch = t.notes.match(/\[ឯកសារ:\s*([^\]]+)\]/);
+          if (docMatch) rowDocId = docMatch[1].trim();
+        }
+        rowDocId = String(rowDocId || '').replace(/^DOC-/i, '').trim() || '-';
+
         // Resolve product item for thumbnail image
         const item = (AppState.items || []).find(i => (i.sku && t.sku && i.sku.toLowerCase() === t.sku.toLowerCase()) || (i.name && t.itemName && i.name.toLowerCase() === t.itemName.toLowerCase()));
 
@@ -30480,9 +30487,10 @@
         return `
           <tr>
             <td style="text-align: center;">${idx + 1}</td>
-            <td style="white-space: nowrap; font-size: 10.5px; text-align: center;">${escapeHtml(fullDate)}</td>
-            <td style="font-family: monospace; font-weight: bold; color: #1e293b; text-align: center;">${escapeHtml(t.sku || t.code || '-')}</td>
-            <td style="font-weight: bold; font-size: 11px; color: #0f172a;">${escapeHtml(t.itemName || "-")}</td>
+            <td style="white-space: nowrap; font-size: 10px; text-align: center;">${escapeHtml(fullDate)}</td>
+            <td style="font-family: monospace; font-weight: bold; color: #047857; text-align: center; white-space: nowrap; font-size: 10px;">${escapeHtml(rowDocId)}</td>
+            <td style="font-family: monospace; font-weight: bold; color: #1e293b; text-align: center; font-size: 10px;">${escapeHtml(t.sku || t.code || '-')}</td>
+            <td style="font-weight: bold; font-size: 10.5px; color: #0f172a;">${escapeHtml(t.itemName || "-")}</td>
             <td style="text-align: center; vertical-align: middle; padding: 2px;">
               <img src="${imgUrl || fallbackImg}"
                    style="width: 34px; height: 34px; object-fit: cover; border-radius: 6px; border: 1px solid #cbd5e1; display: inline-block; vertical-align: middle;"
@@ -30555,7 +30563,7 @@
             <div class="meta-box">
               <div><strong>កាលបរិច្ឆេទបង្កើត៖</strong> ${escapeHtml(printDate)}</div>
               <div><strong>អ្នកទាញយក៖</strong> ${escapeHtml(currentUser)}</div>
-              <div style="margin-top: 4px;"><strong>លេខឯកសារ៖</strong> <span style="font-family: monospace; font-weight: bold; color: #047857; font-size: 11.5px;">${escapeHtml(docNumbersDisplay)}</span></div>
+              ${docSet.size === 1 ? `<div style="margin-top: 4px;"><strong>លេខឯកសារ៖</strong> <span style="font-family: monospace; font-weight: bold; color: #047857; font-size: 11.5px;">${escapeHtml(docNumbersDisplay)}</span></div>` : ''}
             </div>
           </div>
           <div class="summary-bar">
@@ -30564,18 +30572,19 @@
           <table>
             <thead>
               <tr>
-                <th style="width: 28px; text-align: center;">ល.រ</th>
-                <th style="width: 95px; text-align: center;">កាលបរិច្ឆេទ</th>
-                <th style="width: 75px; text-align: center;">SKU</th>
+                <th style="width: 26px; text-align: center;">ល.រ</th>
+                <th style="width: 80px; text-align: center;">កាលបរិច្ឆេទ</th>
+                <th style="width: 105px; text-align: center;">លេខឯកសារ</th>
+                <th style="width: 70px; text-align: center;">SKU</th>
                 <th>ឈ្មោះទំនិញ</th>
-                <th style="width: 44px; text-align: center;">រូបភាព</th>
-                <th style="width: 75px; text-align: center;">ខ្នាត/ពណ៌</th>
+                <th style="width: 40px; text-align: center;">រូបភាព</th>
+                <th style="width: 70px; text-align: center;">ខ្នាត/ពណ៌</th>
                 <th style="width: 48px; text-align: center;">តំបន់</th>
-                <th style="width: 60px; text-align: center;">ចំនួនចូល</th>
-                <th style="width: 50px; text-align: center;">ឯកតា</th>
-                <th style="width: 105px;">ឃ្លាំងទទួល</th>
-                <th style="width: 80px;">អ្នកទទួល</th>
-                <th style="width: 110px;">កំណត់ចំណាំ</th>
+                <th style="width: 55px; text-align: center;">ចំនួនចូល</th>
+                <th style="width: 45px; text-align: center;">ឯកតា</th>
+                <th style="width: 100px;">ឃ្លាំងទទួល</th>
+                <th style="width: 75px;">អ្នកទទួល</th>
+                <th style="width: 100px;">កំណត់ចំណាំ</th>
               </tr>
             </thead>
             <tbody>
@@ -30653,6 +30662,13 @@
         const fullDate = (typeof getTxStandardDate === 'function' ? getTxStandardDate(t) : '') || (t.date ? String(t.date).slice(0, 10) : (t.timestamp ? String(t.timestamp).slice(0, 10) : '-'));
         const q = Number(t.quantity || 0);
 
+        let rowDocId = t.docNo || t.txId || '';
+        if ((!t.docNo || t.docNo === t.txId || t.docNo.startsWith('TX-')) && t.notes) {
+          const docMatch = t.notes.match(/\[ឯកសារ:\s*([^\]]+)\]/);
+          if (docMatch) rowDocId = docMatch[1].trim();
+        }
+        rowDocId = String(rowDocId || '').replace(/^DOC-/i, '').trim() || '-';
+
         // Resolve product item for thumbnail image
         const item = (AppState.items || []).find(i => (i.sku && t.sku && i.sku.toLowerCase() === t.sku.toLowerCase()) || (i.name && t.itemName && i.name.toLowerCase() === t.itemName.toLowerCase()));
 
@@ -30691,9 +30707,10 @@
         return `
           <tr>
             <td style="text-align: center;">${idx + 1}</td>
-            <td style="white-space: nowrap; font-size: 10.5px; text-align: center;">${escapeHtml(fullDate)}</td>
-            <td style="font-family: monospace; font-weight: bold; color: #1e293b; text-align: center;">${escapeHtml(t.sku || t.code || '-')}</td>
-            <td style="font-weight: bold; font-size: 11px; color: #0f172a;">${escapeHtml(t.itemName || "-")}</td>
+            <td style="white-space: nowrap; font-size: 10px; text-align: center;">${escapeHtml(fullDate)}</td>
+            <td style="font-family: monospace; font-weight: bold; color: #b45309; text-align: center; white-space: nowrap; font-size: 10px;">${escapeHtml(rowDocId)}</td>
+            <td style="font-family: monospace; font-weight: bold; color: #1e293b; text-align: center; font-size: 10px;">${escapeHtml(t.sku || t.code || '-')}</td>
+            <td style="font-weight: bold; font-size: 10.5px; color: #0f172a;">${escapeHtml(t.itemName || "-")}</td>
             <td style="text-align: center; vertical-align: middle; padding: 2px;">
               <img src="${imgUrl || fallbackImg}"
                    style="width: 34px; height: 34px; object-fit: cover; border-radius: 6px; border: 1px solid #cbd5e1; display: inline-block; vertical-align: middle;"
@@ -30766,7 +30783,7 @@
             <div class="meta-box">
               <div><strong>កាលបរិច្ឆេទបង្កើត៖</strong> ${escapeHtml(printDate)}</div>
               <div><strong>អ្នកទាញយក៖</strong> ${escapeHtml(currentUser)}</div>
-              <div style="margin-top: 4px;"><strong>លេខឯកសារ៖</strong> <span style="font-family: monospace; font-weight: bold; color: #b45309; font-size: 11.5px;">${escapeHtml(docNumbersDisplay)}</span></div>
+              ${docSet.size === 1 ? `<div style="margin-top: 4px;"><strong>លេខឯកសារ៖</strong> <span style="font-family: monospace; font-weight: bold; color: #b45309; font-size: 11.5px;">${escapeHtml(docNumbersDisplay)}</span></div>` : ''}
             </div>
           </div>
           <div class="summary-bar">
@@ -30775,18 +30792,19 @@
           <table>
             <thead>
               <tr>
-                <th style="width: 28px; text-align: center;">ល.រ</th>
-                <th style="width: 95px; text-align: center;">កាលបរិច្ឆេទ</th>
-                <th style="width: 75px; text-align: center;">SKU</th>
+                <th style="width: 26px; text-align: center;">ល.រ</th>
+                <th style="width: 80px; text-align: center;">កាលបរិច្ឆេទ</th>
+                <th style="width: 105px; text-align: center;">លេខឯកសារ</th>
+                <th style="width: 70px; text-align: center;">SKU</th>
                 <th>ឈ្មោះទំនិញ</th>
-                <th style="width: 44px; text-align: center;">រូបភាព</th>
-                <th style="width: 75px; text-align: center;">ខ្នាត/ពណ៌</th>
-                <th style="width: 60px; text-align: center;">ចំនួនចេញ</th>
-                <th style="width: 50px; text-align: center;">ឯកតា</th>
-                <th style="width: 105px;">ទៅកាន់ទីតាំង</th>
-                <th style="width: 80px;">មូលហេតុ</th>
-                <th style="width: 80px;">អ្នកបើក</th>
-                <th style="width: 110px;">កំណត់ចំណាំ</th>
+                <th style="width: 40px; text-align: center;">រូបភាព</th>
+                <th style="width: 70px; text-align: center;">ខ្នាត/ពណ៌</th>
+                <th style="width: 55px; text-align: center;">ចំនួនចេញ</th>
+                <th style="width: 45px; text-align: center;">ឯកតា</th>
+                <th style="width: 100px;">ទៅកាន់ទីតាំង</th>
+                <th style="width: 75px;">មូលហេតុ</th>
+                <th style="width: 75px;">អ្នកបើក</th>
+                <th style="width: 100px;">កំណត់ចំណាំ</th>
               </tr>
             </thead>
             <tbody>
