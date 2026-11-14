@@ -9395,7 +9395,7 @@ function getStockOutTransactionsFromSheet(ss, filters, user) {
     const isSAOut = uRoleOut === 'superadmin' || uNameOut === 'superadmin' || (user && user.isSuperAdmin === true);
     const isStationRoleOut = uRoleOut.includes('ស្ថានីយ') || uRoleOut.includes('កាន់ស្តុក') || uRoleOut.includes('ប្រធានក្រុម') || uRoleOut.includes('ប្រធាន') || uRoleOut.includes('បុគ្គលិក') || uRoleOut.includes('user') || uRoleOut.includes('keeper') || uRoleOut.includes('staff') || uRoleOut.includes('viewer');
     const isAdmOut = !isStationRoleOut && (isSAOut || uRoleOut === 'admin' || uRoleOut === 'administrator' || uRoleOut === 'អ្នកគ្រប់គ្រងប្រព័ន្ធ' || uRoleOut.includes('admin') || uNameOut === 'admin' || uNameOut === 'singvan' || uNameOut.includes('singvan') || uEmailOut.includes('singvan') || uNameOut.includes('ppshv'));
-    
+
     // Strictly isolate station history for stock out: Toll stations can ONLY see transactions where fromLocation or toLocation matches their station!
     if (!isAdmOut) {
       let stWh = (user && user.warehouse && user.warehouse !== 'ALL' && user.warehouse !== 'គ្រប់ឃ្លាំង' && user.warehouse !== 'គ្រប់ស្ថានីយទាំងអស់' && !user.warehouse.includes('中心库房') && !user.warehouse.includes('机电')) ? user.warehouse : '';
@@ -13741,8 +13741,8 @@ function resetDispatchToPending(payloadOrData, user) {
       const dId = String(vals[i][0] || '').trim();
       const doc = String(vals[i][1] || '').trim().toUpperCase();
       const isMatch = (targetDoc && doc === targetDoc) ||
-                      (targetDspId && dId.toLowerCase() === targetDspId.toLowerCase()) ||
-                      (targetDoc && dId.toUpperCase().includes(targetDoc.replace(/[^A-Za-z0-9]/g, '')));
+        (targetDspId && dId.toLowerCase() === targetDspId.toLowerCase()) ||
+        (targetDoc && dId.toUpperCase().includes(targetDoc.replace(/[^A-Za-z0-9]/g, '')));
       if (isMatch) {
         const row = i + 1;
         dspSheet.getRange(row, 17).setValue('PENDING'); // Status

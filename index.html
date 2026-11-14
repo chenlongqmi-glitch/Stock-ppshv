@@ -2035,14 +2035,14 @@
         </a>
 
         <!-- ទទួលទំនិញពី Admin (Incoming Dispatches from Admin) -->
-        <a href="#incoming" onclick="navigateTab('incoming')" id="navIncomingDispatches"
+        <a href="#incoming" onclick="navigateTab('incoming'); if (typeof dismissStationIncomingAlert === 'function') dismissStationIncomingAlert();" id="navIncomingDispatches"
           class="nav-link flex items-center justify-between px-3.5 py-2.5 rounded-xl hover:bg-white/15 hover:text-white transition-all text-cyan-300">
           <div class="flex items-center">
             <i class="fa-solid fa-truck-ramp-box w-6 text-center"></i>
             <span class="ml-2" id="navIncomingDispatchesText">ទទួលទំនិញពី Admin</span>
           </div>
           <span id="incomingPendingBadge"
-            class="hidden px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500 text-white animate-pulse shadow">0</span>
+            class="hidden px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-600 text-white animate-pulse shadow-xs">0</span>
         </a>
 
         <a href="#stockout" onclick="navigateTab('stockout')"
@@ -2974,7 +2974,7 @@
               class="relative p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 transition-all">
               <i class="fa-solid fa-bell text-sm"></i>
               <span id="notifBadge"
-                class="hidden absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-rose-500 text-white text-[9px] font-extrabold rounded-full px-1 flex items-center justify-center border-2 border-white animate-pulse">0</span>
+                class="hidden absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-rose-600 text-white text-[10px] font-black rounded-full px-1 flex items-center justify-center border-2 border-white animate-pulse shadow-sm">0</span>
             </button>
 
             <!-- Notification Drawer -->
@@ -20333,6 +20333,86 @@
       settings: 'ការកំណត់ & Telegram'
     };
 
+    function getStationIncomingAlertCount() {
+      const u = (typeof AppState !== 'undefined') ? AppState.currentUser : null;
+      if (!u) return 0;
+      const isSuperAdmin = (typeof isUserSuperAdmin === 'function' ? isUserSuperAdmin(u) : (u.role === 'SuperAdmin' || String(u.username).toLowerCase() === 'superadmin'));
+      const isAdmin = (typeof isUserAdmin === 'function' ? isUserAdmin(u) : (u.role === 'Admin' || String(u.username).toLowerCase() === 'admin'));
+      const isPrivileged = isSuperAdmin || isAdmin || (typeof isUserPrivilegedAdmin === 'function' && isUserPrivilegedAdmin(u));
+      if (isPrivileged) return 0;
+
+      const myWh = (typeof getUserStationWarehouse === 'function' ? getUserStationWarehouse(u) : '') || u.warehouse || '';
+      if (!myWh || myWh === 'ALL') return 0;
+
+      if (typeof loadLocalDispatchesFromStorage === 'function') loadLocalDispatchesFromStorage();
+      const allDispatches = (typeof LOCAL_DB !== 'undefined' && Array.isArray(LOCAL_DB.dispatches)) ? LOCAL_DB.dispatches : [];
+      const stationPending = allDispatches.filter(d =>
+        d && d.status === 'PENDING' &&
+        ((typeof matchesTargetWarehouse === 'function') ? matchesTargetWarehouse(d.toLocation, myWh) : isSameWarehouse(d.toLocation, myWh))
+      );
+      if (stationPending.length === 0) return 0;
+
+      const ackKey = 'station_incoming_alert_ack_' + (u.userId || u.username);
+      let ackedIds = [];
+      try {
+        ackedIds = JSON.parse(localStorage.getItem(ackKey) || sessionStorage.getItem(ackKey) || '[]');
+        if (!Array.isArray(ackedIds)) ackedIds = [];
+      } catch (e) {
+        ackedIds = [];
+      }
+      const ackedSet = new Set(ackedIds);
+      const unacked = stationPending.filter(d => {
+        const dId = d.dispatchId || d.id || `${d.toLocation}_${d.sku}_${d.createdAt}`;
+        return !ackedSet.has(dId);
+      });
+      return unacked.length;
+    }
+    window.getStationIncomingAlertCount = getStationIncomingAlertCount;
+
+    function dismissStationIncomingAlert() {
+      const u = (typeof AppState !== 'undefined') ? AppState.currentUser : null;
+      if (!u) return;
+      const myWh = (typeof getUserStationWarehouse === 'function' ? getUserStationWarehouse(u) : '') || u.warehouse || '';
+      if (typeof loadLocalDispatchesFromStorage === 'function') loadLocalDispatchesFromStorage();
+      const allDispatches = (typeof LOCAL_DB !== 'undefined' && Array.isArray(LOCAL_DB.dispatches)) ? LOCAL_DB.dispatches : [];
+      const stationPending = allDispatches.filter(d =>
+        d && d.status === 'PENDING' &&
+        ((typeof matchesTargetWarehouse === 'function') ? matchesTargetWarehouse(d.toLocation, myWh) : isSameWarehouse(d.toLocation, myWh))
+      );
+
+      const ackKey = 'station_incoming_alert_ack_' + (u.userId || u.username);
+      let ackedIds = [];
+      try {
+        ackedIds = JSON.parse(localStorage.getItem(ackKey) || sessionStorage.getItem(ackKey) || '[]');
+        if (!Array.isArray(ackedIds)) ackedIds = [];
+      } catch (e) {
+        ackedIds = [];
+      }
+      const ackedSet = new Set(ackedIds);
+      stationPending.forEach(d => {
+        const dId = d.dispatchId || d.id || `${d.toLocation}_${d.sku}_${d.createdAt}`;
+        ackedSet.add(dId);
+        if (typeof markNotificationDismissed === 'function') {
+          markNotificationDismissed('dsp_pending_' + (d.dispatchId || d.sku));
+        }
+      });
+      const updatedList = Array.from(ackedSet);
+      try {
+        localStorage.setItem(ackKey, JSON.stringify(updatedList));
+        sessionStorage.setItem(ackKey, JSON.stringify(updatedList));
+      } catch (e) { }
+
+      // Immediately remove badge element if present in DOM
+      const tabBadge = document.getElementById('tabIncomingBadge');
+      if (tabBadge) tabBadge.remove();
+
+      // Immediately refresh badges
+      if (typeof updateIncomingDispatchesBadge === 'function') updateIncomingDispatchesBadge(false);
+      if (typeof renderNotificationDrawer === 'function') renderNotificationDrawer();
+      if (typeof renderOpenTabsBar === 'function') renderOpenTabsBar();
+    }
+    window.dismissStationIncomingAlert = dismissStationIncomingAlert;
+
     function getTagsViewTabLabel(tabName) {
       if (tabName === 'incoming') {
         const u = (typeof AppState !== 'undefined') ? AppState.currentUser : null;
@@ -20357,6 +20437,20 @@
       else if (list[0] !== 'items') {
         list = ['items', ...list.filter(t => t !== 'items')];
       }
+
+      // Automatically include 'incoming' tab for station users when pending incoming dispatches exist
+      try {
+        const u = (typeof AppState !== 'undefined') ? AppState.currentUser : null;
+        const isPriv = u && typeof isUserPrivilegedAdmin === 'function' && isUserPrivilegedAdmin(u);
+        const myWh = u ? ((typeof getUserStationWarehouse === 'function' ? getUserStationWarehouse(u) : '') || u.warehouse || '') : '';
+        if (!isPriv && myWh && myWh !== 'ALL') {
+          const alertCount = (typeof getStationIncomingAlertCount === 'function') ? getStationIncomingAlertCount() : 0;
+          if (alertCount > 0 && !list.includes('incoming')) {
+            list.splice(1, 0, 'incoming');
+          }
+        }
+      } catch (e) { }
+
       return list;
     }
 
@@ -20371,6 +20465,10 @@
       if (!bar) return;
       const active = activeTabName || sessionStorage.getItem('inventory_active_tab') || 'items';
       const tabs = getVisitedTabsList();
+
+      const u = (typeof AppState !== 'undefined') ? AppState.currentUser : null;
+      const isPriv = u && typeof isUserPrivilegedAdmin === 'function' && isUserPrivilegedAdmin(u);
+      const incomingAlertCount = (!isPriv && typeof getStationIncomingAlertCount === 'function') ? getStationIncomingAlertCount() : 0;
 
       bar.innerHTML = tabs.map(tab => {
         const isActive = tab === active;
@@ -20389,11 +20487,25 @@
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
             </svg>
           </span>`;
+
+        let alertBadgeHtml = '';
+        if (tab === 'incoming' && incomingAlertCount > 0) {
+          alertBadgeHtml = `
+            <span id="tabIncomingBadge" class="ml-1 px-1.5 py-0.2 min-w-[18px] h-4.5 rounded-full bg-rose-600 text-white text-[10px] font-black inline-flex items-center justify-center animate-pulse shadow-xs" title="មាន ${incomingAlertCount} មុខទំនិញថ្មីរង់ចាំទទួល">
+              ${incomingAlertCount}
+            </span>`;
+        }
+
+        const clickHandler = (tab === 'incoming')
+          ? `navigateTab('${tab}'); if (typeof dismissStationIncomingAlert === 'function') dismissStationIncomingAlert();`
+          : `navigateTab('${tab}');`;
+
         return `
-          <button type="button" data-tag-tab="${tab}" onclick="navigateTab('${tab}')"
-            class="group relative shrink-0 inline-flex items-center gap-2 px-4 h-9 text-[12.5px] border-r border-slate-200/80 transition-colors whitespace-nowrap cursor-pointer ${btnClass}">
+          <button type="button" data-tag-tab="${tab}" onclick="${clickHandler}"
+            class="group relative shrink-0 inline-flex items-center gap-1.5 px-3.5 h-9 text-[12.5px] border-r border-slate-200/80 transition-colors whitespace-nowrap cursor-pointer ${btnClass}">
             <span class="w-2.5 h-2.5 rounded-full shrink-0 transition-colors ${dotClass}"></span>
             <span>${label}</span>
+            ${alertBadgeHtml}
             ${closeBtn}
           </button>`;
       }).join('');
@@ -28122,19 +28234,24 @@
         pendingCount = allDispatches.filter(d => d.status === 'PENDING' && (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(d.toLocation, userWarehouse) : isSameWarehouse(d.toLocation, userWarehouse))).length;
       }
 
+      const alertCount = isPrivileged ? pendingCount : (typeof getStationIncomingAlertCount === 'function' ? getStationIncomingAlertCount() : pendingCount);
+
       const badge = document.getElementById('incomingPendingBadge');
       if (badge) {
-        badge.innerText = pendingCount;
-        badge.classList.toggle('hidden', pendingCount === 0);
+        badge.innerText = alertCount;
+        badge.classList.toggle('hidden', alertCount === 0);
+        if (!isPrivileged) {
+          badge.className = "px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-600 text-white animate-pulse shadow-xs " + (alertCount === 0 ? "hidden" : "");
+        }
       }
 
       // 🔊 លាន់សំឡេង Alert ជូនដំណឹងនៅពេលមានទំនិញថ្មីរង់ចាំទទួលសម្រាប់ស្ថានីយ
-      if (triggerSound && pendingCount > 0 && (_lastAudiblePendingDispatches === -1 || pendingCount > _lastAudiblePendingDispatches)) {
+      if (triggerSound && alertCount > 0 && (_lastAudiblePendingDispatches === -1 || alertCount > _lastAudiblePendingDispatches)) {
         if (!isPrivileged && typeof playIncomingDispatchAlertSound === 'function') {
           playIncomingDispatchAlertSound();
         }
       }
-      _lastAudiblePendingDispatches = pendingCount;
+      _lastAudiblePendingDispatches = alertCount;
 
       const dashAlert = document.getElementById('dashStationPendingDispatchesAlert');
       if (dashAlert) {
@@ -28630,95 +28747,49 @@
         ((typeof matchesTargetWarehouse === 'function') ? matchesTargetWarehouse(d.toLocation, myWh) : isSameWarehouse(d.toLocation, myWh))
       );
 
-      if (pendingList.length === 0) {
-        if (typeof Swal !== 'undefined' && Swal.isVisible()) {
-          const swalTitle = Swal.getTitle();
-          if (swalTitle && swalTitle.textContent.includes('ដំណឹងទំនិញផ្ញើមកពី Admin')) {
-            Swal.close();
-          }
+      // Make sure popup modal is removed/closed if opened
+      if (typeof Swal !== 'undefined' && Swal.isVisible()) {
+        const swalTitle = Swal.getTitle();
+        if (swalTitle && swalTitle.textContent.includes('ដំណឹងទំនិញផ្ញើមកពី Admin')) {
+          Swal.close();
         }
+      }
+
+      if (pendingList.length === 0) {
+        if (typeof updateIncomingDispatchesBadge === 'function') updateIncomingDispatchesBadge(false);
+        if (typeof renderOpenTabsBar === 'function') renderOpenTabsBar();
+        if (typeof renderNotificationDrawer === 'function') renderNotificationDrawer();
         return;
       }
 
-      // Track already notified dispatch IDs in sessionStorage per user so ALL station users get alerted
-      const userKey = 'ppshv_alerted_dispatches_' + (u.userId || u.username);
-      if (!window._alertedDispatchIds) {
-        window._alertedDispatchIds = new Set();
-      }
-      try {
-        const stored = JSON.parse(sessionStorage.getItem(userKey) || '[]');
-        if (Array.isArray(stored)) stored.forEach(id => window._alertedDispatchIds.add(id));
-      } catch (e) { }
+      const alertCount = (typeof getStationIncomingAlertCount === 'function') ? getStationIncomingAlertCount() : 0;
+      if (alertCount > 0) {
+        // Automatically ensure 'incoming' tab is present in openTabsBar so Image 2 tab is visible to user
+        try {
+          const tabs = getVisitedTabsList();
+          if (!tabs.includes('incoming')) {
+            tabs.splice(1, 0, 'incoming');
+            saveVisitedTabsList(tabs);
+          }
+        } catch (e) { }
 
-      const unalerted = pendingList.filter(d => d.dispatchId && !window._alertedDispatchIds.has(d.dispatchId));
-      if (unalerted.length === 0) return;
-
-      // Mark as alerted
-      unalerted.forEach(d => {
-        if (d.dispatchId) window._alertedDispatchIds.add(d.dispatchId);
-      });
-      try {
-        sessionStorage.setItem(userKey, JSON.stringify(Array.from(window._alertedDispatchIds)));
-      } catch (e) { }
-
-      // 🔊 Play Chime sound
-      if (typeof playIncomingDispatchAlertSound === 'function') {
-        playIncomingDispatchAlertSound();
-      } else if (typeof playNotificationSound === 'function') {
-        playNotificationSound();
-      }
-
-      if (typeof updateIncomingDispatchesBadge === 'function') updateIncomingDispatchesBadge(false);
-
-      const issuerName = unalerted.map(d => d.issuer).filter(Boolean)[0] || 'Admin (中心库房 & 机电)';
-      const itemsListHtml = unalerted.slice(0, 6).map((d, i) => `
-        <div class="flex items-center justify-between py-1.5 px-2 text-xs border-b border-slate-100 last:border-b-0">
-          <div class="flex items-center space-x-2">
-            <span class="font-mono font-bold text-slate-400 text-[10px]">${i + 1}.</span>
-            <div>
-              <div class="font-bold text-slate-800">${escapeHtml(d.itemName)}</div>
-              <div class="font-mono text-[10px] text-indigo-600">${escapeHtml(d.sku)}</div>
-            </div>
-          </div>
-          <div class="text-right">
-            <span class="font-black text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg text-xs font-mono">
-              ${d.quantity} ${escapeHtml(d.unit || 'ដើម')}
-            </span>
-          </div>
-        </div>
-      `).join('');
-
-      const moreCount = unalerted.length > 6 ? unalerted.length - 6 : 0;
-
-      Swal.fire({
-        icon: 'info',
-        title: '📦 ដំណឹងទំនិញផ្ញើមកពី Admin (中心库房 & 机电)!',
-        html: `
-          <div class="text-left font-khmer text-xs space-y-2.5 p-1">
-            <div class="p-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-950">
-              <p class="font-bold text-sm text-blue-900 mb-0.5">🏢 ស្ថានីយគោលដៅ: ${escapeHtml(myWh)}</p>
-              <p class="text-xs text-slate-600">អ្នកគ្រប់គ្រង <b>${escapeHtml(issuerName)}</b> បានបើកចេញទំនិញចំនួន <b class="text-blue-700">${unalerted.length}</b> មុខ មកកាន់ស្ថានីយរបស់អ្នក។</p>
-            </div>
-            <div class="max-h-48 overflow-y-auto divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white p-1">
-              ${itemsListHtml}
-              ${moreCount > 0 ? `<div class="p-1.5 text-center text-xs text-slate-500 font-bold">+ នៅមាន ${moreCount} មុខទំនិញទៀត...</div>` : ''}
-            </div>
-            <div class="p-2.5 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-[11px] leading-relaxed">
-              👉 ទិន្នន័យបានបញ្ជូនចូលក្នុងមុខងារ <b>"ទទួលទំនិញចូលស្តុកពី Admin"</b> រួចរាល់។ សូមចូលទៅត្រួតពិនិត្យ និងចុចផ្ទៀងផ្ទាត់មុខទំនិញម្តងមួយៗ ដើម្បីទទួលចូលស្តុក!
-            </div>
-          </div>
-        `,
-        confirmButtonText: '📦 ចូលទៅទទួលទំនិញឥឡូវ ❯',
-        confirmButtonColor: '#059669',
-        showCancelButton: true,
-        cancelButtonText: 'ចាំបន្តិច',
-        cancelButtonColor: '#64748b',
-        allowOutsideClick: false
-      }).then(res => {
-        if (res.isConfirmed) {
-          if (typeof navigateTab === 'function') navigateTab('incoming');
+        // 🔊 លាន់សំឡេង Chime Alert នៅពេលមានទំនិញថ្មីចូលមកដល់
+        const soundKey = 'ppshv_sound_notif_count_' + (u.userId || u.username);
+        const lastCount = parseInt(sessionStorage.getItem(soundKey) || '0', 10);
+        if (alertCount > lastCount) {
+          if (typeof playIncomingDispatchAlertSound === 'function') {
+            playIncomingDispatchAlertSound();
+          } else if (typeof playNotificationSound === 'function') {
+            playNotificationSound();
+          }
         }
-      });
+        sessionStorage.setItem(soundKey, String(alertCount));
+      }
+
+      // Update badge in tabs bar, notification bell, and sidebar
+      if (typeof renderOpenTabsBar === 'function') renderOpenTabsBar();
+      if (typeof updateIncomingDispatchesBadge === 'function') updateIncomingDispatchesBadge(false);
+      if (typeof renderNotificationDrawer === 'function') renderNotificationDrawer();
     }
 
     function checkDiscrepanciesNotificationForManager() {
@@ -44342,6 +44413,9 @@
       if (drawer && !drawer.classList.contains('hidden')) {
         drawer.classList.add('hidden');
       }
+      if (typeof dismissStationIncomingAlert === 'function') {
+        dismissStationIncomingAlert();
+      }
       if (clearBadge) {
         // Mark all current notifications in drawer as acknowledged/dismissed
         notificationsList.forEach(n => {
@@ -44364,6 +44438,9 @@
         const willOpen = drawer.classList.contains('hidden');
         if (willOpen) {
           closeSettingsDropdown();
+          if (typeof dismissStationIncomingAlert === 'function') {
+            dismissStationIncomingAlert();
+          }
           if (typeof checkPendingRegistrationsForAdmin === 'function') {
             checkPendingRegistrationsForAdmin(true);
           } else if (typeof renderNotificationDrawer === 'function') {
@@ -44417,6 +44494,9 @@
             openKhmerCalendarModal();
           }
         } else if (type === 'INCOMING_DISPATCH') {
+          if (typeof dismissStationIncomingAlert === 'function') {
+            dismissStationIncomingAlert();
+          }
           navigateTab('incoming');
         } else if (type === 'DISPATCH_DISCREPANCY') {
           if (targetUserId) {
@@ -44476,15 +44556,23 @@
         return true;
       });
 
-      // មិនចាំបាច់មានសារជូនដំណឹងមក super admin ឬក៏ admin
+      // ដំណឹងទំនិញផ្ញើមកពី Admin សម្រាប់ស្ថានីយ (បង្ហាញជាមុខទំនិញនីមួយៗ)
       if (!isPrivileged && stationPendingDispatches.length > 0) {
-        filteredList.unshift({
-          type: 'INCOMING_DISPATCH',
-          title: `📦 ទំនិញរង់ចាំទទួលចូលស្តុក (${stationPendingDispatches.length} មុខ)`,
-          message: `Admin បានបើកទំនិញ ${stationPendingDispatches.length} មុខមកកាន់ ${myWh} សូមចុចទទួលចូលស្តុក`,
-          time: 'ថ្មីៗ',
-          warehouse: myWh,
-          user: 'Admin Dispatch'
+        stationPendingDispatches.forEach(d => {
+          const notifId = 'dsp_pending_' + (d.dispatchId || d.sku);
+          if (isNotificationDismissed(notifId)) return;
+          const qty = d.quantity || 0;
+          const unit = d.unit || 'ដើម';
+          filteredList.unshift({
+            id: notifId,
+            type: 'INCOMING_DISPATCH',
+            title: `📦 ទំនិញផ្ញើពី Admin: ${d.itemName}`,
+            message: `ចំនួន ${qty} ${unit} [${d.masterDocNo || d.sku || ''}] ផ្ញើមកកាន់ ${myWh}`,
+            time: d.date || 'ថ្មីៗ',
+            warehouse: myWh,
+            user: d.issuer || 'Admin (中心库房 & 机电)',
+            targetDispatchId: d.dispatchId
+          });
         });
       }
 
@@ -44545,8 +44633,16 @@
       const listEl = document.getElementById('notifList');
       const badge = document.getElementById('notifBadge');
       if (badge) {
-        badge.innerText = filteredList.length;
-        badge.classList.toggle('hidden', filteredList.length === 0);
+        let badgeCount = 0;
+        if (!isPrivileged) {
+          const incomingAlertCount = (typeof getStationIncomingAlertCount === 'function') ? getStationIncomingAlertCount() : 0;
+          const otherNotifs = filteredList.filter(n => n.type !== 'INCOMING_DISPATCH');
+          badgeCount = incomingAlertCount + otherNotifs.length;
+        } else {
+          badgeCount = filteredList.length;
+        }
+        badge.innerText = badgeCount;
+        badge.classList.toggle('hidden', badgeCount === 0);
       }
 
       if (!listEl) return;
