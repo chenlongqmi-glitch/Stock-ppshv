@@ -30333,12 +30333,20 @@
         }
         const fullDate = (typeof getTxStandardDate === 'function' ? getTxStandardDate(t) : '') || (t.date ? String(t.date).slice(0, 10) : (t.timestamp ? String(t.timestamp).slice(0, 10) : '-'));
 
+        const currentUser = AppState.currentUser?.fullName || AppState.currentUser?.username || 'Admin';
         let issuer = t.issuer || t.user || '';
         if ((!issuer || issuer === '-' || issuer === 'Admin' || issuer === 'superadmin') && t.notes) {
           const issMatch = t.notes.match(/\[អ្នកបើក(?:ទំនិញ)?:\s*([^\]]+)\]/);
           if (issMatch) issuer = issMatch[1].trim();
         }
-        if (!issuer) issuer = t.user || '-';
+        if (!issuer || issuer === '-' || issuer === 'Admin') issuer = currentUser;
+
+        let receiverStr = t.receiver || t.receivedBy || '';
+        if (!receiverStr && t.notes) {
+          const rMatch = t.notes.match(/\[អ្នកទទួល(?:ទំនិញ)?:\s*([^\]]+)\]/);
+          if (rMatch) receiverStr = rMatch[1].trim();
+        }
+        if (!receiverStr) receiverStr = '-';
 
         let reasonStr = t.reason || '';
         if (!reasonStr && t.notes && t.notes.includes('[មូលហេតុ:')) {
@@ -30364,7 +30372,8 @@
           'ពីឃ្លាំង': t.fromLocation || '',
           'ទៅកាន់ទីតាំង/ស្ថានីយ': t.toLocation || t.location || '',
           'មូលហេតុ': reasonStr,
-          'អ្នកបើក': issuer,
+          'អ្នកទទួលទំនិញ': receiverStr,
+          'អ្នកបើកចេញ': issuer,
           'កំណត់ចំណាំ': cleanNote
         };
       });
@@ -30385,7 +30394,8 @@
         { wch: 24 }, // ពីឃ្លាំង
         { wch: 24 }, // ទៅកាន់ទីតាំង/ស្ថានីយ
         { wch: 16 }, // មូលហេតុ
-        { wch: 18 }, // អ្នកបើក
+        { wch: 16 }, // អ្នកទទួលទំនិញ
+        { wch: 16 }, // អ្នកបើកចេញ
         { wch: 24 }  // កំណត់ចំណាំ
       ];
 
@@ -30537,7 +30547,7 @@
             td { padding: 5px; border: 1px solid #e2e8f0; vertical-align: middle; }
             tr:nth-child(even) { background: #fcfcfd; }
             .signatures { display: flex; justify-content: space-around; margin-top: 28px; page-break-inside: avoid; }
-            .sig-col { text-align: center; width: 35%; font-size: 11px; }
+            .sig-col { text-align: center; width: 30%; font-size: 11px; }
             .sig-line { margin-top: 55px; border-top: 1px dashed #94a3b8; padding-top: 4px; color: #64748b; font-size: 10px; }
             @media print {
               .toolbar { display: none !important; }
@@ -30690,7 +30700,14 @@
           const issMatch = t.notes.match(/\[អ្នកបើក(?:ទំនិញ)?:\s*([^\]]+)\]/);
           if (issMatch) issuer = issMatch[1].trim();
         }
-        if (!issuer) issuer = t.user || '-';
+        if (!issuer || issuer === '-' || issuer === 'Admin') issuer = currentUser;
+
+        let receiverStr = t.receiver || t.receivedBy || '';
+        if (!receiverStr && t.notes) {
+          const rMatch = t.notes.match(/\[អ្នកទទួល(?:ទំនិញ)?:\s*([^\]]+)\]/);
+          if (rMatch) receiverStr = rMatch[1].trim();
+        }
+        if (!receiverStr) receiverStr = '-';
 
         let reasonStr = t.reason || '';
         if (!reasonStr && t.notes && t.notes.includes('[មូលហេតុ:')) {
@@ -30721,7 +30738,8 @@
             <td style="text-align: center; font-weight: bold; color: #1e293b; font-size: 10.5px;">${escapeHtml(t.unit || 'ដុំ')}</td>
             <td style="font-size: 10.5px;">${escapeHtml(t.toLocation || t.location || '-')}</td>
             <td style="font-size: 10.5px;">${escapeHtml(reasonStr)}</td>
-            <td style="font-size: 10.5px;">${escapeHtml(issuer)}</td>
+            <td style="font-size: 10.5px;">${escapeHtml(receiverStr)}</td>
+            <td style="font-size: 10.5px; font-weight: 500;">${escapeHtml(issuer)}</td>
             <td style="font-size: 10px; color: #475569; max-width: 120px;">${escapeHtml(cleanNote)}</td>
           </tr>
         `;
@@ -30757,7 +30775,7 @@
             td { padding: 5px; border: 1px solid #e2e8f0; vertical-align: middle; }
             tr:nth-child(even) { background: #fcfcfd; }
             .signatures { display: flex; justify-content: space-around; margin-top: 28px; page-break-inside: avoid; }
-            .sig-col { text-align: center; width: 35%; font-size: 11px; }
+            .sig-col { text-align: center; width: 30%; font-size: 11px; }
             .sig-line { margin-top: 55px; border-top: 1px dashed #94a3b8; padding-top: 4px; color: #64748b; font-size: 10px; }
             @media print {
               .toolbar { display: none !important; }
@@ -30801,10 +30819,11 @@
                 <th style="width: 70px; text-align: center;">ខ្នាត/ពណ៌</th>
                 <th style="width: 55px; text-align: center;">ចំនួនចេញ</th>
                 <th style="width: 45px; text-align: center;">ឯកតា</th>
-                <th style="width: 100px;">ទៅកាន់ទីតាំង</th>
+                <th style="width: 95px;">ទៅកាន់ទីតាំង</th>
                 <th style="width: 75px;">មូលហេតុ</th>
-                <th style="width: 75px;">អ្នកបើក</th>
-                <th style="width: 100px;">កំណត់ចំណាំ</th>
+                <th style="width: 75px;">អ្នកទទួលទំនិញ</th>
+                <th style="width: 75px;">អ្នកបើកចេញ</th>
+                <th style="width: 95px;">កំណត់ចំណាំ</th>
               </tr>
             </thead>
             <tbody>
@@ -30813,12 +30832,17 @@
           </table>
           <div class="signatures">
             <div class="sig-col">
+              <b>អ្នកទទួលទំនិញ</b>
+              <div class="sig-line" style="margin-top: 55px;">ហត្ថលេខា & ឈ្មោះ</div>
+            </div>
+            <div class="sig-col">
               <b>អ្នកបើកចេញ / ស្នើសុំ</b>
-              <div class="sig-line">ហត្ថលេខា & ឈ្មោះ</div>
+              <div style="font-weight: bold; margin-top: 36px; color: #1e293b; font-size: 11px;">${escapeHtml(currentUser)}</div>
+              <div class="sig-line" style="margin-top: 4px;">ហត្ថលេខា & ឈ្មោះ</div>
             </div>
             <div class="sig-col">
               <b>អ្នកគ្រប់គ្រងផ្នែក</b>
-              <div class="sig-line">ហត្ថលេខា & ឈ្មោះ</div>
+              <div class="sig-line" style="margin-top: 55px;">ហត្ថលេខា & ឈ្មោះ</div>
             </div>
           </div>
           <sc` + `ript>
