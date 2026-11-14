@@ -3387,23 +3387,46 @@
               </button>
             </div>
 
-            <!-- HEADER BANNER: បញ្ជីទំនិញទាំងអស់ (Product Inventory) -->
+            <!-- SEARCH, FILTER & ACTION BAR (Single Unified Row) -->
             <div
-              class="glass-card p-3.5 sm:p-4 rounded-2xl shadow-xs border border-slate-200/80 bg-white flex flex-col lg:flex-row lg:items-center justify-between gap-3 relative z-30">
-              <div class="flex items-center space-x-3">
-                <div
-                  class="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center text-lg shadow-xs shrink-0">
-                  <i class="fa-solid fa-boxes-stacked"></i>
+              class="glass-card p-2.5 sm:p-3 rounded-2xl shadow-xs border border-slate-200/80 bg-white flex flex-col lg:flex-row gap-2.5 items-stretch lg:items-center justify-between relative z-30">
+              
+              <!-- Left: Search & Filter Inputs (រូបទី 1) -->
+              <div class="flex flex-1 flex-wrap sm:flex-nowrap gap-2 items-center min-w-0">
+                <div class="relative flex-1 min-w-[180px]">
+                  <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-2.5 text-slate-400 text-xs"></i>
+                  <input type="search" id="itemSearchInput" readonly inputmode="search" autocomplete="one-time-code"
+                    autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true"
+                    data-bwignore="true" data-form-type="other" role="searchbox"
+                    onfocus="this.removeAttribute('readonly'); this.readOnly = false; if (typeof sanitizeSearchElement === 'function') sanitizeSearchElement(this, filterItemsTable);"
+                    onblur="if (!this.value && !AppState.itemSearchQuery) { this.setAttribute('readonly', 'readonly'); }"
+                    oninput="handleItemSearchInput(this)" onchange="handleItemSearchInput(this)"
+                    onsearch="handleItemSearchInput(this)" onkeydown="this.dataset.userTyped = 'true';"
+                    placeholder="ស្វែងរកតាម ឈ្មោះទំនិញ, ខ្នាត, ពណ៌, ឬ SKU..."
+                    class="w-full pl-9 pr-8 py-1.5 sm:py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none">
+                  <button type="button" onclick="clearItemSearchQuery()"
+                    class="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs p-0.5 rounded transition cursor-pointer"
+                    title="សម្អាតការស្វែងរក">
+                    <i class="fa-solid fa-xmark"></i>
+                  </button>
                 </div>
-                <div>
-                  <h4 class="font-bold text-slate-800 text-sm sm:text-base">បញ្ជីទំនិញទាំងអស់ (Product Inventory)</h4>
-                  <p class="text-xs text-slate-400 mt-0.5">គ្រប់គ្រងទិន្នន័យស្តុកទំនិញ ខ្នាតដុំ-រាយ
-                    និងតាមដានប្រវត្តិប្រតិបត្តិការស្តុក</p>
-                </div>
+
+                <select id="itemCategoryFilter" onchange="handleItemCategoryChange(this)"
+                  class="px-2.5 py-1.5 sm:py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none shrink-0">
+                  <option value="ALL">គ្រប់ប្រភេទទាំងអស់</option>
+                </select>
+
+                <select id="itemStatusFilter" onchange="handleItemStatusChange(this)"
+                  class="px-2.5 py-1.5 sm:py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none shrink-0">
+                  <option value="ALL">គ្រប់ស្ថានភាពស្តុក</option>
+                  <option value="NORMAL">ស្តុកធម្មតា</option>
+                  <option value="LOW">ស្តុកជិតអស់ (Low Stock)</option>
+                  <option value="OUT">អស់ពីស្តុក (Out of Stock)</option>
+                </select>
               </div>
 
-              <!-- Action buttons: Auto Sync, Import Excel, Export, Add Item -->
-              <div class="flex items-center flex-wrap gap-2 justify-end">
+              <!-- Right: Actions Buttons (រូបទី 2) -->
+              <div class="flex items-center flex-wrap sm:flex-nowrap gap-2 justify-end shrink-0">
                 <!-- Reload from Google Sheet Button (Hidden - Runs in Background) -->
                 <button type="button" onclick="loadItemsFromGoogleSheet(false)" id="btnReloadItemsFromSheet"
                   style="display: none !important;"
@@ -3430,7 +3453,7 @@
                 <!-- Excel Import Button (SuperAdmin Only) -->
                 <button type="button" onclick="openExcelImportModal()" id="btnImportExcel"
                   title="នាំចូលទំនិញពីឯកសារ Excel (.xlsx, .xls, .csv)"
-                  class="hidden px-3 py-1.5 border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-xs transition-all active:scale-95 cursor-pointer">
+                  class="hidden px-3 py-1.5 sm:py-2 border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-xs transition-all active:scale-95 cursor-pointer">
                   <i class="fa-solid fa-file-excel text-emerald-600"></i>
                   <span>Import Excel</span>
                 </button>
@@ -3438,7 +3461,7 @@
                 <!-- Unified Export Dropdown (Export CSV, Export PDF, Export CSV and PDF) -->
                 <div class="relative inline-block text-left z-40" id="exportItemsDropdownWrapper">
                   <button type="button" onclick="toggleExportItemsDropdown(event)" id="exportItemsBtn"
-                    class="px-3 py-1.5 border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-sm transition-all">
+                    class="px-3 py-1.5 sm:py-2 border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-sm transition-all cursor-pointer">
                     <i class="fa-solid fa-file-export text-blue-600"></i>
                     <span>Export ទិន្នន័យ</span>
                     <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 ml-0.5"></i>
@@ -3447,7 +3470,7 @@
                   <div id="exportItemsMenu"
                     class="hidden absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200 py-1.5 z-[999] divide-y divide-slate-100">
                     <button type="button" onclick="handleItemsExportChoice('EXCEL')"
-                      class="w-full px-3.5 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center space-x-3 transition-colors">
+                      class="w-full px-3.5 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center space-x-3 transition-colors cursor-pointer">
                       <div
                         class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
                         <i class="fa-solid fa-file-excel text-base"></i>
@@ -3459,7 +3482,7 @@
                     </button>
 
                     <button type="button" onclick="handleItemsExportChoice('PDF')"
-                      class="w-full px-3.5 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-rose-50 hover:text-rose-700 flex items-center space-x-3 transition-colors">
+                      class="w-full px-3.5 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-rose-50 hover:text-rose-700 flex items-center space-x-3 transition-colors cursor-pointer">
                       <div
                         class="w-8 h-8 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
                         <i class="fa-solid fa-file-pdf text-base"></i>
@@ -3471,7 +3494,7 @@
                     </button>
 
                     <button type="button" onclick="handleItemsExportChoice('BOTH')"
-                      class="w-full px-3.5 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-700 flex items-center space-x-3 transition-colors">
+                      class="w-full px-3.5 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-700 flex items-center space-x-3 transition-colors cursor-pointer">
                       <div
                         class="w-8 h-8 rounded-xl bg-gradient-to-r from-emerald-500 to-rose-500 text-white flex items-center justify-center shrink-0 text-sm shadow-sm">
                         <i class="fa-solid fa-file-zipper"></i>
@@ -3486,49 +3509,10 @@
 
                 <!-- Add Product Button -->
                 <button id="btnAddNewItem" onclick="openItemModal()"
-                  class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 shadow-md shadow-blue-500/20 active:scale-95 transition">
+                  class="px-3.5 py-1.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 shadow-md shadow-blue-500/20 active:scale-95 transition cursor-pointer">
                   <i class="fa-solid fa-plus"></i>
                   <span>បន្ថែមទំនិញថ្មី</span>
                 </button>
-              </div>
-            </div>
-
-            <!-- SEARCH & FILTER BAR -->
-            <div
-              class="glass-card p-2.5 sm:p-3 rounded-2xl shadow-xs border border-slate-200/80 bg-white flex flex-col md:flex-row gap-2.5 items-center justify-between relative z-10">
-              <div class="flex flex-1 flex-wrap gap-2 w-full">
-                <div class="relative flex-1 min-w-[180px]">
-                  <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-2.5 text-slate-400 text-xs"></i>
-                  <input type="search" id="itemSearchInput" readonly inputmode="search" autocomplete="one-time-code"
-                    autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true"
-                    data-bwignore="true" data-form-type="other" role="searchbox"
-                    onfocus="this.removeAttribute('readonly'); this.readOnly = false; if (typeof sanitizeSearchElement === 'function') sanitizeSearchElement(this, filterItemsTable);"
-                    onblur="if (!this.value && !AppState.itemSearchQuery) { this.setAttribute('readonly', 'readonly'); }"
-                    oninput="handleItemSearchInput(this)" onchange="handleItemSearchInput(this)"
-                    onsearch="handleItemSearchInput(this)" onkeydown="this.dataset.userTyped = 'true';"
-                    placeholder="ស្វែងរកតាម ឈ្មោះទំនិញ, ខ្នាត, ពណ៌, ឬ SKU..."
-                    class="w-full pl-9 pr-8 py-1.5 sm:py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none">
-                  <button type="button" onclick="clearItemSearchQuery()"
-                    class="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs p-0.5 rounded transition cursor-pointer"
-                    title="សម្អាតការស្វែងរក">
-                    <i class="fa-solid fa-xmark"></i>
-                  </button>
-                </div>
-
-
-
-                <select id="itemCategoryFilter" onchange="handleItemCategoryChange(this)"
-                  class="px-2.5 py-1.5 sm:py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none">
-                  <option value="ALL">គ្រប់ប្រភេទទាំងអស់</option>
-                </select>
-
-                <select id="itemStatusFilter" onchange="handleItemStatusChange(this)"
-                  class="px-2.5 py-1.5 sm:py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none">
-                  <option value="ALL">គ្រប់ស្ថានភាពស្តុក</option>
-                  <option value="NORMAL">ស្តុកធម្មតា</option>
-                  <option value="LOW">ស្តុកជិតអស់ (Low Stock)</option>
-                  <option value="OUT">អស់ពីស្តុក (Out of Stock)</option>
-                </select>
               </div>
             </div>
           </div>
