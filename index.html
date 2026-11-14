@@ -2790,9 +2790,14 @@
             </div>
           </div>
           <div class="flex flex-col min-w-0">
-            <h2 id="pageTitle"
-              class="text-xs sm:text-base md:text-lg font-bold text-slate-800 leading-tight truncate max-w-[120px] xs:max-w-[180px] sm:max-w-none">
-              ផ្ទាំងគ្រប់គ្រងទូទៅ</h2>
+            <div class="flex items-center gap-2 flex-wrap min-w-0">
+              <h2 id="pageTitle"
+                class="text-xs sm:text-base md:text-lg font-bold text-slate-800 leading-tight truncate max-w-[120px] xs:max-w-[180px] sm:max-w-none">
+                ផ្ទាំងគ្រប់គ្រងទូទៅ</h2>
+              <span id="itemsTotalProductsBadge" onclick="loadItemsFromGoogleSheet(false)"
+                title="ចុចដើម្បីទាញទិន្នន័យស្រស់ពី Google Sheet ផ្ទាល់ 100%"
+                class="hidden px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-3xs cursor-pointer hover:bg-emerald-200 transition shrink-0">0 មុខទំនិញ</span>
+            </div>
             <p id="pageSubtitle"
               class="text-[11px] sm:text-xs text-slate-400 mt-0.5 truncate max-w-[200px] xs:max-w-[320px] sm:max-w-none">
               ទិដ្ឋភាពទូទៅនៃស្តុក ចលនាទំនិញ និងស្ថិតិសំខាន់ៗ</p>
@@ -3372,13 +3377,7 @@
                   <i class="fa-solid fa-boxes-stacked"></i>
                 </div>
                 <div>
-                  <div class="flex flex-wrap items-center gap-2">
-                    <h4 class="font-bold text-slate-800 text-sm sm:text-base">បញ្ជីទំនិញទាំងអស់ (Product Inventory)</h4>
-                    <span id="itemsTotalProductsBadge" onclick="loadItemsFromGoogleSheet(false)"
-                      title="ចុចដើម្បីទាញទិន្នន័យស្រស់ពី Google Sheet ផ្ទាល់ 100%"
-                      class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-3xs cursor-pointer hover:bg-emerald-200 transition">0
-                      មុខទំនិញ</span>
-                  </div>
+                  <h4 class="font-bold text-slate-800 text-sm sm:text-base">បញ្ជីទំនិញទាំងអស់ (Product Inventory)</h4>
                   <p class="text-xs text-slate-400 mt-0.5">គ្រប់គ្រងទិន្នន័យស្តុកទំនិញ ខ្នាតដុំ-រាយ
                     និងតាមដានប្រវត្តិប្រតិបត្តិការស្តុក</p>
                 </div>
@@ -20283,6 +20282,14 @@
       if (subEl) {
         subEl.innerText = subtitles[tabName] || '';
       }
+      const itemsBadge = document.getElementById('itemsTotalProductsBadge');
+      if (itemsBadge) {
+        if (tabName === 'items') {
+          itemsBadge.classList.remove('hidden');
+        } else {
+          itemsBadge.classList.add('hidden');
+        }
+      }
 
       if (tabName === 'dashboard') loadDashboard();
       if (tabName === 'items') renderItemsTable();
@@ -22477,6 +22484,9 @@
         countBadge.innerText = (filteredCount !== totalItemsCount)
           ? `${filteredCount} / ${totalItemsCount} មុខទំនិញ`
           : `${totalItemsCount} មុខទំនិញ`;
+        if (AppState.currentTab === 'items') {
+          countBadge.classList.remove('hidden');
+        }
       }
 
       const filteredSkus = new Set(filtered.map(i => String(i.sku || '').toLowerCase()));
