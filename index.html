@@ -8817,7 +8817,8 @@
                 autocomplete="off"
                 onfocus="openStockInZoneDropdown('receiveDispatchZone', 'receiveDispatchZoneChevron')"
                 onclick="openStockInZoneDropdown('receiveDispatchZone', 'receiveDispatchZoneChevron')"
-                oninput="handleStockInZoneInput(this.value)"
+                oninput="handleStockInZoneInput(this.value); if (typeof recomputeReceptionTotal === 'function') recomputeReceptionTotal();"
+                onchange="if (typeof recomputeReceptionTotal === 'function') recomputeReceptionTotal();"
                 class="w-full h-full pl-9 pr-10 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition shadow-2xs">
               <div class="absolute right-1.5 top-1.5 flex items-center">
                 <button type="button"
@@ -8864,8 +8865,23 @@
                 </div>
               </div>
             </div>
-            <div class="text-[11px] text-right mt-1 font-bold text-emerald-800">
-              សរុបទទួល: <span id="receiveActualTotalText" class="font-black text-emerald-950">0 ដើម</span>
+            <!-- Live Stock Calculation Bar: ស្តុកចាស់ + ទទួលថ្មី = ស្តុកថ្មីសរុប -->
+            <div id="receptionStockCalculationBar"
+              class="mt-2 p-2 bg-gradient-to-r from-emerald-50/90 to-teal-50/90 border border-emerald-200/90 rounded-xl flex items-center justify-between text-xs font-khmer shadow-2xs">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="text-slate-600 text-[11px]">ស្តុកចាស់:</span>
+                <span id="receptionOldStockText"
+                  class="font-bold text-amber-800 bg-amber-100/90 border border-amber-300 px-1.5 py-0.5 rounded-md font-mono text-[11px]">0 ដើម</span>
+                <span class="text-slate-400 font-bold">+</span>
+                <span class="text-slate-600 text-[11px]">ទទួលថ្មី:</span>
+                <span id="receiveActualTotalText"
+                  class="font-bold text-emerald-800 bg-emerald-100/90 border border-emerald-300 px-1.5 py-0.5 rounded-md font-mono text-[11px]">0 ដើម</span>
+              </div>
+              <div class="text-right flex items-center gap-1">
+                <span class="text-emerald-950 font-extrabold text-[11px]">ស្តុកថ្មីសរុប:</span>
+                <span id="receptionNewTotalStockText"
+                  class="font-black text-white bg-emerald-600 px-2.5 py-0.5 rounded-lg text-xs font-mono shadow-xs">0 ដើម</span>
+              </div>
             </div>
           </div>
 
@@ -23974,6 +23990,9 @@
         const clearBtn = document.getElementById('stockInZoneClearBtn');
         if (clearBtn) clearBtn.classList.remove('hidden');
       }
+      if (targetId === 'receiveDispatchZone' && typeof recomputeReceptionTotal === 'function') {
+        recomputeReceptionTotal();
+      }
 
       closeStockInZoneDropdown();
     }
@@ -28428,6 +28447,88 @@
       document.body.classList.add('overflow-hidden');
     }
 
+    function getStationOldStockForZone(sku, stationWh, zone) {
+      if (!sku || !stationWh) return 0;
+      const cleanSku = String(sku).trim().toLowerCase();
+      const cleanZone = String(zone || '').trim().toLowerCase();
+
+      // 1. Check item in AppState.items or LOCAL_DB.items
+      const item = (AppState.items || []).find(i => (i.sku && String(i.sku).trim().toLowerCase() === cleanSku))
+        || (LOCAL_DB.items || []).find(i => (i.sku && String(i.sku).trim().toLowerCase() === cleanSku));
+
+      // 2. Check item.zoneBreakdown specifically for this warehouse & zone
+      if (item && Array.isArray(item.zoneBreakdown) && item.zoneBreakdown.length > 0) {
+        if (cleanZone) {
+          const zb = item.zoneBreakdown.find(z => {
+            const zWh = z.warehouse ? (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(z.warehouse) : z.warehouse) : '';
+            const isMatchWh = zWh && (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(zWh, stationWh) : isSameWarehouse(zWh, stationWh));
+            const isMatchZone = String(z.zone || '').trim().toLowerCase() === cleanZone;
+            return isMatchWh && isMatchZone;
+          });
+          if (zb && Number(zb.quantity || 0) > 0) {
+            return Number(zb.quantity);
+          }
+        }
+      }
+
+      // 3. Check transaction history for this station & zone
+      let zoneNet = 0;
+      let hasZoneTx = false;
+      const allTxs = [
+        ...(Array.isArray(AppState.stockInHistory) ? AppState.stockInHistory : []),
+        ...(Array.isArray(AppState.stockOutHistory) ? AppState.stockOutHistory : []),
+        ...(Array.isArray(AppState.transactions) ? AppState.transactions : []),
+        ...(Array.isArray(LOCAL_DB.transactions) ? LOCAL_DB.transactions : [])
+      ];
+
+      const seenTx = new Set();
+      allTxs.forEach(t => {
+        if (!t) return;
+        const tSku = String(t.sku || t.itemCode || '').trim().toLowerCase();
+        if (tSku !== cleanSku) return;
+
+        const txKey = String(t.txId || t.docNo || (t.date + '_' + t.quantity + '_' + t.type + '_' + (t.zone || '')));
+        if (seenTx.has(txKey)) return;
+        seenTx.add(txKey);
+
+        const isStockIn = (t.type === 'STOCK_IN') || (!t.type && (t.docNo?.startsWith('DOC-IN') || t.docNo?.startsWith('IN-') || t.notes?.includes('ចូល')));
+        const isStockOut = (t.type === 'STOCK_OUT') || (!t.type && (t.docNo?.startsWith('DOC-OUT') || t.docNo?.startsWith('OUT-') || t.notes?.includes('ចេញ')));
+
+        const tWh = isStockIn ? (t.toLocation || t.warehouse || t.location || '') : (t.fromLocation || t.warehouse || t.location || '');
+        const isStationMatch = tWh && (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(tWh, stationWh) : isSameWarehouse(tWh, stationWh));
+        if (!isStationMatch) return;
+
+        const tZone = String(t.zone || '').trim().toLowerCase();
+        if (cleanZone && tZone === cleanZone) {
+          hasZoneTx = true;
+          const q = Number(t.quantity || 0);
+          if (isStockIn) zoneNet += q;
+          else if (isStockOut) zoneNet -= q;
+        }
+      });
+
+      if (hasZoneTx && zoneNet >= 0) {
+        return zoneNet;
+      }
+
+      // 4. If cleanZone matches the old zone recorded for this item, or if station has existing stock:
+      const oldZoneRaw = (typeof getOldStockZoneForItem === 'function') ? getOldStockZoneForItem(sku, stationWh) : '';
+      const cleanOldZones = (typeof extractCleanStockZones === 'function') ? extractCleanStockZones(oldZoneRaw) : (oldZoneRaw ? [oldZoneRaw] : []);
+      const isOldZoneMatch = cleanZone && cleanOldZones.some(oz => oz.trim().toLowerCase() === cleanZone);
+
+      if (isOldZoneMatch || !cleanZone) {
+        if (typeof getItemStationStock === 'function' && item) {
+          const st = getItemStationStock(item, stationWh);
+          if (st && st.total > 0) {
+            return st.total;
+          }
+        }
+      }
+
+      return Math.max(0, zoneNet);
+    }
+    window.getStationOldStockForZone = getStationOldStockForZone;
+
     function recomputeReceptionTotal() {
       const packQty = Math.max(1, Number(document.getElementById('receptionPackQty')?.value || 1));
       const baseUnit = document.getElementById('receptionBaseUnit')?.value || 'ដើម';
@@ -28437,6 +28538,35 @@
 
       const txt = document.getElementById('receiveActualTotalText');
       if (txt) txt.innerText = `${tot} ${baseUnit}`;
+
+      // Old Stock and New Total Stock Calculation
+      const sku = document.getElementById('receptionSku')?.value;
+      const dispatchId = document.getElementById('receptionDispatchId')?.value;
+      const dispatch = (LOCAL_DB.dispatches || []).find(d => d.dispatchId === dispatchId);
+      const stationWh = dispatch?.toLocation || AppState.currentUser?.warehouse || '';
+      const zoneInp = document.getElementById('receiveDispatchZone');
+      let zone = zoneInp?.value.trim() || '';
+
+      // If zone input is still empty, check old zone suggestion
+      if (!zone) {
+        const oldZ = (typeof getOldStockZoneForItem === 'function') ? getOldStockZoneForItem(sku, stationWh) : '';
+        const cz = (typeof extractCleanStockZones === 'function') ? extractCleanStockZones(oldZ) : [];
+        if (cz.length > 0) zone = cz[0];
+      }
+
+      const oldStock = (typeof getStationOldStockForZone === 'function')
+        ? getStationOldStockForZone(sku, stationWh, zone)
+        : 0;
+      const newTotalStock = oldStock + tot;
+
+      const oldTxt = document.getElementById('receptionOldStockText');
+      if (oldTxt) oldTxt.innerText = `${oldStock} ${baseUnit}`;
+
+      const newTotTxt = document.getElementById('receptionNewTotalStockText');
+      if (newTotTxt) newTotTxt.innerText = `${newTotalStock} ${baseUnit}`;
+
+      window._currentReceptionOldStock = oldStock;
+      window._currentReceptionNewStock = newTotalStock;
     }
 
     function closeStationReceptionModal() {
@@ -28591,6 +28721,14 @@
       dispatch.receivedBy = receiver;
       dispatch.receiverNotes = notes;
       dispatch.stockInDocNo = stockInDocNo;
+
+      // Calculate old stock & new total stock for this station & zone
+      const oldStock = (typeof getStationOldStockForZone === 'function')
+        ? getStationOldStockForZone(dispatch.sku, dispatch.toLocation, zone)
+        : (window._currentReceptionOldStock || 0);
+      const newStock = oldStock + actualTotal;
+      dispatch.oldStock = oldStock;
+      dispatch.newStock = newStock;
       saveLocalDispatchesToStorage();
 
       // 3. Create STOCK_IN transaction for destination station
@@ -28615,8 +28753,8 @@
         unit: dispatch.unit,
         packUnit: dispatch.packUnit,
         packQty: dispatch.packQty,
-        oldStock: 0,
-        newStock: actualTotal,
+        oldStock: oldStock,
+        newStock: newStock,
         unitPrice: 0,
         supplier: `Admin (${dispatch.issuer})`,
         fromLocation: dispatch.fromLocation,
@@ -28624,7 +28762,7 @@
         warehouse: dispatch.toLocation,
         location: dispatch.toLocation,
         receivedBy: receiver,
-        notes: `[ទទួលពី Admin: ${dispatch.masterDocNo}] [ស្តុក: 0 ${dispatch.unit || 'ដើម'} ➔ ${actualTotal} ${dispatch.unit || 'ដើម'}] ${notes}${isDiscrepancy ? ` [គម្លាតខុសគ្នា: ផ្ញើ ${originalDispatchedQty}, ទទួល ${actualTotal}]` : ''}`
+        notes: `[ទទួលពី Admin: ${dispatch.masterDocNo}] [ស្តុក: ${oldStock} ${dispatch.unit || 'ដើម'} ➔ ${newStock} ${dispatch.unit || 'ដើម'}] ${notes}${isDiscrepancy ? ` [គម្លាតខុសគ្នា: ផ្ញើ ${originalDispatchedQty}, ទទួល ${actualTotal}]` : ''}`
       };
 
       if (!AppState.stockInHistory) AppState.stockInHistory = [];
@@ -28634,15 +28772,42 @@
       LOCAL_DB.transactions.unshift(newTx);
       saveLocalTransactionsToStorage();
 
-      // 4. Update local station inventory
-      const item = (AppState.items || []).find(i => i.sku === dispatch.sku);
-      if (item) {
-        if (!Array.isArray(item.warehouses)) item.warehouses = [];
-        if (!item.warehouses.includes(dispatch.toLocation)) {
-          item.warehouses.push(dispatch.toLocation);
+      // 4. Update local station inventory (currentStock and zoneBreakdown)
+      const updateItemStock = (targetItem) => {
+        if (!targetItem) return;
+        if (!Array.isArray(targetItem.warehouses)) targetItem.warehouses = [];
+        if (!targetItem.warehouses.includes(dispatch.toLocation)) {
+          targetItem.warehouses.push(dispatch.toLocation);
         }
-      }
+        if (zone) {
+          targetItem.zone = zone;
+        }
+        targetItem.currentStock = Number(targetItem.currentStock || 0) + actualTotal;
+
+        if (!Array.isArray(targetItem.zoneBreakdown)) targetItem.zoneBreakdown = [];
+        const zb = targetItem.zoneBreakdown.find(z => {
+          const zWh = z.warehouse ? (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(z.warehouse) : z.warehouse) : '';
+          const isMatchWh = zWh && (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(zWh, dispatch.toLocation) : isSameWarehouse(zWh, dispatch.toLocation));
+          const isMatchZone = String(z.zone || '').trim().toLowerCase() === String(zone).trim().toLowerCase();
+          return isMatchWh && isMatchZone;
+        });
+        if (zb) {
+          zb.quantity = Number(zb.quantity || 0) + actualTotal;
+        } else {
+          targetItem.zoneBreakdown.push({
+            warehouse: dispatch.toLocation,
+            zone: zone,
+            quantity: actualTotal
+          });
+        }
+      };
+
+      const item = (AppState.items || []).find(i => i.sku === dispatch.sku);
+      updateItemStock(item);
+      const localItem = (LOCAL_DB.items || []).find(i => i.sku === dispatch.sku);
+      updateItemStock(localItem);
       saveLocalItemsToStorage();
+      if (typeof renderItemsTable === 'function') renderItemsTable();
 
       // 5. In-App Notification (Always notify manager of 中心库房 & 机电 if discrepancy)
       if (typeof addNotification === 'function') {
@@ -28658,7 +28823,7 @@
           addNotification(
             'STOCK_IN',
             `✅ ស្ថានីយបានទទួលស្តុកជោគជ័យ`,
-            `${dispatch.toLocation} បានទទួល ${dispatch.itemName} (${actualTotal} ${dispatch.unit}) ចូលទៅក្នុងតំបន់ ${zone} រួចរាល់`,
+            `${dispatch.toLocation} បានទទួល ${dispatch.itemName} (ស្តុកចាស់: ${oldStock} + ទទួល: ${actualTotal} = សរុប: ${newStock} ${dispatch.unit}) ចូលទៅក្នុងតំបន់ ${zone} រួចរាល់`,
             dispatch.toLocation,
             receiver
           );
@@ -28667,6 +28832,12 @@
 
       // 6. Broadcast Mutation
       if (typeof broadcastInventoryMutation === 'function') {
+        broadcastInventoryMutation('STOCK_IN', {
+          items: AppState.items,
+          tx: newTx,
+          warehouse: dispatch.toLocation,
+          dispatchId: dispatch.dispatchId
+        });
         broadcastInventoryMutation(isDiscrepancy ? 'DISPATCH_DISCREPANCY' : 'DISPATCH_RECEIVED', {
           dispatchId: dispatch.dispatchId,
           masterDocNo: dispatch.masterDocNo,
@@ -28699,11 +28870,25 @@
         icon: isDiscrepancy ? 'warning' : 'success',
         title: isDiscrepancy ? 'បានទទួលទិន្នន័យកែសម្រួលជោគជ័យ!' : 'បានទទួលទំនិញចូលស្តុកជោគជ័យ!',
         html: `
-          <div class="text-left text-xs space-y-1.5 p-2 font-khmer">
+          <div class="text-left text-xs space-y-2 p-2 font-khmer">
             <p class="${isDiscrepancy ? 'text-amber-900 font-bold' : 'text-emerald-800 font-bold'}">
               ទំនិញជាក់ស្តែងចំនួន <b>${actualTotal} ${escapeHtml(dispatch.unit)}</b> បានចូលស្តុក <b>${escapeHtml(dispatch.toLocation)}</b> រួចរាល់!
             </p>
-            <div class="p-2.5 ${isDiscrepancy ? 'bg-amber-50 border-amber-300 text-amber-950' : 'bg-emerald-50 border-emerald-200'} rounded-xl border space-y-1 mt-1 text-[11px]">
+            <div class="grid grid-cols-3 gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-center">
+              <div class="p-1.5 bg-white rounded-lg border border-slate-200 shadow-3xs">
+                <div class="text-[10px] text-slate-500 font-medium">ស្តុកចាស់ (Zone ${escapeHtml(zone)})</div>
+                <div class="text-sm font-black text-slate-700">${oldStock} <span class="text-[10px] font-normal text-slate-400">${escapeHtml(dispatch.unit || 'ដើម')}</span></div>
+              </div>
+              <div class="p-1.5 bg-emerald-50 rounded-lg border border-emerald-200 shadow-3xs">
+                <div class="text-[10px] text-emerald-600 font-medium">ទទួលជាក់ស្តែង</div>
+                <div class="text-sm font-black text-emerald-700">+${actualTotal} <span class="text-[10px] font-normal text-emerald-500">${escapeHtml(dispatch.unit || 'ដើម')}</span></div>
+              </div>
+              <div class="p-1.5 bg-blue-50 rounded-lg border border-blue-200 shadow-3xs">
+                <div class="text-[10px] text-blue-600 font-bold">ស្តុកថ្មីសរុប</div>
+                <div class="text-sm font-black text-blue-700">${newStock} <span class="text-[10px] font-normal text-blue-500">${escapeHtml(dispatch.unit || 'ដើម')}</span></div>
+              </div>
+            </div>
+            <div class="p-2.5 ${isDiscrepancy ? 'bg-amber-50 border-amber-300 text-amber-950' : 'bg-emerald-50 border-emerald-200'} rounded-xl border space-y-1 text-[11px]">
               <p><b>ទំនិញ:</b> ${escapeHtml(dispatch.itemName)} (${escapeHtml(dispatch.sku)})</p>
               <p><b>តំបន់ដាក់ (Zone):</b> <span class="text-rose-700 font-bold">${escapeHtml(zone)}</span></p>
               ${isDiscrepancy ? `
@@ -28718,7 +28903,7 @@
             </div>
           </div>
         `,
-        timer: isDiscrepancy ? 5000 : 3500,
+        timer: isDiscrepancy ? 6000 : 4500,
         timerProgressBar: true,
         confirmButtonColor: isDiscrepancy ? '#ea580c' : '#046c4e',
         confirmButtonText: 'យល់ព្រម'

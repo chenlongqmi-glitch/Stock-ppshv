@@ -13604,6 +13604,8 @@ function confirmStationReception(payload, user) {
     packUnit: d.packUnit,
     packQty: d.packQty,
     zone: d.receivedZone || d.zone || '',
+    oldStock: (d.oldStock !== undefined) ? Number(d.oldStock) : undefined,
+    newStock: (d.newStock !== undefined) ? Number(d.newStock) : undefined,
     warehouse: d.toLocation,
     toLocation: d.toLocation,
     fromLocation: d.fromLocation,
@@ -13611,6 +13613,8 @@ function confirmStationReception(payload, user) {
     receivedBy: u ? (u.fullName || u.username) : (d.receivedBy || 'Staff'),
     notes: `[ទទួលពី Admin: ${d.masterDocNo || '-'}] ${d.receiverNotes || d.notes || ''}${d.discrepancy ? ` [គម្លាតខុសគ្នា: ផ្ញើ ${d.originalQuantity || d.quantity}, ទទួល ${actualQty}]` : ''}`
   };
+  if (stockInTx.oldStock === undefined && d.oldStock !== undefined) stockInTx.oldStock = Number(d.oldStock);
+  if (stockInTx.newStock === undefined && d.newStock !== undefined) stockInTx.newStock = Number(d.newStock);
 
   // Record Stock In atomically
   const inRes = recordStockIn(stockInTx, u);
