@@ -419,6 +419,10 @@
       -webkit-backdrop-filter: blur(14px) !important;
     }
 
+    #imageCropperModal {
+      z-index: 9995 !important;
+    }
+
     /* ==========================================================================
        UNIVERSAL MODAL & SWEETALERT2 CENTERING ON ALL SCREEN SIZES
        Guarantees every modal stays 100% visible, fully centered (top/bottom/left/right),
@@ -7441,7 +7445,8 @@
   <!-- IMAGE CROPPER & ZOOM MODAL (FOR AVATAR & PRODUCT IMAGES) -->
   <!-- ========================================================================= -->
   <div id="imageCropperModal" onclick="if(isSafeModalBackdropClick(event)) closeImageCropper()"
-    class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-3 sm:p-4 hidden">
+    class="fixed inset-0 z-[9995] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-3 sm:p-4 hidden"
+    style="z-index: 9995 !important;">
     <div
       class="w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[92vh]">
 
@@ -17469,6 +17474,9 @@
         return;
       }
 
+      // Ensure modal is prominently rendered above all other dialogs (Profile Modal, Auth, etc.)
+      modal.style.zIndex = '9995';
+
       if (titleEl && options.title) titleEl.innerText = options.title;
       if (subEl && options.subtitle) subEl.innerText = options.subtitle;
 
@@ -17508,11 +17516,16 @@
           currentCropper = null;
         }
 
+        imgEl.style.display = 'block';
+        imgEl.style.maxWidth = '100%';
+        imgEl.style.maxHeight = '100%';
+        imgEl.crossOrigin = 'anonymous';
         imgEl.src = src;
-        modal.classList.remove('hidden');
 
-        // Allow DOM to finish layout before initializing Cropper.js
-        setTimeout(function () {
+        modal.classList.remove('hidden');
+        modal.style.removeProperty('display');
+
+        function mountCropper() {
           if (typeof Cropper === 'undefined') {
             console.error('Cropper.js is not loaded');
             Swal.fire('ដំណឹង', 'បណ្ណាល័យ Cropper.js កំពុងដំណើរការ សូមរង់ចាំបន្តិច...', 'info');
@@ -17520,6 +17533,11 @@
           }
 
           try {
+            if (currentCropper) {
+              try { currentCropper.destroy(); } catch (e) { }
+              currentCropper = null;
+            }
+
             currentCropper = new Cropper(imgEl, {
               aspectRatio: mode === 'avatar' ? 1 : 1,
               viewMode: 1,
@@ -17535,8 +17553,8 @@
               zoomOnWheel: true,
               zoomOnTouch: true,
               ready: function () {
-                const canvasData = currentCropper.getCanvasData();
-                const imageData = currentCropper.getImageData();
+                const canvasData = currentCropper ? currentCropper.getCanvasData() : null;
+                const imageData = currentCropper ? currentCropper.getImageData() : null;
                 cropperBaseRatio = canvasData && imageData && imageData.naturalWidth ? (canvasData.width / imageData.naturalWidth) : 1;
                 if (zoomRange) zoomRange.value = '1';
                 if (zoomVal) zoomVal.innerText = '100%';
@@ -17552,13 +17570,30 @@
           } catch (err) {
             console.error('Failed to initialize Cropper:', err);
           }
-        }, 80);
+        }
+
+        // Initialize when image element is ready
+        if (imgEl.complete && imgEl.naturalWidth > 0) {
+          setTimeout(mountCropper, 60);
+        } else {
+          imgEl.onload = function () {
+            setTimeout(mountCropper, 60);
+          };
+          imgEl.onerror = function () {
+            console.error('Failed to load image for cropping');
+            Swal.fire('កំហុស', 'មិនអាចបើករូបភាពនេះសម្រាប់កាត់តបានទេ', 'error');
+          };
+        }
       }
 
       if (options.file) {
         const reader = new FileReader();
         reader.onload = function (e) {
           initCropperWithSrc(e.target.result);
+        };
+        reader.onerror = function (err) {
+          console.error('FileReader error:', err);
+          Swal.fire('កំហុស', 'មិនអាចអាន File រូបភាពបានទេ សូមព្យាយាមម្តងទៀត', 'error');
         };
         reader.readAsDataURL(options.file);
       } else if (options.imageSrc) {
@@ -17568,7 +17603,10 @@
 
     function closeImageCropper() {
       const modal = document.getElementById('imageCropperModal');
-      if (modal) modal.classList.add('hidden');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.style.display = 'none';
+      }
       if (currentCropper) {
         try { currentCropper.destroy(); } catch (e) { }
         currentCropper = null;
@@ -17697,7 +17735,7 @@
     function cropCurrentAvatar(previewId, dataId) {
       const prevEl = document.getElementById(previewId);
       const dataEl = document.getElementById(dataId);
-      const src = (prevEl && prevEl.src) ? prevEl.src : (dataEl ? dataEl.value : '');
+      const src = (dataEl && dataEl.value) ? dataEl.value : ((prevEl && prevEl.src) ? prevEl.src : '');
       if (!src || src === window.location.href) {
         Swal.fire('ដំណឹង', 'មិនទាន់មានរូបភាព Profile សម្រាប់កែសម្រួលទេ សូមជ្រើសរើសរូបភាពជាមុនសិន', 'info');
         return;
@@ -17767,11 +17805,14 @@
     let activeGeneratedOtp = '123456';
 
     function handleUserAvatarSelect(event, previewId, dataId) {
-      const file = event.target.files?.[0];
+      const inputEl = event.target;
+      const file = inputEl.files?.[0];
       if (!file) return;
 
-      if (!file.type.startsWith('image/')) {
+      const isImage = (file.type && file.type.startsWith('image/')) || /\.(jpe?g|png|webp|gif|bmp|heic|svg)$/i.test(file.name || '');
+      if (!isImage) {
         Swal.fire('កំហុស', 'សូមជ្រើសរើស File ជារូបភាព (PNG, JPG, WEBP)', 'warning');
+        try { inputEl.value = ''; } catch (e) { }
         return;
       }
 
@@ -17822,8 +17863,10 @@
         }
       });
 
-      // Reset file input value so selecting the same file triggers onchange
-      event.target.value = '';
+      // Safely reset file input value with a delay so re-selecting same file triggers onchange
+      setTimeout(() => {
+        try { if (inputEl) inputEl.value = ''; } catch (e) { }
+      }, 500);
     }
 
     function clearRegFieldError(fieldKey) {
