@@ -6186,24 +6186,32 @@
                   class="w-full h-11 sm:h-12 px-3.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition shadow-2xs">
               </div>
 
-              <!-- Col 2: នាំចេញទៅឃ្លាំងណា -->
+              <!-- Col 2: អ្នកទទួលទំនិញ (អាចវាយបញ្ចូលឈ្មោះផ្ទាល់ ឬជ្រើសរើសពី Dropdown) -->
               <div id="stockOutField_toLocation" class="w-full relative">
                 <label
                   class="block text-xs sm:text-[13px] font-bold text-slate-700 uppercase mb-1.5 flex items-center truncate"
-                  title="នាំចេញទៅឃ្លាំងណា">
-                  <span id="stockOutToLocationLabel" class="truncate">នាំចេញទៅឃ្លាំងណា</span>
+                  title="អ្នកទទួលទំនិញ">
+                  <i class="fa-solid fa-user-check text-amber-500 mr-1.5 shrink-0 text-xs"></i>
+                  <span id="stockOutToLocationLabel" class="truncate">អ្នកទទួលទំនិញ</span>
                 </label>
                 <div class="relative w-full">
+                  <input type="text" id="stockOutToLocationInput"
+                    placeholder="វាយបញ្ចូលឈ្មោះអ្នកទទួល ឬជ្រើសរើស..."
+                    autocomplete="off"
+                    onfocus="openStockOutToLocationDropdown()"
+                    onclick="openStockOutToLocationDropdown()"
+                    oninput="handleStockOutToLocationInput(this.value)"
+                    onkeydown="if(event.key==='Enter'){event.preventDefault(); selectStockOutToLocation(this.value);}"
+                    class="w-full h-11 sm:h-12 pl-3.5 pr-10 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-amber-500 focus:bg-white outline-none transition shadow-2xs">
                   <button type="button" id="stockOutToLocationBtn" onclick="toggleStockOutToLocationDropdown(event)"
-                    class="w-full h-11 sm:h-12 px-3 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-amber-500 focus:bg-white outline-none transition shadow-2xs flex items-center justify-between cursor-pointer text-left">
-                    <span id="stockOutToLocationText" class="truncate flex items-center gap-1.5 text-slate-400">--
-                      ជ្រើសរើសឃ្លាំង/ស្ថានីយ --</span>
+                    class="absolute right-0 top-0 h-full px-3 text-slate-400 hover:text-amber-600 transition flex items-center justify-center cursor-pointer"
+                    title="ជ្រើសរើសអ្នកទទួលទំនិញ">
                     <i id="stockOutToLocationChevron"
-                      class="fa-solid fa-chevron-down text-slate-400 text-xs shrink-0 transition-transform duration-200 ml-2"></i>
+                      class="fa-solid fa-chevron-down text-slate-400 text-xs shrink-0 transition-transform duration-200"></i>
                   </button>
                   <select id="stockOutToLocation" required class="sr-only pointer-events-none" tabindex="-1"
                     aria-hidden="true">
-                    <option value="" disabled selected>-- ជ្រើសរើសឃ្លាំង/ស្ថានីយ --</option>
+                    <option value="" disabled selected>-- ជ្រើសរើសអ្នកទទួលទំនិញ --</option>
                   </select>
                 </div>
               </div>
@@ -26118,7 +26126,7 @@
         soTo.disabled = false;
         soTo.classList.remove('pointer-events-none', 'bg-slate-100', 'cursor-not-allowed');
         const lbl = document.getElementById('stockOutToLocationLabel');
-        if (lbl) lbl.innerText = 'នាំចេញទៅឃ្លាំងណា';
+        if (lbl) lbl.innerText = 'អ្នកទទួលទំនិញ';
         let curVal = soTo.value ? (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(soTo.value) : soTo.value) : '';
 
         // ធានាថាឈ្មោះស្ថានីយទាំងអស់ជាឈ្មោះពេញលេញ (Full station name)
@@ -26705,18 +26713,40 @@
       return stockOutToLocationDropdownEl;
     }
 
-    function renderStockOutToLocationDropdownContent() {
+    function renderStockOutToLocationDropdownContent(filterText = '') {
       const dropdown = ensureStockOutToLocationDropdown();
       const soTo = document.getElementById('stockOutToLocation');
+      const inp = document.getElementById('stockOutToLocationInput');
       if (!dropdown || !soTo) return;
 
-      const currentVal = soTo.value || '';
+      const currentVal = (inp ? inp.value.trim() : (soTo.value || '')).trim();
+      const query = (filterText !== undefined && filterText !== null ? String(filterText) : currentVal).trim().toLowerCase();
       const options = Array.from(soTo.options);
 
       let html = '<div id="stockOutToLocationScrollBox" class="p-2 space-y-1 overflow-y-auto" style="max-height: 280px; scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent;">';
+
+      // ប៊ូតុងជ្រើសរើសឈ្មោះដែលបានវាយបញ្ចូលផ្ទាល់ (Custom Recipient Name)
+      const typedVal = inp ? inp.value.trim() : (filterText || '').trim();
+      if (typedVal && !options.some(opt => opt.value && opt.value.trim().toLowerCase() === typedVal.toLowerCase())) {
+        html += `
+          <button type="button" onclick="selectStockOutToLocation('${escapeHtml(typedVal)}')"
+            class="w-full text-left px-3 py-2.5 text-xs sm:text-[13px] rounded-xl transition flex items-center gap-2 cursor-pointer bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold mb-1.5 shadow-sm hover:from-amber-600 hover:to-orange-600 active:scale-[0.99]">
+            <i class="fa-solid fa-user-plus text-xs shrink-0 text-white"></i>
+            <span class="truncate">ប្រើប្រាស់ឈ្មោះអ្នកទទួលផ្ទាល់៖ "<b>${escapeHtml(typedVal)}</b>"</span>
+          </button>
+        `;
+      }
+
+      let matchCount = 0;
       options.forEach(opt => {
         if (!opt.value) return;
-        const isSelected = (opt.value === currentVal);
+        const optText = opt.text || '';
+        const optVal = opt.value || '';
+        if (query && !optText.toLowerCase().includes(query) && !optVal.toLowerCase().includes(query)) {
+          return;
+        }
+        matchCount++;
+        const isSelected = (opt.value === currentVal || opt.value.toLowerCase() === currentVal.toLowerCase());
         const activeClass = isSelected
           ? 'bg-amber-100 text-amber-950 font-bold border border-amber-300 shadow-2xs'
           : 'text-slate-800 hover:bg-amber-50 hover:text-amber-900 border border-transparent font-medium';
@@ -26731,16 +26761,21 @@
           </button>
         `;
       });
+
+      if (matchCount === 0 && !typedVal) {
+        html += '<div class="py-3 text-center text-xs text-slate-400">មិនមានទិន្នន័យ</div>';
+      }
+
       html += '</div>';
       dropdown.innerHTML = html;
     }
 
     function positionStockOutToLocationDropdown() {
-      const btn = document.getElementById('stockOutToLocationBtn');
+      const target = document.getElementById('stockOutToLocationInput') || document.getElementById('stockOutToLocationBtn');
       const dropdown = ensureStockOutToLocationDropdown();
-      if (!btn || !dropdown) return;
+      if (!target || !dropdown) return;
 
-      const rect = btn.getBoundingClientRect();
+      const rect = target.getBoundingClientRect();
       const dropdownWidth = Math.max(rect.width, 320);
       dropdown.style.width = `${Math.min(dropdownWidth, window.innerWidth - 20)}px`;
 
@@ -26776,7 +26811,8 @@
       const chevron = document.getElementById('stockOutToLocationChevron');
       if (chevron) chevron.style.transform = 'rotate(180deg)';
 
-      btn.classList.add('ring-2', 'ring-amber-500', 'border-amber-400', 'bg-white');
+      const inp = document.getElementById('stockOutToLocationInput');
+      if (inp) inp.classList.add('ring-2', 'ring-amber-500', 'border-amber-400', 'bg-white');
     }
 
     function closeStockOutToLocationDropdown() {
@@ -26785,9 +26821,9 @@
       }
       const chevron = document.getElementById('stockOutToLocationChevron');
       if (chevron) chevron.style.transform = '';
-      const btn = document.getElementById('stockOutToLocationBtn');
-      if (btn) {
-        btn.classList.remove('ring-2', 'ring-amber-500', 'border-amber-400');
+      const inp = document.getElementById('stockOutToLocationInput');
+      if (inp) {
+        inp.classList.remove('ring-2', 'ring-amber-500', 'border-amber-400');
       }
     }
 
@@ -26809,11 +26845,46 @@
     }
     window.toggleStockOutToLocationDropdown = toggleStockOutToLocationDropdown;
 
-    function selectStockOutToLocation(val) {
+    function handleStockOutToLocationInput(val) {
+      const cleanVal = (val || '').trim();
       const soTo = document.getElementById('stockOutToLocation');
       if (soTo) {
-        soTo.value = val;
+        let matched = Array.from(soTo.options).find(o => o.value && o.value.trim().toLowerCase() === cleanVal.toLowerCase());
+        if (!matched && cleanVal) {
+          const newOpt = document.createElement('option');
+          newOpt.value = cleanVal;
+          newOpt.text = cleanVal;
+          soTo.appendChild(newOpt);
+          soTo.value = cleanVal;
+        } else if (matched) {
+          soTo.value = matched.value;
+        } else {
+          soTo.value = '';
+        }
+      }
+      renderStockOutToLocationDropdownContent(val);
+      openStockOutToLocationDropdown();
+    }
+    window.handleStockOutToLocationInput = handleStockOutToLocationInput;
+
+    function selectStockOutToLocation(val) {
+      const soTo = document.getElementById('stockOutToLocation');
+      const inp = document.getElementById('stockOutToLocationInput');
+      const cleanVal = (val || '').trim();
+      if (soTo) {
+        let opt = Array.from(soTo.options).find(o => o.value && o.value.trim().toLowerCase() === cleanVal.toLowerCase());
+        if (!opt && cleanVal) {
+          opt = document.createElement('option');
+          opt.value = cleanVal;
+          opt.text = cleanVal;
+          soTo.appendChild(opt);
+        }
+        soTo.value = cleanVal;
         soTo.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      if (inp) {
+        inp.value = cleanVal;
+        inp.classList.remove('ring-red-500', 'border-red-500');
       }
       updateStockOutToLocationCustomDisplay();
       closeStockOutToLocationDropdown();
@@ -26822,18 +26893,10 @@
 
     function updateStockOutToLocationCustomDisplay() {
       const soTo = document.getElementById('stockOutToLocation');
-      const textEl = document.getElementById('stockOutToLocationText');
-      if (!soTo || !textEl) return;
-      const selectedOpt = soTo.options[soTo.selectedIndex];
-      if (selectedOpt && selectedOpt.value) {
-        textEl.innerHTML = selectedOpt.text;
-        textEl.className = 'truncate flex items-center gap-1.5 text-slate-800 font-semibold';
-      } else if (soTo.value) {
-        textEl.innerHTML = `📍 ${escapeHtml(soTo.value)}`;
-        textEl.className = 'truncate flex items-center gap-1.5 text-slate-800 font-semibold';
-      } else {
-        textEl.innerHTML = '<span class="text-slate-400 font-normal">-- ជ្រើសរើសឃ្លាំង/ស្ថានីយ --</span>';
-        textEl.className = 'truncate flex items-center gap-1.5 text-slate-400';
+      const inp = document.getElementById('stockOutToLocationInput');
+      if (!soTo) return;
+      if (inp) {
+        inp.value = soTo.value || '';
       }
     }
     window.updateStockOutToLocationCustomDisplay = updateStockOutToLocationCustomDisplay;
@@ -27161,7 +27224,7 @@
       const isLocked = document.getElementById('stockOutLockDocNo')?.checked;
       const preservedDocNo = isLocked ? (document.getElementById('stockOutDocNo')?.value.trim() || '') : '';
       const preservedFromLoc = isLocked ? (document.getElementById('stockOutFromLocation')?.value || '') : null;
-      const preservedToLoc = isLocked ? (document.getElementById('stockOutToLocation')?.value || '') : null;
+      const preservedToLoc = isLocked ? ((document.getElementById('stockOutToLocationInput')?.value || document.getElementById('stockOutToLocation')?.value || '').trim()) : null;
       const preservedReceiver = isLocked ? (document.getElementById('stockOutReceiver')?.value || '') : null;
       const preservedDate = isLocked ? (document.getElementById('stockOutDate')?.value || '') : null;
       const preservedNotes = isLocked ? (document.getElementById('stockOutNotes')?.value || '-') : '-';
@@ -27201,6 +27264,11 @@
         if (preservedToLoc !== null) {
           const toLocEl = document.getElementById('stockOutToLocation');
           if (toLocEl) toLocEl.value = preservedToLoc;
+          const toInpEl = document.getElementById('stockOutToLocationInput');
+          if (toInpEl) toInpEl.value = preservedToLoc;
+        } else {
+          const toInpEl = document.getElementById('stockOutToLocationInput');
+          if (toInpEl) toInpEl.value = '';
         }
         if (preservedReceiver !== null) {
           const recEl = document.getElementById('stockOutReceiver');
@@ -29091,7 +29159,7 @@
       }
       const remainingStock = oldStock - qty;
       const unitPrice = Number(document.getElementById('stockOutUnitPrice')?.value || 0);
-      let toLocation = document.getElementById('stockOutToLocation')?.value || '';
+      let toLocation = (document.getElementById('stockOutToLocationInput')?.value || document.getElementById('stockOutToLocation')?.value || '').trim();
       const curU = AppState.currentUser || (function () { try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch (e) { return null; } })() || {};
       const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : false;
       if (!isPrivileged) {
@@ -29100,8 +29168,8 @@
       if (isPrivileged && (!toLocation || toLocation === '')) {
         Swal.fire({
           icon: 'warning',
-          title: 'សូមជ្រើសរើសឃ្លាំង/ស្ថានីយ',
-          text: 'សូមជ្រើសរើសឃ្លាំង ឬស្ថានីយដែលត្រូវនាំចេញទៅ (នាំចេញទៅឃ្លាំងណា)!',
+          title: 'សូមវាយបញ្ចូល ឬជ្រើសរើសអ្នកទទួល',
+          text: 'សូមវាយបញ្ចូល ឬជ្រើសរើសអ្នកទទួលទំនិញជាមុនសិន!',
           confirmButtonText: 'យល់ព្រម',
           confirmButtonColor: '#ea580c'
         });
@@ -33448,7 +33516,7 @@
       const zone = document.getElementById('stockOutZone')?.value.trim() || '';
       const oldStock = Number(document.getElementById('stockOutOldStockValue')?.value || 0);
 
-      let toLocation = document.getElementById('stockOutToLocation')?.value || '';
+      let toLocation = (document.getElementById('stockOutToLocationInput')?.value || document.getElementById('stockOutToLocation')?.value || '').trim();
       const curU = AppState.currentUser || {};
       const isPrivileged = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(curU) : false;
       if (!isPrivileged) {
@@ -33457,8 +33525,8 @@
       if (isPrivileged && (!toLocation || toLocation === '')) {
         Swal.fire({
           icon: 'warning',
-          title: 'សូមជ្រើសរើសឃ្លាំង/ស្ថានីយ',
-          text: 'សូមជ្រើសរើសឃ្លាំង ឬស្ថានីយដែលត្រូវនាំចេញទៅ (នាំចេញទៅឃ្លាំងណា)!',
+          title: 'សូមវាយបញ្ចូល ឬជ្រើសរើសអ្នកទទួល',
+          text: 'សូមវាយបញ្ចូល ឬជ្រើសរើសអ្នកទទួលទំនិញជាមុនសិន!',
           confirmButtonText: 'យល់ព្រម',
           confirmButtonColor: '#ea580c'
         });
@@ -33699,6 +33767,8 @@
       if (notesEl) notesEl.value = it.notes || '-';
       const toLocEl = document.getElementById('stockOutToLocation');
       if (toLocEl && it.toLocation) toLocEl.value = it.toLocation;
+      const toInpEl = document.getElementById('stockOutToLocationInput');
+      if (toInpEl && it.toLocation) toInpEl.value = it.toLocation;
       const issuerEl = document.getElementById('stockOutIssuer');
       if (issuerEl && it.issuer) issuerEl.value = it.issuer;
       const reasonEl = document.getElementById('stockOutReason');
