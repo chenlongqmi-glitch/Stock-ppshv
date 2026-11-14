@@ -577,8 +577,30 @@
       display: none !important;
     }
 
-    #openTabsBar::-webkit-scrollbar {
+    #openTabsBar::-webkit-scrollbar,
+    #openTabsList::-webkit-scrollbar {
       display: none;
+    }
+
+    @keyframes openTabsMarqueeAnim {
+      0% {
+        transform: translate3d(0, 0, 0);
+      }
+      100% {
+        transform: translate3d(-100%, 0, 0);
+      }
+    }
+
+    .open-tabs-marquee-track {
+      display: inline-block;
+      white-space: nowrap;
+      padding-left: 100%;
+      will-change: transform;
+      animation: openTabsMarqueeAnim 32s linear infinite;
+    }
+
+    .open-tabs-marquee-track:hover {
+      animation-play-state: paused;
     }
 
     #khmerCalendarCard {
@@ -3207,7 +3229,33 @@
       </header>
 
       <!-- OPEN FEATURE TABS BAR (TAGS VIEW) -->
-      <div id="openTabsBar" class="shrink-0 bg-white border-b border-slate-200/90 flex items-center overflow-x-auto select-none shadow-[0_1px_2px_rgba(15,23,42,0.03)]" style="scrollbar-width: none; -ms-overflow-style: none;"></div>
+      <div id="openTabsBar" class="shrink-0 bg-white border-b border-slate-200/90 flex items-center select-none shadow-[0_1px_2px_rgba(15,23,42,0.03)] h-9 overflow-hidden" style="scrollbar-width: none; -ms-overflow-style: none;">
+        <div id="openTabsList" class="flex items-center shrink-0 overflow-x-auto h-full max-w-[calc(100%-140px)] sm:max-w-[calc(100%-220px)] md:max-w-[calc(100%-320px)]" style="scrollbar-width: none; -ms-overflow-style: none;"></div>
+        <div id="openTabsMarqueeWrapper" class="flex-1 min-w-[140px] sm:min-w-[200px] h-full overflow-hidden relative flex items-center bg-slate-50/50 border-l border-slate-200/80 cursor-default select-none" title="ប្រព័ន្ធគ្រប់គ្រងទំនិញ បែបទំនើប">
+          <div class="open-tabs-marquee-track whitespace-nowrap text-[12px] text-slate-600 font-medium inline-flex items-center select-none">
+            <span class="inline-flex items-center gap-2 pr-12">
+              <span class="inline-flex items-center justify-center w-4.5 h-4.5 rounded-full bg-blue-100 text-blue-600 text-[10px] shrink-0 shadow-2xs">
+                <i class="fa-solid fa-bullhorn text-[10px] animate-pulse"></i>
+              </span>
+              <span class="text-blue-900 font-bold tracking-tight">ប្រព័ន្ធគ្រប់គ្រងទំនិញ បែបទំនើប</span>
+              <span class="text-slate-300">|</span>
+              <span>បង្កើតដោយ៖ <strong class="text-slate-800 font-semibold">នាយកដ្ឋានគ្រប់គ្រងការងារទូទាត់ប្រាក់</strong></span>
+              <span class="text-slate-300">/</span>
+              <span>ទំនាក់ទំនងadmin： <strong class="text-emerald-700 font-semibold">លោក ជឹង យីវ - 陈龙</strong></span>
+            </span>
+            <span class="inline-flex items-center gap-2 pr-12">
+              <span class="inline-flex items-center justify-center w-4.5 h-4.5 rounded-full bg-blue-100 text-blue-600 text-[10px] shrink-0 shadow-2xs">
+                <i class="fa-solid fa-bullhorn text-[10px] animate-pulse"></i>
+              </span>
+              <span class="text-blue-900 font-bold tracking-tight">ប្រព័ន្ធគ្រប់គ្រងទំនិញ បែបទំនើប</span>
+              <span class="text-slate-300">|</span>
+              <span>បង្កើតដោយ៖ <strong class="text-slate-800 font-semibold">នាយកដ្ឋានគ្រប់គ្រងការងារទូទាត់ប្រាក់</strong></span>
+              <span class="text-slate-300">/</span>
+              <span>ទំនាក់ទំនងadmin： <strong class="text-emerald-700 font-semibold">លោក ជឹង យីវ - 陈龙</strong></span>
+            </span>
+          </div>
+        </div>
+      </div>
 
       <!-- SCROLLABLE PAGE BODY -->
       <main class="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-slate-50/70">
@@ -20507,7 +20555,42 @@
       const isPriv = u && typeof isUserPrivilegedAdmin === 'function' && isUserPrivilegedAdmin(u);
       const incomingAlertCount = (!isPriv && typeof getStationIncomingAlertCount === 'function') ? getStationIncomingAlertCount() : 0;
 
-      bar.innerHTML = tabs.map(tab => {
+      let listEl = document.getElementById('openTabsList');
+      let marqueeEl = document.getElementById('openTabsMarqueeWrapper');
+
+      if (!listEl || !marqueeEl) {
+        bar.innerHTML = `
+          <div id="openTabsList" class="flex items-center shrink-0 overflow-x-auto h-full max-w-[calc(100%-140px)] sm:max-w-[calc(100%-220px)] md:max-w-[calc(100%-320px)]" style="scrollbar-width: none; -ms-overflow-style: none;"></div>
+          <div id="openTabsMarqueeWrapper" class="flex-1 min-w-[140px] sm:min-w-[200px] h-full overflow-hidden relative flex items-center bg-slate-50/50 border-l border-slate-200/80 cursor-default select-none" title="ប្រព័ន្ធគ្រប់គ្រងទំនិញ បែបទំនើប">
+            <div class="open-tabs-marquee-track whitespace-nowrap text-[12px] text-slate-600 font-medium inline-flex items-center select-none">
+              <span class="inline-flex items-center gap-2 pr-12">
+              <span class="inline-flex items-center justify-center w-4.5 h-4.5 rounded-full bg-blue-100 text-blue-600 text-[10px] shrink-0 shadow-2xs">
+                <i class="fa-solid fa-bullhorn text-[10px] animate-pulse"></i>
+              </span>
+              <span class="text-blue-900 font-bold tracking-tight">ប្រព័ន្ធគ្រប់គ្រងទំនិញ បែបទំនើប</span>
+              <span class="text-slate-300">|</span>
+              <span>បង្កើតដោយ៖ <strong class="text-slate-800 font-semibold">នាយកដ្ឋានគ្រប់គ្រងការងារទូទាត់ប្រាក់</strong></span>
+              <span class="text-slate-300">/</span>
+              <span>ទំនាក់ទំនងadmin： <strong class="text-emerald-700 font-semibold">លោក ជឹង យីវ - 陈龙</strong></span>
+            </span>
+            <span class="inline-flex items-center gap-2 pr-12">
+              <span class="inline-flex items-center justify-center w-4.5 h-4.5 rounded-full bg-blue-100 text-blue-600 text-[10px] shrink-0 shadow-2xs">
+                <i class="fa-solid fa-bullhorn text-[10px] animate-pulse"></i>
+              </span>
+              <span class="text-blue-900 font-bold tracking-tight">ប្រព័ន្ធគ្រប់គ្រងទំនិញ បែបទំនើប</span>
+              <span class="text-slate-300">|</span>
+              <span>បង្កើតដោយ៖ <strong class="text-slate-800 font-semibold">នាយកដ្ឋានគ្រប់គ្រងការងារទូទាត់ប្រាក់</strong></span>
+              <span class="text-slate-300">/</span>
+              <span>ទំនាក់ទំនងadmin： <strong class="text-emerald-700 font-semibold">លោក ជឹង យីវ - 陈龙</strong></span>
+            </span>
+            </div>
+          </div>
+        `;
+        listEl = document.getElementById('openTabsList');
+        marqueeEl = document.getElementById('openTabsMarqueeWrapper');
+      }
+
+      listEl.innerHTML = tabs.map(tab => {
         const isActive = tab === active;
         const isPinned = tab === 'items';
         const label = getTagsViewTabLabel(tab);
@@ -20547,7 +20630,7 @@
           </button>`;
       }).join('');
 
-      const activeBtn = bar.querySelector(`[data-tag-tab="${active}"]`);
+      const activeBtn = listEl ? listEl.querySelector(`[data-tag-tab="${active}"]`) : bar.querySelector(`[data-tag-tab="${active}"]`);
       if (activeBtn && typeof activeBtn.scrollIntoView === 'function') {
         activeBtn.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
       }
