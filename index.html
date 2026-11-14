@@ -37364,35 +37364,88 @@
 
       const totalItems = itemsToExport.length;
       const totalQty = itemsToExport.reduce((sum, i) => sum + Number(i.currentStock || 0), 0);
-      const totalCost = itemsToExport.reduce((sum, i) => sum + (Number(i.currentStock || 0) * Number(i.costPrice || 0)), 0);
-      const totalRetail = itemsToExport.reduce((sum, i) => sum + (Number(i.currentStock || 0) * Number(i.sellingPrice || 0)), 0);
+      let normalCount = 0;
+      let alertCount = 0;
+      itemsToExport.forEach(i => {
+        const cur = Number(i.currentStock || 0);
+        const min = Number(i.minStock || 0);
+        if (cur <= min) alertCount++;
+        else normalCount++;
+      });
+
       const companyName = document.getElementById('setCompanyName')?.value || 'ប្រព័ន្ធគ្រប់គ្រងស្តុកទំនិញ';
       const printDate = new Date().toLocaleString('km-KH', { dateStyle: 'full', timeStyle: 'short' }) || new Date().toLocaleString();
 
       const printWindow = window.open('', '_blank');
       const tableRows = itemsToExport.map((i, idx) => {
+        const curStock = Number(i.currentStock || 0);
+        const minStock = Number(i.minStock || 0);
         let statusBadge = 'ធម្មតា';
         let statusColor = '#059669';
-        if (i.currentStock === 0) {
+        let statusBg = '#ecfdf5';
+        if (curStock === 0) {
           statusBadge = 'អស់ពីស្តុក';
           statusColor = '#e11d48';
-        } else if (i.currentStock <= i.minStock) {
+          statusBg = '#fff1f2';
+        } else if (curStock <= minStock) {
           statusBadge = 'ជិតអស់';
           statusColor = '#d97706';
+          statusBg = '#fffbeb';
+        }
+
+        let rawImg = i.imageUrl || '';
+        if (rawImg.includes('GMT') || rawImg.includes('2026') || (!rawImg.startsWith('http') && !rawImg.startsWith('data:') && !rawImg.startsWith('blob:') && !rawImg.startsWith('assets/'))) {
+          rawImg = '';
+        }
+        let imgUrl = (typeof formatDriveImageUrl === 'function') ? formatDriveImageUrl(rawImg) : rawImg;
+        const fallbackImg = 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=150';
+
+        const sizeStr = (i.size && i.size !== '-' && !i.size.startsWith('http') && !i.size.includes('GMT')) ? i.size : '';
+        const colorStr = (i.color && i.color !== '-' && !i.color.startsWith('http') && !i.color.includes('GMT')) ? i.color : '';
+        const variantStr = [sizeStr, colorStr].filter(Boolean).join(' / ') || '-';
+
+        const pQty = Number(i.packQty || 1);
+        let pUnit = (i.packUnit || '').trim() || 'ប្រអប់';
+        let rUnit = (i.unit || '').trim() || 'ដើម';
+        if (pUnit.toLowerCase() === 'admin' || pUnit.startsWith('http') || pUnit.includes('com/d/') || pUnit.includes('GMT')) pUnit = 'ប្រអប់';
+        if (rUnit.toLowerCase() === 'admin' || rUnit.startsWith('http') || rUnit.includes('com/d/') || rUnit.includes('GMT')) rUnit = 'ដើម';
+
+        const bulkStock = (pQty > 1) ? Math.floor(curStock / pQty) : 0;
+        const looseRemainder = (pQty > 1) ? (curStock % pQty) : curStock;
+
+        let stockDisplayHtml = '';
+        if (pQty > 1) {
+          stockDisplayHtml = `
+            <div style="font-size: 11px; white-space: nowrap;">
+              <span style="font-weight: bold; color: #1e3a8a;">${bulkStock} ${escapeHtml(pUnit)}</span>
+              <span style="color: #64748b;"> & </span>
+              <span style="font-weight: bold; color: #047857;">${looseRemainder} ${escapeHtml(rUnit)}</span>
+            </div>
+            <div style="font-size: 9px; color: #64748b; margin-top: 1px; white-space: nowrap;">(សរុប ${curStock} ${escapeHtml(rUnit)} | 1 ${escapeHtml(pUnit)}=${pQty} ${escapeHtml(rUnit)})</div>
+          `;
+        } else {
+          stockDisplayHtml = `<span style="font-weight: bold; color: #047857; font-size: 11px;">${curStock} ${escapeHtml(rUnit)}</span>`;
         }
 
         return `
           <tr>
-            <td style="text-align: center;">${idx + 1}</td>
-            <td style="font-family: monospace; font-weight: bold; color: #2563eb;">${i.sku}</td>
-            <td style="font-family: monospace;">${i.barcode || '-'}</td>
-            <td style="font-weight: bold; font-size: 11px; color: #0f172a;">${i.name}</td>
-            <td>${i.category}</td>
-            <td style="text-align: right;">$${Number(i.costPrice || 0).toFixed(2)}</td>
-            <td style="text-align: right; font-weight: bold;">$${Number(i.sellingPrice || 0).toFixed(2)}</td>
-            <td style="text-align: center; font-weight: bold;">${i.currentStock} ${i.unit}</td>
-            <td>${escapeHtml(getUserDisplayName(i.createdBy))}</td>
-            <td style="text-align: center; color: ${statusColor}; font-weight: bold;">${statusBadge}</td>
+            <td style="text-align: center; font-weight: bold; color: #64748b;">${idx + 1}</td>
+            <td style="font-family: monospace; font-weight: bold; color: #2563eb; text-align: center; white-space: nowrap; font-size: 10.5px;">${escapeHtml(i.sku || '-')}</td>
+            <td style="font-weight: bold; font-size: 11px; color: #0f172a;">
+              <div>${escapeHtml(i.name || '-')}</div>
+              ${i.category ? `<div style="font-size: 9.5px; font-weight: normal; color: #64748b; margin-top: 2px;"><span style="background: #f1f5f9; padding: 1px 5px; border-radius: 4px; border: 1px solid #e2e8f0;">${escapeHtml(i.category)}</span></div>` : ''}
+            </td>
+            <td style="text-align: center; vertical-align: middle; padding: 2px;">
+              <img src="${imgUrl || fallbackImg}"
+                   style="width: 36px; height: 36px; object-fit: cover; border-radius: 6px; border: 1px solid #cbd5e1; display: inline-block; vertical-align: middle;"
+                   onerror="this.style.display='none'">
+            </td>
+            <td style="text-align: center; font-size: 10.5px;">${escapeHtml(variantStr)}</td>
+            <td style="text-align: center; vertical-align: middle;">${stockDisplayHtml}</td>
+            <td style="text-align: center; font-size: 10.5px;">${escapeHtml(getUserDisplayName(i.createdBy))}</td>
+            <td style="text-align: center;">
+              <span style="color: ${statusColor}; background: ${statusBg}; border: 1px solid ${statusColor}40; padding: 2px 8px; border-radius: 9999px; font-weight: bold; font-size: 10px; white-space: nowrap;">${statusBadge}</span>
+            </td>
           </tr>
         `;
       }).join('');
@@ -37405,17 +37458,22 @@
           <title>របាយការណ៍បញ្ជីទំនិញក្នុងស្តុក - ${new Date().toISOString().slice(0, 10)}</title>
           <link rel="preconnect" href="https://fonts.googleapis.com">
           <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-          <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@400;600;700&family=Siemreap&display=swap" rel="stylesheet">
+          <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@400;500;600;700&family=Siemreap&display=swap" rel="stylesheet">
           <style>
             * {
               font-family: 'Kantumruy Pro', 'Siemreap', Arial, sans-serif;
               box-sizing: border-box;
+              font-synthesis: none;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
             }
             body {
-              padding: 24px;
+              padding: 20px;
               color: #1e293b;
-              font-size: 12px;
-              line-height: 1.5;
+              font-size: 11.5px;
+              line-height: 1.4;
+              background: #fff;
+              margin: 0;
             }
             .toolbar { display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 10px 16px; border: 1px solid #e2e8f0; border-radius: 10px; margin-bottom: 16px; font-size: 12px; }
             .btn-print { background: #b45309; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px; font-family: inherit; }
@@ -37423,13 +37481,13 @@
             .header-container {
               display: flex;
               justify-content: space-between;
-              align-items: center;
+              align-items: flex-start;
               border-bottom: 2px solid #2563eb;
               padding-bottom: 12px;
-              margin-bottom: 16px;
+              margin-bottom: 14px;
             }
             .title {
-              font-size: 20px;
+              font-size: 18px;
               font-weight: bold;
               color: #1e3a8a;
               margin: 0;
@@ -37437,24 +37495,25 @@
             .subtitle {
               font-size: 11px;
               color: #64748b;
-              margin: 2px 0 0 0;
+              margin: 3px 0 0 0;
             }
             .meta-info {
               text-align: right;
               font-size: 11px;
               color: #475569;
+              line-height: 1.6;
             }
             .summary-cards {
               display: grid;
               grid-template-columns: repeat(4, 1fr);
               gap: 12px;
-              margin-bottom: 18px;
+              margin-bottom: 14px;
             }
             .card {
               background: #f8fafc;
               border: 1px solid #e2e8f0;
               border-radius: 8px;
-              padding: 10px 14px;
+              padding: 9px 12px;
             }
             .card-label {
               font-size: 10px;
@@ -37463,20 +37522,21 @@
               font-weight: bold;
             }
             .card-value {
-              font-size: 15px;
+              font-size: 14px;
               font-weight: bold;
               color: #0f172a;
-              margin-top: 4px;
+              margin-top: 3px;
             }
             table {
               width: 100%;
               border-collapse: collapse;
-              margin-bottom: 20px;
+              margin-bottom: 16px;
+              font-size: 10.5px;
             }
             th, td {
               border: 1px solid #cbd5e1;
-              padding: 6px 8px;
-              font-size: 11px;
+              padding: 5px 6px;
+              vertical-align: middle;
             }
             th {
               background-color: #f1f5f9;
@@ -37487,14 +37547,32 @@
             tr:nth-child(even) {
               background-color: #f8fafc;
             }
+            .signatures {
+              display: flex;
+              justify-content: space-around;
+              margin-top: 32px;
+              page-break-inside: avoid;
+            }
+            .sig-col {
+              text-align: center;
+              width: 30%;
+              font-size: 11px;
+            }
+            .sig-line {
+              margin-top: 55px;
+              border-top: 1px dashed #94a3b8;
+              padding-top: 4px;
+              color: #64748b;
+              font-size: 10px;
+            }
             .footer {
-              margin-top: 24px;
+              margin-top: 20px;
               display: flex;
               justify-content: space-between;
-              font-size: 11px;
+              font-size: 10px;
               color: #64748b;
               border-top: 1px solid #e2e8f0;
-              padding-top: 12px;
+              padding-top: 8px;
             }
             @media print {
               .toolbar { display: none !important; }
@@ -37513,18 +37591,18 @@
           </div>
           <div class="header-container">
             <div>
-              <h1 class="title">${companyName}</h1>
+              <h1 class="title">${escapeHtml(companyName)}</h1>
               <p class="subtitle">របាយការណ៍បញ្ជីទំនិញក្នុងស្តុក (Product Inventory Report)</p>
             </div>
             <div class="meta-info">
-              <div><strong>កាលបរិច្ឆេទ៖</strong> ${printDate}</div>
-              <div><strong>រៀបចំដោយ៖</strong> ${AppState.currentUser?.fullName || AppState.currentUser?.username || 'Admin'}</div>
+              <div><strong>កាលបរិច្ឆេទ៖</strong> ${escapeHtml(printDate)}</div>
+              <div><strong>រៀបចំដោយ៖</strong> ${escapeHtml(AppState.currentUser?.fullName || AppState.currentUser?.username || 'Admin')}</div>
             </div>
           </div>
 
           <div class="summary-cards">
             <div class="card">
-              <div class="card-label">ចំនួនមុខទំនិញ</div>
+              <div class="card-label">ចំនួនមុខទំនិញសរុប</div>
               <div class="card-value">${totalItems} មុខ</div>
             </div>
             <div class="card">
@@ -37532,12 +37610,12 @@
               <div class="card-value">${totalQty} ឯកតា</div>
             </div>
             <div class="card">
-              <div class="card-label">តម្លៃថ្លៃដើមសរុប</div>
-              <div class="card-value" style="color: #059669;">$${totalCost.toFixed(2)}</div>
+              <div class="card-label">ទំនិញស្តុកធម្មតា</div>
+              <div class="card-value" style="color: #059669;">${normalCount} មុខ</div>
             </div>
             <div class="card">
-              <div class="card-label">តម្លៃលក់សរុប</div>
-              <div class="card-value" style="color: #2563eb;">$${totalRetail.toFixed(2)}</div>
+              <div class="card-label">ជិតអស់ / អស់ពីស្តុក</div>
+              <div class="card-value" style="color: #e11d48;">${alertCount} មុខ</div>
             </div>
           </div>
 
@@ -37545,21 +37623,34 @@
             <thead>
               <tr>
                 <th style="width: 35px; text-align: center;">ល.រ</th>
-                <th>កូដ SKU</th>
-                <th>Barcode</th>
+                <th style="width: 80px; text-align: center;">កូដ SKU</th>
                 <th>ឈ្មោះទំនិញ</th>
-                <th>ប្រភេទ</th>
-                <th style="text-align: right;">តម្លៃទិញ</th>
-                <th style="text-align: right;">តម្លៃលក់</th>
-                <th style="text-align: center;">ស្តុកបច្ចុប្បន្ន</th>
-                <th>អ្នកបញ្ចូល</th>
-                <th style="text-align: center;">ស្ថានភាព</th>
+                <th style="width: 50px; text-align: center;">រូបភាព</th>
+                <th style="width: 95px; text-align: center;">ខ្នាត/ពណ៌</th>
+                <th style="width: 155px; text-align: center;">ស្តុកសរុប (ដុំ & រាយ)</th>
+                <th style="width: 95px; text-align: center;">អ្នកបញ្ចូល</th>
+                <th style="width: 80px; text-align: center;">ស្ថានភាព</th>
               </tr>
             </thead>
             <tbody>
               ${tableRows}
             </tbody>
           </table>
+
+          <div class="signatures">
+            <div class="sig-col">
+              <b>អ្នករៀបចំរបាយការណ៍</b>
+              <div class="sig-line">ហត្ថលេខា & ឈ្មោះ</div>
+            </div>
+            <div class="sig-col">
+              <b>ប្រធានផ្នែកស្តុក</b>
+              <div class="sig-line">ហត្ថលេខា & ឈ្មោះ</div>
+            </div>
+            <div class="sig-col">
+              <b>ប្រធានគ្រប់គ្រង / Admin</b>
+              <div class="sig-line">ហត្ថលេខា & ឈ្មោះ</div>
+            </div>
+          </div>
 
           <div class="footer">
             <div>ប្រព័ន្ធគ្រប់គ្រងស្តុកទំនិញ Smart Inventory System</div>
