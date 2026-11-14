@@ -20079,7 +20079,7 @@
       };
       const subtitles = {
         dashboard: 'ទិដ្ឋភាពទូទៅនៃស្តុក ចលនាទំនិញ និងស្ថិតិសំខាន់ៗ',
-        items: 'គ្រប់គ្រងទិន្នន័យស្តុកទំនិញ ខ្នាតដុំ-រាយ និងតាមដានប្រវត្តិប្រតិបត្តិការស្តុក',
+        items: 'ទីតាំង ឃ្លាំង | ស្ថានីយ',
         stockin: 'កត់ត្រាការទិញចូលពី Supplier ឬទទួលទំនិញថ្មីចូលក្នុងឃ្លាំង',
         incoming: isPrivilegedAdmin ? 'តាមដានស្ថានភាពទំនិញដែលបានបើកចេញពី Admin ទៅកាន់បណ្តាស្ថានីយនីមួយៗ' : `ផ្ទៀងផ្ទាត់ និងទទួលទំនិញដែលចុងស៊ីនបានបើកមកកាន់ ${u?.warehouse || 'ស្ថានីយ'}`,
         stockout: 'កត់ត្រាការបើកទំនិញចេញ ការផ្ទេរទៅស្ថានីយ ឬការដកប្រើប្រាស់',
@@ -30505,7 +30505,7 @@
               <div>
                 <h1 class="company-name" style="font-size: 16px; font-weight: bold; color: #065f46; margin: 0; line-height: 1.3;">${escapeHtml(companyName)}</h1>
                 <div class="report-title" style="font-size: 13px; font-weight: bold; color: #0f172a; margin: 2px 0 0 0;">របាយការណ៍ប្រវត្តិកត់ត្រាទំនិញចូលស្តុក (Stock In History Report)</div>
-                <div class="report-sub" style="font-size: 11px; color: #64748b; margin-top: 2px;">កាលបរិច្ឆេទកំណត់៖ <strong>${escapeHtml(dateFilterStr)}</strong> | ឃ្លាំង៖ <strong>${escapeHtml(whDisplayName)}</strong></div>
+                <div class="report-sub" style="font-size: 11px; color: #64748b; margin-top: 2px;">កាលបរិច្ឆេទកំណត់៖ <strong>${escapeHtml(dateFilterStr)}</strong> | ទីតាំង ឃ្លាំង | ស្ថានីយ៖ <strong>${escapeHtml(whDisplayName)}</strong></div>
               </div>
             </div>
             <div class="meta-box">
@@ -30757,7 +30757,7 @@
               <div>
                 <h1 class="company-name" style="font-size: 16px; font-weight: bold; color: #92400e; margin: 0; line-height: 1.3;">${escapeHtml(companyName)}</h1>
                 <div class="report-title" style="font-size: 13px; font-weight: bold; color: #0f172a; margin: 2px 0 0 0;">របាយការណ៍ប្រវត្តិកត់ត្រាទំនិញចេញពីស្តុក (Stock Out History Report)</div>
-                <div class="report-sub" style="font-size: 11px; color: #64748b; margin-top: 2px;">កាលបរិច្ឆេទកំណត់៖ <strong>${escapeHtml(dateFilterStr)}</strong> | ឃ្លាំង/ទីតាំង៖ <strong>${escapeHtml(whDisplayName)}</strong></div>
+                <div class="report-sub" style="font-size: 11px; color: #64748b; margin-top: 2px;">កាលបរិច្ឆេទកំណត់៖ <strong>${escapeHtml(dateFilterStr)}</strong> | ទីតាំង ឃ្លាំង | ស្ថានីយ៖ <strong>${escapeHtml(whDisplayName)}</strong></div>
               </div>
             </div>
             <div class="meta-box">
@@ -34771,7 +34771,7 @@
             <div class="meta-col">
               <div class="meta-row"><b>លេខឯកសារ (Doc No):</b> <span style="font-family: monospace; font-weight: bold;">${targetDoc}</span></div>
               <div class="meta-row"><b>កាលបរិច្ឆេទ (Date):</b> ${dateStr}</div>
-              <div class="meta-row"><b>ទីតាំង / ឃ្លាំង (Warehouse):</b> ${whStr}</div>
+              <div class="meta-row"><b>ទីតាំង ឃ្លាំង | ស្ថានីយ:</b> <span style="font-weight: bold;">${whStr}</span></div>
             </div>
             <div class="meta-col">
               <div class="meta-row"><b>${isStockIn ? 'អ្នកទទួល (Receiver):' : 'អ្នកបើក / ទទួល:'}</b> ${receiverStr}</div>
@@ -36574,6 +36574,15 @@
       });
 
       const { companyName, companyLogoUrl } = getPdfCompanyHeaderInfo();
+      const u = AppState.currentUser || {};
+      const isPrivilegedAdmin = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(u) : false;
+      let activeWh = 'ALL';
+      if (isPrivilegedAdmin) {
+        activeWh = AppState.selectedAdminWarehouseFilter || 'ALL';
+      } else {
+        activeWh = (typeof getUserEffectiveStation === 'function' ? getUserEffectiveStation(u) : '') || u?.warehouse || AppState.selectedAdminWarehouseFilter || 'ALL';
+      }
+      const whDisplayName = (activeWh && activeWh !== 'ALL' && activeWh !== 'គ្រប់ស្ថានីយទាំងអស់' && activeWh !== 'គ្រប់ឃ្លាំង') ? activeWh : 'គ្រប់ឃ្លាំង / ស្ថានីយ';
       const printDate = new Date().toLocaleString('km-KH', { dateStyle: 'full', timeStyle: 'short' }) || new Date().toLocaleString();
 
       const printWindow = window.open('', '_blank');
@@ -36826,7 +36835,7 @@
               <div>
                 <h1 class="company-name" style="font-size: 16px; font-weight: bold; color: #1e3a8a; margin: 0; line-height: 1.3;">${escapeHtml(companyName)}</h1>
                 <div class="report-title" style="font-size: 13px; font-weight: bold; color: #0f172a; margin: 2px 0 0 0;">របាយការណ៍បញ្ជីទំនិញទាំងអស់ (Product Inventory)</div>
-                <div class="report-sub" style="font-size: 11px; color: #64748b; margin-top: 2px;">គ្រប់គ្រងទិន្នន័យស្តុកទំនិញ ខ្នាតដុំ-រាយ និងតាមដានប្រវត្តិប្រតិបត្តិការស្តុក</div>
+                <div class="report-sub" style="font-size: 11px; color: #64748b; margin-top: 2px;">ទីតាំង ឃ្លាំង | ស្ថានីយ៖ <strong>${escapeHtml(whDisplayName)}</strong></div>
               </div>
             </div>
             <div class="meta-info">
@@ -36918,6 +36927,15 @@
       const totalTx = AppState.transactions.length;
       const totalPages = Math.max(1, totalTx <= 20 ? 1 : (1 + Math.ceil((totalTx - 20) / 24)));
       const { companyName, companyLogoUrl } = getPdfCompanyHeaderInfo();
+      const u = AppState.currentUser || {};
+      const isPrivilegedAdmin = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(u) : false;
+      let activeWh = 'ALL';
+      if (isPrivilegedAdmin) {
+        activeWh = AppState.selectedAdminWarehouseFilter || 'ALL';
+      } else {
+        activeWh = (typeof getUserEffectiveStation === 'function' ? getUserEffectiveStation(u) : '') || u?.warehouse || AppState.selectedAdminWarehouseFilter || 'ALL';
+      }
+      const whDisplayName = (activeWh && activeWh !== 'ALL' && activeWh !== 'គ្រប់ស្ថានីយទាំងអស់' && activeWh !== 'គ្រប់ឃ្លាំង') ? activeWh : 'គ្រប់ឃ្លាំង / ស្ថានីយ';
       const printDate = new Date().toLocaleString('km-KH', { dateStyle: 'full', timeStyle: 'short' }) || new Date().toLocaleString();
 
       const printWindow = window.open('', '_blank');
@@ -36995,7 +37013,8 @@
               <img src="${companyLogoUrl}" alt="PPSHV Logo" style="height: 48px; width: auto; object-fit: contain;" onerror="this.onerror=null; this.src='assets/logo.png';">
               <div>
                 <h2 style="margin: 0; color: #1e3a8a; font-size: 16px; font-weight: bold; line-height: 1.3;">${escapeHtml(companyName)}</h2>
-                <p style="margin: 2px 0 0 0; color: #64748b; font-size: 11px; font-weight: 600;">របាយការណ៍ចរន្តស្តុកទំនិញ (Stock Transactions Ledger)</p>
+                <div style="font-size: 13px; font-weight: bold; color: #0f172a; margin: 2px 0 0 0;">របាយការណ៍ចរន្តស្តុកទំនិញ (Stock Transactions Ledger)</div>
+                <div class="report-sub" style="font-size: 11px; color: #64748b; margin-top: 2px;">ទីតាំង ឃ្លាំង | ស្ថានីយ៖ <strong>${escapeHtml(whDisplayName)}</strong></div>
               </div>
             </div>
             <div style="text-align: right;">
