@@ -23241,6 +23241,40 @@
       }
     }
 
+    function getRememberedPickerWords(inputId) {
+      try {
+        const key = 'inventory_quick_picker_' + inputId;
+        const raw = localStorage.getItem(key);
+        if (!raw) return [];
+        const list = JSON.parse(raw);
+        return Array.isArray(list) ? list.filter(Boolean) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function rememberQuickPickerWord(inputId, word) {
+      if (!inputId || !word || typeof word !== 'string') return;
+      const clean = word.trim();
+      if (!clean || clean === '-' || clean === 'null' || clean === 'undefined' || clean.startsWith('http') || clean.includes('GMT')) return;
+      try {
+        const key = 'inventory_quick_picker_' + inputId;
+        let list = [];
+        try {
+          list = JSON.parse(localStorage.getItem(key) || '[]');
+          if (!Array.isArray(list)) list = [];
+        } catch (e) {
+          list = [];
+        }
+        list = list.filter(w => w.toLowerCase() !== clean.toLowerCase());
+        list.unshift(clean);
+        if (list.length > 80) list = list.slice(0, 80);
+        localStorage.setItem(key, JSON.stringify(list));
+      } catch (e) { }
+    }
+    window.rememberQuickPickerWord = rememberQuickPickerWord;
+    window.getRememberedPickerWords = getRememberedPickerWords;
+
     const QUICK_PICKER_CONFIG = {
       modalCategory: {
         title: 'រើសប្រភេទទំនិញ (Category)',
@@ -23258,7 +23292,8 @@
               return c;
             }).filter(c => c && !forbidden.includes(c))
           ));
-          const allCats = Array.from(new Set([...sheetCats, ...existingCats]))
+          const remembered = getRememberedPickerWords('modalCategory');
+          const allCats = Array.from(new Set([...remembered, ...sheetCats, ...existingCats]))
             .filter(c => !forbidden.includes(c));
           return allCats.map(c => ({ text: c }));
         }
@@ -23266,66 +23301,71 @@
       modalColor: {
         title: 'រើសពណ៌ទំនិញ (Color)',
         icon: 'fa-solid fa-palette text-amber-500',
-        options: [
-          { text: 'ខ្មៅ', swatch: 'bg-black border border-slate-300' },
-          { text: 'ស', swatch: 'bg-white border border-slate-300' },
-          { text: 'ក្រហម', swatch: 'bg-rose-500' },
-          { text: 'ខៀវ', swatch: 'bg-blue-500' },
-          { text: 'បៃតង', swatch: 'bg-emerald-500' },
-          { text: 'លឿង', swatch: 'bg-amber-400' },
-          { text: 'ទឹកក្រូច', swatch: 'bg-orange-500' },
-          { text: 'ស្វាយ', swatch: 'bg-purple-500' },
-          { text: 'មាស', swatch: 'bg-yellow-500' },
-          { text: 'ប្រាក់', swatch: 'bg-slate-400' },
-          { text: 'ថ្លា', swatch: 'bg-sky-100 border border-sky-300' },
-          { text: 'ផ្កាឈូក', swatch: 'bg-pink-400' },
-          { text: 'ត្នោត', swatch: 'bg-amber-800' }
-        ]
+        get options() {
+          const defaultColors = [
+            { text: 'ខ្មៅ', swatch: 'bg-black border border-slate-300' },
+            { text: 'ស', swatch: 'bg-white border border-slate-300' },
+            { text: 'ក្រហម', swatch: 'bg-rose-500' },
+            { text: 'ខៀវ', swatch: 'bg-blue-500' },
+            { text: 'បៃតង', swatch: 'bg-emerald-500' },
+            { text: 'លឿង', swatch: 'bg-amber-400' },
+            { text: 'ទឹកក្រូច', swatch: 'bg-orange-500' },
+            { text: 'ស្វាយ', swatch: 'bg-purple-500' },
+            { text: 'មាស', swatch: 'bg-yellow-500' },
+            { text: 'ប្រាក់', swatch: 'bg-slate-400' },
+            { text: 'ថ្លា', swatch: 'bg-sky-100 border border-sky-300' },
+            { text: 'ផ្កាឈូក', swatch: 'bg-pink-400' },
+            { text: 'ត្នោត', swatch: 'bg-amber-800' }
+          ];
+          const fromItems = (AppState.items || []).map(i => (i.color || '').trim()).filter(Boolean);
+          const remembered = getRememberedPickerWords('modalColor');
+          const customTexts = Array.from(new Set([...remembered, ...fromItems]))
+            .filter(c => c && !defaultColors.some(d => d.text.toLowerCase() === c.toLowerCase()));
+          return [...defaultColors, ...customTexts.map(c => ({ text: c }))];
+        }
       },
       modalSize: {
         title: 'រើសកូដទំនិញ / ខ្នាត',
         icon: 'fa-solid fa-tags text-indigo-600',
         get options() {
-          const existing = Array.from(new Set(
-            (AppState.items || []).map(i => (i.size || '').trim()).filter(Boolean)
-          ));
-          return existing.map(s => ({ text: s }));
+          const fromItems = (AppState.items || []).map(i => (i.size || '').trim()).filter(Boolean);
+          const remembered = getRememberedPickerWords('modalSize');
+          const allSizes = Array.from(new Set([...remembered, ...fromItems]))
+            .filter(s => s && !s.startsWith('http') && !s.includes('GMT'));
+          return allSizes.map(s => ({ text: s }));
         }
       },
       modalUnit: {
         title: 'រើសឯកតារាយ (Retail Unit)',
         icon: 'fa-solid fa-cube text-emerald-500',
         onSelect: () => updateUnitConversionPreview(),
-        options: [
-          { text: 'កំប៉ុង' },
-          { text: 'ដប' },
-          { text: 'កញ្ចប់' },
-          { text: 'ដុំ' },
-          { text: 'ប្រអប់' },
-          { text: 'កេស' },
-          { text: 'គីឡូក្រាម' },
-          { text: 'គ្រាប់' },
-          { text: 'បន្ទះ' },
-          { text: 'យួរ' },
-          { text: 'ម៉ែត្រ' },
-          { text: 'គូ' }
-        ]
+        get options() {
+          const defaultRetail = [
+            'ដុំ', 'ដើម', 'គ្រាប់', 'ប្រអប់', 'ដប', 'កំប៉ុង', 'កញ្ចប់', 'បន្ទះ', 'សន្លឹក',
+            'គីឡូក្រាម', 'ម៉ែត្រ', 'គូ', 'យួរ', 'កេស', 'កាត', 'ខ្សែ', 'ឈុត', 'កាតុង', 'ឡូ', 'បាវ', 'ធុង'
+          ];
+          const fromItems = (AppState.items || []).flatMap(i => [i.unit, i.packUnit]).map(u => (u || '').trim()).filter(Boolean);
+          const remembered = getRememberedPickerWords('modalUnit');
+          const allUnits = Array.from(new Set([...remembered, ...fromItems, ...defaultRetail]))
+            .filter(u => u && !u.startsWith('http') && !u.includes('GMT') && u.toLowerCase() !== 'admin');
+          return allUnits.map(u => ({ text: u }));
+        }
       },
       modalPackUnit: {
         title: 'រើសឯកតាធំ / ជាដុំ (Bulk Unit)',
         icon: 'fa-solid fa-cubes text-indigo-500',
         onSelect: () => updateUnitConversionPreview(),
-        options: [
-          { text: 'ដុំ' },
-          { text: 'កេស' },
-          { text: 'ប្រអប់' },
-          { text: 'បាវ' },
-          { text: 'យួរ' },
-          { text: 'ធុង' },
-          { text: 'កញ្ចប់ធំ' },
-          { text: 'ឡូ' },
-          { text: 'កាតុង' }
-        ]
+        get options() {
+          const defaultBulk = [
+            'កេស', 'ប្រអប់', 'ដុំ', 'បាវ', 'យួរ', 'ធុង', 'កាតុង', 'កញ្ចប់ធំ', 'ឡូ',
+            'គ្រាប់', 'ដប', 'កំប៉ុង', 'បន្ទះ', 'គីឡូក្រាម', 'ម៉ែត្រ', 'គូ', 'ដើម', 'កញ្ចប់', 'សន្លឹក'
+          ];
+          const fromItems = (AppState.items || []).flatMap(i => [i.packUnit, i.unit]).map(u => (u || '').trim()).filter(Boolean);
+          const remembered = getRememberedPickerWords('modalPackUnit');
+          const allUnits = Array.from(new Set([...remembered, ...fromItems, ...defaultBulk]))
+            .filter(u => u && !u.startsWith('http') && !u.includes('GMT') && u.toLowerCase() !== 'admin');
+          return allUnits.map(u => ({ text: u }));
+        }
       },
       modalZone: {
         title: 'រើសតំបន់ស្តុកទំនិញ (Zone A ដល់ J)',
@@ -23342,7 +23382,8 @@
           const existingZones = Array.from(new Set(
             (AppState.items || []).map(i => (i.zone || '').trim()).filter(Boolean)
           ));
-          const allZones = Array.from(new Set([...defaultZones, ...existingZones]));
+          const remembered = getRememberedPickerWords('modalZone');
+          const allZones = Array.from(new Set([...remembered, ...defaultZones, ...existingZones]));
           return allZones.map(z => ({ text: z }));
         }
       },
@@ -23383,6 +23424,7 @@
         : (Array.isArray(cfg.options) ? cfg.options : []);
 
       const q = (filterVal || '').trim().toLowerCase();
+      const qClean = (filterVal || '').trim();
       if (filterVal) {
         activeZoneLetterFilter = '';
       }
@@ -23397,6 +23439,9 @@
         if (!q) return true;
         return opt.text.toLowerCase().includes(q);
       });
+
+      const hasExactMatch = rawOptions.some(opt => opt.text.toLowerCase() === q);
+      const showAddNewPrompt = Boolean(qClean && !hasExactMatch && !isZonePicker);
 
       dropdown.innerHTML = `
         <div class="px-2.5 py-1.5 bg-slate-50 border-b border-slate-100 rounded-xl mb-1.5 flex items-center justify-between text-[11px] font-bold text-slate-700">
@@ -23421,8 +23466,18 @@
             `).join('')}
           </div>
         ` : ''}
+        ${showAddNewPrompt ? `
+          <div onclick="selectQuickPickerOption('${escapeHtml(qClean)}'); rememberQuickPickerWord('${inputId}', '${escapeHtml(qClean)}');"
+            class="px-2.5 py-2 rounded-xl bg-blue-50/90 hover:bg-blue-100 text-blue-700 border border-blue-200 cursor-pointer flex items-center justify-between text-xs font-bold transition mb-1.5 shadow-3xs">
+            <span class="flex items-center truncate">
+              <i class="fa-solid fa-plus-circle text-blue-600 mr-2 shrink-0"></i>
+              <span class="truncate">ជ្រើសរើស & ចងចាំ៖ <b>"${escapeHtml(qClean)}"</b></span>
+            </span>
+            <span class="text-[9.5px] font-bold text-blue-600 bg-white px-2 py-0.5 rounded border border-blue-200 shrink-0">បញ្ចូលថ្មី</span>
+          </div>
+        ` : ''}
         <div class="${isZonePicker ? 'grid grid-cols-2 gap-1' : 'space-y-0.5'}">
-          ${filtered.length === 0 ? `
+          ${filtered.length === 0 && !showAddNewPrompt ? `
             <div class="${isZonePicker ? 'col-span-2' : ''} p-3 text-center text-xs text-slate-400">មិនទាន់មានទិន្នន័យ (សូមវាយបញ្ចូលដោយផ្ទាល់)</div>
           ` : filtered.map(opt => `
             <div onclick="selectQuickPickerOption('${escapeHtml(opt.text)}')"
@@ -23473,6 +23528,9 @@
         inputEl.value = val;
         inputEl.dispatchEvent(new Event('input', { bubbles: true }));
       }
+      if (typeof rememberQuickPickerWord === 'function') {
+        rememberQuickPickerWord(currentActivePickerInput, val);
+      }
       if (cfg && cfg.onSelect) {
         cfg.onSelect();
       }
@@ -23481,6 +23539,12 @@
     }
 
     function closeQuickPicker() {
+      if (currentActivePickerInput) {
+        const inputEl = document.getElementById(currentActivePickerInput);
+        if (inputEl && inputEl.value && typeof rememberQuickPickerWord === 'function') {
+          rememberQuickPickerWord(currentActivePickerInput, inputEl.value);
+        }
+      }
       const dropdown = document.getElementById('appQuickPickerDropdown');
       if (dropdown) dropdown.classList.add('hidden');
       currentActivePickerInput = null;
@@ -24424,6 +24488,16 @@
             uploadBox.classList.add('border-rose-500', 'bg-rose-50/50');
           }
           return;
+        }
+
+        // Remember all entered picker words for future inputs
+        if (typeof rememberQuickPickerWord === 'function') {
+          rememberQuickPickerWord('modalPackUnit', itemData.packUnit);
+          rememberQuickPickerWord('modalUnit', itemData.unit);
+          rememberQuickPickerWord('modalColor', itemData.color);
+          rememberQuickPickerWord('modalSize', itemData.size);
+          rememberQuickPickerWord('modalCategory', itemData.category);
+          rememberQuickPickerWord('modalZone', itemData.zone);
         }
 
         // 1. Instant Optimistic Save (< 20ms)
