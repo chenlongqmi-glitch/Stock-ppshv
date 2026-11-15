@@ -2022,44 +2022,211 @@
   <!-- ========================================== -->
   <!-- 2. MAIN APPLICATION LAYOUT -->
   <!-- ========================================== -->
-  <div id="mainApp" class="hidden flex-1 flex flex-col md:flex-row overflow-hidden relative">
+    <div id="mainApp" class="hidden flex-1 flex flex-col overflow-hidden relative">
 
-    <!-- Sidebar Backdrop Overlay for Mobile -->
-    <div id="sidebarBackdrop" onclick="toggleMobileSidebar(false)"
-      class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[190] hidden transition-opacity duration-300 md:hidden cursor-pointer"
-      title="ចុចដើម្បីបិទ Menu (Click to close menu)">
-    </div>
+    <!-- 1. FULL-WIDTH TOP ACTIVE USER SESSION BANNER (Fixed 64px, NEVER SHIFTS - Baseline: Image 7dc9f81b) -->
+    <div id="activeSessionBanner"
+      class="h-16 min-h-[64px] max-h-[64px] bg-gradient-to-r from-blue-700 via-indigo-700 to-slate-900 text-white shadow-md border-b border-white/15 flex flex-nowrap items-center justify-between relative z-30 flex-shrink-0 overflow-x-auto no-scrollbar">
 
-    <!-- SIDEBAR NAVIGATION (Default Open on Desktop, Slide-Over Drawer on Mobile) -->
-    <aside id="sidebar"
-      class="fixed inset-y-0 left-0 z-[200] w-72 max-w-[85vw] -translate-x-full md:translate-x-0 md:static md:w-64 bg-gradient-to-b from-blue-700 via-indigo-800 to-slate-950 text-white flex flex-col flex-shrink-0 border-r border-indigo-500/30 shadow-2xl transition-all duration-300 ease-in-out overflow-hidden">
-
-      <!-- Ambient Glow Decorators -->
-      <div class="absolute -top-20 -left-20 w-48 h-48 bg-blue-400/20 rounded-full blur-3xl pointer-events-none"></div>
-      <div class="absolute -bottom-20 -right-20 w-48 h-48 bg-purple-500/20 rounded-full blur-3xl pointer-events-none">
-      </div>
-
-      <!-- Brand Logo -->
-      <div id="sidebarBrandHeader"
-        class="h-16 min-h-[64px] max-h-[64px] px-4 sm:px-5 flex items-center justify-between border-b border-white/15 bg-blue-700 relative z-10 shrink-0">
-        <div class="flex items-center space-x-3">
-          <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0">
+      <!-- Left Brand Box: Exactly matches image 7dc9f81b (Fixed w-64 / 256px, NEVER MOVES) -->
+      <div class="w-64 h-full flex items-center justify-between px-4 sm:px-5 border-r border-white/15 shrink-0 select-none">
+        <div class="flex items-center space-x-3 cursor-pointer group" onclick="toggleMobileSidebar()" title="ចុចដើម្បីបើក/បិទ Menu (Toggle Menu)">
+          <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
             <img src="assets/logo_icon.png" alt="PPSHV Logo" class="w-full h-full object-contain filter drop-shadow-md">
           </div>
-          <div>
-            <h1 class="font-black text-white text-xs sm:text-sm leading-tight tracking-wide drop-shadow-sm">PPSHV EXPRESSWAY</h1>
-            <p class="text-[9px] sm:text-[10px] text-blue-200 font-bold tracking-wider">SMART INVENTORY</p>
+          <div class="leading-tight">
+            <h1 class="font-black text-white text-xs sm:text-sm leading-tight tracking-wide drop-shadow-sm group-hover:text-blue-200 transition-colors">PPSHV EXPRESSWAY</h1>
+            <p class="text-[9px] sm:text-[10px] text-blue-200 font-bold tracking-wider leading-none mt-0.5">SMART INVENTORY</p>
           </div>
         </div>
-        <button onclick="toggleMobileSidebar(false)"
+        <button id="sidebarToggleBtn" onclick="event.stopPropagation(); toggleMobileSidebar();"
           class="text-blue-200 hover:text-white hover:bg-white/10 p-1.5 rounded-lg transition flex items-center justify-center cursor-pointer"
-          title="បិទ Menu (Hide Menu)">
-          <i class="fa-solid fa-chevron-left text-sm"></i>
+          title="បើក/បិទ Menu (Toggle Menu)">
+          <i id="sidebarToggleIcon" class="fa-solid fa-chevron-left text-sm transition-transform"></i>
         </button>
       </div>
 
-      <!-- Navigation Links -->
-      <nav class="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-1.5 text-sm font-medium relative z-10">
+      <!-- User Profile (2 Rows - starts immediately after border-r) -->
+      <div class="flex items-center space-x-2.5 shrink-0 px-3 sm:px-4 cursor-pointer group select-none" onclick="openProfileModal()"
+        title="ចុចដើម្បីកែប្រែព័ត៌មានផ្ទាល់ខ្លួន និងរូបថត Profile">
+        <div class="relative shrink-0">
+          <div id="activeSessionAvatar"
+            class="w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden border border-white/40 bg-white/20 backdrop-blur-md flex items-center justify-center text-white font-bold text-xs sm:text-sm shadow-md group-hover:scale-105 group-hover:border-white transition-all">
+            <i class="fa-solid fa-user"></i>
+          </div>
+          <span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-400 border border-indigo-950 rounded-full"
+            title="កំពុង Online"></span>
+        </div>
+
+        <div class="flex flex-col justify-center min-w-0">
+          <!-- Row 1: Account -->
+          <div class="flex items-center gap-1.5 min-w-0 leading-tight">
+            <span class="text-[10px] font-semibold text-blue-200/80 hidden xl:inline whitespace-nowrap">គណនី៖</span>
+            <h3 class="text-xs sm:text-[13px] font-bold text-white truncate drop-shadow-sm leading-tight"
+              id="activeSessionUserTitle">
+              កំពុងដំណើរការ...
+            </h3>
+          </div>
+          <!-- Row 2: Status, Role Badge & Warehouse -->
+          <div class="flex items-center gap-1.5 mt-0.5 text-[9.5px] leading-tight">
+            <span class="inline-flex items-center text-emerald-300 font-bold shrink-0">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1 animate-pulse"></span> Online
+            </span>
+            <span id="activeSessionRoleBadge"
+              class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-white/20 text-white border border-white/30 backdrop-blur-sm shrink-0 leading-none">...</span>
+            <div id="activeSessionWarehouseContainer" class="hidden items-center text-blue-200 shrink-0">
+              <span class="text-white/30 mx-0.5">•</span>
+              <i class="fa-solid fa-warehouse text-emerald-300 mr-1 text-[9px]"></i>
+              <span class="font-bold text-emerald-300 truncate max-w-[160px]" id="activeSessionWarehouseName">...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: 2-Row HUD Widgets Bar -->
+        <div class="flex items-center flex-nowrap gap-2 sm:gap-2.5 text-xs shrink-0 pr-3 sm:pr-4 md:pr-5 ml-auto justify-end">
+
+          <!-- 1. LIVE MARKET RATES WIDGET (2 Rows: សាំង/មាស ជួរទី១, ម៉ាស៊ូត/ដុល្លារ ជួរទី២) -->
+          <div id="topMarketRatesWidget" onclick="openMarketRatesModal()"
+            class="hidden md:flex flex-col justify-center bg-white/10 hover:bg-white/20 px-2.5 sm:px-3 py-1 rounded-xl border border-white/20 backdrop-blur-md shadow-sm transition-all text-white text-xs cursor-pointer select-none group shrink-0 whitespace-nowrap hover:scale-[1.01] active:scale-[0.99]"
+            title="ចុចដើម្បីមើលព័ត៌មានលម្អិត និងកែប្រែហាងឆេងទីផ្សារ (Gasoline, Gold, Exchange Rate)">
+            <!-- ជួរទី១: សាំង | មាស -->
+            <div class="flex items-center gap-2 text-[11px] font-medium leading-tight">
+              <div class="flex items-center gap-1 w-[106px] shrink-0">
+                <span class="w-3.5 flex items-center justify-center shrink-0">
+                  <i class="fa-solid fa-gas-pump text-amber-300 text-[10px]"></i>
+                </span>
+                <span class="w-[38px] text-blue-100/90 text-[10px] shrink-0">សាំង</span>
+                <span class="text-blue-100/90 text-[10px] font-medium shrink-0 mr-1">:</span>
+                <span id="topBarRateGasoline" class="font-bold text-amber-300 font-mono text-[11px] text-left">4,350៛</span>
+              </div>
+              <span class="text-white/25 shrink-0 px-0.5">|</span>
+              <div class="flex items-center gap-1 shrink-0">
+                <span class="w-3.5 flex items-center justify-center shrink-0">
+                  <i class="fa-solid fa-coins text-yellow-300 text-[10px]"></i>
+                </span>
+                <span class="w-[38px] text-blue-100/90 text-[10px] shrink-0">មាស</span>
+                <span class="text-blue-100/90 text-[10px] font-medium shrink-0 mr-1">:</span>
+                <span id="topBarRateGold" class="font-bold text-yellow-200 font-mono text-[11px] text-left">468.7$/ជី</span>
+              </div>
+            </div>
+            <!-- ជួរទី២: ម៉ាស៊ូត | ដុល្លារ -->
+            <div class="flex items-center gap-2 text-[11px] font-medium leading-tight mt-0.5">
+              <div class="flex items-center gap-1 w-[106px] shrink-0">
+                <span class="w-3.5 flex items-center justify-center shrink-0">
+                  <i class="fa-solid fa-gas-pump text-orange-300 text-[10px]"></i>
+                </span>
+                <span class="w-[38px] text-blue-100/90 text-[10px] shrink-0">ម៉ាស៊ូត</span>
+                <span class="text-blue-100/90 text-[10px] font-medium shrink-0 mr-1">:</span>
+                <span id="topBarRateDiesel" class="font-bold text-orange-300 font-mono text-[11px] text-left">5,300៛</span>
+              </div>
+              <span class="text-white/25 shrink-0 px-0.5">|</span>
+              <div class="flex items-center gap-1 shrink-0">
+                <span class="w-3.5 flex items-center justify-center shrink-0">
+                  <i class="fa-solid fa-dollar-sign text-emerald-300 text-[10px]"></i>
+                </span>
+                <span class="w-[38px] text-blue-100/90 text-[10px] shrink-0">ដុល្លារ</span>
+                <span class="text-blue-100/90 text-[10px] font-medium shrink-0 mr-1">:</span>
+                <div class="flex items-center font-mono text-[11px] leading-tight text-left">
+                  <span class="text-[10px] text-emerald-200 font-medium mr-0.5">1$=</span>
+                  <span id="topBarRateUsdKhr" class="font-bold text-emerald-300">4,068៛</span>
+                  <i class="fa-solid fa-chevron-right text-[7.5px] text-blue-300 group-hover:text-amber-300 ml-1 transition-colors shrink-0"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. LIVE CLOCK, DATE & CALENDAR WIDGET (2 Rows: ថ្ងៃខែឆ្នាំ ជួរទី១, ម៉ោង & ប្រតិទិន ជួរទី២) -->
+          <div id="sessionBannerClockDateBtn" onclick="toggleKhmerCalendarModal()"
+            class="hidden flex-col justify-center bg-white/10 hover:bg-white/20 px-2.5 sm:px-3 py-1 rounded-xl border border-white/20 backdrop-blur-md shadow-sm transition-colors text-white text-xs cursor-pointer select-none group shrink-0 whitespace-nowrap"
+            title="ចុចដើម្បីមើលប្រតិទិនចន្ទគតិខ្មែរ (Khmer Lunar Calendar)">
+            <!-- ជួរទី១: កាលបរិច្ឆេទ ថ្ងៃខែឆ្នាំ -->
+            <div class="flex items-center gap-1 text-[11px] font-semibold text-white group-hover:text-amber-100 leading-tight">
+              <i class="fa-regular fa-calendar-days text-blue-200 group-hover:text-amber-300 text-[10px] shrink-0"></i>
+              <span id="sessionBannerDateText" class="truncate font-bold">...</span>
+            </div>
+            <!-- ជួរទី២: ម៉ោង និងប៊ូតុងប្រតិទិន -->
+            <div id="sessionBannerDateDisplay" class="flex items-center justify-between gap-2 text-[11px] font-medium text-white leading-tight mt-0.5">
+              <div class="flex items-center gap-1">
+                <i class="fa-regular fa-clock text-blue-200 group-hover:text-amber-300 text-[10px] shrink-0"></i>
+                <span class="text-blue-100/90 text-[10px] font-medium">ម៉ោង:</span>
+                <span id="sessionBannerClockTime"
+                  class="font-mono tabular-nums font-bold text-amber-200 text-xs inline-block text-center w-[58px] leading-none shrink-0">00:00:00</span>
+                <span id="sessionBannerDatePeriod" class="text-amber-100 text-[10px] font-medium">...</span>
+              </div>
+              <span
+                class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] font-black bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 group-hover:from-yellow-300 group-hover:to-orange-400 text-amber-950 border border-amber-200/90 shadow-xs hover:scale-105 active:scale-95 transition-all select-none relative shrink-0 leading-none">
+                <i class="fa-solid fa-calendar text-[8.5px] text-amber-950"></i>
+                <span class="tracking-wide">ប្រតិទិន</span>
+                <span id="sessionBannerCalNoteDot" class="hidden absolute -top-1 -right-1 flex h-2 w-2"
+                  title="មាន Note រំលឹក!">
+                  <span
+                    class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-2 w-2 bg-rose-500 border border-white"></span>
+                </span>
+              </span>
+            </div>
+          </div>
+
+          <!-- 3. LIVE SESSION DURATION TIMER (2 Rows: រយៈពេលចូល ជួរទី១, 00:00:00 ជួរទី២) -->
+          <div
+            class="flex flex-col items-center justify-center bg-white/10 hover:bg-white/15 px-2.5 sm:px-3 py-1 rounded-xl border border-white/20 backdrop-blur-md shadow-sm transition-colors shrink-0 whitespace-nowrap select-none min-w-[84px]"
+            title="រយៈពេលកំពុងដំណើរការ Session នេះ">
+            <!-- ជួរទី១: Label -->
+            <div class="flex items-center gap-1 text-[10px] text-blue-100 font-medium leading-tight">
+              <i class="fa-solid fa-stopwatch text-cyan-300 text-[9px] shrink-0"></i>
+              <span class="whitespace-nowrap">រយៈពេលចូល</span>
+            </div>
+            <!-- ជួរទី២: Value -->
+            <span id="activeSessionDurationTime"
+              class="font-mono tabular-nums font-black text-cyan-200 text-xs sm:text-[13px] leading-tight mt-0.5 inline-block text-center w-[58px]">00:00:00</span>
+          </div>
+
+          <!-- RETURN TO SUPERADMIN BUTTON (ប៊ូតុងត្រឡប់ទៅកាន់ SuperAdmin វិញពេល impersonating) -->
+          <button id="btnReturnSuperAdmin" onclick="exitImpersonation()" title="ត្រឡប់ទៅ SuperAdmin វិញ"
+            class="px-2.5 sm:px-3 h-[32px] sm:h-[36px] bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-xl text-xs font-bold items-center space-x-1.5 border border-emerald-300/40 shadow-md shadow-emerald-950/40 transition-colors shrink-0 hidden leading-none active:scale-95 cursor-pointer">
+            <i class="fa-solid fa-arrow-left text-xs"></i>
+            <span>ត្រឡប់ទៅ SuperAdmin</span>
+          </button>
+
+          <!-- TOP LOGOUT BUTTON (ប៊ូតុងចាកចេញនៅលើគេបំផុត) -->
+          <button onclick="handleLogout()" title="ចាកចេញពីប្រព័ន្ធ (Logout)"
+            class="px-2.5 sm:px-3 h-[32px] sm:h-[36px] bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 border border-white/20 shadow-md shadow-rose-950/40 transition-colors shrink-0 leading-none active:scale-95 cursor-pointer">
+            <i class="fa-solid fa-power-off text-xs"></i>
+            <span class="hidden sm:inline">ចាកចេញ</span>
+          </button>
+        </div>
+    </div>
+
+    <!-- 2. BODY ROW (Sidebar below the top banner + Main Content Area) -->
+    <div class="flex-1 flex flex-row overflow-hidden relative min-h-0">
+
+      <!-- Sidebar Backdrop Overlay for Mobile -->
+      <div id="sidebarBackdrop" onclick="toggleMobileSidebar(false)"
+        class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[190] hidden transition-opacity duration-300 md:hidden cursor-pointer"
+        title="ចុចដើម្បីបិទ Menu (Click to close menu)">
+      </div>
+
+      <!-- SIDEBAR NAVIGATION (Default Open on Desktop, Slide-Over Drawer on Mobile) -->
+      <aside id="sidebar"
+        class="fixed inset-y-0 left-0 z-[200] w-72 max-w-[85vw] -translate-x-full md:translate-x-0 md:static md:w-64 bg-gradient-to-b from-blue-700 via-indigo-800 to-slate-950 text-white flex flex-col flex-shrink-0 border-r border-indigo-500/30 shadow-2xl transition-all duration-300 ease-in-out overflow-hidden">
+
+        <!-- Ambient Glow Decorators -->
+        <div class="absolute -top-20 -left-20 w-48 h-48 bg-blue-400/20 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -bottom-20 -right-20 w-48 h-48 bg-purple-500/20 rounded-full blur-3xl pointer-events-none"></div>
+
+        <!-- Mobile Drawer Close Header (md:hidden) -->
+        <div class="md:hidden h-14 px-4 flex items-center justify-between border-b border-white/15 bg-blue-700/80 shrink-0">
+          <div class="flex items-center space-x-2.5">
+            <img src="assets/logo_icon.png" alt="PPSHV Logo" class="w-7 h-7 object-contain">
+            <span class="font-bold text-xs text-white">PPSHV SMART INVENTORY</span>
+          </div>
+          <button onclick="toggleMobileSidebar(false)" class="p-1.5 text-blue-200 hover:text-white rounded-lg">
+            <i class="fa-solid fa-xmark text-lg"></i>
+          </button>
+        </div>
+
+        <nav class="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-1.5 text-sm font-medium relative z-10">
         <a href="#dashboard" onclick="navigateTab('dashboard')"
           class="nav-link flex items-center px-3.5 py-2.5 rounded-xl text-white bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500 font-bold shadow-lg shadow-slate-950/40 border border-white/30 transition-all">
           <i class="fa-solid fa-chart-pie w-6 text-center text-blue-100"></i>
@@ -2233,13 +2400,12 @@
 
 
       </nav>
-    </aside>
+      </aside>
 
-    <!-- MAIN CONTENT AREA -->
-    <div class="flex-1 flex flex-col h-full overflow-hidden min-w-0">
+      <!-- MAIN CONTENT AREA -->
+      <div class="flex-1 flex flex-col h-full overflow-hidden min-w-0">
 
-      <!-- IMPERSONATION / SWITCH USER NOTIFICATION BANNER (បង្ហាញពេលស្ថិតក្នុង Switch Mode) -->
-      <div id="impersonationBanner"
+        <div id="impersonationBanner"
         class="bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white px-4 md:px-6 py-2 shadow-lg border-b border-amber-400/40 flex flex-wrap items-center justify-between gap-2 text-xs font-medium relative z-30 hidden shrink-0 animate-pulse">
         <div class="flex items-center space-x-2 min-w-0">
           <span
@@ -2267,177 +2433,7 @@
         </div>
       </div>
 
-      <!-- ACTIVE USER SESSION INFO BANNER (2 ជួរស្អាត និងពង្រីកផ្ទៃពណ៌ខៀវឱ្យធំទូលាយ) -->
-      <div id="activeSessionBanner"
-        class="h-16 min-h-[64px] max-h-[64px] bg-gradient-to-r from-blue-700 via-indigo-700 to-slate-900 text-white px-3 sm:px-4 md:px-5 shadow-md border-b border-white/15 flex flex-nowrap items-center justify-between gap-2.5 sm:gap-3.5 relative z-30 flex-shrink-0 overflow-x-auto no-scrollbar">
-        
-        <!-- Left Group: Brand Logo (when sidebar hidden) + User Profile -->
-        <div class="flex items-center space-x-2.5 sm:space-x-3 shrink-0 min-w-0">
-          <!-- Collapsed Brand Logo (បង្ហាញនៅពេល Sidebar ត្រូវបានបិទ/លាក់) -->
-          <div id="sessionBannerLogo" class="hidden items-center space-x-2.5 shrink-0 pr-3 border-r border-white/20 select-none cursor-pointer group"
-            onclick="toggleMobileSidebar(true)" title="ចុចដើម្បីបើក Menu (Show Menu)">
-            <div class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-              <img src="assets/logo_icon.png" alt="PPSHV Logo" class="w-full h-full object-contain filter drop-shadow-md">
-            </div>
-            <div class="leading-tight">
-              <h1 class="font-black text-white text-xs leading-tight tracking-wide drop-shadow-sm group-hover:text-blue-200 transition-colors">PPSHV EXPRESSWAY</h1>
-              <p class="text-[9px] text-blue-200 font-bold tracking-wider leading-none mt-0.5">SMART INVENTORY</p>
-            </div>
-          </div>
-
-          <!-- User Profile (2 Rows) -->
-          <div class="flex items-center space-x-2.5 shrink-0 cursor-pointer group select-none" onclick="openProfileModal()"
-            title="ចុចដើម្បីកែប្រែព័ត៌មានផ្ទាល់ខ្លួន និងរូបថត Profile">
-            <div class="relative shrink-0">
-              <div id="activeSessionAvatar"
-                class="w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden border border-white/40 bg-white/20 backdrop-blur-md flex items-center justify-center text-white font-bold text-xs sm:text-sm shadow-md group-hover:scale-105 group-hover:border-white transition-all">
-                <i class="fa-solid fa-user"></i>
-              </div>
-              <span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-400 border border-indigo-950 rounded-full"
-                title="កំពុង Online"></span>
-            </div>
-            
-            <div class="flex flex-col justify-center min-w-0">
-              <!-- Row 1: Account -->
-              <div class="flex items-center gap-1.5 min-w-0 leading-tight">
-                <span class="text-[10px] font-semibold text-blue-200/80 hidden xl:inline whitespace-nowrap">គណនី៖</span>
-                <h3 class="text-xs sm:text-[13px] font-bold text-white truncate drop-shadow-sm leading-tight"
-                  id="activeSessionUserTitle">
-                  កំពុងដំណើរការ...
-                </h3>
-              </div>
-              <!-- Row 2: Status, Role Badge & Warehouse -->
-              <div class="flex items-center gap-1.5 mt-0.5 text-[9.5px] leading-tight">
-                <span class="inline-flex items-center text-emerald-300 font-bold shrink-0">
-                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1 animate-pulse"></span> Online
-                </span>
-                <span id="activeSessionRoleBadge"
-                  class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-white/20 text-white border border-white/30 backdrop-blur-sm shrink-0 leading-none">...</span>
-                <div id="activeSessionWarehouseContainer" class="hidden items-center text-blue-200 shrink-0">
-                  <span class="text-white/30 mx-0.5">•</span>
-                  <i class="fa-solid fa-warehouse text-emerald-300 mr-1 text-[9px]"></i>
-                  <span class="font-bold text-emerald-300 truncate max-w-[160px]" id="activeSessionWarehouseName">...</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Right: 2-Row HUD Widgets Bar -->
-        <div class="flex items-center flex-nowrap gap-2 sm:gap-2.5 text-xs shrink-0 justify-end">
-
-          <!-- 1. LIVE MARKET RATES WIDGET (2 Rows: សាំង/មាស ជួរទី១, ម៉ាស៊ូត/ដុល្លារ ជួរទី២) -->
-          <div id="topMarketRatesWidget" onclick="openMarketRatesModal()"
-            class="hidden md:flex flex-col justify-center bg-white/10 hover:bg-white/20 px-2.5 sm:px-3 py-1 rounded-xl border border-white/20 backdrop-blur-md shadow-sm transition-all text-white text-xs cursor-pointer select-none group shrink-0 whitespace-nowrap hover:scale-[1.01] active:scale-[0.99]"
-            title="ចុចដើម្បីមើលព័ត៌មានលម្អិត និងកែប្រែហាងឆេងទីផ្សារ (Gasoline, Gold, Exchange Rate)">
-            <!-- ជួរទី១: សាំង | មាស -->
-            <div class="flex items-center gap-2 text-[11px] font-medium leading-tight">
-              <div class="flex items-center gap-1 w-[106px] shrink-0">
-                <span class="w-3.5 flex items-center justify-center shrink-0">
-                  <i class="fa-solid fa-gas-pump text-amber-300 text-[10px]"></i>
-                </span>
-                <span class="w-[38px] text-blue-100/90 text-[10px] shrink-0">សាំង</span>
-                <span class="text-blue-100/90 text-[10px] font-medium shrink-0 mr-1">:</span>
-                <span id="topBarRateGasoline" class="font-bold text-amber-300 font-mono text-[11px] text-left">4,350៛</span>
-              </div>
-              <span class="text-white/25 shrink-0 px-0.5">|</span>
-              <div class="flex items-center gap-1 shrink-0">
-                <span class="w-3.5 flex items-center justify-center shrink-0">
-                  <i class="fa-solid fa-coins text-yellow-300 text-[10px]"></i>
-                </span>
-                <span class="w-[38px] text-blue-100/90 text-[10px] shrink-0">មាស</span>
-                <span class="text-blue-100/90 text-[10px] font-medium shrink-0 mr-1">:</span>
-                <span id="topBarRateGold" class="font-bold text-yellow-200 font-mono text-[11px] text-left">468.7$/ជី</span>
-              </div>
-            </div>
-            <!-- ជួរទី២: ម៉ាស៊ូត | ដុល្លារ -->
-            <div class="flex items-center gap-2 text-[11px] font-medium leading-tight mt-0.5">
-              <div class="flex items-center gap-1 w-[106px] shrink-0">
-                <span class="w-3.5 flex items-center justify-center shrink-0">
-                  <i class="fa-solid fa-gas-pump text-orange-300 text-[10px]"></i>
-                </span>
-                <span class="w-[38px] text-blue-100/90 text-[10px] shrink-0">ម៉ាស៊ូត</span>
-                <span class="text-blue-100/90 text-[10px] font-medium shrink-0 mr-1">:</span>
-                <span id="topBarRateDiesel" class="font-bold text-orange-300 font-mono text-[11px] text-left">5,300៛</span>
-              </div>
-              <span class="text-white/25 shrink-0 px-0.5">|</span>
-              <div class="flex items-center gap-1 shrink-0">
-                <span class="w-3.5 flex items-center justify-center shrink-0">
-                  <i class="fa-solid fa-dollar-sign text-emerald-300 text-[10px]"></i>
-                </span>
-                <span class="w-[38px] text-blue-100/90 text-[10px] shrink-0">ដុល្លារ</span>
-                <span class="text-blue-100/90 text-[10px] font-medium shrink-0 mr-1">:</span>
-                <div class="flex items-center font-mono text-[11px] leading-tight text-left">
-                  <span class="text-[10px] text-emerald-200 font-medium mr-0.5">1$=</span>
-                  <span id="topBarRateUsdKhr" class="font-bold text-emerald-300">4,068៛</span>
-                  <i class="fa-solid fa-chevron-right text-[7.5px] text-blue-300 group-hover:text-amber-300 ml-1 transition-colors shrink-0"></i>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 2. LIVE CLOCK, DATE & CALENDAR WIDGET (2 Rows: ថ្ងៃខែឆ្នាំ ជួរទី១, ម៉ោង & ប្រតិទិន ជួរទី២) -->
-          <div id="sessionBannerClockDateBtn" onclick="toggleKhmerCalendarModal()"
-            class="hidden flex-col justify-center bg-white/10 hover:bg-white/20 px-2.5 sm:px-3 py-1 rounded-xl border border-white/20 backdrop-blur-md shadow-sm transition-colors text-white text-xs cursor-pointer select-none group shrink-0 whitespace-nowrap"
-            title="ចុចដើម្បីមើលប្រតិទិនចន្ទគតិខ្មែរ (Khmer Lunar Calendar)">
-            <!-- ជួរទី១: កាលបរិច្ឆេទ ថ្ងៃខែឆ្នាំ -->
-            <div class="flex items-center gap-1 text-[11px] font-semibold text-white group-hover:text-amber-100 leading-tight">
-              <i class="fa-regular fa-calendar-days text-blue-200 group-hover:text-amber-300 text-[10px] shrink-0"></i>
-              <span id="sessionBannerDateText" class="truncate font-bold">...</span>
-            </div>
-            <!-- ជួរទី២: ម៉ោង និងប៊ូតុងប្រតិទិន -->
-            <div id="sessionBannerDateDisplay" class="flex items-center justify-between gap-2 text-[11px] font-medium text-white leading-tight mt-0.5">
-              <div class="flex items-center gap-1">
-                <i class="fa-regular fa-clock text-blue-200 group-hover:text-amber-300 text-[10px] shrink-0"></i>
-                <span class="text-blue-100/90 text-[10px] font-medium">ម៉ោង:</span>
-                <span id="sessionBannerClockTime"
-                  class="font-mono tabular-nums font-bold text-amber-200 text-xs inline-block text-center w-[58px] leading-none shrink-0">00:00:00</span>
-                <span id="sessionBannerDatePeriod" class="text-amber-100 text-[10px] font-medium">...</span>
-              </div>
-              <span
-                class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] font-black bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 group-hover:from-yellow-300 group-hover:to-orange-400 text-amber-950 border border-amber-200/90 shadow-xs hover:scale-105 active:scale-95 transition-all select-none relative shrink-0 leading-none">
-                <i class="fa-solid fa-calendar text-[8.5px] text-amber-950"></i>
-                <span class="tracking-wide">ប្រតិទិន</span>
-                <span id="sessionBannerCalNoteDot" class="hidden absolute -top-1 -right-1 flex h-2 w-2"
-                  title="មាន Note រំលឹក!">
-                  <span
-                    class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                  <span class="relative inline-flex rounded-full h-2 w-2 bg-rose-500 border border-white"></span>
-                </span>
-              </span>
-            </div>
-          </div>
-
-          <!-- 3. LIVE SESSION DURATION TIMER (2 Rows: រយៈពេលចូល ជួរទី១, 00:00:00 ជួរទី២) -->
-          <div
-            class="flex flex-col items-center justify-center bg-white/10 hover:bg-white/15 px-2.5 sm:px-3 py-1 rounded-xl border border-white/20 backdrop-blur-md shadow-sm transition-colors shrink-0 whitespace-nowrap select-none min-w-[84px]"
-            title="រយៈពេលកំពុងដំណើរការ Session នេះ">
-            <!-- ជួរទី១: Label -->
-            <div class="flex items-center gap-1 text-[10px] text-blue-100 font-medium leading-tight">
-              <i class="fa-solid fa-stopwatch text-cyan-300 text-[9px] shrink-0"></i>
-              <span class="whitespace-nowrap">រយៈពេលចូល</span>
-            </div>
-            <!-- ជួរទី២: Value -->
-            <span id="activeSessionDurationTime"
-              class="font-mono tabular-nums font-black text-cyan-200 text-xs sm:text-[13px] leading-tight mt-0.5 inline-block text-center w-[58px]">00:00:00</span>
-          </div>
-
-          <!-- RETURN TO SUPERADMIN BUTTON (ប៊ូតុងត្រឡប់ទៅកាន់ SuperAdmin វិញពេល impersonating) -->
-          <button id="btnReturnSuperAdmin" onclick="exitImpersonation()" title="ត្រឡប់ទៅ SuperAdmin វិញ"
-            class="px-2.5 sm:px-3 h-[32px] sm:h-[36px] bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-xl text-xs font-bold items-center space-x-1.5 border border-emerald-300/40 shadow-md shadow-emerald-950/40 transition-colors shrink-0 hidden leading-none active:scale-95 cursor-pointer">
-            <i class="fa-solid fa-arrow-left text-xs"></i>
-            <span>ត្រឡប់ទៅ SuperAdmin</span>
-          </button>
-
-          <!-- TOP LOGOUT BUTTON (ប៊ូតុងចាកចេញនៅលើគេបំផុត) -->
-          <button onclick="handleLogout()" title="ចាកចេញពីប្រព័ន្ធ (Logout)"
-            class="px-2.5 sm:px-3 h-[32px] sm:h-[36px] bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 border border-white/20 shadow-md shadow-rose-950/40 transition-colors shrink-0 leading-none active:scale-95 cursor-pointer">
-            <i class="fa-solid fa-power-off text-xs"></i>
-            <span class="hidden sm:inline">ចាកចេញ</span>
-          </button>
-        </div>
-      </div>
-      <!-- Instant Session Banner Sync Script: Renders correct User info before paint -->
+        <!-- Instant Session Banner Sync Script: Renders correct User info before paint -->
       <script>
         // =========================================================================
         // UNIVERSAL ROLE RECOGNITION HELPERS (SUPERADMIN & ADMIN)
@@ -5350,6 +5346,7 @@
         </div>
 
       </main>
+      </div>
     </div>
 
     <!-- ========================================== -->
@@ -48817,14 +48814,12 @@
     }
 
     function updateCollapsedLogoVisibility(isSidebarOpen) {
-      const bannerLogo = document.getElementById('sessionBannerLogo');
-      if (bannerLogo) {
+      const toggleIcon = document.getElementById('sidebarToggleIcon');
+      if (toggleIcon) {
         if (isSidebarOpen) {
-          bannerLogo.classList.add('hidden');
-          bannerLogo.classList.remove('flex');
+          toggleIcon.className = 'fa-solid fa-chevron-left text-sm transition-transform';
         } else {
-          bannerLogo.classList.remove('hidden');
-          bannerLogo.classList.add('flex');
+          toggleIcon.className = 'fa-solid fa-chevron-right text-sm transition-transform';
         }
       }
     }
