@@ -8494,19 +8494,34 @@
                   class="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-rose-500">
                 </select>
               </div>
-              <div>
-                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">ទីតាំងជាក់លាក់ក្នុងឃ្លាំង *</label>
-                <input type="text" id="dmgInputStorageZone" required placeholder="ឧ. ធ្នើរ D-01, បន្ទប់សម្ភារខូច..."
-                  list="dmgStorageZoneOptions"
-                  class="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-rose-500 font-medium">
-                <datalist id="dmgStorageZoneOptions">
-                  <option value="ធ្នើរខូច D-01 (តំបន់ Quarantine)"></option>
-                  <option value="ធ្នើរខូច D-02"></option>
-                  <option value="បន្ទប់រក្សាទុកសម្ភារខូច"></option>
-                  <option value="កន្លែងរង់ចាំជួសជុល"></option>
-                  <option value="កន្លែងរង់ចាំដូរក្រុមហ៊ុន"></option>
-                  <option value="ឃ្លាំងចាស់ជួរទី ៣"></option>
-                </datalist>
+              <div id="dmgZoneContainer" class="w-full">
+                <label class="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center truncate"
+                  title="តំបន់ស្តុកទំនិញ">
+                  <i class="fa-solid fa-location-dot text-rose-500 mr-1.5 shrink-0 text-xs"></i>
+                  <span class="truncate">តំបន់ស្តុកទំនិញ</span>
+                </label>
+                <div class="relative w-full h-[38px]">
+                  <i
+                    class="fa-solid fa-location-dot absolute left-3 top-2.5 text-rose-500 text-xs pointer-events-none"></i>
+                  <input type="text" id="dmgInputStorageZone" placeholder="រើស ឬកែ" autocomplete="off"
+                    onfocus="openStockInZoneDropdown('dmgInputStorageZone', 'dmgZoneChevron')"
+                    onclick="openStockInZoneDropdown('dmgInputStorageZone', 'dmgZoneChevron')"
+                    oninput="handleStockInZoneInput(this.value)"
+                    onkeydown="handleStockInZoneKeydown(event)"
+                    class="w-full h-full pl-8 pr-12 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-rose-500 focus:bg-white outline-none transition shadow-2xs">
+                  <div class="absolute right-1.5 top-1 flex items-center gap-0.5">
+                    <button type="button" id="dmgZoneClearBtn" onclick="clearStockInZone(event)"
+                      class="hidden p-1 text-slate-400 hover:text-rose-600 rounded-lg text-xs cursor-pointer" title="សម្អាត Zone">
+                      <i class="fa-solid fa-xmark"></i>
+                    </button>
+                    <button type="button" onclick="toggleStockInZoneDropdown(event, 'dmgInputStorageZone', 'dmgZoneChevron')"
+                      class="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg text-xs transition cursor-pointer"
+                      title="បើក/បិទបញ្ជី Zone">
+                      <i class="fa-solid fa-chevron-down text-[11px] transition-transform duration-200"
+                        id="dmgZoneChevron"></i>
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -24549,7 +24564,7 @@
       }
 
       const dropdown = ensureStockInZoneDropdown();
-      if (currentZonePickerTargetInputId === 'swalEditZone') {
+      if (currentZonePickerTargetInputId === 'swalEditZone' || currentZonePickerTargetInputId === 'dmgInputStorageZone') {
         dropdown.style.zIndex = '99999';
       } else {
         dropdown.style.zIndex = '1000';
@@ -24564,8 +24579,10 @@
       }
 
       const inputEl = document.getElementById(currentZonePickerTargetInputId);
-      const clearBtn = document.getElementById('stockInZoneClearBtn');
-      if (clearBtn && inputEl && currentZonePickerTargetInputId === 'stockInZone') {
+      const clearBtn = currentZonePickerTargetInputId === 'dmgInputStorageZone'
+        ? document.getElementById('dmgZoneClearBtn')
+        : document.getElementById('stockInZoneClearBtn');
+      if (clearBtn && inputEl && (currentZonePickerTargetInputId === 'stockInZone' || currentZonePickerTargetInputId === 'dmgInputStorageZone')) {
         if (inputEl.value.trim()) clearBtn.classList.remove('hidden');
         else clearBtn.classList.add('hidden');
       }
@@ -24623,6 +24640,9 @@
       if (targetId === 'stockInZone') {
         const clearBtn = document.getElementById('stockInZoneClearBtn');
         if (clearBtn) clearBtn.classList.remove('hidden');
+      } else if (targetId === 'dmgInputStorageZone') {
+        const clearBtn = document.getElementById('dmgZoneClearBtn');
+        if (clearBtn) clearBtn.classList.remove('hidden');
       }
       if (targetId === 'receiveDispatchZone' && typeof recomputeReceptionTotal === 'function') {
         recomputeReceptionTotal();
@@ -24647,6 +24667,9 @@
       if (targetId === 'stockInZone') {
         const clearBtn = document.getElementById('stockInZoneClearBtn');
         if (clearBtn) clearBtn.classList.add('hidden');
+      } else if (targetId === 'dmgInputStorageZone') {
+        const clearBtn = document.getElementById('dmgZoneClearBtn');
+        if (clearBtn) clearBtn.classList.add('hidden');
       }
 
       stockInZoneActiveFilterLetter = '';
@@ -24656,6 +24679,12 @@
     function handleStockInZoneInput(val) {
       if (currentZonePickerTargetInputId === 'stockInZone') {
         const clearBtn = document.getElementById('stockInZoneClearBtn');
+        if (clearBtn) {
+          if (val.trim()) clearBtn.classList.remove('hidden');
+          else clearBtn.classList.add('hidden');
+        }
+      } else if (currentZonePickerTargetInputId === 'dmgInputStorageZone') {
+        const clearBtn = document.getElementById('dmgZoneClearBtn');
         if (clearBtn) {
           if (val.trim()) clearBtn.classList.remove('hidden');
           else clearBtn.classList.add('hidden');
@@ -24698,10 +24727,12 @@
       const targetInput = document.getElementById(currentZonePickerTargetInputId);
       const zoneField = document.getElementById('stockInField_zone');
       const swalZoneContainer = document.getElementById('swalZoneContainer');
+      const dmgZoneContainer = document.getElementById('dmgZoneContainer');
       if (stockInZoneDropdownEl.contains(e.target) ||
         (targetInput && (targetInput === e.target || targetInput.contains(e.target))) ||
         (zoneField && zoneField.contains(e.target)) ||
-        (swalZoneContainer && swalZoneContainer.contains(e.target))) {
+        (swalZoneContainer && swalZoneContainer.contains(e.target)) ||
+        (dmgZoneContainer && dmgZoneContainer.contains(e.target))) {
         return;
       }
       closeStockInZoneDropdown();
@@ -25342,12 +25373,18 @@
       const imgEl = document.getElementById('dmgItemImg');
       const placeholderEl = document.getElementById('dmgImgPlaceholderBox');
       const previewBox = document.getElementById('dmgItemStockPreview');
+      const zoneInput = document.getElementById('dmgInputStorageZone');
+      const zoneClearBtn = document.getElementById('dmgZoneClearBtn');
+      const zoneChevron = document.getElementById('dmgZoneChevron');
 
       if (skuInput) skuInput.value = '';
       if (codeInput) codeInput.value = '';
       if (sizeInput) sizeInput.value = '';
       if (colorInput) colorInput.value = '';
       if (unitInput) unitInput.value = '';
+      if (zoneInput) zoneInput.value = '';
+      if (zoneClearBtn) zoneClearBtn.classList.add('hidden');
+      if (zoneChevron) zoneChevron.style.transform = '';
       if (imgEl) {
         imgEl.src = '';
         imgEl.classList.add('hidden');
@@ -25469,6 +25506,17 @@
             previewBox.classList.remove('hidden');
             if (previewName) previewName.innerText = item.name || item.sku;
             if (previewStock) previewStock.innerText = `${stVal} ${item.unit || 'ដុំ'}`;
+          }
+
+          // Auto-suggest storage zone if available
+          const zoneInput = document.getElementById('dmgInputStorageZone');
+          if (zoneInput && !zoneInput.value.trim()) {
+            const oldZ = (typeof getOldStockZoneForItem === 'function') ? getOldStockZoneForItem(item.sku, curWh) : (item.zone || '');
+            if (oldZ) {
+              zoneInput.value = oldZ;
+              const clrBtn = document.getElementById('dmgZoneClearBtn');
+              if (clrBtn) clrBtn.classList.remove('hidden');
+            }
           }
         } else if (mode === 'inventory') {
           const searchInp = document.getElementById('itemSearchInput');
@@ -47520,6 +47568,7 @@
 
     function closeRecordDamagedModal() {
       if (typeof hideCustomProductDropdown === 'function') hideCustomProductDropdown();
+      if (typeof closeStockInZoneDropdown === 'function') closeStockInZoneDropdown();
       document.getElementById('recordDamagedModal')?.classList.add('hidden');
     }
 
