@@ -10481,6 +10481,12 @@
                 if (!p.avatar || p.avatar.includes('photo-1534528741775-53994a69daeb')) p.avatar = 'assets/superadmin_avatar.jpg';
                 if (p.password === 'superadmin123' || !p.password) p.password = '841453Bsm';
               }
+              // Self-heal K3-阿玉 to Station Manager at K3 station
+              if (p.userId === 'USR-20261107111053' || (p.username && p.username.toLowerCase() === 'k3-阿玉')) {
+                if (p.fullName === 'អេង លីហ្គេច' || !p.fullName) p.fullName = 'អេង លីហួច';
+                if (!p.role || p.role === 'Admin') p.role = 'អ្នកគ្រប់គ្រងស្ថានីយ';
+                if (!p.warehouse || p.warehouse === 'ALL') p.warehouse = 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
+              }
               p.phone = formatPhoneNumber(p.phone);
               const idx = LOCAL_DB.users.findIndex(u =>
                 (p.userId && u.userId === p.userId) ||
@@ -19479,11 +19485,17 @@
 
           // E. Users (if admin or station manager)
           if (Array.isArray(res.users)) {
-            // Self-heal K3-阿玉 fullName typo if present
+            // Self-heal K3-阿玉 fullName, role, and warehouse
             res.users.forEach(ru => {
               if (ru && (String(ru.username || '').toLowerCase() === 'k3-阿玉' || ru.userId === 'USR-20261107111053')) {
                 if (ru.fullName === 'អេង លីហ្គេច' || !ru.fullName) {
                   ru.fullName = 'អេង លីហួច';
+                }
+                if (!ru.role || ru.role === 'Admin') {
+                  ru.role = 'អ្នកគ្រប់គ្រងស្ថានីយ';
+                }
+                if (!ru.warehouse || ru.warehouse === 'ALL') {
+                  ru.warehouse = 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
                 }
               }
             });
@@ -37706,6 +37718,8 @@
           const uId = String(u.userId || '').toUpperCase();
           const isSA = (r === 'superadmin' || uName === 'superadmin' || uId === 'USR-SA');
           if (isSA) return false;
+          // Protect K3-阿玉: she is Station Manager of K3 Station and must always be visible to Admin
+          if (uName === 'k3-阿玉' || uName === 'k3-ayux' || uId === 'USR-20261107111053') return true;
           const isOtherAdmin = (r === 'admin' || uName === 'admin') && !isSelfUser(u);
           if (isOtherAdmin) return false;
           return true;
@@ -37752,6 +37766,12 @@
               if (ru && (String(ru.username || '').toLowerCase() === 'k3-阿玉' || ru.userId === 'USR-20261107111053')) {
                 if (ru.fullName === 'អេង លីហ្គេច' || !ru.fullName) {
                   ru.fullName = 'អេង លីហួច';
+                }
+                if (!ru.role || ru.role === 'Admin') {
+                  ru.role = 'អ្នកគ្រប់គ្រងស្ថានីយ';
+                }
+                if (!ru.warehouse || ru.warehouse === 'ALL') {
+                  ru.warehouse = 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
                 }
               }
             });

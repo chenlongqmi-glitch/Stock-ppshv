@@ -3594,13 +3594,28 @@ function getUsersList(userOrPayload) {
       users.push({
         userId: String(data[i][0] || '').trim(),
         username: String(data[i][1] || '').replace(/[\u200b\ufeff]/g, '').trim(),
-        fullName: String(data[i][2] || '').replace(/[\u200b\ufeff]/g, '').trim(),
+        fullName: (function () {
+          const rawFn = String(data[i][2] || '').replace(/[\u200b\ufeff]/g, '').trim();
+          if ((uId === 'USR-20261107111053' || uName === 'k3-阿玉' || uName === 'k3-ayux') && (rawFn === 'អេង លីហ្គេច' || !rawFn)) {
+            return 'អេង លីហួច';
+          }
+          return rawFn;
+        })(),
         email: String(data[i][3] || '').trim(),
-        role: String(data[i][6] || '').trim(),
+        role: (function () {
+          const rawR = String(data[i][6] || '').trim();
+          if ((uId === 'USR-20261107111053' || uName === 'k3-阿玉' || uName === 'k3-ayux') && (rawR === 'Admin' || !rawR)) {
+            return 'អ្នកគ្រប់គ្រងស្ថានីយ';
+          }
+          return rawR;
+        })(),
         status: String(data[i][7] || 'Active').trim(),
         createdAt: data[i][8],
         warehouse: (function () {
           const rawW = String(data[i][9] || '').replace(/[\u200b\ufeff]/g, '').trim();
+          if (uId === 'USR-20261107111053' || uName === 'k3-阿玉' || uName === 'k3-ayux') {
+            return 'K3 ស្ថានីយ (ភ្នំពេញ) 01';
+          }
           if (rawW) return rawW;
           return (data[i][6] === 'Admin' || data[i][6] === 'SuperAdmin') ? 'ALL' : '1-K3 ស្ថានីយ (ភ្នំពេញ)';
         })(),
@@ -3664,6 +3679,7 @@ function getUsersList(userOrPayload) {
         if (isSA) return false; // Admin cannot see SuperAdmin
         const isPending = (u.status === 'Pending' || u.status === 'Pending_Admin' || u.status === 'Pending_SuperAdmin');
         if (!isPending) {
+          if (uName === 'k3-阿玉' || uName === 'k3-ayux' || uId === 'USR-20261107111053') return true;
           const isOtherAdmin = (r === 'admin' || uName === 'admin' || uName === 'singvan327@gmail.com') && !isSelf(u);
           if (isOtherAdmin) return false; // Admin sees own Admin account with (ខ្ញុំ) badge, but not other Admins
         }
