@@ -9519,8 +9519,9 @@
       const fullName = String(u.fullName || '').trim();
 
       // Explicitly allow actual users from Google Sheets & SuperAdmin
-      const realUsernames = ['superadmin', 'singvan', 'hongkhimly', 'hongkimly', 'touchivy', 'leng sreymeas', 'sreypovepech', 'cheng dina'];
+      const realUsernames = ['superadmin', 'singvan', 'hongkhimly', 'hongkimly', 'touchivy', 'leng sreymeas', 'lengsreymeas', 'sreypovepech', 'cheng dina', 'k3-阿玉', 'k3-ayux', 'pen sorphea', 'pensorphea', 'test', 'test4sdf'];
       if (realUsernames.includes(uname)) return false;
+      if (uid === 'USR-20261107111053' || uid === 'USR-20261107103857') return false;
 
       // Filter out dummy/mock accounts created in local
       if (uname === 'sdfsdf' || uname === 'bengkaka' || email.endsWith('@inventory.local')) return true;
@@ -9566,7 +9567,9 @@
       dispatches: [],
       users: [
         { userId: 'USR-SA', username: 'superadmin', fullName: '陈龙', email: 'chenlongqmi@gmail.com', phone: '066 966 606', role: 'SuperAdmin', status: 'Active', warehouse: 'ALL', avatar: 'assets/superadmin_avatar.jpg', isRegistered: true },
-        { userId: 'USR-20261103163001', username: 'leng sreymeas', fullName: 'ឡេង ស្រីមាស', email: 'Lengsreymeas17@gmail.com', phone: '016 594 038', role: 'អ្នកគ្រប់គ្រងស្ថានីយ', status: 'Active', warehouse: 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02', avatar: 'assets/leng_sreymeas_avatar.jpg', boundDevices: { desktop: null, mobile: null, pc: null }, isRegistered: true }
+        { userId: 'USR-20261103163001', username: 'leng sreymeas', fullName: 'ឡេង ស្រីមាស', email: 'Lengsreymeas17@gmail.com', phone: '016 594 038', role: 'អ្នកគ្រប់គ្រងស្ថានីយ', status: 'Active', warehouse: 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02', avatar: 'assets/leng_sreymeas_avatar.jpg', boundDevices: { desktop: null, mobile: null, pc: null }, isRegistered: true },
+        { userId: 'USR-20261107111053', username: 'K3-阿玉', fullName: 'អេង លីហួច', email: '', phone: '088 237 7779', role: 'អ្នកគ្រប់គ្រងស្ថានីយ', status: 'Active', warehouse: 'K3 ស្ថានីយ (ភ្នំពេញ) 01', isRegistered: true },
+        { userId: 'USR-20261107103857', username: 'PEN SORPHEA', fullName: 'ពេន សុភា', email: '', phone: '097 738 7613', role: 'ប្រធានក្រុម', status: 'Active', warehouse: 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02', isRegistered: true }
       ],
       items: [
         {
@@ -10342,7 +10345,9 @@
       const em = String(u.email || '').trim().toLowerCase();
       // Explicitly protect active valid users from ever being marked as deleted
       if (un === 'leng sreymeas' || un === 'lengsreymeas' || un === 'sreymeas' || em === 'lengsreymeas17@gmail.com') return false;
-      if (un === 'superadmin' || un === 'singvan' || un === 'touchivy' || un === 'hongkhimly' || un === 'hongkimly' || un === 'sreypovepech' || un === 'cheng dina') return false;
+      if (un === 'superadmin' || un === 'singvan' || un === 'touchivy' || un === 'hongkhimly' || un === 'hongkimly' || un === 'sreypovepech' || un === 'cheng dina' || un === 'k3-阿玉' || un === 'k3-ayux' || un === 'pen sorphea' || un === 'pensorphea' || un === 'test' || un === 'test4sdf') return false;
+      const uid = String(u.userId || u.id || '').trim().toUpperCase();
+      if (uid === 'USR-20261107111053' || uid === 'USR-20261107103857') return false;
 
       if (u.status === 'Deleted' || u.status === 'deleted') return true;
       const set = getDeletedUserKeys();
@@ -10363,10 +10368,12 @@
         const set = getDeletedUserKeys();
         let changed = false;
 
-        // Ensure active accounts (like leng sreymeas) are never kept in deleted set
+        // Ensure active accounts (like leng sreymeas, k3-阿玉, pen sorphea) are never kept in deleted set
         const toUnset = [
           'leng sreymeas', 'lengsreymeas', 'sreymeas', 'lengsreymeas17@gmail.com', 'lengsreymeas15@gmail.com',
-          '016594038', '016 594 038', '098999555', '098 999 555', 'usr-20261103163001'
+          '016594038', '016 594 038', '098999555', '098 999 555', 'usr-20261103163001',
+          'k3-阿玉', 'k3-ayux', '阿玉', '0882377779', '088 237 7779', 'usr-20261107111053',
+          'pen sorphea', 'pensorphea', '0977387613', '097 738 7613', 'usr-20261107103857'
         ];
         toUnset.forEach(k => {
           if (set.has(k)) {
@@ -19473,6 +19480,14 @@
 
           // E. Users (if admin or station manager)
           if (Array.isArray(res.users)) {
+            // Self-heal K3-阿玉 fullName typo if present
+            res.users.forEach(ru => {
+              if (ru && (String(ru.username || '').toLowerCase() === 'k3-阿玉' || ru.userId === 'USR-20261107111053')) {
+                if (ru.fullName === 'អេង លីហ្គេច' || !ru.fullName) {
+                  ru.fullName = 'អេង លីហួច';
+                }
+              }
+            });
             const cleanUsers = deduplicateUsersList(res.users.filter(ru => {
               if (!ru || isUnregisteredDummyUser(ru) || isUserDeleted(ru) || ru.status === 'Deleted' || ru.status === 'deleted') return false;
               const un = String(ru.username || '').replace(/^@+/, '').trim().toLowerCase();
@@ -19485,7 +19500,13 @@
             const lengSreymeasUser = (LOCAL_DB.users || []).find(u => u && (String(u.username).toLowerCase() === 'leng sreymeas' || String(u.username).toLowerCase() === 'lengsreymeas' || u.email === 'Lengsreymeas17@gmail.com')) || {
               userId: 'USR-20261103163001', username: 'leng sreymeas', fullName: 'ឡេង ស្រីមាស', email: 'Lengsreymeas17@gmail.com', phone: '016 594 038', role: 'អ្នកគ្រប់គ្រងស្ថានីយ', status: 'Active', warehouse: 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02', avatar: 'assets/leng_sreymeas_avatar.jpg', boundDevices: { desktop: null, mobile: null, pc: null }, isRegistered: true
             };
-            LOCAL_DB.users = deduplicateUsersList([saUser, lengSreymeasUser, ...cleanUsers].filter(u => !isUserDeleted(u)));
+            const k3AyuxUser = (LOCAL_DB.users || []).find(u => u && (String(u.username).toLowerCase() === 'k3-阿玉' || String(u.username).toLowerCase() === 'k3-ayux' || u.userId === 'USR-20261107111053')) || {
+              userId: 'USR-20261107111053', username: 'K3-阿玉', fullName: 'អេង លីហួច', email: '', phone: '088 237 7779', role: 'អ្នកគ្រប់គ្រងស្ថានីយ', status: 'Active', warehouse: 'K3 ស្ថានីយ (ភ្នំពេញ) 01', isRegistered: true
+            };
+            const penSorpheaUser = (LOCAL_DB.users || []).find(u => u && (String(u.username).toLowerCase() === 'pen sorphea' || u.userId === 'USR-20261107103857')) || {
+              userId: 'USR-20261107103857', username: 'PEN SORPHEA', fullName: 'ពេន សុភា', email: '', phone: '097 738 7613', role: 'ប្រធានក្រុម', status: 'Active', warehouse: 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02', isRegistered: true
+            };
+            LOCAL_DB.users = deduplicateUsersList([...cleanUsers, saUser, lengSreymeasUser, k3AyuxUser, penSorpheaUser].filter(u => !isUserDeleted(u)));
             AppState.users = [...LOCAL_DB.users];
             saveLocalUsersToStorage();
             if (typeof updateRenderableUsersFromDb === 'function') {
@@ -37724,10 +37745,15 @@
         if (res && res.success) {
           // Synchronize fresh user records directly from Google Sheet into LOCAL_DB.users and localStorage
           if (Array.isArray(res.users)) {
-            // Self-heal sreyLaLa if email is missing in returned users
+            // Self-heal sreyLaLa if email is missing in returned users, and fix name typo for K3-阿玉
             res.users.forEach(ru => {
               if (ru && String(ru.username || '').toLowerCase() === 'sreylala' && (!ru.email || ru.email.trim() === '')) {
                 ru.email = 'sreyLaLa@gmail.com';
+              }
+              if (ru && (String(ru.username || '').toLowerCase() === 'k3-阿玉' || ru.userId === 'USR-20261107111053')) {
+                if (ru.fullName === 'អេង លីហ្គេច' || !ru.fullName) {
+                  ru.fullName = 'អេង លីហួច';
+                }
               }
             });
             const cleanReturned = deduplicateUsersList(res.users.filter(ru => {
@@ -37756,7 +37782,13 @@
             const lengSreymeasUser = (LOCAL_DB.users || []).find(u => u && (String(u.username).toLowerCase() === 'leng sreymeas' || String(u.username).toLowerCase() === 'lengsreymeas' || u.email === 'Lengsreymeas17@gmail.com')) || {
               userId: 'USR-20261103163001', username: 'leng sreymeas', fullName: 'ឡេង ស្រីមាស', email: 'Lengsreymeas17@gmail.com', phone: '016 594 038', role: 'អ្នកគ្រប់គ្រងស្ថានីយ', status: 'Active', warehouse: 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02', avatar: 'assets/leng_sreymeas_avatar.jpg', boundDevices: { desktop: null, mobile: null, pc: null }, isRegistered: true
             };
-            LOCAL_DB.users = deduplicateUsersList([saUser, lengSreymeasUser, ...cleanReturned].filter(u => !isUserDeleted(u)));
+            const k3AyuxUser = (LOCAL_DB.users || []).find(u => u && (String(u.username).toLowerCase() === 'k3-阿玉' || String(u.username).toLowerCase() === 'k3-ayux' || u.userId === 'USR-20261107111053')) || {
+              userId: 'USR-20261107111053', username: 'K3-阿玉', fullName: 'អេង លីហួច', email: '', phone: '088 237 7779', role: 'អ្នកគ្រប់គ្រងស្ថានីយ', status: 'Active', warehouse: 'K3 ស្ថានីយ (ភ្នំពេញ) 01', isRegistered: true
+            };
+            const penSorpheaUser = (LOCAL_DB.users || []).find(u => u && (String(u.username).toLowerCase() === 'pen sorphea' || u.userId === 'USR-20261107103857')) || {
+              userId: 'USR-20261107103857', username: 'PEN SORPHEA', fullName: 'ពេន សុភា', email: '', phone: '097 738 7613', role: 'ប្រធានក្រុម', status: 'Active', warehouse: 'K26 ស្ថានីយ (កំពង់ស្ពឺ កើត) 02', isRegistered: true
+            };
+            LOCAL_DB.users = deduplicateUsersList([...cleanReturned, saUser, lengSreymeasUser, k3AyuxUser, penSorpheaUser].filter(u => !isUserDeleted(u)));
             AppState.users = [...LOCAL_DB.users];
             saveLocalUsersToStorage();
           }
