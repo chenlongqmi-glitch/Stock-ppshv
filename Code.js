@@ -3403,6 +3403,9 @@ function toCanonicalWarehouseNameGAS(wh) {
   if (s.indexOf('External Customer') !== -1 || s.indexOf('អតិថិជនក្រៅ') !== -1) {
     return 'អតិថិជនក្រៅ (External Customer)';
   }
+  if (s.indexOf('មុខទំនិញដែលខូច') !== -1 || s.indexOf('ទំនិញខូច') !== -1 || s.indexOf('ខូចខាត') !== -1 || sLower.indexOf('damaged') !== -1) {
+    return 'មុខទំនិញដែលខូច';
+  }
   var sNorm = sLower.replace(/[\u200b\ufeff\s_-]/g, '');
   var personWhMap = {
     'ហុងគិមលី': 'K3 ស្ថានីយ (ភ្នំពេញ) 01',
@@ -7422,8 +7425,43 @@ function recordStockOutBatch(payloadOrData, userParam) {
           ]);
         }
       });
+      items.forEach((it) => {
+        let toLoc = String(it.toLocation || it.location || it.warehouse || '').trim();
+        const isDamagedDest = toLoc.includes('មុខទំនិញដែលខូច') || toLoc.includes('ទំនិញខូច') || toLoc.includes('ខូចខាត') || toLoc.toLowerCase().includes('damaged');
+        if (isDamagedDest) {
+          try {
+            const dmgSheet = ensureDamagedStockInitialized(ss);
+            const nowDmg = new Date();
+            const dmgDateStr = Utilities.formatDate(nowDmg, 'GMT+7', 'yyyy-MM-dd');
+            const dmgRecordId = 'DMG-' + Utilities.formatDate(nowDmg, 'GMT+7', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 900 + 100);
+            const cleanUserNote = cleanDisplayNoteGAS(it.userNote !== undefined ? it.userNote : (it.notes || ''));
+            dmgSheet.appendRow([
+              dmgRecordId,
+              dmgDateStr,
+              it.sku || '',
+              it.itemName || '',
+              it.category || 'ទូទៅ',
+              Number(it.quantity || it.effectiveQty || 0),
+              it.unit || it.baseUnit || 'ដុំ',
+              it.fromLocation || location || '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
+              it.zone || 'តំបន់ទំនិញខូច',
+              'ខូចគុណភាព',
+              'មធ្យម',
+              'កំពុងរក្សាទុកក្នុងឃ្លាំង (Stored in Warehouse)',
+              'Yes',
+              cleanUserNote || (finalDocNo ? `ចេញស្តុកតាម ${finalDocNo}` : 'មុខទំនិញដែលខូច'),
+              it.issuer || (u ? (u.fullName || u.username) : 'Staff'),
+              '-',
+              nowDmg,
+              nowDmg
+            ]);
+          } catch (errDmg) {
+            Logger.log('Error writing to Damaged_Stock in recordStockOutBatch: ' + errDmg.toString());
+          }
+        }
+      });
       setGlobalDataVersion();
-      CacheService.getScriptCache().removeAll(['GLOBAL_DATA_VERSION', 'TX_SHEETS_SYNC_ALL', 'TX_SHEETS_SYNC_STOCK_OUT']);
+      CacheService.getScriptCache().removeAll(['GLOBAL_DATA_VERSION', 'TX_SHEETS_SYNC_ALL', 'TX_SHEETS_SYNC_STOCK_OUT', 'DAMAGED_STOCK_ALL']);
     } catch (eDsp) {
       Logger.log('Error creating dispatches in recordStockOutBatch: ' + eDsp);
     }
@@ -8318,6 +8356,42 @@ function recordStockOut(dataOrPayload, user) {
     }
 
     // User requested: No Stock In/Out messages in Live Chat for all users
+  }
+
+  // ប្រសិនបើគោលដៅចេញជា (មុខទំនិញដែលខូច)៖ បញ្ចូលទិន្នន័យទៅក្នុង Damaged_Stock (Quarantine Zone) ភ្លាមៗ
+  const isDamagedDest = destLocation.includes('មុខទំនិញដែលខូច') || destLocation.includes('ទំនិញខូច') || destLocation.includes('ខូចខាត') || destLocation.toLowerCase().includes('damaged');
+  if (isDamagedDest) {
+    try {
+      const dmgSheet = ensureDamagedStockInitialized(ss);
+      const nowDmg = new Date();
+      const dmgDateStr = Utilities.formatDate(nowDmg, 'GMT+7', 'yyyy-MM-dd');
+      const dmgRecordId = 'DMG-' + Utilities.formatDate(nowDmg, 'GMT+7', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 900 + 100);
+      const cleanUserNote = cleanDisplayNoteGAS(data.userNote !== undefined ? data.userNote : (data.notes || ''));
+      dmgSheet.appendRow([
+        dmgRecordId,
+        dmgDateStr,
+        sku,
+        itemName,
+        data.category || 'ទូទៅ',
+        qty,
+        unit,
+        location,
+        data.zone || 'តំបន់ទំនិញខូច',
+        'ខូចគុណភាព',
+        'មធ្យម',
+        'កំពុងរក្សាទុកក្នុងឃ្លាំង (Stored in Warehouse)',
+        'Yes',
+        cleanUserNote || (data.docNo ? `ចេញស្តុកតាម ${data.docNo}` : 'មុខទំនិញដែលខូច'),
+        data.issuer || (u ? (u.fullName || u.username) : 'Staff'),
+        '-',
+        nowDmg,
+        nowDmg
+      ]);
+      setGlobalDataVersion();
+      CacheService.getScriptCache().removeAll(['GLOBAL_DATA_VERSION', 'DAMAGED_STOCK_ALL']);
+    } catch (errDmg) {
+      Logger.log('Error writing to Damaged_Stock in recordStockOut: ' + errDmg.toString());
+    }
   }
 
   logActivity(u ? (u.fullName || u.username) : 'Staff', 'Staff', 'STOCK_OUT', `Stock Out -${qty} ${unit} of ${itemName} (${sku}) [${data.docNo || 'N/A'}]`);

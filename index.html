@@ -10175,6 +10175,9 @@
       if (s.includes('External Customer') || s.includes('អតិថិជនក្រៅ')) {
         return 'អតិថិជនក្រៅ (External Customer)';
       }
+      if (s.includes('មុខទំនិញដែលខូច') || s.includes('ទំនិញខូច') || s.includes('ខូចខាត') || sLower.includes('damaged')) {
+        return 'មុខទំនិញដែលខូច';
+      }
       // If it's a known person name (e.g. Hong Kimly), resolve to their assigned station warehouse
       const sNorm = sLower.replace(/[\u200b\ufeff\s_-]/g, '');
       const personWhMap = {
@@ -10323,6 +10326,13 @@
       return '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
     }
     window.determineStockOutFromLocation = determineStockOutFromLocation;
+
+    function isDamagedDestination(loc) {
+      if (!loc) return false;
+      const s = String(loc).toLowerCase().trim();
+      return s.includes('មុខទំនិញដែលខូច') || s.includes('ទំនិញខូច') || s.includes('ខូចខាត') || s.includes('damaged');
+    }
+    window.isDamagedDestination = isDamagedDestination;
 
     function alignItemZoneBreakdownWithStock(item) {
       if (!item) return;
@@ -26603,15 +26613,16 @@
         const canonicalList = (rawList || []).map(w => (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(w) : w)).filter(Boolean);
         const mergedList = Array.from(new Set([...standardFullList, ...canonicalList]));
 
-        let optionsHtml = `<option value="" disabled ${!curVal ? 'selected' : ''}>-- ជ្រើសរើសឃ្លាំង/ស្ថានីយ --</option>`;
+        let optionsHtml = `<option value="" disabled ${!curVal ? 'selected' : ''}>-- ជ្រើសរើសអ្នកទទួលទំនិញ --</option>`;
         mergedList.forEach(w => {
           optionsHtml += `<option value="${escapeHtml(w)}" ${curVal === w ? 'selected' : ''}>📍 ${escapeHtml(w)}</option>`;
         });
+        optionsHtml += `<option value="មុខទំនិញដែលខូច" ${curVal === 'មុខទំនិញដែលខូច' ? 'selected' : ''}>⚠️ មុខទំនិញដែលខូច (Damaged Items)</option>`;
         optionsHtml += `<option value="អតិថិជនក្រៅ (External Customer)" ${curVal === 'អតិថិជនក្រៅ (External Customer)' ? 'selected' : ''}>👤 អតិថិជនក្រៅ (External Customer)</option>`;
         soTo.innerHTML = optionsHtml;
 
         // 【默认为空】user 自己选: ប្រសិនបើមិនទាន់បានជ្រើសរើស ត្រូវទុកនៅទទេ (empty) ឱ្យ user ជ្រើសរើសដោយខ្លួនឯង
-        if (curVal && (mergedList.includes(curVal) || curVal === 'អតិថិជនក្រៅ (External Customer)')) {
+        if (curVal && (mergedList.includes(curVal) || curVal === 'មុខទំនិញដែលខូច' || curVal === 'អតិថិជនក្រៅ (External Customer)')) {
           soTo.value = curVal;
         } else {
           soTo.value = '';
@@ -26663,7 +26674,7 @@
           <option value="ដកប្រើប្រាស់ក្នុងស្ថានីយ (Station Internal Use)" ${curVal === 'ដកប្រើប្រាស់ក្នុងស្ថានីយ (Station Internal Use)' ? 'selected' : ''}>🏢 ដកប្រើប្រាស់ក្នុងស្ថានីយ (Station Internal Use)</option>
           <option value="គន្លងផ្លូវ (Toll Booths)" ${curVal === 'គន្លងផ្លូវ (Toll Booths)' ? 'selected' : ''}>🛣️ គន្លងផ្លូវ (Toll Booths)</option>
           <option value="ការិយាល័យស្ថានីយ (Station Office)" ${curVal === 'ការិយាល័យស្ថានីយ (Station Office)' ? 'selected' : ''}>📁 ការិយាល័យស្ថានីយ (Station Office)</option>
-          <option value="បាត់បង់ ឬ ខូចខាត (Damaged/Lost)" ${curVal === 'បាត់បង់ ឬ ខូចខាត (Damaged/Lost)' ? 'selected' : ''}>⚠️ បាត់បង់ ឬ ខូចខាត (Damaged/Lost)</option>
+          <option value="មុខទំនិញដែលខូច" ${curVal === 'មុខទំនិញដែលខូច' || curVal === 'បាត់បង់ ឬ ខូចខាត (Damaged/Lost)' ? 'selected' : ''}>⚠️ មុខទំនិញដែលខូច (Damaged Items)</option>
           <option value="អតិថិជនក្រៅ (External Customer)" ${curVal === 'អតិថិជនក្រៅ (External Customer)' ? 'selected' : ''}>👤 អតិថិជនក្រៅ (External Customer)</option>
         </optgroup>
       `;
@@ -29759,14 +29770,18 @@
       const tempTxId = 'TX-' + dateStr.replace(/-/g, '') + '-' + Math.floor(1000 + Math.random() * 9000);
 
       // បញ្ជូនទិន្នន័យចូលក្នុងមុខងារ (ទទួលទំនិញចូលស្តុកពី Admin / ស្ថានីយ (Incoming Dispatches)) របស់ស្ថានីយទទួល ឬ Admin
-      const isInternalUsage = toLocation && (
+      const isDamagedDest = (typeof isDamagedDestination === 'function')
+        ? isDamagedDestination(toLocation)
+        : (toLocation && (toLocation.includes('មុខទំនិញដែលខូច') || toLocation.includes('ទំនិញខូច') || toLocation.includes('ខូចខាត') || toLocation.includes('Damaged')));
+
+      const isInternalUsage = isDamagedDest || (toLocation && (
         toLocation.includes('ដកប្រើប្រាស់') ||
         toLocation.includes('គន្លងផ្លូវ') ||
         toLocation.includes('ការិយាល័យ') ||
         toLocation.includes('បាត់បង់') ||
         toLocation.includes('ខូចខាត') ||
         toLocation.includes('អតិថិជន')
-      );
+      ));
       const isInternalHq = toLocation && (
         toLocation.includes('机电') ||
         toLocation.includes('អគ្គិសនី') ||
@@ -29827,6 +29842,25 @@
         if (typeof addNotification === 'function') {
           const senderTitle = isPrivileged ? `Admin (${issuer})` : `${fromLoc} (${issuer})`;
           addNotification('STOCK_DISPATCH', `📦 ទំនិញផ្ញើមកពី ${senderTitle} (${docNo})`, `${senderTitle} បានបើកចេញ ${itemName} ចំនួន ${qty} ${baseUnit} មកកាន់ ${toLocation}`, toLocation, issuer);
+        }
+      }
+
+      // ប្រសិនបើជ្រើសរើស (មុខទំនិញដែលខូច)៖ បញ្ចូលទិន្នន័យទៅក្នុង កំណត់ត្រាមុខទំនិញដែលខូចត្រូវរក្សាទុកក្នុងឃ្លាំង (Quarantine Zone) ភ្លាមៗ
+      if (isDamagedDest) {
+        if (typeof recordStockOutDamagedItemDirectly === 'function') {
+          recordStockOutDamagedItemDirectly({
+            sku: sku,
+            itemName: itemName,
+            category: item?.category || 'ទូទៅ',
+            qty: qty,
+            unit: baseUnit,
+            warehouse: fromLoc,
+            storageZone: zone || 'តំបន់ទំនិញខូច',
+            docNo: docNo,
+            notes: finalNotes,
+            issuer: issuer,
+            dateStr: dateStr
+          });
         }
       }
 
@@ -29939,9 +29973,21 @@
       }
 
       Swal.fire({
-        icon: 'success',
-        title: 'ទិន្នន័យបានបញ្ចូលជោគជ័យ',
-        html: `<div class="text-left text-sm space-y-1.5 p-2">
+        icon: isDamagedDest ? 'warning' : 'success',
+        title: isDamagedDest ? 'បានកត់ត្រាចូលទំនិញខូច (Quarantine Zone)' : 'ទិន្នន័យបានបញ្ចូលជោគជ័យ',
+        html: isDamagedDest ? `<div class="text-left text-sm space-y-1.5 p-2 font-khmer">
+          <p class="text-rose-700 font-bold flex items-center gap-1.5">
+            <i class="fa-solid fa-triangle-exclamation text-rose-600"></i>
+            ទិន្នន័យបានកាត់ចេញពីស្តុក និងបញ្ចូលទៅក្នុង <b>កំណត់ត្រាមុខទំនិញដែលខូច (Quarantine Zone)</b> រួចរាល់!
+          </p>
+          <div class="p-3 bg-rose-50 rounded-xl border border-rose-200 text-xs space-y-1 mt-2">
+            <p><b>លេខឯកសារ:</b> <span class="font-mono text-rose-900 font-bold">${escapeHtml(docNo)}</span></p>
+            <p><b>ទំនិញ:</b> <span class="font-bold text-slate-800">${escapeHtml(itemName)}</span> (${escapeHtml(sku)})</p>
+            <p><b>ចំនួនខូចដែលបានកាត់:</b> <span class="text-rose-700 font-black">${qty} ${escapeHtml(baseUnit)}${modeNote}</span></p>
+            <p><b>ទីតាំងរក្សាទុកទំនិញខូច:</b> <span class="font-bold text-slate-800">${escapeHtml(fromLoc)} (${escapeHtml(zone || 'តំបន់ទំនិញខូច')})</span></p>
+            <p><b>ស្តុកនៅសល់ក្នុងឃ្លាំង:</b> <span class="text-slate-800 font-black">${remainingStock} ${escapeHtml(baseUnit)}</span></p>
+          </div>
+        </div>` : `<div class="text-left text-sm space-y-1.5 p-2 font-khmer">
           <p class="text-slate-600 font-medium">ទិន្នន័យបានបញ្ជូនទៅកាន់មុខងារ <b>ទទួលទំនិញពីចុងស៊ីន</b> របស់ស្ថានីយ <b>${escapeHtml(toLocation)}</b> រួចរាល់!</p>
           <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs space-y-1 mt-2">
             <p><b>លេខឯកសារ:</b> <span class="font-mono text-amber-900 font-bold">${escapeHtml(docNo)}</span></p>
@@ -29953,9 +29999,9 @@
             <p><b>ស្តុកនៅសល់:</b> <span class="text-slate-800 font-black">${remainingStock} ${escapeHtml(baseUnit)}</span></p>
           </div>
         </div>`,
-        timer: 3000,
+        timer: 3500,
         timerProgressBar: true,
-        confirmButtonColor: '#ea580c',
+        confirmButtonColor: isDamagedDest ? '#e11d48' : '#046c4e',
         confirmButtonText: 'យល់ព្រម'
       });
 
@@ -34778,14 +34824,18 @@
         }
 
         // If dispatched to a station or Admin, create incoming dispatch
-        const isInternalUsage = it.toLocation && (
+        const isDamagedDest = (typeof isDamagedDestination === 'function')
+          ? isDamagedDestination(it.toLocation)
+          : (it.toLocation && (it.toLocation.includes('មុខទំនិញដែលខូច') || it.toLocation.includes('ទំនិញខូច') || it.toLocation.includes('ខូចខាត') || it.toLocation.includes('Damaged')));
+
+        const isInternalUsage = isDamagedDest || (it.toLocation && (
           it.toLocation.includes('ដកប្រើប្រាស់') ||
           it.toLocation.includes('គន្លងផ្លូវ') ||
           it.toLocation.includes('ការិយាល័យ') ||
           it.toLocation.includes('បាត់បង់') ||
           it.toLocation.includes('ខូចខាត') ||
           it.toLocation.includes('អតិថិជន')
-        );
+        ));
         const isInternalHq = it.toLocation && (
           it.toLocation.includes('机电') ||
           it.toLocation.includes('អគ្គិសនី') ||
@@ -34837,6 +34887,25 @@
           if (!LOCAL_DB.dispatches) LOCAL_DB.dispatches = [];
           LOCAL_DB.dispatches.unshift(dspItem);
           createdBatchDispatches.push(dspItem);
+        }
+
+        // ប្រសិនបើក្នុង Batch មានមុខទំនិញជ្រើសរើស (មុខទំនិញដែលខូច)៖ បញ្ចូលទៅក្នុង កំណត់ត្រាមុខទំនិញដែលខូច (Quarantine Zone) ភ្លាមៗ
+        if (isDamagedDest) {
+          if (typeof recordStockOutDamagedItemDirectly === 'function') {
+            recordStockOutDamagedItemDirectly({
+              sku: it.sku,
+              itemName: it.itemName,
+              category: itemObj?.category || 'ទូទៅ',
+              qty: it.effectiveQty,
+              unit: it.baseUnit,
+              warehouse: fromLoc,
+              storageZone: it.zone || 'តំបន់ទំនិញខូច',
+              docNo: docNo,
+              notes: it.notes,
+              issuer: it.issuer,
+              dateStr: dateStr
+            });
+          }
         }
 
       }
@@ -47192,6 +47261,75 @@
         }
       }
     }
+
+    function recordStockOutDamagedItemDirectly(opts) {
+      if (!opts) return null;
+      const now = new Date();
+      const dateStr = opts.dateStr || now.toISOString().slice(0, 10);
+      const dmgRecordId = 'DMG-' + dateStr.replace(/-/g, '') + '-' + Math.floor(1000 + Math.random() * 9000);
+      const dmgRecord = {
+        recordId: dmgRecordId,
+        date: dateStr,
+        sku: opts.sku || '',
+        itemName: opts.itemName || opts.sku || 'ទំនិញខូច',
+        category: opts.category || 'ទូទៅ',
+        quantity: Number(opts.qty || 0),
+        unit: opts.unit || 'ដុំ',
+        warehouse: opts.warehouse || '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
+        storageZone: opts.storageZone || 'តំបន់ទំនិញខូច',
+        damageType: 'ខូចគុណភាព',
+        severity: 'មធ្យម',
+        status: 'កំពុងរក្សាទុកក្នុងឃ្លាំង (Stored in Warehouse)',
+        deductedFromStock: 'Yes',
+        notes: (opts.notes && opts.notes !== '-') ? opts.notes : (opts.docNo ? `ចេញពីស្តុកតាម ${opts.docNo}` : 'មុខទំនិញដែលខូច'),
+        recordedBy: opts.issuer || (AppState.currentUser ? (AppState.currentUser.fullName || AppState.currentUser.username) : 'Staff'),
+        actionTaken: '-',
+        createdAt: now.toISOString()
+      };
+
+      if (typeof loadLocalDamagedStockFromStorage === 'function') loadLocalDamagedStockFromStorage();
+      if (!cachedDamagedStock) cachedDamagedStock = [];
+      cachedDamagedStock.unshift(dmgRecord);
+      if (!LOCAL_DB.damagedStock) LOCAL_DB.damagedStock = [];
+      LOCAL_DB.damagedStock.unshift(dmgRecord);
+      if (typeof saveLocalDamagedStockToStorage === 'function') saveLocalDamagedStockToStorage();
+      if (typeof updateDamagedStockStats === 'function') updateDamagedStockStats(cachedDamagedStock);
+      if (typeof filterDamagedStock === 'function') filterDamagedStock();
+
+      const dmgPayload = {
+        data: {
+          recordId: dmgRecordId,
+          sku: opts.sku || '',
+          itemName: opts.itemName || opts.sku || 'ទំនិញខូច',
+          category: opts.category || 'ទូទៅ',
+          quantity: Number(opts.qty || 0),
+          unit: opts.unit || 'ដុំ',
+          warehouse: opts.warehouse,
+          storageZone: opts.storageZone || 'តំបន់ទំនិញខូច',
+          damageType: 'ខូចគុណភាព',
+          severity: 'មធ្យម',
+          status: 'កំពុងរក្សាទុកក្នុងឃ្លាំង (Stored in Warehouse)',
+          deductedFromStock: 'No', // Already deducted by Stock Out process to prevent double deduction
+          notes: (opts.notes && opts.notes !== '-') ? opts.notes : (opts.docNo ? `ចេញពីស្តុកតាម ${opts.docNo}` : 'មុខទំនិញដែលខូច'),
+          date: dateStr
+        },
+        user: AppState.currentUser
+      };
+      if (typeof apiCall === 'function') {
+        apiCall('recordDamagedStock', dmgPayload).catch(e => console.error('recordDamagedStock backend sync error:', e));
+      }
+
+      if (typeof broadcastInventoryMutation === 'function') {
+        broadcastInventoryMutation('DAMAGED_STOCK_RECORDED', {
+          record: dmgRecord,
+          warehouse: opts.warehouse,
+          issuer: opts.issuer
+        });
+      }
+
+      return dmgRecord;
+    }
+    window.recordStockOutDamagedItemDirectly = recordStockOutDamagedItemDirectly;
 
     function openRestockDamagedModal(recordId) {
       const record = (cachedDamagedStock || []).find(r => r.recordId === recordId);
