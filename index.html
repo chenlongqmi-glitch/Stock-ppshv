@@ -11700,54 +11700,94 @@
     }
 
     // ====================================================
-    // BACKGROUND AUTO-UPDATE & SEAMLESS REFRESH SYSTEM
+    // ====================================================
+    // NON-INTRUSIVE BACKGROUND AUTO-UPDATE SYSTEM
+    // (Zero Disruption: Never interrupts active users)
     // ====================================================
     let currentAppVersion = null;
+    let pendingAppVersion = null;
     let isUpdateChecking = false;
+    let isApplyingAutoUpdate = false;
     let lastUserActivityTime = Date.now();
+    let pendingUpdateDismissed = false;
+    let idleUpdateTimer = null;
 
-    // Track user activity (typing, clicking, mouse move)
-    ['mousedown', 'keydown', 'touchstart', 'input'].forEach(evt => {
+    // Track user activity (typing, clicking, mouse move, scroll, touch)
+    ['mousedown', 'mousemove', 'keydown', 'touchstart', 'scroll', 'input', 'wheel'].forEach(evt => {
       window.addEventListener(evt, () => {
         lastUserActivityTime = Date.now();
       }, { passive: true });
     });
 
+    // Check if user is currently active or interacting with forms/modals
     function isUserBusyWithInputs() {
-      // 1. Any input or textarea is currently focused
-      const activeTag = document.activeElement ? document.activeElement.tagName : '';
-      if (['INPUT', 'TEXTAREA'].includes(activeTag)) return true;
+      // 1. User performed any activity in the last 45 seconds
+      if (Date.now() - lastUserActivityTime < 45000) return true;
 
-      // 2. Any active modal is currently open
+      // 2. Any input, textarea, select or contentEditable is currently focused
+      const activeEl = document.activeElement;
+      if (activeEl && (['INPUT', 'TEXTAREA', 'SELECT'].includes(activeEl.tagName) || activeEl.isContentEditable)) {
+        return true;
+      }
+
+      // 3. Any active modal is currently open and visible
       const modalIds = [
         'itemModal', 'profileModal', 'addUserModal', 'requestItemModal',
         'scannerModal', 'warehouseModal', 'switchUserModal', 'forgotPasswordModal',
-        'largeImageModal', 'barcodePreviewModal'
+        'largeImageModal', 'barcodePreviewModal', 'marketRatesModal',
+        'recordDamagedModal', 'adjustStockModal', 'historyDetailModal',
+        'viewDamagedDetailModal', 'imageCropModal', 'quickEditModal',
+        'editStockInModal', 'editStockOutModal'
       ];
       for (const mId of modalIds) {
         const el = document.getElementById(mId);
         if (el && !el.classList.contains('hidden')) return true;
       }
 
-      // 3. SweetAlert2 popup is visible
+      // 4. Any generic dialog or modal is visible
+      const visibleModals = document.querySelectorAll('.modal:not(.hidden), [role="dialog"]:not(.hidden)');
+      if (visibleModals && visibleModals.length > 0) return true;
+
+      // 5. SweetAlert2 popup or toast is currently visible
       if (typeof Swal !== 'undefined' && Swal.isVisible()) return true;
 
-      // 4. User typed or clicked in the last 4 seconds
-      if (Date.now() - lastUserActivityTime < 4000) return true;
+      // 6. Camera / Barcode scanner active
+      const qrEl = document.getElementById('qr-reader');
+      if (qrEl && !qrEl.classList.contains('hidden') && qrEl.children.length > 0) return true;
 
       return false;
     }
 
-    let isApplyingAutoUpdate = false;
+    function isModalOpen() {
+      const modalIds = [
+        'itemModal', 'profileModal', 'addUserModal', 'requestItemModal',
+        'scannerModal', 'warehouseModal', 'switchUserModal', 'forgotPasswordModal',
+        'largeImageModal', 'barcodePreviewModal', 'marketRatesModal',
+        'recordDamagedModal', 'adjustStockModal', 'historyDetailModal',
+        'viewDamagedDetailModal', 'imageCropModal'
+      ];
+      for (const mId of modalIds) {
+        const el = document.getElementById(mId);
+        if (el && !el.classList.contains('hidden')) return true;
+      }
+      if (typeof Swal !== 'undefined' && Swal.isVisible()) return true;
+      return false;
+    }
+
     let deployedHtmlEtag = sessionStorage.getItem('inventory_deployed_etag') || '';
 
+    // Check version in background without any disruption
     async function checkAppVersionInBackground() {
       if (isUpdateChecking || isApplyingAutoUpdate) return;
       isUpdateChecking = true;
 
       try {
         // 1. Check version.json
-        const res = await fetch('version.json?_t=' + Date.now(), { cache: 'no-store' });
+        const res = await fetch(`version.json?_t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache' }
+        });
+
         if (res.ok) {
           const data = await res.json();
           const remoteVer = String(data.version || data.buildTime || data.timestamp || '');
@@ -11755,15 +11795,19 @@
           if (!currentAppVersion) {
             currentAppVersion = remoteVer;
           } else if (remoteVer && remoteVer !== currentAppVersion) {
-            console.log(`[Auto-Update] New version detected via version.json: ${remoteVer} (Current: ${currentAppVersion})`);
-            applyAppUpdateNow(remoteVer);
+            console.log(`[Background-Update] New version detected via version.json: ${remoteVer} (Current: ${currentAppVersion})`);
+            handleNewVersionDetected(remoteVer);
             return;
           }
         }
 
         // 2. Dual check: Check deployed index.html ETag / Last-Modified
         try {
-          const headRes = await fetch('index.html?_chk=' + Date.now(), { method: 'HEAD', cache: 'no-store' });
+          const headRes = await fetch(`index.html?_chk=${Date.now()}`, {
+            method: 'HEAD',
+            cache: 'no-store',
+            headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache' }
+          });
           if (headRes.ok) {
             const etag = headRes.headers.get('etag') || headRes.headers.get('last-modified') || '';
             if (etag) {
@@ -11771,57 +11815,120 @@
                 deployedHtmlEtag = etag;
                 sessionStorage.setItem('inventory_deployed_etag', etag);
               } else if (etag !== deployedHtmlEtag) {
-                console.log(`[Auto-Update] Detected deployed HTML change via ETag: ${etag} (Old: ${deployedHtmlEtag})`);
+                console.log(`[Background-Update] Detected deployed HTML change via ETag: ${etag} (Old: ${deployedHtmlEtag})`);
                 deployedHtmlEtag = etag;
                 sessionStorage.setItem('inventory_deployed_etag', etag);
-                applyAppUpdateNow('etag_' + etag);
+                handleNewVersionDetected('etag_' + etag);
                 return;
               }
             }
           }
         } catch (hErr) { }
       } catch (err) {
-        // Silently ignore offline / temporary network glitches in background check
+        // Silently ignore offline or temporary network glitches
       } finally {
         isUpdateChecking = false;
       }
     }
 
-    function isModalOpen() {
-      const modalIds = [
-        'itemModal', 'profileModal', 'addUserModal', 'requestItemModal',
-        'scannerModal', 'warehouseModal', 'switchUserModal', 'forgotPasswordModal'
-      ];
-      for (const mId of modalIds) {
-        const el = document.getElementById(mId);
-        if (el && !el.classList.contains('hidden')) return true;
+    // Handle new version detected gracefully
+    function handleNewVersionDetected(newVer) {
+      pendingAppVersion = newVer;
+
+      // Case 1: Tab is in background (hidden) AND no modal is open
+      // Update silently in background with ZERO user disruption!
+      if (document.visibilityState === 'hidden' && !isModalOpen()) {
+        console.log('[Background-Update] Tab is hidden and no open modals. Performing silent background update...');
+        applyAppUpdateNow(newVer, false);
+        return;
       }
-      if (typeof Swal !== 'undefined' && Swal.isVisible()) return true;
-      return false;
+
+      // Case 2: User is actively working
+      // NEVER forcefully reload! Show a subtle, non-blocking notification pill
+      if (!pendingUpdateDismissed) {
+        showSubtleUpdateBanner(newVer);
+      }
+
+      // Start watcher to auto-apply when user goes idle (>= 60 seconds of no activity)
+      startIdleUpdateWatcher();
+    }
+
+    // Show sleek, non-intrusive floating update notification
+    function showSubtleUpdateBanner(ver) {
+      if (document.getElementById('subtleUpdateBanner')) return;
+
+      const banner = document.createElement('div');
+      banner.id = 'subtleUpdateBanner';
+      banner.className = 'fixed top-3 right-3 sm:right-5 z-[9999] bg-slate-900/90 text-white text-xs px-3.5 py-2.5 rounded-2xl shadow-2xl border border-blue-400/40 backdrop-blur-md flex items-center space-x-2.5 transition-all duration-300 animate-in fade-in slide-in-from-top-2';
+      banner.innerHTML = `
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
+        <div class="leading-tight select-none">
+          <p class="font-bold text-white text-[11px] flex items-center space-x-1">
+            <i class="fa-solid fa-cloud-arrow-down text-blue-400"></i>
+            <span>មានកំណែអាប់ដេតថ្មី</span>
+          </p>
+          <p class="text-[9px] text-slate-300 mt-0.5">នឹង Update នៅពេលលោកអ្នកសម្រាក ឬប្តូរផ្ទាំង</p>
+        </div>
+        <button type="button" onclick="applyAppUpdateNow(pendingAppVersion, true)"
+          class="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-[10px] font-bold rounded-lg shadow-sm transition cursor-pointer shrink-0">
+          Update ឥឡូវ
+        </button>
+        <button type="button" onclick="dismissSubtleUpdateBanner()"
+          class="text-slate-400 hover:text-white p-1 rounded-md transition cursor-pointer text-xs shrink-0"
+          title="បិទការជូនដំណឹង">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      `;
+      document.body.appendChild(banner);
+    }
+
+    function dismissSubtleUpdateBanner() {
+      pendingUpdateDismissed = true;
+      const b = document.getElementById('subtleUpdateBanner');
+      if (b) {
+        b.style.opacity = '0';
+        b.style.transform = 'translateY(-10px)';
+        setTimeout(() => b.remove(), 300);
+      }
+    }
+
+    // Auto-apply update ONLY when user has been completely idle (>= 60 seconds)
+    function startIdleUpdateWatcher() {
+      if (idleUpdateTimer) return;
+      idleUpdateTimer = setInterval(() => {
+        if (!pendingAppVersion || isApplyingAutoUpdate) return;
+
+        // Condition: Idle for at least 60 seconds AND not interacting with forms/modals
+        const isIdleFor60s = (Date.now() - lastUserActivityTime >= 60000);
+        if (isIdleFor60s && !isUserBusyWithInputs()) {
+          console.log('[Background-Update] User is idle (>= 60s). Performing safe background update...');
+          clearInterval(idleUpdateTimer);
+          idleUpdateTimer = null;
+          applyAppUpdateNow(pendingAppVersion, false);
+        }
+      }, 10000);
     }
 
     function triggerAppUpdate(newVer) {
-      applyAppUpdateNow(newVer);
+      applyAppUpdateNow(newVer, true);
     }
 
-    function applyAppUpdateNow(newVer) {
+    // Apply update cleanly with state preservation
+    function applyAppUpdateNow(newVer, isUserInitiated = false) {
       if (isApplyingAutoUpdate) return;
       isApplyingAutoUpdate = true;
       currentAppVersion = newVer;
 
-      console.log(`[Auto-Update] Performing 100% Zero-Touch Auto-Update to ${newVer}...`);
+      console.log(`[Background-Update] Applying update to ${newVer} (user-initiated: ${isUserInitiated})...`);
 
-      const activeEl = document.activeElement;
-      const isUserTyping = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable);
+      // 1. Save state completely so user returns to the exact same screen, tab, and form inputs
+      try {
+        saveAppRunningState();
+        sessionStorage.setItem('inventory_just_auto_updated', 'true');
+      } catch (e) { }
 
-      const performSeamlessReload = () => {
-        // 1. Save state completely so user returns to the exact same screen, tab, and form inputs
-        try {
-          saveAppRunningState();
-          sessionStorage.setItem('inventory_just_auto_updated', 'true');
-        } catch (e) { }
-
-        // 2. Show floating auto-update indicator
+      // 2. If user initiated or screen is visible, show a quick top pill
+      if (isUserInitiated && document.visibilityState === 'visible') {
         let pill = document.getElementById('autoUpdateTopPill');
         if (!pill) {
           pill = document.createElement('div');
@@ -11830,31 +11937,18 @@
           pill.innerHTML = `
             <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
             <i class="fa-solid fa-rotate fa-spin text-cyan-300"></i>
-            <span class="font-bold">រកឃើញការ Update ថ្មី! កំពុង Update ដោយស្វ័យប្រវត្តិ...</span>
+            <span class="font-bold">កំពុងធ្វើបច្ចុប្បន្នភាពប្រព័ន្ធ...</span>
           `;
           document.body.appendChild(pill);
         }
-
-        // 3. Cache-busted reload to guarantee latest JS & HTML are fetched from server
-        setTimeout(() => {
-          const url = new URL(window.location.href);
-          url.searchParams.set('_v', Date.now());
-          window.location.replace(url.toString());
-        }, 600);
-      };
-
-      if (isUserTyping) {
-        // If user is currently typing, wait for pause or blur before reloading
-        let idleTimer = setTimeout(performSeamlessReload, 3500);
-        const onBlur = () => {
-          clearTimeout(idleTimer);
-          activeEl.removeEventListener('blur', onBlur);
-          performSeamlessReload();
-        };
-        activeEl.addEventListener('blur', onBlur, { once: true });
-      } else {
-        performSeamlessReload();
       }
+
+      // 3. Cache-busted reload to guarantee latest JS & HTML are fetched from server
+      setTimeout(() => {
+        const url = new URL(window.location.href);
+        url.searchParams.set('_v', Date.now());
+        window.location.replace(url.toString());
+      }, isUserInitiated ? 400 : 100);
     }
 
     function initLiveReloadSSE() {
@@ -11863,8 +11957,8 @@
         const evtSource = new EventSource('/live-reload');
         evtSource.onmessage = function (e) {
           if (e.data === 'reload') {
-            console.log('[LiveReload] Server notified code update. Performing auto-update...');
-            applyAppUpdateNow('live_' + Date.now());
+            console.log('[LiveReload] Server notified code update.');
+            handleNewVersionDetected('live_' + Date.now());
           }
         };
         evtSource.onerror = function () {
@@ -11874,21 +11968,26 @@
     }
 
     function initBackgroundUpdateChecker() {
-      // Connect to instant LiveReload SSE from local server
+      // Connect to instant LiveReload SSE from local dev server if supported
       initLiveReloadSSE();
 
-      // Fast background polling every 3.0 seconds for remote/static hosting
-      setTimeout(checkAppVersionInBackground, 1000);
-      setInterval(checkAppVersionInBackground, 3000);
+      // Background polling every 45 seconds (lightweight, zero impact on performance)
+      setTimeout(checkAppVersionInBackground, 6000);
+      setInterval(checkAppVersionInBackground, 45000);
 
       window.addEventListener('focus', checkAppVersionInBackground);
       document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
+        if (document.visibilityState === 'hidden') {
+          // When user switches tab away, if there is a pending update and no modal open, update silently!
+          if (pendingAppVersion && !isApplyingAutoUpdate && !isModalOpen()) {
+            console.log('[Background-Update] Tab hidden with pending update. Updating silently in background...');
+            applyAppUpdateNow(pendingAppVersion, false);
+          }
+        } else if (document.visibilityState === 'visible') {
           checkAppVersionInBackground();
         }
       });
     }
-
     function showAutoUpdateSuccessToast() {
       const toast = document.createElement('div');
       toast.className = 'fixed bottom-4 right-4 z-[99999] bg-slate-900/95 text-white text-xs px-4 py-2.5 rounded-2xl shadow-2xl border border-emerald-500/50 backdrop-blur-md flex items-center space-x-2.5 transition-all duration-500';
@@ -50763,56 +50862,7 @@
       }
     });
 
-    // =========================================================================
-    // AUTOMATIC LIVE WEB UPDATE CHECKER (Auto-Sync & Zero-Touch Refresh)
-    // =========================================================================
-    (function initAutoWebUpdateChecker() {
-      let currentBuildVersion = null;
-      let isChecking = false;
-
-      async function checkForWebUpdates() {
-        if (isChecking) return;
-        isChecking = true;
-        try {
-          const res = await fetch(`version.json?_nocache=${Date.now()}`, {
-            cache: 'no-store',
-            headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache' }
-          });
-          if (res.ok) {
-            const data = await res.json();
-            const serverVersion = String(data.version || data.buildTime || '');
-            if (!currentBuildVersion) {
-              currentBuildVersion = serverVersion;
-            } else if (serverVersion && serverVersion !== currentBuildVersion) {
-              console.log('🚀 New web version detected:', serverVersion, 'Previous:', currentBuildVersion);
-              if (typeof showToast === 'function') {
-                showToast('🔄 មានការអាប់ដេតប្រព័ន្ធថ្មី! កំពុងផ្ទុកឡើងវិញ...', 'info');
-              }
-              setTimeout(() => {
-                window.location.reload(true);
-              }, 1200);
-            }
-          }
-        } catch (e) {
-          // Ignore network errors silently
-        } finally {
-          isChecking = false;
-        }
-      }
-
-      // Initial check after 8 seconds
-      setTimeout(checkForWebUpdates, 8000);
-      // Periodic check every 30 seconds
-      setInterval(checkForWebUpdates, 30000);
-      // Immediate check when user returns to or unlocks tab
-      document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
-          checkForWebUpdates();
-        }
-      });
-      window.addEventListener('focus', checkForWebUpdates);
-    })();
-
+    // (Background web update checker is managed centrally by initBackgroundUpdateChecker above)
     // Run auto-scale immediately
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', autoScaleAuthCard);
