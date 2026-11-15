@@ -3403,8 +3403,8 @@ function toCanonicalWarehouseNameGAS(wh) {
   if (s.indexOf('External Customer') !== -1 || s.indexOf('អតិថិជនក្រៅ') !== -1) {
     return 'អតិថិជនក្រៅ (External Customer)';
   }
-  if (s.indexOf('មុខទំនិញដែលខូច') !== -1 || s.indexOf('ទំនិញខូច') !== -1 || s.indexOf('ខូចខាត') !== -1 || sLower.indexOf('damaged') !== -1) {
-    return 'មុខទំនិញដែលខូច';
+  if (s.indexOf('មុខទំនិញខូច') !== -1 || s.indexOf('មុខទំនិញដែលខូច') !== -1 || s.indexOf('ទំនិញខូច') !== -1 || s.indexOf('ខូចខាត') !== -1 || s.indexOf('បាត់បង់') !== -1 || sLower.indexOf('damaged') !== -1) {
+    return 'មុខទំនិញខូច';
   }
   var sNorm = sLower.replace(/[\u200b\ufeff\s_-]/g, '');
   var personWhMap = {
@@ -7427,7 +7427,7 @@ function recordStockOutBatch(payloadOrData, userParam) {
       });
       items.forEach((it) => {
         let toLoc = String(it.toLocation || it.location || it.warehouse || '').trim();
-        const isDamagedDest = toLoc.includes('មុខទំនិញដែលខូច') || toLoc.includes('ទំនិញខូច') || toLoc.includes('ខូចខាត') || toLoc.toLowerCase().includes('damaged');
+        const isDamagedDest = toLoc.includes('មុខទំនិញខូច') || toLoc.includes('មុខទំនិញដែលខូច') || toLoc.includes('ទំនិញខូច') || toLoc.includes('ខូចខាត') || toLoc.includes('បាត់បង់') || toLoc.toLowerCase().includes('damaged');
         if (isDamagedDest) {
           try {
             const dmgSheet = ensureDamagedStockInitialized(ss);
@@ -8358,8 +8358,8 @@ function recordStockOut(dataOrPayload, user) {
     // User requested: No Stock In/Out messages in Live Chat for all users
   }
 
-  // ប្រសិនបើគោលដៅចេញជា (មុខទំនិញដែលខូច)៖ បញ្ចូលទិន្នន័យទៅក្នុង Damaged_Stock (Quarantine Zone) ភ្លាមៗ
-  const isDamagedDest = destLocation.includes('មុខទំនិញដែលខូច') || destLocation.includes('ទំនិញខូច') || destLocation.includes('ខូចខាត') || destLocation.toLowerCase().includes('damaged');
+  // ប្រសិនបើគោលដៅចេញជា (មុខទំនិញខូច)៖ បញ្ចូលទិន្នន័យទៅក្នុង Damaged_Stock (Quarantine Zone) ភ្លាមៗ
+  const isDamagedDest = destLocation.includes('មុខទំនិញខូច') || destLocation.includes('មុខទំនិញដែលខូច') || destLocation.includes('ទំនិញខូច') || destLocation.includes('ខូចខាត') || destLocation.includes('បាត់បង់') || destLocation.toLowerCase().includes('damaged');
   if (isDamagedDest) {
     try {
       const dmgSheet = ensureDamagedStockInitialized(ss);

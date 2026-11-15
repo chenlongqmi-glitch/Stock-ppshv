@@ -10175,8 +10175,8 @@
       if (s.includes('External Customer') || s.includes('អតិថិជនក្រៅ')) {
         return 'អតិថិជនក្រៅ (External Customer)';
       }
-      if (s.includes('មុខទំនិញដែលខូច') || s.includes('ទំនិញខូច') || s.includes('ខូចខាត') || sLower.includes('damaged')) {
-        return 'មុខទំនិញដែលខូច';
+      if (s.includes('មុខទំនិញខូច') || s.includes('មុខទំនិញដែលខូច') || s.includes('ទំនិញខូច') || s.includes('ខូចខាត') || s.includes('បាត់បង់') || sLower.includes('damaged')) {
+        return 'មុខទំនិញខូច';
       }
       // If it's a known person name (e.g. Hong Kimly), resolve to their assigned station warehouse
       const sNorm = sLower.replace(/[\u200b\ufeff\s_-]/g, '');
@@ -10330,7 +10330,7 @@
     function isDamagedDestination(loc) {
       if (!loc) return false;
       const s = String(loc).toLowerCase().trim();
-      return s.includes('មុខទំនិញដែលខូច') || s.includes('ទំនិញខូច') || s.includes('ខូចខាត') || s.includes('damaged');
+      return s.includes('មុខទំនិញខូច') || s.includes('មុខទំនិញដែលខូច') || s.includes('ទំនិញខូច') || s.includes('ខូចខាត') || s.includes('បាត់បង់') || s.includes('damaged');
     }
     window.isDamagedDestination = isDamagedDestination;
 
@@ -26617,13 +26617,13 @@
         mergedList.forEach(w => {
           optionsHtml += `<option value="${escapeHtml(w)}" ${curVal === w ? 'selected' : ''}>📍 ${escapeHtml(w)}</option>`;
         });
-        optionsHtml += `<option value="មុខទំនិញដែលខូច" ${curVal === 'មុខទំនិញដែលខូច' ? 'selected' : ''}>⚠️ មុខទំនិញដែលខូច (Damaged Items)</option>`;
+        optionsHtml += `<option value="មុខទំនិញខូច" ${curVal === 'មុខទំនិញខូច' || curVal === 'មុខទំនិញដែលខូច' ? 'selected' : ''}>⚠️ មុខទំនិញខូច</option>`;
         optionsHtml += `<option value="អតិថិជនក្រៅ (External Customer)" ${curVal === 'អតិថិជនក្រៅ (External Customer)' ? 'selected' : ''}>👤 អតិថិជនក្រៅ (External Customer)</option>`;
         soTo.innerHTML = optionsHtml;
 
         // 【默认为空】user 自己选: ប្រសិនបើមិនទាន់បានជ្រើសរើស ត្រូវទុកនៅទទេ (empty) ឱ្យ user ជ្រើសរើសដោយខ្លួនឯង
-        if (curVal && (mergedList.includes(curVal) || curVal === 'មុខទំនិញដែលខូច' || curVal === 'អតិថិជនក្រៅ (External Customer)')) {
-          soTo.value = curVal;
+        if (curVal && (mergedList.includes(curVal) || curVal === 'មុខទំនិញខូច' || curVal === 'មុខទំនិញដែលខូច' || curVal === 'អតិថិជនក្រៅ (External Customer)')) {
+          soTo.value = (curVal === 'មុខទំនិញដែលខូច') ? 'មុខទំនិញខូច' : curVal;
         } else {
           soTo.value = '';
         }
@@ -26674,7 +26674,7 @@
           <option value="ដកប្រើប្រាស់ក្នុងស្ថានីយ (Station Internal Use)" ${curVal === 'ដកប្រើប្រាស់ក្នុងស្ថានីយ (Station Internal Use)' ? 'selected' : ''}>🏢 ដកប្រើប្រាស់ក្នុងស្ថានីយ (Station Internal Use)</option>
           <option value="គន្លងផ្លូវ (Toll Booths)" ${curVal === 'គន្លងផ្លូវ (Toll Booths)' ? 'selected' : ''}>🛣️ គន្លងផ្លូវ (Toll Booths)</option>
           <option value="ការិយាល័យស្ថានីយ (Station Office)" ${curVal === 'ការិយាល័យស្ថានីយ (Station Office)' ? 'selected' : ''}>📁 ការិយាល័យស្ថានីយ (Station Office)</option>
-          <option value="មុខទំនិញដែលខូច" ${curVal === 'មុខទំនិញដែលខូច' || curVal === 'បាត់បង់ ឬ ខូចខាត (Damaged/Lost)' ? 'selected' : ''}>⚠️ មុខទំនិញដែលខូច (Damaged Items)</option>
+          <option value="មុខទំនិញខូច" ${curVal === 'មុខទំនិញខូច' || curVal === 'មុខទំនិញដែលខូច' || curVal === 'បាត់បង់ ឬ ខូចខាត (Damaged/Lost)' ? 'selected' : ''}>⚠️ មុខទំនិញខូច</option>
           <option value="អតិថិជនក្រៅ (External Customer)" ${curVal === 'អតិថិជនក្រៅ (External Customer)' ? 'selected' : ''}>👤 អតិថិជនក្រៅ (External Customer)</option>
         </optgroup>
       `;
@@ -34491,7 +34491,7 @@
         'ដកប្រើប្រាស់ក្នុងស្ថានីយ (Station Internal Use)',
         'គន្លងផ្លូវ (Toll Booths)',
         'ការិយាល័យស្ថានីយ (Station Office)',
-        'បាត់បង់ ឬ ខូចខាត (Damaged/Lost)',
+        'មុខទំនិញខូច',
         'អតិថិជនក្រៅ (External Customer)'
       ];
       const whList = Array.from(new Set([...standardFullStations, ...internalUsageOptions]));
@@ -36328,7 +36328,7 @@
           '🏢 ដកប្រើប្រាស់ក្នុងស្ថានីយ (Station Internal Use)',
           '🛣️ គន្លងផ្លូវ (Toll Booths)',
           '📁 ការិយាល័យស្ថានីយ (Station Office)',
-          '⚠️ បាត់បង់ ឬ ខូចខាត (Damaged/Lost)',
+          '⚠️ មុខទំនិញខូច',
           '👤 អតិថិជនក្រៅ (External Customer)'
         ];
         let hasMatched = false;
