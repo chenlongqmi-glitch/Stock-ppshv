@@ -22443,6 +22443,43 @@
       };
     }
 
+    function getItemEffectiveStockForWarehouse(item, targetWh) {
+      if (!item) return 0;
+      const isAll = (!targetWh || targetWh === 'ALL' || targetWh === '🏢 គ្រប់ស្ថានីយទាំងអស់' || targetWh === 'គ្រប់ឃ្លាំង');
+      const stStock = (typeof getItemStationStock === 'function') ? getItemStationStock(item, targetWh) : { total: Number(item.currentStock || 0), bulk: 0, loose: 0, breakdowns: [] };
+      let curStock = !isAll ? Number(stStock.total || 0) : Number(item.currentStock || 0);
+
+      let zoneSum = 0;
+      if (Array.isArray(item.zoneBreakdown) && item.zoneBreakdown.length > 0) {
+        const isItemMe = (item.category && (item.category.includes('机电') || item.category.includes('អគ្គិសនី'))) || (item.name && item.name.includes('机电'));
+        const defaultCentralWh = isItemMe ? '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)' : '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+        const itemSku = String(item.sku || '').trim().toLowerCase();
+        const zoneToWhMap = (typeof getItemZoneToWarehouseMap === 'function') ? getItemZoneToWarehouseMap(itemSku) : {};
+        const matchingZones = isAll
+          ? item.zoneBreakdown
+          : item.zoneBreakdown.filter(z => {
+            let zWh = z.warehouse ? (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(z.warehouse) : z.warehouse) : '';
+            if (!zWh && z.zone && zoneToWhMap[z.zone]) zWh = zoneToWhMap[z.zone];
+            if (!zWh && Array.isArray(item.warehouses) && item.warehouses.length === 1) {
+              zWh = toCanonicalWarehouseName(item.warehouses[0]);
+            }
+            if (!zWh) zWh = defaultCentralWh;
+            return zWh && ((typeof matchesTargetWarehouse === 'function') ? matchesTargetWarehouse(zWh, targetWh) : isSameWarehouse(zWh, targetWh));
+          });
+        zoneSum = matchingZones.reduce((s, z) => s + Math.max(0, Number(z.quantity || 0)), 0);
+      }
+
+      if (isAll) {
+        curStock = (item.currentStock !== undefined && item.currentStock !== null && !isNaN(Number(item.currentStock))) ? Number(item.currentStock) : Math.max(Number(stStock.total || 0), zoneSum);
+      } else {
+        curStock = Number(stStock.total || 0);
+        if (zoneSum > curStock && stStock.hasExactStationTx && zoneSum <= (Number(item.currentStock) || zoneSum)) {
+          curStock = zoneSum;
+        }
+      }
+      return curStock;
+    }
+
     function getFilteredItemsList() {
       const u = AppState.currentUser || (function () { try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch (e) { return null; } })() || {};
       const isSuperAdmin = (typeof isUserSuperAdmin === 'function') ? isUserSuperAdmin(u) : false;
@@ -22554,9 +22591,11 @@
         if (catFilter !== 'ALL' && item.category !== catFilter) return false;
 
         // Effective stock for status filter
-        const currentEffectiveStock = isSpecificStation
-          ? ((typeof getItemStationStock === 'function') ? getItemStationStock(item, activeWhFilter).total : Number(item.currentStock || 0))
-          : Number(item.currentStock || 0);
+        const currentEffectiveStock = (typeof getItemEffectiveStockForWarehouse === 'function')
+          ? getItemEffectiveStockForWarehouse(item, activeWhFilter)
+          : (isSpecificStation
+            ? ((typeof getItemStationStock === 'function') ? getItemStationStock(item, activeWhFilter).total : Number(item.currentStock || 0))
+            : Number(item.currentStock || 0));
 
         const itemMin = Number(item.minStock || 1);
         if (statusFilter === 'LOW' && (currentEffectiveStock > itemMin || currentEffectiveStock === 0)) return false;
@@ -22710,36 +22749,9 @@
 
       tbody.innerHTML = filtered.map((item, idx) => {
         const stStock = (typeof getItemStationStock === 'function') ? getItemStationStock(item, effectiveWhForDisplay) : { total: Number(item.currentStock || 0), bulk: 0, loose: 0, breakdowns: [] };
-        let curStock = (effectiveWhForDisplay && effectiveWhForDisplay !== 'ALL') ? Number(stStock.total || 0) : Number(item.currentStock || 0);
-
-        let zoneSum = 0;
-        if (Array.isArray(item.zoneBreakdown) && item.zoneBreakdown.length > 0) {
-          const isItemMe = (item.category && (item.category.includes('机电') || item.category.includes('អគ្គិសនី'))) || (item.name && item.name.includes('机电'));
-          const defaultCentralWh = isItemMe ? '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)' : '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
-          const itemSku = String(item.sku || '').trim().toLowerCase();
-          const zoneToWhMap = (typeof getItemZoneToWarehouseMap === 'function') ? getItemZoneToWarehouseMap(itemSku) : {};
-          const matchingZones = (!effectiveWhForDisplay || effectiveWhForDisplay === 'ALL' || effectiveWhForDisplay === '🏢 គ្រប់ស្ថានីយទាំងអស់' || effectiveWhForDisplay === 'គ្រប់ឃ្លាំង')
-            ? item.zoneBreakdown
-            : item.zoneBreakdown.filter(z => {
-              let zWh = z.warehouse ? (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(z.warehouse) : z.warehouse) : '';
-              if (!zWh && z.zone && zoneToWhMap[z.zone]) zWh = zoneToWhMap[z.zone];
-              if (!zWh && Array.isArray(item.warehouses) && item.warehouses.length === 1) {
-                zWh = toCanonicalWarehouseName(item.warehouses[0]);
-              }
-              if (!zWh) zWh = defaultCentralWh;
-              return zWh && ((typeof matchesTargetWarehouse === 'function') ? matchesTargetWarehouse(zWh, effectiveWhForDisplay) : isSameWarehouse(zWh, effectiveWhForDisplay));
-            });
-          zoneSum = matchingZones.reduce((s, z) => s + Math.max(0, Number(z.quantity || 0)), 0);
-        }
-
-        if (!effectiveWhForDisplay || effectiveWhForDisplay === 'ALL' || effectiveWhForDisplay === '🏢 គ្រប់ស្ថានីយទាំងអស់' || effectiveWhForDisplay === 'គ្រប់ឃ្លាំង') {
-          curStock = (item.currentStock !== undefined && item.currentStock !== null && !isNaN(Number(item.currentStock))) ? Number(item.currentStock) : Math.max(Number(stStock.total || 0), zoneSum);
-        } else {
-          curStock = Number(stStock.total || 0);
-          if (zoneSum > curStock && stStock.hasExactStationTx && zoneSum <= (Number(item.currentStock) || zoneSum)) {
-            curStock = zoneSum;
-          }
-        }
+        let curStock = (typeof getItemEffectiveStockForWarehouse === 'function')
+          ? getItemEffectiveStockForWarehouse(item, effectiveWhForDisplay)
+          : ((effectiveWhForDisplay && effectiveWhForDisplay !== 'ALL') ? Number(stStock.total || 0) : Number(item.currentStock || 0));
 
         const pQty = Number(item.packQty || 1);
         let pUnit = (item.packUnit || '').trim() || 'ប្រអប់';
@@ -37833,8 +37845,20 @@
         itemsToExport = AppState.items || [];
       }
 
+      const u = AppState.currentUser || {};
+      const isSuperAdmin = (typeof isUserSuperAdmin === 'function') ? isUserSuperAdmin(u) : false;
+      const isAdminUser = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(u) : (isSuperAdmin || (typeof isUserAdmin === 'function' && isUserAdmin(u)));
+      let exportWhFilter = 'ALL';
+      if (isAdminUser) {
+        exportWhFilter = AppState.selectedAdminWarehouseFilter || 'ALL';
+      } else {
+        exportWhFilter = (typeof getUserEffectiveStation === 'function' ? getUserEffectiveStation(u) : '') || u?.warehouse || AppState.selectedAdminWarehouseFilter || 'ALL';
+      }
+
       const rows = itemsToExport.map((item, index) => {
-        const qty = Number(item.currentStock || 0);
+        const qty = (typeof getItemEffectiveStockForWarehouse === 'function')
+          ? getItemEffectiveStockForWarehouse(item, exportWhFilter)
+          : Number(item.currentStock || 0);
         const min = Number(item.minStock || 0);
         const cost = Number(item.costPrice || 0);
         const sell = Number(item.sellingPrice || 0);
@@ -37849,10 +37873,6 @@
 
         const packRate = Number(item.packQty || 1);
         const packStock = packRate > 1 ? Math.floor(qty / packRate) : qty;
-        const u = AppState.currentUser;
-        const isSuperAdmin = isUserSuperAdmin(u);
-        const isAdminUser = isUserPrivilegedAdmin(u);
-        const exportWhFilter = AppState.selectedAdminWarehouseFilter || ADMIN_DEFAULT_COMBO_WH;
         const stStock = (isAdminUser && typeof getItemStationStock === 'function') ? getItemStationStock(item, exportWhFilter) : null;
 
         const rowData = {
@@ -37955,18 +37975,6 @@
         itemsToExport = AppState.items || [];
       }
 
-      const totalItems = itemsToExport.length;
-      const totalPages = Math.max(1, totalItems <= 17 ? 1 : (1 + Math.ceil((totalItems - 17) / 22)));
-      const totalQty = itemsToExport.reduce((sum, i) => sum + Number(i.currentStock || 0), 0);
-      let normalCount = 0;
-      let alertCount = 0;
-      itemsToExport.forEach(i => {
-        const cur = Number(i.currentStock || 0);
-        const min = Number(i.minStock || 0);
-        if (cur <= min) alertCount++;
-        else normalCount++;
-      });
-
       const { companyName, companyLogoUrl } = getPdfCompanyHeaderInfo();
       const u = AppState.currentUser || {};
       const isPrivilegedAdmin = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(u) : false;
@@ -37979,9 +37987,21 @@
       const whDisplayName = (activeWh && activeWh !== 'ALL' && activeWh !== 'គ្រប់ស្ថានីយទាំងអស់' && activeWh !== 'គ្រប់ឃ្លាំង') ? activeWh : 'គ្រប់ឃ្លាំង / ស្ថានីយ';
       const printDate = new Date().toLocaleString('km-KH', { dateStyle: 'full', timeStyle: 'short' }) || new Date().toLocaleString();
 
+      const totalItems = itemsToExport.length;
+      const totalPages = Math.max(1, totalItems <= 17 ? 1 : (1 + Math.ceil((totalItems - 17) / 22)));
+      const totalQty = itemsToExport.reduce((sum, i) => sum + ((typeof getItemEffectiveStockForWarehouse === 'function') ? getItemEffectiveStockForWarehouse(i, activeWh) : Number(i.currentStock || 0)), 0);
+      let normalCount = 0;
+      let alertCount = 0;
+      itemsToExport.forEach(i => {
+        const cur = (typeof getItemEffectiveStockForWarehouse === 'function') ? getItemEffectiveStockForWarehouse(i, activeWh) : Number(i.currentStock || 0);
+        const min = Number(i.minStock || 0);
+        if (cur <= min) alertCount++;
+        else normalCount++;
+      });
+
       const printWindow = window.open('', '_blank');
       const tableRows = itemsToExport.map((i, idx) => {
-        const curStock = Number(i.currentStock || 0);
+        const curStock = (typeof getItemEffectiveStockForWarehouse === 'function') ? getItemEffectiveStockForWarehouse(i, activeWh) : Number(i.currentStock || 0);
         const minStock = Number(i.minStock || 0);
         const minPct = Number(i.minStockPercent || 10);
         let statusBadge = 'ធម្មតា';
@@ -38026,7 +38046,7 @@
         const looseRemainder = (pQty > 1) ? (curStock % pQty) : curStock;
 
         let stockDisplayHtml = '';
-        if (pQty > 1) {
+        if (pUnit && (pQty > 1 || pUnit !== rUnit)) {
           stockDisplayHtml = `
             <div style="font-size: 11px; white-space: nowrap;">
               <span style="font-weight: bold; color: #1e3a8a;">${bulkStock} ${escapeHtml(pUnit)}</span>
