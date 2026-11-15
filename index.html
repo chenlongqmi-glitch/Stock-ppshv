@@ -17437,7 +17437,7 @@
               aspectRatio: mode === 'avatar' ? 1 : NaN,
               viewMode: 1,
               dragMode: 'move',
-              autoCropArea: mode === 'avatar' ? 0.85 : 0.9,
+              autoCropArea: mode === 'avatar' ? 0.85 : 1.0,
               restore: false,
               guides: true,
               center: true,
@@ -17449,6 +17449,17 @@
               zoomOnTouch: true,
               ready: function () {
                 cleanupImageListeners();
+                if (currentCropper && mode !== 'avatar') {
+                  const cData = currentCropper.getCanvasData();
+                  if (cData && cData.width && cData.height) {
+                    currentCropper.setCropBoxData({
+                      left: cData.left,
+                      top: cData.top,
+                      width: cData.width,
+                      height: cData.height
+                    });
+                  }
+                }
                 const canvasData = currentCropper ? currentCropper.getCanvasData() : null;
                 const imageData = currentCropper ? currentCropper.getImageData() : null;
                 cropperBaseRatio = canvasData && imageData && imageData.naturalWidth ? (canvasData.width / imageData.naturalWidth) : 1;
@@ -17551,6 +17562,15 @@
       }
       if (currentCropperMode !== 'avatar') {
         currentCropper.setAspectRatio(NaN);
+        const cData = currentCropper.getCanvasData();
+        if (cData && cData.width && cData.height) {
+          currentCropper.setCropBoxData({
+            left: cData.left,
+            top: cData.top,
+            width: cData.width,
+            height: cData.height
+          });
+        }
         const aspectBtns = document.querySelectorAll('.cropper-aspect-btn');
         aspectBtns.forEach((btn, idx) => {
           if (idx === 3) {
