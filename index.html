@@ -185,19 +185,19 @@
     :root {
       --app-font-sans: 'Kantumruy Pro', 'Battambang', 'Siemreap', 'Microsoft YaHei', '微软雅黑', 'SimHei', '黑体', 'PingFang SC', 'Noto Sans SC', 'Hiragino Sans GB', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       --window-dpr: 1;
-      --app-ui-scale: 1;
+      --app-ui-scale: 1.1;
     }
 
     /* Proportional UI & Typography Auto-Scaling for Multi-Monitor Ergonomics */
     #mainApp {
-      zoom: var(--app-ui-scale, 1);
+      zoom: var(--app-ui-scale, 1.1);
       transition: zoom 0.22s cubic-bezier(0.4, 0, 0.2, 1);
       will-change: zoom;
     }
 
     /* Ensure Modals Scale with Active Monitor */
     .app-scale-target {
-      zoom: var(--app-ui-scale, 1);
+      zoom: var(--app-ui-scale, 1.1);
     }
 
     /* Dynamic Fluid Typography & Proportional Scaling across all Monitor Sizes */
@@ -2232,7 +2232,7 @@
     </aside>
 
     <!-- MAIN CONTENT AREA -->
-    <div class="flex-1 flex flex-col h-full overflow-hidden">
+    <div class="flex-1 flex flex-col h-full overflow-hidden min-w-0">
 
       <!-- IMPERSONATION / SWITCH USER NOTIFICATION BANNER (បង្ហាញពេលស្ថិតក្នុង Switch Mode) -->
       <div id="impersonationBanner"
@@ -3002,8 +3002,8 @@
                 class="w-5 h-5 flex items-center justify-center rounded-md hover:bg-white text-slate-700 hover:text-blue-600 text-xs font-black transition active:scale-90"
                 title="បង្រួម UI (-5%)">−</button>
               <button type="button" onclick="resetAppZoom()" id="autoScaleBtn"
-                class="px-1.5 h-5 flex items-center justify-center rounded-md bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-black transition active:scale-95"
-                title="កំណត់ទំហំស្វ័យប្រវត្តិតាមអេក្រង់ (Auto Scale)">Auto</button>
+                class="px-1.5 h-5 min-w-[38px] flex items-center justify-center rounded-md bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-black transition active:scale-95 shadow-2xs cursor-pointer"
+                title="កំណត់ទំហំ UI ស្តង់ដារ (110%)">110%</button>
               <button type="button" onclick="adjustAppZoom(0.10)"
                 class="w-5 h-5 flex items-center justify-center rounded-md hover:bg-white text-slate-700 hover:text-blue-600 text-xs font-black transition active:scale-90"
                 title="ពង្រីក UI (+5%)">+</button>
@@ -47755,9 +47755,11 @@
       let lastW = 0;
       let lastH = 0;
       let lastScreenX = 0;
-      let lastAppliedScale = 1.0;
+      let lastAppliedScale = 1.10;
       let lastAppliedProfile = '';
-      let toastTimeout = null;
+
+      // Standard baseline UI scale: Strictly 110% (1.10) per standard specification
+      const STANDARD_DEFAULT_SCALE = 1.10;
 
       function calculateMonitorProfileAndScale() {
         const sw = window.screen.width;
@@ -47776,83 +47778,55 @@
           };
         }
 
-        let profile = 'desktop-fhd';
-        let name = 'Desktop FHD (24")';
+        let profile = 'desktop-standard';
+        let name = 'Desktop Standard';
         let icon = 'fa-display';
-        let scale = 1.08;
 
-        // Multi-Monitor Resolution and Screen Density Recognition
         if (sw >= 3200 || w >= 3000) {
           profile = 'desktop-4k';
           name = '4K Ultra-HD';
           icon = 'fa-tv';
-          scale = 1.28;
         } else if (sw >= 2400 || w >= 2200) {
           profile = 'desktop-2k';
-          name = '2K QHD (27"+)';
+          name = '2K QHD';
           icon = 'fa-tv';
-          scale = 1.18;
         } else if (sw >= 1800 || w >= 1650) {
           profile = 'desktop-fhd';
-          name = 'Desktop FHD (24")';
+          name = 'Desktop FHD';
           icon = 'fa-display';
-          scale = 1.08;
         } else if (sw >= 1400 || w >= 1300) {
           profile = 'laptop-hd';
-          name = 'Laptop (14"-16")';
+          name = 'Laptop HD';
           icon = 'fa-laptop';
-          scale = 0.98;
         } else if (sw >= 1200 || w >= 1100) {
           profile = 'laptop-compact';
           name = 'Compact Screen';
           icon = 'fa-laptop';
-          scale = 0.92;
         } else if (w >= 768 && w < 1100) {
-          // iPad / Tablet profile
           profile = 'tablet-ipad';
           name = 'iPad / Tablet';
           icon = 'fa-tablet-screen-button';
-          scale = 1.0;
-        } else if (w < 768) {
-          // Mobile Phone profile
-          profile = 'mobile-phone';
-          name = 'Mobile Phone';
-          icon = 'fa-mobile-screen-button';
-          scale = 1.0;
-        } else {
-          profile = 'split-window';
-          name = 'Split Screen';
-          icon = 'fa-table-columns';
-          scale = 0.90;
         }
 
-        // Adjust for non-maximized window or split-screen on desktop
-        if (w >= 768 && w < 1180 && scale > 0.95 && profile !== 'tablet-ipad') {
-          scale = 0.92;
-        } else if (h < 720 && scale > 0.96 && profile !== 'tablet-ipad' && profile !== 'mobile-phone') {
-          scale = Math.min(scale, 0.94);
-        }
-
-        return { profile, name, icon, scale: Math.round(scale * 100) / 100 };
-      }
-
-      function showMonitorTransitionToast(name, scale, icon) {
-        // Disabled per user request - silent scaling without popups
-        return;
+        // Return standard 1.10 across all desktop/monitor/laptop screens
+        return { profile, name, icon, scale: STANDARD_DEFAULT_SCALE };
       }
 
       function applyAdaptiveScaling(isForced = false) {
         const auto = calculateMonitorProfileAndScale();
         const savedZoom = localStorage.getItem('inventory_user_zoom');
-        let effectiveScale = auto.scale;
-        let isManual = false;
+        let effectiveScale = STANDARD_DEFAULT_SCALE;
+        let isManual = true;
 
         if (savedZoom && savedZoom !== 'auto') {
           const parsed = parseFloat(savedZoom);
-          if (!isNaN(parsed) && parsed >= 0.70 && parsed <= 1.80) {
+          // Strict bounds: 0.70 to 1.30 to guarantee UI never overflows/cuts off left or right
+          if (!isNaN(parsed) && parsed >= 0.70 && parsed <= 1.30) {
             effectiveScale = Math.round(parsed * 100) / 100;
-            isManual = true;
           }
+        } else {
+          // Default when opening or crossing monitors: standard 1.10 (or 1.0 on mobile <768px)
+          effectiveScale = auto.scale;
         }
 
         const root = document.documentElement;
@@ -47866,10 +47840,10 @@
         root.setAttribute('data-screen-profile', auto.profile);
         root.setAttribute('data-ui-scale', effectiveScale);
 
-        // Scale document font-size for all devices (including mobile & iPad)
-        root.style.fontSize = (14 * effectiveScale).toFixed(2) + 'px';
+        // Keep root font-size at standard 14px to prevent compound double-scaling
+        root.style.fontSize = '14px';
 
-        // Apply zoom to main application container for all screen sizes
+        // Apply zoom to main application container
         if (mainApp) {
           mainApp.style.zoom = effectiveScale;
         }
@@ -47883,13 +47857,13 @@
         const monitorWidget = document.getElementById('monitorScaleWidget');
 
         if (profileNameEl) {
-          profileNameEl.textContent = isManual ? `Manual (${percentText})` : `${auto.name} (${percentText})`;
+          profileNameEl.textContent = `Manual (${percentText})`;
           profileNameEl.title = `អេក្រង់: ${auto.name} | ទំហំ UI: ${percentText} | DPR: ${dpr.toFixed(2)}`;
           profileNameEl.classList.add('hidden');
         }
 
         if (monitorWidget) {
-          monitorWidget.title = isManual ? `ទំហំ UI: ${percentText} (Manual) - ចុច Auto ដើម្បី Reset` : `អេក្រង់: ${auto.name} | ទំហំ UI: ${percentText}`;
+          monitorWidget.title = `ទំហំ UI: ${percentText} (ស្តង់ដារ 110%) - ចុចដើម្បីកំណត់ឡើងវិញ 110%`;
         }
 
         if (monitorIconEl && auto.icon) {
@@ -47897,14 +47871,13 @@
         }
 
         if (autoBtn) {
-          if (isManual) {
-            autoBtn.classList.remove('bg-blue-50', 'text-blue-700');
-            autoBtn.classList.add('bg-amber-100', 'text-amber-800');
-            autoBtn.textContent = 'Auto';
+          autoBtn.textContent = percentText;
+          if (Math.round(effectiveScale * 100) === 110) {
+            autoBtn.className = 'px-1.5 h-5 min-w-[38px] flex items-center justify-center rounded-md bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-black transition active:scale-95 shadow-2xs cursor-pointer';
+            autoBtn.title = `ទំហំ UI ស្តង់ដារ: ${percentText} (Default) - ចុចដើម្បីកំណត់ឡើងវិញ`;
           } else {
-            autoBtn.classList.add('bg-blue-50', 'text-blue-700');
-            autoBtn.classList.remove('bg-amber-100', 'text-amber-800');
-            autoBtn.textContent = 'Auto';
+            autoBtn.className = 'px-1.5 h-5 min-w-[38px] flex items-center justify-center rounded-md bg-amber-100 hover:bg-amber-200 text-amber-800 text-[10px] font-black transition active:scale-95 shadow-2xs cursor-pointer';
+            autoBtn.title = `ទំហំ UI: ${percentText} (Manual) - ចុចដើម្បីត្រឡប់ទៅស្តង់ដារ 110%`;
           }
         }
 
@@ -47912,20 +47885,13 @@
         const mobileHeaderZoomText = document.getElementById('mobileHeaderZoomText');
         if (mobileHeaderZoomText) {
           mobileHeaderZoomText.textContent = percentText;
-          mobileHeaderZoomText.title = isManual ? `Manual (${percentText}) - ចុច Reset` : `Auto (${percentText})`;
+          mobileHeaderZoomText.title = `ទំហំ UI: ${percentText} - ចុចដើម្បីត្រឡប់ទៅស្តង់ដារ 110%`;
         }
 
-        // 3. Update Floating Quick Zoom Dock Text
-
-        // 4. Update Sidebar Drawer Zoom Text
+        // 3. Update Sidebar Drawer Zoom Text
         const sidebarZoomText = document.getElementById('sidebarZoomText');
         if (sidebarZoomText) {
           sidebarZoomText.textContent = percentText;
-        }
-
-        // Trigger toast on real monitor transition
-        if (lastAppliedProfile && (lastAppliedProfile !== auto.profile || Math.abs(lastAppliedScale - effectiveScale) > 0.05)) {
-          showMonitorTransitionToast(auto.name, effectiveScale, auto.icon);
         }
 
         lastAppliedScale = effectiveScale;
@@ -47962,14 +47928,11 @@
         }
       }
 
-      // Real-time polling every 250ms catches cross-monitor dragging instantaneously
       setInterval(observeCrossMonitorDrag, 250);
 
-      // Window events
       window.addEventListener('resize', () => applyAdaptiveScaling(), { passive: true });
       window.addEventListener('orientationchange', () => setTimeout(applyAdaptiveScaling, 150), { passive: true });
 
-      // MatchMedia DPI changes
       function watchDpi() {
         const dpr = window.devicePixelRatio || 1;
         const mq = window.matchMedia(`(resolution: ${dpr}dppx)`);
@@ -47979,21 +47942,30 @@
       }
       watchDpi();
 
-      // Manual Zoom Controls exposed to window (for Mobile, iPad & Desktop)
+      // Manual Zoom Controls
       window.adjustAppZoom = function (delta) {
-        const current = parseFloat(document.documentElement.style.getPropertyValue('--app-ui-scale')) || 1.0;
+        const current = parseFloat(document.documentElement.style.getPropertyValue('--app-ui-scale')) || STANDARD_DEFAULT_SCALE;
         let newZoom = Math.round((current + delta) * 10) / 10;
-        newZoom = Math.max(0.70, Math.min(1.60, newZoom));
-        localStorage.setItem('inventory_user_zoom', newZoom);
+        // Strict boundary: 70% to 130% to strictly prevent UI cut-off
+        newZoom = Math.max(0.70, Math.min(1.30, newZoom));
+        localStorage.setItem('inventory_user_zoom', newZoom.toFixed(2));
         applyAdaptiveScaling(true);
       };
 
       window.resetAppZoom = function () {
-        localStorage.removeItem('inventory_user_zoom');
+        localStorage.setItem('inventory_user_zoom', '1.10');
         applyAdaptiveScaling(true);
       };
 
       window.applyAdaptiveScaling = applyAdaptiveScaling;
+
+      // Ensure initial migration / default setup
+      try {
+        const existingZoom = localStorage.getItem('inventory_user_zoom');
+        if (!existingZoom || existingZoom === 'auto' || existingZoom === '1.08' || existingZoom === '1.28' || existingZoom === '1.00') {
+          localStorage.setItem('inventory_user_zoom', '1.10');
+        }
+      } catch (e) { }
 
       // Immediate trigger
       if (document.readyState === 'loading') {
