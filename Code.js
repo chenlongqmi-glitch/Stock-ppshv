@@ -7390,8 +7390,11 @@ function recordStockOutBatch(payloadOrData, userParam) {
       items.forEach((it, idx) => {
         let toLoc = String(it.toLocation || it.location || it.warehouse || '').trim();
         toLoc = (typeof toCanonicalWarehouseNameGAS === 'function') ? toCanonicalWarehouseNameGAS(toLoc) : toLoc;
-        const isInternalHQ = toLoc.includes('机电') || toLoc.includes('អគ្គិសនី') || toLoc.includes('中心库房') || toLoc.includes('ឃ្លាំងស្តុកនៅចុងស៊ីង') || toLoc.includes('ចុងស៊ីង') || toLoc.includes('ចុងស៊ីន') || toLoc.includes('អតិថិជន') || toLoc.includes('ដកប្រើប្រាស់');
-        if (toLoc && !isInternalHQ) {
+        const isInternalUsage = toLoc.includes('អតិថិជន') || toLoc.includes('ដកប្រើប្រាស់') || toLoc.includes('គន្លងផ្លូវ') || toLoc.includes('ការិយាល័យ') || toLoc.includes('បាត់បង់') || toLoc.includes('ខូចខាត');
+        const isInternalHQ = toLoc.includes('机电') || toLoc.includes('អគ្គិសនី') || toLoc.includes('中心库房') || toLoc.includes('ឃ្លាំងស្តុកនៅចុងស៊ីង') || toLoc.includes('ចុងស៊ីង') || toLoc.includes('ចុងស៊ីន');
+        const isSenderAdmin = (u && (u.role === 'SuperAdmin' || u.role === 'Admin' || String(u.username).toLowerCase() === 'superadmin' || String(u.username).toLowerCase() === 'admin'));
+        const isSameWh = (typeof isSameWarehouseGAS === 'function') ? isSameWarehouseGAS(fromLoc, toLoc) : (fromLoc === toLoc);
+        if (toLoc && !isInternalUsage && !isSameWh && (!isInternalHQ || !isSenderAdmin)) {
           const matchedDsp = dispatchesList[idx] || dispatchesList.find(d => d.sku === it.sku);
           const dspId = (matchedDsp && matchedDsp.dispatchId) ? matchedDsp.dispatchId : ('DSP-' + Utilities.formatDate(nowDsp, 'GMT+7', 'yyyyMMdd') + '-' + Math.floor(1000 + Math.random() * 9000));
           const cleanUserNote = cleanDisplayNoteGAS(it.userNote !== undefined ? it.userNote : (it.notes || ''));
@@ -7409,7 +7412,7 @@ function recordStockOutBatch(payloadOrData, userParam) {
             Number(it.retailQty || 0),
             it.unit || it.baseUnit || 'ដុំ',
             it.packUnit || 'ប្រអប់',
-            '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)',
+            fromLoc,
             toLoc,
             it.issuer || (u ? (u.fullName || u.username) : 'Admin'),
             'PENDING',
@@ -8266,10 +8269,14 @@ function recordStockOut(dataOrPayload, user) {
     Logger.log('Error writing to Stock_out sheet: ' + errOut.toString());
   }
 
-  // 3. បញ្ជូនទិន្នន័យចូលក្នុងមុខងារ ទទួលទំនិញចូលស្តុកពី Admin (Dispatches Sheet) របស់ស្ថានីយទទួល (រាល់ការបើកចេញទៅកាន់ស្ថានីយ)
+  // 3. បញ្ជូនទិន្នន័យចូលក្នុងមុខងារ ទទួលទំនិញចូលស្តុកពី Admin / ស្ថានីយ (Dispatches Sheet) របស់ស្ថានីយទទួល (រាល់ការបើកចេញទៅកាន់ស្ថានីយ ឬផ្ញើត្រឡប់មក Admin)
   const destLocation = String(data.toLocation || '').trim();
-  const isInternalHQ = destLocation.includes('机电') || destLocation.includes('អគ្គិសនី') || destLocation.includes('中心库房') || destLocation.includes('ឃ្លាំងស្តុកនៅចុងស៊ីង') || destLocation.includes('ចុងស៊ីង') || destLocation.includes('ចុងស៊ីន') || destLocation.includes('អតិថិជន') || destLocation.includes('ដកប្រើប្រាស់');
-  const isStationDestination = destLocation && !isInternalHQ;
+  const fromWhLocation = String(location || '').trim();
+  const isSenderAdmin = (u && (u.role === 'SuperAdmin' || u.role === 'Admin' || String(u.username).toLowerCase() === 'superadmin' || String(u.username).toLowerCase() === 'admin'));
+  const isInternalUsage = destLocation.includes('អតិថិជន') || destLocation.includes('ដកប្រើប្រាស់') || destLocation.includes('គន្លងផ្លូវ') || destLocation.includes('ការិយាល័យ') || destLocation.includes('បាត់បង់') || destLocation.includes('ខូចខាត');
+  const isInternalHQ = destLocation.includes('机电') || destLocation.includes('អគ្គិសនី') || destLocation.includes('中心库房') || destLocation.includes('ឃ្លាំងស្តុកនៅចុងស៊ីង') || destLocation.includes('ចុងស៊ីង') || destLocation.includes('ចុងស៊ីន');
+  const isSameWh = (typeof isSameWarehouseGAS === 'function') ? isSameWarehouseGAS(fromWhLocation, destLocation) : (fromWhLocation === destLocation);
+  const isStationDestination = destLocation && !isInternalUsage && !isSameWh && (!isInternalHQ || !isSenderAdmin);
   if (isStationDestination) {
     try {
       const dspSheet = ensureDispatchesSheet(ss);
