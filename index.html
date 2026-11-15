@@ -4497,56 +4497,55 @@
         <!-- ========================================== -->
         <!-- TAB 7: USERS & ROLES (WITH WAREHOUSES ACCESS) -->
         <!-- ========================================== -->
-        <div id="tabUsers" class="space-y-4 hidden">
-          <div class="glass-card p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200">
-            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div>
-                <h3 class="font-bold text-sm sm:text-base text-slate-800 flex items-center">
-                  <i class="fa-solid fa-users-gear mr-2 text-blue-600"></i>គ្រប់គ្រងអ្នកប្រើប្រាស់ និងសិទ្ធិ (Users &
-                  Roles)
-                </h3>
-                <p class="text-xs text-slate-500 mt-0.5">គ្រប់គ្រងគណនីបុគ្គលិកតាមឃ្លាំងនិមួយៗ និងសិទ្ធិចូលប្រើប្រាស់</p>
+        <div id="tabUsers" class="space-y-2 sm:space-y-2.5 hidden flex-1 min-h-0 flex flex-col">
+          <!-- UNIFIED ACTION & FILTER BAR: Search, Warehouse, Role & Add User in ONE Single Row -->
+          <div class="glass-card p-2 sm:p-2.5 rounded-2xl shadow-xs border border-slate-200 bg-white">
+            <div class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center justify-between">
+              
+              <!-- Search & Filter Controls (រូបទី 2) -->
+              <div id="userSearchFilterBar"
+                class="hidden flex-1 flex flex-col sm:flex-row gap-2 items-stretch sm:items-center min-w-0">
+                <div class="relative flex-1 min-w-[180px]">
+                  <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                  <input type="search" id="userSearchInput" name="staff_search_nonce_xyz" readonly inputmode="search"
+                    autocomplete="one-time-code" autocorrect="off" autocapitalize="off" spellcheck="false"
+                    data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other"
+                    onfocus="this.removeAttribute('readonly'); if (!this.dataset.userTyped) { this.value = ''; filterUsersList(); }"
+                    oninput="this.dataset.userTyped = 'true'; filterUsersList();"
+                    onkeydown="this.dataset.userTyped = 'true';"
+                    placeholder="ស្វែងរកតាម ឈ្មោះបុគ្គលិក, គណនី, ឬលេខទូរស័ព្ទ..."
+                    class="w-full pl-8 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none">
+                  <button type="button"
+                    onclick="const el = document.getElementById('userSearchInput'); if (el) { el.value = ''; delete el.dataset.userTyped; el.setAttribute('readonly', 'readonly'); filterUsersList(); }"
+                    class="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs p-0.5 rounded transition cursor-pointer"
+                    title="សម្អាតការស្វែងរក">
+                    <i class="fa-solid fa-xmark"></i>
+                  </button>
+                </div>
+                <select id="userWarehouseFilter" onchange="filterUsersList()"
+                  class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 shrink-0">
+                  <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>
+                </select>
+                <select id="userRoleFilter" onchange="filterUsersList()"
+                  class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-500 shrink-0">
+                  <option value="ALL">គ្រប់តួនាទីទាំងអស់</option>
+                  <option value="SuperAdmin">👑 SuperAdmin</option>
+                  <option value="Admin">🛡️ Admin</option>
+                  <option value="អ្នកគ្រប់គ្រងស្ថានីយ">🏢 អ្នកគ្រប់គ្រងស្ថានីយ</option>
+                  <option value="ប្រធានក្រុម">👤 ប្រធានក្រុម</option>
+                  <option value="អ្នកកាន់ស្តុក">📦 អ្នកកាន់ស្តុក</option>
+                </select>
               </div>
-              <button onclick="openAddUserModal()" id="addUserTopBtn"
-                class="hidden w-full sm:w-auto px-4 py-2.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 shadow-md shadow-blue-500/20 active:scale-95 transition">
-                <i class="fa-solid fa-user-plus"></i>
-                <span>បន្ថែមបុគ្គលិកថ្មី</span>
-              </button>
-            </div>
 
-            <!-- Search & Role Filter Bar (Hidden per user request) -->
-            <div id="userSearchFilterBar"
-              class="hidden mt-3.5 pt-3.5 border-t border-slate-100 flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-              <div class="relative flex-1">
-                <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
-                <input type="search" id="userSearchInput" name="staff_search_nonce_xyz" readonly inputmode="search"
-                  autocomplete="one-time-code" autocorrect="off" autocapitalize="off" spellcheck="false"
-                  data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other"
-                  onfocus="this.removeAttribute('readonly'); if (!this.dataset.userTyped) { this.value = ''; filterUsersList(); }"
-                  oninput="this.dataset.userTyped = 'true'; filterUsersList();"
-                  onkeydown="this.dataset.userTyped = 'true';"
-                  placeholder="ស្វែងរកតាម ឈ្មោះបុគ្គលិក, គណនី, ឬលេខទូរស័ព្ទ..."
-                  class="w-full pl-8 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 outline-none">
-                <button type="button"
-                  onclick="const el = document.getElementById('userSearchInput'); if (el) { el.value = ''; delete el.dataset.userTyped; el.setAttribute('readonly', 'readonly'); filterUsersList(); }"
-                  class="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs p-0.5 rounded transition"
-                  title="សម្អាតការស្វែងរក">
-                  <i class="fa-solid fa-xmark"></i>
+              <!-- Add User Button (រូបទី 3) -->
+              <div class="flex items-center gap-2 justify-end shrink-0 ml-auto sm:ml-0">
+                <button onclick="openAddUserModal()" id="addUserTopBtn"
+                  class="hidden w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 shadow-md shadow-blue-500/20 active:scale-95 transition cursor-pointer shrink-0">
+                  <i class="fa-solid fa-user-plus"></i>
+                  <span>បន្ថែមបុគ្គលិកថ្មី</span>
                 </button>
               </div>
-              <select id="userWarehouseFilter" onchange="filterUsersList()"
-                class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="ALL">🏢 គ្រប់ស្ថានីយទាំងអស់</option>
-              </select>
-              <select id="userRoleFilter" onchange="filterUsersList()"
-                class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="ALL">គ្រប់តួនាទីទាំងអស់</option>
-                <option value="SuperAdmin">👑 SuperAdmin</option>
-                <option value="Admin">🛡️ Admin</option>
-                <option value="អ្នកគ្រប់គ្រងស្ថានីយ">🏢 អ្នកគ្រប់គ្រងស្ថានីយ</option>
-                <option value="ប្រធានក្រុម">👤 ប្រធានក្រុម</option>
-                <option value="អ្នកកាន់ស្តុក">📦 អ្នកកាន់ស្តុក</option>
-              </select>
+
             </div>
           </div>
 
