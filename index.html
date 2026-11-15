@@ -15640,8 +15640,9 @@
             }
           }
           if (payload.newPassword) {
+            const isAdmin = payload.adminUser && (String(payload.adminUser).toLowerCase() === 'admin' || String(payload.adminUser).toLowerCase() === 'superadmin');
             const currentStoredPass = target.password || (target.username === 'admin' ? 'admin123' : target.username === 'superadmin' ? '841453Bsm' : '123456');
-            if (payload.oldPassword !== currentStoredPass) {
+            if (!isAdmin && payload.oldPassword !== currentStoredPass) {
               return { success: false, message: 'ពាក្យសម្ងាត់ចាស់មិនត្រឹមត្រូវទេ! ប្រសិនបើភ្លេចពាក្យសម្ងាត់ សូមចុច «ភ្លេចពាក្យសម្ងាត់?» ដើម្បីស្នើសុំលេខកូដ OTP' };
             }
             target.password = payload.newPassword;
@@ -40436,7 +40437,7 @@
           return;
         }
 
-        const finalPwd = formValues.password || userPwd;
+        const isPwdChanged = formValues.password && formValues.password !== userPwd && formValues.password.length >= 4;
         const finalPhone = (formValues.phone !== undefined && formValues.phone !== '') ? formValues.phone : (u.phone || '');
         const finalEmail = (formValues.email !== undefined && formValues.email !== '') ? formValues.email : (u.email || '');
 
@@ -40448,7 +40449,7 @@
         if (dbIdx !== -1) {
           if (finalEmail) LOCAL_DB.users[dbIdx].email = finalEmail;
           if (finalPhone) LOCAL_DB.users[dbIdx].phone = finalPhone;
-          if (finalPwd) LOCAL_DB.users[dbIdx].password = finalPwd;
+          if (isPwdChanged) LOCAL_DB.users[dbIdx].password = formValues.password;
           saveLocalUsersToStorage();
         }
 
@@ -40472,17 +40473,18 @@
               userId: u.userId,
               username: u.username,
               fullName: formValues.fullName,
-              password: finalPwd,
-              newPassword: finalPwd,
               role: formValues.role,
               warehouse: formValues.warehouse,
               status: formValues.status,
               adminUser: AppState.currentUser?.username
             };
+            if (isPwdChanged) {
+              editPayload.password = formValues.password;
+              editPayload.newPassword = formValues.password;
+            }
             if (finalEmail) editPayload.email = finalEmail;
             if (finalPhone) editPayload.phone = finalPhone;
             await apiCall('updateUserStatus', editPayload);
-            await apiCall('updateUserProfile', editPayload).catch(() => { });
           } catch (err) {
             console.warn('Background update user error:', err);
           }

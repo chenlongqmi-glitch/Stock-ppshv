@@ -5164,7 +5164,9 @@ function updateUserProfile(payload) {
 
 
 
-        if (!isHashMatch && !isPlainMatch) {
+        const isAdmin = payload.adminUser && (String(payload.adminUser).toLowerCase() === 'admin' || String(payload.adminUser).toLowerCase() === 'superadmin');
+
+        if (!isAdmin && !isHashMatch && !isPlainMatch) {
 
           return { success: false, message: 'ពាក្យសម្ងាត់ចាស់មិនត្រឹមត្រូវទេ! ប្រសិនបើអ្នកភ្លេចពាក្យសម្ងាត់ សូមចុចប៊ូតុង «ភ្លេចពាក្យសម្ងាត់?»' };
 
