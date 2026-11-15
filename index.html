@@ -2271,6 +2271,18 @@
       <div id="activeSessionBanner"
         class="bg-gradient-to-r from-blue-700 via-indigo-700 to-slate-900 text-white px-3 sm:px-4 md:px-5 py-1.5 shadow-md border-b border-white/15 flex flex-nowrap items-center justify-between gap-2 sm:gap-3 relative z-30 flex-shrink-0 overflow-x-auto no-scrollbar">
         
+        <!-- Collapsed Brand Logo (បង្ហាញនៅពេល Sidebar ត្រូវបានបិទ/លាក់) -->
+        <div id="sessionBannerLogo" class="hidden items-center space-x-2.5 shrink-0 pr-3 mr-1 border-r border-white/20 select-none cursor-pointer group"
+          onclick="toggleMobileSidebar(true)" title="ចុចដើម្បីបើក Menu (Show Menu)">
+          <div class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+            <img src="assets/logo_icon.png" alt="PPSHV Logo" class="w-full h-full object-contain filter drop-shadow-md">
+          </div>
+          <div class="leading-tight">
+            <h1 class="font-black text-white text-xs leading-tight tracking-wide drop-shadow-sm group-hover:text-blue-200 transition-colors">PPSHV EXPRESSWAY</h1>
+            <p class="text-[9px] text-blue-200 font-bold tracking-wider leading-none mt-0.5">SMART INVENTORY</p>
+          </div>
+        </div>
+
         <!-- Left: User Profile (Single Clean Row) -->
         <div class="flex items-center space-x-2 shrink-0 cursor-pointer group select-none" onclick="openProfileModal()"
           title="ចុចដើម្បីកែប្រែព័ត៌មានផ្ទាល់ខ្លួន និងរូបថត Profile">
@@ -2831,6 +2843,17 @@
             class="p-1.5 sm:p-2 rounded-lg text-slate-600 hover:text-blue-600 hover:bg-slate-100 shrink-0 flex items-center justify-center transition-colors">
             <i class="fa-solid fa-bars text-base sm:text-lg"></i>
           </button>
+          <!-- Brand Logo in Header when Sidebar Collapsed -->
+          <div id="headerCollapsedLogo" class="hidden items-center space-x-2 shrink-0 pr-2 border-r border-slate-200 cursor-pointer select-none group"
+            onclick="toggleMobileSidebar(true)" title="ចុចដើម្បីបើក Menu (Show Menu)">
+            <div class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+              <img src="assets/logo_icon.png" alt="PPSHV Logo" class="w-full h-full object-contain">
+            </div>
+            <div class="hidden sm:block leading-tight">
+              <span class="font-black text-slate-800 text-xs leading-tight block group-hover:text-blue-600 transition-colors">PPSHV EXPRESSWAY</span>
+              <span class="text-[9px] text-blue-600 font-bold tracking-wider block">SMART INVENTORY</span>
+            </div>
+          </div>
           <div id="pageTitleIconContainer" class="flex items-center shrink-0">
             <div
               class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center text-sm sm:text-base shadow-sm shadow-blue-500/20 shrink-0">
@@ -3713,7 +3736,26 @@
 
               <!-- ROW 2: មុខងារដែលមាន (Month Range, Search, Refresh, Export Dropdown) ត្រូវបង្ហាញមកនៅជួរទី 2 ឱ្យអស់ -->
               <div class="flex items-center gap-2 flex-wrap sm:flex-nowrap w-full overflow-visible pt-0.5">
-                <!-- Month Range Filter (រក្សាទំហំថេរ w-[106px] មិនឱ្យរួញ ឬរីក) -->
+                <!-- 1. Search Box (ដាក់នៅខាងមុខ) -->
+                <div class="relative flex-1 min-w-[180px]">
+                  <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                  <input type="search" id="stockInHistorySearch" name="stockin_search_nonce_secure" readonly
+                    inputmode="search" autocomplete="one-time-code" autocorrect="off" autocapitalize="off"
+                    spellcheck="false" data-lpignore="true" data-1p-ignore="true" data-bwignore="true"
+                    data-form-type="other"
+                    onfocus="this.removeAttribute('readonly'); if (!this.dataset.userTyped && (this.value.toLowerCase() === 'superadmin' || this.value.replace(/\D/g, '').length >= 8)) { this.value = ''; filterStockInHistoryTable(); }"
+                    oninput="this.dataset.userTyped = 'true'; filterStockInHistoryTable()"
+                    onkeydown="this.dataset.userTyped = 'true';" placeholder="ស្វែងរកតាមលេខ, ឈ្មោះ, SKU..."
+                    class="w-full pl-7 pr-6 h-9 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm outline-none focus:ring-2 focus:ring-emerald-500 transition">
+                  <button type="button"
+                    onclick="const el = document.getElementById('stockInHistorySearch'); if (el) { el.value = ''; delete el.dataset.userTyped; el.setAttribute('readonly', 'readonly'); filterStockInHistoryTable(); }"
+                    class="absolute right-2 top-2 text-slate-400 hover:text-slate-600 text-xs p-0.5 rounded transition"
+                    title="សម្អាតការស្វែងរក">
+                    <i class="fa-solid fa-xmark"></i>
+                  </button>
+                </div>
+
+                <!-- 2. Month Range Filter (ដាក់នៅខាងក្រោយ) -->
                 <div
                   class="flex items-center bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-2 h-9 gap-1.5 shadow-3xs text-xs text-slate-600 transition shrink-0 min-w-[315px]">
                   <i class="fa-regular fa-calendar-days text-emerald-600 shrink-0"></i>
@@ -3740,24 +3782,6 @@
                   <input type="hidden" id="stockInMonthEnd" value="">
                   <button type="button" onclick="clearStockInMonthFilter()" title="សម្អាតចន្លោះខែ"
                     class="text-slate-400 hover:text-rose-600 text-xs px-1 py-0.5 rounded transition shrink-0">
-                    <i class="fa-solid fa-xmark"></i>
-                  </button>
-                </div>
-
-                <div class="relative flex-1 min-w-[180px]">
-                  <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
-                  <input type="search" id="stockInHistorySearch" name="stockin_search_nonce_secure" readonly
-                    inputmode="search" autocomplete="one-time-code" autocorrect="off" autocapitalize="off"
-                    spellcheck="false" data-lpignore="true" data-1p-ignore="true" data-bwignore="true"
-                    data-form-type="other"
-                    onfocus="this.removeAttribute('readonly'); if (!this.dataset.userTyped && (this.value.toLowerCase() === 'superadmin' || this.value.replace(/\D/g, '').length >= 8)) { this.value = ''; filterStockInHistoryTable(); }"
-                    oninput="this.dataset.userTyped = 'true'; filterStockInHistoryTable()"
-                    onkeydown="this.dataset.userTyped = 'true';" placeholder="ស្វែងរកតាមលេខ, ឈ្មោះ, SKU..."
-                    class="w-full pl-7 pr-6 h-9 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm outline-none focus:ring-2 focus:ring-emerald-500 transition">
-                  <button type="button"
-                    onclick="const el = document.getElementById('stockInHistorySearch'); if (el) { el.value = ''; delete el.dataset.userTyped; el.setAttribute('readonly', 'readonly'); filterStockInHistoryTable(); }"
-                    class="absolute right-2 top-2 text-slate-400 hover:text-slate-600 text-xs p-0.5 rounded transition"
-                    title="សម្អាតការស្វែងរក">
                     <i class="fa-solid fa-xmark"></i>
                   </button>
                 </div>
@@ -3943,7 +3967,26 @@
 
               <!-- ROW 2: មុខងារដែលមាន (Month Range, Search, Refresh, Export Dropdown) ត្រូវបង្ហាញមកនៅជួរទី 2 ឱ្យអស់ -->
               <div class="flex items-center gap-2 flex-wrap sm:flex-nowrap w-full overflow-visible pt-0.5">
-                <!-- Month Range Filter (រក្សាទំហំថេរ w-[106px] មិនឱ្យរួញ ឬរីក) -->
+                <!-- 1. Search Box (ដាក់នៅខាងមុខ) -->
+                <div class="relative flex-1 min-w-[180px]">
+                  <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                  <input type="search" id="stockOutHistorySearch" name="stockout_search_nonce_secure" readonly
+                    inputmode="search" autocomplete="one-time-code" autocorrect="off" autocapitalize="off"
+                    spellcheck="false" data-lpignore="true" data-1p-ignore="true" data-bwignore="true"
+                    data-form-type="other"
+                    onfocus="this.removeAttribute('readonly'); if (!this.dataset.userTyped && (this.value.toLowerCase() === 'superadmin' || this.value.replace(/\D/g, '').length >= 8)) { this.value = ''; filterStockOutHistoryTable(); }"
+                    oninput="this.dataset.userTyped = 'true'; filterStockOutHistoryTable()"
+                    onkeydown="this.dataset.userTyped = 'true';" placeholder="ស្វែងរកតាមលេខ, ឈ្មោះ, SKU..."
+                    class="w-full pl-7 pr-6 h-9 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm outline-none focus:ring-2 focus:ring-amber-500 transition">
+                  <button type="button"
+                    onclick="const el = document.getElementById('stockOutHistorySearch'); if (el) { el.value = ''; delete el.dataset.userTyped; el.setAttribute('readonly', 'readonly'); filterStockOutHistoryTable(); }"
+                    class="absolute right-2 top-2 text-slate-400 hover:text-slate-600 text-xs p-0.5 rounded transition"
+                    title="សម្អាតការស្វែងរក">
+                    <i class="fa-solid fa-xmark"></i>
+                  </button>
+                </div>
+
+                <!-- 2. Month Range Filter (ដាក់នៅខាងក្រោយ) -->
                 <div
                   class="flex items-center bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-2 h-9 gap-1.5 shadow-3xs text-xs text-slate-600 transition shrink-0 min-w-[315px]">
                   <i class="fa-regular fa-calendar-days text-amber-600 shrink-0"></i>
@@ -3970,24 +4013,6 @@
                   <input type="hidden" id="stockOutMonthEnd" value="">
                   <button type="button" onclick="clearStockOutMonthFilter()" title="សម្អាតចន្លោះខែ"
                     class="text-slate-400 hover:text-rose-600 text-xs px-1 py-0.5 rounded transition shrink-0">
-                    <i class="fa-solid fa-xmark"></i>
-                  </button>
-                </div>
-
-                <div class="relative flex-1 min-w-[180px]">
-                  <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
-                  <input type="search" id="stockOutHistorySearch" name="stockout_search_nonce_secure" readonly
-                    inputmode="search" autocomplete="one-time-code" autocorrect="off" autocapitalize="off"
-                    spellcheck="false" data-lpignore="true" data-1p-ignore="true" data-bwignore="true"
-                    data-form-type="other"
-                    onfocus="this.removeAttribute('readonly'); if (!this.dataset.userTyped && (this.value.toLowerCase() === 'superadmin' || this.value.replace(/\D/g, '').length >= 8)) { this.value = ''; filterStockOutHistoryTable(); }"
-                    oninput="this.dataset.userTyped = 'true'; filterStockOutHistoryTable()"
-                    onkeydown="this.dataset.userTyped = 'true';" placeholder="ស្វែងរកតាមលេខ, ឈ្មោះ, SKU..."
-                    class="w-full pl-7 pr-6 h-9 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm outline-none focus:ring-2 focus:ring-amber-500 transition">
-                  <button type="button"
-                    onclick="const el = document.getElementById('stockOutHistorySearch'); if (el) { el.value = ''; delete el.dataset.userTyped; el.setAttribute('readonly', 'readonly'); filterStockOutHistoryTable(); }"
-                    class="absolute right-2 top-2 text-slate-400 hover:text-slate-600 text-xs p-0.5 rounded transition"
-                    title="សម្អាតការស្វែងរក">
                     <i class="fa-solid fa-xmark"></i>
                   </button>
                 </div>
@@ -48783,12 +48808,45 @@
         .replace(/'/g, "&#039;");
     }
 
+    function updateCollapsedLogoVisibility(isSidebarOpen) {
+      const bannerLogo = document.getElementById('sessionBannerLogo');
+      if (bannerLogo) {
+        if (isSidebarOpen) {
+          bannerLogo.classList.add('hidden');
+          bannerLogo.classList.remove('flex');
+        } else {
+          bannerLogo.classList.remove('hidden');
+          bannerLogo.classList.add('flex');
+        }
+      }
+      const headerLogo = document.getElementById('headerCollapsedLogo');
+      if (headerLogo) {
+        if (isSidebarOpen) {
+          headerLogo.classList.add('hidden');
+          headerLogo.classList.remove('flex');
+        } else {
+          headerLogo.classList.remove('hidden');
+          headerLogo.classList.add('flex');
+        }
+      }
+    }
+    window.updateCollapsedLogoVisibility = updateCollapsedLogoVisibility;
+
+    function syncSidebarLogoInitialState() {
+      const sidebar = document.getElementById('sidebar');
+      if (!sidebar) return;
+      const isDesktop = window.innerWidth >= 768;
+      const isSidebarOpen = isDesktop ? !sidebar.classList.contains('md:hidden') : sidebar.classList.contains('translate-x-0');
+      updateCollapsedLogoVisibility(isSidebarOpen);
+    }
+
     function toggleMobileSidebar(forceState) {
       const sidebar = document.getElementById('sidebar');
       const backdrop = document.getElementById('sidebarBackdrop');
       if (!sidebar) return;
 
       const isDesktop = window.innerWidth >= 768;
+      let isNowOpen = false;
 
       if (isDesktop) {
         // Desktop handling: default is open. Toggling collapses/expands via md:hidden
@@ -48797,40 +48855,55 @@
           if (forceState) {
             sidebar.classList.remove('md:hidden', '-translate-x-full');
             sidebar.classList.add('md:translate-x-0');
+            isNowOpen = true;
           } else {
             sidebar.classList.add('md:hidden');
+            isNowOpen = false;
           }
         } else {
           sidebar.classList.toggle('md:hidden');
           if (!sidebar.classList.contains('md:hidden')) {
             sidebar.classList.remove('-translate-x-full');
             sidebar.classList.add('md:translate-x-0');
+            isNowOpen = true;
+          } else {
+            isNowOpen = false;
           }
         }
         if (backdrop) backdrop.classList.add('hidden');
         document.body.classList.remove('mobile-drawer-open');
-        return;
-      }
-
-      // Mobile handling (< 768px): slide-over drawer
-      const shouldOpen = (typeof forceState === 'boolean')
-        ? forceState
-        : !sidebar.classList.contains('translate-x-0');
-
-      if (shouldOpen) {
-        sidebar.classList.remove('-translate-x-full', 'hidden');
-        sidebar.classList.add('translate-x-0');
-        if (backdrop) backdrop.classList.remove('hidden');
-        document.body.classList.add('mobile-drawer-open');
       } else {
-        sidebar.classList.remove('translate-x-0');
-        sidebar.classList.add('-translate-x-full');
-        if (backdrop) backdrop.classList.add('hidden');
-        document.body.classList.remove('mobile-drawer-open');
+        // Mobile handling (< 768px): slide-over drawer
+        const shouldOpen = (typeof forceState === 'boolean')
+          ? forceState
+          : !sidebar.classList.contains('translate-x-0');
+
+        if (shouldOpen) {
+          sidebar.classList.remove('-translate-x-full', 'hidden');
+          sidebar.classList.add('translate-x-0');
+          if (backdrop) backdrop.classList.remove('hidden');
+          document.body.classList.add('mobile-drawer-open');
+          isNowOpen = true;
+        } else {
+          sidebar.classList.remove('translate-x-0');
+          sidebar.classList.add('-translate-x-full');
+          if (backdrop) backdrop.classList.add('hidden');
+          document.body.classList.remove('mobile-drawer-open');
+          isNowOpen = false;
+        }
       }
+
+      updateCollapsedLogoVisibility(isNowOpen);
     }
     window.toggleMobileSidebar = toggleMobileSidebar;
     window.toggleAppSidebar = toggleMobileSidebar;
+
+    window.addEventListener('resize', syncSidebarLogoInitialState);
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', syncSidebarLogoInitialState);
+    } else {
+      setTimeout(syncSidebarLogoInitialState, 100);
+    }
 
     // Auto-hide mobile drawer when clicking outside (mobile only)
     document.addEventListener('click', function (e) {
