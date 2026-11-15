@@ -30686,6 +30686,43 @@
         const variantStr = [sizeStr, colorStr].filter(Boolean).join(' / ') || '-';
         const cleanNote = (typeof cleanDisplayNote === 'function') ? cleanDisplayNote(t.userNote !== undefined ? t.userNote : t.notes) : (t.userNote || t.notes || '-');
 
+        const pQty = Number(t.packQty || item?.packQty || 1);
+        let pUnit = (t.packUnit || item?.packUnit || '').trim() || 'ប្រអប់';
+        let rUnit = (t.unit || item?.unit || '').trim() || 'ដើម';
+        if (pUnit.toLowerCase() === 'admin' || pUnit.startsWith('http') || pUnit.includes('com/d/') || pUnit.includes('GMT')) pUnit = 'ប្រអប់';
+        if (rUnit.toLowerCase() === 'admin' || rUnit.startsWith('http') || rUnit.includes('com/d/') || rUnit.includes('GMT')) rUnit = 'ដើម';
+
+        let inBulk = (pQty > 1) ? Math.floor(q / pQty) : 0;
+        let inLoose = (pQty > 1) ? (q % pQty) : q;
+        if (t.bulkQty !== undefined && t.retailQty !== undefined && t.bulkQty !== null && t.retailQty !== null) {
+          const b = Number(t.bulkQty);
+          const r = Number(t.retailQty);
+          if (b * pQty + r === q) {
+            inBulk = b;
+            inLoose = r;
+          }
+        }
+
+        let qtyBulkDisplayHtml = '';
+        if (pQty > 1) {
+          qtyBulkDisplayHtml = `
+            <div style="font-size: 11px; white-space: nowrap;">
+              <span style="font-weight: bold; color: #1e3a8a;">${inBulk} ${escapeHtml(pUnit)}</span>
+              <span style="color: #64748b;"> & </span>
+              <span style="font-weight: bold; color: #047857;">${inLoose} ${escapeHtml(rUnit)}</span>
+            </div>
+            <div style="font-size: 9px; color: #64748b; margin-top: 1px; white-space: nowrap;">(1 ${escapeHtml(pUnit)}=${pQty} ${escapeHtml(rUnit)})</div>
+          `;
+        } else {
+          qtyBulkDisplayHtml = `<span style="font-weight: bold; color: #047857; font-size: 11px;">${q} ${escapeHtml(rUnit)}</span>`;
+        }
+
+        const qtyRetailDisplayHtml = `
+          <span style="display: inline-block; padding: 2px 8px; border-radius: 9999px; font-weight: bold; font-size: 10.5px; background: ${q === 0 ? '#fff1f2' : '#ecfdf5'}; color: ${q === 0 ? '#e11d48' : '#047857'}; border: 1px solid ${q === 0 ? '#fecdd3' : '#a7f3d0'}; white-space: nowrap;">
+            ${q} ${escapeHtml(rUnit)}
+          </span>
+        `;
+
         return `
           <tr>
             <td style="text-align: center;">${idx + 1}</td>
@@ -30700,8 +30737,8 @@
             </td>
             <td style="text-align: center; font-size: 10.5px;">${escapeHtml(variantStr)}</td>
             <td style="text-align: center; font-size: 10.5px;">${escapeHtml(t.zone || item?.zone || '-')}</td>
-            <td style="text-align: center; font-weight: bold; color: #047857; background: #ecfdf5; font-size: 11px;">${q}</td>
-            <td style="text-align: center; font-weight: bold; color: #1e293b; font-size: 10.5px;">${escapeHtml(t.unit || 'ដុំ')}</td>
+            <td style="text-align: center; vertical-align: middle;">${qtyBulkDisplayHtml}</td>
+            <td style="text-align: center; vertical-align: middle;">${qtyRetailDisplayHtml}</td>
             <td style="font-size: 10.5px;">${escapeHtml(t.toLocation || t.location || t.warehouse || '-')}</td>
             <td style="font-size: 10.5px;">${escapeHtml(t.receivedBy || t.user || '-')}</td>
             <td style="font-size: 10px; color: #475569; max-width: 120px;">${escapeHtml(cleanNote)}</td>
@@ -30817,8 +30854,8 @@
                 <th style="width: 70px; text-align: center;">រូបភាព</th>
                 <th style="width: 70px; text-align: center;">ខ្នាត/ពណ៌</th>
                 <th style="width: 48px; text-align: center;">តំបន់</th>
-                <th style="width: 55px; text-align: center;">ចំនួនចូល</th>
-                <th style="width: 45px; text-align: center;">ឯកតា</th>
+                <th style="width: 135px; text-align: center;">ចំនួនចូល (ដុំ & រាយ)</th>
+                <th style="width: 85px; text-align: center;">សរុបជារាយ</th>
                 <th style="width: 100px;">ឃ្លាំងទទួល</th>
                 <th style="width: 75px;">អ្នកទទួល</th>
                 <th style="width: 100px;">កំណត់ចំណាំ</th>
@@ -30955,6 +30992,43 @@
         const variantStr = [sizeStr, colorStr].filter(Boolean).join(' / ') || '-';
         const cleanNote = (typeof cleanDisplayNote === 'function') ? cleanDisplayNote(t.userNote !== undefined ? t.userNote : t.notes) : (t.userNote || t.notes || '-');
 
+        const pQty = Number(t.packQty || item?.packQty || 1);
+        let pUnit = (t.packUnit || item?.packUnit || '').trim() || 'ប្រអប់';
+        let rUnit = (t.unit || item?.unit || '').trim() || 'ដើម';
+        if (pUnit.toLowerCase() === 'admin' || pUnit.startsWith('http') || pUnit.includes('com/d/') || pUnit.includes('GMT')) pUnit = 'ប្រអប់';
+        if (rUnit.toLowerCase() === 'admin' || rUnit.startsWith('http') || rUnit.includes('com/d/') || rUnit.includes('GMT')) rUnit = 'ដើម';
+
+        let outBulk = (pQty > 1) ? Math.floor(q / pQty) : 0;
+        let outLoose = (pQty > 1) ? (q % pQty) : q;
+        if (t.bulkQty !== undefined && t.retailQty !== undefined && t.bulkQty !== null && t.retailQty !== null) {
+          const b = Number(t.bulkQty);
+          const r = Number(t.retailQty);
+          if (b * pQty + r === q) {
+            outBulk = b;
+            outLoose = r;
+          }
+        }
+
+        let qtyBulkDisplayHtml = '';
+        if (pQty > 1) {
+          qtyBulkDisplayHtml = `
+            <div style="font-size: 11px; white-space: nowrap;">
+              <span style="font-weight: bold; color: #1e3a8a;">${outBulk} ${escapeHtml(pUnit)}</span>
+              <span style="color: #64748b;"> & </span>
+              <span style="font-weight: bold; color: #b45309;">${outLoose} ${escapeHtml(rUnit)}</span>
+            </div>
+            <div style="font-size: 9px; color: #64748b; margin-top: 1px; white-space: nowrap;">(1 ${escapeHtml(pUnit)}=${pQty} ${escapeHtml(rUnit)})</div>
+          `;
+        } else {
+          qtyBulkDisplayHtml = `<span style="font-weight: bold; color: #b45309; font-size: 11px;">${q} ${escapeHtml(rUnit)}</span>`;
+        }
+
+        const qtyRetailDisplayHtml = `
+          <span style="display: inline-block; padding: 2px 8px; border-radius: 9999px; font-weight: bold; font-size: 10.5px; background: ${q === 0 ? '#fff1f2' : '#fffbeb'}; color: ${q === 0 ? '#e11d48' : '#b45309'}; border: 1px solid ${q === 0 ? '#fecdd3' : '#fde68a'}; white-space: nowrap;">
+            ${q} ${escapeHtml(rUnit)}
+          </span>
+        `;
+
         return `
           <tr>
             <td style="text-align: center;">${idx + 1}</td>
@@ -30968,8 +31042,8 @@
                    onerror="this.style.display='none'">
             </td>
             <td style="text-align: center; font-size: 10.5px;">${escapeHtml(variantStr)}</td>
-            <td style="text-align: center; font-weight: bold; color: #b45309; background: #fffbeb; font-size: 11px;">${q}</td>
-            <td style="text-align: center; font-weight: bold; color: #1e293b; font-size: 10.5px;">${escapeHtml(t.unit || 'ដុំ')}</td>
+            <td style="text-align: center; vertical-align: middle;">${qtyBulkDisplayHtml}</td>
+            <td style="text-align: center; vertical-align: middle;">${qtyRetailDisplayHtml}</td>
             <td style="font-size: 10.5px; font-weight: 500;">${escapeHtml(recipient)}</td>
             <td style="font-size: 10.5px; font-weight: 500;">${escapeHtml(issuer)}</td>
             <td style="font-size: 10px; color: #475569; max-width: 120px;">${escapeHtml(cleanNote)}</td>
@@ -31083,8 +31157,8 @@
                 <th>ឈ្មោះទំនិញ</th>
                 <th style="width: 70px; text-align: center;">រូបភាព</th>
                 <th style="width: 70px; text-align: center;">ខ្នាត/ពណ៌</th>
-                <th style="width: 55px; text-align: center;">ចំនួនចេញ</th>
-                <th style="width: 45px; text-align: center;">ឯកតា</th>
+                <th style="width: 135px; text-align: center;">ចំនួនចេញ (ដុំ & រាយ)</th>
+                <th style="width: 85px; text-align: center;">សរុបជារាយ</th>
                 <th style="width: 130px;">អ្នកទទួលទំនិញ</th>
                 <th style="width: 85px;">អ្នកបើកចេញ</th>
                 <th style="width: 95px;">កំណត់ចំណាំ</th>
