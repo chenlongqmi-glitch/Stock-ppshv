@@ -8374,7 +8374,7 @@
   <div id="recordDamagedModal" onclick="if(isSafeModalBackdropClick(event)) closeRecordDamagedModal()"
     class="fixed inset-0 z-[500] flex items-center justify-center bg-slate-950/75 backdrop-blur-sm p-4 hidden">
     <div
-      class="w-full max-w-xl bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[92vh]">
+      class="w-full max-w-3xl sm:max-w-4xl bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[92vh]">
       <!-- Modal Header -->
       <div
         class="px-6 py-4 bg-gradient-to-r from-rose-600 via-pink-600 to-rose-700 text-white flex items-center justify-between shrink-0 shadow-md">
@@ -8397,50 +8397,122 @@
       <!-- Modal Body Form -->
       <form id="recordDamagedForm" onsubmit="handleRecordDamagedSubmit(event)"
         class="p-6 space-y-4 overflow-y-auto custom-scrollbar">
-        <!-- 1. Search & Select Item -->
-        <div>
-          <label class="block text-xs font-bold text-slate-700 uppercase mb-1">
-            ស្វែងរកទំនិញតាម Keyword ឬ Barcode / SKU *
-          </label>
-          <div class="relative">
-            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-slate-400 text-xs"></i>
-            <input type="text" id="dmgItemInput" list="dmgItemList" required
-              placeholder="វាយពាក្យគន្លឹះ ឈ្មោះទំនិញ ឬ SKU..." oninput="onDamagedItemSelectChange()" autocomplete="off"
-              class="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-rose-500 outline-none">
-            <datalist id="dmgItemList"></datalist>
+        <!-- Upper Section: Image Card on Left, Search & Spec Fields on Right -->
+        <div class="flex flex-col sm:flex-row gap-4 sm:gap-5 items-stretch">
+          <!-- Left: Product Image Preview Card (Matching Image 3) -->
+          <div class="w-full sm:w-48 md:w-56 shrink-0 flex flex-col justify-stretch">
+            <div id="dmgImgCard"
+              class="flex-1 w-full border-2 border-emerald-400/80 rounded-2xl bg-emerald-50/20 flex flex-col items-center justify-center p-2.5 relative overflow-hidden group cursor-pointer shadow-xs hover:border-emerald-500 hover:bg-white transition min-h-[170px] sm:min-h-[200px]"
+              onclick="handleDamagedImgCardClick()" title="ចុចដើម្បីមើលរូបភាពធំ ឬស្វែងរកតាមរូបភាព">
+
+              <div id="dmgImgPlaceholderBox"
+                class="flex flex-col items-center justify-center text-center p-2 my-auto select-none space-y-1.5"
+                onclick="event.stopPropagation(); openVisualImageSearchModal('damaged')">
+                <i
+                  class="fa-regular fa-image text-emerald-400 text-4xl mb-1 group-hover:scale-110 transition-transform"></i>
+                <span class="text-sm font-extrabold text-slate-700 font-khmer">រូបភាពទំនិញ</span>
+                <span
+                  class="text-[11px] text-emerald-700 font-bold font-khmer bg-emerald-100/90 border border-emerald-200/90 px-2 py-0.5 rounded-md flex items-center gap-1 shadow-3xs hover:bg-emerald-200 transition">
+                  <i class="fa-solid fa-camera"></i> ចុចស្វែងរកតាមរូបភាព
+                </span>
+              </div>
+
+              <img id="dmgItemImg" src="" alt=""
+                class="w-full h-full max-h-[220px] object-contain hidden rounded-xl transition group-hover:scale-105 pointer-events-none drop-shadow-xs">
+
+              <div onclick="event.stopPropagation(); openVisualImageSearchModal('damaged')"
+                class="absolute bottom-2.5 right-2.5 text-emerald-700 transition bg-white/95 border border-emerald-300 rounded-lg px-2 py-1 shadow-2xs hover:scale-105 flex items-center gap-1 font-bold text-[10.5px] cursor-pointer"
+                title="ស្វែងរកតាមរូបភាព (Visual Search)">
+                <i class="fa-solid fa-camera text-xs text-emerald-600"></i>
+                <span>ស្វែងរក</span>
+              </div>
+            </div>
           </div>
-          <div id="dmgItemStockPreview"
-            class="hidden mt-1.5 px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200 text-[11px] text-slate-600 flex items-center justify-between">
-            <span>ឈ្មោះ៖ <b id="dmgPreviewName" class="text-slate-800">-</b></span>
-            <span>ស្តុកបច្ចុប្បន្ន៖ <b id="dmgPreviewStock" class="text-rose-600 font-bold">0</b></span>
+
+          <!-- Right: Search Input, Size, Color, Warehouse, Zone -->
+          <div class="flex-1 space-y-3 min-w-0">
+            <!-- 1. Search & Select Item (Matching Image 2) -->
+            <div>
+              <label class="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center justify-between cursor-pointer">
+                <span class="flex items-center gap-1">
+                  <i class="fa-solid fa-magnifying-glass text-emerald-600 text-[11px]"></i>
+                  <span>ឈ្មោះទំនិញ (KEYWORD) *</span>
+                </span>
+                <button type="button" onclick="openVisualImageSearchModal('damaged')"
+                  class="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 bg-emerald-100/90 hover:bg-emerald-200 border border-emerald-300/80 px-2 py-0.5 rounded-md flex items-center gap-1 transition active:scale-95 shadow-3xs shrink-0 cursor-pointer"
+                  title="ស្វែងរកតាមរូបភាពដែលស្រដៀង (Search by Image)">
+                  <i class="fa-solid fa-camera text-emerald-600"></i>
+                  <span>រកតាមរូបភាព</span>
+                </button>
+              </label>
+              <div class="relative w-full">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-xs pointer-events-none"></i>
+                <input type="text" id="dmgItemInput" required placeholder="វាយឈ្មោះទំនិញ ឬ SKU / Bar..."
+                  oninput="handleCustomProductSearch(this, 'damaged')"
+                  onclick="handleCustomProductSearch(this, 'damaged')"
+                  onkeydown="handleProductSearchKeydown(event, 'damaged')" autocomplete="off"
+                  class="w-full pl-8 pr-7 py-2.5 bg-slate-50 hover:bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-rose-500 focus:bg-white outline-none transition shadow-2xs">
+                <input type="hidden" id="dmgInputSku" value="">
+                <button type="button" onclick="clearDamagedProductSelection()"
+                  class="absolute right-2 top-2.5 text-slate-400 hover:text-rose-500 w-5 h-5 flex items-center justify-center rounded-full hover:bg-slate-100 transition"
+                  title="សម្អាត (Clear)">
+                  <i class="fa-solid fa-xmark text-xs"></i>
+                </button>
+              </div>
+              <div id="dmgItemStockPreview"
+                class="hidden mt-1 px-3 py-1 rounded-xl bg-slate-100 border border-slate-200 text-[11px] text-slate-600 flex items-center justify-between">
+                <span>ឈ្មោះ៖ <b id="dmgPreviewName" class="text-slate-800">-</b></span>
+                <span>ស្តុកបច្ចុប្បន្ន៖ <b id="dmgPreviewStock" class="text-rose-600 font-bold">0</b></span>
+              </div>
+            </div>
+
+            <!-- 2. Size (ខ្នាត) & Color (ពណ៌) - Auto-populated upon selection -->
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1 flex items-center gap-1">
+                  <i class="fa-solid fa-ruler text-blue-500 text-[10px]"></i>
+                  <span>ខ្នាត (SIZE)</span>
+                </label>
+                <input type="text" id="dmgInputSize" readonly placeholder="ខ្នាត..."
+                  class="w-full px-3.5 py-2 bg-slate-100/90 border border-slate-200 rounded-xl text-xs text-slate-700 font-semibold cursor-not-allowed outline-none select-all">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1 flex items-center gap-1">
+                  <i class="fa-solid fa-palette text-amber-500 text-[10px]"></i>
+                  <span>ពណ៌ (COLOR)</span>
+                </label>
+                <input type="text" id="dmgInputColor" readonly placeholder="ពណ៌..."
+                  class="w-full px-3.5 py-2 bg-slate-100/90 border border-slate-200 rounded-xl text-xs text-slate-700 font-semibold cursor-not-allowed outline-none select-all">
+              </div>
+            </div>
+
+            <!-- 3. Warehouse & Specific Storage Location in Warehouse -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">ឃ្លាំងដែលរក្សាទុក *</label>
+                <select id="dmgInputWarehouse" required onchange="onDamagedItemSelectChange()"
+                  class="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-rose-500">
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">ទីតាំងជាក់លាក់ក្នុងឃ្លាំង *</label>
+                <input type="text" id="dmgInputStorageZone" required placeholder="ឧ. ធ្នើរ D-01, បន្ទប់សម្ភារខូច..."
+                  list="dmgStorageZoneOptions"
+                  class="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-rose-500 font-medium">
+                <datalist id="dmgStorageZoneOptions">
+                  <option value="ធ្នើរខូច D-01 (តំបន់ Quarantine)"></option>
+                  <option value="ធ្នើរខូច D-02"></option>
+                  <option value="បន្ទប់រក្សាទុកសម្ភារខូច"></option>
+                  <option value="កន្លែងរង់ចាំជួសជុល"></option>
+                  <option value="កន្លែងរង់ចាំដូរក្រុមហ៊ុន"></option>
+                  <option value="ឃ្លាំងចាស់ជួរទី ៣"></option>
+                </datalist>
+              </div>
+            </div>
           </div>
         </div>
 
-        <!-- 2. Warehouse & Specific Storage Location in Warehouse -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">ឃ្លាំងដែលរក្សាទុក *</label>
-            <select id="dmgInputWarehouse" required onchange="onDamagedItemSelectChange()"
-              class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-rose-500">
-            </select>
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">ទីតាំងជាក់លាក់ក្នុងឃ្លាំង *</label>
-            <input type="text" id="dmgInputStorageZone" required placeholder="ឧ. ធ្នើរ D-01, បន្ទប់សម្ភារខូច..."
-              list="dmgStorageZoneOptions"
-              class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-rose-500 font-medium">
-            <datalist id="dmgStorageZoneOptions">
-              <option value="ធ្នើរខូច D-01 (តំបន់ Quarantine)"></option>
-              <option value="ធ្នើរខូច D-02"></option>
-              <option value="បន្ទប់រក្សាទុកសម្ភារខូច"></option>
-              <option value="កន្លែងរង់ចាំជួសជុល"></option>
-              <option value="កន្លែងរង់ចាំដូរក្រុមហ៊ុន"></option>
-              <option value="ឃ្លាំងចាស់ជួរទី ៣"></option>
-            </datalist>
-          </div>
-        </div>
-
-        <!-- 3. Quantity & Unit -->
+        <!-- 4. Quantity & Unit -->
         <div class="grid grid-cols-2 gap-3.5">
           <div>
             <label class="block text-xs font-semibold text-slate-700 uppercase mb-1">ចំនួនខូច *</label>
@@ -25162,6 +25234,45 @@
       hideCustomProductDropdown();
     }
 
+    function clearDamagedProductSelection() {
+      const skuInput = document.getElementById('dmgItemInput');
+      const codeInput = document.getElementById('dmgInputSku');
+      const sizeInput = document.getElementById('dmgInputSize');
+      const colorInput = document.getElementById('dmgInputColor');
+      const unitInput = document.getElementById('dmgInputUnit');
+      const imgEl = document.getElementById('dmgItemImg');
+      const placeholderEl = document.getElementById('dmgImgPlaceholderBox');
+      const previewBox = document.getElementById('dmgItemStockPreview');
+
+      if (skuInput) skuInput.value = '';
+      if (codeInput) codeInput.value = '';
+      if (sizeInput) sizeInput.value = '';
+      if (colorInput) colorInput.value = '';
+      if (unitInput) unitInput.value = '';
+      if (imgEl) {
+        imgEl.src = '';
+        imgEl.classList.add('hidden');
+      }
+      if (placeholderEl) placeholderEl.classList.remove('hidden');
+      if (previewBox) previewBox.classList.add('hidden');
+      hideCustomProductDropdown();
+    }
+
+    function handleDamagedImgCardClick() {
+      const codeInput = document.getElementById('dmgInputSku')?.value.trim();
+      const inputVal = document.getElementById('dmgItemInput')?.value.trim();
+      const item = (codeInput ? AppState.items.find(i => i.sku === codeInput) : null) || (inputVal ? (typeof findItemByInput === 'function' ? findItemByInput(inputVal) : null) : null);
+      const rawUrl = item ? (item.imageUrl || item.ImageUrl || item.image || item.Image || item.photo || '') : '';
+      const finalUrl = (typeof formatDriveImageUrl === 'function') ? formatDriveImageUrl(rawUrl) : rawUrl;
+      if (item && finalUrl) {
+        if (typeof previewLargeImage === 'function') {
+          previewLargeImage(finalUrl, item.name, item.sku, item.barcode, item.unit, item.currentStock, item.location, item.zone);
+        }
+      } else {
+        openVisualImageSearchModal('damaged');
+      }
+    }
+
     function selectProductItem(sku, mode) {
       hideCustomProductDropdown();
       try {
@@ -25212,6 +25323,54 @@
           }
           if (codeInput) codeInput.value = item.sku;
           onStockOutItemChange();
+        } else if (mode === 'damaged') {
+          const skuInput = document.getElementById('dmgItemInput');
+          const codeInput = document.getElementById('dmgInputSku');
+          const sizeInput = document.getElementById('dmgInputSize');
+          const colorInput = document.getElementById('dmgInputColor');
+          const unitInput = document.getElementById('dmgInputUnit');
+          const imgEl = document.getElementById('dmgItemImg');
+          const placeholderEl = document.getElementById('dmgImgPlaceholderBox');
+
+          if (skuInput) {
+            skuInput.value = item.name || item.sku;
+            skuInput.title = `${item.name || item.sku} (${item.sku})`;
+          }
+          if (codeInput) codeInput.value = item.sku;
+          if (sizeInput) sizeInput.value = item.size || '-';
+          if (colorInput) colorInput.value = item.color || '-';
+          if (unitInput) unitInput.value = item.unit || 'ដុំ';
+
+          // Image display (Image 3)
+          const rawUrl = item.imageUrl || item.ImageUrl || item.image || item.Image || item.photo || '';
+          const finalUrl = (typeof formatDriveImageUrl === 'function') ? formatDriveImageUrl(rawUrl) : rawUrl;
+          if (finalUrl && imgEl) {
+            imgEl.src = finalUrl;
+            imgEl.classList.remove('hidden');
+            if (placeholderEl) placeholderEl.classList.add('hidden');
+          } else {
+            if (imgEl) {
+              imgEl.src = '';
+              imgEl.classList.add('hidden');
+            }
+            if (placeholderEl) placeholderEl.classList.remove('hidden');
+          }
+
+          // Stock Preview
+          const curWh = document.getElementById('dmgInputWarehouse')?.value || '';
+          let stVal = Number(item.currentStock || 0);
+          if (curWh && typeof getItemStationStock === 'function') {
+            const st = getItemStationStock(item, curWh);
+            stVal = st.total;
+          }
+          const previewBox = document.getElementById('dmgItemStockPreview');
+          const previewName = document.getElementById('dmgPreviewName');
+          const previewStock = document.getElementById('dmgPreviewStock');
+          if (previewBox) {
+            previewBox.classList.remove('hidden');
+            if (previewName) previewName.innerText = item.name || item.sku;
+            if (previewStock) previewStock.innerText = `${stVal} ${item.unit || 'ដុំ'}`;
+          }
         } else if (mode === 'inventory') {
           const searchInp = document.getElementById('itemSearchInput');
           if (searchInp) {
@@ -25260,7 +25419,7 @@
         document.addEventListener('click', (e) => {
           if (!customProductDropdownEl || customProductDropdownEl.classList.contains('hidden')) return;
           const target = e.target;
-          const inInput = target.closest('#stockInSku') || target.closest('#stockOutSku');
+          const inInput = target.closest('#stockInSku') || target.closest('#stockOutSku') || target.closest('#dmgItemInput');
           const inDropdown = target.closest('#customProductSearchDropdown');
           if (!inInput && !inDropdown) {
             hideCustomProductDropdown();
@@ -25377,6 +25536,27 @@
             curStock = stStock ? stStock.total : 0;
             curBulk = stStock ? stStock.bulk : (pQty > 1 ? Math.floor(curStock / pQty) : 0);
             curRetail = stStock ? stStock.loose : (pQty > 1 ? (curStock % pQty) : curStock);
+          }
+        } else if (mode === 'damaged') {
+          let dmgWh = '';
+          const whEl = document.getElementById('dmgInputWarehouse');
+          if (whEl && whEl.value) {
+            dmgWh = whEl.value;
+          } else if (!isPrivileged && curU && curU.warehouse && curU.warehouse !== 'ALL') {
+            dmgWh = curU.warehouse;
+          }
+          if (dmgWh && typeof toCanonicalWarehouseName === 'function') {
+            dmgWh = toCanonicalWarehouseName(dmgWh);
+          }
+          if (dmgWh && typeof getItemStationStock === 'function') {
+            const stStock = getItemStationStock(item, dmgWh);
+            curStock = stStock ? stStock.total : 0;
+            curBulk = pQty > 1 ? Math.floor(curStock / pQty) : 0;
+            curRetail = pQty > 1 ? (curStock % pQty) : curStock;
+          } else {
+            curStock = Number(item.currentStock || 0);
+            curBulk = pQty > 1 ? Math.floor(curStock / pQty) : 0;
+            curRetail = pQty > 1 ? (curStock % pQty) : curStock;
           }
         } else {
           let inWh = '';
@@ -47216,13 +47396,7 @@
     function openRecordDamagedModal(prefillSku = '') {
       const form = document.getElementById('recordDamagedForm');
       if (form) form.reset();
-
-      // Populate Items Datalist
-      const datalist = document.getElementById('dmgItemList');
-      if (datalist) {
-        const items = AppState.items || [];
-        datalist.innerHTML = items.map(i => `<option value="${escapeHtml(i.sku)} - ${escapeHtml(i.name)}"></option>`).join('');
-      }
+      clearDamagedProductSelection();
 
       // Populate Warehouse Select
       const whSelect = document.getElementById('dmgInputWarehouse');
@@ -47238,32 +47412,22 @@
         }
       }
 
-      // Reset preview box
-      const previewBox = document.getElementById('dmgItemStockPreview');
-      if (previewBox) previewBox.classList.add('hidden');
-
       if (prefillSku) {
-        const itemInput = document.getElementById('dmgItemInput');
-        const matched = (AppState.items || []).find(i => i.sku === prefillSku);
-        if (itemInput && matched) {
-          itemInput.value = `${matched.sku} - ${matched.name}`;
-          onDamagedItemSelectChange();
-        } else if (itemInput) {
-          itemInput.value = prefillSku;
-          onDamagedItemSelectChange();
-        }
+        selectProductItem(prefillSku, 'damaged');
       }
 
       document.getElementById('recordDamagedModal')?.classList.remove('hidden');
     }
 
     function closeRecordDamagedModal() {
+      if (typeof hideCustomProductDropdown === 'function') hideCustomProductDropdown();
       document.getElementById('recordDamagedModal')?.classList.add('hidden');
     }
 
     function onDamagedItemSelectChange() {
-      const inputVal = document.getElementById('dmgItemInput')?.value || '';
-      const sku = (typeof extractSkuFromInput === 'function') ? extractSkuFromInput(inputVal) : inputVal.split('-')[0].trim();
+      const codeInput = document.getElementById('dmgInputSku')?.value.trim();
+      const inputVal = document.getElementById('dmgItemInput')?.value.trim();
+      const sku = codeInput || ((typeof extractSkuFromInput === 'function') ? extractSkuFromInput(inputVal) : inputVal.split('-')[0].trim());
       const matched = (AppState.items || []).find(i => i.sku === sku);
 
       const previewBox = document.getElementById('dmgItemStockPreview');
@@ -47273,9 +47437,9 @@
 
       if (matched && previewBox) {
         previewBox.classList.remove('hidden');
-        if (previewName) previewName.innerText = matched.name;
+        if (previewName) previewName.innerText = matched.name || matched.sku;
         const curWh = document.getElementById('dmgInputWarehouse')?.value || '';
-        let stVal = matched.currentStock || 0;
+        let stVal = Number(matched.currentStock || 0);
         if (curWh && typeof getItemStationStock === 'function') {
           const st = getItemStationStock(matched, curWh);
           stVal = st.total;
@@ -47294,9 +47458,15 @@
         return;
       }
 
-      const rawInput = document.getElementById('dmgItemInput')?.value || '';
-      const sku = (typeof extractSkuFromInput === 'function') ? extractSkuFromInput(rawInput) : rawInput.split('-')[0].trim();
+      const codeInput = document.getElementById('dmgInputSku')?.value.trim();
+      const rawInput = document.getElementById('dmgItemInput')?.value.trim();
+      const sku = codeInput || ((typeof extractSkuFromInput === 'function') ? extractSkuFromInput(rawInput) : rawInput.split('-')[0].trim());
       const matched = (AppState.items || []).find(i => i.sku === sku);
+
+      if (!sku && !rawInput) {
+        Swal.fire('កំហុស', 'សូមជ្រើសរើសមុខទំនិញដែលត្រូវកត់ត្រាខូច', 'warning');
+        return;
+      }
 
       const qty = Number(document.getElementById('dmgInputQty')?.value || 0);
       if (qty <= 0) {
