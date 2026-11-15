@@ -7326,13 +7326,13 @@
           <div id="cropperAspectRatioGroup" class="flex items-center space-x-1">
             <span class="text-[11px] font-bold text-slate-500 hidden sm:inline mr-1">ទំហំ៖</span>
             <button type="button" onclick="cropperSetAspectRatio(1, this)"
-              class="cropper-aspect-btn active px-2.5 py-1 text-xs font-bold rounded-lg border border-blue-600 bg-blue-600 text-white transition">1:1</button>
+              class="cropper-aspect-btn px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 transition">1:1</button>
             <button type="button" onclick="cropperSetAspectRatio(4/3, this)"
               class="cropper-aspect-btn px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 transition">4:3</button>
             <button type="button" onclick="cropperSetAspectRatio(16/9, this)"
               class="cropper-aspect-btn px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 transition">16:9</button>
             <button type="button" onclick="cropperSetAspectRatio(NaN, this)"
-              class="cropper-aspect-btn px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 transition">សេរី
+              class="cropper-aspect-btn active px-2.5 py-1 text-xs font-bold rounded-lg border border-blue-600 bg-blue-600 text-white transition">សេរី
               (Free)</button>
           </div>
 
@@ -17378,10 +17378,10 @@
           badgeEl.innerText = 'Product Image';
           badgeEl.classList.remove('hidden');
         }
-        // Reset active aspect button to 1:1
+        // Reset active aspect button to Free (សេរី) by default
         const aspectBtns = document.querySelectorAll('.cropper-aspect-btn');
         aspectBtns.forEach((btn, idx) => {
-          if (idx === 0) {
+          if (idx === 3) {
             btn.classList.add('active', 'border-blue-600', 'bg-blue-600', 'text-white');
             btn.classList.remove('border-slate-300', 'bg-white', 'text-slate-700');
           } else {
@@ -17431,7 +17431,7 @@
             }
 
             currentCropper = new Cropper(imgEl, {
-              aspectRatio: mode === 'avatar' ? 1 : 1,
+              aspectRatio: mode === 'avatar' ? 1 : NaN,
               viewMode: 1,
               dragMode: 'move',
               autoCropArea: mode === 'avatar' ? 0.85 : 0.9,
@@ -17545,6 +17545,19 @@
       currentCropper.scaleX(1);
       if (cropperBaseRatio) {
         currentCropper.zoomTo(cropperBaseRatio);
+      }
+      if (currentCropperMode !== 'avatar') {
+        currentCropper.setAspectRatio(NaN);
+        const aspectBtns = document.querySelectorAll('.cropper-aspect-btn');
+        aspectBtns.forEach((btn, idx) => {
+          if (idx === 3) {
+            btn.classList.add('active', 'border-blue-600', 'bg-blue-600', 'text-white');
+            btn.classList.remove('border-slate-300', 'bg-white', 'text-slate-700');
+          } else {
+            btn.classList.remove('active', 'border-blue-600', 'bg-blue-600', 'text-white');
+            btn.classList.add('border-slate-300', 'bg-white', 'text-slate-700');
+          }
+        });
       }
       const zoomRange = document.getElementById('cropperZoomRange');
       if (zoomRange) zoomRange.value = '1';
