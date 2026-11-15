@@ -7256,10 +7256,10 @@
   <!-- ========================================================================= -->
   <!-- IMAGE CROPPER & ZOOM MODAL (FOR AVATAR & PRODUCT IMAGES) -->
   <!-- ========================================================================= -->
-  <div id="imageCropperModal" onclick="if(isSafeModalBackdropClick(event)) closeImageCropper()"
+  <div id="imageCropperModal"
     class="fixed inset-0 z-[9995] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-3 sm:p-4 hidden"
     style="z-index: 9995 !important;">
-    <div
+    <div onclick="event.stopPropagation()"
       class="w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[92vh]">
 
       <!-- Modal Header -->
@@ -9247,6 +9247,9 @@
     // Prevents accidental closing when user selects or drags text inside inputs/modals
     // =========================================================================
     let _globalPointerDownTarget = null;
+    document.addEventListener('pointerdown', (e) => {
+      _globalPointerDownTarget = e.target;
+    }, true);
     document.addEventListener('mousedown', (e) => {
       _globalPointerDownTarget = e.target;
     }, true);
@@ -44528,9 +44531,14 @@
       navigateTab('settings');
     }
 
-    // Global ESC key to close notification drawer & settings dropdown immediately
+    // Global ESC key to close notification drawer, settings dropdown, and cropper modal
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' || e.key === 'Esc') {
+        const cropperModal = document.getElementById('imageCropperModal');
+        if (cropperModal && !cropperModal.classList.contains('hidden')) {
+          closeImageCropper();
+          return;
+        }
         closeNotificationDropdown();
         closeSettingsDropdown();
       }
