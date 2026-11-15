@@ -22061,7 +22061,17 @@
         if (currentCentralTotal > maxCentralAllowed) {
           let excess = currentCentralTotal - maxCentralAllowed;
           for (const cb of centralBks) {
-            const reduceBy = Math.min(cb.total, excess);
+            const minGuaranteedByZone = (Array.isArray(item.zoneBreakdown) && item.zoneBreakdown.length > 0)
+              ? item.zoneBreakdown.filter(z => {
+                  let zWh = z.warehouse ? (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(z.warehouse) : z.warehouse) : '';
+                  if (!zWh && z.zone && zoneToWhMap[z.zone]) zWh = zoneToWhMap[z.zone];
+                  if (!zWh && Array.isArray(item.warehouses) && item.warehouses.length === 1) zWh = toCanonicalWarehouseName(item.warehouses[0]);
+                  if (!zWh) zWh = defaultCentralWh;
+                  return (typeof matchesTargetWarehouse === 'function') ? matchesTargetWarehouse(zWh, cb.warehouse) : isSameWarehouse(zWh, cb.warehouse);
+                }).reduce((s, z) => s + Math.max(0, Number(z.quantity || 0)), 0)
+              : 0;
+            const canReduce = Math.max(0, cb.total - minGuaranteedByZone);
+            const reduceBy = Math.min(canReduce, excess);
             cb.total -= reduceBy;
             excess -= reduceBy;
             if (excess <= 0) break;
@@ -22096,6 +22106,24 @@
           hasStationTx = true;
         } else {
           effectiveTotal = 0;
+        }
+
+        if (zoneSum > 0 && Array.isArray(item.zoneBreakdown)) {
+          const matchingZones = item.zoneBreakdown.filter(z => {
+            let zWh = z.warehouse ? (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(z.warehouse) : z.warehouse) : '';
+            if (!zWh && z.zone && zoneToWhMap[z.zone]) zWh = zoneToWhMap[z.zone];
+            if (!zWh && Array.isArray(item.warehouses) && item.warehouses.length === 1) zWh = toCanonicalWarehouseName(item.warehouses[0]);
+            if (!zWh) zWh = defaultCentralWh;
+            return zWh && ((typeof matchesTargetWarehouse === 'function') ? matchesTargetWarehouse(zWh, targetWh) : isSameWarehouse(zWh, targetWh));
+          });
+          if (matchingZones.length > 0) {
+            const zTotal = matchingZones.reduce((sum, z) => sum + Math.max(0, Number(z.quantity || 0)), 0);
+            if (zTotal > effectiveTotal) {
+              effectiveTotal = zTotal;
+              hasStationTx = true;
+              hasExactStationTx = true;
+            }
+          }
         }
       } else {
         // Specific target warehouse (e.g. K3, K43, single Central, or single ME)
@@ -22157,6 +22185,49 @@
         rUnit
       };
     }
+
+    /**
+     * គណនាបរិមាណស្តុកជាក់ស្តែងរបស់មុខទំនិញ (Effective Stock) ទៅតាមស្ថានីយ ឬឃ្លាំងដែលបានច្រោះ (Filter)
+     * ធានាថាតម្លៃស្តុកសរុប និងស្តុកជារាយបង្ហាញត្រូវគ្នា ១០០% ទាំងលើតារាង Web App និងការ Export PDF/Excel
+     */
+    function getItemEffectiveStock(item, optWh) {
+      if (!item) return 0;
+      const activeWh = optWh !== undefined ? optWh : ((typeof getEffectiveStationFilter === 'function') ? getEffectiveStationFilter() : 'ALL');
+      const isGlobal = !activeWh || activeWh === 'ALL' || activeWh === '🏢 គ្រប់ស្ថានីយទាំងអស់' || activeWh === 'គ្រប់ឃ្លាំង';
+      if (isGlobal) {
+        return Number(item.currentStock !== undefined && item.currentStock !== null ? item.currentStock : 0);
+      }
+
+      const stStock = (typeof getItemStationStock === 'function')
+        ? getItemStationStock(item, activeWh)
+        : { total: Number(item.currentStock || 0), bulk: 0, loose: 0, breakdowns: [] };
+
+      let curStock = Number(stStock.total || 0);
+
+      let zoneSum = 0;
+      if (Array.isArray(item.zoneBreakdown) && item.zoneBreakdown.length > 0) {
+        const isItemMe = (item.category && (item.category.includes('机电') || item.category.includes('អគ្គិសនី'))) || (item.name && item.name.includes('机电'));
+        const defaultCentralWh = isItemMe ? '机电 (អគ្គិសនី និងគ្រឿងម៉ាស៊ីន)' : '中心库房 (ឃ្លាំងស្តុកនៅចុងស៊ីង)';
+        const itemSku = String(item.sku || '').trim().toLowerCase();
+        const zoneToWhMap = (typeof getItemZoneToWarehouseMap === 'function') ? getItemZoneToWarehouseMap(itemSku) : {};
+        const matchingZones = item.zoneBreakdown.filter(z => {
+          let zWh = z.warehouse ? (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(z.warehouse) : z.warehouse) : '';
+          if (!zWh && z.zone && zoneToWhMap[z.zone]) zWh = zoneToWhMap[z.zone];
+          if (!zWh && Array.isArray(item.warehouses) && item.warehouses.length === 1) {
+            zWh = toCanonicalWarehouseName(item.warehouses[0]);
+          }
+          if (!zWh) zWh = defaultCentralWh;
+          return zWh && ((typeof matchesTargetWarehouse === 'function') ? matchesTargetWarehouse(zWh, activeWh) : isSameWarehouse(zWh, activeWh));
+        });
+        zoneSum = matchingZones.reduce((s, z) => s + Math.max(0, Number(z.quantity || 0)), 0);
+      }
+
+      if (zoneSum > curStock && zoneSum <= (Number(item.currentStock) || zoneSum)) {
+        curStock = zoneSum;
+      }
+      return curStock;
+    }
+    window.getItemEffectiveStock = getItemEffectiveStock;
 
     function getFilteredItemsList() {
       const u = AppState.currentUser || (function () { try { return JSON.parse(sessionStorage.getItem('inventory_user')); } catch (e) { return null; } })() || {};
@@ -22270,7 +22341,7 @@
 
         // Effective stock for status filter
         const currentEffectiveStock = isSpecificStation
-          ? ((typeof getItemStationStock === 'function') ? getItemStationStock(item, activeWhFilter).total : Number(item.currentStock || 0))
+          ? ((typeof getItemEffectiveStock === 'function') ? getItemEffectiveStock(item, activeWhFilter) : ((typeof getItemStationStock === 'function') ? getItemStationStock(item, activeWhFilter).total : Number(item.currentStock || 0)))
           : Number(item.currentStock || 0);
 
         const itemMin = Number(item.minStock || 1);
@@ -22425,7 +22496,9 @@
 
       tbody.innerHTML = filtered.map((item, idx) => {
         const stStock = (typeof getItemStationStock === 'function') ? getItemStationStock(item, effectiveWhForDisplay) : { total: Number(item.currentStock || 0), bulk: 0, loose: 0, breakdowns: [] };
-        let curStock = (effectiveWhForDisplay && effectiveWhForDisplay !== 'ALL') ? Number(stStock.total || 0) : Number(item.currentStock || 0);
+        let curStock = (typeof getItemEffectiveStock === 'function')
+          ? getItemEffectiveStock(item, effectiveWhForDisplay)
+          : ((effectiveWhForDisplay && effectiveWhForDisplay !== 'ALL') ? Number(stStock.total || 0) : Number(item.currentStock || 0));
 
         let zoneSum = 0;
         if (Array.isArray(item.zoneBreakdown) && item.zoneBreakdown.length > 0) {
@@ -22546,6 +22619,20 @@
                 targetBks.forEach(sb => { stationTotal += Number(sb.total || 0); });
                 if (stationTotal === 0 && stStock.total > 0) {
                   stationTotal = stStock.total;
+                }
+                if (curStock > stationTotal) {
+                  stationTotal = curStock;
+                  if (targetBks.length === 1) {
+                    targetBks[0].total = curStock;
+                  } else if (targetBks.length > 1) {
+                    const diff = curStock - targetBks.reduce((s, b) => s + Number(b.total || 0), 0);
+                    if (diff > 0) targetBks[0].total += diff;
+                  }
+                }
+                if (targetBks.length === 0 && curStock > 0) {
+                  const shortWh = (typeof getStationShortCode === 'function') ? getStationShortCode(activeWhFilter) : (activeWhFilter.split(' ')[0] || activeWhFilter);
+                  targetBks.push({ warehouse: activeWhFilter, shortWh, total: curStock });
+                  stationTotal = curStock;
                 }
 
                 if (stationTotal > 0) {
@@ -36735,8 +36822,21 @@
         itemsToExport = AppState.items || [];
       }
 
+      const u = AppState.currentUser || {};
+      const isSuperAdmin = (typeof isUserSuperAdmin === 'function') ? isUserSuperAdmin(u) : false;
+      const isAdminUser = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(u) : isSuperAdmin;
+      let exportWhFilter = 'ALL';
+      if (isAdminUser) {
+        exportWhFilter = AppState.selectedAdminWarehouseFilter || 'ALL';
+      } else {
+        exportWhFilter = (typeof getUserEffectiveStation === 'function' ? getUserEffectiveStation(u) : '') || u?.warehouse || AppState.selectedAdminWarehouseFilter || 'ALL';
+      }
+      const isSpecificWh = (exportWhFilter && exportWhFilter !== 'ALL' && exportWhFilter !== '🏢 គ្រប់ស្ថានីយទាំងអស់' && exportWhFilter !== 'គ្រប់ឃ្លាំង');
+
       const rows = itemsToExport.map((item, index) => {
-        const qty = Number(item.currentStock || 0);
+        const qty = (typeof getItemEffectiveStock === 'function')
+          ? getItemEffectiveStock(item, exportWhFilter)
+          : Number(item.currentStock || 0);
         const min = Number(item.minStock || 0);
         const cost = Number(item.costPrice || 0);
         const sell = Number(item.sellingPrice || 0);
@@ -36751,10 +36851,6 @@
 
         const packRate = Number(item.packQty || 1);
         const packStock = packRate > 1 ? Math.floor(qty / packRate) : qty;
-        const u = AppState.currentUser;
-        const isSuperAdmin = isUserSuperAdmin(u);
-        const isAdminUser = isUserPrivilegedAdmin(u);
-        const exportWhFilter = AppState.selectedAdminWarehouseFilter || ADMIN_DEFAULT_COMBO_WH;
         const stStock = (isAdminUser && typeof getItemStationStock === 'function') ? getItemStationStock(item, exportWhFilter) : null;
 
         const rowData = {
@@ -36770,11 +36866,12 @@
         };
 
         if (isAdminUser && stStock) {
-          if (exportWhFilter && exportWhFilter !== 'ALL') {
-            const bks = (stStock.breakdowns || []).filter(b => (typeof isSameWarehouse === 'function' ? isSameWarehouse(b.warehouse, exportWhFilter) : b.warehouse === exportWhFilter));
+          if (isSpecificWh) {
+            const bks = (stStock.breakdowns || []).filter(b => (typeof matchesTargetWarehouse === 'function' ? matchesTargetWarehouse(b.warehouse, exportWhFilter) : isSameWarehouse(b.warehouse, exportWhFilter)));
             let sTotal = 0;
             bks.forEach(b => { sTotal += Number(b.total || 0); });
             if (sTotal === 0 && stStock.total > 0) sTotal = stStock.total;
+            if (qty > sTotal) sTotal = qty;
             const pRate = Number(item.packQty || 1);
             const bBulk = pRate > 1 ? Math.floor(sTotal / pRate) : 0;
             const bLoose = pRate > 1 ? (sTotal % pRate) : sTotal;
@@ -36859,15 +36956,6 @@
 
       const totalItems = itemsToExport.length;
       const totalPages = Math.max(1, totalItems <= 17 ? 1 : (1 + Math.ceil((totalItems - 17) / 22)));
-      const totalQty = itemsToExport.reduce((sum, i) => sum + Number(i.currentStock || 0), 0);
-      let normalCount = 0;
-      let alertCount = 0;
-      itemsToExport.forEach(i => {
-        const cur = Number(i.currentStock || 0);
-        const min = Number(i.minStock || 0);
-        if (cur <= min) alertCount++;
-        else normalCount++;
-      });
 
       const { companyName, companyLogoUrl } = getPdfCompanyHeaderInfo();
       const u = AppState.currentUser || {};
@@ -36878,12 +36966,29 @@
       } else {
         activeWh = (typeof getUserEffectiveStation === 'function' ? getUserEffectiveStation(u) : '') || u?.warehouse || AppState.selectedAdminWarehouseFilter || 'ALL';
       }
-      const whDisplayName = (activeWh && activeWh !== 'ALL' && activeWh !== 'គ្រប់ស្ថានីយទាំងអស់' && activeWh !== 'គ្រប់ឃ្លាំង') ? activeWh : 'គ្រប់ឃ្លាំង / ស្ថានីយ';
+      const isSpecificWh = (activeWh && activeWh !== 'ALL' && activeWh !== '🏢 គ្រប់ស្ថានីយទាំងអស់' && activeWh !== 'គ្រប់ឃ្លាំង');
+      const whDisplayName = isSpecificWh ? activeWh : 'គ្រប់ឃ្លាំង / ស្ថានីយ';
       const printDate = new Date().toLocaleString('km-KH', { dateStyle: 'full', timeStyle: 'short' }) || new Date().toLocaleString();
+
+      const getItemStock = (item) => {
+        return (typeof getItemEffectiveStock === 'function')
+          ? getItemEffectiveStock(item, activeWh)
+          : (isSpecificWh && typeof getItemStationStock === 'function' ? (getItemStationStock(item, activeWh)?.total || 0) : Number(item.currentStock || 0));
+      };
+
+      const totalQty = itemsToExport.reduce((sum, i) => sum + getItemStock(i), 0);
+      let normalCount = 0;
+      let alertCount = 0;
+      itemsToExport.forEach(i => {
+        const cur = getItemStock(i);
+        const min = Number(i.minStock || 0);
+        if (cur <= min) alertCount++;
+        else normalCount++;
+      });
 
       const printWindow = window.open('', '_blank');
       const tableRows = itemsToExport.map((i, idx) => {
-        const curStock = Number(i.currentStock || 0);
+        const curStock = getItemStock(i);
         const minStock = Number(i.minStock || 0);
         const minPct = Number(i.minStockPercent || 10);
         let statusBadge = 'ធម្មតា';
