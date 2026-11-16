@@ -116,6 +116,13 @@
       document.write('<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"><\/script>');
     }
   </script>
+  <!-- JSZip for In-Cell Image (Place in Cell) Rich Data Embedding -->
+  <script src="assets/jszip.min.js"></script>
+  <script>
+    if (typeof JSZip === "undefined") {
+      document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"><\/script>');
+    }
+  </script>
 
   <!-- Cropper.js for Image Zooming & Cropping (Profile Picture & Product Image) -->
   <link rel="stylesheet" href="assets/cropper.min.css">
@@ -38677,7 +38684,7 @@
           clearTimeout(timer);
           try {
             const canvas = document.createElement('canvas');
-            const maxDim = 80;
+            const maxDim = 120;
             let w = img.naturalWidth || img.width || 80;
             let h = img.naturalHeight || img.height || 80;
             if (w > maxDim || h > maxDim) {
@@ -38709,6 +38716,144 @@
         };
         img.src = formattedUrl;
       });
+    }
+
+    // Embed images directly into cells (Microsoft Excel 'Place in Cell' feature using OpenXML Rich Data)
+    async function embedInCellImagesIntoXlsx(excelBuffer, cellImages) {
+      if (!cellImages || cellImages.length === 0 || typeof JSZip === 'undefined') {
+        return excelBuffer;
+      }
+      try {
+        const zip = await JSZip.loadAsync(excelBuffer);
+        const numImages = cellImages.length;
+
+        // 1. Add images into xl/media/
+        for (let i = 0; i < numImages; i++) {
+          const img = cellImages[i];
+          const ext = img.extension || 'png';
+          const cleanB64 = (img.base64 || '').replace(/^data:image\/[^;]+;base64,/, '');
+          zip.file(`xl/media/image${i + 1}.${ext}`, cleanB64, { base64: true });
+        }
+
+        // 2. xl/richData/rdrichvaluestructure.xml
+        const rdrichvaluestructureXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n<rvStructures xmlns="http://schemas.microsoft.com/office/spreadsheetml/2017/richdata" count="1">\r\n<s t="_localImage"><k n="_rvRel:LocalImageIdentifier" t="i"/><k n="CalcOrigin" t="i"/></s>\r\n</rvStructures>';
+        zip.file('xl/richData/rdrichvaluestructure.xml', rdrichvaluestructureXml);
+
+        // 3. xl/richData/rdRichValueTypes.xml
+        const rdRichValueTypesXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n<rvTypesInfo xmlns="http://schemas.microsoft.com/office/spreadsheetml/2017/richdata2" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="x" xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main">\r\n<global><keyFlags><key name="_Self"><flag name="ExcludeFromFile" value="1"/><flag name="ExcludeFromCalcComparison" value="1"/></key><key name="_DisplayString"><flag name="ExcludeFromCalcComparison" value="1"/></key><key name="_Flags"><flag name="ExcludeFromCalcComparison" value="1"/></key><key name="_Format"><flag name="ExcludeFromCalcComparison" value="1"/></key><key name="_SubLabel"><flag name="ExcludeFromCalcComparison" value="1"/></key><key name="_Attribution"><flag name="ExcludeFromCalcComparison" value="1"/></key><key name="_Icon"><flag name="ExcludeFromCalcComparison" value="1"/></key><key name="_Display"><flag name="ExcludeFromCalcComparison" value="1"/></key><key name="_CanonicalPropertyNames"><flag name="ExcludeFromCalcComparison" value="1"/></key><key name="_ClassificationId"><flag name="ExcludeFromCalcComparison" value="1"/></key></keyFlags></global>\r\n</rvTypesInfo>';
+        zip.file('xl/richData/rdRichValueTypes.xml', rdRichValueTypesXml);
+
+        // 4. xl/richData/rdrichvalue.xml
+        let rvItems = '';
+        for (let i = 0; i < numImages; i++) {
+          rvItems += '<rv s="0"><v>' + i + '</v><v>5</v></rv>';
+        }
+        const rdrichvalueXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n<rvData xmlns="http://schemas.microsoft.com/office/spreadsheetml/2017/richdata" count="' + numImages + '">' + rvItems + '</rvData>';
+        zip.file('xl/richData/rdrichvalue.xml', rdrichvalueXml);
+
+        // 5. xl/richData/richValueRel.xml
+        let relItems = '';
+        for (let i = 0; i < numImages; i++) {
+          relItems += '<rel r:id="rId' + (i + 1) + '"/>';
+        }
+        const richValueRelXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n<richValueRels xmlns="http://schemas.microsoft.com/office/spreadsheetml/2022/richvaluerel" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' + relItems + '</richValueRels>';
+        zip.file('xl/richData/richValueRel.xml', richValueRelXml);
+
+        // 6. xl/richData/_rels/richValueRel.xml.rels
+        let relRels = '';
+        for (let i = 0; i < numImages; i++) {
+          const ext = cellImages[i].extension || 'png';
+          relRels += '<Relationship Id="rId' + (i + 1) + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image' + (i + 1) + '.' + ext + '"/>';
+        }
+        const richValueRelRelsXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' + relRels + '</Relationships>';
+        zip.file('xl/richData/_rels/richValueRel.xml.rels', richValueRelRelsXml);
+
+        // 7. xl/metadata.xml
+        let futureList = '';
+        let valList = '';
+        for (let i = 0; i < numImages; i++) {
+          futureList += '<bk><extLst><ext uri="{3e2802c4-a4d2-4d8b-9148-e3be6c30e623}"><xlrd:rvb i="' + i + '"/></ext></extLst></bk>';
+          valList += '<bk><rc t="1" v="' + i + '"/></bk>';
+        }
+        const metadataXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n<metadata xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:xlrd="http://schemas.microsoft.com/office/spreadsheetml/2017/richdata">\r\n<metadataTypes count="1"><metadataType name="XLRICHVALUE" minSupportedVersion="120000" copy="1" pasteAll="1" pasteValues="1" merge="1" splitFirst="1" rowColShift="1" clearFormats="1" clearComments="1" assign="1" coerce="1"/></metadataTypes>\r\n<futureMetadata name="XLRICHVALUE" count="' + numImages + '">' + futureList + '</futureMetadata>\r\n<valueMetadata count="' + numImages + '">' + valList + '</valueMetadata>\r\n</metadata>';
+        zip.file('xl/metadata.xml', metadataXml);
+
+        // 8. Update xl/_rels/workbook.xml.rels
+        let wbRelsXml = await zip.file('xl/_rels/workbook.xml.rels').async('text');
+        const rIdMatches = wbRelsXml.match(/Id="rId(\d+)"/g) || [];
+        let maxRId = 0;
+        rIdMatches.forEach(m => {
+          const num = parseInt(m.match(/\d+/)[0], 10);
+          if (num > maxRId) maxRId = num;
+        });
+
+        const relsToAdd = [
+          { type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/sheetMetadata', target: 'metadata.xml' },
+          { type: 'http://schemas.microsoft.com/office/2022/10/relationships/richValueRel', target: 'richData/richValueRel.xml' },
+          { type: 'http://schemas.microsoft.com/office/2017/06/relationships/rdRichValue', target: 'richData/rdrichvalue.xml' },
+          { type: 'http://schemas.microsoft.com/office/2017/06/relationships/rdRichValueStructure', target: 'richData/rdrichvaluestructure.xml' },
+          { type: 'http://schemas.microsoft.com/office/2017/06/relationships/rdRichValueTypes', target: 'richData/rdRichValueTypes.xml' }
+        ];
+
+        let newWbRels = '';
+        relsToAdd.forEach((r, idx) => {
+          const nextId = 'rId' + (maxRId + 1 + idx);
+          newWbRels += '<Relationship Id="' + nextId + '" Type="' + r.type + '" Target="' + r.target + '"/>';
+        });
+        wbRelsXml = wbRelsXml.replace('</Relationships>', newWbRels + '</Relationships>');
+        zip.file('xl/_rels/workbook.xml.rels', wbRelsXml);
+
+        // 9. Update [Content_Types].xml
+        let contentTypesXml = await zip.file('[Content_Types].xml').async('text');
+        const overrides = [
+          '<Override PartName="/xl/metadata.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheetMetadata+xml"/>',
+          '<Override PartName="/xl/richData/rdRichValueTypes.xml" ContentType="application/vnd.ms-excel.rdrichvaluetypes+xml"/>',
+          '<Override PartName="/xl/richData/rdrichvalue.xml" ContentType="application/vnd.ms-excel.rdrichvalue+xml"/>',
+          '<Override PartName="/xl/richData/rdrichvaluestructure.xml" ContentType="application/vnd.ms-excel.rdrichvaluestructure+xml"/>',
+          '<Override PartName="/xl/richData/richValueRel.xml" ContentType="application/vnd.ms-excel.richvaluerel+xml"/>'
+        ];
+        let defaultMediaTypes = '';
+        if (!contentTypesXml.includes('Extension="png"')) defaultMediaTypes += '<Default Extension="png" ContentType="image/png"/>';
+        if (!contentTypesXml.includes('Extension="jpeg"')) defaultMediaTypes += '<Default Extension="jpeg" ContentType="image/jpeg"/>';
+        if (!contentTypesXml.includes('Extension="jpg"')) defaultMediaTypes += '<Default Extension="jpg" ContentType="image/jpeg"/>';
+
+        contentTypesXml = contentTypesXml.replace('</Types>', defaultMediaTypes + overrides.join('') + '</Types>');
+        zip.file('[Content_Types].xml', contentTypesXml);
+
+        // 10. Update xl/worksheets/sheet1.xml
+        let sheetXml = await zip.file('xl/worksheets/sheet1.xml').async('text');
+        for (let i = 0; i < numImages; i++) {
+          const cellRef = cellImages[i].cellRef;
+          const vmVal = i + 1;
+          const cellRegex = new RegExp('(<c\\b[^>]*?\\br="' + cellRef + '"[^>]*?)(?:>([\\s\\S]*?)<\\/c>|\\/>)');
+          if (cellRegex.test(sheetXml)) {
+            sheetXml = sheetXml.replace(cellRegex, (match, openTag) => {
+              const cleanedTag = openTag.replace(/\s+t="[^"]*"/g, '').replace(/\s+vm="[^"]*"/g, '');
+              return cleanedTag + ' t="e" vm="' + vmVal + '"><v>#VALUE!</v></c>';
+            });
+          } else {
+            const rowNum = parseInt(cellRef.match(/\d+/)[0], 10);
+            const rowRegex = new RegExp('(<row\\b[^>]*?\\br="' + rowNum + '"[^>]*?>)([\\s\\S]*?)(<\\/row>)');
+            if (rowRegex.test(sheetXml)) {
+              sheetXml = sheetXml.replace(rowRegex, (match, openRow, inner, closeRow) => {
+                return openRow + inner + '<c r="' + cellRef + '" t="e" vm="' + vmVal + '"><v>#VALUE!</v></c>' + closeRow;
+              });
+            }
+          }
+        }
+        zip.file('xl/worksheets/sheet1.xml', sheetXml);
+
+        const outType = (typeof window !== 'undefined' && typeof Blob !== 'undefined') ? 'blob' : 'nodebuffer';
+        return await zip.generateAsync({
+          type: outType,
+          mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          compression: 'DEFLATE',
+          compressionOptions: { level: 4 }
+        });
+      } catch (err) {
+        console.error('embedInCellImagesIntoXlsx error, returning original buffer:', err);
+        return excelBuffer;
+      }
     }
 
     async function exportItemsToExcel() {
@@ -38939,6 +39084,7 @@
           }
 
           // Render Data Rows into Worksheet
+          const inCellImages = [];
           preparedItems.forEach((item, i) => {
             const rowNum = 8 + i;
             const row = ws.getRow(rowNum);
@@ -39000,20 +39146,14 @@
               }
             });
 
-            // Embed product image in Column D
+            // Queue product image in Column D for true "Place in Cell" OpenXML embedding
             const imgData = imageResults[i];
             if (imgData && imgData.base64) {
-              try {
-                const imgId = wb.addImage({
-                  base64: imgData.base64,
-                  extension: imgData.extension || 'png'
-                });
-                ws.addImage(imgId, {
-                  tl: { col: 3 + 0.15, row: rowNum - 1 + 0.1 },
-                  ext: { width: 40, height: 40 },
-                  editAs: 'oneCell'
-                });
-              } catch (e) { }
+              inCellImages.push({
+                cellRef: "D" + rowNum,
+                base64: imgData.base64,
+                extension: imgData.extension || "png"
+              });
             }
           });
 
@@ -39076,9 +39216,12 @@
           fCell.font = { name: 'Kh Siemreap', size: 9.5, italic: true, color: { argb: 'FF64748B' } };
           fCell.alignment = { horizontal: 'left', vertical: 'middle' };
 
-          // Generate file buffer & download
-          const buffer = await wb.xlsx.writeBuffer();
-          const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+          // Generate base buffer & embed in-cell images (Place in Cell)
+          const rawBuffer = await wb.xlsx.writeBuffer();
+          const finalData = await embedInCellImagesIntoXlsx(rawBuffer, inCellImages);
+          const blob = (finalData instanceof Blob)
+            ? finalData
+            : new Blob([finalData], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
