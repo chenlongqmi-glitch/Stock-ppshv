@@ -109,6 +109,13 @@
 
   <!-- SheetJS (xlsx) for Excel Reports Export -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- ExcelJS for Rich Professional Excel Reports with Images -->
+  <script src="assets/exceljs.min.js"></script>
+  <script>
+    if (typeof ExcelJS === 'undefined') {
+      document.write('<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"><\/script>');
+    }
+  </script>
 
   <!-- Cropper.js for Image Zooming & Cropping (Profile Picture & Product Image) -->
   <link rel="stylesheet" href="assets/cropper.min.css">
@@ -38638,14 +38645,75 @@
       }
     });
 
-    function exportItemsToExcel() {
-      if (!AppState.items || AppState.items.length === 0) {
-        Swal.fire('ដំណឹង', 'មិនមានទិន្នន័យទំនិញសម្រាប់ Export ទេ', 'info');
-        return;
+        async function fetchImageAsBase64(url, timeoutMs = 2200) {
+      if (!url) return null;
+      if (url.startsWith('data:image/')) {
+        const parts = url.split(',');
+        return {
+          base64: parts[1],
+          extension: url.includes('image/jpeg') || url.includes('image/jpg') ? 'jpeg' : 'png'
+        };
       }
 
-      if (typeof XLSX === 'undefined') {
-        Swal.fire('កំហុស', 'បណ្ណាល័យ Excel មិនទាន់ដំណើរការ សូមព្យាយាមម្ដងទៀត', 'error');
+      let formattedUrl = url;
+      if (typeof formatDriveImageUrl === 'function') {
+        formattedUrl = formatDriveImageUrl(url);
+      }
+
+      return new Promise((resolve) => {
+        let finished = false;
+        const timer = setTimeout(() => {
+          if (!finished) {
+            finished = true;
+            resolve(null);
+          }
+        }, timeoutMs);
+
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          if (finished) return;
+          finished = true;
+          clearTimeout(timer);
+          try {
+            const canvas = document.createElement('canvas');
+            const maxDim = 80;
+            let w = img.naturalWidth || img.width || 80;
+            let h = img.naturalHeight || img.height || 80;
+            if (w > maxDim || h > maxDim) {
+              if (w > h) {
+                h = Math.round((h * maxDim) / w);
+                w = maxDim;
+              } else {
+                w = Math.round((w * maxDim) / h);
+                h = maxDim;
+              }
+            }
+            canvas.width = Math.max(1, w);
+            canvas.height = Math.max(1, h);
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            const dataUrl = canvas.toDataURL('image/png');
+            const b64 = dataUrl.split(',')[1];
+            resolve({ base64: b64, extension: 'png' });
+          } catch (err) {
+            resolve(null);
+          }
+        };
+        img.onerror = () => {
+          if (!finished) {
+            finished = true;
+            clearTimeout(timer);
+            resolve(null);
+          }
+        };
+        img.src = formattedUrl;
+      });
+    }
+
+    async function exportItemsToExcel() {
+      if (!AppState.items || AppState.items.length === 0) {
+        Swal.fire('ដំណឹង', 'មិនមានទិន្នន័យទំនិញសម្រាប់ Export ទេ', 'info');
         return;
       }
 
@@ -38678,10 +38746,375 @@
       let normalCount = 0;
       let alertCount = 0;
 
+      // Show professional loading dialog with progress indicator
+      Swal.fire({
+        title: '<b>កំពុង Export Excel...</b>',
+        html: `កំពុងរៀបចំទម្រង់តាមគំរូ និងបញ្ចូលរូបភាពទំនិញ... <br><span id="excelExportCounter" style="font-size:12px;color:#2563eb;font-weight:bold;">0 / ${totalItems}</span>`,
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
+      try {
+        // Use ExcelJS for 100% template fidelity with embedded images and exact styling
+        if (typeof ExcelJS !== 'undefined') {
+          const wb = new ExcelJS.Workbook();
+          wb.creator = currentUser;
+          wb.lastModifiedBy = currentUser;
+          wb.created = new Date();
+          wb.modified = new Date();
+
+          const ws = wb.addWorksheet('បញ្ជីទំនិញ', {
+            views: [{ showGridLines: true }]
+          });
+
+          // Set column widths matching template 100% (Col D is Image)
+          ws.columns = [
+            { key: 'no', width: 7 },
+            { key: 'sku', width: 21 },
+            { key: 'name', width: 33 },
+            { key: 'image', width: 14 },
+            { key: 'variant', width: 20 },
+            { key: 'stockBreakdown', width: 34 },
+            { key: 'stockLoose', width: 19 },
+            { key: 'createdBy', width: 14 },
+            { key: 'status', width: 21 },
+            { key: 'category', width: 38 },
+          ];
+
+          // 1. Company Name Header (Merged A1:J1)
+          ws.mergeCells('A1:J1');
+          const r1 = ws.getCell('A1');
+          r1.value = companyName;
+          r1.font = { name: 'Kh Koulen', size: 18, color: { argb: 'FF1F497D' }, bold: true };
+          r1.alignment = { horizontal: 'center', vertical: 'middle' };
+          ws.getRow(1).height = 40.5;
+
+          // 2. Report Title Header (Merged A2:J2)
+          ws.mergeCells('A2:J2');
+          const r2 = ws.getCell('A2');
+          r2.value = 'របាយការណ៍បញ្ជីទំនិញទាំងអស់ (Product Inventory)';
+          r2.font = { name: 'Kh Siemreap', size: 14, bold: true, color: { argb: 'FF1F497D' } };
+          r2.alignment = { horizontal: 'center', vertical: 'middle' };
+          ws.getRow(2).height = 34;
+
+          // Pre-calculate counts & stock breakdown
+          const preparedItems = itemsToExport.map((i, idx) => {
+            const curStock = (typeof getItemEffectiveStockForWarehouse === 'function') ? getItemEffectiveStockForWarehouse(i, activeWh) : Number(i.currentStock || 0);
+            totalQty += curStock;
+
+            const minStock = Number(i.minStock || 0);
+            const minPct = Number(i.minStockPercent || 10);
+            let statusBadge = 'ធម្មតា';
+            let stockPct = 100;
+            if (curStock === 0) {
+              statusBadge = 'អស់ពីស្តុក';
+              stockPct = 0;
+              alertCount++;
+            } else if (curStock <= minStock) {
+              statusBadge = 'ជិតអស់';
+              stockPct = (minStock > 0) ? Math.max(1, Math.min(minPct, Math.round((curStock / minStock) * minPct))) : minPct;
+              alertCount++;
+            } else {
+              statusBadge = 'ធម្មតា';
+              stockPct = 100;
+              normalCount++;
+            }
+
+            const sizeStr = (i.size && i.size !== '-' && !i.size.startsWith('http') && !i.size.includes('GMT')) ? i.size : '';
+            const colorStr = (i.color && i.color !== '-' && !i.color.startsWith('http') && !i.color.includes('GMT')) ? i.color : '';
+            const variantStr = [sizeStr, colorStr].filter(Boolean).join(' / ') || '-';
+
+            const pQty = Number(i.packQty || 1);
+            let pUnit = (i.packUnit || '').trim() || 'ប្រអប់';
+            let rUnit = (i.unit || '').trim() || 'ដើម';
+            if (pUnit.toLowerCase() === 'admin' || pUnit.startsWith('http') || pUnit.includes('com/d/') || pUnit.includes('GMT')) pUnit = 'ប្រអប់';
+            if (rUnit.toLowerCase() === 'admin' || rUnit.startsWith('http') || rUnit.includes('com/d/') || rUnit.includes('GMT')) rUnit = 'ដើម';
+
+            const bulkStock = (pQty > 1) ? Math.floor(curStock / pQty) : 0;
+            const looseRemainder = (pQty > 1) ? (curStock % pQty) : curStock;
+
+            let stockBulkDisplay = '';
+            if (pUnit && (pQty > 1 || pUnit !== rUnit)) {
+              stockBulkDisplay = `${bulkStock} ${pUnit} & ${looseRemainder} ${rUnit} (1 ${pUnit}=${pQty} ${rUnit})`;
+            } else {
+              stockBulkDisplay = `${curStock} ${rUnit}`;
+            }
+
+            return {
+              raw: i,
+              idx: idx + 1,
+              sku: i.sku || '-',
+              name: i.name || '-',
+              imageUrl: i.imageUrl || '',
+              variant: variantStr,
+              stockBulk: stockBulkDisplay,
+              stockLoose: `${curStock} ${rUnit}`,
+              createdBy: getUserDisplayName(i.createdBy),
+              status: `${statusBadge} (${stockPct}%)`,
+              statusBadge: statusBadge,
+              category: i.category || '-'
+            };
+          });
+
+          // 3. Warehouse info (Merged A3:J3)
+          ws.mergeCells('A3:J3');
+          const r3 = ws.getCell('A3');
+          r3.value = `ទីតាំង ឃ្លាំង | ស្ថានីយ៖ ${whDisplayName}`;
+          r3.font = { name: 'Kh Siemreap', size: 10, color: { argb: 'FF475569' } };
+          r3.alignment = { horizontal: 'right', vertical: 'middle' };
+          ws.getRow(3).height = 20;
+
+          // 4. Date & Preparer (Merged A4:J4)
+          ws.mergeCells('A4:J4');
+          const r4 = ws.getCell('A4');
+          r4.value = `កាលបរិច្ឆេទបង្កើត៖ ${printDate}   |   អ្នករៀបចំ៖ ${currentUser}`;
+          r4.font = { name: 'Kh Siemreap', size: 10, color: { argb: 'FF475569' } };
+          r4.alignment = { horizontal: 'right', vertical: 'middle' };
+          ws.getRow(4).height = 20;
+
+          // 5. Summary metrics (Merged A5:J5)
+          ws.mergeCells('A5:J5');
+          const r5 = ws.getCell('A5');
+          r5.value = `ចំនួនមុខទំនិញសរុប: ${totalItems} មុខ   |   ទំនិញស្តុកធម្មតា: ${normalCount} មុខ   |   ជិតអស់ / អស់ពីស្តុក: ${alertCount} មុខ`;
+          r5.font = { name: 'Kh Siemreap', size: 10, color: { argb: 'FF475569' } };
+          r5.alignment = { horizontal: 'right', vertical: 'middle' };
+          ws.getRow(5).height = 20;
+
+          // 6. Spacer
+          ws.getRow(6).height = 11.25;
+
+          // 7. Header Row (Col A to J)
+          const headerRow = ws.getRow(7);
+          headerRow.height = 28;
+          const headers = [
+            'ល.រ',
+            'កូដ SKU',
+            'ឈ្មោះទំនិញ',
+            'រូបភាព',
+            'ខ្នាត/ពណ៌',
+            'ស្តុកសរុប (ដុំ & រាយ)',
+            'សរុបជារាយ',
+            'អ្នកបញ្ចូល',
+            'ស្ថានភាព',
+            'ប្រភេទ'
+          ];
+          headers.forEach((h, idx) => {
+            const cell = headerRow.getCell(idx + 1);
+            cell.value = h;
+            cell.font = { name: 'Kh Siemreap', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+            cell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FF1F497D' }
+            };
+            cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+            cell.border = {
+              top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+              bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+              left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+              right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+            };
+          });
+
+          // Fetch images concurrently in chunks of 15
+          const chunkSize = 15;
+          const imageResults = new Array(preparedItems.length).fill(null);
+          for (let c = 0; c < preparedItems.length; c += chunkSize) {
+            const chunk = preparedItems.slice(c, c + chunkSize);
+            const promises = chunk.map((item, localIdx) => {
+              const globalIdx = c + localIdx;
+              if (!item.imageUrl) return Promise.resolve(null);
+              return fetchImageAsBase64(item.imageUrl, 1800).then(res => {
+                imageResults[globalIdx] = res;
+              }).catch(() => {});
+            });
+            await Promise.all(promises);
+            const counterEl = document.getElementById('excelExportCounter');
+            if (counterEl) {
+              counterEl.innerText = `${Math.min(c + chunkSize, preparedItems.length)} / ${preparedItems.length}`;
+            }
+          }
+
+          // Render Data Rows into Worksheet
+          preparedItems.forEach((item, i) => {
+            const rowNum = 8 + i;
+            const row = ws.getRow(rowNum);
+            row.height = 42;
+            const isEven = (i % 2 === 0);
+            const bgArgb = isEven ? 'FFFFFFFF' : 'FFF8FAFC';
+
+            const vals = [
+              item.idx,
+              item.sku,
+              item.name,
+              '', // image slot
+              item.variant,
+              item.stockBulk,
+              item.stockLoose,
+              item.createdBy,
+              item.status,
+              item.category
+            ];
+
+            vals.forEach((v, cIdx) => {
+              const cell = row.getCell(cIdx + 1);
+              cell.value = v;
+              cell.font = { name: 'Kh Siemreap', size: 10.5, color: { argb: 'FF0F172A' } };
+              cell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: bgArgb }
+              };
+              cell.border = {
+                top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+              };
+
+              if (cIdx === 1) { // SKU
+                cell.font = { name: 'Consolas', size: 10, bold: true, color: { argb: 'FF2563EB' } };
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+              } else if (cIdx === 2) { // Name
+                cell.font = { name: 'Kh Siemreap', size: 10.5, bold: true, color: { argb: 'FF0F172A' } };
+                cell.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+              } else if (cIdx === 5) { // Stock breakdown
+                cell.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+              } else if (cIdx === 8) { // Status
+                const isNormal = item.statusBadge === 'ធម្មតា';
+                const isOutOfStock = item.statusBadge === 'អស់ពីស្តុក';
+                cell.font = {
+                  name: 'Kh Siemreap',
+                  size: 10,
+                  bold: true,
+                  color: { argb: isNormal ? 'FF059669' : (isOutOfStock ? 'FFE11D48' : 'FFD97706') }
+                };
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+              } else if (cIdx === 9) { // Category
+                cell.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+              } else {
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+              }
+            });
+
+            // Embed product image in Column D
+            const imgData = imageResults[i];
+            if (imgData && imgData.base64) {
+              try {
+                const imgId = wb.addImage({
+                  base64: imgData.base64,
+                  extension: imgData.extension || 'png'
+                });
+                ws.addImage(imgId, {
+                  tl: { col: 3 + 0.15, row: rowNum - 1 + 0.1 },
+                  ext: { width: 40, height: 40 },
+                  editAs: 'oneCell'
+                });
+              } catch (e) { }
+            }
+          });
+
+          const nextR = 8 + preparedItems.length;
+
+          // Summary Row (Matches template row 239)
+          const sumRow = ws.getRow(nextR);
+          sumRow.height = 24;
+          sumRow.getCell(1).value = 'សរុប';
+          sumRow.getCell(1).font = { name: 'Kh Siemreap', size: 11, bold: true, color: { argb: 'FF1F497D' } };
+          sumRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+
+          sumRow.getCell(7).value = `${totalQty} ឯកតា`;
+          sumRow.getCell(7).font = { name: 'Kh Siemreap', size: 11, bold: true, color: { argb: 'FF1F497D' } };
+          sumRow.getCell(7).alignment = { horizontal: 'center', vertical: 'middle' };
+
+          for (let c = 1; c <= 10; c++) {
+            const cell = sumRow.getCell(c);
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+            cell.border = {
+              top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+              bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+              left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+              right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+            };
+          }
+
+          // Signature Block (Matches template rows 241-244)
+          const sigTitleRow = ws.getRow(nextR + 2);
+          sigTitleRow.height = 22;
+          sigTitleRow.getCell(2).value = 'អ្នករៀបចំរបាយការណ៍';
+          sigTitleRow.getCell(6).value = 'ប្រធានផ្នែកស្តុក';
+          sigTitleRow.getCell(9).value = 'ប្រធានគ្រប់គ្រង';
+          [2, 6, 9].forEach(c => {
+            const cell = sigTitleRow.getCell(c);
+            cell.font = { name: 'Kh Siemreap', size: 11, bold: true, color: { argb: 'FF1F497D' } };
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          });
+
+          ws.getRow(nextR + 3).height = 30; // Physical signature spacing
+
+          const sigNameRow = ws.getRow(nextR + 4);
+          sigNameRow.height = 20;
+          sigNameRow.getCell(2).value = `( ${currentUser} )`;
+          sigNameRow.getCell(6).value = '( ................................ )';
+          sigNameRow.getCell(9).value = '( ................................ )';
+          [2, 6, 9].forEach(c => {
+            const cell = sigNameRow.getCell(c);
+            cell.font = { name: 'Kh Siemreap', size: 10, color: { argb: 'FF475569' } };
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          });
+
+          ws.getRow(nextR + 5).height = 16;
+
+          // Department footer (Matches template row 245)
+          const footerRow = nextR + 6;
+          ws.mergeCells(`A${footerRow}:J${footerRow}`);
+          const fCell = ws.getCell(`A${footerRow}`);
+          fCell.value = 'រៀបរាង និងគ្រប់គ្រងដោយ៖ នាយកដ្ឋានគ្រប់គ្រងការងារទូទាត់ប្រាក់';
+          fCell.font = { name: 'Kh Siemreap', size: 9.5, italic: true, color: { argb: 'FF64748B' } };
+          fCell.alignment = { horizontal: 'left', vertical: 'middle' };
+
+          // Generate file buffer & download
+          const buffer = await wb.xlsx.writeBuffer();
+          const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          const dateStr = new Date().toISOString().slice(0, 10);
+          a.download = `របាយការណ៍បញ្ជីទំនិញទាំងអស់ (Product Inventory)_${dateStr}.xlsx`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          Swal.close();
+
+          Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'success',
+            title: '<b>Export Excel (.xlsx) ជោគជ័យ!</b>',
+            text: `បានទាញយកឯកសាររបាយការណ៍បញ្ជីទំនិញ (${preparedItems.length} មុខ) រួមទាំងរូបភាពទំនិញតាមទម្រង់គំរូ ១០០%`,
+            showConfirmButton: false,
+            timer: 4000
+          });
+          return;
+        }
+      } catch (excelErr) {
+        console.error('ExcelJS export error:', excelErr);
+      } finally {
+        Swal.close();
+      }
+
+      // Fallback to SheetJS XLSX if ExcelJS is unavailable
+      if (typeof XLSX === 'undefined') {
+        Swal.fire('កំហុស', 'បណ្ណាល័យ Excel មិនទាន់ដំណើរការ សូមព្យាយាមម្ដងទៀត', 'error');
+        return;
+      }
+
       const dataRows = itemsToExport.map((i, idx) => {
         const curStock = (typeof getItemEffectiveStockForWarehouse === 'function') ? getItemEffectiveStockForWarehouse(i, activeWh) : Number(i.currentStock || 0);
-        totalQty += curStock;
-
         const minStock = Number(i.minStock || 0);
         const minPct = Number(i.minStockPercent || 10);
         let statusBadge = 'ធម្មតា';
@@ -38689,15 +39122,12 @@
         if (curStock === 0) {
           statusBadge = 'អស់ពីស្តុក';
           stockPct = 0;
-          alertCount++;
         } else if (curStock <= minStock) {
           statusBadge = 'ជិតអស់';
           stockPct = (minStock > 0) ? Math.max(1, Math.min(minPct, Math.round((curStock / minStock) * minPct))) : minPct;
-          alertCount++;
         } else {
           statusBadge = 'ធម្មតា';
           stockPct = 100;
-          normalCount++;
         }
 
         const sizeStr = (i.size && i.size !== '-' && !i.size.startsWith('http') && !i.size.includes('GMT')) ? i.size : '';
@@ -38724,17 +39154,17 @@
           idx + 1,
           i.sku || '-',
           i.name || '-',
-          i.category || '-',
           variantStr,
           stockBulkDisplay,
           `${curStock} ${rUnit}`,
           getUserDisplayName(i.createdBy),
-          `${statusBadge} (${stockPct}%)`
+          `${statusBadge} (${stockPct}%)`,
+          i.category || '-'
         ];
       });
 
       const metaRow = `កាលបរិច្ឆេទបង្កើត៖ ${printDate}   |   អ្នករៀបចំ៖ ${currentUser}   |   ចំនួនមុខទំនិញសរុប៖ ${totalItems} មុខ`;
-      const summaryCardsRow = `ចំនួនមុខទំនិញសរុប: ${totalItems} មុខ   |   បរិមាណស្តុកសរុប: ${totalQty} ឯកតា   |   ទំនិញស្តុកធម្មតា: ${normalCount} មុខ   |   ជិតអស់ / អស់ពីស្តុក: ${alertCount} មុខ`;
+      const summaryCardsRow = `ចំនួនមុខទំនិញសរុប: ${totalItems} មុខ   |   ទំនិញស្តុកធម្មតា: ${normalCount} មុខ   |   ជិតអស់ / អស់ពីស្តុក: ${alertCount} មុខ`;
 
       const aoa = [
         [companyName],
@@ -38743,9 +39173,9 @@
         [metaRow],
         [summaryCardsRow],
         [],
-        ['ល.រ', 'កូដ SKU', 'ឈ្មោះទំនិញ', 'ប្រភេទ', 'ខ្នាត/ពណ៌', 'ស្តុកសរុប (ដុំ & រាយ)', 'សរុបជារាយ', 'អ្នកបញ្ចូល', 'ស្ថានភាព'],
+        ['ល.រ', 'កូដ SKU', 'ឈ្មោះទំនិញ', 'ខ្នាត/ពណ៌', 'ស្តុកសរុប (ដុំ & រាយ)', 'សរុបជារាយ', 'អ្នកបញ្ចូល', 'ស្ថានភាព', 'ប្រភេទ'],
         ...dataRows,
-        ['សរុប', '', '', '', '', '', `${totalQty} ឯកតា`, '', ''],
+        ['សរុប', '', '', '', '', `${totalQty} ឯកតា`, '', '', ''],
         [],
         ['', 'អ្នករៀបចំរបាយការណ៍', '', '', 'ប្រធានផ្នែកស្តុក', '', '', 'ប្រធានគ្រប់គ្រង', ''],
         [],
@@ -38756,15 +39186,15 @@
 
       const worksheet = XLSX.utils.aoa_to_sheet(aoa);
       worksheet['!cols'] = [
-        { wch: 6 },  // ល.រ
-        { wch: 16 }, // កូដ SKU
-        { wch: 32 }, // ឈ្មោះទំនិញ
-        { wch: 20 }, // ប្រភេទ
-        { wch: 18 }, // ខ្នាត/ពណ៌
-        { wch: 32 }, // ស្តុកសរុប (ដុំ & រាយ)
-        { wch: 18 }, // សរុបជារាយ
-        { wch: 18 }, // អ្នកបញ្ចូល
-        { wch: 20 }  // ស្ថានភាព
+        { wch: 7 },  // ល.រ
+        { wch: 21 }, // កូដ SKU
+        { wch: 33 }, // ឈ្មោះទំនិញ
+        { wch: 19 }, // ខ្នាត/ពណ៌
+        { wch: 34 }, // ស្តុកសរុប (ដុំ & រាយ)
+        { wch: 19 }, // សរុបជារាយ
+        { wch: 14 }, // អ្នកបញ្ចូល
+        { wch: 21 }, // ស្ថានភាព
+        { wch: 38 }  // ប្រភេទ
       ];
 
       const footerIdx = aoa.length - 1;
@@ -38781,14 +39211,14 @@
       XLSX.utils.book_append_sheet(workbook, worksheet, 'បញ្ជីទំនិញ');
 
       const dateStr = new Date().toISOString().slice(0, 10);
-      XLSX.writeFile(workbook, `Inventory_Items_${dateStr}.xlsx`);
+      XLSX.writeFile(workbook, `របាយការណ៍បញ្ជីទំនិញទាំងអស់ (Product Inventory)_${dateStr}.xlsx`);
 
       Swal.fire({
         toast: true,
         position: 'top-end',
         icon: 'success',
         title: '<b>Export Excel (.xlsx) ជោគជ័យ!</b>',
-        text: `បានទាញយកឯកសារ Inventory_Items_${dateStr}.xlsx (${dataRows.length} មុខទំនិញ)`,
+        text: `បានទាញយកឯកសាររបាយការណ៍បញ្ជីទំនិញ (${dataRows.length} មុខទំនិញ)`,
         showConfirmButton: false,
         timer: 3000
       });
