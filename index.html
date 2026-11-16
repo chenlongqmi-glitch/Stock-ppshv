@@ -6813,18 +6813,25 @@
                       <i class="fa-solid fa-image mr-1 text-rose-600"></i>រូបភាពទំនិញ *
                     </label>
                   </div>
-                  <button type="button" id="toggleImageUrlBtn" onclick="toggleImageUrlInput()"
-                    class="text-[11px] text-blue-600 hover:text-blue-700 font-medium hover:underline flex items-center">
-                    <i class="fa-solid fa-link mr-1"></i><span id="toggleImageUrlText">ឬបញ្ចូលតាម Link</span>
-                  </button>
+                  <div class="flex items-center gap-2">
+                    <span onclick="triggerClipboardPaste()"
+                      class="text-[10px] text-blue-600 bg-blue-50 hover:bg-blue-100 active:scale-95 px-2.5 py-0.5 rounded-full font-semibold border border-blue-200/80 inline-flex items-center gap-1 shadow-3xs cursor-pointer transition"
+                      title="ចុចទីនេះ ឬចុចបញ្ជា Ctrl + V ដើម្បី Paste រូបភាពពី Clipboard">
+                      <i class="fa-regular fa-paste text-[10px]"></i> Ctrl + V ដើម្បី Paste
+                    </span>
+                    <button type="button" id="toggleImageUrlBtn" onclick="toggleImageUrlInput()"
+                      class="text-[11px] text-blue-600 hover:text-blue-700 font-medium hover:underline flex items-center">
+                      <i class="fa-solid fa-link mr-1"></i><span id="toggleImageUrlText">ឬបញ្ចូលតាម Link URL</span>
+                    </button>
+                  </div>
                 </div>
 
                 <!-- Hidden input storing the actual image data / URL for saving -->
                 <input type="hidden" id="modalImageUrl">
 
-                <!-- Dropzone & File Upload Box -->
+                <!-- Dropzone & File Upload Box (Matching Image 1 Design with Ctrl+V) -->
                 <div id="imageUploadBox"
-                  class="relative border-2 border-dashed border-slate-300 hover:border-blue-500 bg-white hover:bg-blue-50/30 rounded-2xl p-4 text-center cursor-pointer transition-all duration-200 group flex-1 min-h-[170px] flex flex-col items-center justify-center space-y-2"
+                  class="relative border-2 border-dashed border-slate-300 hover:border-blue-500 bg-white hover:bg-blue-50/30 rounded-2xl p-4 text-center cursor-pointer transition-all duration-200 group flex-1 min-h-[170px] flex flex-col items-center justify-center space-y-2 select-none"
                   onclick="document.getElementById('modalImageFileInput').click()"
                   ondragover="event.preventDefault(); this.classList.add('border-blue-500','bg-blue-50/50')"
                   ondragleave="this.classList.remove('border-blue-500','bg-blue-50/50')"
@@ -6834,26 +6841,35 @@
                     onchange="handleImageFileSelect(event)">
 
                   <div
-                    class="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl group-hover:scale-110 transition-transform shadow-inner border border-blue-100">
+                    class="w-13 h-13 rounded-2xl bg-blue-100/80 text-blue-600 flex items-center justify-center text-2xl group-hover:scale-110 transition duration-200 shadow-3xs">
                     <i class="fa-solid fa-cloud-arrow-up"></i>
                   </div>
-                  <div class="px-2 flex flex-col items-center">
-                    <p class="text-xs sm:text-sm font-bold text-slate-700">ចុចទីនេះដើម្បីជ្រើសរើសរូបភាព (Upload)</p>
-                    <p class="text-[11px] text-slate-400 mt-0.5">ឬអូសទម្លាក់រូបភាពមកទីនេះ (Drag & Drop)</p>
+                  <div>
+                    <p class="font-bold text-slate-800 text-xs sm:text-sm font-khmer">អូសទម្លាក់រូបភាពនៅទីនេះ</p>
+                    <p class="text-[11px] text-slate-400 mt-0.5 font-khmer">ឬចុចទីនេះដើម្បីរករូបភាពក្នុងម៉ាស៊ីន</p>
                   </div>
+                  <span onclick="event.stopPropagation(); triggerClipboardPaste();" title="ចុចទីនេះ ឬចុចបញ្ជា Ctrl + V ដើម្បី Paste រូបភាពពី Clipboard"
+                    class="text-[10px] text-blue-600 bg-blue-50 hover:bg-blue-100 active:scale-95 px-2.5 py-0.5 rounded-full font-semibold border border-blue-200/80 shadow-3xs transition cursor-pointer flex items-center gap-1">
+                    <i class="fa-regular fa-paste text-[10px]"></i> អាចចុច Ctrl + V ដើម្បី Paste រូបភាព
+                  </span>
                 </div>
 
-                <!-- Image Preview Card (Shown when image exists - Supports continuous Drag & Drop to replace!) -->
+                <!-- Image Preview Card (Shown when image exists - Supports continuous Drag & Drop and Ctrl+V to replace!) -->
                 <div id="imagePreviewCard"
                   ondragover="event.preventDefault(); this.classList.add('ring-4','ring-blue-500','bg-blue-50/40')"
                   ondragleave="this.classList.remove('ring-4','ring-blue-500','bg-blue-50/40')"
                   ondrop="this.classList.remove('ring-4','ring-blue-500','bg-blue-50/40'); handleImageDrop(event)"
                   class="hidden flex flex-col space-y-2 bg-white p-2.5 rounded-2xl border-2 border-slate-200 hover:border-blue-400 transition-all shadow-sm group flex-1">
                   <div
-                    class="relative w-full flex-1 min-h-[160px] bg-slate-900/5 rounded-xl overflow-hidden flex items-center justify-center border border-slate-100 cursor-pointer"
+                    class="relative w-full flex-1 min-h-[160px] bg-slate-900/5 rounded-xl overflow-hidden flex items-center justify-center border border-slate-100 cursor-pointer group/prev"
                     onclick="document.getElementById('modalImageFileInput').click()"
-                    title="ចុច ឬអូសទម្លាក់រូបភាពថ្មីដើម្បីប្តូរ">
+                    title="ចុច ឬអូសទម្លាក់រូបភាពថ្មីដើម្បីប្តូរ (ឬចុចបញ្ជា Ctrl + V ដើម្បី Paste)">
                     <img id="modalImagePreview" src="" alt="Preview" class="w-full h-full object-contain">
+                    <div class="absolute inset-0 bg-slate-900/40 opacity-0 group-hover/prev:opacity-100 transition-opacity flex flex-col items-center justify-center text-white p-2 pointer-events-none">
+                      <i class="fa-solid fa-arrows-rotate text-lg mb-1"></i>
+                      <span class="text-[11px] font-bold">ប្តូររូបភាពថ្មី</span>
+                      <span class="text-[9.5px] text-blue-200 mt-0.5">អូសទម្លាក់ ឬចុច Ctrl + V ដើម្បី Paste</span>
+                    </div>
                   </div>
 
                   <div class="flex items-center justify-between pt-1 shrink-0">
@@ -6868,7 +6884,7 @@
                         </div>
                       </div>
                       <p id="imagePreviewSize" class="text-[10px] text-emerald-600 font-semibold"><i
-                          class="fa-solid fa-circle-check mr-1"></i>រួចរាល់ (អាចអូសទម្លាក់រូបថ្មីបាន)</p>
+                          class="fa-solid fa-circle-check mr-1"></i>រួចរាល់ (អាចអូស ឬ Ctrl + V ប្តូរបាន)</p>
                     </div>
                     <div class="flex items-center space-x-1.5 shrink-0">
                       <button type="button" onclick="cropCurrentProductImage()"
@@ -6878,7 +6894,7 @@
                         <span>Crop</span>
                       </button>
                       <button type="button" onclick="document.getElementById('modalImageFileInput').click()"
-                        title="ប្តូររូបភាព"
+                        title="ប្តូររូបភាព (ឬចុច Ctrl + V)"
                         class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition text-xs font-semibold flex items-center space-x-1">
                         <i class="fa-solid fa-arrows-rotate mr-1"></i>
                         <span>ប្តូរ</span>
@@ -23343,6 +23359,207 @@
         });
       }
     }
+
+    async function triggerClipboardPaste() {
+      const visualModal = document.getElementById('visualProductSearchModal');
+      const isVisualOpen = visualModal && !visualModal.classList.contains('hidden');
+
+      if (navigator.clipboard && navigator.clipboard.read) {
+        try {
+          const clipboardItems = await navigator.clipboard.read();
+          for (const item of clipboardItems) {
+            for (const type of item.types) {
+              if (type.startsWith('image/')) {
+                const blob = await item.getType(type);
+                const file = new File([blob], 'pasted-image.png', { type: type });
+                if (isVisualOpen) {
+                  if (typeof processVisualSearchFile === 'function') processVisualSearchFile(file);
+                } else {
+                  processAndSetImage(file);
+                }
+                if (typeof Swal !== 'undefined') {
+                  Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    icon: 'success',
+                    title: '<b>បាន Paste រូបភាពជោគជ័យ!</b>',
+                    text: 'រូបភាពត្រូវបានបញ្ចូលរួចរាល់',
+                    timer: 2000,
+                    showConfirmButton: false
+                  });
+                }
+                return;
+              }
+            }
+          }
+          if (navigator.clipboard.readText) {
+            const text = (await navigator.clipboard.readText())?.trim();
+            if (text && (text.startsWith('http://') || text.startsWith('https://') || text.startsWith('data:image/'))) {
+              if (isVisualOpen) {
+                if (typeof processVisualSearchUrl === 'function') processVisualSearchUrl(text);
+              } else {
+                openImageCropper({
+                  imageSrc: text,
+                  mode: 'product',
+                  title: 'កែសម្រួលរូបភាពទំនិញ (Crop & Zoom Product)',
+                  subtitle: 'ពង្រីក ពង្រួម ឬកាត់តរូបភាពទំនិញតាមទំហំដែលចង់បាន',
+                  onCrop: function (croppedDataUrl) {
+                    const sizeKb = (croppedDataUrl.length * 0.75 / 1024).toFixed(1);
+                    displayImagePreview(croppedDataUrl, 'រូបភាព Paste', `${sizeKb} KB`);
+                  }
+                });
+              }
+              return;
+            }
+          }
+          if (typeof Swal !== 'undefined') {
+            Swal.fire({
+              toast: true,
+              position: 'top-end',
+              icon: 'info',
+              title: 'គ្មានរូបភាពក្នុង Clipboard ទេ',
+              text: 'សូម Copy រូបភាពសិន រួចចុច Ctrl + V',
+              timer: 3000,
+              showConfirmButton: false
+            });
+          }
+        } catch (err) {
+          if (typeof Swal !== 'undefined') {
+            Swal.fire({
+              toast: true,
+              position: 'top-end',
+              icon: 'info',
+              title: 'សូមចុច Ctrl + V',
+              text: 'សូមចុចគ្រាប់ចុច Ctrl + V នៅលើក្តារចុចដើម្បី Paste រូបភាព',
+              timer: 3000,
+              showConfirmButton: false
+            });
+          }
+        }
+      } else {
+        if (typeof Swal !== 'undefined') {
+          Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'info',
+            title: 'សូមចុច Ctrl + V',
+            text: 'សូមចុចគ្រាប់ចុច Ctrl + V នៅលើក្តារចុចដើម្បី Paste រូបភាព',
+            timer: 3000,
+            showConfirmButton: false
+          });
+        }
+      }
+    }
+
+    function handleItemModalPaste(e) {
+      const modal = document.getElementById('itemModal');
+      if (!modal || modal.classList.contains('hidden')) return;
+
+      const visualModal = document.getElementById('visualProductSearchModal');
+      if (visualModal && !visualModal.classList.contains('hidden')) return;
+      const cropperModal = document.getElementById('imageCropperModal');
+      if (cropperModal && !cropperModal.classList.contains('hidden')) return;
+
+      const clipboard = e.clipboardData || window.clipboardData;
+      if (!clipboard) return;
+
+      // 1. Image in clipboard items (Screenshot, copied image)
+      const items = clipboard.items;
+      if (items && items.length > 0) {
+        for (let i = 0; i < items.length; i++) {
+          if (items[i].type && items[i].type.startsWith('image/')) {
+            const file = items[i].getAsFile();
+            if (file) {
+              e.preventDefault();
+              e.stopPropagation();
+              processAndSetImage(file);
+              if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                  toast: true,
+                  position: 'top-end',
+                  icon: 'success',
+                  title: '<b>បាន Paste រូបភាពជោគជ័យ!</b>',
+                  text: 'រូបភាពត្រូវបានបញ្ចូលរួចរាល់',
+                  timer: 2000,
+                  showConfirmButton: false
+                });
+              }
+              return;
+            }
+          }
+        }
+      }
+
+      // 2. Image in clipboard files
+      if (clipboard.files && clipboard.files.length > 0) {
+        for (let i = 0; i < clipboard.files.length; i++) {
+          const file = clipboard.files[i];
+          if (file && file.type && file.type.startsWith('image/')) {
+            e.preventDefault();
+            e.stopPropagation();
+            processAndSetImage(file);
+            if (typeof Swal !== 'undefined') {
+              Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: '<b>បាន Paste រូបភាពជោគជ័យ!</b>',
+                text: 'រូបភាពត្រូវបានបញ្ចូលរួចរាល់',
+                timer: 2000,
+                showConfirmButton: false
+              });
+            }
+            return;
+          }
+        }
+      }
+
+      // 3. Pasted HTML containing <img src="...">
+      const activeEl = document.activeElement;
+      const isInput = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA') && activeEl.id !== 'modalImageUrlCustom';
+
+      const clipHtml = clipboard.getData('text/html');
+      if (clipHtml && !isInput) {
+        const match = clipHtml.match(/src=["'](.*?)["']/i);
+        if (match && match[1] && (match[1].startsWith('http') || match[1].startsWith('data:image/'))) {
+          e.preventDefault();
+          e.stopPropagation();
+          openImageCropper({
+            imageSrc: match[1],
+            mode: 'product',
+            title: 'កែសម្រួលរូបភាពទំនិញ (Crop & Zoom Product)',
+            subtitle: 'ពង្រីក ពង្រួម ឬកាត់តរូបភាពទំនិញតាមទំហំដែលចង់បាន',
+            onCrop: function (croppedDataUrl) {
+              const sizeKb = (croppedDataUrl.length * 0.75 / 1024).toFixed(1);
+              displayImagePreview(croppedDataUrl, 'រូបភាព Paste ពី Web', `${sizeKb} KB`);
+            }
+          });
+          return;
+        }
+      }
+
+      // 4. Pasted text URL
+      const text = clipboard.getData('text/plain')?.trim();
+      if (text && (!isInput || activeEl?.id === 'modalImageUrlCustom')) {
+        if (text.startsWith('data:image/') || ((text.startsWith('http://') || text.startsWith('https://')) && (text.match(/\.(jpeg|jpg|gif|png|webp|bmp)($|\?)/i) || text.includes('drive.google.com') || text.includes('googleusercontent.com') || text.includes('images.unsplash.com')))) {
+          e.preventDefault();
+          e.stopPropagation();
+          openImageCropper({
+            imageSrc: text,
+            mode: 'product',
+            title: 'កែសម្រួលរូបភាពទំនិញ (Crop & Zoom Product)',
+            subtitle: 'ពង្រីក ពង្រួម ឬកាត់តរូបភាពទំនិញតាមទំហំដែលចង់បាន',
+            onCrop: function (croppedDataUrl) {
+              const sizeKb = (croppedDataUrl.length * 0.75 / 1024).toFixed(1);
+              displayImagePreview(croppedDataUrl, 'រូបភាព Paste ពី Link', `${sizeKb} KB`);
+            }
+          });
+          return;
+        }
+      }
+    }
+
+    window.addEventListener('paste', handleItemModalPaste);
 
     function processAndSetImage(file) {
       if (!file) return;
