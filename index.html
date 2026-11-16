@@ -22,7 +22,10 @@
 
             // Detect target active tab before HTML body renders (Default to Product Inventory)
             var hashTab = window.location.hash ? window.location.hash.replace('#', '') : '';
-            var savedTab = hashTab || 'items';
+            var storedTab = '';
+            try {
+              storedTab = sessionStorage.getItem('inventory_active_tab') || localStorage.getItem('inventory_active_tab') || '';
+            } catch (e) { }
             var tabMap = {
               'items': 'tabItems',
               'stockin': 'tabStockIn',
@@ -37,6 +40,7 @@
               'settings': 'tabSettings',
               'warehouses': 'tabWarehouses'
             };
+            var savedTab = (hashTab && tabMap[hashTab]) ? hashTab : ((storedTab && tabMap[storedTab]) ? storedTab : 'items');
             if (savedTab && savedTab !== 'dashboard' && tabMap[savedTab]) {
               var targetTabId = tabMap[savedTab];
               var tabDisplayVal = (savedTab === 'items') ? 'flex' : 'block';
@@ -11689,16 +11693,22 @@
 
     // ====================================================
     // ====================================================
-    // NON-INTRUSIVE BACKGROUND UPDATE SYSTEM
-    // (Never auto-refreshes: User decides when to update)
+    // BACKGROUND UPDATE SYSTEM WITH SEAMLESS WORKSPACE PRESERVATION
+    // (Preserves user's working screen, tab, filters, forms, and queues completely intact)
     // ====================================================
     let currentAppVersion = sessionStorage.getItem('inventory_app_version') || null;
     let pendingAppVersion = null;
     let isUpdateChecking = false;
     let isApplyingAutoUpdate = false;
     let pendingUpdateDismissed = false;
+    let autoUpdateScheduledTimer = null;
+    let lastUserTypingTime = 0;
 
-    // Check version in background via version.json (strictly without auto-refreshing)
+    // Track user typing so update refresh never interrupts active keyboard typing
+    window.addEventListener('keydown', () => { lastUserTypingTime = Date.now(); }, true);
+    window.addEventListener('input', () => { lastUserTypingTime = Date.now(); }, true);
+
+    // Check version in background via version.json
     async function checkAppVersionInBackground() {
       if (isUpdateChecking || isApplyingAutoUpdate) return;
       isUpdateChecking = true;
@@ -11731,15 +11741,39 @@
       }
     }
 
-    // Handle new version detected: ONLY show notification banner, NEVER refresh automatically!
+    // Handle new version detected: Auto-refresh seamlessly when safe while preserving user's workspace
     function handleNewVersionDetected(newVer) {
+      if (!newVer || isApplyingAutoUpdate) return;
       pendingAppVersion = newVer;
 
-      // DO NOT automatically refresh or reload the page!
-      // Only show the subtle notification banner if not dismissed
-      if (!pendingUpdateDismissed) {
-        showSubtleUpdateBanner(newVer);
-      }
+      // Show floating update banner
+      showSubtleUpdateBanner(newVer);
+
+      // Schedule graceful auto-update that preserves workspace completely
+      scheduleGracefulAutoUpdate(newVer);
+    }
+
+    function scheduleGracefulAutoUpdate(newVer) {
+      if (isApplyingAutoUpdate || autoUpdateScheduledTimer) return;
+
+      const attemptUpdate = () => {
+        if (isApplyingAutoUpdate) return;
+
+        // If user is actively typing in an input or textarea within the last 4 seconds, delay
+        const activeTag = (document.activeElement?.tagName || '').toLowerCase();
+        const isActivelyTyping = (activeTag === 'input' || activeTag === 'textarea') && (Date.now() - lastUserTypingTime < 4000);
+
+        if (isActivelyTyping) {
+          autoUpdateScheduledTimer = setTimeout(attemptUpdate, 3000);
+          return;
+        }
+
+        // Apply update smoothly, preserving user's exact tab, filters, forms, and workspace intact
+        applyAppUpdateNow(newVer, false);
+      };
+
+      // 3.5-second gentle grace period so user sees the update indicator without abrupt jumping
+      autoUpdateScheduledTimer = setTimeout(attemptUpdate, 3500);
     }
 
     // Show sleek, non-intrusive floating update notification
@@ -11756,7 +11790,7 @@
             <i class="fa-solid fa-cloud-arrow-down text-blue-400"></i>
             <span>មានកំណែអាប់ដេតថ្មី</span>
           </p>
-          <p class="text-[9px] text-slate-300 mt-0.5">ចុច «Update ឥឡូវ» ដើម្បីទទួលបានកំណែថ្មី</p>
+          <p class="text-[9px] text-slate-300 mt-0.5">កំពុង Update និងរក្សាទុកផ្ទាំងការងារដដែល...</p>
         </div>
         <button type="button" onclick="applyAppUpdateNow(pendingAppVersion, true)"
           class="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-[10px] font-bold rounded-lg shadow-sm transition cursor-pointer shrink-0">
@@ -11773,6 +11807,10 @@
 
     function dismissSubtleUpdateBanner() {
       pendingUpdateDismissed = true;
+      if (autoUpdateScheduledTimer) {
+        clearTimeout(autoUpdateScheduledTimer);
+        autoUpdateScheduledTimer = null;
+      }
       const b = document.getElementById('subtleUpdateBanner');
       if (b) {
         b.style.opacity = '0';
@@ -11785,10 +11823,14 @@
       applyAppUpdateNow(newVer, true);
     }
 
-    // Apply update cleanly ONLY when user clicks "Update ឥឡូវ"
+    // Apply update cleanly, preserving workspace 100% intact
     function applyAppUpdateNow(newVer, isUserInitiated = true) {
       if (isApplyingAutoUpdate) return;
       isApplyingAutoUpdate = true;
+      if (autoUpdateScheduledTimer) {
+        clearTimeout(autoUpdateScheduledTimer);
+        autoUpdateScheduledTimer = null;
+      }
       currentAppVersion = newVer;
       sessionStorage.setItem('inventory_app_version', newVer);
 
@@ -11796,6 +11838,9 @@
 
       // 1. Save state completely so user returns to the exact same screen, tab, and form inputs
       try {
+        const curTab = AppState.currentTab || sessionStorage.getItem('inventory_active_tab') || 'items';
+        sessionStorage.setItem('inventory_active_tab', curTab);
+        try { localStorage.setItem('inventory_active_tab', curTab); } catch (e) { }
         saveAppRunningState();
         sessionStorage.setItem('inventory_just_auto_updated', 'true');
       } catch (e) { }
@@ -11809,15 +11854,17 @@
         pill.innerHTML = `
           <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
           <i class="fa-solid fa-rotate fa-spin text-cyan-300"></i>
-          <span class="font-bold">កំពុងធ្វើបច្ចុប្បន្នភាពប្រព័ន្ធ...</span>
+          <span class="font-bold">កំពុងធ្វើបច្ចុប្បន្នភាពប្រព័ន្ធ (រក្សាផ្ទាំងការងារដដែល)...</span>
         `;
         document.body.appendChild(pill);
       }
 
-      // 3. Cache-busted reload to guarantee latest JS & HTML are fetched from server
+      // 3. Cache-busted reload with URL hash pinned to current active tab
       setTimeout(() => {
+        const curTab = AppState.currentTab || sessionStorage.getItem('inventory_active_tab') || 'items';
         const url = new URL(window.location.href);
         url.searchParams.set('_v', Date.now());
+        url.hash = '#' + curTab;
         window.location.replace(url.toString());
       }, 400);
     }
@@ -12754,11 +12801,22 @@
           } catch (e) { }
         }, 150);
 
-        // 1. Initial Landing Tab: Default to 'items' (Product Inventory) with menu shown
+        // 1. Initial Landing Tab: Restore savedTab or hashTab seamlessly
         const hashTab = window.location.hash.replace('#', '');
+        let storedTab = null;
+        try {
+          storedTab = sessionStorage.getItem('inventory_active_tab') || localStorage.getItem('inventory_active_tab');
+        } catch (e) { }
         const validTabs = ['dashboard', 'items', 'stockin', 'incoming', 'stockout', 'transfer', 'damaged', 'reports', 'requests', 'chat', 'users', 'warehouses', 'settings'];
-        const targetTab = (hashTab && validTabs.includes(hashTab)) ? hashTab : 'items';
-        navigateTab(targetTab, { keepMenuOpen: true });
+        const targetTab = (hashTab && validTabs.includes(hashTab))
+          ? hashTab
+          : (storedTab && validTabs.includes(storedTab) ? storedTab : 'items');
+
+        if (window.history && window.history.replaceState) {
+          window.history.replaceState(null, null, '#' + targetTab);
+        }
+
+        navigateTab(targetTab, { keepMenuOpen: false });
 
         // 2. Restore warehouse filter
         const savedWh = sessionStorage.getItem('inventory_wh_filter');
@@ -12770,10 +12828,13 @@
 
         // 3. Render session view and load data
         showAppView();
-        if (!hashTab && typeof toggleMobileSidebar === 'function') {
+        if (!hashTab && !storedTab && typeof toggleMobileSidebar === 'function') {
           toggleMobileSidebar(true);
         }
         loadInitialData();
+
+        // 4. Restore active application state (inputs, filters, queues, modals, scroll)
+        restoreAppRunningState(targetTab);
 
         // 4. Always reset scroll to top on refresh / startup so top data (Row 1) is visible
         if ('scrollRestoration' in history) {
@@ -12843,30 +12904,261 @@
         sessionStorage.setItem('inventory_user', JSON.stringify(AppState.currentUser));
       } catch (e) { }
 
-      if (AppState.currentTab) {
-        sessionStorage.setItem('inventory_active_tab', AppState.currentTab);
-      }
+      const curTab = AppState.currentTab || 'items';
+      sessionStorage.setItem('inventory_active_tab', curTab);
+      try { localStorage.setItem('inventory_active_tab', curTab); } catch (e) { }
+
       if (AppState.selectedAdminWarehouseFilter) {
         sessionStorage.setItem('inventory_wh_filter', AppState.selectedAdminWarehouseFilter);
       }
 
-      const isRunningFreeze = ['items', 'stockin', 'stockout', 'incoming'].includes(AppState.currentTab);
+      // 1. Items Search & Filters
+      const itemSearchEl = document.getElementById('itemSearchInput');
+      if (itemSearchEl && itemSearchEl.value) {
+        sessionStorage.setItem('inventory_item_search_query', itemSearchEl.value);
+      } else if (itemSearchEl && !itemSearchEl.value) {
+        sessionStorage.removeItem('inventory_item_search_query');
+      }
+      const itemCatEl = document.getElementById('itemCategoryFilter');
+      if (itemCatEl && itemCatEl.value) {
+        sessionStorage.setItem('inventory_item_category_filter', itemCatEl.value);
+      }
+      const itemStatEl = document.getElementById('itemStatusFilter');
+      if (itemStatEl && itemStatEl.value) {
+        sessionStorage.setItem('inventory_item_status_filter', itemStatEl.value);
+      }
+
+      // 2. Damaged Stock Search & Filters
+      const dmgSearch = document.getElementById('dmgSearchInput');
+      if (dmgSearch && dmgSearch.value) {
+        sessionStorage.setItem('inventory_dmg_search', dmgSearch.value);
+      } else {
+        sessionStorage.removeItem('inventory_dmg_search');
+      }
+      const dmgWh = document.getElementById('dmgWarehouseFilter');
+      if (dmgWh && dmgWh.value) sessionStorage.setItem('inventory_dmg_wh', dmgWh.value);
+      const dmgStat = document.getElementById('dmgStatusFilter');
+      if (dmgStat && dmgStat.value) sessionStorage.setItem('inventory_dmg_status', dmgStat.value);
+      const dmgType = document.getElementById('dmgTypeFilter');
+      if (dmgType && dmgType.value) sessionStorage.setItem('inventory_dmg_type', dmgType.value);
+
+      // 3. Reports Filters
+      const repStart = document.getElementById('reportStartDate');
+      if (repStart && repStart.value) sessionStorage.setItem('inventory_rep_start', repStart.value);
+      const repEnd = document.getElementById('reportEndDate');
+      if (repEnd && repEnd.value) sessionStorage.setItem('inventory_rep_end', repEnd.value);
+      const repType = document.getElementById('reportTypeFilter');
+      if (repType && repType.value) sessionStorage.setItem('inventory_rep_type', repType.value);
+
+      // 4. Stock In / Stock Out History Searches
+      const inSearch = document.getElementById('stockInHistorySearch');
+      if (inSearch && inSearch.value) sessionStorage.setItem('inventory_in_search', inSearch.value);
+      const outSearch = document.getElementById('stockOutHistorySearch');
+      if (outSearch && outSearch.value) sessionStorage.setItem('inventory_out_search', outSearch.value);
+
+      // 5. Staged Batch Queues
+      try {
+        if (Array.isArray(window.stockInBatchQueue) && window.stockInBatchQueue.length > 0) {
+          sessionStorage.setItem('inventory_stockin_queue', JSON.stringify(window.stockInBatchQueue));
+        } else {
+          sessionStorage.removeItem('inventory_stockin_queue');
+        }
+        if (Array.isArray(window.stockOutBatchQueue) && window.stockOutBatchQueue.length > 0) {
+          sessionStorage.setItem('inventory_stockout_queue', JSON.stringify(window.stockOutBatchQueue));
+        } else {
+          sessionStorage.removeItem('inventory_stockout_queue');
+        }
+      } catch (e) { }
+
+      // 6. Stock In / Stock Out Form Open State
+      if (window._isStockInFormOpen) {
+        sessionStorage.setItem('inventory_stockin_form_open', 'true');
+      } else {
+        sessionStorage.removeItem('inventory_stockin_form_open');
+      }
+      if (window._isStockOutFormOpen) {
+        sessionStorage.setItem('inventory_stockout_form_open', 'true');
+      } else {
+        sessionStorage.removeItem('inventory_stockout_form_open');
+      }
+
+      // 7. Scroll positions
+      const itemsScroll = document.getElementById('itemsTableScrollContainer');
+      if (itemsScroll && itemsScroll.scrollTop > 0) {
+        sessionStorage.setItem('inventory_items_scroll_top', itemsScroll.scrollTop);
+      }
+      const isRunningFreeze = ['items', 'stockin', 'stockout', 'incoming'].includes(curTab);
       const mainElem = document.querySelector('main');
       if (mainElem) {
         if (isRunningFreeze) {
           mainElem.scrollTop = 0;
           sessionStorage.removeItem('inventory_scroll_top');
-          sessionStorage.removeItem('inventory_items_scroll_top');
         } else {
           sessionStorage.setItem('inventory_scroll_top', mainElem.scrollTop);
         }
       }
 
+      // 8. Open Modals
       const modalSnapshot = getOpenModalSnapshot();
       if (modalSnapshot) {
         sessionStorage.setItem('inventory_active_modal_state', JSON.stringify(modalSnapshot));
       } else {
         sessionStorage.removeItem('inventory_active_modal_state');
+      }
+    }
+
+    function restoreAppRunningState(targetTab) {
+      try {
+        const tab = targetTab || AppState.currentTab || 'items';
+
+        // 1. Restore items filters & search
+        if (tab === 'items') {
+          const savedQuery = sessionStorage.getItem('inventory_item_search_query');
+          const itemSearchEl = document.getElementById('itemSearchInput');
+          if (savedQuery && itemSearchEl) {
+            itemSearchEl.value = savedQuery;
+            itemSearchEl.dataset.userTyped = 'true';
+            AppState.itemSearchQuery = savedQuery;
+          }
+          const savedCat = sessionStorage.getItem('inventory_item_category_filter');
+          const catEl = document.getElementById('itemCategoryFilter');
+          if (savedCat && catEl) {
+            catEl.value = savedCat;
+            AppState.itemCategoryFilter = savedCat;
+          }
+          const savedStat = sessionStorage.getItem('inventory_item_status_filter');
+          const statEl = document.getElementById('itemStatusFilter');
+          if (savedStat && statEl) {
+            statEl.value = savedStat;
+            AppState.itemStatusFilter = savedStat;
+          }
+          if (savedQuery || (savedCat && savedCat !== 'ALL') || (savedStat && savedStat !== 'ALL')) {
+            if (typeof filterItemsTable === 'function') filterItemsTable();
+          }
+          const itemsScroll = sessionStorage.getItem('inventory_items_scroll_top');
+          if (itemsScroll) {
+            requestAnimationFrame(() => {
+              const s = document.getElementById('itemsTableScrollContainer');
+              if (s) s.scrollTop = parseInt(itemsScroll, 10);
+            });
+          }
+        }
+
+        // 2. Restore damaged stock filters & search
+        if (tab === 'damaged') {
+          const dmgSearch = sessionStorage.getItem('inventory_dmg_search');
+          const dmgWh = sessionStorage.getItem('inventory_dmg_wh');
+          const dmgStat = sessionStorage.getItem('inventory_dmg_status');
+          const dmgType = sessionStorage.getItem('inventory_dmg_type');
+
+          if (dmgSearch) {
+            const el = document.getElementById('dmgSearchInput');
+            if (el) el.value = dmgSearch;
+          }
+          if (dmgWh) {
+            const el = document.getElementById('dmgWarehouseFilter');
+            if (el) el.value = dmgWh;
+          }
+          if (dmgStat) {
+            const el = document.getElementById('dmgStatusFilter');
+            if (el) el.value = dmgStat;
+          }
+          if (dmgType) {
+            const el = document.getElementById('dmgTypeFilter');
+            if (el) el.value = dmgType;
+          }
+          if (typeof loadDamagedStock === 'function') {
+            loadDamagedStock();
+          } else if (typeof filterDamagedStock === 'function') {
+            filterDamagedStock();
+          }
+        }
+
+        // 3. Restore reports filters
+        if (tab === 'reports') {
+          const repStart = sessionStorage.getItem('inventory_rep_start');
+          const repEnd = sessionStorage.getItem('inventory_rep_end');
+          const repType = sessionStorage.getItem('inventory_rep_type');
+          if (repStart) {
+            const el = document.getElementById('reportStartDate');
+            if (el) el.value = repStart;
+          }
+          if (repEnd) {
+            const el = document.getElementById('reportEndDate');
+            if (el) el.value = repEnd;
+          }
+          if (repType) {
+            const el = document.getElementById('reportTypeFilter');
+            if (el) el.value = repType;
+          }
+          if (typeof loadReportTransactions === 'function') {
+            loadReportTransactions();
+          }
+        }
+
+        // 4. Restore stock in / out history searches and forms
+        if (tab === 'stockin') {
+          const s = sessionStorage.getItem('inventory_in_search');
+          if (s) {
+            const el = document.getElementById('stockInHistorySearch');
+            if (el) { el.value = s; if (typeof filterStockInHistory === 'function') filterStockInHistory(); }
+          }
+          const savedInQueue = sessionStorage.getItem('inventory_stockin_queue');
+          if (savedInQueue) {
+            try {
+              const q = JSON.parse(savedInQueue);
+              if (Array.isArray(q) && q.length > 0) {
+                window.stockInBatchQueue = q;
+                if (typeof renderStockInBatchQueue === 'function') renderStockInBatchQueue();
+              }
+            } catch (e) { }
+          }
+          if (sessionStorage.getItem('inventory_stockin_form_open') === 'true') {
+            if (typeof openStockInForm === 'function') openStockInForm();
+          }
+        }
+
+        // 5. Restore stock out history searches and forms
+        if (tab === 'stockout') {
+          const s = sessionStorage.getItem('inventory_out_search');
+          if (s) {
+            const el = document.getElementById('stockOutHistorySearch');
+            if (el) { el.value = s; if (typeof filterStockOutHistory === 'function') filterStockOutHistory(); }
+          }
+          const savedOutQueue = sessionStorage.getItem('inventory_stockout_queue');
+          if (savedOutQueue) {
+            try {
+              const q = JSON.parse(savedOutQueue);
+              if (Array.isArray(q) && q.length > 0) {
+                window.stockOutBatchQueue = q;
+                if (typeof renderStockOutBatchQueue === 'function') renderStockOutBatchQueue();
+              }
+            } catch (e) { }
+          }
+          if (sessionStorage.getItem('inventory_stockout_form_open') === 'true') {
+            if (typeof openStockOutForm === 'function') openStockOutForm();
+          }
+        }
+
+        // 6. Restore active modal & form inputs
+        const modalRaw = sessionStorage.getItem('inventory_active_modal_state');
+        if (modalRaw) {
+          try {
+            const modalState = JSON.parse(modalRaw);
+            sessionStorage.removeItem('inventory_active_modal_state');
+            restoreModalState(modalState);
+          } catch (e) { }
+        }
+
+        // 7. Notification if just auto-updated
+        if (sessionStorage.getItem('inventory_just_auto_updated')) {
+          sessionStorage.removeItem('inventory_just_auto_updated');
+          if (typeof showAutoUpdateSuccessToast === 'function') {
+            showAutoUpdateSuccessToast();
+          }
+        }
+      } catch (err) {
+        console.warn('[RestoreState] Error restoring state:', err);
       }
     }
 
@@ -20381,6 +20673,7 @@
 
       AppState.currentTab = tabName;
       sessionStorage.setItem('inventory_active_tab', tabName);
+      try { localStorage.setItem('inventory_active_tab', tabName); } catch (e) { }
       if (typeof closeProfileModal === 'function') closeProfileModal();
       if (typeof updateAdminOperationalViewMode === 'function') updateAdminOperationalViewMode();
       if (window.history && window.history.replaceState) {
