@@ -651,7 +651,7 @@
       flex: 1 1 0% !important;
       min-height: 0 !important;
       overflow-y: auto !important;
-      overscroll-behavior: contain !important;
+      overscroll-behavior: auto !important; overscroll-behavior-x: contain !important;
       -webkit-overflow-scrolling: touch !important;
     }
 
@@ -681,7 +681,7 @@
     }
 
     /* Stock In & Stock Out: Frozen Top Form & Dedicated Scrollable History Table */
-    @media (min-width: 1024px) and (min-height: 520px) {
+    @media (min-width: 768px) {
       main.stock-freeze-active {
         display: flex !important;
         flex-direction: column !important;
@@ -731,7 +731,7 @@
         overflow-y: auto !important;
         overflow-x: auto !important;
         -webkit-overflow-scrolling: touch !important;
-        overscroll-behavior: contain !important;
+        overscroll-behavior: auto !important; overscroll-behavior-x: contain !important;
       }
 
       .form-freeze-card.hidden {
@@ -779,7 +779,7 @@
         overflow-y: auto !important;
         overflow-x: auto !important;
         -webkit-overflow-scrolling: touch !important;
-        overscroll-behavior: contain !important;
+        overscroll-behavior: auto !important; overscroll-behavior-x: contain !important;
       }
 
       .table-scroll-container table {
@@ -803,8 +803,7 @@
       }
     }
 
-    @media (max-width: 1023px),
-    (max-height: 519px) {
+    @media (max-width: 767px) {
       main.stock-freeze-active {
         overflow-y: auto !important;
       }
@@ -825,7 +824,7 @@
         overflow-y: auto;
         overflow-x: auto !important;
         -webkit-overflow-scrolling: touch !important;
-        overscroll-behavior: contain !important;
+        overscroll-behavior: auto !important; overscroll-behavior-x: contain !important;
       }
 
       .table-scroll-container {
@@ -926,7 +925,7 @@
       overflow-y: auto;
       overflow-x: auto !important;
       -webkit-overflow-scrolling: touch !important;
-      overscroll-behavior: contain !important;
+      overscroll-behavior: auto !important; overscroll-behavior-x: contain !important;
       position: relative;
     }
 
@@ -11871,11 +11870,19 @@
     }
 
     function initScrollRestoration() {
+      if ('scrollRestoration' in history) {
+        history.scrollRestoration = 'manual';
+      }
       const mainElem = document.querySelector('main');
       if (mainElem) {
         mainElem.addEventListener('scroll', () => {
+          const isFreeze = ['items', 'stockin', 'stockout', 'incoming'].includes(AppState.currentTab);
+          if (isFreeze) {
+            if (mainElem.scrollTop !== 0) mainElem.scrollTop = 0;
+            return;
+          }
           sessionStorage.setItem('inventory_scroll_top', mainElem.scrollTop);
-        }, { passive: true });
+        }, { passive: false });
       }
     }
 
@@ -12769,18 +12776,30 @@
         }
         loadInitialData();
 
-        // 4. Restore scroll position instantly without delay or visual jump
-        const savedScroll = sessionStorage.getItem('inventory_scroll_top');
-        if (savedScroll) {
-          const scrollVal = parseInt(savedScroll, 10) || 0;
-          const mainElem = document.querySelector('main');
-          if (mainElem) {
-            mainElem.scrollTop = scrollVal;
+        // 4. Always reset scroll to top on refresh / startup so top data (Row 1) is visible
+        if ('scrollRestoration' in history) {
+          history.scrollRestoration = 'manual';
+        }
+        const isStartupFreeze = ['items', 'stockin', 'stockout', 'incoming'].includes(targetTab || AppState.currentTab);
+        const mainElem = document.querySelector('main');
+        if (isStartupFreeze) {
+          if (mainElem) mainElem.scrollTop = 0;
+          sessionStorage.removeItem('inventory_scroll_top');
+          sessionStorage.removeItem('inventory_items_scroll_top');
+          const curItemsScroll = document.getElementById('itemsTableScrollContainer');
+          if (curItemsScroll) curItemsScroll.scrollTop = 0;
+        } else {
+          const savedScroll = sessionStorage.getItem('inventory_scroll_top');
+          if (savedScroll) {
+            const scrollVal = parseInt(savedScroll, 10) || 0;
+            if (mainElem) {
+              mainElem.scrollTop = scrollVal;
+            }
+            requestAnimationFrame(() => {
+              const m = document.querySelector('main');
+              if (m && m.scrollTop !== scrollVal) m.scrollTop = scrollVal;
+            });
           }
-          requestAnimationFrame(() => {
-            const m = document.querySelector('main');
-            if (m && m.scrollTop !== scrollVal) m.scrollTop = scrollVal;
-          });
         }
 
         // 5. Restore active modal & form inputs if page was refreshed
@@ -12832,9 +12851,16 @@
         sessionStorage.setItem('inventory_wh_filter', AppState.selectedAdminWarehouseFilter);
       }
 
+      const isRunningFreeze = ['items', 'stockin', 'stockout', 'incoming'].includes(AppState.currentTab);
       const mainElem = document.querySelector('main');
       if (mainElem) {
-        sessionStorage.setItem('inventory_scroll_top', mainElem.scrollTop);
+        if (isRunningFreeze) {
+          mainElem.scrollTop = 0;
+          sessionStorage.removeItem('inventory_scroll_top');
+          sessionStorage.removeItem('inventory_items_scroll_top');
+        } else {
+          sessionStorage.setItem('inventory_scroll_top', mainElem.scrollTop);
+        }
       }
 
       const modalSnapshot = getOpenModalSnapshot();
@@ -20215,10 +20241,8 @@
         AppState.itemStatusFilter = curStatusSelect.value;
         sessionStorage.setItem('inventory_item_status_filter', curStatusSelect.value);
       }
-      const curItemsScroll = document.getElementById('itemsTableScrollContainer');
-      if (curItemsScroll && AppState.currentTab === 'items') {
-        sessionStorage.setItem('inventory_items_scroll_top', String(curItemsScroll.scrollTop || 0));
-      }
+      // Freeze tabs: always clear stored scroll so refresh always displays top data
+      sessionStorage.removeItem('inventory_items_scroll_top');
 
       if (tabName === 'items') {
         const itemInp = document.getElementById('itemSearchInput');
@@ -20255,9 +20279,9 @@
         if (typeof renderItemsTable === 'function') {
           renderItemsTable();
         }
-        const savedScroll = sessionStorage.getItem('inventory_items_scroll_top');
-        if (savedScroll && curItemsScroll) {
-          setTimeout(() => { curItemsScroll.scrollTop = Number(savedScroll); }, 40);
+        // Always reset table scroll to top so Row 1 is immediately displayed
+        if (curItemsScroll) {
+          curItemsScroll.scrollTop = 0;
         }
         if (!AppState.items || AppState.items.length <= 7) {
           if (typeof loadItems === 'function') {
@@ -20930,9 +20954,10 @@
       const existingBanner = document.getElementById('bgRefreshFloatingBanner');
       if (existingBanner) existingBanner.remove();
 
-      // 2. Preserve scroll position so user experience is not disrupted
+      // 2. Preserve scroll position for non-freeze tabs; freeze tabs always reset to top
       const mainElem = document.querySelector('main');
-      const curScroll = mainElem ? mainElem.scrollTop : 0;
+      const isFreezeTab = ['items', 'stockin', 'stockout', 'incoming'].includes(AppState.currentTab);
+      const curScroll = (!isFreezeTab && mainElem) ? mainElem.scrollTop : 0;
 
       try {
         // High-speed single-call bootstrap refresh (speed x100)
@@ -20946,7 +20971,13 @@
         if (AppState.currentTab === 'chat' && AppState.currentUser) await loadChatMessages(true);
 
         // Restore scroll position
-        if (mainElem) mainElem.scrollTop = curScroll;
+        if (isFreezeTab) {
+          if (mainElem) mainElem.scrollTop = 0;
+          const curItemsScroll = document.getElementById('itemsTableScrollContainer');
+          if (curItemsScroll) curItemsScroll.scrollTop = 0;
+        } else if (mainElem) {
+          mainElem.scrollTop = curScroll;
+        }
       } catch (err) {
         console.warn('Background refresh error:', err);
       } finally {
@@ -22867,6 +22898,11 @@
         activeWhFilter !== 'ALL' &&
         activeWhFilter !== '🏢 គ្រប់ស្ថានីយទាំងអស់' &&
         activeWhFilter !== 'គ្រប់ឃ្លាំង';
+
+      const mainElem = document.querySelector('main');
+      if (mainElem && mainElem.scrollTop !== 0) {
+        mainElem.scrollTop = 0;
+      }
 
       if (filtered.length === 0) {
         tbody.innerHTML = `<tr><td colspan="${isPrivilegedAdmin ? 10 : 9}" class="text-center py-10 text-slate-400">រកមិនឃើញទិន្នន័យទំនិញដែលត្រូវគ្នាទេ</td></tr>`;
