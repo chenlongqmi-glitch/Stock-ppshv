@@ -31143,51 +31143,131 @@
         return;
       }
 
-      const rows = list.map((t, idx) => {
-        let docId = t.docNo || t.txId || 'N/A';
+      const { companyName } = (typeof getPdfCompanyHeaderInfo === 'function')
+        ? getPdfCompanyHeaderInfo()
+        : { companyName: 'ក្រុមហ៊ុនផ្លូវល្បឿនលឿនភ្នំពេញ-ក្រុងព្រះសីហនុ' };
+
+      const activeWh = (typeof getStockInActiveWarehouseFilter === 'function') ? getStockInActiveWarehouseFilter() : 'ALL';
+      const whDisplayName = (activeWh && activeWh !== 'ALL' && activeWh !== 'គ្រប់ស្ថានីយទាំងអស់' && activeWh !== 'គ្រប់ឃ្លាំង') ? activeWh : 'គ្រប់ឃ្លាំង / ស្ថានីយ';
+      const printDate = new Date().toLocaleString('km-KH', { dateStyle: 'medium', timeStyle: 'short' }) || new Date().toLocaleString();
+      const currentUser = AppState.currentUser?.fullName || AppState.currentUser?.username || 'Admin';
+
+      // Collect unique document numbers for header
+      const docSet = new Set();
+      list.forEach(t => {
+        let docId = t.docNo || t.txId || '';
         if ((!t.docNo || t.docNo === t.txId || t.docNo.startsWith('TX-')) && t.notes) {
           const docMatch = t.notes.match(/\[ឯកសារ:\s*([^\]]+)\]/);
           if (docMatch) docId = docMatch[1].trim();
         }
+        docId = String(docId || '').replace(/^DOC-/i, '').trim();
+        if (docId && docId !== 'N/A' && docId !== '-') docSet.add(docId);
+      });
+      const docNumbersDisplay = docSet.size > 0 ? Array.from(docSet).join(', ') : '-';
+
+      let totalInQty = 0;
+      const dataRows = list.map((t, idx) => {
         const fullDate = (typeof getTxStandardDate === 'function' ? getTxStandardDate(t) : '') || (t.date ? String(t.date).slice(0, 10) : (t.timestamp ? String(t.timestamp).slice(0, 10) : '-'));
+        const q = Number(t.quantity || 0);
+        totalInQty += q;
+
+        let rowDocId = t.docNo || t.txId || '';
+        if ((!t.docNo || t.docNo === t.txId || t.docNo.startsWith('TX-')) && t.notes) {
+          const docMatch = t.notes.match(/\[ឯកសារ:\s*([^\]]+)\]/);
+          if (docMatch) rowDocId = docMatch[1].trim();
+        }
+        rowDocId = String(rowDocId || '').replace(/^DOC-/i, '').trim() || '-';
+
+        const item = (AppState.items || []).find(i => (i.sku && t.sku && i.sku.toLowerCase() === t.sku.toLowerCase()) || (i.name && t.itemName && i.name.toLowerCase() === t.itemName.toLowerCase()));
+
+        const sizeStr = t.size && t.size !== '-' ? t.size : (item?.size || '');
+        const colorStr = t.color && t.color !== '-' ? t.color : (item?.color || '');
+        const variantStr = [sizeStr, colorStr].filter(Boolean).join(' / ') || '-';
         const cleanNote = (typeof cleanDisplayNote === 'function') ? cleanDisplayNote(t.userNote !== undefined ? t.userNote : t.notes) : (t.userNote || t.notes || '-');
 
-        return {
-          'ល.រ': idx + 1,
-          'កាលបរិច្ឆេទ': fullDate,
-          'លេខឯកសារ': docId.replace(/^DOC-/i, ''),
-          'លេខកូដ (SKU)': t.sku || t.code || '',
-          'ឈ្មោះទំនិញ': t.itemName || '',
-          'ខ្នាត/ទំហំ': t.size || '',
-          'ពណ៌': t.color || '',
-          'តំបន់ (Zone)': t.zone || '',
-          'ចំនួនចូល': Number(t.quantity || 0),
-          'ឯកតា': t.unit || 'ដុំ',
-          'ស្តុកចាស់': (t.oldStock !== undefined && t.oldStock !== null && t.oldStock !== '-') ? Number(t.oldStock) : '',
-          'ស្តុកថ្មី': (t.newStock !== undefined && t.newStock !== null && t.newStock !== '-') ? Number(t.newStock) : '',
-          'ឃ្លាំង/ទីតាំង': t.toLocation || t.location || t.warehouse || '',
-          'អ្នកទទួល': t.receivedBy || t.user || '',
-          'កំណត់ចំណាំ': cleanNote
-        };
+        const pQty = Number(t.packQty || item?.packQty || 1);
+        let pUnit = (t.packUnit || item?.packUnit || '').trim() || 'ប្រអប់';
+        let rUnit = (t.unit || item?.unit || '').trim() || 'ដើម';
+        if (pUnit.toLowerCase() === 'admin' || pUnit.startsWith('http') || pUnit.includes('com/d/') || pUnit.includes('GMT')) pUnit = 'ប្រអប់';
+        if (rUnit.toLowerCase() === 'admin' || rUnit.startsWith('http') || rUnit.includes('com/d/') || rUnit.includes('GMT')) rUnit = 'ដើម';
+
+        let inBulk = (pQty > 1) ? Math.floor(q / pQty) : 0;
+        let inLoose = (pQty > 1) ? (q % pQty) : q;
+        if (t.bulkQty !== undefined && t.retailQty !== undefined && t.bulkQty !== null && t.retailQty !== null) {
+          const b = Number(t.bulkQty);
+          const r = Number(t.retailQty);
+          if (b * pQty + r === q) {
+            inBulk = b;
+            inLoose = r;
+          }
+        }
+
+        let qtyBulkDisplay = (pQty > 1)
+          ? `${inBulk} ${pUnit} & ${inLoose} ${rUnit} (1 ${pUnit}=${pQty} ${rUnit})`
+          : `${q} ${rUnit}`;
+        let qtyRetailDisplay = `${q} ${rUnit}`;
+
+        return [
+          idx + 1,
+          fullDate,
+          rowDocId,
+          t.sku || t.code || '-',
+          t.itemName || '-',
+          variantStr,
+          t.zone || item?.zone || '-',
+          qtyBulkDisplay,
+          qtyRetailDisplay,
+          t.toLocation || t.location || t.warehouse || '-',
+          t.receivedBy || t.user || '-',
+          cleanNote
+        ];
       });
 
-      const worksheet = XLSX.utils.json_to_sheet(rows);
+      const metaRow = `កាលបរិច្ឆេទបង្កើត៖ ${printDate}   |   អ្នកទាញយក៖ ${currentUser}   |   ប្រតិបត្តិការសរុប៖ ${list.length} លើក` + (docSet.size === 1 ? `   |   លេខឯកសារ៖ ${docNumbersDisplay}` : '');
+      const summaryRow = `ប្រតិបត្តិការសរុប៖ ${list.length} លើក   |   បរិមាណចូលសរុប៖ ${totalInQty} ឯកតា`;
+
+      const aoa = [
+        [companyName],
+        ['របាយការណ៍ប្រវត្តិកត់ត្រាទំនិញចូលស្តុក (Stock In History Report)'],
+        [`ទីតាំង ឃ្លាំង | ស្ថានីយ៖ ${whDisplayName}`],
+        [metaRow],
+        [summaryRow],
+        [],
+        ['ល.រ', 'កាលបរិច្ឆេទ', 'លេខឯកសារ', 'SKU', 'ឈ្មោះទំនិញ', 'ខ្នាត/ពណ៌', 'តំបន់', 'ចំនួនចូល (ដុំ & រាយ)', 'សរុបជារាយ', 'ឃ្លាំងទទួល', 'អ្នកទទួល', 'កំណត់ចំណាំ'],
+        ...dataRows,
+        ['សរុប', '', '', '', '', '', '', '', `${totalInQty} ឯកតា`, '', '', ''],
+        [],
+        ['', '', 'អ្នកគ្រប់គ្រងឃ្លាំង', '', '', '', '', '', 'អ្នកគ្រប់គ្រងផ្នែក', '', '', ''],
+        [],
+        ['', '', '( ................................ )', '', '', '', '', '', '( ................................ )', '', '', ''],
+        [],
+        ['រៀបរាង និងគ្រប់គ្រងដោយ៖ នាយកដ្ឋានគ្រប់គ្រងការងារទូទាត់ប្រាក់']
+      ];
+
+      const worksheet = XLSX.utils.aoa_to_sheet(aoa);
       worksheet['!cols'] = [
         { wch: 6 },  // ល.រ
-        { wch: 18 }, // កាលបរិច្ឆេទ
+        { wch: 14 }, // កាលបរិច្ឆេទ
         { wch: 20 }, // លេខឯកសារ
-        { wch: 16 }, // SKU
+        { wch: 14 }, // SKU
         { wch: 28 }, // ឈ្មោះទំនិញ
-        { wch: 12 }, // ខ្នាត
-        { wch: 12 }, // ពណ៌
-        { wch: 14 }, // តំបន់
-        { wch: 12 }, // ចំនួនចូល
-        { wch: 10 }, // ឯកតា
-        { wch: 12 }, // ស្តុកចាស់
-        { wch: 12 }, // ស្តុកថ្មី
-        { wch: 24 }, // ឃ្លាំង/ទីតាំង
+        { wch: 16 }, // ខ្នាត/ពណ៌
+        { wch: 12 }, // តំបន់
+        { wch: 30 }, // ចំនួនចូល (ដុំ & រាយ)
+        { wch: 16 }, // សរុបជារាយ
+        { wch: 22 }, // ឃ្លាំងទទួល
         { wch: 18 }, // អ្នកទទួល
         { wch: 24 }  // កំណត់ចំណាំ
+      ];
+
+      const footerIdx = aoa.length - 1;
+      worksheet['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 11 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: 11 } },
+        { s: { r: 2, c: 0 }, e: { r: 2, c: 11 } },
+        { s: { r: 3, c: 0 }, e: { r: 3, c: 11 } },
+        { s: { r: 4, c: 0 }, e: { r: 4, c: 11 } },
+        { s: { r: footerIdx, c: 0 }, e: { r: footerIdx, c: 11 } }
       ];
 
       const workbook = XLSX.utils.book_new();
@@ -31201,7 +31281,7 @@
         position: 'top-end',
         icon: 'success',
         title: '<b>Export Excel (.xlsx) ជោគជ័យ!</b>',
-        text: `បានទាញយកឯកសារ Stock_In_Records_${dateStr}.xlsx (${rows.length} ជួរ)`,
+        text: `បានទាញយកឯកសារ Stock_In_Records_${dateStr}.xlsx (${dataRows.length} ជួរ)`,
         showConfirmButton: false,
         timer: 3000
       });
@@ -31226,15 +31306,43 @@
         return;
       }
 
-      const rows = list.map((t, idx) => {
-        let docId = t.docNo || t.txId || 'N/A';
+      const { companyName } = (typeof getPdfCompanyHeaderInfo === 'function')
+        ? getPdfCompanyHeaderInfo()
+        : { companyName: 'ក្រុមហ៊ុនផ្លូវល្បឿនលឿនភ្នំពេញ-ក្រុងព្រះសីហនុ' };
+
+      const activeWh = (typeof getStockOutActiveWarehouseFilter === 'function') ? getStockOutActiveWarehouseFilter() : 'ALL';
+      const whDisplayName = (activeWh && activeWh !== 'ALL' && activeWh !== 'គ្រប់ស្ថានីយទាំងអស់' && activeWh !== 'គ្រប់ឃ្លាំង') ? activeWh : 'គ្រប់ឃ្លាំង / ស្ថានីយ';
+      const printDate = new Date().toLocaleString('km-KH', { dateStyle: 'medium', timeStyle: 'short' }) || new Date().toLocaleString();
+      const currentUser = AppState.currentUser?.fullName || AppState.currentUser?.username || 'Admin';
+
+      // Collect unique document numbers for header
+      const docSet = new Set();
+      list.forEach(t => {
+        let docId = t.docNo || t.txId || '';
         if ((!t.docNo || t.docNo === t.txId || t.docNo.startsWith('TX-')) && t.notes) {
           const docMatch = t.notes.match(/\[ឯកសារ:\s*([^\]]+)\]/);
           if (docMatch) docId = docMatch[1].trim();
         }
-        const fullDate = (typeof getTxStandardDate === 'function' ? getTxStandardDate(t) : '') || (t.date ? String(t.date).slice(0, 10) : (t.timestamp ? String(t.timestamp).slice(0, 10) : '-'));
+        docId = String(docId || '').replace(/^DOC-/i, '').trim();
+        if (docId && docId !== 'N/A' && docId !== '-') docSet.add(docId);
+      });
+      const docNumbersDisplay = docSet.size > 0 ? Array.from(docSet).join(', ') : '-';
 
-        const currentUser = AppState.currentUser?.fullName || AppState.currentUser?.username || 'Admin';
+      let totalOutQty = 0;
+      const dataRows = list.map((t, idx) => {
+        const fullDate = (typeof getTxStandardDate === 'function' ? getTxStandardDate(t) : '') || (t.date ? String(t.date).slice(0, 10) : (t.timestamp ? String(t.timestamp).slice(0, 10) : '-'));
+        const q = Number(t.quantity || 0);
+        totalOutQty += q;
+
+        let rowDocId = t.docNo || t.txId || '';
+        if ((!t.docNo || t.docNo === t.txId || t.docNo.startsWith('TX-')) && t.notes) {
+          const docMatch = t.notes.match(/\[ឯកសារ:\s*([^\]]+)\]/);
+          if (docMatch) rowDocId = docMatch[1].trim();
+        }
+        rowDocId = String(rowDocId || '').replace(/^DOC-/i, '').trim() || '-';
+
+        const item = (AppState.items || []).find(i => (i.sku && t.sku && i.sku.toLowerCase() === t.sku.toLowerCase()) || (i.name && t.itemName && i.name.toLowerCase() === t.itemName.toLowerCase()));
+
         let issuer = t.issuer || t.user || '';
         if ((!issuer || issuer === '-' || issuer === 'Admin' || issuer === 'superadmin') && t.notes) {
           const issMatch = t.notes.match(/\[អ្នកបើក(?:ទំនិញ)?:\s*([^\]]+)\]/);
@@ -31249,51 +31357,92 @@
         }
         if (!recipient) recipient = t.toLocation || t.location || '-';
 
-        let reasonStr = t.reason || '';
-        if (!reasonStr && t.notes && t.notes.includes('[មូលហេតុ:')) {
-          const m = t.notes.match(/\[មូលហេតុ:\s*([^\]]+)\]/);
-          if (m) reasonStr = m[1];
-        }
-        if (!reasonStr) reasonStr = 'ដកប្រើប្រាស់';
-
+        const sizeStr = t.size && t.size !== '-' ? t.size : (item?.size || '');
+        const colorStr = t.color && t.color !== '-' ? t.color : (item?.color || '');
+        const variantStr = [sizeStr, colorStr].filter(Boolean).join(' / ') || '-';
         const cleanNote = (typeof cleanDisplayNote === 'function') ? cleanDisplayNote(t.userNote !== undefined ? t.userNote : t.notes) : (t.userNote || t.notes || '-');
 
-        return {
-          'ល.រ': idx + 1,
-          'កាលបរិច្ឆេទ': fullDate,
-          'លេខឯកសារ': docId.replace(/^DOC-/i, ''),
-          'លេខកូដ (SKU)': t.sku || t.code || '',
-          'ឈ្មោះទំនិញ': t.itemName || '',
-          'ខ្នាត/ទំហំ': t.size || '',
-          'ពណ៌': t.color || '',
-          'ចំនួនបើកចេញ': Number(t.quantity || 0),
-          'ឯកតា': t.unit || 'ដុំ',
-          'ស្តុកចាស់': (t.oldStock !== undefined && t.oldStock !== null && t.oldStock !== '-') ? Number(t.oldStock) : '',
-          'ស្តុកនៅសល់': (t.newStock !== undefined && t.newStock !== null && t.newStock !== '-') ? Number(t.newStock) : '',
-          'ពីឃ្លាំង': t.fromLocation || '',
-          'អ្នកទទួលទំនិញ': recipient,
-          'អ្នកបើកចេញ': issuer,
-          'កំណត់ចំណាំ': cleanNote
-        };
+        const pQty = Number(t.packQty || item?.packQty || 1);
+        let pUnit = (t.packUnit || item?.packUnit || '').trim() || 'ប្រអប់';
+        let rUnit = (t.unit || item?.unit || '').trim() || 'ដើម';
+        if (pUnit.toLowerCase() === 'admin' || pUnit.startsWith('http') || pUnit.includes('com/d/') || pUnit.includes('GMT')) pUnit = 'ប្រអប់';
+        if (rUnit.toLowerCase() === 'admin' || rUnit.startsWith('http') || rUnit.includes('com/d/') || rUnit.includes('GMT')) rUnit = 'ដើម';
+
+        let outBulk = (pQty > 1) ? Math.floor(q / pQty) : 0;
+        let outLoose = (pQty > 1) ? (q % pQty) : q;
+        if (t.bulkQty !== undefined && t.retailQty !== undefined && t.bulkQty !== null && t.retailQty !== null) {
+          const b = Number(t.bulkQty);
+          const r = Number(t.retailQty);
+          if (b * pQty + r === q) {
+            outBulk = b;
+            outLoose = r;
+          }
+        }
+
+        let qtyBulkDisplay = (pQty > 1)
+          ? `${outBulk} ${pUnit} & ${outLoose} ${rUnit} (1 ${pUnit}=${pQty} ${rUnit})`
+          : `${q} ${rUnit}`;
+        let qtyRetailDisplay = `${q} ${rUnit}`;
+
+        return [
+          idx + 1,
+          fullDate,
+          rowDocId,
+          t.sku || t.code || '-',
+          t.itemName || '-',
+          variantStr,
+          qtyBulkDisplay,
+          qtyRetailDisplay,
+          recipient,
+          issuer,
+          cleanNote
+        ];
       });
 
-      const worksheet = XLSX.utils.json_to_sheet(rows);
+      const metaRow = `កាលបរិច្ឆេទបង្កើត៖ ${printDate}   |   អ្នកទាញយក៖ ${currentUser}   |   ប្រតិបត្តិការសរុប៖ ${list.length} លើក` + (docSet.size === 1 ? `   |   លេខឯកសារ៖ ${docNumbersDisplay}` : '');
+      const summaryRow = `ប្រតិបត្តិការសរុប៖ ${list.length} លើក   |   បរិមាណចេញសរុប៖ ${totalOutQty} ឯកតា`;
+
+      const aoa = [
+        [companyName],
+        ['របាយការណ៍ប្រវត្តិកត់ត្រាទំនិញចេញពីស្តុក (Stock Out History Report)'],
+        [`ទីតាំង ឃ្លាំង | ស្ថានីយ៖ ${whDisplayName}`],
+        [metaRow],
+        [summaryRow],
+        [],
+        ['ល.រ', 'កាលបរិច្ឆេទ', 'លេខឯកសារ', 'SKU', 'ឈ្មោះទំនិញ', 'ខ្នាត/ពណ៌', 'ចំនួនចេញ (ដុំ & រាយ)', 'សរុបជារាយ', 'អ្នកទទួលទំនិញ', 'អ្នកបើកចេញ', 'កំណត់ចំណាំ'],
+        ...dataRows,
+        ['សរុប', '', '', '', '', '', '', `${totalOutQty} ឯកតា`, '', '', ''],
+        [],
+        ['', 'អ្នកទទួលទំនិញ', '', '', 'អ្នកបើកចេញ / ស្នើសុំ', '', '', 'អ្នកគ្រប់គ្រងផ្នែក', '', '', ''],
+        [],
+        ['', '( ................................ )', '', '', `( ${currentUser} )`, '', '', '( ................................ )', '', '', ''],
+        [],
+        ['រៀបរាង និងគ្រប់គ្រងដោយ៖ នាយកដ្ឋានគ្រប់គ្រងការងារទូទាត់ប្រាក់']
+      ];
+
+      const worksheet = XLSX.utils.aoa_to_sheet(aoa);
       worksheet['!cols'] = [
         { wch: 6 },  // ល.រ
-        { wch: 18 }, // កាលបរិច្ឆេទ
+        { wch: 14 }, // កាលបរិច្ឆេទ
         { wch: 20 }, // លេខឯកសារ
-        { wch: 16 }, // SKU
+        { wch: 14 }, // SKU
         { wch: 28 }, // ឈ្មោះទំនិញ
-        { wch: 12 }, // ខ្នាត
-        { wch: 12 }, // ពណ៌
-        { wch: 14 }, // ចំនួនបើកចេញ
-        { wch: 10 }, // ឯកតា
-        { wch: 12 }, // ស្តុកចាស់
-        { wch: 12 }, // ស្តុកនៅសល់
-        { wch: 24 }, // ពីឃ្លាំង
-        { wch: 28 }, // អ្នកទទួលទំនិញ
-        { wch: 16 }, // អ្នកបើកចេញ
+        { wch: 16 }, // ខ្នាត/ពណ៌
+        { wch: 30 }, // ចំនួនចេញ (ដុំ & រាយ)
+        { wch: 16 }, // សរុបជារាយ
+        { wch: 24 }, // អ្នកទទួលទំនិញ
+        { wch: 18 }, // អ្នកបើកចេញ
         { wch: 24 }  // កំណត់ចំណាំ
+      ];
+
+      const footerIdx = aoa.length - 1;
+      worksheet['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 10 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: 10 } },
+        { s: { r: 2, c: 0 }, e: { r: 2, c: 10 } },
+        { s: { r: 3, c: 0 }, e: { r: 3, c: 10 } },
+        { s: { r: 4, c: 0 }, e: { r: 4, c: 10 } },
+        { s: { r: footerIdx, c: 0 }, e: { r: footerIdx, c: 10 } }
       ];
 
       const workbook = XLSX.utils.book_new();
@@ -31307,12 +31456,11 @@
         position: 'top-end',
         icon: 'success',
         title: '<b>Export Excel (.xlsx) ជោគជ័យ!</b>',
-        text: `បានទាញយកឯកសារ Stock_Out_Records_${dateStr}.xlsx (${rows.length} ជួរ)`,
+        text: `បានទាញយកឯកសារ Stock_Out_Records_${dateStr}.xlsx (${dataRows.length} ជួរ)`,
         showConfirmButton: false,
         timer: 3000
       });
     };
-
 
     function getPdfCompanyHeaderInfo() {
       let name = document.getElementById('setCompanyName')?.value?.trim() || '';
@@ -38383,103 +38531,124 @@
         itemsToExport = AppState.items || [];
       }
 
+      const { companyName } = (typeof getPdfCompanyHeaderInfo === 'function')
+        ? getPdfCompanyHeaderInfo()
+        : { companyName: 'ក្រុមហ៊ុនផ្លូវល្បឿនលឿនភ្នំពេញ-ក្រុងព្រះសីហនុ' };
+
       const u = AppState.currentUser || {};
-      const isSuperAdmin = (typeof isUserSuperAdmin === 'function') ? isUserSuperAdmin(u) : false;
-      const isAdminUser = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(u) : (isSuperAdmin || (typeof isUserAdmin === 'function' && isUserAdmin(u)));
-      let exportWhFilter = 'ALL';
-      if (isAdminUser) {
-        exportWhFilter = AppState.selectedAdminWarehouseFilter || 'ALL';
+      const isPrivilegedAdmin = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(u) : false;
+      let activeWh = 'ALL';
+      if (isPrivilegedAdmin) {
+        activeWh = AppState.selectedAdminWarehouseFilter || 'ALL';
       } else {
-        exportWhFilter = (typeof getUserEffectiveStation === 'function' ? getUserEffectiveStation(u) : '') || u?.warehouse || AppState.selectedAdminWarehouseFilter || 'ALL';
+        activeWh = (typeof getUserEffectiveStation === 'function' ? getUserEffectiveStation(u) : '') || u?.warehouse || AppState.selectedAdminWarehouseFilter || 'ALL';
       }
+      const whDisplayName = (activeWh && activeWh !== 'ALL' && activeWh !== 'គ្រប់ស្ថានីយទាំងអស់' && activeWh !== 'គ្រប់ឃ្លាំង') ? activeWh : 'គ្រប់ឃ្លាំង / ស្ថានីយ';
+      const printDate = new Date().toLocaleString('km-KH', { dateStyle: 'full', timeStyle: 'short' }) || new Date().toLocaleString();
+      const currentUser = AppState.currentUser?.fullName || AppState.currentUser?.username || 'Admin';
 
-      const rows = itemsToExport.map((item, index) => {
-        const qty = (typeof getItemEffectiveStockForWarehouse === 'function')
-          ? getItemEffectiveStockForWarehouse(item, exportWhFilter)
-          : Number(item.currentStock || 0);
-        const min = Number(item.minStock || 0);
-        const cost = Number(item.costPrice || 0);
-        const sell = Number(item.sellingPrice || 0);
-        let status = 'ធម្មតា (100%)';
-        if (qty <= 0) {
-          status = 'អស់ពីស្តុក (0%)';
-        } else if (qty <= min) {
-          const minP = Number(item.minStockPercent || 10);
-          const p = (min > 0) ? Math.max(1, Math.min(minP, Math.round((qty / min) * minP))) : minP;
-          status = `ជិតអស់ (${p}%)`;
+      const totalItems = itemsToExport.length;
+      let totalQty = 0;
+      let normalCount = 0;
+      let alertCount = 0;
+
+      const dataRows = itemsToExport.map((i, idx) => {
+        const curStock = (typeof getItemEffectiveStockForWarehouse === 'function') ? getItemEffectiveStockForWarehouse(i, activeWh) : Number(i.currentStock || 0);
+        totalQty += curStock;
+
+        const minStock = Number(i.minStock || 0);
+        const minPct = Number(i.minStockPercent || 10);
+        let statusBadge = 'ធម្មតា';
+        let stockPct = 100;
+        if (curStock === 0) {
+          statusBadge = 'អស់ពីស្តុក';
+          stockPct = 0;
+          alertCount++;
+        } else if (curStock <= minStock) {
+          statusBadge = 'ជិតអស់';
+          stockPct = (minStock > 0) ? Math.max(1, Math.min(minPct, Math.round((curStock / minStock) * minPct))) : minPct;
+          alertCount++;
+        } else {
+          statusBadge = 'ធម្មតា';
+          stockPct = 100;
+          normalCount++;
         }
 
-        const packRate = Number(item.packQty || 1);
-        const packStock = packRate > 1 ? Math.floor(qty / packRate) : qty;
-        const stStock = (isAdminUser && typeof getItemStationStock === 'function') ? getItemStationStock(item, exportWhFilter) : null;
+        const sizeStr = (i.size && i.size !== '-' && !i.size.startsWith('http') && !i.size.includes('GMT')) ? i.size : '';
+        const colorStr = (i.color && i.color !== '-' && !i.color.startsWith('http') && !i.color.includes('GMT')) ? i.color : '';
+        const variantStr = [sizeStr, colorStr].filter(Boolean).join(' / ') || '-';
 
-        const rowData = {
-          'ល.រ': index + 1,
-          'លេខកូដ (SKU)': item.sku || '',
-          'ឈ្មោះទំនិញ': item.name || '',
-          'ប្រភេទ': item.category || '',
-          'ពណ៌': item.color || '-',
-          'ខ្នាត/ទំហំ': item.size || '-',
-          'ឯកតា': item.unit || '',
-          'ឯកតាធំ': item.packUnit || item.unit || '',
-          'ចំនួនក្នុងឯកតាធំ': item.packQty || 1,
-        };
+        const pQty = Number(i.packQty || 1);
+        let pUnit = (i.packUnit || '').trim() || 'ប្រអប់';
+        let rUnit = (i.unit || '').trim() || 'ដើម';
+        if (pUnit.toLowerCase() === 'admin' || pUnit.startsWith('http') || pUnit.includes('com/d/') || pUnit.includes('GMT')) pUnit = 'ប្រអប់';
+        if (rUnit.toLowerCase() === 'admin' || rUnit.startsWith('http') || rUnit.includes('com/d/') || rUnit.includes('GMT')) rUnit = 'ដើម';
 
-        if (isAdminUser && stStock) {
-          if (exportWhFilter && exportWhFilter !== 'ALL') {
-            const bks = (stStock.breakdowns || []).filter(b => (typeof isSameWarehouse === 'function' ? isSameWarehouse(b.warehouse, exportWhFilter) : b.warehouse === exportWhFilter));
-            let sTotal = 0;
-            bks.forEach(b => { sTotal += Number(b.total || 0); });
-            if (sTotal === 0 && stStock.total > 0) sTotal = stStock.total;
-            const pRate = Number(item.packQty || 1);
-            const bBulk = pRate > 1 ? Math.floor(sTotal / pRate) : 0;
-            const bLoose = pRate > 1 ? (sTotal % pRate) : sTotal;
-            rowData['ស្តុកតាមស្ថានីយ (ដុំ)'] = bBulk;
-            rowData['ស្តុកតាមស្ថានីយ (រាយ)'] = bLoose;
-            rowData['ស្តុកតាមស្ថានីយ (សរុប)'] = sTotal;
-            rowData['ស្តុកតាមស្ថានីយ (លម្អិត)'] = `${exportWhFilter.split(' ')[0]}: ${sTotal}`;
-          } else {
-            rowData['ស្តុកតាមស្ថានីយ (ដុំ)'] = stStock.bulk;
-            rowData['ស្តុកតាមស្ថានីយ (រាយ)'] = stStock.loose;
-            rowData['ស្តុកតាមស្ថានីយ (សរុប)'] = stStock.total;
-            rowData['ស្តុកតាមស្ថានីយ (លម្អិត)'] = (stStock.breakdowns || []).map(b => `${b.shortWh}: ${b.total}`).join(', ') || '-';
-          }
+        const bulkStock = (pQty > 1) ? Math.floor(curStock / pQty) : 0;
+        const looseRemainder = (pQty > 1) ? (curStock % pQty) : curStock;
+
+        let stockBulkDisplay = '';
+        if (pUnit && (pQty > 1 || pUnit !== rUnit)) {
+          stockBulkDisplay = `${bulkStock} ${pUnit} & ${looseRemainder} ${rUnit} (1 ${pUnit}=${pQty} ${rUnit})`;
+        } else {
+          stockBulkDisplay = `${curStock} ${rUnit}`;
         }
 
-        rowData['ស្តុកដុំ/កេស'] = packStock;
-        rowData['ស្តុកបច្ចុប្បន្ន (រាយ)'] = qty;
-        rowData['ស្តុកអប្បបរមា'] = min;
-
-        return {
-          ...rowData,
-          'តំបន់': (function () {
-            const bks = (typeof getItemZoneBreakdown === 'function') ? getItemZoneBreakdown(item) : [];
-            return (bks.length > 0) ? bks.map(z => (z.formatted || `${z.zone}: ${z.quantity} ${z.unit || ''}`).trim()).join(', ') : (item.zone || '-');
-          })(),
-          'ចំណាំ': item.notes || '-',
-          'អ្នកបញ្ចូល': getUserDisplayName(item.createdBy)
-        };
+        return [
+          idx + 1,
+          i.sku || '-',
+          i.name || '-',
+          i.category || '-',
+          variantStr,
+          stockBulkDisplay,
+          `${curStock} ${rUnit}`,
+          getUserDisplayName(i.createdBy),
+          `${statusBadge} (${stockPct}%)`
+        ];
       });
 
-      const worksheet = XLSX.utils.json_to_sheet(rows);
+      const metaRow = `កាលបរិច្ឆេទបង្កើត៖ ${printDate}   |   អ្នករៀបចំ៖ ${currentUser}   |   ចំនួនមុខទំនិញសរុប៖ ${totalItems} មុខ`;
+      const summaryCardsRow = `ចំនួនមុខទំនិញសរុប: ${totalItems} មុខ   |   បរិមាណស្តុកសរុប: ${totalQty} ឯកតា   |   ទំនិញស្តុកធម្មតា: ${normalCount} មុខ   |   ជិតអស់ / អស់ពីស្តុក: ${alertCount} មុខ`;
 
-      // Set optimal column widths
+      const aoa = [
+        [companyName],
+        ['របាយការណ៍បញ្ជីទំនិញទាំងអស់ (Product Inventory)'],
+        [`ទីតាំង ឃ្លាំង | ស្ថានីយ៖ ${whDisplayName}`],
+        [metaRow],
+        [summaryCardsRow],
+        [],
+        ['ល.រ', 'កូដ SKU', 'ឈ្មោះទំនិញ', 'ប្រភេទ', 'ខ្នាត/ពណ៌', 'ស្តុកសរុប (ដុំ & រាយ)', 'សរុបជារាយ', 'អ្នកបញ្ចូល', 'ស្ថានភាព'],
+        ...dataRows,
+        ['សរុប', '', '', '', '', '', `${totalQty} ឯកតា`, '', ''],
+        [],
+        ['', 'អ្នករៀបចំរបាយការណ៍', '', '', 'ប្រធានផ្នែកស្តុក', '', '', 'ប្រធានគ្រប់គ្រង', ''],
+        [],
+        ['', `( ${currentUser} )`, '', '', '( ................................ )', '', '', '( ................................ )', ''],
+        [],
+        ['រៀបរាង និងគ្រប់គ្រងដោយ៖ នាយកដ្ឋានគ្រប់គ្រងការងារទូទាត់ប្រាក់']
+      ];
+
+      const worksheet = XLSX.utils.aoa_to_sheet(aoa);
       worksheet['!cols'] = [
         { wch: 6 },  // ល.រ
-        { wch: 16 }, // SKU
-        { wch: 28 }, // ឈ្មោះទំនិញ
-        { wch: 16 }, // ប្រភេទ
-        { wch: 12 }, // ពណ៌
-        { wch: 14 }, // ខ្នាត/ទំហំ
-        { wch: 10 }, // ឯកតា
-        { wch: 12 }, // ឯកតាធំ
-        { wch: 16 }, // ចំនួនក្នុងឯកតាធំ
-        { wch: 14 }, // ស្តុកដុំ/កេស
-        { wch: 18 }, // ស្តុកបច្ចុប្បន្ន (រាយ)
-        { wch: 14 }, // ស្តុកអប្បបរមា
-        { wch: 16 }, // តំបន់
-        { wch: 18 }, // ចំណាំ
-        { wch: 16 }  // អ្នកបញ្ចូល
+        { wch: 16 }, // កូដ SKU
+        { wch: 32 }, // ឈ្មោះទំនិញ
+        { wch: 20 }, // ប្រភេទ
+        { wch: 18 }, // ខ្នាត/ពណ៌
+        { wch: 32 }, // ស្តុកសរុប (ដុំ & រាយ)
+        { wch: 18 }, // សរុបជារាយ
+        { wch: 18 }, // អ្នកបញ្ចូល
+        { wch: 20 }  // ស្ថានភាព
+      ];
+
+      const footerIdx = aoa.length - 1;
+      worksheet['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 8 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: 8 } },
+        { s: { r: 2, c: 0 }, e: { r: 2, c: 8 } },
+        { s: { r: 3, c: 0 }, e: { r: 3, c: 8 } },
+        { s: { r: 4, c: 0 }, e: { r: 4, c: 8 } },
+        { s: { r: footerIdx, c: 0 }, e: { r: footerIdx, c: 8 } }
       ];
 
       const workbook = XLSX.utils.book_new();
@@ -38493,7 +38662,7 @@
         position: 'top-end',
         icon: 'success',
         title: '<b>Export Excel (.xlsx) ជោគជ័យ!</b>',
-        text: `បានទាញយកឯកសារ Inventory_Items_${dateStr}.xlsx`,
+        text: `បានទាញយកឯកសារ Inventory_Items_${dateStr}.xlsx (${dataRows.length} មុខទំនិញ)`,
         showConfirmButton: false,
         timer: 3000
       });
@@ -39047,48 +39216,94 @@
         return;
       }
 
-      const rows = AppState.transactions.map((tx, index) => {
+      const totalTx = AppState.transactions.length;
+      const { companyName } = (typeof getPdfCompanyHeaderInfo === 'function')
+        ? getPdfCompanyHeaderInfo()
+        : { companyName: 'ក្រុមហ៊ុនផ្លូវល្បឿនលឿនភ្នំពេញ-ក្រុងព្រះសីហនុ' };
+
+      const u = AppState.currentUser || {};
+      const isPrivilegedAdmin = (typeof isUserPrivilegedAdmin === 'function') ? isUserPrivilegedAdmin(u) : false;
+      let activeWh = 'ALL';
+      if (isPrivilegedAdmin) {
+        activeWh = AppState.selectedAdminWarehouseFilter || 'ALL';
+      } else {
+        activeWh = (typeof getUserEffectiveStation === 'function' ? getUserEffectiveStation(u) : '') || u?.warehouse || AppState.selectedAdminWarehouseFilter || 'ALL';
+      }
+      const whDisplayName = (activeWh && activeWh !== 'ALL' && activeWh !== 'គ្រប់ស្ថានីយទាំងអស់' && activeWh !== 'គ្រប់ឃ្លាំង') ? activeWh : 'គ្រប់ឃ្លាំង / ស្ថានីយ';
+      const printDate = new Date().toLocaleString('km-KH', { dateStyle: 'full', timeStyle: 'short' }) || new Date().toLocaleString();
+      const currentUser = AppState.currentUser?.fullName || AppState.currentUser?.username || 'Admin';
+
+      let totalQty = 0;
+      let totalAmount = 0;
+
+      const dataRows = AppState.transactions.map((tx, index) => {
         let typeName = tx.type;
         if (tx.type === 'STOCK_IN') typeName = 'នាំចូល (IN)';
         else if (tx.type === 'STOCK_OUT') typeName = 'នាំចេញ (OUT)';
         else if (tx.type === 'TRANSFER') typeName = 'ផ្ទេរស្តុក (TRANSFER)';
 
-        return {
-          'ល.រ': index + 1,
-          'លេខប្រតិបត្តិការ (TxID)': tx.txId || '',
-          'កាលបរិច្ឆេទ': tx.date || '',
-          'ប្រភេទប្រតិបត្តិការ': typeName,
-          'លេខកូដ (SKU)': tx.sku || '',
-          'ឈ្មោះទំនិញ': tx.itemName || '',
-          'បរិមាណ': Number(tx.quantity || 0),
-          'ខ្នាត': tx.unit || '',
-          'តម្លៃឯកតា ($)': Number(tx.unitPrice || 0),
-          'ទឹកប្រាក់សរុប ($)': Number(tx.totalAmount || 0),
-          'ពីទីតាំង': tx.fromLocation || '-',
-          'ទៅកាន់ទីតាំង': tx.toLocation || '-',
-          'អ្នកកត់ត្រា': tx.user || '',
-          'កំណត់ចំណាំ': tx.note || ''
-        };
+        const q = Number(tx.quantity || 0);
+        const amt = Number(tx.totalAmount || 0);
+        totalQty += q;
+        totalAmount += amt;
+
+        return [
+          index + 1,
+          tx.txId || '-',
+          tx.date || '-',
+          typeName,
+          `${tx.itemName || '-'} (${tx.sku || '-'})`,
+          `${q} ${tx.unit || ''}`,
+          `$${Number(tx.unitPrice || 0).toFixed(2)}`,
+          `$${amt.toFixed(2)}`,
+          `${tx.fromLocation || '-'} ➔ ${tx.toLocation || '-'}`,
+          tx.user || '-'
+        ];
       });
 
-      const worksheet = XLSX.utils.json_to_sheet(rows);
+      const metaRow = `កាលបរិច្ឆេទបង្កើត៖ ${printDate}   |   អ្នកទាញយក៖ ${currentUser}   |   ប្រតិបត្តិការសរុប៖ ${totalTx} លើក`;
+      const summaryRow = `ប្រតិបត្តិការសរុប: ${totalTx} លើក   |   បរិមាណសរុប: ${totalQty} ឯកតា   |   ទឹកប្រាក់សរុប: $${totalAmount.toFixed(2)}`;
 
-      // Auto-fit column widths
+      const aoa = [
+        [companyName],
+        ['របាយការណ៍ចរន្តស្តុកទំនិញ (Stock Transactions Ledger)'],
+        [`ទីតាំង ឃ្លាំង | ស្ថានីយ៖ ${whDisplayName}`],
+        [metaRow],
+        [summaryRow],
+        [],
+        ['ល.រ', 'លេខកូដ Tx', 'កាលបរិច្ឆេទ', 'ប្រភេទ', 'ឈ្មោះទំនិញ (SKU)', 'ចំនួន', 'តម្លៃឯកតា', 'សរុបទឹកប្រាក់', 'ទីតាំង', 'អ្នកធ្វើប្រតិបត្តិការ'],
+        ...dataRows,
+        ['សរុប', '', '', '', '', `${totalQty} ឯកតា`, '', `$${totalAmount.toFixed(2)}`, '', ''],
+        [],
+        ['', 'អ្នករៀបចំរបាយការណ៍', '', '', 'ប្រធានផ្នែកគណនេយ្យ/ស្តុក', '', '', 'ប្រធានគ្រប់គ្រង', '', ''],
+        [],
+        ['', `( ${currentUser} )`, '', '', '( ................................ )', '', '', '( ................................ )', '', ''],
+        [],
+        ['រៀបរាង និងគ្រប់គ្រងដោយ៖ នាយកដ្ឋានគ្រប់គ្រងការងារទូទាត់ប្រាក់']
+      ];
+
+      const worksheet = XLSX.utils.aoa_to_sheet(aoa);
       worksheet['!cols'] = [
         { wch: 6 },  // ល.រ
         { wch: 20 }, // TxID
-        { wch: 18 }, // Date
-        { wch: 20 }, // Type
-        { wch: 16 }, // SKU
-        { wch: 26 }, // ItemName
-        { wch: 12 }, // Quantity
-        { wch: 10 }, // Unit
+        { wch: 14 }, // Date
+        { wch: 18 }, // Type
+        { wch: 30 }, // Item (SKU)
+        { wch: 16 }, // Quantity
         { wch: 14 }, // UnitPrice
         { wch: 16 }, // TotalAmount
-        { wch: 16 }, // From
-        { wch: 16 }, // To
-        { wch: 16 }, // User
-        { wch: 24 }  // Note
+        { wch: 26 }, // Location
+        { wch: 18 }  // User
+      ];
+
+      const footerIdx = aoa.length - 1;
+      worksheet['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 9 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: 9 } },
+        { s: { r: 2, c: 0 }, e: { r: 2, c: 9 } },
+        { s: { r: 3, c: 0 }, e: { r: 3, c: 9 } },
+        { s: { r: 4, c: 0 }, e: { r: 4, c: 9 } },
+        { s: { r: footerIdx, c: 0 }, e: { r: footerIdx, c: 9 } }
       ];
 
       const workbook = XLSX.utils.book_new();
@@ -39102,12 +39317,11 @@
         position: 'top-end',
         icon: 'success',
         title: '<b>Export Excel (.xlsx) ជោគជ័យ!</b>',
-        text: `បានទាញយកឯកសារ Stock_Ledger_Report_${dateStr}.xlsx`,
+        text: `បានទាញយកឯកសារ Stock_Ledger_Report_${dateStr}.xlsx (${dataRows.length} ប្រតិបត្តិការ)`,
         showConfirmButton: false,
         timer: 3000
       });
     }
-
 
     function printReportTable() {
       if (typeof exportReportToPDF === 'function') {
@@ -48092,102 +48306,121 @@
         return;
       }
 
-      if (typeof XLSX !== 'undefined') {
-        const rows = items.map((r, index) => ({
-          'ល.រ': index + 1,
-          'កូដសម្គាល់ (Record ID)': r.recordId || '',
-          'កាលបរិច្ឆេទ': r.date ? String(r.date).slice(0, 10) : '',
-          'លេខកូដទំនិញ (SKU)': r.sku || '',
-          'ឈ្មោះទំនិញ': r.itemName || '',
-          'ប្រភេទទំនិញ': r.category || 'ទូទៅ',
-          'ចំនួនខូច': Number(r.quantity || 0),
-          'ខ្នាត/ឯកតា': r.unit || 'ដុំ',
-          'ទីតាំងឃ្លាំង/ស្ថានីយ': r.warehouse || '',
-          'តំបន់រក្សាទុក (Quarantine Zone)': r.storageZone || 'តំបន់ទំនិញខូច',
-          'ប្រភេទនៃការខូច': r.damageType || '',
-          'កម្រិតធ្ងន់ធ្ងរ': r.severity || '',
-          'ស្ថានភាពទំនិញ': r.status || 'កំពុងរក្សាទុក',
-          'កាត់ចេញពីស្តុក': String(r.deductedFromStock || '').toLowerCase() === 'yes' ? 'កាត់រួច (Yes)' : 'មិនកាត់ (No)',
-          'ដំណោះស្រាយ/ចំណាត់ការ': r.actionTaken || '-',
-          'ចំណាំ': r.notes || '-',
-          'អ្នកកត់ត្រា': r.recordedBy || 'Staff'
-        }));
-
-        const worksheet = XLSX.utils.json_to_sheet(rows);
-        worksheet['!cols'] = [
-          { wch: 6 },  // ល.រ
-          { wch: 22 }, // Record ID
-          { wch: 14 }, // Date
-          { wch: 16 }, // SKU
-          { wch: 28 }, // Item Name
-          { wch: 16 }, // Category
-          { wch: 12 }, // Quantity
-          { wch: 12 }, // Unit
-          { wch: 26 }, // Warehouse
-          { wch: 20 }, // StorageZone
-          { wch: 18 }, // DamageType
-          { wch: 14 }, // Severity
-          { wch: 20 }, // Status
-          { wch: 16 }, // Deducted
-          { wch: 22 }, // ActionTaken
-          { wch: 26 }, // Notes
-          { wch: 16 }  // RecordedBy
-        ];
-
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'ទំនិញខូច_Quarantine');
-
-        const dateStr = new Date().toISOString().slice(0, 10);
-        XLSX.writeFile(workbook, `Damaged_Stock_Report_${dateStr}.xlsx`);
-
+      if (typeof XLSX === 'undefined') {
         if (typeof Swal !== 'undefined') {
-          Swal.fire({
-            toast: true,
-            position: 'top-end',
-            icon: 'success',
-            title: '<b>Export Excel (.xlsx) ជោគជ័យ!</b>',
-            text: `បានទាញយកឯកសារ Damaged_Stock_Report_${dateStr}.xlsx`,
-            showConfirmButton: false,
-            timer: 3000
-          });
+          Swal.fire('កំហុស', 'បណ្ណាល័យ Excel មិនទាន់ដំណើរការ សូមព្យាយាមម្ដងទៀត', 'error');
         }
-      } else {
-        // Fallback to CSV
-        const headers = ['RecordID', 'Date', 'SKU', 'ItemName', 'Category', 'Quantity', 'Unit', 'Warehouse', 'StorageZone', 'DamageType', 'Severity', 'Status', 'DeductedFromStock', 'Notes', 'RecordedBy', 'ActionTaken'];
-        const csvRows = [headers.join(',')];
+        return;
+      }
 
-        items.forEach(r => {
-          const row = [
-            `"${(r.recordId || '').replace(/"/g, '""')}"`,
-            `"${(r.date || '').replace(/"/g, '""')}"`,
-            `"${(r.sku || '').replace(/"/g, '""')}"`,
-            `"${(r.itemName || '').replace(/"/g, '""')}"`,
-            `"${(r.category || '').replace(/"/g, '""')}"`,
-            r.quantity || 0,
-            `"${(r.unit || '').replace(/"/g, '""')}"`,
-            `"${(r.warehouse || '').replace(/"/g, '""')}"`,
-            `"${(r.storageZone || '').replace(/"/g, '""')}"`,
-            `"${(r.damageType || '').replace(/"/g, '""')}"`,
-            `"${(r.severity || '').replace(/"/g, '""')}"`,
-            `"${(r.status || '').replace(/"/g, '""')}"`,
-            `"${(r.deductedFromStock || '').replace(/"/g, '""')}"`,
-            `"${(r.notes || '').replace(/"/g, '""')}"`,
-            `"${(r.recordedBy || '').replace(/"/g, '""')}"`,
-            `"${(r.actionTaken || '').replace(/"/g, '""')}"`
-          ];
-          csvRows.push(row.join(','));
+      const { companyName } = (typeof getPdfCompanyHeaderInfo === 'function')
+        ? getPdfCompanyHeaderInfo()
+        : { companyName: 'ក្រុមហ៊ុនផ្លូវល្បឿនលឿនភ្នំពេញ-ព្រះសីហនុ (PPSHV Expressway)' };
+
+      const u = AppState.currentUser || {};
+      const activeWh = document.getElementById('dmgWarehouseFilter')?.value || 'ALL';
+      const whDisplayName = (activeWh && activeWh !== 'ALL' && activeWh !== 'គ្រប់ស្ថានីយទាំងអស់' && activeWh !== 'គ្រប់ឃ្លាំង')
+        ? activeWh
+        : (u.warehouse ? u.warehouse : 'គ្រប់ឃ្លាំង / ស្ថានីយ');
+      const printDate = new Date().toLocaleString('km-KH', { dateStyle: 'full', timeStyle: 'short' }) || new Date().toLocaleString();
+      const currentUser = AppState.currentUser?.fullName || AppState.currentUser?.username || 'Admin';
+
+      const totalRecords = items.length;
+      let totalQty = 0;
+      let pendingRepairCount = 0;
+      let storedCount = 0;
+
+      const dataRows = items.map((r, idx) => {
+        const q = Number(r.quantity || 0);
+        totalQty += q;
+
+        const st = String(r.status || '');
+        if (st.includes('រក្សាទុក') || st.includes('Stored')) storedCount++;
+        else if (st.includes('ជួសជុល') || st.includes('Repair') || st.includes('រង់ចាំ') || st.includes('Pending')) pendingRepairCount++;
+
+        const isDeducted = String(r.deductedFromStock || '').toLowerCase() === 'yes';
+
+        let staffAndNotes = r.recordedBy || 'Staff';
+        if (r.notes) staffAndNotes += ' | ' + r.notes;
+        if (r.actionTaken && r.actionTaken !== '-') staffAndNotes += ' | ចំណាត់ការ: ' + r.actionTaken;
+
+        return [
+          idx + 1,
+          r.recordId || '-',
+          r.date ? String(r.date).slice(0, 10) : '-',
+          r.sku || '-',
+          `${r.itemName || '-'} (${r.category || 'ទូទៅ'})`,
+          `${r.warehouse || '-'} / ${r.storageZone || 'តំបន់ទំនិញខូច'}`,
+          `${q} ${r.unit || 'ដុំ'}`,
+          `${r.damageType || '-'} (${r.severity || '-'})`,
+          r.status || 'កំពុងរក្សាទុក',
+          isDeducted ? 'កាត់រួច' : 'មិនកាត់',
+          staffAndNotes
+        ];
+      });
+
+      const metaRow = `កាលបរិច្ឆេទបង្កើត៖ ${printDate}   |   អ្នកទាញយក៖ ${currentUser}   |   កំណត់ត្រាសរុប៖ ${totalRecords}`;
+      const summaryCardsRow = `មុខទំនិញខូចសរុប: ${totalRecords} កំណត់ត្រា   |   បរិមាណទំនិញខូចសរុប: ${totalQty} ឯកតា   |   រក្សាទុកក្នុងឃ្លាំង: ${storedCount} មុខ   |   រង់ចាំជួសជុល: ${pendingRepairCount} មុខ`;
+
+      const aoa = [
+        [companyName],
+        ['របាយការណ៍កំណត់ត្រាមុខទំនិញដែលខូចក្នុងឃ្លាំង (Damaged Stock Quarantine Ledger)'],
+        [`ទីតាំង ឃ្លាំង | ស្ថានីយ៖ ${whDisplayName}`],
+        [metaRow],
+        [summaryCardsRow],
+        [],
+        ['ល.រ', 'កូដសម្គាល់', 'កាលបរិច្ឆេទ', 'កូដ SKU', 'ឈ្មោះទំនិញ', 'ឃ្លាំង & តំបន់', 'ចំនួនខូច', 'ប្រភេទខូច/កម្រិត', 'ស្ថានភាព', 'កាត់ស្តុក', 'អ្នកកត់ត្រា/ចំណាំ'],
+        ...dataRows,
+        ['សរុប', '', '', '', '', '', `${totalQty} ឯកតា`, '', '', '', ''],
+        [],
+        ['', 'អ្នករៀបចំរបាយការណ៍', '', '', 'ប្រធានផ្នែកស្តុក / ឃ្លាំង', '', '', 'ប្រធានគ្រប់គ្រងទូទៅ', '', '', ''],
+        [],
+        ['', `( ${currentUser} )`, '', '', '( ................................ )', '', '', '( ................................ )', '', '', ''],
+        [],
+        ['រៀបរាង និងគ្រប់គ្រងដោយ៖ នាយកដ្ឋានគ្រប់គ្រងការងារទូទាត់ប្រាក់']
+      ];
+
+      const worksheet = XLSX.utils.aoa_to_sheet(aoa);
+      worksheet['!cols'] = [
+        { wch: 6 },  // ល.រ
+        { wch: 20 }, // កូដសម្គាល់
+        { wch: 14 }, // កាលបរិច្ឆេទ
+        { wch: 14 }, // កូដ SKU
+        { wch: 28 }, // ឈ្មោះទំនិញ
+        { wch: 24 }, // ឃ្លាំង & តំបន់
+        { wch: 16 }, // ចំនួនខូច
+        { wch: 22 }, // ប្រភេទខូច/កម្រិត
+        { wch: 18 }, // ស្ថានភាព
+        { wch: 14 }, // កាត់ស្តុក
+        { wch: 28 }  // អ្នកកត់ត្រា/ចំណាំ
+      ];
+
+      const footerIdx = aoa.length - 1;
+      worksheet['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 10 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: 10 } },
+        { s: { r: 2, c: 0 }, e: { r: 2, c: 10 } },
+        { s: { r: 3, c: 0 }, e: { r: 3, c: 10 } },
+        { s: { r: 4, c: 0 }, e: { r: 4, c: 10 } },
+        { s: { r: footerIdx, c: 0 }, e: { r: footerIdx, c: 10 } }
+      ];
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'ទំនិញខូច_Quarantine');
+
+      const dateStr = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(workbook, `Damaged_Stock_Report_${dateStr}.xlsx`);
+
+      if (typeof Swal !== 'undefined') {
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'success',
+          title: '<b>Export Excel (.xlsx) ជោគជ័យ!</b>',
+          text: `បានទាញយកឯកសារ Damaged_Stock_Report_${dateStr}.xlsx (${dataRows.length} កំណត់ត្រា)`,
+          showConfirmButton: false,
+          timer: 3000
         });
-
-        const csvContent = '\uFEFF' + csvRows.join('\r\n');
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.setAttribute('href', url);
-        link.setAttribute('download', `Damaged_Stock_Report_${new Date().toISOString().slice(0, 10)}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
       }
     }
 
