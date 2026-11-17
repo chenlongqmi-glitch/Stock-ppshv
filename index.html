@@ -1450,6 +1450,23 @@
         line-height: 1.55 !important;
       }
 
+      #itemsTableScrollContainer table th:first-child,
+      #itemsTableScrollContainer table td:first-child {
+        width: 50px !important;
+        max-width: 50px !important;
+        min-width: 44px !important;
+        text-align: center !important;
+        padding-left: 0.25rem !important;
+        padding-right: 0.25rem !important;
+        white-space: nowrap !important;
+      }
+
+      #itemsTableScrollContainer table th:nth-child(2),
+      #itemsTableScrollContainer table td:nth-child(2) {
+        width: auto !important;
+        min-width: 200px !important;
+      }
+
       /* Native Bottom Sheet Modals */
       #itemModal,
       #profileModal,
@@ -3654,16 +3671,15 @@
                   <thead
                     class="bg-slate-100 text-slate-700 font-bold border-b border-slate-200 uppercase sticky top-0 z-20 shadow-xs">
                     <tr>
-                      <th class="px-1.5 py-2 bg-slate-100 sticky top-0 z-20 text-center w-9 shrink-0">ល.រ</th>
-                      <th class="px-2 py-2 bg-slate-100 sticky top-0 z-20 text-left min-w-[150px] w-[22%]">ឈ្មោះទំនិញ & SKU</th>
-                      <th class="px-1.5 py-2 bg-slate-100 sticky top-0 z-20 text-left min-w-[75px] w-[8%]">ពណ៌ & ខ្នាត</th>
-                      <th class="px-1.5 py-2 bg-slate-100 sticky top-0 z-20 text-center min-w-[85px] w-[9%]">តំបន់ស្តុក (Zone)</th>
+                      <th class="px-1 py-2.5 bg-slate-100 sticky top-0 z-20 text-center w-[50px] min-w-[44px] max-w-[50px] shrink-0" style="width: 50px; max-width: 50px;">ល.រ</th>
+                      <th class="px-2.5 py-2.5 bg-slate-100 sticky top-0 z-20 text-left min-w-[200px] w-auto">ឈ្មោះទំនិញ & SKU</th>
+                      <th class="px-1.5 py-2.5 bg-slate-100 sticky top-0 z-20 text-left min-w-[75px] w-[90px]">ពណ៌ & ខ្នាត</th>
+                      <th class="px-1.5 py-2.5 bg-slate-100 sticky top-0 z-20 text-center min-w-[85px] w-[100px]">តំបន់ស្តុក (Zone)</th>
                       <th id="stationStockHeaderCell"
-                        class="hidden px-1.5 py-2 bg-slate-100 sticky top-0 z-20 text-center min-w-[95px] w-[11%]">ស្តុកតាមស្ថានីយ (ដុំ & រាយ)</th>
-                      <th class="px-1.5 py-2 bg-slate-100 sticky top-0 z-20 text-center min-w-[100px] w-[11%]">ស្តុកសរុប (ដុំ & រាយ)</th>
-                      <th class="px-1.5 py-2 bg-slate-100 sticky top-0 z-20 text-center min-w-[95px] w-[10%]">សរុបទាំងអស់ជារាយ</th>
-                      <th class="px-1.5 py-2 bg-slate-100 sticky top-0 z-20 text-center min-w-[70px] w-[8%]">អ្នកបញ្ចូល</th>
-
+                        class="hidden px-1.5 py-2.5 bg-slate-100 sticky top-0 z-20 text-center min-w-[95px] w-[110px]">ស្តុកតាមស្ថានីយ (ដុំ & រាយ)</th>
+                      <th class="px-1.5 py-2.5 bg-slate-100 sticky top-0 z-20 text-center min-w-[100px] w-[120px]">ស្តុកសរុប (ដុំ & រាយ)</th>
+                      <th class="px-1.5 py-2.5 bg-slate-100 sticky top-0 z-20 text-center min-w-[95px] w-[115px]">សរុបទាំងអស់ជារាយ</th>
+                      <th class="px-1.5 py-2.5 bg-slate-100 sticky top-0 z-20 text-center min-w-[70px] w-[90px]">អ្នកបញ្ចូល</th>
                     </tr>
                   </thead>
                   <tbody id="itemsTableBody" class="divide-y divide-slate-100 font-medium">
@@ -23093,6 +23109,58 @@
       });
     }
 
+    // បំបែកឈ្មោះទំនិញទ្វេភាសា (ខ្មែរខាងលើ ចិនខាងក្រោម មិនបង្ហាញសញ្ញា - ឡើយ)
+    function splitBilingualItemName(rawName) {
+      if (!rawName) return { khmer: '', chinese: '' };
+      const s = String(rawName).trim();
+      const hasChinese = (x) => /[\u4e00-\u9fa5]/.test(x);
+      const hasKhmer = (x) => /[\u1780-\u17ff]/.test(x);
+
+      if (/[-—–]/.test(s)) {
+        const parts = s.split(/\s*[-—–]\s*/);
+        if (parts.length >= 2) {
+          const nonChinese = parts.filter(p => !hasChinese(p));
+          const chinese = parts.filter(p => hasChinese(p));
+          if (nonChinese.length > 0 && chinese.length > 0) {
+            return {
+              khmer: nonChinese.join(' ').trim(),
+              chinese: chinese.join(' ').trim()
+            };
+          } else if (hasChinese(parts[parts.length - 1])) {
+            return {
+              khmer: parts.slice(0, parts.length - 1).join(' ').trim(),
+              chinese: parts[parts.length - 1].trim()
+            };
+          } else {
+            return {
+              khmer: parts[0].trim(),
+              chinese: parts.slice(1).join(' ').trim()
+            };
+          }
+        }
+      }
+
+      if (hasChinese(s) && hasKhmer(s)) {
+        const cMatch = s.match(/[\u4e00-\u9fa5]/);
+        const kMatch = s.match(/[\u1780-\u17ff]/);
+        if (cMatch && kMatch) {
+          const cIdx = cMatch.index;
+          const kIdx = kMatch.index;
+          if (kIdx < cIdx) {
+            return { khmer: s.slice(0, cIdx).trim(), chinese: s.slice(cIdx).trim() };
+          } else {
+            return { khmer: s.slice(kIdx).trim(), chinese: s.slice(0, kIdx).trim() };
+          }
+        }
+      }
+
+      if (hasChinese(s) && !hasKhmer(s)) {
+        return { khmer: '', chinese: s };
+      }
+      return { khmer: s, chinese: '' };
+    }
+    window.splitBilingualItemName = splitBilingualItemName;
+
     function renderItemsTable() {
       const tbody = document.getElementById('itemsTableBody');
       if (!tbody) return;
@@ -23267,16 +23335,18 @@
           ? item.minStockPercent
           : '10';
 
+        const nameObj = splitBilingualItemName(item.name);
+
         return `
         <tr ondblclick="previewLargeImage('${escapeHtml(item.imageUrl)}', '${escapeHtml(item.name)}', '${item.sku}', '${item.barcode || '-'}', '${item.unit || 'ដុំ'}', ${item.currentStock || 0}, '${escapeHtml(getUserDisplayName(item.createdBy))}', '${escapeHtml(item.zone || '-')}')"
           title="ចុច Double-Click ពីរដង ដើម្បីមើលរូបភាពធំ និងព័ត៌មានលម្អិត"
           class="hover:bg-slate-50/70 cursor-pointer transition-colors group">
           <!-- ជួរទី១: លេខរៀង (No.) -->
-          <td class="px-1.5 py-2 text-center font-bold text-slate-500 text-xs align-middle">${idx + 1}</td>
+          <td class="px-1 py-2 text-center font-bold text-slate-500 text-xs align-middle w-[50px] min-w-[44px] max-w-[50px] shrink-0" style="width: 50px; max-width: 50px;">${idx + 1}</td>
 
-          <!-- ជួរទី២: រូបភាព & ឈ្មោះទំនិញ & SKU (ដូចក្នុងរូបភាពទី 2) -->
-          <td class="px-2 py-2 align-middle text-left overflow-hidden">
-            <div class="flex items-center gap-2 min-w-0">
+          <!-- ជួរទី២: រូបភាព & ឈ្មោះទំនិញ (ខ្មែរខាងលើ ចិនខាងក្រោម) & SKU -->
+          <td class="px-2.5 py-2 align-middle text-left overflow-hidden min-w-[200px]">
+            <div class="flex items-center gap-2.5 min-w-0">
               <div class="relative shrink-0 cursor-zoom-in" onclick="event.stopPropagation(); previewLargeImage('${escapeHtml(item.imageUrl)}', '${escapeHtml(item.name)}', '${item.sku}', '${item.barcode || '-'}', '${item.unit || 'ដុំ'}', ${item.currentStock || 0}, '${escapeHtml(getUserDisplayName(item.createdBy))}', '${escapeHtml(item.zone || '-')}')" title="ចុចដើម្បីមើលរូបភាពធំ">
                 <img src="${formatDriveImageUrl(item.imageUrl) || 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=150'}" 
                   referrerpolicy="no-referrer"
@@ -23285,7 +23355,16 @@
                   class="w-11 h-11 sm:w-12 sm:h-12 object-contain p-1 rounded-xl border border-slate-200 bg-white shadow-3xs hover:scale-105 transition-transform duration-200 shrink-0 aspect-square">
               </div>
               <div class="min-w-0 flex-1">
-                <span class="font-bold text-slate-900 block text-xs leading-snug group-hover:text-blue-600 transition truncate" style="font-family: 'Kantumruy Pro', 'Microsoft YaHei', '微软雅黑', 'SimHei', '黑体', 'Noto Sans SC', sans-serif; font-weight: 700;" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span>
+                <!-- ឈ្មោះភាសាខ្មែរនៅខាងលើ (Khmer Name on Top) -->
+                <span class="font-bold text-slate-900 block text-xs sm:text-[13px] leading-snug group-hover:text-blue-600 transition truncate" style="font-family: 'Kantumruy Pro', 'Khmer OS Siemreap', 'Siemreap', sans-serif; font-weight: 700;" title="${escapeHtml(nameObj.khmer || item.name)}">
+                  ${escapeHtml(nameObj.khmer || item.name)}
+                </span>
+                <!-- ឈ្មោះភាសាចិននៅខាងក្រោម (Chinese Name on Bottom, no dash) -->
+                ${nameObj.chinese ? `
+                <span class="font-semibold text-slate-500 block text-[11px] leading-tight truncate mt-0.5" style="font-family: 'Microsoft YaHei', '微软雅黑', 'SimHei', '黑体', 'Noto Sans SC', sans-serif;" title="${escapeHtml(nameObj.chinese)}">
+                  ${escapeHtml(nameObj.chinese)}
+                </span>` : ''}
+                <!-- SKU Code -->
                 <div class="mt-0.5">
                   <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-mono font-bold border border-slate-200/90 shadow-3xs tracking-tight select-all truncate" title="${escapeHtml(item.sku || '-')}">
                     <i class="fa-solid fa-barcode text-[9px] text-slate-400 shrink-0"></i>
@@ -37978,7 +38057,11 @@
       const modal = document.getElementById('largeImageModal');
       if (!modal) return;
 
-      document.getElementById('largeImgModalTitle').innerText = name || 'រូបភាពទំនិញ';
+      const nameObj = (typeof splitBilingualItemName === 'function') ? splitBilingualItemName(name) : { khmer: name, chinese: '' };
+      const titleEl = document.getElementById('largeImgModalTitle');
+      if (titleEl) {
+        titleEl.innerText = (nameObj.khmer && nameObj.chinese) ? `${nameObj.khmer} (${nameObj.chinese})` : (name || 'រូបភាពទំនិញ');
+      }
       document.getElementById('largeImgModalSku').innerText = `កូដ SKU: ${sku || '-'}`;
       const directSrc = formatDriveImageUrl(imageUrl);
       const imgEl = document.getElementById('largeImgModalSrc');
@@ -37986,7 +38069,17 @@
         imgEl.src = directSrc || 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=800';
         imgEl.onerror = function () { handleProductImgError(this); };
       }
-      document.getElementById('largeImgModalName').innerText = name || '-';
+      const nameEl = document.getElementById('largeImgModalName');
+      if (nameEl) {
+        if (nameObj.khmer && nameObj.chinese) {
+          nameEl.innerHTML = `
+            <span class="block font-bold text-slate-900">${escapeHtml(nameObj.khmer)}</span>
+            <span class="block text-sm font-semibold text-slate-500 mt-0.5" style="font-family: 'Microsoft YaHei', sans-serif;">${escapeHtml(nameObj.chinese)}</span>
+          `;
+        } else {
+          nameEl.innerText = name || '-';
+        }
+      }
       document.getElementById('largeImgModalBarcode').innerText = barcode || '-';
       document.getElementById('largeImgModalStock').innerText = `${stock || 0} ${unit || 'ដុំ'}`;
 
