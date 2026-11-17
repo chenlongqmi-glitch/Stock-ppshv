@@ -21454,7 +21454,7 @@
       tbody.innerHTML = items.map(item => `
         <tr class="hover:bg-slate-50 transition-colors">
           <td class="px-4 py-3 font-mono font-bold text-blue-600">${item.sku}</td>
-          <td class="px-4 py-3 font-bold text-slate-900" style="font-family: 'Kantumruy Pro', 'Microsoft YaHei', sans-serif; font-weight: 700;">${item.name}</td>
+          <td class="px-4 py-3">${renderBilingualItemNameHtml(item.name)}</td>
           <td class="px-4 py-3"><span class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px]">${item.category}</span></td>
           <td class="px-4 py-3 text-center font-extrabold ${item.currentStock === 0 ? 'text-rose-600' : 'text-amber-600'}">
             ${item.currentStock} ${item.unit}
@@ -21489,9 +21489,9 @@
             <div class="w-6 h-6 rounded-lg ${idx === 0 ? 'bg-amber-500' : idx === 1 ? 'bg-slate-400' : 'bg-amber-700'} text-white font-bold flex items-center justify-center text-[10px]">
               ${idx + 1}
             </div>
-            <div class="truncate">
-              <p class="text-xs font-bold text-slate-800 truncate">${item.name}</p>
-              <p class="text-[10px] text-slate-400 font-mono">${item.sku}</p>
+            <div class="truncate min-w-0 flex-1">
+              ${renderBilingualItemNameHtml(item.name, { khmerClass: "text-xs font-bold text-slate-800 truncate block", chineseClass: "text-[10px] text-slate-500 font-semibold truncate block mt-0.5" })}
+              <p class="text-[10px] text-slate-400 font-mono mt-0.5">${item.sku}</p>
             </div>
           </div>
           <div class="text-right flex-shrink-0">
@@ -23110,54 +23110,128 @@
     // បំបែកឈ្មោះទំនិញទ្វេភាសា (ខ្មែរខាងលើ ចិនខាងក្រោម មិនបង្ហាញសញ្ញា - ឡើយ)
     function splitBilingualItemName(rawName) {
       if (!rawName) return { khmer: '', chinese: '' };
-      const s = String(rawName).trim();
+      let s = String(rawName).trim();
       const hasChinese = (x) => /[\u4e00-\u9fa5]/.test(x);
       const hasKhmer = (x) => /[\u1780-\u17ff]/.test(x);
 
+      // If no Chinese anywhere, return entire string as khmer (no split)
+      if (!hasChinese(s)) {
+        return { khmer: s.trim(), chinese: '' };
+      }
+
+      // If no Khmer anywhere, return entire string as chinese (no dash)
+      if (!hasKhmer(s)) {
+        return { khmer: '', chinese: s.replace(/^[\s-—–]+|[\s-—–]+$/g, '').trim() };
+      }
+
+      // If separated by dash / hyphen / em-dash
       if (/[-—–]/.test(s)) {
-        const parts = s.split(/\s*[-—–]\s*/);
+        const parts = s.split(/\s*[-—–]+\s*/);
         if (parts.length >= 2) {
           const nonChinese = parts.filter(p => !hasChinese(p));
           const chinese = parts.filter(p => hasChinese(p));
           if (nonChinese.length > 0 && chinese.length > 0) {
             return {
-              khmer: nonChinese.join(' ').trim(),
-              chinese: chinese.join(' ').trim()
+              khmer: nonChinese.join(' ').replace(/^[\s-—–]+|[\s-—–]+$/g, '').trim(),
+              chinese: chinese.join(' ').replace(/^[\s-—–]+|[\s-—–]+$/g, '').trim()
             };
           } else if (hasChinese(parts[parts.length - 1])) {
             return {
-              khmer: parts.slice(0, parts.length - 1).join(' ').trim(),
-              chinese: parts[parts.length - 1].trim()
-            };
-          } else {
-            return {
-              khmer: parts[0].trim(),
-              chinese: parts.slice(1).join(' ').trim()
+              khmer: parts.slice(0, parts.length - 1).join(' ').replace(/^[\s-—–]+|[\s-—–]+$/g, '').trim(),
+              chinese: parts[parts.length - 1].replace(/^[\s-—–]+|[\s-—–]+$/g, '').trim()
             };
           }
         }
       }
 
-      if (hasChinese(s) && hasKhmer(s)) {
-        const cMatch = s.match(/[\u4e00-\u9fa5]/);
-        const kMatch = s.match(/[\u1780-\u17ff]/);
-        if (cMatch && kMatch) {
-          const cIdx = cMatch.index;
-          const kIdx = kMatch.index;
-          if (kIdx < cIdx) {
-            return { khmer: s.slice(0, cIdx).trim(), chinese: s.slice(cIdx).trim() };
-          } else {
-            return { khmer: s.slice(kIdx).trim(), chinese: s.slice(0, kIdx).trim() };
-          }
+      // If contains both Chinese and Khmer without dash
+      const cMatch = s.match(/[\u4e00-\u9fa5]/);
+      const kMatch = s.match(/[\u1780-\u17ff]/);
+      if (cMatch && kMatch) {
+        const cIdx = cMatch.index;
+        const kIdx = kMatch.index;
+        if (kIdx < cIdx) {
+          return {
+            khmer: s.slice(0, cIdx).replace(/^[\s-—–]+|[\s-—–]+$/g, '').trim(),
+            chinese: s.slice(cIdx).replace(/^[\s-—–]+|[\s-—–]+$/g, '').trim()
+          };
+        } else {
+          return {
+            khmer: s.slice(kIdx).replace(/^[\s-—–]+|[\s-—–]+$/g, '').trim(),
+            chinese: s.slice(0, kIdx).replace(/^[\s-—–]+|[\s-—–]+$/g, '').trim()
+          };
         }
       }
 
-      if (hasChinese(s) && !hasKhmer(s)) {
-        return { khmer: '', chinese: s };
-      }
-      return { khmer: s, chinese: '' };
+      return { khmer: s.replace(/^[\s-—–]+|[\s-—–]+$/g, '').trim(), chinese: '' };
     }
     window.splitBilingualItemName = splitBilingualItemName;
+
+    function renderBilingualItemNameHtml(rawName, options = {}) {
+      const nameObj = (typeof splitBilingualItemName === 'function')
+        ? splitBilingualItemName(rawName)
+        : { khmer: rawName, chinese: '' };
+
+      const khmerText = escapeHtml(nameObj.khmer || (nameObj.chinese ? '' : (rawName || '-')));
+      const chineseText = nameObj.chinese ? escapeHtml(nameObj.chinese) : '';
+      const fullTitle = escapeHtml(rawName || '');
+
+      const khmerCls = options.khmerClass || 'font-bold text-slate-900 block text-xs sm:text-[13px] leading-snug truncate';
+      const chineseCls = options.chineseClass || 'font-semibold text-slate-500 block text-[11px] leading-tight truncate mt-0.5';
+
+      if (!chineseText) {
+        return `<span class="${khmerCls}" style="font-family: 'Kantumruy Pro', 'Khmer OS Siemreap', 'Siemreap', sans-serif; font-weight: 700;" title="${fullTitle}">${khmerText}</span>`;
+      }
+      if (!khmerText) {
+        return `<span class="${chineseCls}" style="font-family: 'Microsoft YaHei', '微软雅黑', 'SimHei', '黑体', 'Noto Sans SC', sans-serif;" title="${fullTitle}">${chineseText}</span>`;
+      }
+
+      return `
+        <span class="${khmerCls}" style="font-family: 'Kantumruy Pro', 'Khmer OS Siemreap', 'Siemreap', sans-serif; font-weight: 700;" title="${fullTitle}">${khmerText}</span>
+        <span class="${chineseCls}" style="font-family: 'Microsoft YaHei', '微软雅黑', 'SimHei', '黑体', 'Noto Sans SC', sans-serif;" title="${fullTitle}">${chineseText}</span>
+      `;
+    }
+    window.renderBilingualItemNameHtml = renderBilingualItemNameHtml;
+
+    function renderBilingualItemNameModalHtml(rawName, options = {}) {
+      const nameObj = (typeof splitBilingualItemName === 'function')
+        ? splitBilingualItemName(rawName)
+        : { khmer: rawName, chinese: '' };
+
+      const khmerText = escapeHtml(nameObj.khmer || (nameObj.chinese ? '' : (rawName || '-')));
+      const chineseText = nameObj.chinese ? escapeHtml(nameObj.chinese) : '';
+      const fullTitle = escapeHtml(rawName || '');
+
+      const khmerCls = options.khmerClass || 'font-bold text-slate-800 text-xs sm:text-sm block leading-snug';
+      const chineseCls = options.chineseClass || 'font-semibold text-slate-500 block text-[11px] sm:text-xs leading-tight mt-0.5';
+
+      if (!chineseText) {
+        return `<span class="${khmerCls}" style="font-family: 'Kantumruy Pro', sans-serif;" title="${fullTitle}">${khmerText}</span>`;
+      }
+      return `
+        <span class="${khmerCls}" style="font-family: 'Kantumruy Pro', sans-serif;" title="${fullTitle}">${khmerText}</span>
+        <span class="${chineseCls}" style="font-family: 'Microsoft YaHei', '微软雅黑', 'Noto Sans SC', sans-serif;" title="${fullTitle}">${chineseText}</span>
+      `;
+    }
+    window.renderBilingualItemNameModalHtml = renderBilingualItemNameModalHtml;
+
+    function renderBilingualItemNamePrintHtml(rawName) {
+      const nameObj = (typeof splitBilingualItemName === 'function')
+        ? splitBilingualItemName(rawName)
+        : { khmer: rawName, chinese: '' };
+
+      const khmerText = escapeHtml(nameObj.khmer || (nameObj.chinese ? '' : (rawName || '-')));
+      const chineseText = nameObj.chinese ? escapeHtml(nameObj.chinese) : '';
+
+      if (!chineseText) {
+        return `<div style="font-weight: bold; font-size: 10.5px; color: #0f172a; line-height: 1.3;">${khmerText}</div>`;
+      }
+      return `
+        <div style="font-weight: bold; font-size: 10.5px; color: #0f172a; line-height: 1.3;">${khmerText}</div>
+        <div style="font-size: 9.5px; color: #64748b; font-family: 'Microsoft YaHei', 'SimHei', sans-serif; margin-top: 1px; line-height: 1.2;">${chineseText}</div>
+      `;
+    }
+    window.renderBilingualItemNamePrintHtml = renderBilingualItemNamePrintHtml;
 
     function renderItemsTable() {
       const tbody = document.getElementById('itemsTableBody');
@@ -26223,9 +26297,13 @@
                    class="w-full h-full object-contain">
             </div>
             <div class="flex-1 min-w-0">
-              <div class="font-bold text-slate-800 text-xs sm:text-sm truncate ${isOutOfStock ? 'group-hover:text-rose-700' : 'group-hover:text-emerald-700'} font-khmer flex items-center gap-1.5">
-                <span class="truncate">${escapeHtml(item.name || item.sku)}</span>
-                ${isOutOfStock ? `<span class="shrink-0 px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-100 text-rose-700 border border-rose-200">${!isPrivileged && mode === 'stockOut' ? 'គ្មានស្តុកនៅស្ថានីយ' : 'គ្មានស្តុក'}</span>` : ''}
+              <div class="${isOutOfStock ? 'group-hover:text-rose-700' : 'group-hover:text-emerald-700'} font-khmer">
+                <div class="flex items-center gap-1.5">
+                  <div class="truncate flex-1">
+                    ${renderBilingualItemNameHtml(item.name || item.sku, { khmerClass: "font-bold text-slate-800 text-xs sm:text-sm truncate block", chineseClass: "font-semibold text-slate-500 block text-[11px] leading-tight truncate mt-0.5" })}
+                  </div>
+                  ${isOutOfStock ? `<span class="shrink-0 px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-100 text-rose-700 border border-rose-200">${!isPrivileged && mode === 'stockOut' ? 'គ្មានស្តុកនៅស្ថានីយ' : 'គ្មានស្តុក'}</span>` : ''}
+                </div>
               </div>
               <div class="flex items-center gap-1.5 flex-wrap mt-0.5 text-[11px] text-slate-500 font-khmer">
                 <span class="font-mono font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded text-[10px]">${escapeHtml(item.sku)}</span>
@@ -29386,9 +29464,9 @@
                               <i class="fa-regular fa-image text-slate-400 text-sm"></i>
                             `}
                           </div>
-                          <div>
-                            <div class="font-bold text-slate-900 leading-tight">${escapeHtml(d.itemName)}</div>
-                            <div class="font-mono text-[10px] text-indigo-700 font-semibold">${escapeHtml(d.sku)}</div>
+                          <div class="min-w-0 flex-1">
+                            ${renderBilingualItemNameHtml(d.itemName, { khmerClass: "font-bold text-slate-900 block leading-tight text-xs", chineseClass: "font-semibold text-slate-500 block text-[11px] leading-tight mt-0.5" })}
+                            <div class="font-mono text-[10px] text-indigo-700 font-semibold mt-0.5">${escapeHtml(d.sku)}</div>
                           </div>
                         </div>
                       </td>
@@ -32118,7 +32196,7 @@
             <td style="text-align: center;">${idx + 1}</td>
             <td style="white-space: nowrap; font-size: 10px; text-align: center;">${escapeHtml(fullDate)}</td>
             <td style="font-family: monospace; font-weight: bold; color: #047857; text-align: center; white-space: nowrap; font-size: 10px;">${escapeHtml(rowDocId)}</td>
-            <td style="font-weight: bold; font-size: 10.5px; color: #0f172a;">${escapeHtml(t.itemName || "-")}</td>
+            <td>${renderBilingualItemNamePrintHtml(t.itemName)}</td>
             <td style="text-align: center; vertical-align: middle; padding: 2px;">
               <img src="${imgUrl || fallbackImg}"
                    style="width: 56px; height: 56px; object-fit: contain; background: #ffffff; padding: 2px; border-radius: 8px; border: 1px solid #cbd5e1; display: inline-block; vertical-align: middle; box-shadow: 0 1px 2px rgba(0,0,0,0.05);"
@@ -32429,7 +32507,7 @@
             <td style="text-align: center;">${idx + 1}</td>
             <td style="white-space: nowrap; font-size: 10px; text-align: center;">${escapeHtml(fullDate)}</td>
             <td style="font-family: monospace; font-weight: bold; color: #b45309; text-align: center; white-space: nowrap; font-size: 10px;">${escapeHtml(rowDocId)}</td>
-            <td style="font-weight: bold; font-size: 10.5px; color: #0f172a;">${escapeHtml(t.itemName || "-")}</td>
+            <td>${renderBilingualItemNamePrintHtml(t.itemName)}</td>
             <td style="text-align: center; vertical-align: middle; padding: 2px;">
               <img src="${imgUrl || fallbackImg}"
                    style="width: 56px; height: 56px; object-fit: contain; background: #ffffff; padding: 2px; border-radius: 8px; border: 1px solid #cbd5e1; display: inline-block; vertical-align: middle; box-shadow: 0 1px 2px rgba(0,0,0,0.05);"
@@ -33193,7 +33271,7 @@
                        class="w-14 h-14 object-contain p-1 rounded-xl border border-slate-200 bg-white shadow-3xs hover:scale-105 transition-transform duration-200 aspect-square">
                 </div>
                 <div class="min-w-0 flex-1">
-                  <p class="font-bold text-slate-900 text-xs leading-snug truncate" style="font-family: 'Kantumruy Pro', sans-serif;" title="${iName}">${iName}</p>
+                  ${renderBilingualItemNameHtml(iName, { khmerClass: "font-bold text-slate-900 block text-xs leading-snug truncate", chineseClass: "font-semibold text-slate-500 block text-[11px] leading-tight truncate mt-0.5" })}
                   <span class="text-[10px] text-slate-500 font-mono block truncate mt-0.5" title="SKU: ${skuStr}">SKU: ${skuStr}</span>
                 </div>
               </div>
@@ -33769,7 +33847,7 @@
                        class="w-14 h-14 object-contain p-1 rounded-xl border border-slate-200 bg-white shadow-3xs hover:scale-105 transition-transform duration-200 aspect-square">
                 </div>
                 <div class="min-w-0 flex-1">
-                  <p class="font-bold text-slate-900 text-xs leading-snug truncate" style="font-family: 'Kantumruy Pro', sans-serif;" title="${iName}">${iName}</p>
+                  ${renderBilingualItemNameHtml(iName, { khmerClass: "font-bold text-slate-900 block text-xs leading-snug truncate", chineseClass: "font-semibold text-slate-500 block text-[11px] leading-tight truncate mt-0.5" })}
                   <span class="text-[10px] text-slate-500 font-mono block truncate mt-0.5" title="SKU: ${skuStr}">SKU: ${skuStr}</span>
                 </div>
               </div>
@@ -34572,8 +34650,8 @@
               <div class="flex items-center gap-2.5 min-w-0">
                 <img src="${item.imageUrl || fallbackImg}" alt="" class="w-14 h-14 object-contain p-1 shrink-0 rounded-2xl border border-slate-200 bg-white shadow-3xs aspect-square" onerror="this.onerror=null;this.src='${fallbackImg}';">
                 <div class="min-w-0 flex-1">
-                  <div class="font-bold text-slate-800 text-xs sm:text-sm truncate" style="font-family: 'Kantumruy Pro', 'Microsoft YaHei', sans-serif;" title="${escapeHtml(item.itemName)}">${escapeHtml(item.itemName)}</div>
-                  <div class="text-[11px] font-mono text-emerald-700 font-bold truncate">SKU: ${escapeHtml(item.sku)}</div>
+                  ${renderBilingualItemNameHtml(item.itemName, { khmerClass: "font-bold text-slate-800 text-xs sm:text-sm truncate block", chineseClass: "font-semibold text-slate-500 block text-[11px] leading-tight truncate mt-0.5" })}
+                  <div class="text-[11px] font-mono text-emerald-700 font-bold truncate mt-0.5">SKU: ${escapeHtml(item.sku)}</div>
                 </div>
               </div>
             </td>
@@ -34719,7 +34797,7 @@
               <div class="flex items-center gap-2.5 min-w-0">
                 <img src="${itemImgUrl}" class="w-14 h-14 object-contain p-1 rounded-xl border border-slate-200 bg-white shrink-0 shadow-3xs aspect-square">
                 <div class="min-w-0">
-                  <p class="font-bold text-slate-800 text-xs sm:text-sm truncate" style="font-family: 'Kantumruy Pro', 'Microsoft YaHei', sans-serif;">${iName}</p>
+                  ${renderBilingualItemNameModalHtml(iName)}
                   <p class="text-xs text-emerald-700 font-mono font-bold mt-0.5">SKU: ${escapeHtml(it.sku || '-')}</p>
                 </div>
               </div>
@@ -35407,8 +35485,8 @@
               <div class="flex items-center gap-2.5 min-w-0">
                 <img src="${item.imageUrl || fallbackImg}" alt="" class="w-14 h-14 object-contain p-1 shrink-0 rounded-2xl border border-slate-200 bg-white shadow-3xs aspect-square" onerror="this.onerror=null;this.src='${fallbackImg}';">
                 <div class="min-w-0 flex-1">
-                  <div class="font-bold text-slate-800 text-xs sm:text-sm truncate" style="font-family: 'Kantumruy Pro', 'Microsoft YaHei', sans-serif;" title="${escapeHtml(item.itemName)}">${escapeHtml(item.itemName)}</div>
-                  <div class="text-[11px] font-mono text-amber-800 font-bold truncate">SKU: ${escapeHtml(item.sku)}</div>
+                  ${renderBilingualItemNameHtml(item.itemName, { khmerClass: "font-bold text-slate-800 text-xs sm:text-sm truncate block", chineseClass: "font-semibold text-slate-500 block text-[11px] leading-tight truncate mt-0.5" })}
+                  <div class="text-[11px] font-mono text-amber-800 font-bold truncate mt-0.5">SKU: ${escapeHtml(item.sku)}</div>
                 </div>
               </div>
             </td>
@@ -35573,7 +35651,7 @@
               <div class="flex items-center gap-2.5 min-w-0">
                 <img src="${itemImgUrl}" class="w-14 h-14 object-contain p-1 rounded-xl border border-slate-200 bg-white shrink-0 shadow-3xs aspect-square">
                 <div class="min-w-0">
-                  <p class="font-bold text-slate-800 text-xs sm:text-sm truncate" style="font-family: 'Kantumruy Pro', 'Microsoft YaHei', sans-serif;">${iName}</p>
+                  ${renderBilingualItemNameModalHtml(iName)}
                   <p class="text-xs text-amber-800 font-mono font-bold mt-0.5">SKU: ${escapeHtml(it.sku || '-')}</p>
                 </div>
               </div>
@@ -36319,8 +36397,8 @@
                    class="w-14 h-14 rounded-xl object-contain p-1 bg-white mx-auto border border-slate-200 shadow-3xs aspect-square">
             </td>
             <td class="py-2 px-2.5 text-left">
-              <p class="font-bold text-slate-900 leading-tight">${iName}</p>
-              <span class="text-[10px] font-mono text-slate-500">SKU: ${sku}</span>
+              ${renderBilingualItemNameHtml(iName, { khmerClass: "font-bold text-slate-900 block leading-tight text-xs", chineseClass: "font-semibold text-slate-500 block text-[11px] leading-tight mt-0.5" })}
+              <span class="text-[10px] font-mono text-slate-500 block mt-0.5">SKU: ${sku}</span>
             </td>
             <td class="py-2 px-2 text-center text-slate-700">
               <span class="text-[11px] font-medium">${size !== '-' ? size : ''} ${color !== '-' ? `(${color})` : ''}</span>
@@ -36523,7 +36601,7 @@
           <tr>
             <td style="text-align:center; padding: 6px; border: 1px solid #cbd5e1;">${idx + 1}</td>
             <td style="padding: 6px; border: 1px solid #cbd5e1; font-family: monospace; font-weight: bold;">${sku}</td>
-            <td style="padding: 6px; border: 1px solid #cbd5e1; font-weight: bold;">${iName}</td>
+            <td style="padding: 6px; border: 1px solid #cbd5e1;">${renderBilingualItemNamePrintHtml(iName)}</td>
             <td style="text-align:center; padding: 6px; border: 1px solid #cbd5e1;">${size !== '-' ? size : ''} ${color !== '-' ? `(${color})` : ''}</td>
             <td style="text-align:center; padding: 6px; border: 1px solid #cbd5e1;">${zone}</td>
             <td style="text-align:center; padding: 6px; border: 1px solid #cbd5e1; font-weight: bold;">${qtyText}</td>
@@ -36846,7 +36924,7 @@
           <div class="text-left text-xs space-y-2 p-0.5">
             <div class="p-2 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center justify-between">
               <div>
-                <p class="font-bold text-slate-800 text-xs sm:text-sm">${iName}</p>
+                ${renderBilingualItemNameModalHtml(iName)}
                 <p class="text-[11px] text-slate-500 font-mono mt-0.5">SKU: ${escapeHtml(tx.sku || '-')}</p>
               </div>
               <span class="px-2.5 py-0.5 bg-emerald-100 border border-emerald-300 text-emerald-900 rounded-lg font-bold text-xs">ចូលស្តុក</span>
@@ -37402,7 +37480,7 @@
           <div class="text-left text-xs space-y-2 p-0.5">
             <div class="p-2 bg-amber-50 rounded-xl border border-amber-200 flex items-center justify-between">
               <div>
-                <p class="font-bold text-slate-800 text-xs sm:text-sm">${iName}</p>
+                ${renderBilingualItemNameModalHtml(iName)}
                 <p class="text-[11px] text-slate-500 font-mono mt-0.5">SKU: ${escapeHtml(tx.sku || '-')}</p>
               </div>
               <span class="px-2.5 py-0.5 bg-amber-100 border border-amber-300 text-amber-900 rounded-lg font-bold text-xs">ចេញស្តុក</span>
@@ -38079,7 +38157,14 @@
       const nameObj = (typeof splitBilingualItemName === 'function') ? splitBilingualItemName(name) : { khmer: name, chinese: '' };
       const titleEl = document.getElementById('largeImgModalTitle');
       if (titleEl) {
-        titleEl.innerText = (nameObj.khmer && nameObj.chinese) ? `${nameObj.khmer} (${nameObj.chinese})` : (name || 'រូបភាពទំនិញ');
+        if (nameObj.khmer && nameObj.chinese) {
+          titleEl.innerHTML = `
+            <span class="block font-bold text-white text-sm sm:text-base leading-tight">${escapeHtml(nameObj.khmer)}</span>
+            <span class="block text-xs font-semibold text-pink-100/90 leading-tight mt-0.5" style="font-family: 'Microsoft YaHei', '微软雅黑', 'Noto Sans SC', sans-serif;">${escapeHtml(nameObj.chinese)}</span>
+          `;
+        } else {
+          titleEl.innerText = name || 'រូបភាពទំនិញ';
+        }
       }
       document.getElementById('largeImgModalSku').innerText = `កូដ SKU: ${sku || '-'}`;
       const directSrc = formatDriveImageUrl(imageUrl);
@@ -38809,9 +38894,7 @@
                   </span>
                 </div>
 
-                <h5 class="font-bold text-xs sm:text-sm text-slate-800 truncate leading-snug font-khmer" title="${escapeHtml(item.name || '')}">
-                  ${escapeHtml(item.name || 'គ្មានឈ្មោះ')}
-                </h5>
+                ${renderBilingualItemNameHtml(item.name || 'គ្មានឈ្មោះ', { khmerClass: "font-bold text-xs sm:text-sm text-slate-800 truncate leading-snug block", chineseClass: "font-semibold text-slate-500 text-[11px] truncate leading-tight block mt-0.5" })}
 
                 <div class="flex items-center gap-2 text-[10.5px] text-slate-500 flex-wrap font-khmer">
                   ${item.color ? `<span class="bg-blue-50 text-blue-700 px-1.5 py-0.2 rounded border border-blue-200/60"><i class="fa-solid fa-palette text-[9px] mr-0.5"></i>${escapeHtml(item.color)}</span>` : ''}
@@ -38932,8 +39015,8 @@
           <td class="px-3 py-2.5 text-slate-600">${t.date}</td>
           <td class="px-3 py-2.5">${typeBadges[t.type] || t.type}</td>
           <td class="px-3 py-2.5">
-            <span class="font-bold text-slate-800">${t.itemName}</span>
-            <span class="text-[10px] text-slate-400 block font-mono">${t.sku}</span>
+            ${renderBilingualItemNameHtml(t.itemName, { khmerClass: "font-bold text-slate-800 block text-xs leading-snug truncate", chineseClass: "font-semibold text-slate-500 block text-[11px] leading-tight truncate mt-0.5" })}
+            <span class="text-[10px] text-slate-400 block font-mono mt-0.5">${t.sku}</span>
           </td>
           <td class="px-3 py-2.5 text-center font-bold ${t.type === 'STOCK_IN' ? 'text-emerald-600' : 'text-amber-600'}">
             ${t.quantity > 0 && t.type === 'STOCK_IN' ? '+' : ''}${t.quantity} ${t.unit}
@@ -48711,8 +48794,8 @@
 
             <!-- 3. Item Name & SKU -->
             <td class="px-3.5 py-3">
-              <div class="font-bold text-slate-800 text-xs leading-tight">${escapeHtml(r.itemName || '-')}</div>
-              <div class="flex items-center space-x-1.5 mt-0.5">
+              ${renderBilingualItemNameHtml(r.itemName, { khmerClass: "font-bold text-slate-800 text-xs leading-tight block", chineseClass: "font-semibold text-slate-500 block text-[11px] leading-tight mt-0.5" })}
+              <div class="flex items-center space-x-1.5 mt-1">
                 <span class="font-mono text-[10px] text-slate-500 font-bold bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200">${escapeHtml(r.sku || '-')}</span>
                 <span class="text-[10px] text-slate-400">${escapeHtml(r.category || 'ទូទៅ')}</span>
               </div>
@@ -49582,8 +49665,8 @@
             <td style="font-size: 10px; text-align: center; white-space: nowrap;">${escapeHtml(r.date ? String(r.date).slice(0, 10) : '-')}</td>
             <td style="font-family: monospace; font-size: 10px; font-weight: bold; color: #1e3a8a;">${escapeHtml(r.sku || '-')}</td>
             <td>
-              <div style="font-weight: bold; font-size: 10.5px; color: #0f172a;">${escapeHtml(r.itemName || '-')}</div>
-              <div style="font-size: 9px; color: #64748b;">${escapeHtml(r.category || 'ទូទៅ')}</div>
+              ${renderBilingualItemNamePrintHtml(r.itemName)}
+              <div style="font-size: 9px; color: #64748b; margin-top: 1px;">${escapeHtml(r.category || 'ទូទៅ')}</div>
             </td>
             <td>
               <div style="font-size: 10px; font-weight: 600; color: #334155;">📍 ${escapeHtml(r.warehouse || '-')}</div>
