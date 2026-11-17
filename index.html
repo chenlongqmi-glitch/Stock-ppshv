@@ -2097,7 +2097,7 @@
             </span>
             <span id="activeSessionRoleBadge"
               class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-white/20 text-white border border-white/30 backdrop-blur-sm shrink-0 leading-none">...</span>
-            <div id="activeSessionWarehouseContainer" class="flex items-center text-blue-200 shrink-0">
+            <div id="activeSessionWarehouseContainer" class="hidden items-center text-blue-200 shrink-0">
               <span class="text-white/30 mx-0.5">•</span>
               <i class="fa-solid fa-warehouse text-emerald-300 mr-1 text-[9px]"></i>
               <span class="font-bold text-emerald-300 whitespace-nowrap" id="activeSessionWarehouseName">...</span>
@@ -2770,9 +2770,9 @@
                   var isSuperOrAdmin = (isPrivileged || isSA || u.role === 'Admin');
                   var whContainer = document.getElementById('activeSessionWarehouseContainer');
                   if (whContainer) {
-                    whContainer.classList.remove('hidden');
-                    whContainer.classList.add('flex');
-                    whContainer.style.display = 'flex';
+                    whContainer.classList.add('hidden');
+                    whContainer.classList.remove('flex');
+                    whContainer.style.display = 'none';
                   }
                   var bannerClock = document.getElementById('sessionBannerClockDateBtn');
                   var headerClock = document.getElementById('headerClockDateBtn');
@@ -2833,9 +2833,20 @@
                     }
                   }
                   if (userWh) {
-                    userWh.classList.add('hidden');
-                    userWh.classList.remove('flex');
-                    userWh.style.display = 'none';
+                    if (!isPrivileged) {
+                      userWh.classList.remove('hidden');
+                      userWh.classList.add('flex');
+                      userWh.style.display = 'flex';
+                      var userWhName = document.getElementById('userWarehouseName');
+                      if (userWhName && u.warehouse) {
+                        var stn = (typeof sanitizeStationName === 'function') ? sanitizeStationName(u.warehouse) : u.warehouse;
+                        userWhName.innerText = (stn.startsWith('🏢') || stn.startsWith('📍')) ? stn : ('🏢 ' + stn);
+                      }
+                    } else {
+                      userWh.classList.add('hidden');
+                      userWh.classList.remove('flex');
+                      userWh.style.display = 'none';
+                    }
                   }
                 }
               }
@@ -2976,11 +2987,14 @@
               </span>
             </div>
 
-            <!-- Non-Admin Fixed Assigned Warehouse Badge (Hidden: Not displayed for station users) -->
+            <!-- Non-Admin Fixed Assigned Warehouse Badge (Visible for station users) -->
             <div id="userWarehouseBadgeContainer" style="display: none;"
-              class="hidden items-center space-x-1.5 bg-emerald-50 border border-emerald-200 rounded-xl px-2.5 sm:px-3 py-1.5 text-xs text-emerald-800 font-bold shadow-sm max-w-[130px] sm:max-w-none truncate">
-              <i class="fa-solid fa-location-dot text-emerald-600 shrink-0"></i>
-              <span id="userWarehouseName" class="truncate">K3 ស្ថានីយ (ភ្នំពេញ) 01</span>
+              class="hidden items-center space-x-1.5 bg-gradient-to-r from-blue-50 via-indigo-50 to-blue-50 border border-blue-200 hover:border-blue-300 rounded-xl px-2.5 sm:px-3 py-1.5 text-xs shadow-xs shrink-0 select-none transition">
+              <div class="flex items-center space-x-1 text-blue-700 font-bold shrink-0">
+                <i class="fa-solid fa-warehouse text-blue-600 text-xs"></i>
+                <span class="hidden md:inline text-[11px]">ឃ្លាំង:</span>
+              </div>
+              <span id="userWarehouseName" class="font-bold text-blue-950 text-xs whitespace-nowrap">🏢 K43 ស្ថានីយ (កំពង់ស្ពឺ លិច) 03</span>
             </div>
 
             <!-- Fast In-Header Role Enforcement Script for SuperAdmin & Admin -->
@@ -3020,9 +3034,20 @@
                         }
                       }
                       if (userWh) {
-                        userWh.classList.add('hidden');
-                        userWh.classList.remove('flex');
-                        userWh.style.display = 'none';
+                        if (!isPrivileged) {
+                          userWh.classList.remove('hidden');
+                          userWh.classList.add('flex');
+                          userWh.style.display = 'flex';
+                          var userWhName = document.getElementById('userWarehouseName');
+                          if (userWhName && u.warehouse) {
+                            var stn = (typeof sanitizeStationName === 'function') ? sanitizeStationName(u.warehouse) : u.warehouse;
+                            userWhName.innerText = (stn.startsWith('🏢') || stn.startsWith('📍')) ? stn : ('🏢 ' + stn);
+                          }
+                        } else {
+                          userWh.classList.add('hidden');
+                          userWh.classList.remove('flex');
+                          userWh.style.display = 'none';
+                        }
                       }
                     }
                   }
@@ -19234,9 +19259,9 @@
 
       const sessionWhContainer = document.getElementById('activeSessionWarehouseContainer');
       if (sessionWhContainer) {
-        sessionWhContainer.classList.remove('hidden');
-        sessionWhContainer.classList.add('flex');
-        sessionWhContainer.style.display = 'flex';
+        sessionWhContainer.classList.add('hidden');
+        sessionWhContainer.classList.remove('flex');
+        sessionWhContainer.style.display = 'none';
       }
 
       const bannerClock = document.getElementById('sessionBannerClockDateBtn');
@@ -19352,9 +19377,13 @@
           addWhBtn.style.display = 'none';
         }
         if (userWhContainer) {
-          userWhContainer.classList.add('hidden');
-          userWhContainer.classList.remove('flex');
-          userWhContainer.style.display = 'none';
+          userWhContainer.classList.remove('hidden');
+          userWhContainer.classList.add('flex');
+          userWhContainer.style.display = 'flex';
+          if (userWhName) {
+            const stn = (typeof sanitizeStationName === 'function') ? sanitizeStationName(canonicalWh) : canonicalWh;
+            userWhName.innerText = (stn.startsWith('🏢') || stn.startsWith('📍')) ? stn : ('🏢 ' + stn);
+          }
         }
 
         // Auto lock dropdown and filter to assigned station for non-admins
@@ -19838,9 +19867,9 @@
       // Sync Active Session Warehouse Badge
       const sessionWhContainer = document.getElementById('activeSessionWarehouseContainer');
       if (sessionWhContainer) {
-        sessionWhContainer.classList.remove('hidden');
-        sessionWhContainer.classList.add('flex');
-        sessionWhContainer.style.display = 'flex';
+        sessionWhContainer.classList.add('hidden');
+        sessionWhContainer.classList.remove('flex');
+        sessionWhContainer.style.display = 'none';
       }
       const bannerClock = document.getElementById('sessionBannerClockDateBtn');
       const headerClock = document.getElementById('headerClockDateBtn');
@@ -45827,17 +45856,21 @@
 
       if (!isPrivilegedAdmin) {
         // NON-ADMIN: Strictly forbid switching stations. Hide admin filter and show assigned badge.
+        const canonicalWh = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(u.warehouse) : u.warehouse) || '';
         if (adminWhContainer) {
           adminWhContainer.classList.add('hidden');
           adminWhContainer.classList.remove('flex');
           adminWhContainer.style.display = 'none';
         }
         if (userWhContainer) {
-          userWhContainer.classList.add('hidden');
-          userWhContainer.classList.remove('flex');
-          userWhContainer.style.display = 'none';
+          userWhContainer.classList.remove('hidden');
+          userWhContainer.classList.add('flex');
+          userWhContainer.style.display = 'flex';
+          if (userWhName) {
+            const stn = (typeof sanitizeStationName === 'function') ? sanitizeStationName(canonicalWh) : canonicalWh;
+            userWhName.innerText = (stn.startsWith('🏢') || stn.startsWith('📍')) ? stn : ('🏢 ' + stn);
+          }
         }
-        const canonicalWh = (typeof toCanonicalWarehouseName === 'function' ? toCanonicalWarehouseName(u.warehouse) : u.warehouse) || '';
         if (globalSel) {
           globalSel.disabled = true;
           globalSel.classList.add('pointer-events-none', 'cursor-not-allowed');
