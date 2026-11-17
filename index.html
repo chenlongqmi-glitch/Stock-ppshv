@@ -4491,35 +4491,33 @@
               </div>
             </div>
 
-            <!-- Damaged Items Table -->
-            <div class="glass-card rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-              <div class="table-container-freeze custom-scrollbar" style="max-height: calc(100vh - 360px);">
-                <table class="w-full text-left text-xs text-slate-600 border-collapse table-freeze">
-                  <thead
-                    class="bg-slate-100 text-slate-700 font-bold uppercase border-b border-slate-200 sticky top-0 z-20 shadow-sm">
-                    <tr>
-                      <th class="px-3.5 py-3.5 bg-slate-100 sticky top-0 z-20">កូដកត់ត្រា</th>
-                      <th class="px-3.5 py-3.5 bg-slate-100 sticky top-0 z-20">កាលបរិច្ឆេទ</th>
-                      <th class="px-3.5 py-3.5 bg-slate-100 sticky top-0 z-20">មុខទំនិញ (Item)</th>
-                      <th class="px-3.5 py-3.5 bg-slate-100 sticky top-0 z-20">ឃ្លាំង & ទីតាំងទុក</th>
-                      <th class="px-3.5 py-3.5 bg-slate-100 sticky top-0 z-20 text-center">ចំនួនខូច</th>
-                      <th class="px-3.5 py-3.5 bg-slate-100 sticky top-0 z-20">មូលហេតុ & កម្រិត</th>
-                      <th class="px-3.5 py-3.5 bg-slate-100 sticky top-0 z-20 text-center">ស្ថានភាពចាត់ចែង</th>
-                      <th class="px-3.5 py-3.5 bg-slate-100 sticky top-0 z-20 text-center">កាត់ស្តុក</th>
-                      <th class="px-3.5 py-3.5 bg-slate-100 sticky top-0 z-20">អ្នកកត់ត្រា & ចំណាំ</th>
-                      <th class="px-3.5 py-3.5 bg-slate-100 sticky top-0 z-20 text-center">សកម្មភាព</th>
-                    </tr>
-                  </thead>
-                  <tbody id="damagedTableBody" class="divide-y divide-slate-100 font-medium">
-                    <tr>
-                      <td colspan="10" class="text-center py-12 text-slate-400">
-                        <i class="fa-solid fa-spinner fa-spin text-2xl text-rose-500 mb-2"></i>
-                        <p>កំពុងផ្ទុកទិន្នន័យទំនិញខូចក្នុងឃ្លាំង...</p>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+            <!-- Damaged Items Table (Matching Image 3 Layout) -->
+            <div id="damagedStockTableContainer"
+              class="table-scroll-container rounded-2xl border border-slate-200 max-h-[560px] overflow-y-auto overflow-x-auto custom-scrollbar bg-white">
+              <table class="w-full text-left text-xs border-collapse table-freeze min-w-[860px] lg:min-w-full">
+                <thead
+                  class="bg-[#f1f5f9] text-slate-700 font-bold uppercase border-b border-slate-300 tracking-wider text-[11px] sticky top-0 z-20 shadow-3xs">
+                  <tr>
+                    <th class="px-1 py-3 text-center w-[3.5%] shrink-0">ល.រ</th>
+                    <th class="px-2 py-3 text-left w-[13%]">លេខឯកសារ</th>
+                    <th class="px-2 py-3 text-left w-[20.5%]">ឈ្មោះទំនិញ & SKU</th>
+                    <th class="px-2 py-3 text-left w-[9%]">ខ្នាត/ពណ៌/តំបន់</th>
+                    <th class="px-1 py-3 text-center w-[13%]">ចំនួនខូច</th>
+                    <th class="px-1 py-3 text-center w-[11.5%]">ស្តុកចាស់</th>
+                    <th class="px-1 py-3 text-center w-[11.5%]">ស្តុកនៅសល់</th>
+                    <th class="px-2 py-3 text-left w-[9.5%]">ស្តុកនៅឃ្លាំង</th>
+                    <th class="px-2 py-3 text-left w-[8.5%]">អ្នកកត់ត្រា & សម្គាល់</th>
+                  </tr>
+                </thead>
+                <tbody id="damagedTableBody" class="divide-y divide-slate-100 bg-white text-xs">
+                  <tr>
+                    <td colspan="9" class="text-center py-8 text-slate-400 text-sm">
+                      <i class="fa-solid fa-spinner fa-spin text-lg mb-1 block text-rose-500"></i>
+                      កំពុងផ្ទុកទិន្នន័យ...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
 
@@ -31036,7 +31034,12 @@
             docNo: docNo,
             notes: finalNotes,
             issuer: issuer,
-            dateStr: dateStr
+            dateStr: dateStr,
+            oldStock: oldStock,
+            newStock: remainingStock,
+            size: size,
+            color: color,
+            imageUrl: item?.imageUrl || item?.image || ''
           });
         }
       }
@@ -36220,7 +36223,12 @@
               docNo: docNo,
               notes: it.notes,
               issuer: it.issuer,
-              dateStr: dateStr
+              dateStr: dateStr,
+              oldStock: it.oldStock,
+              newStock: it.remainingStock,
+              size: it.size || itemObj?.size || '',
+              color: it.color || itemObj?.color || '',
+              imageUrl: itemObj?.imageUrl || itemObj?.image || ''
             });
           }
         }
@@ -48908,20 +48916,20 @@
       renderDamagedStockTable(filtered);
     }
 
-    function renderDamagedStockTable(records) {
+        function renderDamagedStockTable(records) {
       const tbody = document.getElementById('damagedTableBody');
       if (!tbody) return;
 
       if (!records || records.length === 0) {
         tbody.innerHTML = `
           <tr>
-            <td colspan="10" class="text-center py-12 text-slate-400">
+            <td colspan="9" class="text-center py-12 text-slate-400">
               <div class="flex flex-col items-center justify-center space-y-2">
                 <span class="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center text-xl">
                   <i class="fa-solid fa-box-open"></i>
                 </span>
                 <p class="font-bold text-slate-600 text-sm">មិនមានទិន្នន័យទំនិញខូចក្នុងឃ្លាំងឡើយ</p>
-                <p class="text-[11px] text-slate-400">ចុចប៊ូតុង "កត់ត្រាទំនិញខូចថ្មី" ដើម្បីកត់ត្រាទំនិញខូចគុណភាព ឬបាក់បែក</p>
+                <p class="text-[11px] text-slate-400">ចុចប៊ូតុង "កត់ត្រាទំនិញខូចដាក់ចូលស្តុក" ដើម្បីកត់ត្រាទំនិញខូចគុណភាព ឬបាក់បែក</p>
               </div>
             </td>
           </tr>
@@ -48931,7 +48939,7 @@
 
       const isAdmin = (AppState.currentUser?.role === 'Admin' || AppState.currentUser?.role === 'SuperAdmin');
 
-      tbody.innerHTML = records.map(r => {
+      tbody.innerHTML = records.map((r, idx) => {
         let statusBadgeClass = 'bg-slate-100 text-slate-700 border-slate-200';
         let statusIcon = 'fa-box';
         const st = String(r.status || '');
@@ -48939,7 +48947,7 @@
           statusBadgeClass = 'bg-purple-100 text-purple-700 border-purple-200';
           statusIcon = 'fa-warehouse';
         } else if (st.includes('រង់ចាំជួសជុល') || st.includes('Pending Repair')) {
-          statusBadgeClass = 'bg-amber-100 text-amber-700 border-amber-200 animate-pulse';
+          statusBadgeClass = 'bg-amber-100 text-amber-700 border-amber-200';
           statusIcon = 'fa-wrench';
         } else if (st.includes('រង់ចាំប្តូរ') || st.includes('Pending Return')) {
           statusBadgeClass = 'bg-cyan-100 text-cyan-700 border-cyan-200';
@@ -48961,116 +48969,247 @@
           statusIcon = 'fa-truck';
         }
 
-        let severityBadgeClass = 'bg-slate-100 text-slate-600';
-        const sev = String(r.severity || '');
-        if (sev.includes('ស្រាល') || sev.includes('Minor')) {
-          severityBadgeClass = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
-        } else if (sev.includes('មធ្យម') || sev.includes('Moderate')) {
-          severityBadgeClass = 'bg-amber-50 text-amber-700 border border-amber-200';
-        } else if (sev.includes('ធ្ងន់ធ្ងរ') || sev.includes('Severe')) {
-          severityBadgeClass = 'bg-rose-50 text-rose-700 border border-rose-200 font-black';
-        }
+        const displayDocId = escapeHtml(r.recordId || '-');
+        const dStr = escapeHtml(r.date ? String(r.date).slice(0, 10) : '-');
 
-        const isDeducted = String(r.deductedFromStock || '').toLowerCase() === 'yes';
+        const item = (AppState.items || []).find(i => (r.sku && i.sku === r.sku) || (r.sku && i.code === r.sku) || (i.name && r.itemName && (i.name === r.itemName || i.name.toLowerCase() === r.itemName.toLowerCase())));
+
+        const rawImg = (item && (item.imageUrl || item.image)) || r.imageUrl || '';
+        const imgUrl = rawImg ? formatGoogleDriveImageUrl(rawImg) : '';
+        const iName = r.itemName || (item ? item.name : '') || '-';
+        const skuStr = escapeHtml(r.sku || (item ? item.sku : '') || '-');
+        const codeStr = escapeHtml(item ? (item.code || '') : '');
+        const unitStr = escapeHtml(r.unit || (item ? item.unit : '') || 'ដុំ');
+
+        const sizeStr = escapeHtml(r.size || (item ? item.size : '') || '');
+        const colorStr = escapeHtml(r.color || (item ? item.color : '') || '');
+        const zoneStr = escapeHtml(r.storageZone || (item ? (item.zone || item.location) : '') || '');
+        const hasValidSize = sizeStr && sizeStr !== '-' && sizeStr !== 'N/A';
+        const hasValidColor = colorStr && colorStr !== '-' && colorStr !== 'N/A';
+        const hasValidZone = zoneStr && zoneStr !== '-' && zoneStr !== 'N/A' && zoneStr !== 'តំបន់ទូទៅ';
+
+        const pQty = (item && Number(item.packageQty || item.packQty || 0)) > 1 ? Number(item.packageQty || item.packQty) : 1;
+        const pUnit = (item && (item.packageUnit || item.packUnit)) || '';
+        const rUnit = (item && (item.retailUnit || item.unit)) || r.unit || 'ដុំ';
+
+        const dmgQty = Number(r.quantity || 0);
+        const dmgBulk = pQty > 1 ? Math.floor(dmgQty / pQty) : 0;
+        const dmgLoose = pQty > 1 ? (dmgQty % pQty) : dmgQty;
+
+        let curWhStock = 0;
+        if (item) {
+          if (r.warehouse && typeof getItemStationStock === 'function') {
+            curWhStock = getItemStationStock(item, r.warehouse).total;
+          } else {
+            curWhStock = Number(item.currentStock || 0);
+          }
+        }
+        const oldSt = (r.oldStock !== undefined && r.oldStock !== null && r.oldStock !== '') ? Number(r.oldStock) : (curWhStock + dmgQty);
+        const newSt = (r.newStock !== undefined && r.newStock !== null && r.newStock !== '') ? Number(r.newStock) : curWhStock;
+
+        const safeOldSt = Math.max(0, oldSt);
+        const oldBulkStock = pQty > 1 ? Math.floor(safeOldSt / pQty) : 0;
+        const oldLooseStock = pQty > 1 ? (safeOldSt % pQty) : safeOldSt;
+
+        const safeNewSt = Math.max(0, newSt);
+        const newBulkStock = pQty > 1 ? Math.floor(safeNewSt / pQty) : 0;
+        const newLooseStock = pQty > 1 ? (safeNewSt % pQty) : safeNewSt;
+
+        const loc = escapeHtml(r.warehouse || '-');
+        const recorder = escapeHtml(r.recordedBy || 'Staff');
+        const note = escapeHtml(r.notes || r.reason || r.damageType || '-');
+        const statusClean = escapeHtml(String(r.status || 'កំពុងរក្សាទុក').split('(')[0].trim());
 
         return `
-          <tr class="hover:bg-rose-50/20 transition-colors">
-            <!-- 1. Record ID -->
-            <td class="px-3.5 py-3 font-mono font-bold text-slate-700 text-[11px] whitespace-nowrap">
-              <span class="px-2 py-1 rounded-lg bg-slate-100 border border-slate-200 text-slate-700 select-all shadow-3xs">${escapeHtml(r.recordId || '-')}</span>
+          <tr ondblclick="openUpdateDamagedStatusModal('${escapeHtml(r.recordId)}')"
+              class="hover:bg-rose-50/70 transition-colors cursor-pointer select-none"
+              title="ចុច ២ដង (Double-Click) ឬចុចប៊ូតុង ដើម្បីកែសម្រួលស្ថានភាព ឬដាក់ចូលស្តុកវិញ">
+            <!-- 1. ល.រ -->
+            <td class="px-1 py-2.5 text-center text-[11px] font-bold text-slate-400 align-middle">
+              ${idx + 1}
             </td>
 
-            <!-- 2. Date -->
-            <td class="px-3.5 py-3 text-slate-600 font-medium text-[11px] whitespace-nowrap">
-              ${escapeHtml(r.date ? String(r.date).slice(0, 10) : '-')}
-            </td>
-
-            <!-- 3. Item Name & SKU -->
-            <td class="px-3.5 py-3">
-              ${renderBilingualItemNameHtml(r.itemName, { khmerClass: "font-bold text-slate-800 text-xs leading-tight block", chineseClass: "font-semibold text-slate-500 block text-[11px] leading-tight mt-0.5" })}
-              <div class="flex items-center space-x-1.5 mt-1">
-                <span class="font-mono text-[10px] text-slate-500 font-bold bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200">${escapeHtml(r.sku || '-')}</span>
-                <span class="text-[10px] text-slate-400">${escapeHtml(r.category || 'ទូទៅ')}</span>
+            <!-- 2. លេខឯកសារ & កាលបរិច្ឆេទ -->
+            <td class="px-2 py-2.5 align-middle overflow-hidden">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <button type="button" onclick="event.stopPropagation(); openUpdateDamagedStatusModal('${escapeHtml(r.recordId)}')"
+                  class="bg-rose-50 hover:bg-rose-100 px-2.5 py-0.5 rounded-md border border-rose-200/90 font-mono font-bold text-rose-800 text-[10.5px] inline-flex items-center gap-1 max-w-full truncate shadow-3xs cursor-pointer hover:border-rose-400 transition active:scale-95"
+                  title="ចុចដើម្បីមើលព័ត៌មានលម្អិត ${displayDocId}">
+                  <i class="fa-solid fa-file-invoice text-rose-600 text-[9.5px]"></i>
+                  <span class="truncate">${displayDocId}</span>
+                </button>
+              </div>
+              <div class="text-[10px] text-slate-500 font-medium mt-0.5 flex items-center gap-1 truncate" title="${dStr}">
+                <i class="fa-regular fa-calendar-days text-[9px] text-slate-400 shrink-0"></i>
+                <span class="truncate">${dStr}</span>
               </div>
             </td>
 
-            <!-- 4. Warehouse & Storage Zone -->
-            <td class="px-3.5 py-3">
-              <div class="text-xs font-bold text-slate-700 flex items-center space-x-1">
-                <i class="fa-solid fa-location-dot text-rose-500 text-[10px]"></i>
-                <span class="truncate max-w-[170px]" title="${escapeHtml(r.warehouse)}">${escapeHtml(r.warehouse || '-')}</span>
-              </div>
-              <div class="text-[10.5px] font-semibold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200/70 inline-block mt-1">
-                <i class="fa-solid fa-box-archive mr-0.5 text-[9px]"></i>
-                <span>${escapeHtml(r.storageZone || 'តំបន់ទំនិញខូច')}</span>
-              </div>
-            </td>
-
-            <!-- 5. Quantity & Unit -->
-            <td class="px-3.5 py-3 text-center whitespace-nowrap">
-              <span class="text-sm font-black text-rose-600 font-mono">${r.quantity}</span>
-              <span class="text-xs font-semibold text-slate-500 ml-0.5">${escapeHtml(r.unit || 'ដុំ')}</span>
-            </td>
-
-            <!-- 6. Damage Type & Severity -->
-            <td class="px-3.5 py-3">
-              <div class="font-bold text-slate-800 text-xs">${escapeHtml(r.damageType || '-')}</div>
-              <div class="mt-1">
-                <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9.5px] font-bold ${severityBadgeClass}">
-                  ${escapeHtml(r.severity || '-')}
-                </span>
+            <!-- 3. រូបភាព & ឈ្មោះទំនិញ & SKU -->
+            <td class="px-2 py-2.5 align-middle overflow-hidden">
+              <div class="flex items-center gap-2 min-w-0">
+                <div class="relative shrink-0 cursor-zoom-in"
+                     onclick="event.stopPropagation(); previewLargeImage('${escapeHtml(rawImg)}', '${escapeHtml(iName)}', '${skuStr}', '${codeStr}', '${unitStr}', '${newSt}', '${loc}', '${zoneStr}')"
+                     title="ចុចដើម្បីមើលរូបភាពធំ">
+                  <img src="${imgUrl || 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=150'}"
+                       referrerpolicy="no-referrer"
+                       loading="lazy" decoding="async"
+                       onerror="handleProductImgError(this)"
+                       class="w-14 h-14 object-contain p-1 rounded-xl border border-slate-200 bg-white shadow-3xs hover:scale-105 transition-transform duration-200 aspect-square">
+                </div>
+                <div class="min-w-0 flex-1">
+                  ${renderBilingualItemNameHtml(iName, { khmerClass: "font-bold text-slate-900 block text-xs leading-snug truncate", chineseClass: "font-semibold text-slate-500 block text-[11px] leading-tight truncate mt-0.5" })}
+                  <span class="text-[10px] text-slate-500 font-mono block truncate mt-0.5" title="SKU: ${skuStr}">SKU: ${skuStr}</span>
+                </div>
               </div>
             </td>
 
-            <!-- 7. Status -->
-            <td class="px-3.5 py-3 text-center whitespace-nowrap">
-              <span class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10.5px] font-bold border ${statusBadgeClass} shadow-3xs">
-                <i class="fa-solid ${statusIcon} text-[9px]"></i>
-                <span>${escapeHtml(r.status || 'កំពុងរក្សាទុក')}</span>
-              </span>
+            <!-- 4. ខ្នាត/ពណ៌/តំបន់ -->
+            <td class="px-2 py-2.5 text-slate-700 text-xs align-middle">
+              <div class="inline-flex flex-col items-center justify-center gap-1 w-full mx-auto">
+                ${(hasValidSize || hasValidColor) ? `
+                  <div class="flex items-center gap-1 justify-center flex-wrap">
+                    ${hasValidSize ? `<span class="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 whitespace-nowrap text-center" title="ខ្នាត: ${sizeStr}">${sizeStr}</span>` : ''}
+                    ${hasValidColor ? `<span class="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap text-center" title="ពណ៌: ${colorStr}">${colorStr}</span>` : ''}
+                  </div>
+                ` : (!hasValidZone ? '<span class="text-slate-400 font-medium text-[11px] text-center block">-</span>' : '')}
+                ${hasValidZone ? `
+                  <div class="w-full">
+                    <span class="inline-flex items-center justify-center gap-1 w-full px-1.5 py-0.5 rounded-md text-[10px] font-black bg-indigo-50 text-indigo-700 border border-indigo-200/90 shadow-3xs truncate text-center" title="តំបន់: ${zoneStr}">
+                      <i class="fa-solid fa-location-dot text-rose-500 text-[9px] shrink-0"></i>
+                      <span class="truncate">${zoneStr}</span>
+                    </span>
+                  </div>
+                ` : ''}
+              </div>
             </td>
 
-            <!-- 8. Deducted -->
-            <td class="px-3.5 py-3 text-center whitespace-nowrap">
-              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${isDeducted ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600 border border-slate-200'}">
-                ${isDeducted ? '✅ កាត់រួច' : '❌ មិនកាត់'}
-              </span>
-            </td>
-
-            <!-- 9. Recorded By & Notes -->
-            <td class="px-3.5 py-3 text-[11px] max-w-[200px]">
-              <div class="font-bold text-slate-700">${escapeHtml(r.recordedBy || 'Staff')}</div>
-              ${r.notes ? `<div class="text-[10px] text-slate-500 italic mt-0.5 line-clamp-2" title="${escapeHtml(r.notes)}">${escapeHtml(r.notes)}</div>` : ''}
-              ${r.actionTaken && r.actionTaken !== '-' ? `<div class="text-[10px] text-blue-600 font-medium mt-0.5 line-clamp-1" title="ដំណោះស្រាយ៖ ${escapeHtml(r.actionTaken)}">💡 ${escapeHtml(r.actionTaken)}</div>` : ''}
-            </td>
-
-            <!-- 10. Actions -->
-            <td class="px-3.5 py-3 text-center whitespace-nowrap">
-              <div class="flex items-center justify-center space-x-1.5">
-                <!-- ប៊ូតុងដាក់ចូលស្តុក (Restock to Inventory) -->
-                ${Number(r.quantity || 0) > 0 ? `
-                  <button type="button" onclick="openRestockDamagedModal('${escapeHtml(r.recordId)}')"
-                    title="ដាក់ទំនិញខូចនេះចូលស្តុកប្រើប្រាស់វិញ (Restock to Available Inventory)"
-                    class="px-2.5 py-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-lg text-xs font-bold shadow-xs flex items-center space-x-1 transition active:scale-95 cursor-pointer">
-                    <i class="fa-solid fa-boxes-packing text-[10px]"></i>
-                    <span>ដាក់ចូលស្តុក</span>
-                  </button>
+            <!-- 5. ចំនួនខូច (ដុំ & រាយ: បង្ហាញតាមចំនួនជាក់ស្តែង យកគំរូតាម Image 3) -->
+            <td class="px-1 py-2.5 text-center align-middle overflow-hidden">
+              <div class="inline-flex flex-col items-center justify-center w-full">
+                ${(pUnit && pQty > 1 && dmgBulk > 0 && dmgLoose > 0) ? `
+                  <div class="inline-flex flex-col items-center justify-center gap-1 w-[72px] sm:w-[78px] mx-auto">
+                    <!-- ចំនួនដុំ/ប្រអប់ (ខាងលើ) -->
+                    <span class="inline-flex items-center justify-center w-full px-1.5 py-0.5 rounded-lg text-[10.5px] font-black shadow-3xs truncate bg-rose-100 text-rose-800 border border-rose-200" title="${dmgBulk} ${escapeHtml(pUnit)}">
+                      ${dmgBulk} ${escapeHtml(pUnit)}
+                    </span>
+                    <!-- ចំនួនរាយ/ដើម (ខាងក្រោម) -->
+                    <span class="inline-flex items-center justify-center w-full px-1.5 py-0.5 rounded-lg text-[10.5px] font-bold text-slate-600 bg-slate-100/90 border border-slate-200 shadow-3xs truncate" title="${dmgLoose} ${escapeHtml(rUnit)}">
+                      ${dmgLoose} ${escapeHtml(rUnit)}
+                    </span>
+                  </div>
+                ` : (pUnit && pQty > 1 && dmgBulk > 0 && dmgLoose === 0) ? `
+                  <div class="inline-flex flex-col items-center justify-center w-[72px] sm:w-[78px] mx-auto">
+                    <span class="inline-flex items-center justify-center w-full px-1.5 py-1 rounded-lg text-[10.5px] font-black shadow-3xs truncate bg-rose-100 text-rose-800 border border-rose-200" title="${dmgBulk} ${escapeHtml(pUnit)}">
+                      ${dmgBulk} ${escapeHtml(pUnit)}
+                    </span>
+                  </div>
                 ` : `
-                  <span class="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold">
-                    <i class="fa-solid fa-check mr-0.5"></i>បានចូលស្តុក
-                  </span>
+                  <div class="inline-flex flex-col items-center justify-center w-[72px] sm:w-[78px] mx-auto">
+                    <span class="inline-flex items-center justify-center w-full px-1.5 py-1 rounded-lg text-[10.5px] font-black shadow-3xs truncate bg-rose-100 text-rose-800 border border-rose-200" title="${dmgLoose} ${escapeHtml(rUnit)}">
+                      ${dmgLoose} ${escapeHtml(rUnit)}
+                    </span>
+                  </div>
                 `}
-                <button type="button" onclick="openUpdateDamagedStatusModal('${escapeHtml(r.recordId)}')"
-                  title="កែសម្រួលស្ថានភាព / បច្ចុប្បន្នភាព"
-                  class="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold border border-indigo-200/80 shadow-3xs flex items-center space-x-1 transition active:scale-95">
-                  <i class="fa-solid fa-arrows-rotate text-[10px]"></i>
-                  <span>បច្ចុប្បន្នភាព</span>
-                </button>
-                <button type="button" onclick="handleDeleteDamagedStock('${escapeHtml(r.recordId)}')"
-                  title="លុបកំណត់ត្រានេះ"
-                  class="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200/80 flex items-center justify-center transition shadow-3xs active:scale-95">
-                  <i class="fa-solid fa-trash-can text-xs"></i>
-                </button>
+              </div>
+            </td>
+
+            <!-- 6. ស្តុកចាស់ (ដុំ & រាយ: បង្ហាញតាមចំនួនជាក់ស្តែង) -->
+            <td class="px-1 py-2.5 text-center align-middle overflow-hidden">
+              <div class="inline-flex flex-col items-center justify-center w-full">
+                ${(pUnit && pQty > 1 && oldBulkStock > 0 && oldLooseStock > 0) ? `
+                  <div class="inline-flex flex-col items-center justify-center gap-1 w-[72px] sm:w-[78px] mx-auto">
+                    <!-- ចំនួនដុំ/ប្រអប់ (ខាងលើ) -->
+                    <span class="inline-flex items-center justify-center w-full px-1.5 py-0.5 rounded-lg text-[10.5px] font-bold shadow-3xs truncate bg-slate-100 text-slate-700 border border-slate-200" title="${oldBulkStock} ${escapeHtml(pUnit)}">
+                      ${oldBulkStock} ${escapeHtml(pUnit)}
+                    </span>
+                    <!-- ចំនួនរាយ/ដើម (ខាងក្រោម) -->
+                    <span class="inline-flex items-center justify-center w-full px-1.5 py-0.5 rounded-lg text-[10.5px] font-bold text-slate-600 bg-slate-100 border border-slate-200 shadow-3xs truncate" title="${oldLooseStock} ${escapeHtml(rUnit)}">
+                      ${oldLooseStock} ${escapeHtml(rUnit)}
+                    </span>
+                  </div>
+                ` : (pUnit && pQty > 1 && oldBulkStock > 0 && oldLooseStock === 0) ? `
+                  <div class="inline-flex flex-col items-center justify-center w-[72px] sm:w-[78px] mx-auto">
+                    <span class="inline-flex items-center justify-center w-full px-1.5 py-1 rounded-lg text-[10.5px] font-bold text-slate-700 bg-slate-100 border border-slate-200 shadow-3xs truncate" title="${oldBulkStock} ${escapeHtml(pUnit)}">
+                      ${oldBulkStock} ${escapeHtml(pUnit)}
+                    </span>
+                  </div>
+                ` : `
+                  <div class="inline-flex flex-col items-center justify-center w-[72px] sm:w-[78px] mx-auto">
+                    <span class="inline-flex items-center justify-center w-full px-1.5 py-1 rounded-lg text-[10.5px] font-bold text-slate-700 bg-slate-100 border border-slate-200 shadow-3xs truncate" title="${oldLooseStock} ${escapeHtml(rUnit)}">
+                      ${oldLooseStock} ${escapeHtml(rUnit)}
+                    </span>
+                  </div>
+                `}
+              </div>
+            </td>
+
+            <!-- 7. ស្តុកនៅសល់ (ដុំ & រាយ) -->
+            <td class="px-1 py-2.5 text-center align-middle overflow-hidden">
+              <div class="inline-flex flex-col items-center justify-center w-full">
+                ${(pUnit && pQty > 1 && newBulkStock > 0 && newLooseStock > 0) ? `
+                  <div class="inline-flex flex-col items-center justify-center gap-1 w-[72px] sm:w-[78px] mx-auto">
+                    <!-- ចំនួនដុំ/ប្រអប់ (ខាងលើ) -->
+                    <span class="inline-flex items-center justify-center w-full px-1.5 py-0.5 rounded-lg text-[10.5px] font-bold shadow-3xs truncate bg-indigo-50 text-indigo-800 border border-indigo-300" title="ស្តុកនៅសល់ (ដុំ): ${newBulkStock} ${escapeHtml(pUnit)}">
+                      ${newBulkStock} ${escapeHtml(pUnit)}
+                    </span>
+                    <!-- ចំនួនរាយ/ដើម (ខាងក្រោម) -->
+                    <span class="inline-flex items-center justify-center w-full px-1.5 py-0.5 rounded-lg text-[10.5px] font-bold shadow-3xs truncate bg-indigo-50 text-indigo-800 border border-indigo-300" title="ស្តុកនៅសល់ (រាយ): ${newLooseStock} ${escapeHtml(rUnit)} (សរុប: ${safeNewSt} ${escapeHtml(rUnit)})">
+                      ${newLooseStock} ${escapeHtml(rUnit)}
+                    </span>
+                  </div>
+                ` : (pUnit && pQty > 1 && newBulkStock > 0 && newLooseStock === 0) ? `
+                  <div class="inline-flex flex-col items-center justify-center w-[72px] sm:w-[78px] mx-auto">
+                    <span class="inline-flex items-center justify-center w-full px-1.5 py-1 rounded-lg text-[10.5px] font-bold shadow-3xs truncate bg-indigo-50 text-indigo-800 border border-indigo-300" title="ស្តុកនៅសល់: ${newBulkStock} ${escapeHtml(pUnit)} (សរុប: ${safeNewSt} ${escapeHtml(rUnit)})">
+                      ${newBulkStock} ${escapeHtml(pUnit)}
+                    </span>
+                  </div>
+                ` : `
+                  <div class="inline-flex flex-col items-center justify-center w-[72px] sm:w-[78px] mx-auto">
+                    <span class="inline-flex items-center justify-center w-full px-1.5 py-1 rounded-lg text-[10.5px] font-bold shadow-3xs truncate bg-indigo-50 text-indigo-800 border border-indigo-300" title="សរុបស្តុកនៅសល់: ${safeNewSt} ${escapeHtml(rUnit)}">
+                      ${safeNewSt} ${escapeHtml(rUnit)}
+                    </span>
+                  </div>
+                `}
+              </div>
+            </td>
+
+            <!-- 8. ឃ្លាំង -->
+            <td class="px-2.5 py-2.5 text-slate-700 font-medium text-[11px] align-middle">
+              <span class="block whitespace-normal break-words leading-tight" title="${loc}">${loc}</span>
+            </td>
+
+            <!-- 9. អ្នកកត់ត្រា & សម្គាល់ & សកម្មភាព -->
+            <td class="px-2 py-2.5 text-xs align-middle overflow-hidden">
+              <div class="flex items-center justify-between gap-1">
+                <div class="flex items-center gap-1 font-bold text-slate-800 text-[11px] truncate" title="${recorder}">
+                  <i class="fa-solid fa-user-check text-rose-600 text-[10px] shrink-0"></i>
+                  <span class="truncate">${recorder}</span>
+                </div>
+                <div class="flex items-center gap-1 shrink-0">
+                  ${Number(r.quantity || 0) > 0 ? `
+                    <button type="button" onclick="event.stopPropagation(); openRestockDamagedModal('${escapeHtml(r.recordId)}')"
+                      title="ដាក់ទំនិញខូចនេះចូលស្តុកប្រើប្រាស់វិញ (Restock)"
+                      class="px-1.5 py-0.5 rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-[10px] font-bold border border-emerald-300 transition active:scale-95 cursor-pointer flex items-center gap-0.5">
+                      <i class="fa-solid fa-boxes-packing text-[9px]"></i>
+                      <span class="hidden sm:inline">ចូលស្តុក</span>
+                    </button>
+                  ` : ''}
+                  <button type="button" onclick="event.stopPropagation(); openUpdateDamagedStatusModal('${escapeHtml(r.recordId)}')"
+                    title="កែសម្រួលស្ថានភាព / បច្ចុប្បន្នភាព"
+                    class="w-5 h-5 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10px] font-bold border border-indigo-200 flex items-center justify-center transition active:scale-95 cursor-pointer">
+                    <i class="fa-solid fa-arrows-rotate text-[9px]"></i>
+                  </button>
+                  <button type="button" onclick="event.stopPropagation(); handleDeleteDamagedStock('${escapeHtml(r.recordId)}')"
+                    title="លុបកំណត់ត្រានេះ"
+                    class="w-5 h-5 rounded bg-rose-50 hover:bg-rose-100 text-rose-600 text-[10px] font-bold border border-rose-200 flex items-center justify-center transition active:scale-95 cursor-pointer">
+                    <i class="fa-solid fa-trash-can text-[9px]"></i>
+                  </button>
+                </div>
+              </div>
+              <div class="flex items-center gap-1 text-[10px] text-slate-500 mt-0.5 truncate">
+                ${statusClean ? `<span class="px-1.5 py-0.2 rounded-full font-bold text-[9px] border ${statusBadgeClass} shrink-0">${statusClean}</span>` : ''}
+                <span class="truncate italic text-slate-400" title="${note}">${note}</span>
               </div>
             </td>
           </tr>
@@ -49249,6 +49388,11 @@
         notes: (opts.notes && opts.notes !== '-') ? opts.notes : (opts.docNo ? `ចេញពីស្តុកតាម ${opts.docNo}` : 'មុខទំនិញដែលខូច'),
         recordedBy: opts.issuer || (AppState.currentUser ? (AppState.currentUser.fullName || AppState.currentUser.username) : 'Staff'),
         actionTaken: '-',
+        oldStock: (opts.oldStock !== undefined && opts.oldStock !== null) ? opts.oldStock : '',
+        newStock: (opts.newStock !== undefined && opts.newStock !== null) ? opts.newStock : '',
+        size: opts.size || '',
+        color: opts.color || '',
+        imageUrl: opts.imageUrl || '',
         createdAt: now.toISOString()
       };
 
