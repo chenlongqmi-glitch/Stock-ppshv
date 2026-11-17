@@ -11496,92 +11496,71 @@ function getDashboardStats(userOrPayload, warehouseFilter, optSs) {
 
 
 function getRecentMovementTrend(txData, targetWarehouse) {
-
   const dates = [];
-
   const stockInByDate = {};
-
   const stockOutByDate = {};
 
-
-
   for (let i = 6; i >= 0; i--) {
-
     const d = new Date();
-
     d.setDate(d.getDate() - i);
-
     const dateStr = Utilities.formatDate(d, 'GMT+7', 'yyyy-MM-dd');
-
     dates.push(dateStr);
-
     stockInByDate[dateStr] = 0;
-
     stockOutByDate[dateStr] = 0;
-
   }
 
-
+  const isAll = (!targetWarehouse || targetWarehouse === 'ALL' || targetWarehouse === 'គ្រប់ឃ្លាំង' || targetWarehouse === 'គ្រប់ស្ថានីយទាំងអស់');
 
   for (let i = 1; i < txData.length; i++) {
-
     const row = txData[i];
-
     const fromLoc = String(row[9] || '');
-
     const toLoc = String(row[10] || '');
 
-
-
-    if (targetWarehouse && fromLoc !== targetWarehouse && toLoc !== targetWarehouse) {
-
-      continue;
-
+    if (!isAll) {
+      const matchFrom = matchesTargetWarehouseGAS(fromLoc, targetWarehouse);
+      const matchTo = matchesTargetWarehouseGAS(toLoc, targetWarehouse);
+      if (!matchFrom && !matchTo) {
+        continue;
+      }
     }
 
+    const rawDate = row[1];
+    let txDate = '';
+    if (rawDate instanceof Date) {
+      txDate = Utilities.formatDate(rawDate, 'GMT+7', 'yyyy-MM-dd');
+    } else if (rawDate) {
+      const dStr = String(rawDate).trim();
+      if (/^\d{4}-\d{2}-\d{2}/.test(dStr)) {
+        txDate = dStr.slice(0, 10);
+      } else {
+        const dObj = new Date(dStr);
+        if (!isNaN(dObj.getTime())) {
+          txDate = Utilities.formatDate(dObj, 'GMT+7', 'yyyy-MM-dd');
+        }
+      }
+    }
 
-
-    const txDate = Utilities.formatDate(new Date(row[1]), 'GMT+7', 'yyyy-MM-dd');
-
-    const type = row[2];
-
+    const type = String(row[2] || '').toUpperCase();
     const qty = Number(row[5] || 0);
 
-
-
-    if (stockInByDate[txDate] !== undefined) {
-
-      if (type === 'STOCK_IN') stockInByDate[txDate] += qty;
-
-      if (type === 'STOCK_OUT') stockOutByDate[txDate] += qty;
-
+    if (txDate && stockInByDate[txDate] !== undefined) {
+      if (type === 'STOCK_IN' || type === 'IN') stockInByDate[txDate] += qty;
+      if (type === 'STOCK_OUT' || type === 'OUT') stockOutByDate[txDate] += qty;
     }
-
   }
 
-
-
   return {
-
     labels: dates.map(d => d.slice(5)),
-
-    stockIn: dates.map(d => stockInByDate[d]),
-
-    stockOut: dates.map(d => stockOutByDate[d])
-
+    stockIn: dates.map(d => stockInByDate[d] || 0),
+    stockOut: dates.map(d => stockOutByDate[d] || 0)
   };
-
 }
-
-
 
 // ==========================================
 
 // 7. NOTIFICATIONS
 
 // ==========================================
-
-
 
 function sendTelegramNotification(messageText, replyMarkup, targetChatIds) {
   try {
